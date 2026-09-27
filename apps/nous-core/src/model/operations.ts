@@ -21,7 +21,9 @@ export function modelOperations(kernel:KernelClient,models:ModelRuntime):Service
       try{proposal=await models.form(new TextDecoder("utf-8",{fatal:true}).decode(source.content),c.signal);}
       catch(error){if(c.signal.aborted)throw error;return {degradation:failure("memory_formation_unavailable",error)};}
       // The model does not supply identity or evidence fields. Source authority is fixed by the operation.
-      const memory=await kernel.authority.formMemory({subjectId:r.subjectId,entityRefs:occurrence.actorEntityRef?[occurrence.actorEntityRef]:[],input:{memoryClass:"specific",semanticRole:proposal.semanticRole,text:proposal.text,title:proposal.title,epistemicClass:"derived",evidence:[{reference:{kind:"occurrence",value:r.sourceId},supportRole:"interpretation"}]}},opts);
+      const now = new Date();
+      const formedAt = { seconds: BigInt(Math.floor(now.getTime() / 1000)), nanos: (now.getTime() % 1000) * 1_000_000 };
+      const memory=await kernel.authority.formMemory({operationId:crypto.randomUUID(),subjectId:r.subjectId,input:{cognitiveRole:"declarative",formationMode:"grounded",groundingOccurrenceId:r.sourceId,semanticRole:proposal.semanticRole,text:proposal.text,title:proposal.title,epistemicClass:"derived",formedAt,validTime:{},supports:[{support:{case:"evidence",value:{occurrenceId:r.sourceId,locator:{case:"wholeOccurrence",value:true},supportRole:"interpretation"}}}],aboutness:occurrence.actorEntityRef?[occurrence.actorEntityRef]:[]}},opts);
       return {memory,degradation:[]};
     },
     interpretSource:async(r,c)=>{

@@ -32,7 +32,7 @@ fn subject(input: SubjectView) -> p::Subject {
     p::Subject {
         subject_id: input.subject_id.0.to_string(),
         created_at: Some(timestamp(input.created_at)),
-        state_revision: input.state_revision,
+        authority_seq: input.authority_seq,
         status: input.status,
         config: to_object(input.config),
     }
@@ -132,7 +132,7 @@ impl KernelService {
         Ok(p::Session {
             session_id: session.0.to_string(),
             subject_id: subject.0.to_string(),
-            runtime_revision: view.state_revision,
+            runtime_revision: view.runtime_revision,
             closed: view.closed_at.is_some(),
             resident_refs: view
                 .resident

@@ -29,7 +29,7 @@ pub struct CreateSubject {
 pub struct SubjectView {
     pub subject_id: SubjectId,
     pub created_at: DateTime<Utc>,
-    pub state_revision: i64,
+    pub authority_seq: i64,
     pub status: String,
     pub config: serde_json::Value,
 }
@@ -64,7 +64,7 @@ impl SubjectCoreService {
     }
 
     pub async fn subject(&self, subject: SubjectId) -> Result<SubjectView> {
-        let row = sqlx::query("SELECT subject_id,created_at,state_revision,status,metadata FROM subjects WHERE subject_id=$1")
+        let row = sqlx::query("SELECT subject_id,created_at,authority_seq,status,metadata FROM subjects WHERE subject_id=$1")
             .bind(subject.0).fetch_optional(self.store.pool()).await
             .map_err(nous_authority_store::database_error)?
             .ok_or_else(|| Error::NotFound("subject not found".into()))?;
@@ -73,8 +73,8 @@ impl SubjectCoreService {
             created_at: row
                 .try_get("created_at")
                 .map_err(nous_authority_store::database_error)?,
-            state_revision: row
-                .try_get("state_revision")
+            authority_seq: row
+                .try_get("authority_seq")
                 .map_err(nous_authority_store::database_error)?,
             status: row
                 .try_get("status")

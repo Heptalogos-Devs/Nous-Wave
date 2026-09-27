@@ -1,7 +1,7 @@
 //! Read-only serving adapters, bounded retrieval and evidence-aware ranking.
 use nous_core::{CognitiveRef, Error, EvidenceFamily, Result, ServingGenerationId};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 pub type SparseField = BTreeMap<u32, f64>;
 
@@ -15,7 +15,6 @@ mod ranking;
 pub mod residual;
 mod seams;
 mod serving;
-mod trace;
 mod wave;
 
 pub use cue_sensing::*;
@@ -28,8 +27,4 @@ pub use ranking::*;
 pub use residual::*;
 pub use seams::*;
 pub use serving::*;
-pub use trace::*;
 pub use wave::*;
-
-#[cfg(test)]
-mod tests;

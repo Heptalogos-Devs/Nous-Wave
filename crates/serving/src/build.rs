@@ -32,16 +32,21 @@ impl ServingService {
         let hash = digest(&sums)?;
         let target = self.options.root.join(id.0.to_string());
         std::fs::rename(staging.path(), &target).map_err(io)?;
+        let implementation_id = implementation(family).to_owned();
+        let config_digest = self.config_digest(family)?;
         let record = ServingRecord {
             generation_id: id,
             subject,
             family: family.into(),
             space: space.into(),
-            watermark,
+            authority_watermark: watermark,
+            implementation_id: implementation_id.clone(),
+            implementation_revision: "1".into(),
+            config_digest: config_digest.clone(),
             artifact_location: target.to_string_lossy().into_owned(),
             artifact_hash: hash,
             built_at: chrono::Utc::now(),
-            metadata: serde_json::json!({ "implementation": implementation(family), "implementation_revision": 1, "config_digest": self.config_digest(family)?, "checksums": sums }),
+            metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": 1, "config_digest": config_digest, "checksums": sums }),
         };
         self.store.publish_generation(record).await
     }
@@ -79,9 +84,9 @@ impl ServingService {
                 for tag in &source.tag_ids {
                     postings.insert_reference(format!("tag:{tag}"), id, source.reference.clone());
                 }
-                for anchor in &source.anchor_ids {
+                for schema in &source.schema_ids {
                     postings.insert_reference(
-                        format!("anchor:{anchor}"),
+                        format!("cognitive_schema:{schema}"),
                         id,
                         source.reference.clone(),
                     );
@@ -124,7 +129,7 @@ impl ServingService {
                 title: source.title,
                 entity_refs: source.entity_refs,
                 tag_ids: source.tag_ids,
-                anchor_ids: source.anchor_ids,
+                schema_ids: source.schema_ids,
                 source_class: source.source_class,
             });
         }
@@ -150,8 +155,8 @@ impl ServingService {
                 support_class: edge.support_class,
                 association_kind: edge.association_kind,
                 polarity: edge.polarity,
-                support_value: edge.support_value,
-                bridge_hint: edge.bridge_hint,
+                support_mass: edge.support_mass,
+                provenance_root: None,
             })
             .collect();
         let nodes = input
@@ -161,7 +166,9 @@ impl ServingService {
             .map(|(index, reference)| {
                 let node_kind = match reference {
                     CognitiveRef::Tag(_) => WaveNodeKind::Tag,
-                    CognitiveRef::Anchor(_) => WaveNodeKind::Anchor,
+                    CognitiveRef::CognitiveSchema(_) | CognitiveRef::CognitiveSchemaRevision(_) => {
+                        WaveNodeKind::Schema
+                    }
                     CognitiveRef::Entity(_) => WaveNodeKind::Entity,
                     CognitiveRef::Resource(_) => WaveNodeKind::Resource,
                     _ => WaveNodeKind::Memory,

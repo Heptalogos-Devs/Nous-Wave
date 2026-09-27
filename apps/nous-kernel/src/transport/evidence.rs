@@ -13,6 +13,11 @@ impl KernelService {
         .fetch_one(self.0.store.pool())
         .await
         .map_err(db)?;
+        let occurred_kind: String = r.try_get("occurred_time_kind").map_err(db)?;
+        let occurred_start: Option<chrono::DateTime<chrono::Utc>> =
+            r.try_get("occurred_time_start").map_err(db)?;
+        let occurred_end: Option<chrono::DateTime<chrono::Utc>> =
+            r.try_get("occurred_time_end").map_err(db)?;
         Ok(p::Occurrence {
             occurrence_id: input.id,
             subject_id: input.subject_id,
@@ -22,10 +27,22 @@ impl KernelService {
                 .map(|i| i.to_string()),
             source_class: r.try_get("source_class").map_err(db)?,
             external_object_ref: r.try_get("external_object_ref").map_err(db)?,
-            occurred_at: r
-                .try_get::<Option<chrono::DateTime<chrono::Utc>>, _>("occurred_at")
-                .map_err(db)?
-                .map(timestamp),
+            occurred_time: Some(match occurred_kind.as_str() {
+                "instant" => p::TemporalExtent {
+                    value: Some(p::temporal_extent::Value::Instant(timestamp(
+                        occurred_start.ok_or_else(|| {
+                            Error::Infrastructure("instant occurrence has no time".into())
+                        })?,
+                    ))),
+                },
+                "interval" => p::TemporalExtent {
+                    value: Some(p::temporal_extent::Value::Interval(p::TimeInterval {
+                        start: occurred_start.map(timestamp),
+                        end: occurred_end.map(timestamp),
+                    })),
+                },
+                _ => p::TemporalExtent { value: None },
+            }),
             observed_at: Some(timestamp(r.try_get("observed_at").map_err(db)?)),
             conversation_ref: r.try_get("conversation_ref").map_err(db)?,
             actor_entity_ref: r.try_get("actor_entity_ref").map_err(db)?,

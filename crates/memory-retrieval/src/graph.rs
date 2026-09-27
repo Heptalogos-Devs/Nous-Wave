@@ -1,12 +1,12 @@
 use crate::*;
-use petgraph::{Directed, csr::Csr, visit::EdgeRef};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WaveNodeKind {
     Memory,
     Tag,
-    Anchor,
+    Schema,
     Entity,
     Resource,
 }
@@ -28,8 +28,9 @@ pub struct WaveEdgeEvidence {
     pub support_class: String,
     pub association_kind: String,
     pub polarity: String,
-    pub support_value: f64,
-    pub bridge_hint: bool,
+    pub support_mass: f64,
+    #[serde(default)]
+    pub provenance_root: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -38,20 +39,14 @@ pub struct WaveConfig {
     pub hub_penalty_min: f64,
     pub hub_penalty_max: f64,
     pub outbound_budget: f64,
-    pub bridge_reserve: f64,
     pub max_hops: usize,
     pub max_states: usize,
     pub max_neighbors_per_node: usize,
     pub minimum_state_energy: f64,
-    pub immediate_return: f64,
-    pub initial_path_budget: f64,
-    pub normal_edge_cost: f64,
-    pub bridge_edge_cost: f64,
+    pub immediate_return_multiplier: f64,
+    pub initial_budget_steps: u32,
+    pub normal_edge_cost: u32,
     pub fir_gamma: f64,
-    pub local_alpha: f64,
-    pub local_iterations: usize,
-    pub transfer_alpha: f64,
-    pub transfer_iterations: usize,
 }
 
 impl Default for WaveConfig {
@@ -61,20 +56,14 @@ impl Default for WaveConfig {
             hub_penalty_min: 0.35,
             hub_penalty_max: 1.25,
             outbound_budget: 0.90,
-            bridge_reserve: 0.15,
             max_hops: 4,
             max_states: 4096,
             max_neighbors_per_node: 32,
             minimum_state_energy: 1e-4,
-            immediate_return: 0.20,
-            initial_path_budget: 2.0,
-            normal_edge_cost: 1.0,
-            bridge_edge_cost: 0.0,
+            immediate_return_multiplier: 0.20,
+            initial_budget_steps: 4,
+            normal_edge_cost: 1,
             fir_gamma: 0.55,
-            local_alpha: 0.35,
-            local_iterations: 4,
-            transfer_alpha: 0.72,
-            transfer_iterations: 8,
         }
     }
 }
@@ -82,16 +71,13 @@ impl Default for WaveConfig {
 impl WaveConfig {
     pub fn validate(&self) -> Result<()> {
         if !(0.0..=1.0).contains(&self.outbound_budget)
-            || !(0.0..=self.outbound_budget).contains(&self.bridge_reserve)
             || self.max_hops == 0
             || self.max_states == 0
             || self.max_neighbors_per_node == 0
-            || !(0.0..1.0).contains(&self.immediate_return)
+            || !(0.0..1.0).contains(&self.immediate_return_multiplier)
             || !(0.0..1.0).contains(&self.fir_gamma)
-            || !(0.0..1.0).contains(&self.local_alpha)
-            || !(0.0..1.0).contains(&self.transfer_alpha)
-            || self.local_iterations == 0
-            || self.transfer_iterations == 0
+            || self.normal_edge_cost == 0
+            || self.initial_budget_steps == 0
         {
             return Err(Error::Invalid("invalid WaveConfig bounds".into()));
         }
@@ -99,57 +85,26 @@ impl WaveConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct EdgeMeta {
-    bridge: bool,
-    raw: f64,
-}
-
-type WeightedEdgeRow = (u32, f64, f64, bool);
-type SourceRows = HashMap<u32, Vec<WeightedEdgeRow>>;
-
-fn edge_conductance(
-    weight: f64,
-    bridge: bool,
-    main_mass: f64,
-    main_total: f64,
-    bridge_total: f64,
-    config: WaveConfig,
-) -> f64 {
-    if bridge {
-        let budget = if main_total > 0.0 {
-            config.bridge_reserve
-        } else {
-            config.outbound_budget
-        };
-        budget * weight / bridge_total.max(f64::EPSILON)
-    } else {
-        main_mass * weight / main_total.max(f64::EPSILON)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct WaveGraphGeneration {
     pub generation_id: ServingGenerationId,
     pub nodes: Vec<WaveNode>,
-    node_by_ref: HashMap<CognitiveRef, u32>,
-    csr: Csr<(), f64, Directed, u32>,
-    edge_meta: HashMap<(u32, u32), EdgeMeta>,
+    node_by_ref: std::collections::HashMap<CognitiveRef, u32>,
+    adjacency: Vec<Vec<(u32, f64)>>,
+    raw_support: std::collections::HashMap<(u32, u32), f64>,
     pub config: WaveConfig,
 }
 
 impl WaveGraphGeneration {
     pub fn artifact(&self) -> TopologyArtifact {
         let mut edges = Vec::new();
-        for from in 0..self.nodes.len() as u32 {
-            for (to, weight, _) in self.outgoing(from) {
-                let meta = self.edge_meta.get(&(from, to));
+        for (from, row) in self.adjacency.iter().enumerate() {
+            for (to, weight) in row {
                 edges.push((
-                    from,
-                    to,
-                    weight,
-                    meta.is_some_and(|meta| meta.bridge),
-                    meta.map_or(0.0, |meta| meta.raw),
+                    from as u32,
+                    *to,
+                    *weight,
+                    *self.raw_support.get(&(from as u32, *to)).unwrap_or(&0.0),
                 ));
             }
         }
@@ -163,35 +118,19 @@ impl WaveGraphGeneration {
 
     pub fn from_artifact(artifact: TopologyArtifact) -> Result<Self> {
         artifact.config.validate()?;
-        for (index, node) in artifact.nodes.iter().enumerate() {
-            if node.serving_id as usize != index {
-                return Err(Error::Infrastructure(
-                    "topology node ordinals are corrupt".into(),
-                ));
-            }
-        }
-        let mut csr = Csr::with_nodes(artifact.nodes.len());
-        let mut edge_meta = HashMap::new();
-        for (from, to, weight, bridge, raw) in artifact.edges {
+        let mut adjacency = vec![Vec::new(); artifact.nodes.len()];
+        let mut raw_support = std::collections::HashMap::new();
+        for (from, to, weight, raw) in artifact.edges {
             if from as usize >= artifact.nodes.len()
                 || to as usize >= artifact.nodes.len()
                 || !weight.is_finite()
                 || weight < 0.0
                 || !raw.is_finite()
             {
-                return Err(Error::Infrastructure(
-                    "topology edge artifact is corrupt".into(),
-                ));
+                return Err(Error::Infrastructure("topology artifact is corrupt".into()));
             }
-            if edge_meta
-                .insert((from, to), EdgeMeta { bridge, raw })
-                .is_some()
-            {
-                return Err(Error::Infrastructure(
-                    "duplicate persisted topology edge".into(),
-                ));
-            }
-            csr.add_edge(from, to, weight);
+            adjacency[from as usize].push((to, weight));
+            raw_support.insert((from, to), raw);
         }
         let node_by_ref = artifact
             .nodes
@@ -202,12 +141,12 @@ impl WaveGraphGeneration {
             generation_id: artifact.generation_id,
             nodes: artifact.nodes,
             node_by_ref,
-            csr,
-            edge_meta,
+            adjacency,
+            raw_support,
             config: artifact.config,
         })
     }
-    // Normalization and CSR publication are one invariant-preserving construction step.
+
     pub fn build(
         mut nodes: Vec<WaveNode>,
         evidence: &[WaveEdgeEvidence],
@@ -216,117 +155,82 @@ impl WaveGraphGeneration {
         config.validate()?;
         nodes.sort_by_key(|node| node.serving_id);
         for (index, node) in nodes.iter_mut().enumerate() {
-            node.serving_id = u32::try_from(index)
-                .map_err(|_| Error::Invalid("Wave graph has too many nodes".into()))?;
+            node.serving_id = index as u32;
         }
         let node_by_ref = nodes
             .iter()
             .map(|node| (node.reference.clone(), node.serving_id))
-            .collect::<HashMap<_, _>>();
-
-        #[derive(Default)]
-        struct Aggregate {
-            positive: f64,
-            negative: f64,
-            bridge: bool,
-        }
-
-        let mut aggregates = HashMap::<(u32, u32), Aggregate>::new();
+            .collect::<std::collections::HashMap<_, _>>();
+        let mut by_root = std::collections::HashMap::<(u32, u32, Option<String>), f64>::new();
         for item in evidence {
+            if item.polarity.eq_ignore_ascii_case("negative")
+                || !supported_relation(&item.association_kind)
+                || !item.support_mass.is_finite()
+                || item.support_mass <= 0.0
+            {
+                continue;
+            }
             let (Some(&from), Some(&to)) = (node_by_ref.get(&item.from), node_by_ref.get(&item.to))
             else {
                 continue;
             };
-            if !item.support_value.is_finite() || item.support_value <= 0.0 {
-                continue;
-            }
-            let weighted =
-                class_quality(&item.support_class) * (1.0 + item.support_value.max(0.0)).ln();
-            let aggregate = aggregates.entry((from, to)).or_default();
-            if item.polarity.eq_ignore_ascii_case("negative") || item.polarity == "revoked" {
-                aggregate.negative += weighted;
-            } else {
-                aggregate.positive += weighted;
-            }
-            aggregate.bridge |=
-                item.bridge_hint || item.association_kind.eq_ignore_ascii_case("bridge");
+            let quality = class_quality(&item.support_class) * item.support_mass;
+            let entry = by_root
+                .entry((from, to, item.provenance_root.clone()))
+                .or_default();
+            *entry = entry.max(quality);
         }
-
-        let mut raw_edges = Vec::new();
+        let mut aggregate = std::collections::HashMap::<(u32, u32), f64>::new();
+        for ((from, to, _root), mass) in by_root {
+            *aggregate.entry((from, to)).or_default() += mass;
+        }
         let mut inflow = vec![0.0; nodes.len()];
-        for (&(from, to), aggregate) in &aggregates {
-            let raw = (aggregate.positive - aggregate.negative).max(0.0);
-            if raw > 0.0 {
-                inflow[to as usize] += raw;
-                raw_edges.push((from, to, raw, aggregate.bridge));
-            }
+        for (&(_, to), mass) in &aggregate {
+            inflow[to as usize] += *mass;
         }
-        let mut positive_inflow = inflow
+        let mut positive = inflow
             .iter()
             .copied()
             .filter(|value| *value > 0.0)
             .collect::<Vec<_>>();
-        positive_inflow.sort_by(f64::total_cmp);
-        let median = if positive_inflow.is_empty() {
-            1.0
-        } else {
-            positive_inflow[positive_inflow.len() / 2].max(f64::EPSILON)
-        };
-
-        let mut adjusted = Vec::new();
-        for (from, to, raw, bridge) in raw_edges {
-            let relative = inflow[to as usize] / median;
-            let penalty = relative
+        positive.sort_by(f64::total_cmp);
+        let median = positive
+            .get(positive.len() / 2)
+            .copied()
+            .unwrap_or(1.0)
+            .max(f64::EPSILON);
+        let mut rows = vec![Vec::new(); nodes.len()];
+        let mut raw_support = std::collections::HashMap::new();
+        for (&(from, to), &raw) in &aggregate {
+            let penalty = (inflow[to as usize] / median)
                 .powf(-config.hub_beta)
                 .clamp(config.hub_penalty_min, config.hub_penalty_max);
-            adjusted.push((from, to, raw * penalty, raw, bridge));
+            rows[from as usize].push((to, raw * penalty, raw));
         }
-        adjusted.sort_by_key(|(from, to, ..)| (*from, *to));
-
-        let mut by_source: SourceRows = HashMap::new();
-        for (from, to, weight, raw, bridge) in adjusted {
-            by_source
-                .entry(from)
-                .or_default()
-                .push((to, weight, raw, bridge));
-        }
-
-        let mut csr = Csr::<(), f64, Directed, u32>::with_nodes(nodes.len());
-        let mut edge_meta = HashMap::new();
-        for from in 0..nodes.len() as u32 {
-            let row = by_source.remove(&from).unwrap_or_default();
-            let has_bridge = row.iter().any(|(_, _, _, bridge)| *bridge);
-            let main_mass = if has_bridge {
-                (config.outbound_budget - config.bridge_reserve).max(0.0)
-            } else {
-                config.outbound_budget
-            };
-            let main_total: f64 = row
-                .iter()
-                .filter(|(_, _, _, bridge)| !*bridge)
-                .map(|(_, weight, _, _)| *weight)
-                .sum();
-            let bridge_total: f64 = row
-                .iter()
-                .filter(|(_, _, _, bridge)| *bridge)
-                .map(|(_, weight, _, _)| *weight)
-                .sum();
-            for (to, weight, raw, bridge) in row {
-                let conductance =
-                    edge_conductance(weight, bridge, main_mass, main_total, bridge_total, config);
+        let mut adjacency = vec![Vec::new(); nodes.len()];
+        for (from, row) in rows.into_iter().enumerate() {
+            let mut row = row;
+            row.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+            row.truncate(config.max_neighbors_per_node);
+            let total: f64 = row.iter().map(|(_, weight, _)| *weight).sum();
+            for (to, weight, raw) in row {
+                let conductance = if total > 0.0 {
+                    config.outbound_budget * weight / total
+                } else {
+                    0.0
+                };
                 if conductance > 0.0 {
-                    csr.add_edge(from, to, conductance);
-                    edge_meta.insert((from, to), EdgeMeta { bridge, raw });
+                    adjacency[from].push((to, conductance));
+                    raw_support.insert((from as u32, to), raw);
                 }
             }
         }
-
         Ok(Self {
             generation_id: ServingGenerationId::new(),
             nodes,
             node_by_ref,
-            csr,
-            edge_meta,
+            adjacency,
+            raw_support,
             config,
         })
     }
@@ -334,31 +238,17 @@ impl WaveGraphGeneration {
     pub fn node_id(&self, reference: &CognitiveRef) -> Option<u32> {
         self.node_by_ref.get(reference).copied()
     }
-
-    pub fn outgoing(&self, node: u32) -> Vec<(u32, f64, bool)> {
-        self.csr
-            .edges(node)
-            .map(|edge| {
-                let target = edge.target();
-                let meta = self
-                    .edge_meta
-                    .get(&(node, target))
-                    .copied()
-                    .unwrap_or(EdgeMeta {
-                        bridge: false,
-                        raw: 0.0,
-                    });
-                (target, *edge.weight(), meta.bridge)
-            })
-            .collect()
+    pub fn outgoing(&self, node: u32) -> Vec<(u32, f64)> {
+        self.adjacency
+            .get(node as usize)
+            .cloned()
+            .unwrap_or_default()
     }
-
     pub fn outbound_mass(&self, node: u32) -> f64 {
-        self.outgoing(node).iter().map(|(_, mass, _)| mass).sum()
+        self.outgoing(node).iter().map(|(_, mass)| *mass).sum()
     }
-
     pub fn edge_raw_support(&self, from: u32, to: u32) -> Option<f64> {
-        self.edge_meta.get(&(from, to)).map(|meta| meta.raw)
+        self.raw_support.get(&(from, to)).copied()
     }
 }
 
@@ -366,17 +256,158 @@ impl WaveGraphGeneration {
 pub struct TopologyArtifact {
     pub generation_id: ServingGenerationId,
     pub nodes: Vec<WaveNode>,
-    pub edges: Vec<(u32, u32, f64, bool, f64)>,
+    pub edges: Vec<(u32, u32, f64, f64)>,
     pub config: WaveConfig,
 }
 
+fn supported_relation(kind: &str) -> bool {
+    matches!(
+        kind,
+        "aboutness"
+            | "tag_attachment"
+            | "schema_support"
+            | "derived_from"
+            | "contradicts"
+            | "temporal_successor"
+            | "replaces_basis"
+            | "elaborates"
+            | "assoc.related"
+            | "assoc.co_occurs"
+            | "assoc.sequence"
+            | "assoc.procedural"
+            | "assoc.shared_outcome"
+    )
+}
 fn class_quality(class: &str) -> f64 {
     match class {
-        "host_explicit" => 1.00,
-        "memory_evidence" => 0.90,
-        "derived_structure" => 0.75,
-        "consolidation" => 0.70,
-        "meaningful_use" => 0.50,
-        _ => 0.50,
+        "host_explicit" => 1.0,
+        "source_evidence" => 0.9,
+        "cognitive_derivation" => 0.75,
+        "derived_structure" => 0.65,
+        "meaningful_use" => 0.5,
+        _ => 0.0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nous_core::MemoryRevisionId;
+
+    fn node(id: CognitiveRef, serving_id: u32) -> WaveNode {
+        WaveNode {
+            serving_id,
+            reference: id,
+            node_kind: WaveNodeKind::Memory,
+            embedding_key: None,
+            posting_key: None,
+            intrinsic_residual_gain: None,
+        }
+    }
+
+    #[test]
+    fn unknown_negative_and_contradictory_edges_do_not_enter_nonnegative_graph() {
+        let a = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+        let b = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+        let graph = WaveGraphGeneration::build(
+            vec![node(a.clone(), 0), node(b.clone(), 1)],
+            &[
+                WaveEdgeEvidence {
+                    from: a.clone(),
+                    to: b.clone(),
+                    support_class: "host_explicit".into(),
+                    association_kind: "unknown.relation".into(),
+                    polarity: "positive".into(),
+                    support_mass: 1.0,
+                    provenance_root: None,
+                },
+                WaveEdgeEvidence {
+                    from: a.clone(),
+                    to: b.clone(),
+                    support_class: "host_explicit".into(),
+                    association_kind: "assoc.related".into(),
+                    polarity: "negative".into(),
+                    support_mass: 1.0,
+                    provenance_root: None,
+                },
+            ],
+            WaveConfig::default(),
+        )
+        .expect("graph");
+        assert!(graph.outgoing(0).is_empty());
+    }
+
+    #[test]
+    fn provenance_root_duplicates_keep_only_the_best_support_per_root() {
+        let a = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+        let b = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+        let graph = WaveGraphGeneration::build(
+            vec![node(a.clone(), 0), node(b.clone(), 1)],
+            &[
+                WaveEdgeEvidence {
+                    from: a.clone(),
+                    to: b.clone(),
+                    support_class: "host_explicit".into(),
+                    association_kind: "assoc.related".into(),
+                    polarity: "positive".into(),
+                    support_mass: 0.6,
+                    provenance_root: Some("artifact:one".into()),
+                },
+                WaveEdgeEvidence {
+                    from: a.clone(),
+                    to: b.clone(),
+                    support_class: "host_explicit".into(),
+                    association_kind: "assoc.related".into(),
+                    polarity: "positive".into(),
+                    support_mass: 0.9,
+                    provenance_root: Some("artifact:one".into()),
+                },
+                WaveEdgeEvidence {
+                    from: a,
+                    to: b,
+                    support_class: "host_explicit".into(),
+                    association_kind: "assoc.related".into(),
+                    polarity: "positive".into(),
+                    support_mass: 0.4,
+                    provenance_root: Some("artifact:two".into()),
+                },
+            ],
+            WaveConfig::default(),
+        )
+        .expect("graph");
+        assert_eq!(graph.edge_raw_support(0, 1), Some(1.3));
+    }
+
+    #[test]
+    fn outbound_mass_is_bounded() {
+        let a = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+        let b = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+        let c = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+        let graph = WaveGraphGeneration::build(
+            vec![node(a.clone(), 0), node(b.clone(), 1), node(c.clone(), 2)],
+            &[
+                WaveEdgeEvidence {
+                    from: a.clone(),
+                    to: b,
+                    support_class: "host_explicit".into(),
+                    association_kind: "assoc.related".into(),
+                    polarity: "positive".into(),
+                    support_mass: 1.0,
+                    provenance_root: None,
+                },
+                WaveEdgeEvidence {
+                    from: a,
+                    to: c,
+                    support_class: "host_explicit".into(),
+                    association_kind: "assoc.related".into(),
+                    polarity: "positive".into(),
+                    support_mass: 1.0,
+                    provenance_root: None,
+                },
+            ],
+            WaveConfig::default(),
+        )
+        .expect("graph");
+        assert!(graph.outbound_mass(0) <= 0.90 + f64::EPSILON);
     }
 }

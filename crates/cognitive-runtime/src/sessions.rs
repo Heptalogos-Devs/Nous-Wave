@@ -23,14 +23,14 @@ impl CognitiveRuntimeService {
         session: SessionId,
     ) -> Result<SessionView> {
         self.require_session(subject, session).await?;
-        sqlx::query("UPDATE cognitive_sessions SET closed_at=$3,last_activity_at=$3,state_revision=state_revision+1 WHERE subject_id=$1 AND session_id=$2")
+        sqlx::query("UPDATE cognitive_sessions SET closed_at=$3,last_activity_at=$3,runtime_revision=runtime_revision+1 WHERE subject_id=$1 AND session_id=$2")
             .bind(subject.0).bind(session.0).bind(Utc::now())
             .execute(self.store.pool()).await.map_err(db)?;
         self.session(subject, session).await
     }
 
     pub async fn session(&self, subject: SubjectId, session: SessionId) -> Result<SessionView> {
-        let row = sqlx::query("SELECT session_id,subject_id,opened_at,last_activity_at,last_meaningful_use_at,closed_at,state_revision FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2")
+        let row = sqlx::query("SELECT session_id,subject_id,opened_at,last_activity_at,last_meaningful_use_at,closed_at,runtime_revision FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2")
             .bind(subject.0).bind(session.0).fetch_optional(self.store.pool()).await.map_err(db)?
             .ok_or_else(|| Error::NotFound("session not found".into()))?;
         let refs = sqlx::query("SELECT ref_kind,ref_value,entry_reason,state,entered_at,last_meaningful_use_at,hold_until FROM resident_refs WHERE session_id=$1 AND state <> 'evicted' ORDER BY entered_at")
@@ -60,7 +60,7 @@ impl CognitiveRuntimeService {
             last_activity_at: row.try_get("last_activity_at").map_err(db)?,
             last_meaningful_use_at: row.try_get("last_meaningful_use_at").map_err(db)?,
             closed_at: row.try_get("closed_at").map_err(db)?,
-            state_revision: row.try_get("state_revision").map_err(db)?,
+            runtime_revision: row.try_get("runtime_revision").map_err(db)?,
             resident,
         })
     }
@@ -74,7 +74,9 @@ impl CognitiveRuntimeService {
         if exists {
             Ok(())
         } else {
-            Err(Error::NotFound("open session not found".into()))
+            Err(Error::FailedPrecondition(
+                "session is closed or not found".into(),
+            ))
         }
     }
 

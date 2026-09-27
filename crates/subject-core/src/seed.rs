@@ -86,7 +86,7 @@ impl SubjectCoreService {
         .await
         .map_err(db)?;
         let revision = insert_seed(&mut tx, subject, input, hash, next).await?;
-        sqlx::query("UPDATE subjects SET state_revision=state_revision+1 WHERE subject_id=$1")
+        sqlx::query("UPDATE subjects SET authority_seq=authority_seq+1 WHERE subject_id=$1")
             .bind(subject.0)
             .execute(&mut *tx)
             .await

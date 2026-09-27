@@ -4,6 +4,10 @@ pub fn reference_parts(reference: &CognitiveRef) -> (String, String) {
     match reference {
         CognitiveRef::Memory(id) => ("memory".into(), id.0.to_string()),
         CognitiveRef::MemoryRevision(id) => ("memory_revision".into(), id.0.to_string()),
+        CognitiveRef::CognitiveSchema(id) => ("cognitive_schema".into(), id.0.to_string()),
+        CognitiveRef::CognitiveSchemaRevision(id) => {
+            ("cognitive_schema_revision".into(), id.0.to_string())
+        }
         CognitiveRef::Artifact(id) => ("artifact".into(), id.0.to_string()),
         CognitiveRef::SourceRegion(id) => ("source_region".into(), id.0.to_string()),
         CognitiveRef::DerivedRepresentation(id) => {
@@ -12,7 +16,6 @@ pub fn reference_parts(reference: &CognitiveRef) -> (String, String) {
         CognitiveRef::DerivedRegion(id) => ("derived_region".into(), id.0.to_string()),
         CognitiveRef::Entity(id) => ("entity".into(), id.as_str().into()),
         CognitiveRef::Tag(id) => ("tag".into(), id.0.to_string()),
-        CognitiveRef::Anchor(id) => ("anchor".into(), id.0.to_string()),
         CognitiveRef::Resource(id) => ("resource".into(), id.as_str().into()),
         CognitiveRef::ExternalObject(id) => ("external_object".into(), id.as_str().into()),
         CognitiveRef::Occurrence(id) => ("occurrence".into(), id.0.to_string()),
@@ -32,6 +35,18 @@ pub fn parse_reference(kind: &str, value: &str) -> Result<CognitiveRef> {
                 .parse()
                 .map_err(|_| Error::Invalid("invalid memory revision ref".into()))?,
         )),
+        "cognitive_schema" => CognitiveRef::CognitiveSchema(CognitiveSchemaId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid CognitiveSchema ref".into()))?,
+        )),
+        "cognitive_schema_revision" => {
+            CognitiveRef::CognitiveSchemaRevision(CognitiveSchemaRevisionId(
+                value
+                    .parse()
+                    .map_err(|_| Error::Invalid("invalid CognitiveSchema revision ref".into()))?,
+            ))
+        }
         "artifact" => CognitiveRef::Artifact(ArtifactId(
             value
                 .parse()
@@ -57,11 +72,6 @@ pub fn parse_reference(kind: &str, value: &str) -> Result<CognitiveRef> {
             value
                 .parse()
                 .map_err(|_| Error::Invalid("invalid tag ref".into()))?,
-        )),
-        "anchor" => CognitiveRef::Anchor(AnchorId(
-            value
-                .parse()
-                .map_err(|_| Error::Invalid("invalid anchor ref".into()))?,
         )),
         "resource" => CognitiveRef::Resource(ResourceRef::new(value)?),
         "external_object" => CognitiveRef::ExternalObject(ObjectRef::new(value)?),

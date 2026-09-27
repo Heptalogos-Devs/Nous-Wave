@@ -1,25 +1,20 @@
 use crate::*;
-use rayon::prelude::*;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CandidateRankInput {
     pub reference: CognitiveRef,
     pub family_ranks: HashMap<EvidenceFamily, usize>,
-    pub topology: CandidateTopologyObservation,
-    pub trail: Option<CandidateSemanticTrail>,
+    #[serde(default)]
+    pub family_view_ranks: HashMap<EvidenceFamily, Vec<usize>>,
     pub variants: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RankedCandidate {
     pub reference: CognitiveRef,
-    pub base_rank_score: f64,
+    pub baseline_score: f64,
     pub final_score: f64,
-    pub field_contact: f64,
-    pub structural_score: f64,
-    pub topology_innovation: f64,
-    pub wave_observability: f64,
-    pub direct_seed_evidence: f64,
     pub families: Vec<EvidenceFamily>,
     pub variants: Vec<String>,
 }
@@ -29,133 +24,106 @@ const FAMILY_WEIGHTS: &[(EvidenceFamily, f64)] = &[
     (EvidenceFamily::Runtime, 2.0),
     (EvidenceFamily::Entity, 2.5),
     (EvidenceFamily::Lexical, 1.5),
-    (EvidenceFamily::SemanticDense, 1.5),
-    (EvidenceFamily::TagDirect, 1.5),
-    (EvidenceFamily::AnchorDirect, 1.5),
+    (EvidenceFamily::Dense, 1.5),
     (EvidenceFamily::Temporal, 1.0),
-    (EvidenceFamily::WaveField, 1.0),
-    (EvidenceFamily::Resource, 2.0),
-    (EvidenceFamily::LanguageRerank, 1.0),
+    (EvidenceFamily::TopologyWave, 1.0),
 ];
 
 pub fn rank_candidates(
     candidates: &[CandidateRankInput],
-    observability: f64,
+    _diagnostic_topology_value: f64,
 ) -> Vec<RankedCandidate> {
-    let enabled = FAMILY_WEIGHTS
-        .iter()
-        .filter(|(family, _)| {
-            candidates
-                .iter()
-                .any(|candidate| candidate.family_ranks.contains_key(family))
-        })
-        .copied()
-        .collect::<Vec<_>>();
-    let denominator: f64 = enabled
+    let enabled = FAMILY_WEIGHTS.to_vec();
+    let denominator = enabled
         .iter()
         .map(|(_, weight)| weight / 61.0)
         .sum::<f64>()
         .max(f64::EPSILON);
-    let mut base = candidates
-        .par_iter()
+    let mut ranked = candidates
+        .iter()
         .map(|candidate| {
-            let utility = enabled
+            let raw = enabled
                 .iter()
                 .filter_map(|(family, weight)| {
                     candidate
-                        .family_ranks
+                        .family_view_ranks
                         .get(family)
+                        .and_then(|ranks| ranks.iter().copied().min())
+                        .or_else(|| candidate.family_ranks.get(family).copied())
+                        .as_ref()
                         .map(|rank| weight / (60.0 + *rank as f64))
                 })
                 .sum::<f64>();
             let mut families = candidate.family_ranks.keys().copied().collect::<Vec<_>>();
-            families.sort_by_key(|family| format!("{family:?}"));
+            families.sort();
+            let score = raw / denominator;
             RankedCandidate {
                 reference: candidate.reference.clone(),
-                base_rank_score: (utility / denominator).clamp(0.0, 1.0),
-                final_score: 0.0,
-                field_contact: candidate.topology.field_contact.clamp(0.0, 1.0),
-                structural_score: candidate.topology.structural_score.clamp(0.0, 1.0),
-                topology_innovation: 0.0,
-                wave_observability: observability,
-                direct_seed_evidence: candidate.topology.direct_seed_evidence.clamp(0.0, 1.0),
+                baseline_score: score,
+                final_score: score,
                 families,
                 variants: candidate.variants.clone(),
             }
         })
         .collect::<Vec<_>>();
-    for index in 0..base.len() {
-        let peers = base
-            .iter()
-            .enumerate()
-            .filter(|(peer_index, peer)| {
-                *peer_index != index
-                    && (peer.base_rank_score - base[index].base_rank_score).abs() <= 0.05
-            })
-            .map(|(peer_index, _)| peer_index)
-            .collect::<Vec<_>>();
-        let innovation = if peers.len() >= 5 {
-            let mut structural = peers
-                .iter()
-                .map(|peer_index| candidates[*peer_index].topology.structural_score)
-                .collect::<Vec<_>>();
-            structural.sort_by(f64::total_cmp);
-            let median = structural[structural.len() / 2];
-            (candidates[index].topology.structural_score - median).max(0.0)
-        } else {
-            0.0
-        };
-        base[index].topology_innovation = innovation.clamp(0.0, 1.0);
-        let topology = &candidates[index].topology;
-        base[index].final_score = (base[index].base_rank_score
-            + 0.20 * topology.field_contact.clamp(0.0, 1.0)
-            + 0.20 * observability.clamp(0.0, 1.0).powf(0.75) * base[index].topology_innovation
-            + 0.10 * topology.direct_seed_evidence.clamp(0.0, 1.0))
-        .clamp(0.0, 1.5);
-    }
-    base.sort_by(|left, right| {
+    ranked.sort_by(|left, right| {
         right
             .final_score
             .total_cmp(&left.final_score)
             .then_with(|| left.reference.to_string().cmp(&right.reference.to_string()))
     });
-    base
+    ranked
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn candidate(reference: &str, rank: usize) -> CandidateRankInput {
-        let seed = reference
-            .as_bytes()
-            .iter()
-            .fold(0_u128, |acc, byte| (acc << 8) | u128::from(*byte));
-        CandidateRankInput {
-            reference: CognitiveRef::Memory(nous_core::MemoryId(uuid::Uuid::from_u128(seed))),
-            family_ranks: HashMap::from([(EvidenceFamily::SemanticDense, rank)]),
-            topology: CandidateTopologyObservation::default(),
-            trail: None,
+    use nous_core::MemoryId;
+    #[test]
+    fn denominator_is_plan_family_based() {
+        let candidate = CandidateRankInput {
+            reference: CognitiveRef::Memory(MemoryId::new()),
+            family_ranks: HashMap::from([(EvidenceFamily::Lexical, 1)]),
+            family_view_ranks: HashMap::new(),
             variants: Vec::new(),
-        }
+        };
+        let reference = candidate.reference.clone();
+        let mut extra = candidate.clone();
+        extra.reference = CognitiveRef::Memory(MemoryId::new());
+        extra.family_ranks.insert(EvidenceFamily::Dense, 1);
+        let first = rank_candidates(std::slice::from_ref(&candidate), 0.0)[0].baseline_score;
+        let second = rank_candidates(&[candidate, extra], 0.0)
+            .into_iter()
+            .find(|value| value.reference == reference)
+            .unwrap()
+            .baseline_score;
+        assert_eq!(first, second);
     }
 
     #[test]
-    fn family_ranking_does_not_depend_on_candidate_enumeration_order() {
-        let forward = vec![candidate("a", 1), candidate("b", 2), candidate("c", 3)];
-        let mut reversed = forward.clone();
-        reversed.reverse();
-        let first = rank_candidates(&forward, 0.0);
-        let second = rank_candidates(&reversed, 0.0);
-        assert_eq!(
-            first
-                .iter()
-                .map(|candidate| (candidate.reference.to_string(), candidate.final_score))
-                .collect::<Vec<_>>(),
-            second
-                .iter()
-                .map(|candidate| (candidate.reference.to_string(), candidate.final_score))
-                .collect::<Vec<_>>()
-        );
+    fn multi_view_family_uses_one_best_rank_and_tie_order_is_stable() {
+        let left = CandidateRankInput {
+            reference: CognitiveRef::Memory(MemoryId::new()),
+            family_ranks: HashMap::new(),
+            family_view_ranks: HashMap::from([(EvidenceFamily::Dense, vec![7, 2, 5])]),
+            variants: vec!["dense:space-a".into()],
+        };
+        let right = CandidateRankInput {
+            reference: CognitiveRef::Memory(MemoryId::new()),
+            family_ranks: HashMap::from([(EvidenceFamily::Dense, 2)]),
+            family_view_ranks: HashMap::new(),
+            variants: Vec::new(),
+        };
+        let reverse = rank_candidates(&[right.clone(), left.clone()], 0.0);
+        let forward = rank_candidates(&[left, right], 0.0);
+        let reverse_refs = reverse
+            .iter()
+            .map(|candidate| candidate.reference.to_string())
+            .collect::<Vec<_>>();
+        let forward_refs = forward
+            .iter()
+            .map(|candidate| candidate.reference.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(reverse_refs, forward_refs);
     }
 }

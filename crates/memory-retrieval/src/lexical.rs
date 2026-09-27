@@ -19,7 +19,7 @@ pub struct LexicalDocument {
     pub title: Option<String>,
     pub entity_refs: Vec<String>,
     pub tag_ids: Vec<String>,
-    pub anchor_ids: Vec<String>,
+    pub schema_ids: Vec<String>,
     pub source_class: Option<String>,
 }
 
@@ -40,7 +40,7 @@ pub struct LexicalGeneration {
     metadata: Field,
     entity_refs: Field,
     tag_ids: Field,
-    anchor_ids: Field,
+    schema_ids: Field,
     source_class: Field,
 }
 
@@ -60,7 +60,7 @@ impl LexicalGeneration {
             metadata,
             entity_refs,
             tag_ids,
-            anchor_ids,
+            schema_ids,
             source_class,
         ) = schema();
         let index = Index::create_in_ram(schema);
@@ -77,7 +77,7 @@ impl LexicalGeneration {
             metadata,
             entity_refs,
             tag_ids,
-            anchor_ids,
+            schema_ids,
             source_class,
         })
     }
@@ -104,9 +104,9 @@ impl LexicalGeneration {
         let tag_ids = schema
             .get_field("tag_ids")
             .map_err(|_| Error::Infrastructure("Tantivy tag_ids field missing".into()))?;
-        let anchor_ids = schema
-            .get_field("anchor_ids")
-            .map_err(|_| Error::Infrastructure("Tantivy anchor_ids field missing".into()))?;
+        let schema_ids = schema
+            .get_field("schema_ids")
+            .map_err(|_| Error::Infrastructure("Tantivy schema_ids field missing".into()))?;
         let source_class = schema
             .get_field("source_class")
             .map_err(|_| Error::Infrastructure("Tantivy source_class field missing".into()))?;
@@ -123,7 +123,7 @@ impl LexicalGeneration {
             metadata,
             entity_refs,
             tag_ids,
-            anchor_ids,
+            schema_ids,
             source_class,
         })
     }
@@ -148,8 +148,8 @@ impl LexicalGeneration {
             for value in &document.tag_ids {
                 indexed.add_text(self.tag_ids, value);
             }
-            for value in &document.anchor_ids {
-                indexed.add_text(self.anchor_ids, value);
+            for value in &document.schema_ids {
+                indexed.add_text(self.schema_ids, value);
             }
             if let Some(value) = &document.source_class {
                 indexed.add_text(self.source_class, value);
@@ -241,7 +241,7 @@ fn schema() -> (
         .set_stored();
     let entity_refs = builder.add_text_field("entity_refs", keyword.clone());
     let tag_ids = builder.add_text_field("tag_ids", keyword.clone());
-    let anchor_ids = builder.add_text_field("anchor_ids", keyword.clone());
+    let schema_ids = builder.add_text_field("schema_ids", keyword.clone());
     let source_class = builder.add_text_field("source_class", keyword);
     (
         builder.build(),
@@ -251,7 +251,7 @@ fn schema() -> (
         metadata,
         entity_refs,
         tag_ids,
-        anchor_ids,
+        schema_ids,
         source_class,
     )
 }

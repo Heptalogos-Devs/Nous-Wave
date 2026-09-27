@@ -46,7 +46,7 @@ impl CognitiveRuntimeService {
         session: SessionId,
         owner: &str,
     ) -> Result<RuntimeSnapshot> {
-        let rows=sqlx::query("SELECT s.state_revision,s.active_focus_key,s.closed_at,c.owner_kind,c.owner_key,c.schema_version,c.revision,c.payload FROM cognitive_sessions s LEFT JOIN runtime_checkpoints c ON c.session_id=s.session_id AND c.subject_id=s.subject_id AND c.owner_kind=$3 WHERE s.subject_id=$1 AND s.session_id=$2 ORDER BY c.owner_key LIMIT 257")
+        let rows=sqlx::query("SELECT s.runtime_revision,s.active_focus_key,s.closed_at,c.owner_kind,c.owner_key,c.schema_version,c.revision,c.payload FROM cognitive_sessions s LEFT JOIN runtime_checkpoints c ON c.session_id=s.session_id AND c.subject_id=s.subject_id AND c.owner_kind=$3 WHERE s.subject_id=$1 AND s.session_id=$2 ORDER BY c.owner_key LIMIT 257")
             .bind(subject.0).bind(session.0).bind(owner).fetch_all(self.store.pool()).await.map_err(db)?;
         let first = rows
             .first()
@@ -54,7 +54,7 @@ impl CognitiveRuntimeService {
         if rows.len() > 256 {
             return Err(Error::Invalid("checkpoint capacity exceeded".into()));
         }
-        let revision = first.try_get("state_revision").map_err(db)?;
+        let revision = first.try_get("runtime_revision").map_err(db)?;
         let active_focus_key = first.try_get("active_focus_key").map_err(db)?;
         let closed = first
             .try_get::<Option<DateTime<Utc>>, _>("closed_at")
@@ -84,7 +84,7 @@ impl CognitiveRuntimeService {
     pub async fn mutate_runtime(&self, input: RuntimeMutation) -> Result<i64> {
         validate_mutation(&input)?;
         let mut tx = self.store.begin().await?;
-        let current: i64 = sqlx::query_scalar("SELECT state_revision FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2 AND closed_at IS NULL FOR UPDATE")
+        let current: i64 = sqlx::query_scalar("SELECT runtime_revision FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2 AND closed_at IS NULL FOR UPDATE")
             .bind(input.subject.0).bind(input.session.0).fetch_one(&mut *tx).await.map_err(db)?;
         if current != input.expected_runtime_revision {
             return Err(Error::Conflict("stale Session runtime revision".into()));
@@ -128,7 +128,7 @@ impl CognitiveRuntimeService {
                 "Session checkpoint capacity exceeded".into(),
             ));
         }
-        sqlx::query("UPDATE cognitive_sessions SET state_revision=state_revision+1,last_activity_at=now() WHERE session_id=$1")
+        sqlx::query("UPDATE cognitive_sessions SET runtime_revision=runtime_revision+1,last_activity_at=now() WHERE session_id=$1")
             .bind(input.session.0).execute(&mut *tx).await.map_err(db)?;
         tx.commit().await.map_err(db)?;
         Ok(current + 1)

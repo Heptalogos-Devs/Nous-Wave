@@ -17,7 +17,7 @@ pub struct TextProjectionSource {
     pub source_region: Option<SourceRegionId>,
     pub entity_refs: Vec<String>,
     pub tag_ids: Vec<String>,
-    pub anchor_ids: Vec<String>,
+    pub schema_ids: Vec<String>,
 }
 
 pub struct TextProjectionInput {
@@ -31,7 +31,7 @@ pub(crate) async fn watermark(
     family: &str,
     space: &str,
 ) -> Result<i64> {
-    sqlx::query_scalar("SELECT COALESCE(max(desired_revision),0) FROM projection_watermarks WHERE subject_id=$1 AND family=$2 AND (space_signature=$3 OR space_signature='*')")
+    sqlx::query_scalar("SELECT COALESCE(max(desired_authority_seq),0) FROM projection_watermarks WHERE subject_id=$1 AND family=$2 AND (space_signature=$3 OR space_signature='*')")
         .bind(subject.0).bind(family).bind(space).fetch_one(&mut **tx).await.map_err(db)
 }
 
@@ -73,19 +73,19 @@ pub(crate) async fn memory_sources(
     tx: &mut Transaction<'_, Postgres>,
     subject: SubjectId,
 ) -> Result<Vec<TextProjectionSource>> {
-    let rows = sqlx::query("SELECT o.memory_id,r.memory_revision_id,r.representation_text,r.title FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.status='active' AND r.revision_lifecycle='current' ORDER BY o.memory_id")
+    let rows = sqlx::query("SELECT o.memory_id,r.memory_revision_id,r.representation_text,r.title FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' ORDER BY o.memory_id")
         .bind(subject.0).fetch_all(&mut **tx).await.map_err(db)?;
     let mut sources = Vec::new();
     for row in rows {
         let revision: Uuid = row.try_get("memory_revision_id").map_err(db)?;
-        let entities = sqlx::query_scalar("SELECT DISTINCT entity_ref FROM memory_revision_entities WHERE memory_revision_id=$1 ORDER BY entity_ref")
+        let entities = sqlx::query_scalar("SELECT DISTINCT entity_ref FROM memory_revision_aboutness WHERE memory_revision_id=$1 ORDER BY entity_ref")
             .bind(revision).fetch_all(&mut **tx).await.map_err(db)?;
         let tags = sqlx::query_scalar("SELECT tag_id::text FROM memory_revision_tags WHERE memory_revision_id=$1 ORDER BY tag_id")
             .bind(revision).fetch_all(&mut **tx).await.map_err(db)?;
-        let anchors = sqlx::query_scalar("SELECT DISTINCT a.anchor_id::text FROM anchors a JOIN anchor_support s ON s.anchor_revision_id=a.current_revision_id WHERE a.subject_id=$1 AND a.status='active' AND ((s.support_ref_kind='memory_revision' AND s.support_ref=$2) OR (s.support_ref_kind='memory' AND s.support_ref=$3))")
-            .bind(subject.0).bind(revision.to_string()).bind(row.try_get::<Uuid,_>("memory_id").map_err(db)?.to_string()).fetch_all(&mut **tx).await.map_err(db)?;
+        let schema_ids = sqlx::query_scalar("SELECT DISTINCT s.schema_id::text FROM cognitive_schemas s JOIN cognitive_schema_revisions sr ON sr.schema_revision_id=s.current_revision_id JOIN cognitive_schema_evidence_links l ON l.schema_revision_id=sr.schema_revision_id WHERE s.subject_id=$1 AND s.acceptance_state='accepted' AND s.integrity_state='valid' AND s.suppression_state='normal' AND s.purge_state='normal' AND l.revoked_at IS NULL AND l.support_kind='memory_revision' AND l.support_ref=$2")
+            .bind(subject.0).bind(revision.to_string()).fetch_all(&mut **tx).await.map_err(db)?;
         sources.push(TextProjectionSource {
-            reference: CognitiveRef::Memory(MemoryId(row.try_get("memory_id").map_err(db)?)),
+            reference: CognitiveRef::MemoryRevision(MemoryRevisionId(revision)),
             revision: Some(MemoryRevisionId(revision)),
             text: Some(row.try_get("representation_text").map_err(db)?),
             content_hash: None,
@@ -95,7 +95,7 @@ pub(crate) async fn memory_sources(
             source_region: None,
             entity_refs: entities,
             tag_ids: tags,
-            anchor_ids: anchors,
+            schema_ids,
         });
     }
     for (table, sql) in [
@@ -104,8 +104,8 @@ pub(crate) async fn memory_sources(
             "SELECT o.tag_id AS id,r.label FROM tags o JOIN tag_revisions r ON r.tag_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.status='active'",
         ),
         (
-            "anchors",
-            "SELECT o.anchor_id AS id,r.description AS label FROM anchors o JOIN anchor_revisions r ON r.anchor_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.status='active'",
+            "cognitive_schemas",
+            "SELECT o.schema_id AS id,r.structural_claim AS label FROM cognitive_schemas o JOIN cognitive_schema_revisions r ON r.schema_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted'",
         ),
     ] {
         for row in sqlx::query(sql)
@@ -118,7 +118,7 @@ pub(crate) async fn memory_sources(
             let reference = if table == "tags" {
                 CognitiveRef::Tag(TagId(id))
             } else {
-                CognitiveRef::Anchor(AnchorId(id))
+                CognitiveRef::CognitiveSchema(CognitiveSchemaId(id))
             };
             sources.push(TextProjectionSource {
                 reference,
@@ -131,7 +131,7 @@ pub(crate) async fn memory_sources(
                 source_region: None,
                 entity_refs: Vec::new(),
                 tag_ids: Vec::new(),
-                anchor_ids: Vec::new(),
+                schema_ids: Vec::new(),
             });
         }
     }
@@ -165,7 +165,7 @@ async fn material_sources(
             source_region: region.map(SourceRegionId),
             entity_refs: entities,
             tag_ids: Vec::new(),
-            anchor_ids: Vec::new(),
+            schema_ids: Vec::new(),
         });
     }
     let rows = sqlx::query("SELECT r.source_region_id,r.created_at,a.content_hash,a.media_type,o.source_class FROM source_regions r JOIN artifacts a ON a.artifact_id=r.artifact_id LEFT JOIN LATERAL (SELECT source_class FROM observation_occurrences WHERE subject_id=r.subject_id AND artifact_id=r.artifact_id ORDER BY observed_at DESC LIMIT 1) o ON true WHERE r.subject_id=$1 ORDER BY r.source_region_id")
@@ -187,7 +187,7 @@ async fn material_sources(
             source_region: Some(SourceRegionId(row.try_get("source_region_id").map_err(db)?)),
             entity_refs: Vec::new(),
             tag_ids: Vec::new(),
-            anchor_ids: Vec::new(),
+            schema_ids: Vec::new(),
         });
     }
     let rows = sqlx::query("SELECT d.derived_representation_id,d.source_region_id,d.payload_text,d.representation_kind,a.content_hash,a.media_type FROM derived_representations d LEFT JOIN artifacts a ON a.artifact_id=d.payload_artifact_id WHERE d.subject_id=$1 ORDER BY d.derived_representation_id")
@@ -213,7 +213,7 @@ async fn material_sources(
             source_region: Some(SourceRegionId(row.try_get("source_region_id").map_err(db)?)),
             entity_refs: Vec::new(),
             tag_ids: Vec::new(),
-            anchor_ids: Vec::new(),
+            schema_ids: Vec::new(),
         });
     }
     let rows = sqlx::query("SELECT r.derived_region_id,r.created_at,d.source_region_id,d.payload_text,d.representation_kind,a.content_hash,a.media_type FROM derived_regions r JOIN derived_representations d ON d.derived_representation_id=r.derived_representation_id LEFT JOIN artifacts a ON a.artifact_id=d.payload_artifact_id WHERE r.subject_id=$1 ORDER BY r.derived_region_id")
@@ -242,7 +242,7 @@ async fn material_sources(
             source_region: Some(SourceRegionId(row.try_get("source_region_id").map_err(db)?)),
             entity_refs: Vec::new(),
             tag_ids: Vec::new(),
-            anchor_ids: Vec::new(),
+            schema_ids: Vec::new(),
         });
     }
     Ok(sources)

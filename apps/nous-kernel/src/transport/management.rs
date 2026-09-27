@@ -170,7 +170,7 @@ impl KernelService {
     ) -> Result<p::ProjectionStatus> {
         let subject = SubjectId(id(&input.subject_id)?);
         self.0.store.require_subject(subject).await?;
-        let rows=sqlx::query("SELECT w.family,w.space_signature,w.desired_revision,g.input_generation FROM projection_watermarks w LEFT JOIN serving_current c ON c.subject_id=w.subject_id AND c.kind=w.family AND c.space_signature=w.space_signature LEFT JOIN serving_generations g ON g.generation_id=c.generation_id WHERE w.subject_id=$1 ORDER BY w.family,w.space_signature")
+        let rows=sqlx::query("SELECT w.family,w.space_signature,w.desired_authority_seq,g.authority_watermark FROM projection_watermarks w LEFT JOIN serving_current c ON c.subject_id=w.subject_id AND c.family=w.family AND c.space_signature=w.space_signature LEFT JOIN serving_generations g ON g.generation_id=c.generation_id WHERE w.subject_id=$1 ORDER BY w.family,w.space_signature")
             .bind(subject.0).fetch_all(self.0.store.pool()).await.map_err(db)?;
         let families = rows
             .into_iter()
@@ -178,10 +178,12 @@ impl KernelService {
                 Ok(p::ComponentStatus {
                     name: r.try_get("family").map_err(db)?,
                     state: match r
-                        .try_get::<Option<i64>, _>("input_generation")
+                        .try_get::<Option<i64>, _>("authority_watermark")
                         .map_err(db)?
                     {
-                        Some(v) if v >= r.try_get::<i64, _>("desired_revision").map_err(db)? => {
+                        Some(v)
+                            if v >= r.try_get::<i64, _>("desired_authority_seq").map_err(db)? =>
+                        {
                             "READY"
                         }
                         Some(_) => "STALE",
@@ -191,7 +193,7 @@ impl KernelService {
                     detail: Some(format!(
                         "space={} revision={}",
                         r.try_get::<String, _>("space_signature").map_err(db)?,
-                        r.try_get::<i64, _>("desired_revision").map_err(db)?
+                        r.try_get::<i64, _>("desired_authority_seq").map_err(db)?
                     )),
                 })
             })

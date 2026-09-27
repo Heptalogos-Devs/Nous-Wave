@@ -25,8 +25,9 @@ pub fn lexical_prefix(kind: &str) -> Result<&'static str> {
         "entity" => "ent",
         "memory" => "mem",
         "memory_revision" => "memrev",
+        "cognitive_schema" => "schema",
+        "cognitive_schema_revision" => "schemarev",
         "tag" => "tag",
-        "anchor" => "anchor",
         "artifact" => "art",
         "occurrence" => "obs",
         "source_region" => "src",
@@ -46,8 +47,9 @@ pub fn validate_lexical(value: &str) -> Result<&str> {
         "ent"
             | "mem"
             | "memrev"
+            | "schema"
+            | "schemarev"
             | "tag"
-            | "anchor"
             | "art"
             | "obs"
             | "src"

@@ -4,17 +4,17 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { CognitiveRef, ListRequestSchema, Memory, MemoryContent, ObjectRequestSchema, SubjectRequestSchema } from "./types_pb.js";
-import { file_nous_wave_v1alpha1_types } from "./types_pb.js";
 import type { EmptySchema, Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_empty, file_google_protobuf_struct, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { CognitiveRef, ListRequestSchema, Memory, ObjectRequestSchema, RevisionSupport, SubjectRequestSchema, TemporalExtent } from "./types_pb.js";
+import { file_nous_wave_v1alpha1_types } from "./types_pb.js";
 import type { JsonObject, Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file nous/wave/v1alpha1/management.proto.
  */
 export const file_nous_wave_v1alpha1_management: GenFile = /*@__PURE__*/
-  fileDesc("CiNub3VzL3dhdmUvdjFhbHBoYTEvbWFuYWdlbWVudC5wcm90bxISbm91cy53YXZlLnYxYWxwaGExIpQCChJSZXNvdXJjZURlc2NyaXB0b3ISFAoMcmVzb3VyY2VfcmVmGAEgASgJEhUKDWRpc3BsYXlfbGFiZWwYAiABKAkSFwoPYXV0aG9yaXR5X2NsYXNzGAMgASgJEikKCGNvdmVyYWdlGAQgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIYChBxdWVyeV9kaW1lbnNpb25zGAUgAygJEhIKCm1vZGFsaXRpZXMYBiADKAkSMQoQZnJlc2huZXNzX3BvbGljeRgHIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSGQoRYWNjZXNzX2Nvc3RfY2xhc3MYCCABKAkSEQoJcmVhZGluZXNzGAkgASgJImQKElB1dFJlc291cmNlUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEjoKCmRlc2NyaXB0b3IYAiABKAsyJi5ub3VzLndhdmUudjFhbHBoYTEuUmVzb3VyY2VEZXNjcmlwdG9yImcKFUxpc3RSZXNvdXJjZXNSZXNwb25zZRI1CgVpdGVtcxgBIAMoCzImLm5vdXMud2F2ZS52MWFscGhhMS5SZXNvdXJjZURlc2NyaXB0b3ISFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJIoQBCgNUYWcSDgoGdGFnX2lkGAEgASgJEg0KBWxhYmVsGAIgASgJEhgKC2Rlc2NyaXB0aW9uGAMgASgJSACIAQESFgoJa2luZF9oaW50GAQgASgJSAGIAQESDgoGb3JpZ2luGAUgASgJQg4KDF9kZXNjcmlwdGlvbkIMCgpfa2luZF9oaW50IkwKEENyZWF0ZVRhZ1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRIkCgN0YWcYAiABKAsyFy5ub3VzLndhdmUudjFhbHBoYTEuVGFnIlMKEExpc3RUYWdzUmVzcG9uc2USJgoFaXRlbXMYASADKAsyFy5ub3VzLndhdmUudjFhbHBoYTEuVGFnEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSJSCg1BbmNob3JTdXBwb3J0EjMKCXJlZmVyZW5jZRgBIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYSDAoEcm9sZRgCIAEoCSKmAQoGQW5jaG9yEhEKCWFuY2hvcl9pZBgBIAEoCRISCgVsYWJlbBgCIAEoCUgAiAEBEhMKC2Rlc2NyaXB0aW9uGAMgASgJEg4KBm9yaWdpbhgEIAEoCRIRCgljb25maXJtZWQYBSABKAgSMwoIc3VwcG9ydHMYBiADKAsyIS5ub3VzLndhdmUudjFhbHBoYTEuQW5jaG9yU3VwcG9ydEIICgZfbGFiZWwiVQoTQ3JlYXRlQW5jaG9yUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEioKBmFuY2hvchgCIAEoCzIaLm5vdXMud2F2ZS52MWFscGhhMS5BbmNob3IiWQoTTGlzdEFuY2hvcnNSZXNwb25zZRIpCgVpdGVtcxgBIAMoCzIaLm5vdXMud2F2ZS52MWFscGhhMS5BbmNob3ISFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJIswCCgtBc3NvY2lhdGlvbhIWCg5hc3NvY2lhdGlvbl9pZBgBIAEoCRIuCgRmcm9tGAIgASgLMiAubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVJlZhIsCgJ0bxgDIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYSDAoEa2luZBgEIAEoCRIQCghwb2xhcml0eRgFIAEoCRIVCg1zdXBwb3J0X2NsYXNzGAYgASgJEhUKDXN1cHBvcnRfdmFsdWUYByABKAESGgoNb2NjdXJyZW5jZV9pZBgIIAEoCUgAiAEBEh8KEm1lbW9yeV9yZXZpc2lvbl9pZBgJIAEoCUgBiAEBEhMKC2JyaWRnZV9oaW50GAogASgIQhAKDl9vY2N1cnJlbmNlX2lkQhUKE19tZW1vcnlfcmV2aXNpb25faWQiZAoYQ3JlYXRlQXNzb2NpYXRpb25SZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSNAoLYXNzb2NpYXRpb24YAiABKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuQXNzb2NpYXRpb24ifwoTTmVpZ2hib3Job29kUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEi4KBHJvb3QYAiABKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlUmVmEhEKCW1heF9ub2RlcxgDIAEoDRIRCgltYXhfZGVwdGgYBCABKA0ikQEKFE5laWdoYm9yaG9vZFJlc3BvbnNlEi8KBW5vZGVzGAEgAygLMiAubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVJlZhI1Cgxhc3NvY2lhdGlvbnMYAiADKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuQXNzb2NpYXRpb24SEQoJdHJ1bmNhdGVkGAMgASgIItYBChNSZWJpbmRFbnRpdHlSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSEgoKbWVudGlvbl9pZBgCIAEoCRIXCgplbnRpdHlfcmVmGAMgASgJSACIAQESFQoNYmluZGluZ19zdGF0ZRgEIAEoCRIgChNob3N0X3Jlc29sdXRpb25fcmVmGAUgASgJSAGIAQESEwoGcmVhc29uGAYgASgJSAKIAQFCDQoLX2VudGl0eV9yZWZCFgoUX2hvc3RfcmVzb2x1dGlvbl9yZWZCCQoHX3JlYXNvbiKLAQoRVG9wb2xvZ3lUYWdDaGFuZ2USHAoPZXhpc3RpbmdfdGFnX2lkGAEgASgJSACIAQESJAoDdGFnGAIgASgLMhcubm91cy53YXZlLnYxYWxwaGExLlRhZxIeChZhdHRhY2hfdG9fcmV2aXNpb25faWRzGAMgAygJQhIKEF9leGlzdGluZ190YWdfaWQimwEKFlRvcG9sb2d5UmV2aXNpb25DaGFuZ2USEQoJbWVtb3J5X2lkGAEgASgJEhUKDWV4cGVjdGVkX2V0YWcYAiABKAkSDgoGaW50ZW50GAMgASgJEjIKB2NvbnRlbnQYBCABKAsyIS5ub3VzLndhdmUudjFhbHBoYTEuTWVtb3J5Q29udGVudBITCgtlbnRpdHlfcmVmcxgFIAMoCSLpAQoPVG9wb2xvZ3lDaGFuZ2VzEjMKBHRhZ3MYASADKAsyJS5ub3VzLndhdmUudjFhbHBoYTEuVG9wb2xvZ3lUYWdDaGFuZ2USKwoHYW5jaG9ycxgCIAMoCzIaLm5vdXMud2F2ZS52MWFscGhhMS5BbmNob3ISNQoMYXNzb2NpYXRpb25zGAMgAygLMh8ubm91cy53YXZlLnYxYWxwaGExLkFzc29jaWF0aW9uEj0KCXJldmlzaW9ucxgEIAMoCzIqLm5vdXMud2F2ZS52MWFscGhhMS5Ub3BvbG9neVJldmlzaW9uQ2hhbmdlIrcBChhDb25zb2xpZGF0ZU1lbW9yeVJlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRIbChNzb3VyY2VfcmV2aXNpb25faWRzGAIgAygJEg4KBnRhcmdldBgDIAEoCRIMCgR0ZXh0GAQgASgJEhUKDXNlbWFudGljX3JvbGUYBSABKAkSNQoIdG9wb2xvZ3kYBiABKAsyIy5ub3VzLndhdmUudjFhbHBoYTEuVG9wb2xvZ3lDaGFuZ2VzIl0KFUNvbnNvbGlkYXRpb25SZXNwb25zZRIqCgZtZW1vcnkYASABKAsyGi5ub3VzLndhdmUudjFhbHBoYTEuTWVtb3J5EhgKEHRvcG9sb2d5X2NoYW5nZXMYAiABKA0ipQMKCk9jY3VycmVuY2USFQoNb2NjdXJyZW5jZV9pZBgBIAEoCRISCgpzdWJqZWN0X2lkGAIgASgJEhgKC2FydGlmYWN0X2lkGAMgASgJSACIAQESFAoMc291cmNlX2NsYXNzGAQgASgJEiAKE2V4dGVybmFsX29iamVjdF9yZWYYBSABKAlIAYgBARIvCgtvY2N1cnJlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLb2JzZXJ2ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEh0KEGNvbnZlcnNhdGlvbl9yZWYYCCABKAlIAogBARIdChBhY3Rvcl9lbnRpdHlfcmVmGAkgASgJSAOIAQESKAoHY29udGV4dBgKIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RCDgoMX2FydGlmYWN0X2lkQhYKFF9leHRlcm5hbF9vYmplY3RfcmVmQhMKEV9jb252ZXJzYXRpb25fcmVmQhMKEV9hY3Rvcl9lbnRpdHlfcmVmIt4BCgxTb3VyY2VSZWdpb24SGAoQc291cmNlX3JlZ2lvbl9pZBgBIAEoCRITCgthcnRpZmFjdF9pZBgCIAEoCRIXCg9jb29yZGluYXRlX2tpbmQYAyABKAkSKwoKY29vcmRpbmF0ZRgEIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSFwoPY29vcmRpbmF0ZV9oYXNoGAUgASgJEiQKF3BhcmVudF9zb3VyY2VfcmVnaW9uX2lkGAYgASgJSACIAQFCGgoYX3BhcmVudF9zb3VyY2VfcmVnaW9uX2lkIvwBChVEZXJpdmVkUmVwcmVzZW50YXRpb24SGQoRcmVwcmVzZW50YXRpb25faWQYASABKAkSEgoKc3ViamVjdF9pZBgCIAEoCRIdChBzb3VyY2VfcmVnaW9uX2lkGAMgASgJSACIAQESDAoEa2luZBgEIAEoCRIaChJwcm9kdWNlcl9zaWduYXR1cmUYBSABKAkSEAoIcmV2aXNpb24YBiABKAUSEQoEdGV4dBgHIAEoCUgBiAEBEhgKC2FydGlmYWN0X2lkGAggASgJSAKIAQFCEwoRX3NvdXJjZV9yZWdpb25faWRCBwoFX3RleHRCDgoMX2FydGlmYWN0X2lkIk4KD0NvbXBvbmVudFN0YXR1cxIMCgRuYW1lGAEgASgJEg0KBXN0YXRlGAIgASgJEhMKBmRldGFpbBgDIAEoCUgAiAEBQgkKB19kZXRhaWwiRwoMU3lzdGVtU3RhdHVzEjcKCmNvbXBvbmVudHMYASADKAsyIy5ub3VzLndhdmUudjFhbHBoYTEuQ29tcG9uZW50U3RhdHVzIn0KFEVmZmVjdGl2ZUNvbmZpZ0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCRIOCgZzb3VyY2UYAyABKAkSDQoFb3duZXIYBCABKAkSGAoQcmVzdGFydF9yZXF1aXJlZBgFIAEoCBIQCghlZGl0YWJsZRgGIAEoCCJMCg9FZmZlY3RpdmVDb25maWcSOQoHZW50cmllcxgBIAMoCzIoLm5vdXMud2F2ZS52MWFscGhhMS5FZmZlY3RpdmVDb25maWdFbnRyeSJJChBQcm9qZWN0aW9uU3RhdHVzEjUKCGZhbWlsaWVzGAEgAygLMiMubm91cy53YXZlLnYxYWxwaGExLkNvbXBvbmVudFN0YXR1czL0AgoPUmVzb3VyY2VTZXJ2aWNlEl0KC1B1dFJlc291cmNlEiYubm91cy53YXZlLnYxYWxwaGExLlB1dFJlc291cmNlUmVxdWVzdBomLm5vdXMud2F2ZS52MWFscGhhMS5SZXNvdXJjZURlc2NyaXB0b3ISWAoLR2V0UmVzb3VyY2USIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBomLm5vdXMud2F2ZS52MWFscGhhMS5SZXNvdXJjZURlc2NyaXB0b3ISWwoNTGlzdFJlc291cmNlcxIfLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0UmVxdWVzdBopLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0UmVzb3VyY2VzUmVzcG9uc2USSwoOUmVtb3ZlUmVzb3VyY2USIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eTKLBgoPVG9wb2xvZ3lTZXJ2aWNlEkoKCUNyZWF0ZVRhZxIkLm5vdXMud2F2ZS52MWFscGhhMS5DcmVhdGVUYWdSZXF1ZXN0Ghcubm91cy53YXZlLnYxYWxwaGExLlRhZxJECgZHZXRUYWcSIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBoXLm5vdXMud2F2ZS52MWFscGhhMS5UYWcSUQoITGlzdFRhZ3MSHy5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFJlcXVlc3QaJC5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFRhZ3NSZXNwb25zZRJTCgxDcmVhdGVBbmNob3ISJy5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlQW5jaG9yUmVxdWVzdBoaLm5vdXMud2F2ZS52MWFscGhhMS5BbmNob3ISSgoJR2V0QW5jaG9yEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaGi5ub3VzLndhdmUudjFhbHBoYTEuQW5jaG9yElcKC0xpc3RBbmNob3JzEh8ubm91cy53YXZlLnYxYWxwaGExLkxpc3RSZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLkxpc3RBbmNob3JzUmVzcG9uc2USYgoRQ3JlYXRlQXNzb2NpYXRpb24SLC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlQXNzb2NpYXRpb25SZXF1ZXN0Gh8ubm91cy53YXZlLnYxYWxwaGExLkFzc29jaWF0aW9uEmQKD0dldE5laWdoYm9yaG9vZBInLm5vdXMud2F2ZS52MWFscGhhMS5OZWlnaGJvcmhvb2RSZXF1ZXN0Gigubm91cy53YXZlLnYxYWxwaGExLk5laWdoYm9yaG9vZFJlc3BvbnNlEk8KDFJlYmluZEVudGl0eRInLm5vdXMud2F2ZS52MWFscGhhMS5SZWJpbmRFbnRpdHlSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5MtcCCg1TeXN0ZW1TZXJ2aWNlEkUKCUdldFN0YXR1cxIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRogLm5vdXMud2F2ZS52MWFscGhhMS5TeXN0ZW1TdGF0dXMSSwoPR2V0Q2FwYWJpbGl0aWVzEhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5GiAubm91cy53YXZlLnYxYWxwaGExLlN5c3RlbVN0YXR1cxJRChJHZXRFZmZlY3RpdmVDb25maWcSFi5nb29nbGUucHJvdG9idWYuRW1wdHkaIy5ub3VzLndhdmUudjFhbHBoYTEuRWZmZWN0aXZlQ29uZmlnEl8KE0dldFByb2plY3Rpb25TdGF0dXMSIi5ub3VzLndhdmUudjFhbHBoYTEuU3ViamVjdFJlcXVlc3QaJC5ub3VzLndhdmUudjFhbHBoYTEuUHJvamVjdGlvblN0YXR1c2IGcHJvdG8z", [file_nous_wave_v1alpha1_types, file_google_protobuf_empty, file_google_protobuf_struct, file_google_protobuf_timestamp]);
+  fileDesc("CiNub3VzL3dhdmUvdjFhbHBoYTEvbWFuYWdlbWVudC5wcm90bxISbm91cy53YXZlLnYxYWxwaGExIpQCChJSZXNvdXJjZURlc2NyaXB0b3ISFAoMcmVzb3VyY2VfcmVmGAEgASgJEhUKDWRpc3BsYXlfbGFiZWwYAiABKAkSFwoPYXV0aG9yaXR5X2NsYXNzGAMgASgJEikKCGNvdmVyYWdlGAQgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIYChBxdWVyeV9kaW1lbnNpb25zGAUgAygJEhIKCm1vZGFsaXRpZXMYBiADKAkSMQoQZnJlc2huZXNzX3BvbGljeRgHIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSGQoRYWNjZXNzX2Nvc3RfY2xhc3MYCCABKAkSEQoJcmVhZGluZXNzGAkgASgJImQKElB1dFJlc291cmNlUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEjoKCmRlc2NyaXB0b3IYAiABKAsyJi5ub3VzLndhdmUudjFhbHBoYTEuUmVzb3VyY2VEZXNjcmlwdG9yImcKFUxpc3RSZXNvdXJjZXNSZXNwb25zZRI1CgVpdGVtcxgBIAMoCzImLm5vdXMud2F2ZS52MWFscGhhMS5SZXNvdXJjZURlc2NyaXB0b3ISFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJIoQBCgNUYWcSDgoGdGFnX2lkGAEgASgJEg0KBWxhYmVsGAIgASgJEhgKC2Rlc2NyaXB0aW9uGAMgASgJSACIAQESFgoJa2luZF9oaW50GAQgASgJSAGIAQESDgoGb3JpZ2luGAUgASgJQg4KDF9kZXNjcmlwdGlvbkIMCgpfa2luZF9oaW50ImIKEENyZWF0ZVRhZ1JlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSJAoDdGFnGAMgASgLMhcubm91cy53YXZlLnYxYWxwaGExLlRhZyJTChBMaXN0VGFnc1Jlc3BvbnNlEiYKBWl0ZW1zGAEgAygLMhcubm91cy53YXZlLnYxYWxwaGExLlRhZxIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAki+gEKC0Fzc29jaWF0aW9uEhYKDmFzc29jaWF0aW9uX2lkGAEgASgJEi4KBGZyb20YAiABKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlUmVmEiwKAnRvGAMgASgLMiAubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVJlZhIVCg1yZWxhdGlvbl9raW5kGAQgASgJEhAKCHBvbGFyaXR5GAUgASgJEhUKDXN1cHBvcnRfY2xhc3MYBiABKAkSNQoIc3VwcG9ydHMYByADKAsyIy5ub3VzLndhdmUudjFhbHBoYTEuUmV2aXNpb25TdXBwb3J0InoKGENyZWF0ZUFzc29jaWF0aW9uUmVxdWVzdBIUCgxvcGVyYXRpb25faWQYASABKAkSEgoKc3ViamVjdF9pZBgCIAEoCRI0Cgthc3NvY2lhdGlvbhgDIAEoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5Bc3NvY2lhdGlvbiJcChhSZXZva2VBc3NvY2lhdGlvblJlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSFgoOYXNzb2NpYXRpb25faWQYAyABKAkifwoTTmVpZ2hib3Job29kUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEi4KBHJvb3QYAiABKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlUmVmEhEKCW1heF9ub2RlcxgDIAEoDRIRCgltYXhfZGVwdGgYBCABKA0ikQEKFE5laWdoYm9yaG9vZFJlc3BvbnNlEi8KBW5vZGVzGAEgAygLMiAubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVJlZhI1Cgxhc3NvY2lhdGlvbnMYAiADKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuQXNzb2NpYXRpb24SEQoJdHJ1bmNhdGVkGAMgASgIItYBChNSZWJpbmRFbnRpdHlSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSEgoKbWVudGlvbl9pZBgCIAEoCRIXCgplbnRpdHlfcmVmGAMgASgJSACIAQESFQoNYmluZGluZ19zdGF0ZRgEIAEoCRIgChNob3N0X3Jlc29sdXRpb25fcmVmGAUgASgJSAGIAQESEwoGcmVhc29uGAYgASgJSAKIAQFCDQoLX2VudGl0eV9yZWZCFgoUX2hvc3RfcmVzb2x1dGlvbl9yZWZCCQoHX3JlYXNvbiJ7CgtTY2hlbWFTY29wZRITCgtkZXNjcmlwdGlvbhgBIAEoCRIRCglhYm91dG5lc3MYAiADKAkSDAoEdGFncxgDIAMoCRI2Cgp2YWxpZF90aW1lGAQgASgLMiIubm91cy53YXZlLnYxYWxwaGExLlRlbXBvcmFsRXh0ZW50ImkKElNjaGVtYUV2aWRlbmNlTGluaxIPCgdsaW5rX2lkGAEgASgJEgwKBHJvbGUYAiABKAkSNAoHc3VwcG9ydBgDIAEoCzIjLm5vdXMud2F2ZS52MWFscGhhMS5SZXZpc2lvblN1cHBvcnQi8gMKD0NvZ25pdGl2ZVNjaGVtYRIRCglzY2hlbWFfaWQYASABKAkSEgoKc3ViamVjdF9pZBgCIAEoCRIbChNjdXJyZW50X3JldmlzaW9uX2lkGAMgASgJEhQKDG9iamVjdF9lcG9jaBgEIAEoAxIYChBhY2NlcHRhbmNlX3N0YXRlGAUgASgJEhcKD2ludGVncml0eV9zdGF0ZRgGIAEoCRIZChFzdXBwcmVzc2lvbl9zdGF0ZRgHIAEoCRITCgtwdXJnZV9zdGF0ZRgIIAEoCRINCgV0aXRsZRgJIAEoCRIYChBzdHJ1Y3R1cmFsX2NsYWltGAogASgJEjwKE2FwcGxpY2FiaWxpdHlfc2NvcGUYCyABKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuU2NoZW1hU2NvcGUSGwoTYm91bmRhcnlfZGVmaW5pdGlvbhgMIAEoCRI+Cg5ldmlkZW5jZV9saW5rcxgNIAMoCzImLm5vdXMud2F2ZS52MWFscGhhMS5TY2hlbWFFdmlkZW5jZUxpbmsSLQoJZm9ybWVkX2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtyZWNvcmRlZF9hdBgPIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAivQEKHENyZWF0ZUNvZ25pdGl2ZVNjaGVtYVJlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSMwoGc2NoZW1hGAMgASgLMiMubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVNjaGVtYRI+Cg5ldmlkZW5jZV9saW5rcxgEIAMoCzImLm5vdXMud2F2ZS52MWFscGhhMS5TY2hlbWFFdmlkZW5jZUxpbmsiQgoZR2V0Q29nbml0aXZlU2NoZW1hUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEhEKCXNjaGVtYV9pZBgCIAEoCSKsAQoYQWRkU2NoZW1hRXZpZGVuY2VSZXF1ZXN0EhQKDG9wZXJhdGlvbl9pZBgBIAEoCRISCgpzdWJqZWN0X2lkGAIgASgJEhEKCXNjaGVtYV9pZBgDIAEoCRIdChVleHBlY3RlZF9vYmplY3RfZXBvY2gYBCABKAMSNAoEbGluaxgFIAEoCzImLm5vdXMud2F2ZS52MWFscGhhMS5TY2hlbWFFdmlkZW5jZUxpbmsi1gEKHFJldmlzZUNvZ25pdGl2ZVNjaGVtYVJlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSEQoJc2NoZW1hX2lkGAMgASgJEh0KFWV4cGVjdGVkX29iamVjdF9lcG9jaBgEIAEoAxIOCgZpbnRlbnQYBSABKAkSMwoGc2NoZW1hGAYgASgLMiMubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVNjaGVtYRIVCg1jb3B5X2xpbmtfaWRzGAcgAygJIrABChtTcGxpdENvZ25pdGl2ZVNjaGVtYVJlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSEQoJc2NoZW1hX2lkGAMgASgJEh0KFWV4cGVjdGVkX29iamVjdF9lcG9jaBgEIAEoAxI1CghjaGlsZHJlbhgFIAMoCzIjLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTY2hlbWEisQEKHE1lcmdlQ29nbml0aXZlU2NoZW1hc1JlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSEgoKc2NoZW1hX2lkcxgDIAMoCRIeChZleHBlY3RlZF9vYmplY3RfZXBvY2hzGAQgAygDEjMKBm1lcmdlZBgFIAEoCzIjLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTY2hlbWEiVQocU3BsaXRDb2duaXRpdmVTY2hlbWFSZXNwb25zZRI1CghjaGlsZHJlbhgBIAMoCzIjLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTY2hlbWEiiwEKEVRvcG9sb2d5VGFnQ2hhbmdlEhwKD2V4aXN0aW5nX3RhZ19pZBgBIAEoCUgAiAEBEiQKA3RhZxgCIAEoCzIXLm5vdXMud2F2ZS52MWFscGhhMS5UYWcSHgoWYXR0YWNoX3RvX3JldmlzaW9uX2lkcxgDIAMoCUISChBfZXhpc3RpbmdfdGFnX2lkIlEKGVRvcG9sb2d5QXNzb2NpYXRpb25DaGFuZ2USNAoLYXNzb2NpYXRpb24YASABKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuQXNzb2NpYXRpb24iiwEKD1RvcG9sb2d5Q2hhbmdlcxIzCgR0YWdzGAEgAygLMiUubm91cy53YXZlLnYxYWxwaGExLlRvcG9sb2d5VGFnQ2hhbmdlEkMKDGFzc29jaWF0aW9ucxgCIAMoCzItLm5vdXMud2F2ZS52MWFscGhhMS5Ub3BvbG9neUFzc29jaWF0aW9uQ2hhbmdlIvwBChhDb25zb2xpZGF0ZU1lbW9yeVJlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSGwoTc291cmNlX3JldmlzaW9uX2lkcxgDIAMoCRIOCgZ0YXJnZXQYBCABKAkSDAoEdGV4dBgFIAEoCRIVCg1zZW1hbnRpY19yb2xlGAYgASgJEi0KCWZvcm1lZF9hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASNQoIdG9wb2xvZ3kYCCABKAsyIy5ub3VzLndhdmUudjFhbHBoYTEuVG9wb2xvZ3lDaGFuZ2VzIl0KFUNvbnNvbGlkYXRpb25SZXNwb25zZRIqCgZtZW1vcnkYASABKAsyGi5ub3VzLndhdmUudjFhbHBoYTEuTWVtb3J5EhgKEHRvcG9sb2d5X2NoYW5nZXMYAiABKA0irwMKCk9jY3VycmVuY2USFQoNb2NjdXJyZW5jZV9pZBgBIAEoCRISCgpzdWJqZWN0X2lkGAIgASgJEhgKC2FydGlmYWN0X2lkGAMgASgJSACIAQESFAoMc291cmNlX2NsYXNzGAQgASgJEiAKE2V4dGVybmFsX29iamVjdF9yZWYYBSABKAlIAYgBARI5Cg1vY2N1cnJlZF90aW1lGAYgASgLMiIubm91cy53YXZlLnYxYWxwaGExLlRlbXBvcmFsRXh0ZW50Ei8KC29ic2VydmVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIdChBjb252ZXJzYXRpb25fcmVmGAggASgJSAKIAQESHQoQYWN0b3JfZW50aXR5X3JlZhgJIAEoCUgDiAEBEigKB2NvbnRleHQYCiABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Qg4KDF9hcnRpZmFjdF9pZEIWChRfZXh0ZXJuYWxfb2JqZWN0X3JlZkITChFfY29udmVyc2F0aW9uX3JlZkITChFfYWN0b3JfZW50aXR5X3JlZiLeAQoMU291cmNlUmVnaW9uEhgKEHNvdXJjZV9yZWdpb25faWQYASABKAkSEwoLYXJ0aWZhY3RfaWQYAiABKAkSFwoPY29vcmRpbmF0ZV9raW5kGAMgASgJEisKCmNvb3JkaW5hdGUYBCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EhcKD2Nvb3JkaW5hdGVfaGFzaBgFIAEoCRIkChdwYXJlbnRfc291cmNlX3JlZ2lvbl9pZBgGIAEoCUgAiAEBQhoKGF9wYXJlbnRfc291cmNlX3JlZ2lvbl9pZCL8AQoVRGVyaXZlZFJlcHJlc2VudGF0aW9uEhkKEXJlcHJlc2VudGF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSHQoQc291cmNlX3JlZ2lvbl9pZBgDIAEoCUgAiAEBEgwKBGtpbmQYBCABKAkSGgoScHJvZHVjZXJfc2lnbmF0dXJlGAUgASgJEhAKCHJldmlzaW9uGAYgASgFEhEKBHRleHQYByABKAlIAYgBARIYCgthcnRpZmFjdF9pZBgIIAEoCUgCiAEBQhMKEV9zb3VyY2VfcmVnaW9uX2lkQgcKBV90ZXh0Qg4KDF9hcnRpZmFjdF9pZCJOCg9Db21wb25lbnRTdGF0dXMSDAoEbmFtZRgBIAEoCRINCgVzdGF0ZRgCIAEoCRITCgZkZXRhaWwYAyABKAlIAIgBAUIJCgdfZGV0YWlsIkcKDFN5c3RlbVN0YXR1cxI3Cgpjb21wb25lbnRzGAEgAygLMiMubm91cy53YXZlLnYxYWxwaGExLkNvbXBvbmVudFN0YXR1cyJ9ChRFZmZlY3RpdmVDb25maWdFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAkSDgoGc291cmNlGAMgASgJEg0KBW93bmVyGAQgASgJEhgKEHJlc3RhcnRfcmVxdWlyZWQYBSABKAgSEAoIZWRpdGFibGUYBiABKAgiTAoPRWZmZWN0aXZlQ29uZmlnEjkKB2VudHJpZXMYASADKAsyKC5ub3VzLndhdmUudjFhbHBoYTEuRWZmZWN0aXZlQ29uZmlnRW50cnkiSQoQUHJvamVjdGlvblN0YXR1cxI1CghmYW1pbGllcxgBIAMoCzIjLm5vdXMud2F2ZS52MWFscGhhMS5Db21wb25lbnRTdGF0dXMy9AIKD1Jlc291cmNlU2VydmljZRJdCgtQdXRSZXNvdXJjZRImLm5vdXMud2F2ZS52MWFscGhhMS5QdXRSZXNvdXJjZVJlcXVlc3QaJi5ub3VzLndhdmUudjFhbHBoYTEuUmVzb3VyY2VEZXNjcmlwdG9yElgKC0dldFJlc291cmNlEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaJi5ub3VzLndhdmUudjFhbHBoYTEuUmVzb3VyY2VEZXNjcmlwdG9yElsKDUxpc3RSZXNvdXJjZXMSHy5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFJlcXVlc3QaKS5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFJlc291cmNlc1Jlc3BvbnNlEksKDlJlbW92ZVJlc291cmNlEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkyiQoKD1RvcG9sb2d5U2VydmljZRJKCglDcmVhdGVUYWcSJC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlVGFnUmVxdWVzdBoXLm5vdXMud2F2ZS52MWFscGhhMS5UYWcSRAoGR2V0VGFnEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaFy5ub3VzLndhdmUudjFhbHBoYTEuVGFnElEKCExpc3RUYWdzEh8ubm91cy53YXZlLnYxYWxwaGExLkxpc3RSZXF1ZXN0GiQubm91cy53YXZlLnYxYWxwaGExLkxpc3RUYWdzUmVzcG9uc2USYgoRQ3JlYXRlQXNzb2NpYXRpb24SLC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlQXNzb2NpYXRpb25SZXF1ZXN0Gh8ubm91cy53YXZlLnYxYWxwaGExLkFzc29jaWF0aW9uElkKEVJldm9rZUFzc29jaWF0aW9uEiwubm91cy53YXZlLnYxYWxwaGExLlJldm9rZUFzc29jaWF0aW9uUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJkCg9HZXROZWlnaGJvcmhvb2QSJy5ub3VzLndhdmUudjFhbHBoYTEuTmVpZ2hib3Job29kUmVxdWVzdBooLm5vdXMud2F2ZS52MWFscGhhMS5OZWlnaGJvcmhvb2RSZXNwb25zZRJPCgxSZWJpbmRFbnRpdHkSJy5ub3VzLndhdmUudjFhbHBoYTEuUmViaW5kRW50aXR5UmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJuChVDcmVhdGVDb2duaXRpdmVTY2hlbWESMC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlQ29nbml0aXZlU2NoZW1hUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTY2hlbWESaAoSR2V0Q29nbml0aXZlU2NoZW1hEi0ubm91cy53YXZlLnYxYWxwaGExLkdldENvZ25pdGl2ZVNjaGVtYVJlcXVlc3QaIy5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlU2NoZW1hEmYKEUFkZFNjaGVtYUV2aWRlbmNlEiwubm91cy53YXZlLnYxYWxwaGExLkFkZFNjaGVtYUV2aWRlbmNlUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTY2hlbWESbgoVUmV2aXNlQ29nbml0aXZlU2NoZW1hEjAubm91cy53YXZlLnYxYWxwaGExLlJldmlzZUNvZ25pdGl2ZVNjaGVtYVJlcXVlc3QaIy5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlU2NoZW1hEnkKFFNwbGl0Q29nbml0aXZlU2NoZW1hEi8ubm91cy53YXZlLnYxYWxwaGExLlNwbGl0Q29nbml0aXZlU2NoZW1hUmVxdWVzdBowLm5vdXMud2F2ZS52MWFscGhhMS5TcGxpdENvZ25pdGl2ZVNjaGVtYVJlc3BvbnNlEm4KFU1lcmdlQ29nbml0aXZlU2NoZW1hcxIwLm5vdXMud2F2ZS52MWFscGhhMS5NZXJnZUNvZ25pdGl2ZVNjaGVtYXNSZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVNjaGVtYTLXAgoNU3lzdGVtU2VydmljZRJFCglHZXRTdGF0dXMSFi5nb29nbGUucHJvdG9idWYuRW1wdHkaIC5ub3VzLndhdmUudjFhbHBoYTEuU3lzdGVtU3RhdHVzEksKD0dldENhcGFiaWxpdGllcxIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRogLm5vdXMud2F2ZS52MWFscGhhMS5TeXN0ZW1TdGF0dXMSUQoSR2V0RWZmZWN0aXZlQ29uZmlnEhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5GiMubm91cy53YXZlLnYxYWxwaGExLkVmZmVjdGl2ZUNvbmZpZxJfChNHZXRQcm9qZWN0aW9uU3RhdHVzEiIubm91cy53YXZlLnYxYWxwaGExLlN1YmplY3RSZXF1ZXN0GiQubm91cy53YXZlLnYxYWxwaGExLlByb2plY3Rpb25TdGF0dXNiBnByb3RvMw", [file_google_protobuf_empty, file_google_protobuf_struct, file_google_protobuf_timestamp, file_nous_wave_v1alpha1_types]);
 
 /**
  * @generated from message nous.wave.v1alpha1.ResourceDescriptor
@@ -159,12 +159,17 @@ export const TagSchema: GenMessage<Tag> = /*@__PURE__*/
  */
 export type CreateTagRequest = Message<"nous.wave.v1alpha1.CreateTagRequest"> & {
   /**
-   * @generated from field: string subject_id = 1;
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
    */
   subjectId: string;
 
   /**
-   * @generated from field: nous.wave.v1alpha1.Tag tag = 2;
+   * @generated from field: nous.wave.v1alpha1.Tag tag = 3;
    */
   tag?: Tag | undefined;
 };
@@ -199,114 +204,6 @@ export const ListTagsResponseSchema: GenMessage<ListTagsResponse> = /*@__PURE__*
   messageDesc(file_nous_wave_v1alpha1_management, 5);
 
 /**
- * @generated from message nous.wave.v1alpha1.AnchorSupport
- */
-export type AnchorSupport = Message<"nous.wave.v1alpha1.AnchorSupport"> & {
-  /**
-   * @generated from field: nous.wave.v1alpha1.CognitiveRef reference = 1;
-   */
-  reference?: CognitiveRef | undefined;
-
-  /**
-   * @generated from field: string role = 2;
-   */
-  role: string;
-};
-
-/**
- * Describes the message nous.wave.v1alpha1.AnchorSupport.
- * Use `create(AnchorSupportSchema)` to create a new message.
- */
-export const AnchorSupportSchema: GenMessage<AnchorSupport> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 6);
-
-/**
- * @generated from message nous.wave.v1alpha1.Anchor
- */
-export type Anchor = Message<"nous.wave.v1alpha1.Anchor"> & {
-  /**
-   * @generated from field: string anchor_id = 1;
-   */
-  anchorId: string;
-
-  /**
-   * @generated from field: optional string label = 2;
-   */
-  label?: string | undefined;
-
-  /**
-   * @generated from field: string description = 3;
-   */
-  description: string;
-
-  /**
-   * @generated from field: string origin = 4;
-   */
-  origin: string;
-
-  /**
-   * @generated from field: bool confirmed = 5;
-   */
-  confirmed: boolean;
-
-  /**
-   * @generated from field: repeated nous.wave.v1alpha1.AnchorSupport supports = 6;
-   */
-  supports: AnchorSupport[];
-};
-
-/**
- * Describes the message nous.wave.v1alpha1.Anchor.
- * Use `create(AnchorSchema)` to create a new message.
- */
-export const AnchorSchema: GenMessage<Anchor> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 7);
-
-/**
- * @generated from message nous.wave.v1alpha1.CreateAnchorRequest
- */
-export type CreateAnchorRequest = Message<"nous.wave.v1alpha1.CreateAnchorRequest"> & {
-  /**
-   * @generated from field: string subject_id = 1;
-   */
-  subjectId: string;
-
-  /**
-   * @generated from field: nous.wave.v1alpha1.Anchor anchor = 2;
-   */
-  anchor?: Anchor | undefined;
-};
-
-/**
- * Describes the message nous.wave.v1alpha1.CreateAnchorRequest.
- * Use `create(CreateAnchorRequestSchema)` to create a new message.
- */
-export const CreateAnchorRequestSchema: GenMessage<CreateAnchorRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 8);
-
-/**
- * @generated from message nous.wave.v1alpha1.ListAnchorsResponse
- */
-export type ListAnchorsResponse = Message<"nous.wave.v1alpha1.ListAnchorsResponse"> & {
-  /**
-   * @generated from field: repeated nous.wave.v1alpha1.Anchor items = 1;
-   */
-  items: Anchor[];
-
-  /**
-   * @generated from field: string next_page_token = 2;
-   */
-  nextPageToken: string;
-};
-
-/**
- * Describes the message nous.wave.v1alpha1.ListAnchorsResponse.
- * Use `create(ListAnchorsResponseSchema)` to create a new message.
- */
-export const ListAnchorsResponseSchema: GenMessage<ListAnchorsResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 9);
-
-/**
  * @generated from message nous.wave.v1alpha1.Association
  */
 export type Association = Message<"nous.wave.v1alpha1.Association"> & {
@@ -326,9 +223,9 @@ export type Association = Message<"nous.wave.v1alpha1.Association"> & {
   to?: CognitiveRef | undefined;
 
   /**
-   * @generated from field: string kind = 4;
+   * @generated from field: string relation_kind = 4;
    */
-  kind: string;
+  relationKind: string;
 
   /**
    * @generated from field: string polarity = 5;
@@ -341,24 +238,9 @@ export type Association = Message<"nous.wave.v1alpha1.Association"> & {
   supportClass: string;
 
   /**
-   * @generated from field: double support_value = 7;
+   * @generated from field: repeated nous.wave.v1alpha1.RevisionSupport supports = 7;
    */
-  supportValue: number;
-
-  /**
-   * @generated from field: optional string occurrence_id = 8;
-   */
-  occurrenceId?: string | undefined;
-
-  /**
-   * @generated from field: optional string memory_revision_id = 9;
-   */
-  memoryRevisionId?: string | undefined;
-
-  /**
-   * @generated from field: bool bridge_hint = 10;
-   */
-  bridgeHint: boolean;
+  supports: RevisionSupport[];
 };
 
 /**
@@ -366,19 +248,24 @@ export type Association = Message<"nous.wave.v1alpha1.Association"> & {
  * Use `create(AssociationSchema)` to create a new message.
  */
 export const AssociationSchema: GenMessage<Association> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 10);
+  messageDesc(file_nous_wave_v1alpha1_management, 6);
 
 /**
  * @generated from message nous.wave.v1alpha1.CreateAssociationRequest
  */
 export type CreateAssociationRequest = Message<"nous.wave.v1alpha1.CreateAssociationRequest"> & {
   /**
-   * @generated from field: string subject_id = 1;
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
    */
   subjectId: string;
 
   /**
-   * @generated from field: nous.wave.v1alpha1.Association association = 2;
+   * @generated from field: nous.wave.v1alpha1.Association association = 3;
    */
   association?: Association | undefined;
 };
@@ -388,7 +275,34 @@ export type CreateAssociationRequest = Message<"nous.wave.v1alpha1.CreateAssocia
  * Use `create(CreateAssociationRequestSchema)` to create a new message.
  */
 export const CreateAssociationRequestSchema: GenMessage<CreateAssociationRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 11);
+  messageDesc(file_nous_wave_v1alpha1_management, 7);
+
+/**
+ * @generated from message nous.wave.v1alpha1.RevokeAssociationRequest
+ */
+export type RevokeAssociationRequest = Message<"nous.wave.v1alpha1.RevokeAssociationRequest"> & {
+  /**
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: string association_id = 3;
+   */
+  associationId: string;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.RevokeAssociationRequest.
+ * Use `create(RevokeAssociationRequestSchema)` to create a new message.
+ */
+export const RevokeAssociationRequestSchema: GenMessage<RevokeAssociationRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 8);
 
 /**
  * @generated from message nous.wave.v1alpha1.NeighborhoodRequest
@@ -420,7 +334,7 @@ export type NeighborhoodRequest = Message<"nous.wave.v1alpha1.NeighborhoodReques
  * Use `create(NeighborhoodRequestSchema)` to create a new message.
  */
 export const NeighborhoodRequestSchema: GenMessage<NeighborhoodRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 12);
+  messageDesc(file_nous_wave_v1alpha1_management, 9);
 
 /**
  * @generated from message nous.wave.v1alpha1.NeighborhoodResponse
@@ -447,7 +361,7 @@ export type NeighborhoodResponse = Message<"nous.wave.v1alpha1.NeighborhoodRespo
  * Use `create(NeighborhoodResponseSchema)` to create a new message.
  */
 export const NeighborhoodResponseSchema: GenMessage<NeighborhoodResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 13);
+  messageDesc(file_nous_wave_v1alpha1_management, 10);
 
 /**
  * @generated from message nous.wave.v1alpha1.RebindEntityRequest
@@ -489,7 +403,382 @@ export type RebindEntityRequest = Message<"nous.wave.v1alpha1.RebindEntityReques
  * Use `create(RebindEntityRequestSchema)` to create a new message.
  */
 export const RebindEntityRequestSchema: GenMessage<RebindEntityRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 11);
+
+/**
+ * @generated from message nous.wave.v1alpha1.SchemaScope
+ */
+export type SchemaScope = Message<"nous.wave.v1alpha1.SchemaScope"> & {
+  /**
+   * @generated from field: string description = 1;
+   */
+  description: string;
+
+  /**
+   * @generated from field: repeated string aboutness = 2;
+   */
+  aboutness: string[];
+
+  /**
+   * @generated from field: repeated string tags = 3;
+   */
+  tags: string[];
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.TemporalExtent valid_time = 4;
+   */
+  validTime?: TemporalExtent | undefined;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.SchemaScope.
+ * Use `create(SchemaScopeSchema)` to create a new message.
+ */
+export const SchemaScopeSchema: GenMessage<SchemaScope> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 12);
+
+/**
+ * @generated from message nous.wave.v1alpha1.SchemaEvidenceLink
+ */
+export type SchemaEvidenceLink = Message<"nous.wave.v1alpha1.SchemaEvidenceLink"> & {
+  /**
+   * @generated from field: string link_id = 1;
+   */
+  linkId: string;
+
+  /**
+   * @generated from field: string role = 2;
+   */
+  role: string;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.RevisionSupport support = 3;
+   */
+  support?: RevisionSupport | undefined;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.SchemaEvidenceLink.
+ * Use `create(SchemaEvidenceLinkSchema)` to create a new message.
+ */
+export const SchemaEvidenceLinkSchema: GenMessage<SchemaEvidenceLink> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 13);
+
+/**
+ * @generated from message nous.wave.v1alpha1.CognitiveSchema
+ */
+export type CognitiveSchema = Message<"nous.wave.v1alpha1.CognitiveSchema"> & {
+  /**
+   * @generated from field: string schema_id = 1;
+   */
+  schemaId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: string current_revision_id = 3;
+   */
+  currentRevisionId: string;
+
+  /**
+   * @generated from field: int64 object_epoch = 4;
+   */
+  objectEpoch: bigint;
+
+  /**
+   * @generated from field: string acceptance_state = 5;
+   */
+  acceptanceState: string;
+
+  /**
+   * @generated from field: string integrity_state = 6;
+   */
+  integrityState: string;
+
+  /**
+   * @generated from field: string suppression_state = 7;
+   */
+  suppressionState: string;
+
+  /**
+   * @generated from field: string purge_state = 8;
+   */
+  purgeState: string;
+
+  /**
+   * @generated from field: string title = 9;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string structural_claim = 10;
+   */
+  structuralClaim: string;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.SchemaScope applicability_scope = 11;
+   */
+  applicabilityScope?: SchemaScope | undefined;
+
+  /**
+   * @generated from field: string boundary_definition = 12;
+   */
+  boundaryDefinition: string;
+
+  /**
+   * @generated from field: repeated nous.wave.v1alpha1.SchemaEvidenceLink evidence_links = 13;
+   */
+  evidenceLinks: SchemaEvidenceLink[];
+
+  /**
+   * @generated from field: google.protobuf.Timestamp formed_at = 14;
+   */
+  formedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp recorded_at = 15;
+   */
+  recordedAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.CognitiveSchema.
+ * Use `create(CognitiveSchemaSchema)` to create a new message.
+ */
+export const CognitiveSchemaSchema: GenMessage<CognitiveSchema> = /*@__PURE__*/
   messageDesc(file_nous_wave_v1alpha1_management, 14);
+
+/**
+ * @generated from message nous.wave.v1alpha1.CreateCognitiveSchemaRequest
+ */
+export type CreateCognitiveSchemaRequest = Message<"nous.wave.v1alpha1.CreateCognitiveSchemaRequest"> & {
+  /**
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.CognitiveSchema schema = 3;
+   */
+  schema?: CognitiveSchema | undefined;
+
+  /**
+   * @generated from field: repeated nous.wave.v1alpha1.SchemaEvidenceLink evidence_links = 4;
+   */
+  evidenceLinks: SchemaEvidenceLink[];
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.CreateCognitiveSchemaRequest.
+ * Use `create(CreateCognitiveSchemaRequestSchema)` to create a new message.
+ */
+export const CreateCognitiveSchemaRequestSchema: GenMessage<CreateCognitiveSchemaRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 15);
+
+/**
+ * @generated from message nous.wave.v1alpha1.GetCognitiveSchemaRequest
+ */
+export type GetCognitiveSchemaRequest = Message<"nous.wave.v1alpha1.GetCognitiveSchemaRequest"> & {
+  /**
+   * @generated from field: string subject_id = 1;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: string schema_id = 2;
+   */
+  schemaId: string;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.GetCognitiveSchemaRequest.
+ * Use `create(GetCognitiveSchemaRequestSchema)` to create a new message.
+ */
+export const GetCognitiveSchemaRequestSchema: GenMessage<GetCognitiveSchemaRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 16);
+
+/**
+ * @generated from message nous.wave.v1alpha1.AddSchemaEvidenceRequest
+ */
+export type AddSchemaEvidenceRequest = Message<"nous.wave.v1alpha1.AddSchemaEvidenceRequest"> & {
+  /**
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: string schema_id = 3;
+   */
+  schemaId: string;
+
+  /**
+   * @generated from field: int64 expected_object_epoch = 4;
+   */
+  expectedObjectEpoch: bigint;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.SchemaEvidenceLink link = 5;
+   */
+  link?: SchemaEvidenceLink | undefined;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.AddSchemaEvidenceRequest.
+ * Use `create(AddSchemaEvidenceRequestSchema)` to create a new message.
+ */
+export const AddSchemaEvidenceRequestSchema: GenMessage<AddSchemaEvidenceRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 17);
+
+/**
+ * @generated from message nous.wave.v1alpha1.ReviseCognitiveSchemaRequest
+ */
+export type ReviseCognitiveSchemaRequest = Message<"nous.wave.v1alpha1.ReviseCognitiveSchemaRequest"> & {
+  /**
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: string schema_id = 3;
+   */
+  schemaId: string;
+
+  /**
+   * @generated from field: int64 expected_object_epoch = 4;
+   */
+  expectedObjectEpoch: bigint;
+
+  /**
+   * @generated from field: string intent = 5;
+   */
+  intent: string;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.CognitiveSchema schema = 6;
+   */
+  schema?: CognitiveSchema | undefined;
+
+  /**
+   * @generated from field: repeated string copy_link_ids = 7;
+   */
+  copyLinkIds: string[];
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.ReviseCognitiveSchemaRequest.
+ * Use `create(ReviseCognitiveSchemaRequestSchema)` to create a new message.
+ */
+export const ReviseCognitiveSchemaRequestSchema: GenMessage<ReviseCognitiveSchemaRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 18);
+
+/**
+ * @generated from message nous.wave.v1alpha1.SplitCognitiveSchemaRequest
+ */
+export type SplitCognitiveSchemaRequest = Message<"nous.wave.v1alpha1.SplitCognitiveSchemaRequest"> & {
+  /**
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: string schema_id = 3;
+   */
+  schemaId: string;
+
+  /**
+   * @generated from field: int64 expected_object_epoch = 4;
+   */
+  expectedObjectEpoch: bigint;
+
+  /**
+   * @generated from field: repeated nous.wave.v1alpha1.CognitiveSchema children = 5;
+   */
+  children: CognitiveSchema[];
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.SplitCognitiveSchemaRequest.
+ * Use `create(SplitCognitiveSchemaRequestSchema)` to create a new message.
+ */
+export const SplitCognitiveSchemaRequestSchema: GenMessage<SplitCognitiveSchemaRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 19);
+
+/**
+ * @generated from message nous.wave.v1alpha1.MergeCognitiveSchemasRequest
+ */
+export type MergeCognitiveSchemasRequest = Message<"nous.wave.v1alpha1.MergeCognitiveSchemasRequest"> & {
+  /**
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: repeated string schema_ids = 3;
+   */
+  schemaIds: string[];
+
+  /**
+   * @generated from field: repeated int64 expected_object_epochs = 4;
+   */
+  expectedObjectEpochs: bigint[];
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.CognitiveSchema merged = 5;
+   */
+  merged?: CognitiveSchema | undefined;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.MergeCognitiveSchemasRequest.
+ * Use `create(MergeCognitiveSchemasRequestSchema)` to create a new message.
+ */
+export const MergeCognitiveSchemasRequestSchema: GenMessage<MergeCognitiveSchemasRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 20);
+
+/**
+ * @generated from message nous.wave.v1alpha1.SplitCognitiveSchemaResponse
+ */
+export type SplitCognitiveSchemaResponse = Message<"nous.wave.v1alpha1.SplitCognitiveSchemaResponse"> & {
+  /**
+   * @generated from field: repeated nous.wave.v1alpha1.CognitiveSchema children = 1;
+   */
+  children: CognitiveSchema[];
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.SplitCognitiveSchemaResponse.
+ * Use `create(SplitCognitiveSchemaResponseSchema)` to create a new message.
+ */
+export const SplitCognitiveSchemaResponseSchema: GenMessage<SplitCognitiveSchemaResponse> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 21);
 
 /**
  * @generated from message nous.wave.v1alpha1.TopologyTagChange
@@ -516,44 +805,24 @@ export type TopologyTagChange = Message<"nous.wave.v1alpha1.TopologyTagChange"> 
  * Use `create(TopologyTagChangeSchema)` to create a new message.
  */
 export const TopologyTagChangeSchema: GenMessage<TopologyTagChange> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 15);
+  messageDesc(file_nous_wave_v1alpha1_management, 22);
 
 /**
- * @generated from message nous.wave.v1alpha1.TopologyRevisionChange
+ * @generated from message nous.wave.v1alpha1.TopologyAssociationChange
  */
-export type TopologyRevisionChange = Message<"nous.wave.v1alpha1.TopologyRevisionChange"> & {
+export type TopologyAssociationChange = Message<"nous.wave.v1alpha1.TopologyAssociationChange"> & {
   /**
-   * @generated from field: string memory_id = 1;
+   * @generated from field: nous.wave.v1alpha1.Association association = 1;
    */
-  memoryId: string;
-
-  /**
-   * @generated from field: string expected_etag = 2;
-   */
-  expectedEtag: string;
-
-  /**
-   * @generated from field: string intent = 3;
-   */
-  intent: string;
-
-  /**
-   * @generated from field: nous.wave.v1alpha1.MemoryContent content = 4;
-   */
-  content?: MemoryContent | undefined;
-
-  /**
-   * @generated from field: repeated string entity_refs = 5;
-   */
-  entityRefs: string[];
+  association?: Association | undefined;
 };
 
 /**
- * Describes the message nous.wave.v1alpha1.TopologyRevisionChange.
- * Use `create(TopologyRevisionChangeSchema)` to create a new message.
+ * Describes the message nous.wave.v1alpha1.TopologyAssociationChange.
+ * Use `create(TopologyAssociationChangeSchema)` to create a new message.
  */
-export const TopologyRevisionChangeSchema: GenMessage<TopologyRevisionChange> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 16);
+export const TopologyAssociationChangeSchema: GenMessage<TopologyAssociationChange> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_management, 23);
 
 /**
  * @generated from message nous.wave.v1alpha1.TopologyChanges
@@ -565,19 +834,9 @@ export type TopologyChanges = Message<"nous.wave.v1alpha1.TopologyChanges"> & {
   tags: TopologyTagChange[];
 
   /**
-   * @generated from field: repeated nous.wave.v1alpha1.Anchor anchors = 2;
+   * @generated from field: repeated nous.wave.v1alpha1.TopologyAssociationChange associations = 2;
    */
-  anchors: Anchor[];
-
-  /**
-   * @generated from field: repeated nous.wave.v1alpha1.Association associations = 3;
-   */
-  associations: Association[];
-
-  /**
-   * @generated from field: repeated nous.wave.v1alpha1.TopologyRevisionChange revisions = 4;
-   */
-  revisions: TopologyRevisionChange[];
+  associations: TopologyAssociationChange[];
 };
 
 /**
@@ -585,39 +844,49 @@ export type TopologyChanges = Message<"nous.wave.v1alpha1.TopologyChanges"> & {
  * Use `create(TopologyChangesSchema)` to create a new message.
  */
 export const TopologyChangesSchema: GenMessage<TopologyChanges> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 17);
+  messageDesc(file_nous_wave_v1alpha1_management, 24);
 
 /**
  * @generated from message nous.wave.v1alpha1.ConsolidateMemoryRequest
  */
 export type ConsolidateMemoryRequest = Message<"nous.wave.v1alpha1.ConsolidateMemoryRequest"> & {
   /**
-   * @generated from field: string subject_id = 1;
+   * @generated from field: string operation_id = 1;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string subject_id = 2;
    */
   subjectId: string;
 
   /**
-   * @generated from field: repeated string source_revision_ids = 2;
+   * @generated from field: repeated string source_revision_ids = 3;
    */
   sourceRevisionIds: string[];
 
   /**
-   * @generated from field: string target = 3;
+   * @generated from field: string target = 4;
    */
   target: string;
 
   /**
-   * @generated from field: string text = 4;
+   * @generated from field: string text = 5;
    */
   text: string;
 
   /**
-   * @generated from field: string semantic_role = 5;
+   * @generated from field: string semantic_role = 6;
    */
   semanticRole: string;
 
   /**
-   * @generated from field: nous.wave.v1alpha1.TopologyChanges topology = 6;
+   * @generated from field: google.protobuf.Timestamp formed_at = 7;
+   */
+  formedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.TopologyChanges topology = 8;
    */
   topology?: TopologyChanges | undefined;
 };
@@ -627,7 +896,7 @@ export type ConsolidateMemoryRequest = Message<"nous.wave.v1alpha1.ConsolidateMe
  * Use `create(ConsolidateMemoryRequestSchema)` to create a new message.
  */
 export const ConsolidateMemoryRequestSchema: GenMessage<ConsolidateMemoryRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 18);
+  messageDesc(file_nous_wave_v1alpha1_management, 25);
 
 /**
  * @generated from message nous.wave.v1alpha1.ConsolidationResponse
@@ -649,7 +918,7 @@ export type ConsolidationResponse = Message<"nous.wave.v1alpha1.ConsolidationRes
  * Use `create(ConsolidationResponseSchema)` to create a new message.
  */
 export const ConsolidationResponseSchema: GenMessage<ConsolidationResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 19);
+  messageDesc(file_nous_wave_v1alpha1_management, 26);
 
 /**
  * @generated from message nous.wave.v1alpha1.Occurrence
@@ -681,9 +950,9 @@ export type Occurrence = Message<"nous.wave.v1alpha1.Occurrence"> & {
   externalObjectRef?: string | undefined;
 
   /**
-   * @generated from field: google.protobuf.Timestamp occurred_at = 6;
+   * @generated from field: nous.wave.v1alpha1.TemporalExtent occurred_time = 6;
    */
-  occurredAt?: Timestamp | undefined;
+  occurredTime?: TemporalExtent | undefined;
 
   /**
    * @generated from field: google.protobuf.Timestamp observed_at = 7;
@@ -711,7 +980,7 @@ export type Occurrence = Message<"nous.wave.v1alpha1.Occurrence"> & {
  * Use `create(OccurrenceSchema)` to create a new message.
  */
 export const OccurrenceSchema: GenMessage<Occurrence> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 20);
+  messageDesc(file_nous_wave_v1alpha1_management, 27);
 
 /**
  * @generated from message nous.wave.v1alpha1.SourceRegion
@@ -753,7 +1022,7 @@ export type SourceRegion = Message<"nous.wave.v1alpha1.SourceRegion"> & {
  * Use `create(SourceRegionSchema)` to create a new message.
  */
 export const SourceRegionSchema: GenMessage<SourceRegion> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 21);
+  messageDesc(file_nous_wave_v1alpha1_management, 28);
 
 /**
  * @generated from message nous.wave.v1alpha1.DerivedRepresentation
@@ -805,7 +1074,7 @@ export type DerivedRepresentation = Message<"nous.wave.v1alpha1.DerivedRepresent
  * Use `create(DerivedRepresentationSchema)` to create a new message.
  */
 export const DerivedRepresentationSchema: GenMessage<DerivedRepresentation> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 22);
+  messageDesc(file_nous_wave_v1alpha1_management, 29);
 
 /**
  * @generated from message nous.wave.v1alpha1.ComponentStatus
@@ -832,7 +1101,7 @@ export type ComponentStatus = Message<"nous.wave.v1alpha1.ComponentStatus"> & {
  * Use `create(ComponentStatusSchema)` to create a new message.
  */
 export const ComponentStatusSchema: GenMessage<ComponentStatus> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 23);
+  messageDesc(file_nous_wave_v1alpha1_management, 30);
 
 /**
  * @generated from message nous.wave.v1alpha1.SystemStatus
@@ -849,7 +1118,7 @@ export type SystemStatus = Message<"nous.wave.v1alpha1.SystemStatus"> & {
  * Use `create(SystemStatusSchema)` to create a new message.
  */
 export const SystemStatusSchema: GenMessage<SystemStatus> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 24);
+  messageDesc(file_nous_wave_v1alpha1_management, 31);
 
 /**
  * @generated from message nous.wave.v1alpha1.EffectiveConfigEntry
@@ -891,7 +1160,7 @@ export type EffectiveConfigEntry = Message<"nous.wave.v1alpha1.EffectiveConfigEn
  * Use `create(EffectiveConfigEntrySchema)` to create a new message.
  */
 export const EffectiveConfigEntrySchema: GenMessage<EffectiveConfigEntry> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 25);
+  messageDesc(file_nous_wave_v1alpha1_management, 32);
 
 /**
  * @generated from message nous.wave.v1alpha1.EffectiveConfig
@@ -908,7 +1177,7 @@ export type EffectiveConfig = Message<"nous.wave.v1alpha1.EffectiveConfig"> & {
  * Use `create(EffectiveConfigSchema)` to create a new message.
  */
 export const EffectiveConfigSchema: GenMessage<EffectiveConfig> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 26);
+  messageDesc(file_nous_wave_v1alpha1_management, 33);
 
 /**
  * @generated from message nous.wave.v1alpha1.ProjectionStatus
@@ -925,7 +1194,7 @@ export type ProjectionStatus = Message<"nous.wave.v1alpha1.ProjectionStatus"> & 
  * Use `create(ProjectionStatusSchema)` to create a new message.
  */
 export const ProjectionStatusSchema: GenMessage<ProjectionStatus> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_management, 27);
+  messageDesc(file_nous_wave_v1alpha1_management, 34);
 
 /**
  * @generated from service nous.wave.v1alpha1.ResourceService
@@ -995,36 +1264,20 @@ export const TopologyService: GenService<{
     output: typeof ListTagsResponseSchema;
   },
   /**
-   * @generated from rpc nous.wave.v1alpha1.TopologyService.CreateAnchor
-   */
-  createAnchor: {
-    methodKind: "unary";
-    input: typeof CreateAnchorRequestSchema;
-    output: typeof AnchorSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.v1alpha1.TopologyService.GetAnchor
-   */
-  getAnchor: {
-    methodKind: "unary";
-    input: typeof ObjectRequestSchema;
-    output: typeof AnchorSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.v1alpha1.TopologyService.ListAnchors
-   */
-  listAnchors: {
-    methodKind: "unary";
-    input: typeof ListRequestSchema;
-    output: typeof ListAnchorsResponseSchema;
-  },
-  /**
    * @generated from rpc nous.wave.v1alpha1.TopologyService.CreateAssociation
    */
   createAssociation: {
     methodKind: "unary";
     input: typeof CreateAssociationRequestSchema;
     output: typeof AssociationSchema;
+  },
+  /**
+   * @generated from rpc nous.wave.v1alpha1.TopologyService.RevokeAssociation
+   */
+  revokeAssociation: {
+    methodKind: "unary";
+    input: typeof RevokeAssociationRequestSchema;
+    output: typeof EmptySchema;
   },
   /**
    * @generated from rpc nous.wave.v1alpha1.TopologyService.GetNeighborhood
@@ -1041,6 +1294,54 @@ export const TopologyService: GenService<{
     methodKind: "unary";
     input: typeof RebindEntityRequestSchema;
     output: typeof EmptySchema;
+  },
+  /**
+   * @generated from rpc nous.wave.v1alpha1.TopologyService.CreateCognitiveSchema
+   */
+  createCognitiveSchema: {
+    methodKind: "unary";
+    input: typeof CreateCognitiveSchemaRequestSchema;
+    output: typeof CognitiveSchemaSchema;
+  },
+  /**
+   * @generated from rpc nous.wave.v1alpha1.TopologyService.GetCognitiveSchema
+   */
+  getCognitiveSchema: {
+    methodKind: "unary";
+    input: typeof GetCognitiveSchemaRequestSchema;
+    output: typeof CognitiveSchemaSchema;
+  },
+  /**
+   * @generated from rpc nous.wave.v1alpha1.TopologyService.AddSchemaEvidence
+   */
+  addSchemaEvidence: {
+    methodKind: "unary";
+    input: typeof AddSchemaEvidenceRequestSchema;
+    output: typeof CognitiveSchemaSchema;
+  },
+  /**
+   * @generated from rpc nous.wave.v1alpha1.TopologyService.ReviseCognitiveSchema
+   */
+  reviseCognitiveSchema: {
+    methodKind: "unary";
+    input: typeof ReviseCognitiveSchemaRequestSchema;
+    output: typeof CognitiveSchemaSchema;
+  },
+  /**
+   * @generated from rpc nous.wave.v1alpha1.TopologyService.SplitCognitiveSchema
+   */
+  splitCognitiveSchema: {
+    methodKind: "unary";
+    input: typeof SplitCognitiveSchemaRequestSchema;
+    output: typeof SplitCognitiveSchemaResponseSchema;
+  },
+  /**
+   * @generated from rpc nous.wave.v1alpha1.TopologyService.MergeCognitiveSchemas
+   */
+  mergeCognitiveSchemas: {
+    methodKind: "unary";
+    input: typeof MergeCognitiveSchemasRequestSchema;
+    output: typeof CognitiveSchemaSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_nous_wave_v1alpha1_management, 1);

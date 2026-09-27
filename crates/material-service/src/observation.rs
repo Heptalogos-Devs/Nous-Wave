@@ -1,6 +1,20 @@
 use super::*;
 use nous_authority_store::database_error as db;
 
+fn temporal_columns(
+    value: &nous_core::TemporalExtent,
+) -> (
+    &'static str,
+    Option<chrono::DateTime<chrono::Utc>>,
+    Option<chrono::DateTime<chrono::Utc>>,
+) {
+    match value {
+        nous_core::TemporalExtent::Unknown => ("unknown", None, None),
+        nous_core::TemporalExtent::Instant { at } => ("instant", Some(*at), None),
+        nous_core::TemporalExtent::Interval { start, end } => ("interval", *start, *end),
+    }
+}
+
 impl MaterialService {
     pub async fn record_observation(&self, input: ObservationInput) -> Result<AcceptedObservation> {
         self.record_observation_once(input, None).await
@@ -76,7 +90,7 @@ impl MaterialService {
                     _ => None,
                 }
             }),
-            occurred_at: input.occurrence.occurred_at,
+            occurred_time: input.occurrence.occurred_time.clone(),
             observed_at: input.occurrence.observed_at,
             conversation_ref: input.occurrence.conversation_ref.clone(),
             actor_entity_ref: input.occurrence.actor_entity_ref.clone(),
@@ -108,8 +122,10 @@ impl MaterialService {
             None
         };
         occurrence.artifact_id = artifact.as_ref().map(|artifact| artifact.artifact_id);
-        sqlx::query("INSERT INTO observation_occurrences(occurrence_id,subject_id,artifact_id,source_class,external_object_ref,occurred_at,observed_at,conversation_ref,actor_entity_ref,context,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
-            .bind(occurrence.occurrence_id.0).bind(occurrence.subject_id.0).bind(occurrence.artifact_id.map(|id| id.0)).bind(occurrence.source_class.as_str()).bind(occurrence.external_object_ref.as_ref().map(ObjectRef::as_str)).bind(occurrence.occurred_at).bind(occurrence.observed_at).bind(&occurrence.conversation_ref).bind(occurrence.actor_entity_ref.as_ref().map(EntityRef::as_str)).bind(&occurrence.context).bind(occurrence.created_at).execute(&mut *tx).await.map_err(db)?;
+        let (occurred_kind, occurred_start, occurred_end) =
+            temporal_columns(&occurrence.occurred_time);
+        sqlx::query("INSERT INTO observation_occurrences(occurrence_id,subject_id,artifact_id,source_class,external_object_ref,occurred_time_kind,occurred_time_start,occurred_time_end,observed_at,conversation_ref,actor_entity_ref,context,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
+            .bind(occurrence.occurrence_id.0).bind(occurrence.subject_id.0).bind(occurrence.artifact_id.map(|id| id.0)).bind(occurrence.source_class.as_str()).bind(occurrence.external_object_ref.as_ref().map(ObjectRef::as_str)).bind(occurred_kind).bind(occurred_start).bind(occurred_end).bind(occurrence.observed_at).bind(&occurrence.conversation_ref).bind(occurrence.actor_entity_ref.as_ref().map(EntityRef::as_str)).bind(&occurrence.context).bind(occurrence.created_at).execute(&mut *tx).await.map_err(db)?;
         let source_region = if let Some(artifact) = &artifact {
             let coordinate = serde_json::json!({});
             let coordinate_hash = blake3::hash(

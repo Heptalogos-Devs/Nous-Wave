@@ -1,967 +1,612 @@
-use super::support::*;
-use super::*;
+use crate::*;
+use async_trait::async_trait;
+use nous_cognitive_runtime::{CognitiveContributor, QueryPlan};
+use nous_memory_retrieval::{SourceSeed, propagate_with_budget};
+use nous_serving::TextEmbeddingRequest;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use uuid::Uuid;
 
-use super::query_diagnostics::{QueryDiagnosticsInput, build_query_diagnostics};
-use super::query_helpers::*;
+#[derive(Debug, Clone)]
+struct Candidate {
+    view: MemoryView,
+    lane_ranks: BTreeMap<EvidenceFamily, usize>,
+}
 
-impl MemoryService {
-    // Query orchestration retains lane ordering and evidence-family semantics together.
-    pub async fn query(&self, query: CognitiveQuery) -> Result<CognitiveQueryResult> {
-        let plan = nous_cognitive_runtime::QueryPlan::for_query(&query);
-        self.query_with_plan(query, &plan).await
-    }
-
+#[async_trait]
+impl CognitiveContributor for MemoryService {
     #[expect(
-        clippy::excessive_nesting,
         clippy::too_many_lines,
-        reason = "query orchestration owns the ordered candidate and evidence phases"
+        reason = "query contribution owns bounded candidate generation, fusion, and final validation"
     )]
-    pub async fn query_with_plan(
+    async fn contribute(
         &self,
-        query: CognitiveQuery,
-        plan: &nous_cognitive_runtime::QueryPlan,
+        query: &CognitiveQuery,
+        plan: &QueryPlan,
     ) -> Result<CognitiveQueryResult> {
-        query.validate()?;
-        self.require_subject(query.subject).await?;
-        if let Some(session) = query.session {
-            self.cognition
-                .require_session(query.subject, session)
-                .await?;
+        let enabled = enabled_lanes(query, plan);
+        if enabled.is_empty() {
+            return Err(Error::Invalid("query has no enabled retrieval lane".into()));
         }
         let snapshot = self.serving.publisher.snapshot_for(query.subject);
-        let mut degradation = Vec::new();
-        let has_text_cue = query
-            .cues
-            .iter()
-            .any(|cue| matches!(cue, Cue::Text(_) | Cue::Example(_)));
-        if matches!(
-            query.capabilities.text_embedding,
-            RequirementStrength::Required
-        ) && has_text_cue
-            && (snapshot.dense.is_empty() || self.serving.embedding.is_none())
-        {
-            return Err(Error::Unavailable(
-                "text embedding capability/generation is unavailable".into(),
-            ));
-        }
-        if matches!(
-            query.capabilities.text_embedding,
-            RequirementStrength::Preferred
-        ) && has_text_cue
-            && (snapshot.dense.is_empty() || self.serving.embedding.is_none())
-        {
-            degradation.push(Degradation {
-                code: "text_embedding_unavailable".into(),
-                detail: Some("exact and structured lanes continue".into()),
-            });
-        }
-        if matches!(
-            query.capabilities.residual_sensing,
-            RequirementStrength::Required
-        ) && has_text_cue
-            && (snapshot.dense.is_empty() || self.serving.embedding.is_none())
-        {
-            return Err(Error::Unavailable(
-                "residual sensing requires a compatible dense generation".into(),
-            ));
-        }
-        if matches!(
-            query.capabilities.residual_sensing,
-            RequirementStrength::Preferred
-        ) && has_text_cue
-            && (snapshot.dense.is_empty() || self.serving.embedding.is_none())
-        {
-            degradation.push(Degradation {
-                code: "residual_sensing_unavailable".into(),
-                detail: Some("compatible dense Tag vectors are not ready".into()),
-            });
-        }
-        if matches!(
-            query.capabilities.text_rerank,
-            RequirementStrength::Required
-        ) {
-            return Err(Error::Unavailable(
-                "text rerank capability is not configured".into(),
-            ));
-        }
-        if matches!(
-            query.capabilities.text_rerank,
-            RequirementStrength::Preferred
-        ) {
-            degradation.push(Degradation {
-                code: "rerank_unavailable".into(),
-                detail: Some("no text reranker is configured".into()),
-            });
-        }
-        if snapshot.wave.is_none() && query.exploration != ExplorationIntent::None {
-            degradation.push(Degradation {
-                code: "wave_generation_unavailable".into(),
-                detail: Some("topology lane was not published".into()),
-            });
-        }
-        let pattern = query
-            .cues
-            .iter()
-            .filter_map(|cue| match cue {
-                Cue::Text(cue) => Some(cue.text.as_str()),
-                Cue::Example(cue) => Some(cue.text.as_str()),
-                _ => None,
-            })
-            .collect::<Vec<_>>()
-            .join(" ")
-            .trim()
-            .to_owned();
-        let mut candidates = CandidateAccumulator::default();
-        let mut executed_candidate_bound = 0usize;
-        if !pattern.is_empty()
-            && let Some(lexical) = &snapshot.lexical
-        {
-            executed_candidate_bound = executed_candidate_bound.max(plan.candidate_limit);
-            match lexical.search(&pattern, plan.candidate_limit) {
-                Ok(matches) => {
-                    for (rank, item) in matches.into_iter().enumerate() {
-                        if let Some(reference) = item.reference {
-                            candidates.add_lexical(reference, rank + 1);
-                        }
-                    }
-                }
-                Err(error) => degradation.push(Degradation {
-                    code: "lexical_generation_unavailable".into(),
-                    detail: Some(error.to_string()),
-                }),
-            }
-        }
-        let mut query_embedding = None;
-        if !pattern.is_empty()
-            && query.capabilities.text_embedding != RequirementStrength::Forbidden
-            && let Some(provider) = &self.serving.embedding
-        {
-            match provider
-                .embed(TextEmbeddingRequest {
-                    subject: query.subject,
-                    text: pattern.clone(),
-                    query: true,
-                })
-                .await
-            {
-                Ok(output) => {
-                    query_embedding = Some(output.clone());
-                    let mut matched_space = false;
-                    for generation in &snapshot.dense {
-                        if !generation.space.compatible_with(&output.space) {
-                            continue;
-                        }
-                        matched_space = true;
-                        for (rank, item) in generation
-                            .search(&output.vector, plan.candidate_limit)
-                            .map_err(|error| Error::Infrastructure(error.to_string()))?
-                            .into_iter()
-                            .enumerate()
-                        {
-                            if let Some(record) = item.record {
-                                candidates.add_dense(record.reference, rank + 1, "direct_dense");
-                            }
-                        }
-                    }
-                    if !matched_space {
-                        let space_degradation = Degradation {
-                            code: "embedding_space_not_ready".into(),
-                            detail: Some("no dense generation matches the query space".into()),
-                        };
-                        if query.capabilities.text_embedding == RequirementStrength::Required {
-                            return Err(Error::Unavailable(space_degradation.code.clone()));
-                        }
-                        degradation.push(space_degradation);
-                    } else {
-                        executed_candidate_bound =
-                            executed_candidate_bound.max(plan.candidate_limit);
-                    }
-                }
-                Err(error)
-                    if query.capabilities.text_embedding == RequirementStrength::Required =>
-                {
-                    return Err(error);
-                }
-                Err(error) => degradation.push(Degradation {
-                    code: "text_embedding_unavailable".into(),
-                    detail: Some(error.to_string()),
-                }),
-            }
-        }
-        let exact_refs = query
-            .targets
-            .iter()
-            .filter_map(|target| {
-                if let QueryTarget::Exact { reference } = target {
-                    Some(reference)
-                } else {
-                    None
-                }
-            })
-            .cloned()
-            .collect::<HashSet<_>>();
-        let mut entity_cues = query
-            .cues
-            .iter()
-            .filter_map(|cue| {
-                if let Cue::Entity(entity) = cue {
-                    Some(entity.entity_ref.clone())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        let mut selected = BTreeMap::<Uuid, Option<Uuid>>::new();
+        let mut exact_memory_ids = BTreeSet::new();
+        let mut exact_revision_ids = BTreeSet::new();
+
         for target in &query.targets {
-            if let QueryTarget::EntityNeighborhood { entity_ref } = target
-                && !entity_cues.contains(entity_ref)
-            {
-                entity_cues.push(entity_ref.clone());
-            }
-        }
-        let required_entities = query
-            .constraints
-            .entity_requirements
-            .iter()
-            .collect::<Vec<_>>();
-        let tag_cues = query
-            .cues
-            .iter()
-            .filter_map(|cue| match cue {
-                Cue::Tag(tag) => Some(tag.tag),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        let mut residual_tag_cues = Vec::new();
-        let mut anchor_cues = query
-            .cues
-            .iter()
-            .filter_map(|cue| match cue {
-                Cue::Anchor(anchor) => Some(anchor.anchor),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        for target in &query.targets {
-            if let QueryTarget::AnchorNeighborhood { anchor } = target
-                && !anchor_cues.contains(anchor)
-            {
-                anchor_cues.push(*anchor);
-            }
-        }
-        let mut residual_trace = None;
-        let mut residual_seed_refs = Vec::new();
-        let mut epa_trace = None;
-        let mut epa_generation = None;
-        if let Some(output) = &query_embedding {
-            if plan.sense_cues
-                && query.capabilities.residual_sensing != RequirementStrength::Forbidden
-                && let Some(generation) = snapshot
-                    .dense
-                    .iter()
-                    .find(|generation| generation.space.compatible_with(&output.space))
-            {
-                let tag_by_doc = generation
-                    .records()
-                    .filter_map(|record| {
-                        matches!(record.reference, CognitiveRef::Tag(_))
-                            .then_some((record.serving_doc_id, record.reference.clone()))
-                    })
-                    .collect::<HashMap<_, _>>();
-                let residual = self.cue_sensing.sense(
-                    &output.vector,
-                    generation,
-                    ResidualConfig {
-                        top_k_per_level: plan.candidate_limit.clamp(1, 64),
-                        ..ResidualConfig::default()
-                    },
-                )?;
-                if let Some(residual) = residual {
-                    for sensed in residual.levels.iter().flat_map(|level| level.sensed.iter()) {
-                        if let Some(CognitiveRef::Tag(tag)) = tag_by_doc.get(&sensed.tag_key) {
-                            if !residual_tag_cues.contains(tag) {
-                                residual_tag_cues.push(*tag);
-                            }
-                            residual_seed_refs
-                                .push((CognitiveRef::Tag(*tag), sensed.seed_weight.max(0.0)));
-                        }
-                    }
-                    residual_trace = Some(residual);
-                }
-            }
-            if plan.sense_cues
-                && let Some(generation) = snapshot
-                    .epa
-                    .iter()
-                    .find(|generation| generation.basis.embedding_space == output.space.space_hash)
-            {
-                epa_generation = Some(generation.generation_id);
-                epa_trace = observe_epa(
-                    &generation.basis,
-                    &output
-                        .vector
-                        .iter()
-                        .map(|value| f64::from(*value))
-                        .collect::<Vec<_>>(),
-                );
-            }
-        }
-        if has_text_cue
-            && query.capabilities.residual_sensing == RequirementStrength::Preferred
-            && residual_trace.is_none()
-            && !degradation
-                .iter()
-                .any(|degradation| degradation.code == "residual_sensing_unavailable")
-        {
-            degradation.push(Degradation {
-                code: "residual_sensing_unavailable".into(),
-                detail: Some("no compatible Tag vectors were available".into()),
-            });
-        }
-        if let Some(output) = &query_embedding {
-            let mut denoised = output
-                .vector
-                .iter()
-                .map(|value| f64::from(*value))
-                .collect::<Vec<_>>();
-            if let Some(residual) = &residual_trace
-                && let Some(generation) = snapshot
-                    .dense
-                    .iter()
-                    .find(|generation| generation.space.compatible_with(&output.space))
-            {
-                for sensed in residual.levels.iter().flat_map(|level| level.sensed.iter()) {
-                    if let Some(vector) = generation.vector(sensed.tag_key) {
-                        for (value, tag_value) in denoised.iter_mut().zip(vector) {
-                            *value += 0.25 * sensed.seed_weight * f64::from(*tag_value);
-                        }
-                    }
-                }
-                let norm = denoised
-                    .iter()
-                    .map(|value| value * value)
-                    .sum::<f64>()
-                    .sqrt();
-                if norm > f64::EPSILON {
-                    let denoised = denoised
-                        .iter()
-                        .map(|value| (*value / norm) as f32)
-                        .collect::<Vec<_>>();
-                    for generation in &snapshot.dense {
-                        if !generation.space.compatible_with(&output.space) {
-                            continue;
-                        }
-                        for (rank, item) in generation
-                            .search(&denoised, plan.candidate_limit)?
-                            .into_iter()
-                            .enumerate()
-                        {
-                            executed_candidate_bound =
-                                executed_candidate_bound.max(plan.candidate_limit);
-                            if let Some(record) = item.record {
-                                candidates.add_dense(record.reference, rank + 1, "denoised_dense");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        let mut candidate_memory_ids = HashSet::<Uuid>::new();
-        for reference in &exact_refs {
-            candidates.mark_exact(reference.clone());
+            let QueryTarget::Exact { reference } = target else {
+                continue;
+            };
             match reference {
                 CognitiveRef::Memory(memory) => {
-                    candidate_memory_ids.insert(memory.0);
+                    self.store
+                        .validate_reference(query.subject, reference)
+                        .await?;
+                    selected.entry(memory.0).or_insert(None);
+                    exact_memory_ids.insert(memory.0);
                 }
                 CognitiveRef::MemoryRevision(revision) => {
-                    if let Some(memory) = sqlx::query_scalar::<_, Uuid>(
+                    self.store
+                        .validate_reference(query.subject, reference)
+                        .await?;
+                    let memory_id: Uuid = sqlx::query_scalar(
                         "SELECT memory_id FROM memory_revisions WHERE subject_id=$1 AND memory_revision_id=$2",
                     )
                     .bind(query.subject.0)
                     .bind(revision.0)
-                    .fetch_optional(self.store.pool())
+                    .fetch_one(self.store.pool())
                     .await
-                    .map_err(db)?
-                    {
-                        candidate_memory_ids.insert(memory);
-                    }
+                    .map_err(nous_authority_store::database_error)?;
+                    selected.insert(memory_id, Some(revision.0));
+                    exact_revision_ids.insert(revision.0);
                 }
                 _ => {}
             }
         }
-        for reference in query
-            .situation
-            .current_refs
+
+        let text_query = query
+            .cues
             .iter()
-            .chain(query.targets.iter().filter_map(|target| match target {
-                QueryTarget::Exact { reference } => Some(reference),
+            .filter_map(|cue| match cue {
+                Cue::Text(value) => Some(value.text.as_str()),
+                Cue::Example(value) => Some(value.text.as_str()),
                 _ => None,
-            }))
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        let mut lexical_ranks = HashMap::<CognitiveRef, usize>::new();
+        if !text_query.trim().is_empty()
+            && let Some(index) = snapshot.lexical.as_ref()
         {
-            candidates.mark_runtime(reference.clone());
-            if let CognitiveRef::Memory(memory) = reference {
-                candidate_memory_ids.insert(memory.0);
-            }
-        }
-        let mut posting_keys = Vec::new();
-        posting_keys.extend(
-            entity_cues
-                .iter()
-                .map(|entity| CognitiveRef::Entity(entity.clone()).to_string()),
-        );
-        posting_keys.extend(
-            required_entities
-                .iter()
-                .map(|entity| CognitiveRef::Entity((*entity).clone()).to_string()),
-        );
-        posting_keys.extend(
-            tag_cues
-                .iter()
-                .map(|tag| CognitiveRef::Tag(*tag).to_string()),
-        );
-        posting_keys.extend(
-            residual_tag_cues
-                .iter()
-                .map(|tag| CognitiveRef::Tag(*tag).to_string()),
-        );
-        posting_keys.extend(
-            anchor_cues
-                .iter()
-                .map(|anchor| CognitiveRef::Anchor(*anchor).to_string()),
-        );
-        posting_keys.extend(
-            query
-                .situation
-                .current_refs
-                .iter()
-                .filter(|reference| {
-                    matches!(
-                        reference,
-                        CognitiveRef::Entity(_) | CognitiveRef::Tag(_) | CognitiveRef::Anchor(_)
-                    )
-                })
-                .map(|reference| reference.to_string()),
-        );
-        let mut posting_budget = plan.candidate_limit;
-        for key in posting_keys {
-            let lane = if key.starts_with("entity:") {
-                "entity_posting"
-            } else if key.starts_with("tag:") {
-                "tag_posting"
-            } else {
-                "anchor_posting"
-            };
-            if posting_budget == 0 {
-                break;
-            }
-            executed_candidate_bound = executed_candidate_bound.max(plan.candidate_limit);
-            let references = snapshot.postings.references(&key);
-            let consumed = references.len().min(posting_budget);
-            for reference in references.into_iter().take(posting_budget) {
-                candidates.add_posting(reference.clone(), lane);
-                match reference {
-                    CognitiveRef::Memory(memory) => {
-                        candidate_memory_ids.insert(memory.0);
-                    }
-                    CognitiveRef::MemoryRevision(revision) => {
-                        if let Some(memory) = sqlx::query_scalar::<_, Uuid>(
-                            "SELECT memory_id FROM memory_revisions WHERE subject_id=$1 AND memory_revision_id=$2",
-                        )
-                        .bind(query.subject.0)
-                        .bind(revision.0)
-                        .fetch_optional(self.store.pool())
-                        .await
-                        .map_err(db)?
-                        {
-                            candidate_memory_ids.insert(memory);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            posting_budget -= consumed;
-        }
-        let mut topology_state = None;
-        if plan.expand_topology
-            && let Some(wave) = &snapshot.wave
-        {
-            let seeds = wave_seeds(
-                wave,
-                &query,
-                &tag_cues,
-                &entity_cues,
-                &anchor_cues,
-                &exact_refs,
-                &residual_seed_refs,
-                query_embedding
-                    .as_ref()
-                    .map(|embedding| embedding.space.space_hash.as_str()),
-            );
-            if !seeds.is_empty() {
-                let river =
-                    self.expansion
-                        .expand(wave, &seeds, plan.topology_rounds, plan.topology_nodes);
-                let mut topology_candidates = river
-                    .provenance
-                    .iter()
-                    .filter_map(|entry| {
-                        let reference = wave.nodes.get(entry.node as usize)?.reference.clone();
-                        match reference {
-                            CognitiveRef::Memory(memory) => Some((entry.potential, memory.0)),
-                            _ => None,
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                topology_candidates.sort_by(|left, right| {
-                    right
-                        .0
-                        .total_cmp(&left.0)
-                        .then_with(|| left.1.cmp(&right.1))
-                });
-                for (_, memory) in topology_candidates
-                    .into_iter()
-                    .take(plan.topology_nodes.min(plan.candidate_limit))
-                {
-                    candidate_memory_ids.insert(memory);
-                }
-                let local = bounded_restart_field(
-                    wave,
-                    &river.source_field,
-                    wave.config.local_alpha,
-                    plan.topology_rounds,
-                );
-                let transfer = bounded_restart_field(
-                    wave,
-                    &river.source_field,
-                    wave.config.transfer_alpha,
-                    plan.topology_rounds,
-                );
-                topology_state = Some((river, local, transfer, wave.clone()));
-            }
-        }
-        if let Some((_, local, transfer, wave)) = &topology_state
-            && let Some(output) = &query_embedding
-        {
-            for (variant, field) in [
-                ("local_field_dense", local),
-                ("transfer_field_dense", transfer),
-            ] {
-                for generation in &snapshot.dense {
-                    if !generation.space.compatible_with(&output.space) {
-                        continue;
-                    }
-                    let Some(vector) = field_vector(wave, field, generation) else {
-                        continue;
-                    };
-                    for (rank, item) in generation
-                        .search(&vector, plan.candidate_limit)?
-                        .into_iter()
-                        .enumerate()
-                    {
-                        executed_candidate_bound =
-                            executed_candidate_bound.max(plan.candidate_limit);
-                        if let Some(record) = item.record {
-                            let reference = record.reference.clone();
-                            candidates.add_dense(reference.clone(), rank + 1, variant);
-                            if let CognitiveRef::Memory(memory) = record.reference {
-                                candidate_memory_ids.insert(memory.0);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        for reference in candidates.candidate_refs() {
-            if let CognitiveRef::Memory(memory) = reference {
-                candidate_memory_ids.insert(memory.0);
-            }
-        }
-        let lexical_ranks = candidates.lexical_ranks();
-        let dense_ranks = candidates.dense_ranks();
-        let dense_variants = candidates.dense_variants();
-        let resident_refs = if let Some(session) = query.session {
-            self.cognition.resident_reference_strings(session).await?
-        } else {
-            HashSet::new()
-        };
-        for value in &resident_refs {
-            if let Some((kind, value)) = value.split_once(':')
-                && let Ok(reference) = parse_reference(kind, value)
+            for (rank, hit) in index
+                .search(&text_query, plan.candidate_limit)?
+                .into_iter()
+                .enumerate()
             {
-                candidates.mark_runtime(reference);
+                if let Some(reference) = hit.reference {
+                    add_serving_reference(self, query.subject, &mut selected, &reference).await?;
+                    lexical_ranks.insert(reference, rank + 1);
+                }
             }
         }
-        let mut resident_occurrences = resident_refs
+
+        let mut dense_ranks = HashMap::<CognitiveRef, usize>::new();
+        if !text_query.trim().is_empty()
+            && query.capabilities.text_embedding != RequirementStrength::Forbidden
+            && let Some(provider) = self.serving.embedding.as_ref()
+            && !snapshot.dense.is_empty()
+        {
+            let output = provider
+                .embed(TextEmbeddingRequest {
+                    subject: query.subject,
+                    text: text_query.clone(),
+                    query: true,
+                })
+                .await?;
+            for generation in &snapshot.dense {
+                if !output.space.compatible_with(&generation.space) {
+                    continue;
+                }
+                for (rank, hit) in generation
+                    .search(&output.vector, plan.candidate_limit)?
+                    .into_iter()
+                    .enumerate()
+                {
+                    if let Some(record) = hit.record {
+                        add_serving_reference(
+                            self,
+                            query.subject,
+                            &mut selected,
+                            &record.reference,
+                        )
+                        .await?;
+                        let reference = record.reference;
+                        dense_ranks
+                            .entry(reference)
+                            .and_modify(|old| *old = (*old).min(rank + 1))
+                            .or_insert(rank + 1);
+                    }
+                }
+            }
+        }
+
+        // Entity/runtime/temporal lanes use bounded Authority admission.
+        // Exact reads above are always admitted regardless of this bound.
+        let rows = sqlx::query(
+            "SELECT memory_id FROM memory_objects WHERE subject_id=$1 ORDER BY memory_id LIMIT $2",
+        )
+        .bind(query.subject.0)
+        .bind(plan.candidate_limit as i64)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(nous_authority_store::database_error)?;
+        for row in rows {
+            let memory_id: Uuid = row
+                .try_get("memory_id")
+                .map_err(nous_authority_store::database_error)?;
+            selected.entry(memory_id).or_insert(None);
+        }
+
+        let topology_ranks = topology_ranks(&snapshot, query, plan);
+        let text_cues = query
+            .cues
             .iter()
-            .filter_map(|value| {
-                let (kind, value) = value.split_once(':')?;
-                (kind == "occurrence")
-                    .then(|| value.parse::<Uuid>().ok())
-                    .flatten()
-                    .map(OccurrenceId)
+            .filter_map(|cue| match cue {
+                Cue::Text(value) => Some(value.text.to_lowercase()),
+                Cue::Example(value) => Some(value.text.to_lowercase()),
+                _ => None,
             })
             .collect::<Vec<_>>();
-        resident_occurrences.sort_unstable();
-        for value in &resident_refs {
-            if let Some((kind, value)) = value.split_once(':')
-                && kind == "memory"
-                && let Ok(memory) = value.parse::<Uuid>()
-            {
-                candidate_memory_ids.insert(memory);
-            }
-        }
-        let target_allows_memory = query.targets.is_empty()
-            || query.targets.iter().any(|target| {
-                matches!(
-                    target,
-                    QueryTarget::AnyRelevantCognition
-                        | QueryTarget::Memory
-                        | QueryTarget::EntityNeighborhood { .. }
-                        | QueryTarget::AnchorNeighborhood { .. }
-                        | QueryTarget::Exact {
-                            reference: CognitiveRef::Memory(_) | CognitiveRef::MemoryRevision(_)
-                        }
+        let entity_cues = query
+            .cues
+            .iter()
+            .filter_map(|cue| match cue {
+                Cue::Entity(value) => Some(value.entity_ref.as_str().to_owned()),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+        let mut candidates = Vec::new();
+        for (memory_id, requested_revision) in selected {
+            let memory_id = MemoryId(memory_id);
+            let view = match self
+                .memory(
+                    query.subject,
+                    memory_id,
+                    requested_revision.map(MemoryRevisionId),
                 )
-            });
-        let rows = if !target_allows_memory {
-            Vec::new()
-        } else if !candidate_memory_ids.is_empty() {
-            let ids = candidate_memory_ids.iter().copied().collect::<Vec<_>>();
-            sqlx::query("SELECT o.memory_id,o.subject_id,o.memory_class,o.current_revision_id,o.status,r.revision_no,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.created_at,r.valid_from,r.valid_to,r.revision_lifecycle FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ($2 OR (o.status='active' AND r.revision_lifecycle='current')) AND o.memory_id=ANY($3) ORDER BY r.created_at DESC")
-                .bind(query.subject.0)
-                .bind(query.constraints.include_suppressed)
-                .bind(ids)
-                .fetch_all(self.store.pool())
                 .await
-                .map_err(db)?
-        } else if pattern.is_empty() {
-            sqlx::query("SELECT o.memory_id,o.subject_id,o.memory_class,o.current_revision_id,o.status,r.revision_no,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.created_at,r.valid_from,r.valid_to,r.revision_lifecycle FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ($2 OR (o.status='active' AND r.revision_lifecycle='current')) ORDER BY r.created_at DESC LIMIT $3")
-                .bind(query.subject.0).bind(query.constraints.include_suppressed).bind(plan.candidate_limit as i64).fetch_all(self.store.pool()).await.map_err(db)?
-        } else if snapshot.lexical.is_some() && !query.constraints.include_suppressed {
-            Vec::new()
-        } else {
-            let terms = pattern
-                .split_whitespace()
-                .take(16)
-                .map(|term| format!("%{}%", term.replace('%', "")))
-                .collect::<Vec<_>>();
-            sqlx::query("SELECT o.memory_id,o.subject_id,o.memory_class,o.current_revision_id,o.status,r.revision_no,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.created_at,r.valid_from,r.valid_to,r.revision_lifecycle FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ($2 OR (o.status='active' AND r.revision_lifecycle='current')) AND r.representation_text ILIKE ANY($3) ORDER BY r.created_at DESC LIMIT $4")
-                .bind(query.subject.0).bind(query.constraints.include_suppressed).bind(&terms).bind(plan.candidate_limit as i64).fetch_all(self.store.pool()).await.map_err(db)?
-        };
-        let mut rank_inputs = Vec::new();
-        let mut views = Vec::new();
-        for row in rows {
-            if !target_allows_memory {
-                continue;
-            }
-            let memory_class: String = row.try_get("memory_class").map_err(db)?;
-            if !query.constraints.memory_classes_include.is_empty()
-                && !query
-                    .constraints
-                    .memory_classes_include
-                    .iter()
-                    .any(|class| class == &memory_class)
             {
-                continue;
-            }
-            if query
-                .constraints
-                .memory_classes_exclude
-                .iter()
-                .any(|class| class == &memory_class)
-            {
-                continue;
-            }
-            let memory_id = MemoryId(row.try_get("memory_id").map_err(db)?);
-            let revision = MemoryRevisionId(row.try_get("current_revision_id").map_err(db)?);
-            if query
-                .constraints
-                .authority
-                .is_some_and(|authority| authority != AuthorityClass::SubjectCognition)
-            {
-                continue;
-            }
-            let source_classes = self.memory_source_classes(revision.0).await?;
-            if !query.constraints.source_classes_include.is_empty()
-                && !query
-                    .constraints
-                    .source_classes_include
-                    .iter()
-                    .any(|class| source_classes.iter().any(|source| source == class.as_str()))
-            {
-                continue;
-            }
-            if query
-                .constraints
-                .source_classes_exclude
-                .iter()
-                .any(|class| source_classes.iter().any(|source| source == class.as_str()))
-            {
-                continue;
-            }
-            let valid_from: Option<DateTime<Utc>> = row.try_get("valid_from").map_err(db)?;
-            let valid_to: Option<DateTime<Utc>> = row.try_get("valid_to").map_err(db)?;
-            if !self.evidence_time_matches(revision,query.constraints.occurred,query.constraints.observed).await? {
-                continue;
-            }
-            if !interval_overlaps(query.constraints.valid, valid_from, valid_to) {
-                continue;
-            }
-            let temporal_cues = query
-                .cues
-                .iter()
-                .filter_map(|cue| match cue {
-                    Cue::Temporal(temporal) => Some(temporal.interval),
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-            if !temporal_cues.is_empty(){
-                let mut matches=false;
-                for &interval in &temporal_cues {
-                    matches |= self.evidence_time_matches(revision,Some(interval),None).await?
-                        || self.evidence_time_matches(revision,None,Some(interval)).await?
-                        || interval_overlaps(Some(interval),valid_from,valid_to);
-                }
-                if !matches{continue;}
-            }
-            if !query.constraints.evidence_classes.is_empty()
-                && !self
-                    .memory_has_evidence_classes(revision.0, &query.constraints.evidence_classes)
-                    .await?
-            {
-                continue;
-            }
-            if !query.constraints.modalities.is_empty()
-                && !self
-                    .memory_has_modalities(revision.0, &query.constraints.modalities)
-                    .await?
-            {
-                continue;
-            }
-            let reference = CognitiveRef::Memory(memory_id);
-            let representation: String = row.try_get("representation_text").map_err(db)?;
-            let exact = candidates.is_exact(&reference)
-                || candidates.is_exact(&CognitiveRef::MemoryRevision(revision))
-                || exact_refs.contains(&reference)
-                || exact_refs.contains(&CognitiveRef::MemoryRevision(revision));
-            let direct_topology = self.memory_has_entities(revision.0,&entity_cues).await?
-                || self.revision_tags(revision.0).await?.iter().any(|tag|tag_cues.contains(tag))
-                || self.revision_anchors(revision.0).await?.iter().any(|anchor|anchor_cues.contains(anchor));
-            let level=self.accessibility_level(query.subject,memory_id,Utc::now()).await?;
-            if !accessibility_eligible(level,query.effort,exact,direct_topology){continue;}
-            let runtime = resident_refs.contains(&format!("memory:{}", memory_id.0))
-                || resident_refs.contains(&format!("memory_revision:{}", revision.0));
-            let lexical_hit = lexical_ranks.contains_key(&reference);
-            let substring_fallback = !lexical_hit
-                && (snapshot.lexical.is_none() || query.constraints.include_suppressed)
-                && !pattern.is_empty()
-                && pattern
-                    .split_whitespace()
-                    .all(|term| representation.to_lowercase().contains(&term.to_lowercase()));
-            let lane_variants = candidates
-                .posting_hits(&reference)
-                .map(|lanes| lanes.iter().cloned().collect::<Vec<_>>())
-                .unwrap_or_default();
-            let entity = lane_variants.iter().any(|lane| lane == "entity_posting");
-            let required_entity = if required_entities.is_empty() {
-                true
-            } else {
-                self.memory_has_all_entities(revision.0, &required_entities)
-                    .await?
+                Ok(value) => value,
+                Err(Error::NotFound(_)) => continue,
+                Err(error) => return Err(error),
             };
-            if !required_entity {
+            let exact = exact_memory_ids.contains(&memory_id.0)
+                || exact_revision_ids.contains(&view.revision.memory_revision_id.0);
+            if !hard_filter(query, &view, exact) {
                 continue;
             }
-            let mut family_ranks = HashMap::new();
+            let mut lane_ranks = BTreeMap::new();
             if exact {
-                family_ranks.insert(EvidenceFamily::Exact, 1);
+                lane_ranks.insert(EvidenceFamily::Exact, 1);
             }
-            if runtime {
-                family_ranks.insert(EvidenceFamily::Runtime, 1);
-            }
-            if lexical_hit {
-                family_ranks.insert(
+            if !text_cues.is_empty()
+                && text_cues.iter().any(|cue| {
+                    view.revision
+                        .representation_text
+                        .to_lowercase()
+                        .contains(cue)
+                })
+            {
+                let reference = CognitiveRef::MemoryRevision(view.revision.memory_revision_id);
+                lane_ranks.insert(
                     EvidenceFamily::Lexical,
                     lexical_ranks.get(&reference).copied().unwrap_or(1),
                 );
             }
-            let mut variants = candidates
-                .dense_variant_set(&reference)
-                .map(|variants| {
-                    let mut variants = variants.iter().cloned().collect::<Vec<_>>();
-                    variants.sort();
-                    variants
-                })
-                .unwrap_or_default();
-            if substring_fallback {
-                variants.push("substring_fallback".into());
-            }
-            variants.extend(lane_variants);
+            let reference = CognitiveRef::MemoryRevision(view.revision.memory_revision_id);
             if let Some(rank) = dense_ranks.get(&reference) {
-                family_ranks.insert(EvidenceFamily::SemanticDense, *rank);
+                lane_ranks.insert(EvidenceFamily::Dense, *rank);
             }
-            if entity {
-                family_ranks.insert(EvidenceFamily::Entity, 1);
-            }
-            if !temporal_cues.is_empty()
-                || query.constraints.occurred.is_some()
-                || query.constraints.observed.is_some()
-                || query.constraints.valid.is_some()
+            if !entity_cues.is_empty()
+                && entity_cues
+                    .iter()
+                    .all(|entity| view.aboutness.iter().any(|value| value.as_str() == entity))
             {
-                family_ranks.insert(EvidenceFamily::Temporal, 1);
+                lane_ranks.insert(EvidenceFamily::Entity, 1);
             }
-            if candidates
-                .posting_hits(&reference)
-                .is_some_and(|hits| hits.contains("tag_posting"))
+            if query.session.is_some()
+                && self
+                    .cognition
+                    .reference_in_subject(query.subject, &reference)
+                    .await?
             {
-                family_ranks.insert(EvidenceFamily::TagDirect, 1);
+                lane_ranks.insert(EvidenceFamily::Runtime, 1);
             }
-            if candidates
-                .posting_hits(&reference)
-                .is_some_and(|hits| hits.contains("anchor_posting"))
+            if temporal_match(query, &view)
+                && (query.constraints.valid.is_some()
+                    || query.constraints.occurred.is_some()
+                    || query.constraints.observed.is_some())
             {
-                family_ranks.insert(EvidenceFamily::AnchorDirect, 1);
+                lane_ranks.insert(EvidenceFamily::Temporal, 1);
             }
-            let trail = CandidateSemanticTrail {
-                memory: reference.clone(),
-                nodes: Vec::new(),
-                order: TrailOrder::Unavailable,
-                provenance: None,
-            };
-            rank_inputs.push(CandidateRankInput {
-                reference: reference.clone(),
-                family_ranks,
-                topology: CandidateTopologyObservation::default(),
-                trail: Some(trail),
-                variants,
-            });
-            views.push((reference, memory_id, revision, row));
+            if let Some(rank) = topology_ranks.get(&reference) {
+                lane_ranks.insert(EvidenceFamily::TopologyWave, *rank);
+            }
+            if lane_ranks.is_empty() {
+                continue;
+            }
+            candidates.push(Candidate { view, lane_ranks });
         }
-        let observability = if let Some((river, local, transfer, wave)) = &topology_state {
-            for candidate in &mut rank_inputs {
-                if let CognitiveRef::Memory(_) = &candidate.reference
-                    && let Some((_, _, revision, _)) = views
-                        .iter()
-                        .find(|(reference, _, _, _)| reference == &candidate.reference)
-                {
-                    let trail = self
-                        .candidate_trail(revision.0, candidate.reference.clone(), wave)
-                        .await?;
-                    candidate.topology = trail_topology_observation(
-                        &trail,
-                        &river.source_field,
-                        local,
-                        transfer,
-                        river,
-                    );
-                    if candidate.topology.field_contact > 0.0 {
-                        candidate.family_ranks.insert(EvidenceFamily::WaveField, 1);
-                    }
-                    candidate.trail = Some(trail);
-                } else if let Some(node) = wave.node_id(&candidate.reference) {
-                    let trail = CandidateSemanticTrail {
-                        memory: candidate.reference.clone(),
-                        nodes: vec![node],
-                        order: TrailOrder::Unordered,
-                        provenance: Some("current Wave node projection".into()),
-                    };
-                    candidate.topology = trail_topology_observation(
-                        &trail,
-                        &river.source_field,
-                        local,
-                        transfer,
-                        river,
-                    );
-                    if candidate.topology.field_contact > 0.0 {
-                        candidate.family_ranks.insert(EvidenceFamily::WaveField, 1);
-                    }
-                    candidate.trail = Some(trail);
+
+        let weights = lane_weights();
+        let denominator: f64 = enabled.iter().map(|lane| weights[lane] / 61.0).sum();
+        let mut hits = candidates
+            .into_iter()
+            .map(|candidate| {
+                let raw: f64 = enabled
+                    .iter()
+                    .filter_map(|lane| {
+                        candidate
+                            .lane_ranks
+                            .get(lane)
+                            .map(|rank| weights[lane] / (60.0 + *rank as f64))
+                    })
+                    .sum();
+                let score = if denominator == 0.0 {
+                    0.0
+                } else {
+                    raw / denominator
+                };
+                let best_rank = *candidate.lane_ranks.values().min().unwrap_or(&usize::MAX);
+                let families = candidate.lane_ranks.keys().copied().collect::<Vec<_>>();
+                CognitiveHit {
+                    reference: CognitiveRef::MemoryRevision(
+                        candidate.view.revision.memory_revision_id,
+                    ),
+                    revision: Some(candidate.view.revision.memory_revision_id),
+                    semantic_role: Some(candidate.view.revision.semantic_role.clone()),
+                    cognitive_role: Some(candidate.view.object.cognitive_role.as_str().into()),
+                    formation_mode: Some(candidate.view.revision.formation_mode.as_str().into()),
+                    representation: Some(candidate.view.revision.representation_text.clone()),
+                    authority: AuthorityClass::SubjectCognition,
+                    freshness: FreshnessDescriptor {
+                        observed_at: candidate.view.temporal_evidence.observed_at,
+                        valid_time: candidate.view.revision.valid_time.clone(),
+                        formed_at: Some(candidate.view.revision.formed_at),
+                        recorded_at: Some(candidate.view.revision.recorded_at),
+                    },
+                    entity_refs: candidate.view.aboutness.clone(),
+                    evidence: if query.result_need.need_evidence {
+                        candidate
+                            .view
+                            .supports
+                            .iter()
+                            .map(|support| match support {
+                                RevisionSupport::Evidence(value) => EvidenceHandle {
+                                    reference: value.cognitive_ref(),
+                                    support_role: value.support_role.as_str().into(),
+                                },
+                                RevisionSupport::CognitionDependency(value) => EvidenceHandle {
+                                    reference: value.target_revision.clone(),
+                                    support_role: value.support_role.as_str().into(),
+                                },
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    },
+                    match_evidence: MatchEvidence {
+                        families,
+                        best_lane_rank: best_rank as u32,
+                        enabled_lane_count: candidate.lane_ranks.len() as u32,
+                        base_rank_score: score,
+                        final_score: score,
+                        variants: Vec::new(),
+                        explanation: None,
+                    },
+                    materialization: Vec::new(),
                 }
-            }
-            wave_observability(river).omega
-        } else {
-            0.0
-        };
-        for candidate in &mut rank_inputs {
-            if let Some(variants) = dense_variants.get(&candidate.reference) {
-                let mut variants = variants.iter().cloned().collect::<Vec<_>>();
-                variants.sort();
-                candidate.variants = variants;
+            })
+            .collect::<Vec<_>>();
+        hits.sort_by(|a, b| {
+            b.match_evidence
+                .final_score
+                .total_cmp(&a.match_evidence.final_score)
+                .then_with(|| {
+                    a.match_evidence
+                        .best_lane_rank
+                        .cmp(&b.match_evidence.best_lane_rank)
+                })
+                .then_with(|| {
+                    b.match_evidence
+                        .enabled_lane_count
+                        .cmp(&a.match_evidence.enabled_lane_count)
+                })
+                .then_with(|| a.reference.to_string().cmp(&b.reference.to_string()))
+        });
+
+        let validation_bound = plan.final_validation_budget.min(hits.len());
+        let mut validated = Vec::new();
+        for hit in hits.into_iter().take(validation_bound) {
+            let CognitiveRef::MemoryRevision(revision) = hit.reference else {
+                validated.push(hit);
+                continue;
+            };
+            let Ok(view) = self.revision(query.subject, revision).await else {
+                continue;
+            };
+            let exact = query.targets.iter().any(|target| {
+                matches!(
+                    target,
+                    QueryTarget::Exact {
+                        reference: CognitiveRef::MemoryRevision(id)
+                    } if *id == revision
+                ) || matches!(
+                    target,
+                    QueryTarget::Exact {
+                        reference: CognitiveRef::Memory(id)
+                    } if *id == view.object.memory_id
+                )
+            });
+            if hard_filter(query, &view, exact) {
+                validated.push(hit);
             }
         }
-        let ranked = rank_candidates(&rank_inputs, observability);
-        let (mut results, mut result_references) = self
-            .project_memory_results(&query, ranked, &views, plan.materialize_evidence)
-            .await?;
-        self.append_evidence_results(
-            &query,
-            &candidates,
-            resident_occurrences,
-            &mut results,
-            &mut result_references,
-            plan.materialize_evidence,
-        )
-        .await?;
-        let status = if degradation.is_empty() {
-            QueryStatus::Complete
-        } else {
-            QueryStatus::Degraded
+        validated.truncate(query.result_need.limit);
+        let mut diagnostics = QueryDiagnostics {
+            candidate_counts: BTreeMap::new(),
+            lane_status: BTreeMap::new(),
+            topology_complete: None,
+            topology_discarded_mass: None,
+            trace: None,
         };
+        diagnostics
+            .candidate_counts
+            .insert("planned_candidate_bound".into(), plan.candidate_limit);
+        diagnostics
+            .candidate_counts
+            .insert("final_validation_bound".into(), validation_bound);
+        diagnostics.lane_status.insert(
+            "topology".into(),
+            if plan.expand_topology {
+                "enabled"
+            } else {
+                "skipped"
+            }
+            .into(),
+        );
         Ok(CognitiveQueryResult {
             query_id: Uuid::now_v7(),
             generation: QueryGenerationTrace {
-                lexical: snapshot
-                    .lexical
-                    .as_ref()
-                    .map(|generation| generation.generation_id),
+                lexical: snapshot.lexical.as_ref().map(|value| value.generation_id),
                 dense: snapshot
                     .dense
                     .iter()
-                    .map(|generation| generation.generation_id)
+                    .map(|value| value.generation_id)
                     .collect(),
-                wave: snapshot
-                    .wave
-                    .as_ref()
-                    .map(|generation| generation.generation_id),
-                epa_basis: epa_generation,
+                topology: snapshot.topology.as_ref().map(|value| value.generation_id),
+                epa_basis: snapshot.epa.first().map(|value| value.generation_id),
                 postings: snapshot.postings_generation,
             },
-            status,
-            results,
-            // Resource routing is owned by Cognitive Runtime. Keeping it out
-            // of the Memory contributor prevents one host query from invoking
-            // a resolver twice.
+            status: QueryStatus::Complete,
+            results: validated,
             resource_actions: Vec::new(),
-            degradation,
-            diagnostics: build_query_diagnostics(QueryDiagnosticsInput {
-                query: &query,
-                plan,
-                structured_count: rank_inputs.len(),
-                lexical_count: lexical_ranks.len(),
-                dense_count: dense_ranks.len(),
-                all_lane_count: candidates.candidate_refs().count(),
-                field_dense_count: dense_variants
-                    .values()
-                    .filter(|variants| {
-                        variants.contains("local_field_dense")
-                            || variants.contains("transfer_field_dense")
-                    })
-                    .count(),
-                executed_candidate_bound,
-                epa_trace: epa_trace.as_ref(),
-                residual_trace: residual_trace.as_ref(),
-                topology_executed: topology_state.is_some(),
-                observability,
-            }),
+            degradation: Vec::new(),
+            diagnostics: Some(diagnostics),
         })
     }
 }
 
-#[async_trait::async_trait]
-impl nous_cognitive_runtime::CognitiveContributor for MemoryService {
-    async fn contribute(
-        &self,
-        query: &CognitiveQuery,
-        plan: &nous_cognitive_runtime::QueryPlan,
-    ) -> Result<CognitiveQueryResult> {
-        self.query_with_plan(query.clone(), plan).await
+async fn add_serving_reference(
+    service: &MemoryService,
+    subject: SubjectId,
+    selected: &mut BTreeMap<Uuid, Option<Uuid>>,
+    reference: &CognitiveRef,
+) -> Result<()> {
+    match reference {
+        CognitiveRef::Memory(memory) => {
+            service.store.validate_reference(subject, reference).await?;
+            selected.entry(memory.0).or_insert(None);
+        }
+        CognitiveRef::MemoryRevision(revision) => {
+            if !service
+                .store
+                .reference_in_subject(subject, reference)
+                .await?
+            {
+                return Ok(());
+            }
+            let memory_id: Uuid = sqlx::query_scalar(
+                "SELECT memory_id FROM memory_revisions WHERE subject_id=$1 AND memory_revision_id=$2",
+            )
+            .bind(subject.0)
+            .bind(revision.0)
+            .fetch_one(service.store.pool())
+            .await
+            .map_err(nous_authority_store::database_error)?;
+            selected.entry(memory_id).or_insert(Some(revision.0));
+        }
+        _ => {}
     }
+    Ok(())
+}
+
+fn hard_filter(query: &CognitiveQuery, view: &MemoryView, exact: bool) -> bool {
+    matches!(view.object.acceptance_state, AcceptanceState::Accepted)
+        && matches!(view.object.integrity_state, IntegrityState::Valid)
+        && matches!(view.object.purge_state, PurgeState::Normal)
+        && (query.constraints.include_suppressed
+            || matches!(view.object.suppression_state, SuppressionState::Normal))
+        && accessibility_eligible(view.accessibility_level, query.effort, exact)
+        && query
+            .constraints
+            .cognitive_roles_include
+            .iter()
+            .all(|role| role == view.object.cognitive_role.as_str())
+        && query
+            .constraints
+            .formation_modes_include
+            .iter()
+            .all(|mode| mode == view.revision.formation_mode.as_str())
+        && query
+            .constraints
+            .entity_requirements
+            .iter()
+            .all(|entity| view.aboutness.contains(entity))
+        && temporal_match(query, view)
+}
+
+fn temporal_match(query: &CognitiveQuery, view: &MemoryView) -> bool {
+    query
+        .constraints
+        .valid
+        .is_none_or(|interval| view.revision.valid_time.overlaps_interval(&interval))
+        && query.constraints.occurred.is_none_or(|interval| {
+            view.temporal_evidence
+                .occurred
+                .iter()
+                .any(|value| value.overlaps_interval(&interval))
+        })
+        && query.constraints.observed.is_none_or(|interval| {
+            view.temporal_evidence
+                .observed_at
+                .is_some_and(|value| interval.contains(value))
+        })
+}
+
+fn topology_ranks(
+    snapshot: &nous_memory_retrieval::ServingSnapshot,
+    query: &CognitiveQuery,
+    plan: &QueryPlan,
+) -> HashMap<CognitiveRef, usize> {
+    let Some(graph) = snapshot.topology.as_ref() else {
+        return HashMap::new();
+    };
+    if !plan.expand_topology {
+        return HashMap::new();
+    }
+    let mut seeds = Vec::new();
+    for target in &query.targets {
+        if let QueryTarget::Exact { reference } = target {
+            seeds.push((reference.clone(), "exact_target"));
+        }
+        match target {
+            QueryTarget::EntityNeighborhood { entity_ref } => {
+                seeds.push((CognitiveRef::Entity(entity_ref.clone()), "entity_cue"));
+            }
+            QueryTarget::SchemaNeighborhood { schema } => {
+                seeds.push((CognitiveRef::CognitiveSchema(*schema), "schema_cue"));
+            }
+            _ => {}
+        }
+    }
+    for cue in &query.cues {
+        match cue {
+            Cue::Entity(value) => {
+                seeds.push((CognitiveRef::Entity(value.entity_ref.clone()), "entity_cue"))
+            }
+            Cue::Tag(value) => seeds.push((CognitiveRef::Tag(value.tag), "tag_cue")),
+            Cue::Schema(value) => {
+                seeds.push((CognitiveRef::CognitiveSchema(value.schema), "schema_cue"))
+            }
+            Cue::Relation(value) => {
+                seeds.push((value.from.clone(), "relation_cue"));
+                seeds.push((value.to.clone(), "relation_cue"));
+            }
+            _ => {}
+        }
+    }
+    let source_seeds = seeds
+        .into_iter()
+        .filter_map(|(reference, origin)| {
+            graph.node_id(&reference).map(|node| SourceSeed {
+                node,
+                weight: 1.0,
+                seed_family: origin.into(),
+                origin_cue: origin.into(),
+                hop_zero: true,
+            })
+        })
+        .collect::<Vec<_>>();
+    if source_seeds.is_empty() {
+        return HashMap::new();
+    }
+    let river = propagate_with_budget(
+        graph,
+        &source_seeds,
+        plan.topology_rounds,
+        plan.topology_nodes,
+    );
+    let mut values = river
+        .node_potential
+        .iter()
+        .filter_map(|(node, potential)| {
+            graph
+                .nodes
+                .get(*node as usize)
+                .map(|value| (value.reference.clone(), *potential))
+        })
+        .collect::<Vec<_>>();
+    values.sort_by(|left, right| {
+        right
+            .1
+            .total_cmp(&left.1)
+            .then_with(|| left.0.to_string().cmp(&right.0.to_string()))
+    });
+    values
+        .into_iter()
+        .enumerate()
+        .map(|(index, (reference, _))| (reference, index + 1))
+        .collect()
+}
+
+fn enabled_lanes(query: &CognitiveQuery, plan: &QueryPlan) -> Vec<EvidenceFamily> {
+    let mut lanes = Vec::new();
+    if query
+        .targets
+        .iter()
+        .any(|target| matches!(target, QueryTarget::Exact { .. }))
+    {
+        lanes.push(EvidenceFamily::Exact);
+    }
+    if query.session.is_some() || !query.situation.current_refs.is_empty() {
+        lanes.push(EvidenceFamily::Runtime);
+    }
+    if query.cues.iter().any(|cue| matches!(cue, Cue::Entity(_))) {
+        lanes.push(EvidenceFamily::Entity);
+    }
+    if query
+        .cues
+        .iter()
+        .any(|cue| matches!(cue, Cue::Text(_) | Cue::Example(_)))
+    {
+        lanes.push(EvidenceFamily::Lexical);
+        if query.capabilities.text_embedding != RequirementStrength::Forbidden {
+            lanes.push(EvidenceFamily::Dense);
+        }
+    }
+    if query.constraints.valid.is_some()
+        || query.constraints.occurred.is_some()
+        || query.constraints.observed.is_some()
+        || query.cues.iter().any(|cue| matches!(cue, Cue::Temporal(_)))
+    {
+        lanes.push(EvidenceFamily::Temporal);
+    }
+    if plan.expand_topology {
+        lanes.push(EvidenceFamily::TopologyWave);
+    }
+    lanes.sort();
+    lanes.dedup();
+    lanes
+}
+
+fn lane_weights() -> HashMap<EvidenceFamily, f64> {
+    HashMap::from([
+        (EvidenceFamily::Exact, 4.0),
+        (EvidenceFamily::Runtime, 2.0),
+        (EvidenceFamily::Entity, 2.5),
+        (EvidenceFamily::Lexical, 1.5),
+        (EvidenceFamily::Dense, 1.5),
+        (EvidenceFamily::Temporal, 1.0),
+        (EvidenceFamily::TopologyWave, 1.0),
+    ])
 }

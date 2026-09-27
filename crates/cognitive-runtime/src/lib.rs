@@ -18,7 +18,6 @@ use chrono::{DateTime, Utc};
 use nous_authority_store::AuthorityStore;
 use nous_core::*;
 use std::collections::HashSet;
-use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct CognitiveRuntimeService {

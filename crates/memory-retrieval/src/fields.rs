@@ -13,7 +13,7 @@ pub fn bounded_restart_field(
     for _ in 0..iterations {
         let mut next = SparseField::new();
         for (&node, &mass) in &current {
-            for (target, conductance, _) in graph.outgoing(node) {
+            for (target, conductance) in graph.outgoing(node) {
                 *next.entry(target).or_default() += alpha * mass * conductance;
             }
         }
@@ -30,18 +30,8 @@ pub fn local_and_transfer_fields(
     source: &SparseField,
 ) -> (SparseField, SparseField) {
     (
-        bounded_restart_field(
-            graph,
-            source,
-            graph.config.local_alpha,
-            graph.config.local_iterations,
-        ),
-        bounded_restart_field(
-            graph,
-            source,
-            graph.config.transfer_alpha,
-            graph.config.transfer_iterations,
-        ),
+        bounded_restart_field(graph, source, 0.35, 4),
+        bounded_restart_field(graph, source, 0.72, 8),
     )
 }
 

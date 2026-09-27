@@ -1,5 +1,5 @@
 export interface Locator { kind: "name" | "lexical"; value: string }
-export interface Selector { kind: "selector"; selector: "e" | "tag" | "anchor" | "r" | "object" | "ref"; locators: Locator[] }
+export interface Selector { kind: "selector"; selector: "e" | "tag" | "schema" | "r" | "object" | "ref"; locators: Locator[] }
 export type Atom = { kind: "text"; text: string } | { kind: "concept"; text: string } | Selector | { kind: "universe" };
 export type Argument = string | number;
 export interface Directive { name: string; positional: Argument[]; named: Record<string, Argument> }

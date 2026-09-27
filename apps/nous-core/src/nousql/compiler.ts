@@ -6,7 +6,7 @@ import { canonical, parse } from "./parser.js";
 import type { Atom, Directive, Expression, Locator } from "./syntax.js";
 
 export type IdentityResolver = (kind: string, locator: Locator) => Promise<{ canonical: Ref; lexicalRef: string }>;
-const selectorKinds = { e: "entity", tag: "tag", anchor: "anchor", r: "resource", ref: "", object: "external_object" };
+const selectorKinds = { e: "entity", tag: "tag", schema: "cognitive_schema", r: "resource", ref: "", object: "external_object" };
 function invalid(message: string): never { throw new ConnectError(message, Code.InvalidArgument); }
 
 export async function compileNousQL(source: string, resolve: IdentityResolver, now = new Date()) {
@@ -61,7 +61,8 @@ function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
     case "limit": { const value=d.positional[0];if(d.positional.length!==1||Object.keys(d.named).length||typeof value!=="number"||!Number.isInteger(value)||value<1||value>2048)invalid("Invalid limit");m.limit=value;break; }
     case "source": c.sourceClassesInclude=strings();break;
     case "modality": c.modalities=strings();break;
-    case "memoryClass": c.memoryClassesInclude=strings();break;
+    case "cognitiveRole": c.cognitiveRoles=strings();break;
+    case "formationMode": c.formationModes=strings();break;
     case "evidenceClass": c.evidenceClasses=strings();break;
     case "authority": c.authority=one();break;
     case "current": { const value=one();if(!["none","prefer","required","historical_or_stale"].includes(value))invalid("Invalid current-authority requirement");m.currentAuthority=value;break; }

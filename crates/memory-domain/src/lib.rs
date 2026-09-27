@@ -1,49 +1,128 @@
-//! Durable cognition semantics: Memory, revisions, topology objects, and use.
+//! Memory-domain value objects and validation rules.
+//!
+//! The domain owns cognitive meaning. SQL, transport, retrieval, and provider
+//! mechanics remain in their respective owners.
 
 use chrono::{DateTime, Utc};
 use nous_core::{
-    AnchorId, CognitiveRef, EntityRef, EpistemicClass, Error, MemoryId, MemoryRevisionId,
-    OccurrenceId, Result, SourceRegionId, SubjectId, TagId,
+    AssociationEvidenceId, CognitiveRef, CognitiveSchemaId, CognitiveSchemaRevisionId, EntityRef,
+    EpistemicClass, Error, MemoryId, MemoryRevisionId, OccurrenceId, OperationId, Result,
+    SchemaEvidenceLinkId, SubjectId, TagId, TemporalExtent,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum MemoryClass {
-    Specific,
-    Integrative,
-    Procedural,
+pub enum CognitiveRole {
+    Experiential,
+    Declarative,
+    ProceduralExperience,
 }
 
-impl MemoryClass {
+impl CognitiveRole {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Specific => "specific",
-            Self::Integrative => "integrative",
-            Self::Procedural => "procedural",
+            Self::Experiential => "experiential",
+            Self::Declarative => "declarative",
+            Self::ProceduralExperience => "procedural_experience",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FormationMode {
+    Grounded,
+    Synthesized,
+}
+
+impl FormationMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Grounded => "grounded",
+            Self::Synthesized => "synthesized",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AcceptanceState {
+    Accepted,
+    Withdrawn,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrityState {
+    Valid,
+    RevalidationRequired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SuppressionState {
+    Normal,
+    Suppressed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PurgeState {
+    Normal,
+    Purging,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AccessibilityMode {
+    #[default]
+    Auto,
+    Normal,
+    Deep,
+    Explicit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccessibilityLevel {
+    Normal,
+    Deep,
+    Explicit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RevisionIntent {
+    Correct,
+    Rephrase,
+    Reinterpret,
+}
+
+impl RevisionIntent {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Correct => "correct",
+            Self::Rephrase => "rephrase",
+            Self::Reinterpret => "reinterpret",
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryObject {
-    pub head_revision: i64,
     pub memory_id: MemoryId,
     pub subject_id: SubjectId,
-    pub memory_class: MemoryClass,
+    pub cognitive_role: CognitiveRole,
     pub current_revision_id: MemoryRevisionId,
-    pub created_at: DateTime<Utc>,
-    pub status: MemoryStatus,
+    pub object_epoch: i64,
+    pub acceptance_state: AcceptanceState,
+    pub integrity_state: IntegrityState,
+    pub suppression_state: SuppressionState,
+    pub purge_state: PurgeState,
     pub accessibility_mode: AccessibilityMode,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MemoryStatus {
-    Active,
-    Suppressed,
-    Purging,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,58 +132,24 @@ pub struct MemoryRevision {
     pub subject_id: SubjectId,
     pub revision_no: i32,
     pub parent_revision_id: Option<MemoryRevisionId>,
+    pub revision_intent: Option<RevisionIntent>,
+    pub formation_mode: FormationMode,
+    pub grounding_occurrence_id: Option<OccurrenceId>,
     pub semantic_role: String,
     pub title: Option<String>,
     pub representation_text: String,
-    pub attributes: serde_json::Value,
     pub epistemic_class: EpistemicClass,
-    pub valid_from: Option<DateTime<Utc>>,
-    pub valid_to: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub revision_lifecycle: RevisionLifecycle,
-    pub revision_intent: Option<RevisionIntent>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RevisionLifecycle {
-    Current,
-    Superseded,
-    Revoked,
+    pub valid_time: TemporalExtent,
+    pub formed_at: DateTime<Utc>,
+    pub recorded_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum EvidenceRef {
-    Occurrence {
-        occurrence_id: OccurrenceId,
-    },
-    SourceRegion {
-        source_region_id: SourceRegionId,
-    },
-    DerivedRepresentation {
-        derived_representation_id: nous_core::DerivedRepresentationId,
-    },
-    DerivedRegion {
-        derived_region_id: nous_core::DerivedRegionId,
-    },
-}
-
-impl EvidenceRef {
-    pub fn cognitive_ref(&self) -> CognitiveRef {
-        match self {
-            Self::Occurrence { occurrence_id } => CognitiveRef::Occurrence(*occurrence_id),
-            Self::SourceRegion { source_region_id } => {
-                CognitiveRef::SourceRegion(*source_region_id)
-            }
-            Self::DerivedRepresentation {
-                derived_representation_id,
-            } => CognitiveRef::DerivedRepresentation(*derived_representation_id),
-            Self::DerivedRegion { derived_region_id } => {
-                CognitiveRef::DerivedRegion(*derived_region_id)
-            }
-        }
-    }
+pub enum EvidenceLocator {
+    WholeOccurrence,
+    SourceRegion(nous_core::SourceRegionId),
+    DerivedRepresentation(nous_core::DerivedRepresentationId),
+    DerivedRegion(nous_core::DerivedRegionId),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -117,31 +162,162 @@ pub enum SupportRole {
     Contextual,
 }
 
+impl SupportRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Direct => "direct",
+            Self::Corroborating => "corroborating",
+            Self::Interpretation => "interpretation",
+            Self::Contradiction => "contradiction",
+            Self::Contextual => "contextual",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceRef {
+    pub occurrence_id: OccurrenceId,
+    pub locator: EvidenceLocator,
+    pub support_role: SupportRole,
+}
+
+/// The stable source identity used when judging provenance independence.
+///
+/// An encounter remains an occurrence identity.  This value deliberately
+/// collapses repeated encounters and derived representations that originate
+/// from the same artifact or external source.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceRootCertainty {
+    Known,
+    OccurrenceOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct EvidenceRoot {
+    pub root_key: String,
+    pub certainty: EvidenceRootCertainty,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DependencyRelation {
+    SameRoot,
+    PartiallyShared,
+    Independent,
+    UnknownDependency,
+}
+
+/// Compare two recursively resolved support root sets using the R1 rules.
+pub fn dependency_relation(left: &[EvidenceRoot], right: &[EvidenceRoot]) -> DependencyRelation {
+    let left_keys = left
+        .iter()
+        .map(|root| root.root_key.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let right_keys = right
+        .iter()
+        .map(|root| root.root_key.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let intersection = left_keys
+        .intersection(&right_keys)
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    if !intersection.is_empty()
+        && intersection.len() == left_keys.len()
+        && intersection.len() == right_keys.len()
+    {
+        return DependencyRelation::SameRoot;
+    }
+    if !intersection.is_empty() {
+        return DependencyRelation::PartiallyShared;
+    }
+    let all_known = left
+        .iter()
+        .chain(right.iter())
+        .all(|root| matches!(root.certainty, EvidenceRootCertainty::Known));
+    if all_known && !left_keys.is_empty() && !right_keys.is_empty() {
+        DependencyRelation::Independent
+    } else {
+        DependencyRelation::UnknownDependency
+    }
+}
+
+impl EvidenceRef {
+    pub fn cognitive_ref(&self) -> CognitiveRef {
+        match self.locator {
+            EvidenceLocator::WholeOccurrence => CognitiveRef::Occurrence(self.occurrence_id),
+            EvidenceLocator::SourceRegion(id) => CognitiveRef::SourceRegion(id),
+            EvidenceLocator::DerivedRepresentation(id) => CognitiveRef::DerivedRepresentation(id),
+            EvidenceLocator::DerivedRegion(id) => CognitiveRef::DerivedRegion(id),
+        }
+    }
+
+    pub fn canonical_key(&self) -> String {
+        let locator = match self.locator {
+            EvidenceLocator::WholeOccurrence => "whole_occurrence".to_owned(),
+            EvidenceLocator::SourceRegion(id) => format!("source_region:{id:?}"),
+            EvidenceLocator::DerivedRepresentation(id) => format!("derived_representation:{id:?}"),
+            EvidenceLocator::DerivedRegion(id) => format!("derived_region:{id:?}"),
+        };
+        format!(
+            "{}|{}|{}",
+            self.occurrence_id.0,
+            locator,
+            self.support_role.as_str()
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CognitionDependency {
+    pub target_revision: CognitiveRef,
+    pub support_role: SupportRole,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+pub enum RevisionSupport {
+    Evidence(EvidenceRef),
+    CognitionDependency(CognitionDependency),
+}
+
+impl RevisionSupport {
+    pub fn canonical_key(&self) -> String {
+        match self {
+            Self::Evidence(value) => format!("evidence:{}", value.canonical_key()),
+            Self::CognitionDependency(value) => format!(
+                "dependency:{}|{}",
+                value.target_revision,
+                value.support_role.as_str()
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryRevisionEvidence {
     pub evidence_no: i32,
     pub evidence: EvidenceRef,
-    pub support_role: SupportRole,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryRelation {
-    Supersedes,
-    Contradicts,
-    Integrates,
     DerivedFrom,
-    Proceduralizes,
+    Contradicts,
+    TemporalSuccessor,
+    ReplacesBasis,
+    Elaborates,
 }
 
 impl MemoryRelation {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Supersedes => "supersedes",
-            Self::Contradicts => "contradicts",
-            Self::Integrates => "integrates",
             Self::DerivedFrom => "derived_from",
-            Self::Proceduralizes => "proceduralizes",
+            Self::Contradicts => "contradicts",
+            Self::TemporalSuccessor => "temporal_successor",
+            Self::ReplacesBasis => "replaces_basis",
+            Self::Elaborates => "elaborates",
         }
     }
 }
@@ -159,7 +335,7 @@ pub struct Tag {
     pub tag_id: TagId,
     pub subject_id: SubjectId,
     pub current_revision_id: Uuid,
-    pub status: TopologyStatus,
+    pub status: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -174,75 +350,6 @@ pub struct TagRevision {
     pub origin: String,
     pub producer_signature_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemoryRevisionTag {
-    pub memory_revision_id: MemoryRevisionId,
-    pub tag_id: TagId,
-    pub role: String,
-    pub ordinal: Option<i32>,
-    pub order_provenance: Option<serde_json::Value>,
-    pub provenance: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Anchor {
-    pub anchor_id: AnchorId,
-    pub subject_id: SubjectId,
-    pub current_revision_id: Uuid,
-    pub status: TopologyStatus,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnchorRevision {
-    pub anchor_revision_id: Uuid,
-    pub anchor_id: AnchorId,
-    pub revision_no: i32,
-    pub label: Option<String>,
-    pub description: String,
-    pub origin: String,
-    pub producer_signature_id: Option<Uuid>,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TopologyStatus {
-    Active,
-    Superseded,
-    Revoked,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnchorSupport {
-    pub anchor_revision_id: Uuid,
-    pub support_ref_kind: String,
-    pub support_ref: String,
-    pub support_role: String,
-    pub provenance: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AssociationEvidence {
-    pub association_evidence_id: Uuid,
-    pub subject_id: SubjectId,
-    pub from_ref_kind: String,
-    pub from_ref: String,
-    pub to_ref_kind: String,
-    pub to_ref: String,
-    pub association_kind: String,
-    pub polarity: AssociationPolarity,
-    pub support_class: AssociationSupportClass,
-    pub support_value: f64,
-    pub occurrence_id: Option<OccurrenceId>,
-    pub memory_revision_id: Option<MemoryRevisionId>,
-    pub producer_signature_id: Option<Uuid>,
-    pub valid_from: Option<DateTime<Utc>>,
-    pub valid_to: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -265,8 +372,8 @@ impl AssociationPolarity {
 #[serde(rename_all = "snake_case")]
 pub enum AssociationSupportClass {
     HostExplicit,
-    MemoryEvidence,
-    Consolidation,
+    SourceEvidence,
+    CognitiveDerivation,
     MeaningfulUse,
     DerivedStructure,
 }
@@ -275,8 +382,8 @@ impl AssociationSupportClass {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::HostExplicit => "host_explicit",
-            Self::MemoryEvidence => "memory_evidence",
-            Self::Consolidation => "consolidation",
+            Self::SourceEvidence => "source_evidence",
+            Self::CognitiveDerivation => "cognitive_derivation",
             Self::MeaningfulUse => "meaningful_use",
             Self::DerivedStructure => "derived_structure",
         }
@@ -284,102 +391,77 @@ impl AssociationSupportClass {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemoryFormationProposal {
-    pub memory_class: MemoryClass,
-    pub semantic_role: String,
-    pub representation_text: String,
-    pub title: Option<String>,
-    pub evidence: Vec<MemoryRevisionEvidence>,
-    pub entity_refs: Vec<EntityRef>,
-    pub tag_proposals: Vec<TagProposal>,
-    pub valid_from: Option<DateTime<Utc>>,
-    pub valid_to: Option<DateTime<Utc>>,
-    pub epistemic_class: EpistemicClass,
-}
-
-impl MemoryFormationProposal {
-    pub fn validate(&self) -> Result<()> {
-        if self.memory_class != MemoryClass::Specific {
-            return Err(Error::Invalid(
-                "provider-assisted formation only creates Specific Memory".into(),
-            ));
-        }
-        validate_memory_fields(
-            &self.semantic_role,
-            &self.representation_text,
-            self.valid_from,
-            self.valid_to,
-        )?;
-        if self
-            .tag_proposals
-            .iter()
-            .any(|tag| match tag {TagProposal::Existing{..}=>false,TagProposal::New{label,..}=>label.trim().is_empty()||label.len()>256})
-        {
-            return Err(Error::Invalid("Tag proposal label is invalid".into()));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag="kind",rename_all="snake_case")]
-pub enum TagProposal {
-    Existing{tag_id:TagId},
-    New{label:String,description:Option<String>,kind_hint:Option<String>},
+pub struct AssociationEvidence {
+    pub association_evidence_id: AssociationEvidenceId,
+    pub subject_id: SubjectId,
+    pub from: CognitiveRef,
+    pub to: CognitiveRef,
+    pub relation_kind: String,
+    pub polarity: AssociationPolarity,
+    pub support_class: AssociationSupportClass,
+    pub supports: Vec<RevisionSupport>,
+    pub producer_signature_id: Option<Uuid>,
+    pub valid_time: TemporalExtent,
+    pub created_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExplicitMemoryInput {
+    pub operation_id: OperationId,
     #[serde(default)]
     pub subject: SubjectId,
-    pub memory_class: MemoryClass,
+    pub cognitive_role: CognitiveRole,
+    pub formation_mode: FormationMode,
+    pub grounding_occurrence_id: Option<OccurrenceId>,
     pub semantic_role: String,
     pub representation_text: String,
     pub title: Option<String>,
     #[serde(default)]
-    pub evidence: Vec<MemoryRevisionEvidence>,
+    pub supports: Vec<RevisionSupport>,
     #[serde(default)]
-    pub entity_refs: Vec<EntityRef>,
+    pub aboutness: Vec<EntityRef>,
     #[serde(default)]
     pub tags: Vec<TagId>,
-    #[serde(default)]
-    pub tag_order_provenance: Option<serde_json::Value>,
-    pub valid_from: Option<DateTime<Utc>>,
-    pub valid_to: Option<DateTime<Utc>>,
+    pub valid_time: TemporalExtent,
+    pub formed_at: DateTime<Utc>,
     pub epistemic_class: EpistemicClass,
 }
 
 impl ExplicitMemoryInput {
     pub fn validate(&self) -> Result<()> {
-        validate_memory_fields(
-            &self.semantic_role,
-            &self.representation_text,
-            self.valid_from,
-            self.valid_to,
-        )?;
-        if self.evidence.is_empty() {
-            return Err(Error::Invalid(
-                "a Memory must cite at least one evidence ref".into(),
-            ));
+        if self.operation_id.0.is_nil() {
+            return Err(Error::Invalid("operation_id is required".into()));
         }
-        let mut evidence_numbers = std::collections::HashSet::new();
-        if self.evidence.iter().any(|evidence| {
-            evidence.evidence_no < 0 || !evidence_numbers.insert(evidence.evidence_no)
-        }) {
-            return Err(Error::Invalid(
-                "evidence_no values must be unique and non-negative".into(),
-            ));
+        validate_content(&self.semantic_role, &self.representation_text)?;
+        self.valid_time.validate()?;
+        if self.supports.is_empty() {
+            return Err(Error::Invalid("a Memory revision needs support".into()));
+        }
+        validate_supports(
+            self.formation_mode,
+            self.grounding_occurrence_id,
+            &self.supports,
+        )?;
+        let mut keys = std::collections::BTreeSet::new();
+        for support in &self.supports {
+            if !keys.insert(support.canonical_key()) {
+                return Err(Error::Invalid("duplicate revision support".into()));
+            }
+        }
+        let mut aboutness = std::collections::BTreeSet::new();
+        for entity in &self.aboutness {
+            EntityRef::new(entity.as_str())?;
+            aboutness.insert(entity.as_str());
+        }
+        if aboutness.len() != self.aboutness.len() {
+            return Err(Error::Invalid("duplicate aboutness entity".into()));
         }
         Ok(())
     }
 }
 
-fn validate_memory_fields(
-    semantic_role: &str,
-    representation_text: &str,
-    valid_from: Option<DateTime<Utc>>,
-    valid_to: Option<DateTime<Utc>>,
-) -> Result<()> {
+fn validate_content(semantic_role: &str, representation_text: &str) -> Result<()> {
     if semantic_role.trim().is_empty() || semantic_role.len() > 128 {
         return Err(Error::Invalid(
             "semantic_role is required and bounded".into(),
@@ -390,31 +472,233 @@ fn validate_memory_fields(
             "representation_text is required and bounded".into(),
         ));
     }
-    if let (Some(start), Some(end)) = (valid_from, valid_to)
-        && start > end
-    {
-        return Err(Error::Invalid("valid_to precedes valid_from".into()));
+    Ok(())
+}
+
+fn validate_supports(
+    mode: FormationMode,
+    grounding_occurrence: Option<OccurrenceId>,
+    supports: &[RevisionSupport],
+) -> Result<()> {
+    match mode {
+        FormationMode::Grounded => {
+            let occurrence = grounding_occurrence.ok_or_else(|| {
+                Error::Invalid("grounded formation requires grounding_occurrence_id".into())
+            })?;
+            if !supports.iter().any(|support| {
+                matches!(support, RevisionSupport::Evidence(evidence) if evidence.occurrence_id == occurrence)
+            }) {
+                return Err(Error::Invalid(
+                    "grounding occurrence must be in the evidence support set".into(),
+                ));
+            }
+        }
+        FormationMode::Synthesized => {
+            if grounding_occurrence.is_some() {
+                return Err(Error::Invalid(
+                    "synthesized formation cannot have grounding_occurrence_id".into(),
+                ));
+            }
+            if supports.len() < 2 {
+                return Err(Error::Invalid(
+                    "synthesized formation needs at least two distinct inputs".into(),
+                ));
+            }
+        }
     }
     Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryFormationProposal {
+    pub operation_id: OperationId,
+    pub cognitive_role: CognitiveRole,
+    pub formation_mode: FormationMode,
+    pub grounding_occurrence_id: Option<OccurrenceId>,
+    pub semantic_role: String,
+    pub representation_text: String,
+    pub title: Option<String>,
+    pub supports: Vec<RevisionSupport>,
+    pub aboutness: Vec<EntityRef>,
+    pub valid_time: TemporalExtent,
+    pub formed_at: DateTime<Utc>,
+    pub epistemic_class: EpistemicClass,
+}
+
+impl MemoryFormationProposal {
+    pub fn into_input(self, subject: SubjectId) -> ExplicitMemoryInput {
+        ExplicitMemoryInput {
+            operation_id: self.operation_id,
+            subject,
+            cognitive_role: self.cognitive_role,
+            formation_mode: self.formation_mode,
+            grounding_occurrence_id: self.grounding_occurrence_id,
+            semantic_role: self.semantic_role,
+            representation_text: self.representation_text,
+            title: self.title,
+            supports: self.supports,
+            aboutness: self.aboutness,
+            tags: Vec::new(),
+            valid_time: self.valid_time,
+            formed_at: self.formed_at,
+            epistemic_class: self.epistemic_class,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TagProposal {
+    Existing {
+        tag_id: TagId,
+    },
+    New {
+        label: String,
+        description: Option<String>,
+        kind_hint: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaScope {
+    pub description: String,
+    #[serde(default)]
+    pub aboutness: Vec<EntityRef>,
+    #[serde(default)]
+    pub tags: Vec<TagId>,
+    pub valid_time: TemporalExtent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CognitiveSchema {
+    pub schema_id: CognitiveSchemaId,
+    pub subject_id: SubjectId,
+    pub current_revision_id: CognitiveSchemaRevisionId,
+    pub object_epoch: i64,
+    pub acceptance_state: AcceptanceState,
+    pub integrity_state: IntegrityState,
+    pub suppression_state: SuppressionState,
+    pub purge_state: PurgeState,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CognitiveSchemaRevision {
+    pub schema_revision_id: CognitiveSchemaRevisionId,
+    pub schema_id: CognitiveSchemaId,
+    pub revision_no: i32,
+    pub parent_revision_id: Option<CognitiveSchemaRevisionId>,
+    pub revision_intent: Option<RevisionIntent>,
+    pub title: Option<String>,
+    pub structural_claim: String,
+    pub applicability_scope: SchemaScope,
+    pub boundary_definition: String,
+    pub formed_at: DateTime<Utc>,
+    pub recorded_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SchemaEvidenceRole {
+    Support,
+    Counterexample,
+    BoundaryCase,
+}
+
+impl SchemaEvidenceRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Support => "support",
+            Self::Counterexample => "counterexample",
+            Self::BoundaryCase => "boundary_case",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaEvidenceLink {
+    pub link_id: SchemaEvidenceLinkId,
+    pub subject_id: SubjectId,
+    pub schema_revision_id: CognitiveSchemaRevisionId,
+    pub role: SchemaEvidenceRole,
+    pub support: RevisionSupport,
+    pub producer_signature_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaLineage {
+    pub from_revision_id: CognitiveSchemaRevisionId,
+    pub to_revision_id: CognitiveSchemaRevisionId,
+    pub relation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateSchemaInput {
+    pub operation_id: OperationId,
+    pub subject: SubjectId,
+    pub title: Option<String>,
+    pub structural_claim: String,
+    pub applicability_scope: SchemaScope,
+    pub boundary_definition: String,
+    pub formed_at: DateTime<Utc>,
+    pub evidence_links: Vec<SchemaEvidenceLinkInput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaEvidenceLinkInput {
+    pub role: SchemaEvidenceRole,
+    pub support: RevisionSupport,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviseSchemaInput {
+    pub operation_id: OperationId,
+    pub subject: SubjectId,
+    pub schema_id: CognitiveSchemaId,
+    pub expected_object_epoch: i64,
+    pub intent: RevisionIntent,
+    pub title: Option<String>,
+    pub structural_claim: String,
+    pub applicability_scope: SchemaScope,
+    pub boundary_definition: String,
+    pub formed_at: DateTime<Utc>,
+    pub copy_link_ids: Vec<SchemaEvidenceLinkId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateAssociationInput {
+    pub operation_id: OperationId,
+    pub subject: SubjectId,
+    pub from: CognitiveRef,
+    pub to: CognitiveRef,
+    pub relation_kind: String,
+    pub polarity: AssociationPolarity,
+    pub support_class: AssociationSupportClass,
+    pub supports: Vec<RevisionSupport>,
+    pub valid_time: TemporalExtent,
+}
+
+// Consolidation remains an owner-level proposal envelope. It is translated
+// into the explicit Memory/Schema operations before Authority commit.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConsolidationTarget {
-    Integrative,
-    Procedural,
+    Synthesized,
     TopologyOnly,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsolidationRequest {
+    pub operation_id: OperationId,
     #[serde(default)]
     pub subject: SubjectId,
     pub source_memories: Vec<MemoryRevisionId>,
     pub target: ConsolidationTarget,
-    pub capability: nous_core::CapabilityRequirement,
     pub representation_text: Option<String>,
     pub semantic_role: Option<String>,
+    pub formed_at: DateTime<Utc>,
     #[serde(default)]
     pub topology: Option<TopologyConsolidationProposal>,
 }
@@ -424,121 +708,124 @@ pub struct TopologyConsolidationProposal {
     #[serde(default)]
     pub tags: Vec<TopologyTagProposal>,
     #[serde(default)]
-    pub anchors: Vec<TopologyAnchorProposal>,
-    #[serde(default)]
     pub associations: Vec<TopologyAssociationProposal>,
-    #[serde(default)]
-    pub revisions: Vec<TopologyRevisionProposal>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopologyTagProposal {
     pub label: String,
-    #[serde(default)]
     pub description: Option<String>,
-    #[serde(default)]
     pub kind_hint: Option<String>,
-    #[serde(default)]
     pub tag_id: Option<TagId>,
     #[serde(default)]
     pub attach_to: Vec<MemoryRevisionId>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TopologyAnchorProposal {
-    #[serde(default)]
-    pub label: Option<String>,
-    pub description: String,
-    #[serde(default)]
-    pub supports: Vec<TopologyAnchorSupport>,
-    #[serde(default)]
-    pub confirmed: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TopologyAnchorSupport {
-    pub reference: CognitiveRef,
-    pub role: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopologyAssociationProposal {
     pub from: CognitiveRef,
     pub to: CognitiveRef,
-    pub association_kind: String,
+    pub relation_kind: String,
     pub polarity: AssociationPolarity,
     pub support_class: AssociationSupportClass,
-    pub support_value: f64,
     #[serde(default)]
-    pub occurrence_id: Option<OccurrenceId>,
-    #[serde(default)]
-    pub memory_revision_id: Option<MemoryRevisionId>,
-    #[serde(default)]
-    pub bridge_hint: bool,
+    pub supports: Vec<RevisionSupport>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TopologyRevisionProposal {
-    pub expected_head_revision: i64,
-    pub intent: RevisionIntent,
-    pub entity_refs: Vec<EntityRef>,
-    pub memory_id: MemoryId,
-    pub representation_text: String,
-    #[serde(default)]
-    pub semantic_role: Option<String>,
-    #[serde(default)]
-    pub title: Option<String>,
-    pub evidence: Vec<MemoryRevisionEvidence>,
-    #[serde(default)]
-    pub valid_from: Option<DateTime<Utc>>,
-    #[serde(default)]
-    pub valid_to: Option<DateTime<Utc>>,
-    pub epistemic_class: EpistemicClass,
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TemporalEvidence {
+    pub occurred: Vec<TemporalExtent>,
+    pub observed_at: Option<DateTime<Utc>>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn evidence(occurrence: OccurrenceId) -> RevisionSupport {
+        RevisionSupport::Evidence(EvidenceRef {
+            occurrence_id: occurrence,
+            locator: EvidenceLocator::WholeOccurrence,
+            support_role: SupportRole::Direct,
+        })
+    }
+
     #[test]
-    fn explicit_memory_requires_evidence() {
+    fn formation_mode_is_revision_level() {
+        let occurrence = OccurrenceId::new();
         let input = ExplicitMemoryInput {
+            operation_id: OperationId::new(),
             subject: SubjectId::new(),
-            memory_class: MemoryClass::Specific,
+            cognitive_role: CognitiveRole::Declarative,
+            formation_mode: FormationMode::Grounded,
+            grounding_occurrence_id: Some(occurrence),
             semantic_role: "fact".into(),
-            representation_text: "a bounded fact".into(),
+            representation_text: "bounded fact".into(),
             title: None,
-            evidence: Vec::new(),
-            entity_refs: Vec::new(),
+            supports: vec![evidence(occurrence)],
+            aboutness: Vec::new(),
             tags: Vec::new(),
-            tag_order_provenance: None,
-            valid_from: None,
-            valid_to: None,
+            valid_time: TemporalExtent::Unknown,
+            formed_at: Utc::now(),
             epistemic_class: EpistemicClass::Reported,
+        };
+        assert!(input.validate().is_ok());
+    }
+
+    #[test]
+    fn synthesized_requires_two_inputs() {
+        let input = ExplicitMemoryInput {
+            operation_id: OperationId::new(),
+            subject: SubjectId::new(),
+            cognitive_role: CognitiveRole::Declarative,
+            formation_mode: FormationMode::Synthesized,
+            grounding_occurrence_id: None,
+            semantic_role: "fact".into(),
+            representation_text: "bounded fact".into(),
+            title: None,
+            supports: vec![evidence(OccurrenceId::new())],
+            aboutness: Vec::new(),
+            tags: Vec::new(),
+            valid_time: TemporalExtent::Unknown,
+            formed_at: Utc::now(),
+            epistemic_class: EpistemicClass::Inferred,
         };
         assert!(input.validate().is_err());
     }
 
     #[test]
-    fn consolidation_target_uses_public_snake_case_wire_values() {
-        let target: ConsolidationTarget = serde_json::from_str("\"integrative\"").expect("target");
-        assert!(matches!(target, ConsolidationTarget::Integrative));
+    fn provenance_relation_is_conservative_for_unknown_encounters() {
+        let known = EvidenceRoot {
+            root_key: "artifact:a".into(),
+            certainty: EvidenceRootCertainty::Known,
+        };
+        let same = known.clone();
+        assert_eq!(
+            dependency_relation(std::slice::from_ref(&known), std::slice::from_ref(&same)),
+            DependencyRelation::SameRoot
+        );
+        assert_eq!(
+            dependency_relation(
+                std::slice::from_ref(&known),
+                &[EvidenceRoot {
+                    root_key: "artifact:b".into(),
+                    certainty: EvidenceRootCertainty::Known,
+                }]
+            ),
+            DependencyRelation::Independent
+        );
+        assert_eq!(
+            dependency_relation(
+                &[EvidenceRoot {
+                    root_key: "occurrence:a".into(),
+                    certainty: EvidenceRootCertainty::OccurrenceOnly,
+                }],
+                &[EvidenceRoot {
+                    root_key: "occurrence:b".into(),
+                    certainty: EvidenceRootCertainty::OccurrenceOnly,
+                }]
+            ),
+            DependencyRelation::UnknownDependency
+        );
     }
-}
-
-#[derive(Debug,Clone,Copy,PartialEq,Eq,Serialize,Deserialize)]
-#[serde(rename_all="snake_case")]
-pub enum RevisionIntent {Correct,Rephrase,Reinterpret,Revoke}
-#[derive(Debug,Clone,Copy,PartialEq,Eq,Serialize,Deserialize,Default)]
-#[serde(rename_all="snake_case")]
-pub enum AccessibilityMode {#[default] Auto,Normal,Deep,Explicit}
-#[derive(Debug,Clone,Copy,PartialEq,Eq,Serialize,Deserialize)]
-#[serde(rename_all="snake_case")]
-pub enum AccessibilityLevel {Normal,Deep,Explicit}
-#[derive(Debug,Clone,Serialize,Deserialize,Default)]
-pub struct TemporalEvidence {
-    pub occurred_min:Option<DateTime<Utc>>,
-    pub occurred_max:Option<DateTime<Utc>>,
-    pub observed_min:Option<DateTime<Utc>>,
-    pub observed_max:Option<DateTime<Utc>>,
 }

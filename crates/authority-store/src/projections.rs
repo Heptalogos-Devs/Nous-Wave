@@ -96,10 +96,10 @@ impl AuthorityStore {
         subject: SubjectId,
         changes: ProjectionInvalidation,
     ) -> Result<i64> {
-        let revision = sqlx::query_scalar::<_, i64>("UPDATE subjects SET state_revision=state_revision+1 WHERE subject_id=$1 RETURNING state_revision")
+        let revision = sqlx::query_scalar::<_, i64>("UPDATE subjects SET authority_seq=authority_seq+1 WHERE subject_id=$1 RETURNING authority_seq")
             .bind(subject.0).fetch_one(&mut **tx).await.map_err(db)?;
         for (family, space) in changes.families() {
-            sqlx::query("INSERT INTO projection_watermarks(subject_id,family,space_signature,desired_revision) VALUES($1,$2,$3,$4) ON CONFLICT(subject_id,family,space_signature) DO UPDATE SET desired_revision=excluded.desired_revision")
+            sqlx::query("INSERT INTO projection_watermarks(subject_id,family,space_signature,desired_authority_seq) VALUES($1,$2,$3,$4) ON CONFLICT(subject_id,family,space_signature) DO UPDATE SET desired_authority_seq=excluded.desired_authority_seq")
                 .bind(subject.0).bind(family).bind(space).bind(revision)
                 .execute(&mut **tx).await.map_err(db)?;
         }

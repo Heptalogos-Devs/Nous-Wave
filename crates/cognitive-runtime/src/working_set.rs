@@ -86,7 +86,12 @@ impl CognitiveRuntimeService {
         }
         self.require_session(request.subject, request.session_id)
             .await?;
-        let explicit_refs:HashSet<_>=request.references.iter().cloned().chain(request.query_results.iter().map(|h|h.reference.clone())).collect();
+        let explicit_refs: HashSet<_> = request
+            .references
+            .iter()
+            .cloned()
+            .chain(request.query_results.iter().map(|h| h.reference.clone()))
+            .collect();
         let mut references = request
             .query_results
             .iter()
@@ -168,8 +173,9 @@ impl CognitiveRuntimeService {
                 authority: source.authority,
                 freshness: FreshnessDescriptor {
                     observed_at: None,
-                    valid_from: None,
-                    valid_to: None,
+                    valid_time: TemporalExtent::Unknown,
+                    formed_at: None,
+                    recorded_at: None,
                 },
                 evidence: source.evidence,
                 provenance: source.provenance,

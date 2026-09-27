@@ -72,14 +72,14 @@ impl ServingService {
                 .projection_watermark(subject, family, &space)
                 .await?;
             let compatible = existing.filter(|record| self.compatible(record));
-            if let Some(record) =
-                compatible.filter(|record| record.watermark >= watermark && self.loaded(record))
+            if let Some(record) = compatible
+                .filter(|record| record.authority_watermark >= watermark && self.loaded(record))
             {
                 result.generations.insert(key, record.generation_id);
                 continue;
             }
             let outcome = if let Some(record) =
-                compatible.filter(|record| record.watermark >= watermark)
+                compatible.filter(|record| record.authority_watermark >= watermark)
             {
                 match self.open_record(record) {
                     Ok(artifact) => {
@@ -178,7 +178,7 @@ impl ServingService {
                 .as_ref()
                 .is_some_and(|index| index.generation_id == record.generation_id),
             "topology" => snapshot
-                .wave
+                .topology
                 .as_ref()
                 .is_some_and(|graph| graph.generation_id == record.generation_id),
             "dense" => snapshot
@@ -260,7 +260,7 @@ impl ServingService {
                     snapshot.postings = postings.clone();
                     snapshot.postings_generation = Some(record.generation_id);
                 }
-                OpenArtifact::Topology(graph) => snapshot.wave = Some(graph.clone()),
+                OpenArtifact::Topology(graph) => snapshot.topology = Some(graph.clone()),
                 OpenArtifact::Dense(index, basis) => {
                     snapshot
                         .dense

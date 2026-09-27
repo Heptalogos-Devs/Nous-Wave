@@ -5,6 +5,7 @@ use nous_material_service::MaterializeRequest;
 
 #[async_trait::async_trait]
 impl ContextResolver for NousRuntime {
+    #[allow(clippy::unnecessary_filter_map)]
     async fn context_source(
         &self,
         subject: SubjectId,
@@ -22,16 +23,49 @@ impl ContextResolver for NousRuntime {
             _ => None,
         };
         if let Some(memory) = memory {
-            if memory.object.status!=nous_memory_domain::MemoryStatus::Active||memory.revision.revision_lifecycle==nous_memory_domain::RevisionLifecycle::Revoked{return Err(Error::Unavailable("Memory is suppressed".into()));}
-            let level=self.require_memory()?.accessibility_level(subject,memory.object.memory_id,chrono::Utc::now()).await?;
-            if !nous_memory_service::accessibility_eligible(level,CognitiveEffort::Normal,explicit,false){return Err(Error::Unavailable("Memory accessibility requires deeper or explicit recall".into()));}
+            if !matches!(
+                memory.object.acceptance_state,
+                nous_memory_domain::AcceptanceState::Accepted
+            ) || !matches!(
+                memory.object.integrity_state,
+                nous_memory_domain::IntegrityState::Valid
+            ) || !matches!(
+                memory.object.suppression_state,
+                nous_memory_domain::SuppressionState::Normal
+            ) || !matches!(
+                memory.object.purge_state,
+                nous_memory_domain::PurgeState::Normal
+            ) {
+                return Err(Error::Unavailable("Memory is suppressed".into()));
+            }
+            let level = self
+                .require_memory()?
+                .accessibility_level(subject, memory.object.memory_id, chrono::Utc::now())
+                .await?;
+            if !nous_memory_service::accessibility_eligible(
+                level,
+                CognitiveEffort::Normal,
+                explicit,
+            ) {
+                return Err(Error::Unavailable(
+                    "Memory accessibility requires deeper or explicit recall".into(),
+                ));
+            }
 
             let evidence = memory
-                .evidence
+                .supports
                 .iter()
-                .map(|item| EvidenceHandle {
-                    reference: item.evidence.cognitive_ref(),
-                    support_role: format!("{:?}", item.support_role).to_lowercase(),
+                .filter_map(|item| match item {
+                    nous_memory_domain::RevisionSupport::Evidence(value) => Some(EvidenceHandle {
+                        reference: value.cognitive_ref(),
+                        support_role: value.support_role.as_str().into(),
+                    }),
+                    nous_memory_domain::RevisionSupport::CognitionDependency(value) => {
+                        Some(EvidenceHandle {
+                            reference: value.target_revision.clone(),
+                            support_role: value.support_role.as_str().into(),
+                        })
+                    }
                 })
                 .collect::<Vec<_>>();
             return Ok(ContextSource {
@@ -94,53 +128,56 @@ impl ContextResolver for NousRuntime {
     }
 }
 
-fn material_context(material:nous_material_service::MaterializedEvidence,max_bytes:usize)->Result<ContextSource>{
-        let text = if max_bytes > 0
-            && matches!(
-                modality(&material.media_type),
-                Modality::Text | Modality::Structured
-            ) {
-            let end = match std::str::from_utf8(&material.bytes) {
-                Ok(_) => material.bytes.len(),
-                Err(error) => error.valid_up_to(),
-            };
-            Some(
-                String::from_utf8(material.bytes[..end].to_vec())
-                    .map_err(|e| Error::Infrastructure(e.to_string()))?,
-            )
-        } else {
-            None
+fn material_context(
+    material: nous_material_service::MaterializedEvidence,
+    max_bytes: usize,
+) -> Result<ContextSource> {
+    let text = if max_bytes > 0
+        && matches!(
+            modality(&material.media_type),
+            Modality::Text | Modality::Structured
+        ) {
+        let end = match std::str::from_utf8(&material.bytes) {
+            Ok(_) => material.bytes.len(),
+            Err(error) => error.valid_up_to(),
         };
-        let evidence = material
-            .provenance
-            .into_iter()
-            .map(|reference| EvidenceHandle {
-                reference,
-                support_role: "source".into(),
-            })
-            .collect::<Vec<_>>();
-        Ok(ContextSource {
-            source_revision: None,
-            media_type: material.media_type,
-            text,
-            authority: if material.producer.is_some() {
-                AuthorityClass::Interpretation
-            } else {
-                AuthorityClass::Evidence
-            },
-            provenance: ProvenanceSummary {
-                source_count: evidence.len(),
-                producer_signatures: material
-                    .producer
-                    .and_then(|p| {
-                        p.get("signature_hash")
-                            .and_then(|v| v.as_str())
-                            .map(str::to_owned)
-                    })
-                    .into_iter()
-                    .collect(),
-                note: None,
-            },
-            evidence,
+        Some(
+            String::from_utf8(material.bytes[..end].to_vec())
+                .map_err(|e| Error::Infrastructure(e.to_string()))?,
+        )
+    } else {
+        None
+    };
+    let evidence = material
+        .provenance
+        .into_iter()
+        .map(|reference| EvidenceHandle {
+            reference,
+            support_role: "source".into(),
         })
+        .collect::<Vec<_>>();
+    Ok(ContextSource {
+        source_revision: None,
+        media_type: material.media_type,
+        text,
+        authority: if material.producer.is_some() {
+            AuthorityClass::Interpretation
+        } else {
+            AuthorityClass::Evidence
+        },
+        provenance: ProvenanceSummary {
+            source_count: evidence.len(),
+            producer_signatures: material
+                .producer
+                .and_then(|p| {
+                    p.get("signature_hash")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_owned)
+                })
+                .into_iter()
+                .collect(),
+            note: None,
+        },
+        evidence,
+    })
 }

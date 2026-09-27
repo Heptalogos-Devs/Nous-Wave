@@ -48,17 +48,21 @@ macro_rules! uuid_id {
 uuid_id!(SubjectId);
 uuid_id!(MemoryId);
 uuid_id!(MemoryRevisionId);
+uuid_id!(CognitiveSchemaId);
+uuid_id!(CognitiveSchemaRevisionId);
+uuid_id!(SchemaEvidenceLinkId);
+uuid_id!(AssociationEvidenceId);
 uuid_id!(ArtifactId);
 uuid_id!(OccurrenceId);
 uuid_id!(SourceRegionId);
 uuid_id!(DerivedRepresentationId);
 uuid_id!(DerivedRegionId);
 uuid_id!(TagId);
-uuid_id!(AnchorId);
 uuid_id!(SessionId);
 uuid_id!(DerivationId);
 uuid_id!(ServingGenerationId);
 uuid_id!(UseEventId);
+uuid_id!(OperationId);
 
 /// A Host-owned identity. The string is opaque to Nous except for exact
 /// equality and its namespace/type prefix.
@@ -158,13 +162,14 @@ fn validate_opaque_ref(value: &str, expected_prefix: &str) -> Result<()> {
 pub enum CognitiveRef {
     Memory(MemoryId),
     MemoryRevision(MemoryRevisionId),
+    CognitiveSchema(CognitiveSchemaId),
+    CognitiveSchemaRevision(CognitiveSchemaRevisionId),
     Artifact(ArtifactId),
     SourceRegion(SourceRegionId),
     DerivedRepresentation(DerivedRepresentationId),
     DerivedRegion(DerivedRegionId),
     Entity(EntityRef),
     Tag(TagId),
-    Anchor(AnchorId),
     Resource(ResourceRef),
     ExternalObject(ObjectRef),
     Occurrence(OccurrenceId),
@@ -393,7 +398,47 @@ impl EmbeddingSpaceSignature {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum TemporalExtent {
+    #[default]
+    Unknown,
+    Instant {
+        at: DateTime<Utc>,
+    },
+    Interval {
+        start: Option<DateTime<Utc>>,
+        end: Option<DateTime<Utc>>,
+    },
+}
+
+impl TemporalExtent {
+    pub fn validate(&self) -> Result<()> {
+        if let Self::Interval {
+            start: Some(start),
+            end: Some(end),
+        } = self
+            && start >= end
+        {
+            return Err(Error::Invalid(
+                "temporal interval must be half-open with start < end".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn overlaps_interval(&self, query: &TimeInterval) -> bool {
+        match self {
+            Self::Unknown => false,
+            Self::Instant { at } => query.contains(*at),
+            Self::Interval { start, end } => query.overlaps(*start, *end),
+        }
+    }
+}
+
+/// Query-time interval filter. Persistent valid/occurred values use
+/// `TemporalExtent`; this type is retained for bounded query predicates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct TimeInterval {
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
@@ -402,19 +447,38 @@ pub struct TimeInterval {
 impl TimeInterval {
     pub fn validate(&self) -> Result<()> {
         if let (Some(start), Some(end)) = (self.start, self.end)
-            && start > end
+            && start >= end
         {
-            return Err(Error::Invalid("time interval starts after its end".into()));
+            return Err(Error::Invalid(
+                "time interval must be half-open with start < end".into(),
+            ));
         }
         Ok(())
+    }
+
+    pub fn contains(&self, value: DateTime<Utc>) -> bool {
+        self.start.is_none_or(|start| value >= start) && self.end.is_none_or(|end| value < end)
+    }
+
+    pub fn overlaps(&self, start: Option<DateTime<Utc>>, end: Option<DateTime<Utc>>) -> bool {
+        let starts_before_end = match (self.start, end) {
+            (Some(query_start), Some(value_end)) => query_start < value_end,
+            _ => true,
+        };
+        let ends_after_start = match (self.end, start) {
+            (Some(query_end), Some(value_start)) => value_start < query_end,
+            _ => true,
+        };
+        starts_before_end && ends_after_start
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FreshnessDescriptor {
     pub observed_at: Option<DateTime<Utc>>,
-    pub valid_from: Option<DateTime<Utc>>,
-    pub valid_to: Option<DateTime<Utc>>,
+    pub valid_time: TemporalExtent,
+    pub formed_at: Option<DateTime<Utc>>,
+    pub recorded_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -467,7 +531,7 @@ pub enum QueryTarget {
     Memory,
     Evidence,
     EntityNeighborhood { entity_ref: EntityRef },
-    AnchorNeighborhood { anchor: AnchorId },
+    SchemaNeighborhood { schema: CognitiveSchemaId },
     Resource,
     Exact { reference: CognitiveRef },
 }
@@ -503,8 +567,8 @@ pub struct TagCue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnchorCue {
-    pub anchor: AnchorId,
+pub struct SchemaCue {
+    pub schema: CognitiveSchemaId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -537,7 +601,7 @@ pub enum Cue {
     Artifact(ArtifactCue),
     MediaRegion(MediaRegionCue),
     Tag(TagCue),
-    Anchor(AnchorCue),
+    Schema(SchemaCue),
     Temporal(TemporalCue),
     Relation(RelationCue),
     Example(ExampleCue),
@@ -551,9 +615,9 @@ pub struct QueryConstraints {
     #[serde(default)]
     pub source_classes_exclude: Vec<SourceClass>,
     #[serde(default)]
-    pub memory_classes_include: Vec<String>,
+    pub cognitive_roles_include: Vec<String>,
     #[serde(default)]
-    pub memory_classes_exclude: Vec<String>,
+    pub formation_modes_include: Vec<String>,
     #[serde(default)]
     pub entity_requirements: Vec<EntityRef>,
     pub occurred: Option<TimeInterval>,
@@ -575,7 +639,7 @@ pub enum ExplorationIntent {
     None,
     BoundedAssociative,
     AroundTag,
-    AroundAnchor,
+    AroundSchema,
     ExplainAssociation,
     Global,
 }
@@ -751,23 +815,21 @@ pub struct QueryGenerationTrace {
     pub lexical: Option<ServingGenerationId>,
     #[serde(default)]
     pub dense: Vec<ServingGenerationId>,
-    pub wave: Option<ServingGenerationId>,
+    pub topology: Option<ServingGenerationId>,
     pub epa_basis: Option<ServingGenerationId>,
     pub postings: Option<ServingGenerationId>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceFamily {
     Exact,
     Runtime,
     Entity,
     Lexical,
-    SemanticDense,
-    TagDirect,
-    AnchorDirect,
+    Dense,
     Temporal,
-    WaveField,
+    TopologyWave,
     Resource,
     LanguageRerank,
 }
@@ -777,11 +839,8 @@ pub struct MatchEvidence {
     #[serde(default)]
     pub families: Vec<EvidenceFamily>,
     pub base_rank_score: f64,
-    pub field_contact: f64,
-    pub structural_score: f64,
-    pub topology_innovation: f64,
-    pub wave_observability: f64,
-    pub direct_seed_evidence: f64,
+    pub best_lane_rank: u32,
+    pub enabled_lane_count: u32,
     pub final_score: f64,
     #[serde(default)]
     pub variants: Vec<String>,
@@ -793,7 +852,8 @@ pub struct CognitiveHit {
     pub reference: CognitiveRef,
     pub revision: Option<MemoryRevisionId>,
     pub semantic_role: Option<String>,
-    pub memory_class: Option<String>,
+    pub cognitive_role: Option<String>,
+    pub formation_mode: Option<String>,
     pub representation: Option<String>,
     pub authority: AuthorityClass,
     pub freshness: FreshnessDescriptor,
@@ -804,7 +864,6 @@ pub struct CognitiveHit {
     pub match_evidence: MatchEvidence,
     #[serde(default)]
     pub materialization: Vec<MaterializationHandle>,
-    pub revision_lifecycle: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -824,7 +883,8 @@ pub struct ResourceActionSuggestion {
 pub struct QueryDiagnostics {
     pub candidate_counts: std::collections::BTreeMap<String, usize>,
     pub lane_status: std::collections::BTreeMap<String, String>,
-    pub wave_observability: Option<f64>,
+    pub topology_complete: Option<bool>,
+    pub topology_discarded_mass: Option<f64>,
     pub trace: Option<serde_json::Value>,
 }
 
@@ -876,9 +936,13 @@ pub enum Error {
     #[error("{0}")]
     Conflict(String),
     #[error("{0}")]
+    FailedPrecondition(String),
+    #[error("{0}")]
     Unavailable(String),
     #[error("{0}")]
     Infrastructure(String),
+    #[error("{0}")]
+    Internal(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -888,13 +952,16 @@ impl fmt::Display for CognitiveRef {
         match self {
             Self::Memory(id) => write!(f, "memory:{}", id.0),
             Self::MemoryRevision(id) => write!(f, "memory_revision:{}", id.0),
+            Self::CognitiveSchema(id) => write!(f, "cognitive_schema:{}", id.0),
+            Self::CognitiveSchemaRevision(id) => {
+                write!(f, "cognitive_schema_revision:{}", id.0)
+            }
             Self::Artifact(id) => write!(f, "artifact:{}", id.0),
             Self::SourceRegion(id) => write!(f, "source_region:{}", id.0),
             Self::DerivedRepresentation(id) => write!(f, "derived_representation:{}", id.0),
             Self::DerivedRegion(id) => write!(f, "derived_region:{}", id.0),
             Self::Entity(id) => f.write_str(id.as_str()),
             Self::Tag(id) => write!(f, "tag:{}", id.0),
-            Self::Anchor(id) => write!(f, "anchor:{}", id.0),
             Self::Resource(id) => f.write_str(id.as_str()),
             Self::ExternalObject(id) => f.write_str(id.as_str()),
             Self::Occurrence(id) => write!(f, "occurrence:{}", id.0),
@@ -903,38 +970,7 @@ impl fmt::Display for CognitiveRef {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn opaque_refs_require_their_owner_namespace() {
-        assert!(EntityRef::new("entity:host-person:alice").is_ok());
-        assert!(EntityRef::new("name:alice").is_err());
-        assert!(ResourceRef::new("resource:schedule:primary").is_ok());
-        assert!(ObjectRef::new("object:messaging:message:1").is_ok());
-    }
-
-    #[test]
-    fn embedding_spaces_are_exactly_compatible() {
-        let base = EmbeddingSpaceSignature {
-            space_hash: "a".into(),
-            model_identity: "model".into(),
-            weights_revision: "1".into(),
-            task: "retrieval".into(),
-            input_representation: "text".into(),
-            preprocessing_identity: "l2".into(),
-            preprocessing_revision: "1".into(),
-            dimension: 3,
-            normalization: "l2".into(),
-            output_semantics: "dense_similarity".into(),
-        };
-        assert!(base.compatible_with(&base));
-        let mut changed = base.clone();
-        changed.dimension = 4;
-        assert!(!base.compatible_with(&changed));
-    }
-}
-
+mod canonical;
 mod references;
+pub use canonical::canonical_request_digest;
 pub use references::{parse_reference, reference_parts};

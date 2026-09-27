@@ -106,8 +106,11 @@ impl k::runtime_store_service_server::RuntimeStoreService for KernelService {
     }
 }
 impl KernelService {
-    pub(super) async fn report_use(&self, input: p::ReportUseRequest) -> Result<()> {
-        if input.events.len() > 256 || input.consumer_id.is_empty() {
+    pub(super) async fn report_use(
+        &self,
+        input: p::ReportUseRequest,
+    ) -> Result<p::ReportUseResponse> {
+        if input.events.len() > 256 || input.consumer_ref.is_empty() {
             return Err(Error::Invalid("invalid use feedback bounds".into()));
         }
         self.0
@@ -120,19 +123,33 @@ impl KernelService {
                     .map(id)
                     .transpose()?
                     .map(SessionId),
-                consumer: Some(input.consumer_id),
+                consumer_ref: input.consumer_ref,
                 events: input
                     .events
                     .into_iter()
                     .map(|event| {
                         Ok(UseFeedbackEvent {
+                            event_id: nous_core::UseEventId(id(&event.event_id)?),
                             reference: from_ref(required(event.reference, "reference")?)?,
                             use_kind: enum_value(&event.kind)?,
+                            occurred_at: time(Some(event.occurred_at.ok_or_else(|| {
+                                Error::Invalid("occurred_at is required".into())
+                            })?))?
+                            .ok_or_else(|| Error::Invalid("occurred_at is invalid".into()))?,
                             context: object(event.context),
                         })
                     })
                     .collect::<Result<_>>()?,
             })
             .await
+            .map(
+                |(accepted_count, duplicate_count, session_runtime_revision)| {
+                    p::ReportUseResponse {
+                        accepted_count,
+                        duplicate_count,
+                        session_runtime_revision,
+                    }
+                },
+            )
     }
 }

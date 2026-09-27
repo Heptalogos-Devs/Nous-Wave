@@ -2,8 +2,24 @@ use super::*;
 
 #[tonic::async_trait]
 impl k::authority_service_server::AuthorityService for KernelService {
-    async fn set_accessibility(&self,request:Request<p::SetAccessibilityRequest>)->std::result::Result<Response<p::Memory>,Status>{KernelService::set_accessibility(self,request.into_inner()).await.map(Response::new).map_err(status)}
-    async fn link_revisions(&self,request:Request<p::LinkRevisionsRequest>)->std::result::Result<Response<()>,Status>{KernelService::link_revisions(self,request.into_inner()).await.map(Response::new).map_err(status)}
+    async fn set_accessibility(
+        &self,
+        request: Request<p::SetAccessibilityRequest>,
+    ) -> std::result::Result<Response<p::Memory>, Status> {
+        KernelService::set_accessibility(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn link_revisions(
+        &self,
+        request: Request<p::LinkRevisionsRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        KernelService::link_revisions(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
 
     async fn put_resource(
         &self,
@@ -68,38 +84,74 @@ impl k::authority_service_server::AuthorityService for KernelService {
             .map(Response::new)
             .map_err(status)
     }
-    async fn create_anchor(
-        &self,
-        request: Request<p::CreateAnchorRequest>,
-    ) -> std::result::Result<Response<p::Anchor>, Status> {
-        KernelService::create_anchor(self, request.into_inner())
-            .await
-            .map(Response::new)
-            .map_err(status)
-    }
-    async fn get_anchor(
-        &self,
-        request: Request<p::ObjectRequest>,
-    ) -> std::result::Result<Response<p::Anchor>, Status> {
-        KernelService::get_anchor(self, request.into_inner())
-            .await
-            .map(Response::new)
-            .map_err(status)
-    }
-    async fn list_anchors(
-        &self,
-        request: Request<p::ListRequest>,
-    ) -> std::result::Result<Response<p::ListAnchorsResponse>, Status> {
-        KernelService::list_anchors(self, request.into_inner())
-            .await
-            .map(Response::new)
-            .map_err(status)
-    }
     async fn create_association(
         &self,
         request: Request<p::CreateAssociationRequest>,
     ) -> std::result::Result<Response<p::Association>, Status> {
         KernelService::create_association(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn revoke_association(
+        &self,
+        request: Request<p::RevokeAssociationRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        KernelService::revoke_association(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn create_cognitive_schema(
+        &self,
+        request: Request<p::CreateCognitiveSchemaRequest>,
+    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
+        KernelService::create_cognitive_schema(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn get_cognitive_schema(
+        &self,
+        request: Request<p::GetCognitiveSchemaRequest>,
+    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
+        KernelService::get_cognitive_schema(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn add_schema_evidence(
+        &self,
+        request: Request<p::AddSchemaEvidenceRequest>,
+    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
+        KernelService::add_schema_evidence(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn revise_cognitive_schema(
+        &self,
+        request: Request<p::ReviseCognitiveSchemaRequest>,
+    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
+        KernelService::revise_cognitive_schema(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn split_cognitive_schema(
+        &self,
+        request: Request<p::SplitCognitiveSchemaRequest>,
+    ) -> std::result::Result<Response<p::SplitCognitiveSchemaResponse>, Status> {
+        KernelService::split_cognitive_schema(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn merge_cognitive_schemas(
+        &self,
+        request: Request<p::MergeCognitiveSchemasRequest>,
+    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
+        KernelService::merge_cognitive_schemas(self, request.into_inner())
             .await
             .map(Response::new)
             .map_err(status)
@@ -126,7 +178,8 @@ impl k::authority_service_server::AuthorityService for KernelService {
         &self,
         request: Request<()>,
     ) -> std::result::Result<Response<p::SystemStatus>, Status> {
-        KernelService::get_status(self, { request.into_inner(); () })
+        request.into_inner();
+        KernelService::get_status(self, ())
             .await
             .map(Response::new)
             .map_err(status)
@@ -305,7 +358,7 @@ impl k::authority_service_server::AuthorityService for KernelService {
     async fn report_use(
         &self,
         request: Request<p::ReportUseRequest>,
-    ) -> std::result::Result<Response<()>, Status> {
+    ) -> std::result::Result<Response<p::ReportUseResponse>, Status> {
         KernelService::report_use(self, request.into_inner())
             .await
             .map(Response::new)
@@ -379,6 +432,24 @@ impl k::authority_service_server::AuthorityService for KernelService {
         request: Request<p::MemoryMutationRequest>,
     ) -> std::result::Result<Response<p::Memory>, Status> {
         KernelService::restore_memory(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn withdraw_memory(
+        &self,
+        request: Request<p::MemoryMutationRequest>,
+    ) -> std::result::Result<Response<p::Memory>, Status> {
+        KernelService::withdraw_memory(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn reaccept_memory(
+        &self,
+        request: Request<p::MemoryMutationRequest>,
+    ) -> std::result::Result<Response<p::Memory>, Status> {
+        KernelService::reaccept_memory(self, request.into_inner())
             .await
             .map(Response::new)
             .map_err(status)

@@ -68,7 +68,7 @@ class Parser {
     if (token?.image !== "@") this.fail("Expected query atom");
     this.take("@");
     const selector = this.name();
-    if (!["e", "tag", "anchor", "r", "object", "ref"].includes(selector)) this.fail("Unknown selector");
+    if (!["e", "tag", "schema", "r", "object", "ref"].includes(selector)) this.fail("Unknown selector");
     this.take("(");
     const locators: Locator[] = [];
     do {

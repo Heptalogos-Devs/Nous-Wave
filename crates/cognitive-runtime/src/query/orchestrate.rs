@@ -62,7 +62,12 @@ impl CognitiveRuntimeService {
             QueryTarget::Exact { reference } => Some(reference),
             _ => None,
         }) {
-            if matches!(reference,CognitiveRef::Memory(_)|CognitiveRef::MemoryRevision(_)){continue;}
+            if matches!(
+                reference,
+                CognitiveRef::Memory(_) | CognitiveRef::MemoryRevision(_)
+            ) {
+                continue;
+            }
             self.store
                 .validate_reference(query.subject, reference)
                 .await?;
@@ -83,7 +88,12 @@ impl CognitiveRuntimeService {
             });
         if runtime_allowed && let Some(session) = query.session {
             for resident in self.session(query.subject, session).await?.resident {
-                if matches!(resident.reference,CognitiveRef::Memory(_)|CognitiveRef::MemoryRevision(_)){continue;}
+                if matches!(
+                    resident.reference,
+                    CognitiveRef::Memory(_) | CognitiveRef::MemoryRevision(_)
+                ) {
+                    continue;
+                }
                 if seen.insert(resident.reference.clone()) {
                     result.results.push(reference_hit(
                         resident.reference,
@@ -124,7 +134,8 @@ fn explain_plan(result: &mut CognitiveQueryResult, query: &CognitiveQuery, plan:
         let diagnostics = result.diagnostics.get_or_insert(QueryDiagnostics {
             candidate_counts: BTreeMap::new(),
             lane_status: BTreeMap::new(),
-            wave_observability: None,
+            topology_complete: None,
+            topology_discarded_mass: None,
             trace: None,
         });
         diagnostics.lane_status.insert(
@@ -171,7 +182,8 @@ fn reference_hit(
         CognitiveRef::Memory(_)
         | CognitiveRef::MemoryRevision(_)
         | CognitiveRef::Tag(_)
-        | CognitiveRef::Anchor(_) => AuthorityClass::SubjectCognition,
+        | CognitiveRef::CognitiveSchema(_)
+        | CognitiveRef::CognitiveSchemaRevision(_) => AuthorityClass::SubjectCognition,
         CognitiveRef::Resource(_) => AuthorityClass::ResourceDescriptor,
         CognitiveRef::DerivedRepresentation(_) | CognitiveRef::DerivedRegion(_) => {
             AuthorityClass::Interpretation
@@ -182,13 +194,15 @@ fn reference_hit(
         reference: reference.clone(),
         revision: None,
         semantic_role: Some("reference".into()),
-        memory_class: None,
+        cognitive_role: None,
+        formation_mode: None,
         representation: None,
         authority,
         freshness: FreshnessDescriptor {
             observed_at: None,
-            valid_from: None,
-            valid_to: None,
+            valid_time: TemporalExtent::Unknown,
+            formed_at: None,
+            recorded_at: None,
         },
         entity_refs: Vec::new(),
         evidence: if query.result_need.need_evidence {
@@ -202,11 +216,8 @@ fn reference_hit(
         match_evidence: MatchEvidence {
             families: vec![family],
             base_rank_score: 1.0,
-            field_contact: 0.0,
-            structural_score: 0.0,
-            topology_innovation: 0.0,
-            wave_observability: 0.0,
-            direct_seed_evidence: 1.0,
+            best_lane_rank: 1,
+            enabled_lane_count: 1,
             final_score: 1.0,
             variants: Vec::new(),
             explanation: None,
@@ -219,6 +230,5 @@ fn reference_hit(
         } else {
             Vec::new()
         },
-        revision_lifecycle: None,
     }
 }

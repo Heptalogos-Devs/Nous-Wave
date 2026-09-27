@@ -32,10 +32,8 @@ chrono.workspace = true
 
 nous-protocol.workspace = true
 blake3.workspace = true
-prost.workspace = true
 prost-types.workspace = true
 tonic.workspace = true
-tonic-prost.workspace = true
 tonic-health.workspace = true
 tokio-stream.workspace = true
 sqlx.workspace = true

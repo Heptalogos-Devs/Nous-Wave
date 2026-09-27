@@ -1,4 +1,6 @@
-# 2026-09-25 Nous Wave 实现差距审查
+# 2026-09-25 Nous Wave 实现差距审查（历史基线）
+
+> 本文记录 2026-09-25 的 pre-R1 基线，已被当前 R1 实现与 `CURRENT_STATE.md` supersede；其中的旧 ontology 差距不能作为当前 checkout 状态或当前验证证据。
 
 代码基线：`e9af4ebd8a77d316c78764fd85836e6de8d9b7ee`。本审查依据当前 source、Protobuf 和 integration tests 作定向核对；它描述已有能力与未对齐处，不把研究材料或目标设计当作实现证明。
 

@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use nous_core::{
     ArtifactId, CapabilityOperation, DerivedRegionId, DerivedRepresentationId, EntityRef, Error,
     ObjectRef, OccurrenceId, ProducerSignature, RepresentationKind, ResourceRef, Result,
-    SourceClass, SourceRegionId, SubjectId,
+    SourceClass, SourceRegionId, SubjectId, TemporalExtent,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -51,7 +51,7 @@ pub struct ObservationOccurrence {
     pub artifact_id: Option<ArtifactId>,
     pub source_class: SourceClass,
     pub external_object_ref: Option<ObjectRef>,
-    pub occurred_at: Option<DateTime<Utc>>,
+    pub occurred_time: TemporalExtent,
     pub observed_at: DateTime<Utc>,
     pub conversation_ref: Option<String>,
     pub actor_entity_ref: Option<EntityRef>,
@@ -222,7 +222,7 @@ impl ObservationMaterial {
 pub struct OccurrenceDescriptor {
     pub source_class: SourceClass,
     pub external_object_ref: Option<ObjectRef>,
-    pub occurred_at: Option<DateTime<Utc>>,
+    pub occurred_time: TemporalExtent,
     #[serde(default = "Utc::now")]
     pub observed_at: DateTime<Utc>,
     pub conversation_ref: Option<String>,
@@ -286,7 +286,7 @@ pub struct AcceptedObservation {
 pub struct ToolObservation {
     pub subject: SubjectId,
     pub session: Option<nous_core::SessionId>,
-    pub occurred_at: Option<DateTime<Utc>>,
+    pub occurred_time: TemporalExtent,
     pub observed_at: DateTime<Utc>,
     pub tool_ref: Option<ObjectRef>,
     pub result: serde_json::Value,
@@ -322,9 +322,15 @@ mod tests {
     }
 
     #[test]
-    fn formation_directive_uses_public_snake_case_wire_values() {
-        let directive: FormationDirective =
-            serde_json::from_str("\"consider_specific\"").expect("directive");
-        assert!(matches!(directive, FormationDirective::ConsiderSpecific));
+    fn temporal_extent_preserves_unknown_and_half_open_intervals() {
+        assert!(TemporalExtent::Unknown.validate().is_ok());
+        assert!(
+            TemporalExtent::Interval {
+                start: Some(Utc::now()),
+                end: Some(Utc::now() + chrono::Duration::seconds(1)),
+            }
+            .validate()
+            .is_ok()
+        );
     }
 }

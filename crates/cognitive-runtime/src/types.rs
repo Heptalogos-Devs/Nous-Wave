@@ -1,56 +1,47 @@
 use chrono::{DateTime, Utc};
 use nous_core::*;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UseKind {
-    Surfaced,
-    Inspected,
-    Selected,
-    Exposed,
+    Presented,
     Referenced,
     ActedOn,
-    Corroborated,
+    ResultSupported,
+    ResultRefuted,
     Corrected,
     Pinned,
-    Rejected,
 }
 
 impl UseKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Surfaced => "surfaced",
-            Self::Inspected => "inspected",
-            Self::Selected => "selected",
-            Self::Exposed => "exposed",
+            Self::Presented => "presented",
             Self::Referenced => "referenced",
             Self::ActedOn => "acted_on",
-            Self::Corroborated => "corroborated",
+            Self::ResultSupported => "result_supported",
+            Self::ResultRefuted => "result_refuted",
             Self::Corrected => "corrected",
             Self::Pinned => "pinned",
-            Self::Rejected => "rejected",
         }
     }
 
     pub fn meaningful(self) -> bool {
-        matches!(
-            self,
-            Self::Referenced | Self::ActedOn | Self::Corroborated | Self::Pinned | Self::Corrected
-        )
+        !matches!(self, Self::Presented)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveUseEvent {
-    pub use_event_id: Uuid,
+    pub event_id: UseEventId,
     pub subject_id: SubjectId,
     pub session_id: Option<SessionId>,
     pub reference: CognitiveRef,
     pub use_kind: UseKind,
-    pub consumer_ref: Option<String>,
+    pub consumer_ref: String,
     pub occurred_at: DateTime<Utc>,
+    pub recorded_at: DateTime<Utc>,
     pub context: serde_json::Value,
 }
 
@@ -62,7 +53,7 @@ pub struct CognitiveSession {
     pub last_activity_at: DateTime<Utc>,
     pub last_meaningful_use_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
-    pub state_revision: i64,
+    pub runtime_revision: i64,
     pub metadata: serde_json::Value,
 }
 
@@ -94,7 +85,7 @@ pub struct SessionView {
     pub last_activity_at: DateTime<Utc>,
     pub last_meaningful_use_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
-    pub state_revision: i64,
+    pub runtime_revision: i64,
     pub resident: Vec<ResidentView>,
 }
 
@@ -113,14 +104,16 @@ pub struct UseFeedback {
     #[serde(default)]
     pub subject: SubjectId,
     pub session_id: Option<SessionId>,
-    pub consumer: Option<String>,
+    pub consumer_ref: String,
     pub events: Vec<UseFeedbackEvent>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UseFeedbackEvent {
+    pub event_id: UseEventId,
     pub reference: CognitiveRef,
     pub use_kind: UseKind,
+    pub occurred_at: DateTime<Utc>,
     #[serde(default)]
     pub context: serde_json::Value,
 }
@@ -128,11 +121,11 @@ pub struct UseFeedbackEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
-    fn retrieval_exposure_is_not_meaningful_use() {
-        assert!(!UseKind::Surfaced.meaningful());
-        assert!(!UseKind::Inspected.meaningful());
+    fn presented_is_not_meaningful_and_results_are_typed_use() {
+        assert!(!UseKind::Presented.meaningful());
         assert!(UseKind::Referenced.meaningful());
-        assert!(UseKind::ActedOn.meaningful());
+        assert!(UseKind::ResultRefuted.meaningful());
     }
 }

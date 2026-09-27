@@ -8,7 +8,7 @@
 | `subject-core` | Subject identity, initialization, and Character Seed lineage. |
 | `cognitive-runtime` | Session continuity, ResidentSet, query orchestration, Resources, checkpoints, and use feedback. |
 | `material` / `material-service` | Artifact, ObservationOccurrence, derived representation, and materialization operations. |
-| `memory-domain` / `memory-service` | Memory, revisions, evidence relations, lifecycle, Tags, Anchors, and Associations. |
+| `memory-domain` / `memory-service` | Memory, revisions, evidence relations, lifecycle, CognitiveSchema, Tags, and Associations. |
 | `memory-retrieval` / `serving` | Retrieval channels, ranking, and rebuildable Serving generations. |
 | `authority-store` | PostgreSQL canonical schemas, transactions, and persistence access. |
 | `object-store` | Raw and derived object byte storage. |

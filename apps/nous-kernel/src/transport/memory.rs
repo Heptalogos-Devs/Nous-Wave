@@ -1,164 +1,363 @@
 use super::*;
 use nous_authority_store::database_error as db;
-use nous_core::{CognitiveRef, EntityRef, MemoryId, MemoryRevisionId, Result, SubjectId, TagId};
-use nous_memory_domain::{EvidenceRef, ExplicitMemoryInput, MemoryRevisionEvidence};
+use nous_core::{EntityRef, OperationId, Result, SubjectId, TemporalExtent};
+use nous_memory_domain::{
+    CognitionDependency, EvidenceLocator, EvidenceRef, ExplicitMemoryInput, RevisionSupport,
+};
 use nous_memory_service::{MemoryView, ReviseMemoryInput};
-use uuid::Uuid;
+
+fn temporal(value: Option<p::TemporalExtent>) -> Result<TemporalExtent> {
+    let Some(value) = value else {
+        return Ok(TemporalExtent::Unknown);
+    };
+    match value.value {
+        Some(p::temporal_extent::Value::Instant(value)) => Ok(TemporalExtent::Instant {
+            at: time(Some(value))?.ok_or_else(|| Error::Invalid("instant is empty".into()))?,
+        }),
+        Some(p::temporal_extent::Value::Interval(value)) => Ok(TemporalExtent::Interval {
+            start: time(value.start)?,
+            end: time(value.end)?,
+        }),
+        None => Ok(TemporalExtent::Unknown),
+    }
+}
+
+fn temporal_proto(value: TemporalExtent) -> p::TemporalExtent {
+    p::TemporalExtent {
+        value: match value {
+            TemporalExtent::Unknown => None,
+            TemporalExtent::Instant { at } => {
+                Some(p::temporal_extent::Value::Instant(timestamp(at)))
+            }
+            TemporalExtent::Interval { start, end } => {
+                Some(p::temporal_extent::Value::Interval(p::TimeInterval {
+                    start: start.map(timestamp),
+                    end: end.map(timestamp),
+                }))
+            }
+        },
+    }
+}
+
+fn support(value: p::RevisionSupport) -> Result<RevisionSupport> {
+    match value
+        .support
+        .ok_or_else(|| Error::Invalid("RevisionSupport is empty".into()))?
+    {
+        p::revision_support::Support::Evidence(value) => {
+            let locator = match value
+                .locator
+                .ok_or_else(|| Error::Invalid("EvidenceRef locator is empty".into()))?
+            {
+                p::evidence_ref::Locator::WholeOccurrence(_) => EvidenceLocator::WholeOccurrence,
+                p::evidence_ref::Locator::SourceRegionId(value) => {
+                    EvidenceLocator::SourceRegion(nous_core::SourceRegionId(id(&value)?))
+                }
+                p::evidence_ref::Locator::DerivedRepresentationId(value) => {
+                    EvidenceLocator::DerivedRepresentation(nous_core::DerivedRepresentationId(id(
+                        &value,
+                    )?))
+                }
+                p::evidence_ref::Locator::DerivedRegionId(value) => {
+                    EvidenceLocator::DerivedRegion(nous_core::DerivedRegionId(id(&value)?))
+                }
+            };
+            Ok(RevisionSupport::Evidence(EvidenceRef {
+                occurrence_id: nous_core::OccurrenceId(id(&value.occurrence_id)?),
+                locator,
+                support_role: enum_value(&value.support_role)?,
+            }))
+        }
+        p::revision_support::Support::CognitionDependency(value) => {
+            Ok(RevisionSupport::CognitionDependency(CognitionDependency {
+                target_revision: from_ref(required(value.target_revision, "target_revision")?)?,
+                support_role: enum_value(&value.support_role)?,
+            }))
+        }
+    }
+}
+
+fn support_proto(value: RevisionSupport) -> p::RevisionSupport {
+    let support = match value {
+        RevisionSupport::Evidence(value) => {
+            let locator = match value.locator {
+                EvidenceLocator::WholeOccurrence => p::evidence_ref::Locator::WholeOccurrence(true),
+                EvidenceLocator::SourceRegion(id) => {
+                    p::evidence_ref::Locator::SourceRegionId(id.0.to_string())
+                }
+                EvidenceLocator::DerivedRepresentation(id) => {
+                    p::evidence_ref::Locator::DerivedRepresentationId(id.0.to_string())
+                }
+                EvidenceLocator::DerivedRegion(id) => {
+                    p::evidence_ref::Locator::DerivedRegionId(id.0.to_string())
+                }
+            };
+            p::revision_support::Support::Evidence(p::EvidenceRef {
+                occurrence_id: value.occurrence_id.0.to_string(),
+                locator: Some(locator),
+                support_role: enum_name(value.support_role),
+            })
+        }
+        RevisionSupport::CognitionDependency(value) => {
+            p::revision_support::Support::CognitionDependency(p::CognitionDependency {
+                target_revision: Some(to_ref(value.target_revision)),
+                support_role: enum_name(value.support_role),
+            })
+        }
+    };
+    p::RevisionSupport {
+        support: Some(support),
+    }
+}
 
 pub(super) fn view(input: MemoryView) -> p::Memory {
     let object = input.object;
-    let r = input.revision;
+    let revision = input.revision;
     p::Memory {
         memory_id: object.memory_id.0.to_string(),
-        revision_id: r.memory_revision_id.0.to_string(),
+        revision_id: revision.memory_revision_id.0.to_string(),
         subject_id: object.subject_id.0.to_string(),
-        memory_class: enum_name(object.memory_class),
-        status: enum_name(object.status),
-        etag: format!("h:{}", object.head_revision),
-        semantic_role: r.semantic_role,
-        text: r.representation_text,
-        title: r.title,
-        evidence: input
-            .evidence
+        cognitive_role: enum_name(object.cognitive_role),
+        object_epoch: object.object_epoch,
+        acceptance_state: enum_name(object.acceptance_state),
+        integrity_state: enum_name(object.integrity_state),
+        suppression_state: enum_name(object.suppression_state),
+        purge_state: enum_name(object.purge_state),
+        accessibility_mode: enum_name(object.accessibility_mode),
+        accessibility_level: enum_name(input.accessibility_level),
+        semantic_role: revision.semantic_role,
+        text: revision.representation_text,
+        title: revision.title,
+        supports: input.supports.into_iter().map(support_proto).collect(),
+        aboutness: input
+            .aboutness
             .into_iter()
-            .map(|e| p::Evidence {
-                reference: Some(to_ref(e.evidence.cognitive_ref())),
-                support_role: enum_name(e.support_role),
+            .map(|v| v.as_str().to_owned())
+            .collect(),
+        tags: input.tags.into_iter().map(|v| v.0.to_string()).collect(),
+        created_at: Some(timestamp(object.created_at)),
+        temporal_evidence: Some(p::TemporalEvidence {
+            occurred: input
+                .temporal_evidence
+                .occurred
+                .into_iter()
+                .map(temporal_proto)
+                .collect(),
+            observed_at: input.temporal_evidence.observed_at.map(timestamp),
+        }),
+        valid_time: Some(temporal_proto(revision.valid_time)),
+        formed_at: Some(timestamp(revision.formed_at)),
+        recorded_at: Some(timestamp(revision.recorded_at)),
+        formation_mode: enum_name(revision.formation_mode),
+        revision_no: revision.revision_no,
+        relations: input
+            .relations
+            .into_iter()
+            .map(|value| p::RevisionRelation {
+                from_revision_id: value.from_revision_id.0.to_string(),
+                to_revision_id: value.to_revision_id.0.to_string(),
+                relation: enum_name(value.relation),
             })
             .collect(),
-        tags: input.tags.into_iter().map(|t| t.0.to_string()).collect(),
-        created_at:Some(timestamp(r.created_at)),
-        temporal_evidence:Some(p::TemporalEvidence{occurred_min:input.temporal_evidence.occurred_min.map(timestamp),occurred_max:input.temporal_evidence.occurred_max.map(timestamp),observed_min:input.temporal_evidence.observed_min.map(timestamp),observed_max:input.temporal_evidence.observed_max.map(timestamp)}),
-        revision_lifecycle:enum_name(r.revision_lifecycle),revision_intent:r.revision_intent.map(enum_name),
-        accessibility_mode:enum_name(object.accessibility_mode),accessibility_level:enum_name(input.accessibility_level),
-        entity_refs:input.entities.into_iter().map(|e|e.as_str().into()).collect(),
-        relations:input.relations.into_iter().map(|r|p::RevisionRelation{from_revision_id:r.from_revision_id.0.to_string(),to_revision_id:r.to_revision_id.0.to_string(),relation:enum_name(r.relation)}).collect(),relations_truncated:input.relations_truncated,
-        valid: Some(p::TimeInterval {
-            start: r.valid_from.map(timestamp),
-            end: r.valid_to.map(timestamp),
-        }),
-        epistemic_class: enum_name(r.epistemic_class),
-        revision_no: r.revision_no,
+        relations_truncated: input.relations_truncated,
+        revision_intent: revision.revision_intent.map(enum_name),
     }
 }
-pub(super) fn evidence(input: Vec<p::Evidence>) -> Result<Vec<MemoryRevisionEvidence>> {
-    input
-        .into_iter()
-        .enumerate()
-        .map(|(index, e)| {
-            let evidence = match from_ref(required(e.reference, "evidence.reference")?)? {
-                CognitiveRef::Occurrence(occurrence_id) => {
-                    EvidenceRef::Occurrence { occurrence_id }
-                }
-                CognitiveRef::SourceRegion(source_region_id) => {
-                    EvidenceRef::SourceRegion { source_region_id }
-                }
-                CognitiveRef::DerivedRepresentation(derived_representation_id) => {
-                    EvidenceRef::DerivedRepresentation {
-                        derived_representation_id,
-                    }
-                }
-                CognitiveRef::DerivedRegion(derived_region_id) => {
-                    EvidenceRef::DerivedRegion { derived_region_id }
-                }
-                _ => return Err(Error::Invalid("unsupported evidence reference".into())),
-            };
-            Ok(MemoryRevisionEvidence {
-                evidence_no: index as i32,
-                evidence,
-                support_role: enum_value(&e.support_role)?,
-            })
-        })
-        .collect()
-}
-pub(super) fn etag(value: &str) -> Result<i64> {
-    value
-        .strip_prefix("h:")
-        .and_then(|v| v.parse().ok())
-        .filter(|v| *v >= 0)
-        .ok_or_else(|| Error::Invalid("expected_etag is required".into()))
-}
-impl KernelService {
-    pub(super) async fn set_accessibility(&self,input:p::SetAccessibilityRequest)->Result<p::Memory>{
-        Ok(view(self.0.require_memory()?.set_accessibility(SubjectId(id(&input.subject_id)?),MemoryId(id(&input.memory_id)?),etag(&input.expected_etag)?,enum_value(&input.mode)?).await?))
-    }
-    pub(super) async fn link_revisions(&self,input:p::LinkRevisionsRequest)->Result<()>{
-        self.0.require_memory()?.link_revisions(SubjectId(id(&input.subject_id)?),MemoryRevisionId(id(&input.from_revision_id)?),MemoryRevisionId(id(&input.to_revision_id)?),enum_value(&input.relation)?).await
-    }
 
+fn memory_input(
+    subject: SubjectId,
+    operation_id: OperationId,
+    content: p::MemoryContent,
+) -> Result<ExplicitMemoryInput> {
+    let formed_at =
+        time(content.formed_at)?.ok_or_else(|| Error::Invalid("formed_at is required".into()))?;
+    Ok(ExplicitMemoryInput {
+        operation_id,
+        subject,
+        cognitive_role: enum_value(&content.cognitive_role)?,
+        formation_mode: enum_value(&content.formation_mode)?,
+        grounding_occurrence_id: content
+            .grounding_occurrence_id
+            .as_deref()
+            .map(id)
+            .transpose()?
+            .map(nous_core::OccurrenceId),
+        semantic_role: content.semantic_role,
+        representation_text: content.text,
+        title: content.title,
+        supports: content
+            .supports
+            .into_iter()
+            .map(support)
+            .collect::<Result<_>>()?,
+        aboutness: content
+            .aboutness
+            .into_iter()
+            .map(EntityRef::new)
+            .collect::<Result<_>>()?,
+        tags: content
+            .tags
+            .into_iter()
+            .map(|value| Ok(nous_core::TagId(id(&value)?)))
+            .collect::<Result<_>>()?,
+        valid_time: temporal(content.valid_time)?,
+        formed_at,
+        epistemic_class: enum_value(&content.epistemic_class)?,
+    })
+}
+
+impl KernelService {
+    pub(super) async fn set_accessibility(
+        &self,
+        input: p::SetAccessibilityRequest,
+    ) -> Result<p::Memory> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        Ok(view(
+            self.require_memory()?
+                .set_accessibility(
+                    subject,
+                    nous_core::MemoryId(id(&input.memory_id)?),
+                    OperationId(id(&input.operation_id)?),
+                    input.expected_object_epoch,
+                    enum_value(&input.mode)?,
+                )
+                .await?,
+        ))
+    }
+    pub(super) async fn link_revisions(&self, input: p::LinkRevisionsRequest) -> Result<()> {
+        self.require_memory()?
+            .link_revisions(
+                SubjectId(id(&input.subject_id)?),
+                OperationId(id(&input.operation_id)?),
+                nous_core::MemoryRevisionId(id(&input.from_revision_id)?),
+                nous_core::MemoryRevisionId(id(&input.to_revision_id)?),
+                enum_value(&input.relation)?,
+            )
+            .await
+    }
+    pub(super) async fn consolidate_memory(
+        &self,
+        input: p::ConsolidateMemoryRequest,
+    ) -> Result<p::ConsolidationResponse> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        let result = self
+            .require_memory()?
+            .consolidate(
+                subject,
+                nous_memory_domain::ConsolidationRequest {
+                    operation_id: OperationId(id(&input.operation_id)?),
+                    subject,
+                    source_memories: input
+                        .source_revision_ids
+                        .into_iter()
+                        .map(|v| Ok(nous_core::MemoryRevisionId(id(&v)?)))
+                        .collect::<Result<_>>()?,
+                    target: enum_value(&input.target)?,
+                    representation_text: (!input.text.is_empty()).then_some(input.text),
+                    semantic_role: (!input.semantic_role.is_empty()).then_some(input.semantic_role),
+                    formed_at: time(input.formed_at)?
+                        .ok_or_else(|| Error::Invalid("formed_at is required".into()))?,
+                    topology: None,
+                },
+            )
+            .await?;
+        Ok(p::ConsolidationResponse {
+            memory: result.memory.map(view),
+            topology_changes: result.topology_changes as u32,
+        })
+    }
     pub(super) async fn get_memory(&self, input: p::ObjectRequest) -> Result<p::Memory> {
         Ok(view(
-            self.0
-                .require_memory()?
+            self.require_memory()?
                 .memory(
                     SubjectId(id(&input.subject_id)?),
-                    MemoryId(id(&input.id)?),
+                    nous_core::MemoryId(id(&input.id)?),
                     None,
                 )
                 .await?,
         ))
     }
+    pub(super) async fn list_memories(
+        &self,
+        input: p::ListRequest,
+    ) -> Result<p::ListMemoriesResponse> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        let ids=sqlx::query_scalar::<_,uuid::Uuid>("SELECT memory_id FROM memory_objects WHERE subject_id=$1 AND ($2='' OR acceptance_state=$2) ORDER BY memory_id LIMIT 257").bind(subject.0).bind(&input.status).fetch_all(self.0.store.pool()).await.map_err(db)?;
+        let mut items = Vec::new();
+        for value in ids.into_iter().take(256) {
+            items.push(view(
+                self.require_memory()?
+                    .memory(subject, nous_core::MemoryId(value), None)
+                    .await?,
+            ));
+        }
+        Ok(p::ListMemoriesResponse {
+            items,
+            next_page_token: String::new(),
+        })
+    }
     pub(super) async fn get_memory_revision(&self, input: p::ObjectRequest) -> Result<p::Memory> {
+        let subject = SubjectId(id(&input.subject_id)?);
         Ok(view(
-            self.0
-                .require_memory()?
-                .revision(
-                    SubjectId(id(&input.subject_id)?),
-                    MemoryRevisionId(id(&input.id)?),
-                )
+            self.require_memory()?
+                .revision(subject, nous_core::MemoryRevisionId(id(&input.id)?))
                 .await?,
         ))
     }
+    pub(super) async fn list_memory_revisions(
+        &self,
+        input: p::MemoryHistoryRequest,
+    ) -> Result<p::ListMemoriesResponse> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        let memory = nous_core::MemoryId(id(&input.memory_id)?);
+        let history = self
+            .require_memory()?
+            .memory_history(subject, memory)
+            .await?;
+        Ok(p::ListMemoriesResponse {
+            items: history
+                .into_iter()
+                .map(|revision| view_from_revision(subject, memory, revision))
+                .collect(),
+            next_page_token: String::new(),
+        })
+    }
     pub(super) async fn form_memory(&self, input: p::FormMemoryRequest) -> Result<p::Memory> {
-        let m = required(input.input, "input")?;
-        let valid = m.valid.unwrap_or_default();
+        let subject = SubjectId(id(&input.subject_id)?);
+        let content = required(input.input, "input")?;
         Ok(view(
-            self.0
-                .require_memory()?
-                .form_memory(ExplicitMemoryInput {
-                    subject: SubjectId(id(&input.subject_id)?),
-                    memory_class: enum_value(&m.memory_class)?,
-                    semantic_role: m.semantic_role,
-                    representation_text: m.text,
-                    title: m.title,
-                    evidence: evidence(m.evidence)?,
-                    entity_refs: input
-                        .entity_refs
-                        .into_iter()
-                        .map(EntityRef::new)
-                        .collect::<Result<_>>()?,
-                    tags: m
-                        .tags
-                        .iter()
-                        .map(|t| Ok(TagId(id(t)?)))
-                        .collect::<Result<_>>()?,
-                    tag_order_provenance: None,
-                    valid_from: time(valid.start)?,
-                    valid_to: time(valid.end)?,
-                    epistemic_class: enum_value(&m.epistemic_class)?,
-                })
+            self.require_memory()?
+                .form_memory(memory_input(
+                    subject,
+                    OperationId(id(&input.operation_id)?),
+                    content,
+                )?)
                 .await?,
         ))
     }
     pub(super) async fn revise_memory(&self, input: p::ReviseMemoryRequest) -> Result<p::Memory> {
-        let m = required(input.input, "input")?;
-        let valid = m.valid.unwrap_or_default();
+        let subject = SubjectId(id(&input.subject_id)?);
+        let content = required(input.input, "input")?;
+        let operation_id = OperationId(id(&input.operation_id)?);
+        let parsed = memory_input(subject, operation_id, content)?;
         Ok(view(
-            self.0
-                .require_memory()?
+            self.require_memory()?
                 .revise_memory(ReviseMemoryInput {
-                    subject: SubjectId(id(&input.subject_id)?),
-                    memory_id: MemoryId(id(&input.memory_id)?),
-                    expected_head_revision: etag(&input.expected_etag)?,
-                    representation_text: m.text,
-                    semantic_role: Some(m.semantic_role),
-                    title: m.title,
-                    evidence: evidence(m.evidence)?,
+                    operation_id,
+                    subject,
+                    memory_id: nous_core::MemoryId(id(&input.memory_id)?),
+                    expected_object_epoch: input.expected_object_epoch,
                     intent: enum_value(&input.intent)?,
-                    entity_refs:input.entity_refs.into_iter().map(EntityRef::new).collect::<Result<_>>()?,
-                    valid_from: time(valid.start)?,
-                    valid_to: time(valid.end)?,
-                    epistemic_class: enum_value(&m.epistemic_class)?,
+                    formation_mode: parsed.formation_mode,
+                    grounding_occurrence_id: parsed.grounding_occurrence_id,
+                    semantic_role: parsed.semantic_role,
+                    representation_text: parsed.representation_text,
+                    title: parsed.title,
+                    supports: parsed.supports,
+                    aboutness: parsed.aboutness,
+                    valid_time: parsed.valid_time,
+                    formed_at: parsed.formed_at,
+                    epistemic_class: parsed.epistemic_class,
                 })
                 .await?,
         ))
@@ -167,13 +366,14 @@ impl KernelService {
         &self,
         input: p::MemoryMutationRequest,
     ) -> Result<p::Memory> {
+        let subject = SubjectId(id(&input.subject_id)?);
         Ok(view(
-            self.0
-                .require_memory()?
+            self.require_memory()?
                 .suppress(
-                    SubjectId(id(&input.subject_id)?),
-                    MemoryId(id(&input.memory_id)?),
-                    etag(&input.expected_etag)?,
+                    subject,
+                    nous_core::MemoryId(id(&input.memory_id)?),
+                    OperationId(id(&input.operation_id)?),
+                    input.expected_object_epoch,
                 )
                 .await?,
         ))
@@ -182,91 +382,94 @@ impl KernelService {
         &self,
         input: p::MemoryMutationRequest,
     ) -> Result<p::Memory> {
+        let subject = SubjectId(id(&input.subject_id)?);
         Ok(view(
-            self.0
-                .require_memory()?
+            self.require_memory()?
                 .restore(
-                    SubjectId(id(&input.subject_id)?),
-                    MemoryId(id(&input.memory_id)?),
-                    etag(&input.expected_etag)?,
+                    subject,
+                    nous_core::MemoryId(id(&input.memory_id)?),
+                    OperationId(id(&input.operation_id)?),
+                    input.expected_object_epoch,
+                )
+                .await?,
+        ))
+    }
+    pub(super) async fn withdraw_memory(
+        &self,
+        input: p::MemoryMutationRequest,
+    ) -> Result<p::Memory> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        Ok(view(
+            self.require_memory()?
+                .withdraw(
+                    subject,
+                    nous_core::MemoryId(id(&input.memory_id)?),
+                    OperationId(id(&input.operation_id)?),
+                    input.expected_object_epoch,
+                )
+                .await?,
+        ))
+    }
+    pub(super) async fn reaccept_memory(
+        &self,
+        input: p::MemoryMutationRequest,
+    ) -> Result<p::Memory> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        Ok(view(
+            self.require_memory()?
+                .reaccept(
+                    subject,
+                    nous_core::MemoryId(id(&input.memory_id)?),
+                    OperationId(id(&input.operation_id)?),
+                    input.expected_object_epoch,
                 )
                 .await?,
         ))
     }
     pub(super) async fn purge_memory(&self, input: p::MemoryMutationRequest) -> Result<()> {
-        self.0
-            .require_memory()?
+        self.require_memory()?
             .purge_memory(
                 SubjectId(id(&input.subject_id)?),
-                MemoryId(id(&input.memory_id)?),
-                etag(&input.expected_etag)?,
+                nous_core::MemoryId(id(&input.memory_id)?),
+                OperationId(id(&input.operation_id)?),
+                input.expected_object_epoch,
             )
             .await
     }
-    pub(super) async fn list_memories(
-        &self,
-        input: p::ListRequest,
-    ) -> Result<p::ListMemoriesResponse> {
-        let subject = SubjectId(id(&input.subject_id)?);
-        self.0.store.require_subject(subject).await?;
-        let scope = format!("memories:{}:{}", input.subject_id, input.status);
-        let (limit, last) = page(input.page, &scope)?;
-        let mut ids=sqlx::query_scalar::<_,Uuid>("SELECT memory_id FROM memory_objects WHERE subject_id=$1 AND ($2::uuid IS NULL OR memory_id>$2) AND ($3='' OR status=$3) ORDER BY memory_id LIMIT $4")
-            .bind(subject.0).bind(last).bind(input.status).bind(limit+1).fetch_all(self.0.store.pool()).await.map_err(db)?;
-        let more = ids.len() > limit as usize;
-        ids.truncate(limit as usize);
-        let next_page_token = if more {
-            next_token(&scope, *ids.last().expect("nonempty page"))
-        } else {
-            String::new()
-        };
-        let mut items = Vec::new();
-        for id in ids {
-            items.push(view(
-                self.0
-                    .require_memory()?
-                    .memory(subject, MemoryId(id), None)
-                    .await?,
-            ));
-        }
-        Ok(p::ListMemoriesResponse {
-            items,
-            next_page_token,
-        })
-    }
-    pub(super) async fn list_memory_revisions(
-        &self,
-        input: p::MemoryHistoryRequest,
-    ) -> Result<p::ListMemoriesResponse> {
-        let subject = SubjectId(id(&input.subject_id)?);
-        let memory = MemoryId(id(&input.memory_id)?);
-        self.0
-            .require_memory()?
-            .memory(subject, memory, None)
-            .await?;
-        let scope = format!("history:{}:{}", input.subject_id, input.memory_id);
-        let (limit, last) = page(input.page, &scope)?;
-        let mut ids=sqlx::query_scalar::<_,Uuid>("SELECT memory_revision_id FROM memory_revisions WHERE subject_id=$1 AND memory_id=$2 AND ($3::uuid IS NULL OR memory_revision_id>$3) ORDER BY memory_revision_id LIMIT $4")
-            .bind(subject.0).bind(memory.0).bind(last).bind(limit+1).fetch_all(self.0.store.pool()).await.map_err(db)?;
-        let more = ids.len() > limit as usize;
-        ids.truncate(limit as usize);
-        let next_page_token = if more {
-            next_token(&scope, *ids.last().expect("nonempty page"))
-        } else {
-            String::new()
-        };
-        let mut items = Vec::new();
-        for id in ids {
-            items.push(view(
-                self.0
-                    .require_memory()?
-                    .memory(subject, memory, Some(MemoryRevisionId(id)))
-                    .await?,
-            ));
-        }
-        Ok(p::ListMemoriesResponse {
-            items,
-            next_page_token,
-        })
+}
+
+fn view_from_revision(
+    subject: SubjectId,
+    memory: nous_core::MemoryId,
+    revision: nous_memory_domain::MemoryRevision,
+) -> p::Memory {
+    p::Memory {
+        memory_id: memory.0.to_string(),
+        revision_id: revision.memory_revision_id.0.to_string(),
+        subject_id: subject.0.to_string(),
+        cognitive_role: String::new(),
+        object_epoch: 0,
+        acceptance_state: String::new(),
+        integrity_state: String::new(),
+        suppression_state: String::new(),
+        purge_state: String::new(),
+        accessibility_mode: String::new(),
+        accessibility_level: String::new(),
+        semantic_role: revision.semantic_role,
+        text: revision.representation_text,
+        title: revision.title,
+        supports: Vec::new(),
+        aboutness: Vec::new(),
+        tags: Vec::new(),
+        created_at: None,
+        temporal_evidence: None,
+        valid_time: Some(temporal_proto(revision.valid_time)),
+        formed_at: Some(timestamp(revision.formed_at)),
+        recorded_at: Some(timestamp(revision.recorded_at)),
+        formation_mode: enum_name(revision.formation_mode),
+        revision_no: revision.revision_no,
+        relations: Vec::new(),
+        relations_truncated: false,
+        revision_intent: revision.revision_intent.map(enum_name),
     }
 }

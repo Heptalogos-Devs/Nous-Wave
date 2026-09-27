@@ -51,10 +51,14 @@ service AuthorityService {
   rpc CreateTag(nous.wave.v1alpha1.CreateTagRequest) returns (nous.wave.v1alpha1.Tag);
   rpc GetTag(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Tag);
   rpc ListTags(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListTagsResponse);
-  rpc CreateAnchor(nous.wave.v1alpha1.CreateAnchorRequest) returns (nous.wave.v1alpha1.Anchor);
-  rpc GetAnchor(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Anchor);
-  rpc ListAnchors(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListAnchorsResponse);
   rpc CreateAssociation(nous.wave.v1alpha1.CreateAssociationRequest) returns (nous.wave.v1alpha1.Association);
+  rpc RevokeAssociation(nous.wave.v1alpha1.RevokeAssociationRequest) returns (google.protobuf.Empty);
+  rpc CreateCognitiveSchema(nous.wave.v1alpha1.CreateCognitiveSchemaRequest) returns (nous.wave.v1alpha1.CognitiveSchema);
+  rpc GetCognitiveSchema(nous.wave.v1alpha1.GetCognitiveSchemaRequest) returns (nous.wave.v1alpha1.CognitiveSchema);
+  rpc AddSchemaEvidence(nous.wave.v1alpha1.AddSchemaEvidenceRequest) returns (nous.wave.v1alpha1.CognitiveSchema);
+  rpc ReviseCognitiveSchema(nous.wave.v1alpha1.ReviseCognitiveSchemaRequest) returns (nous.wave.v1alpha1.CognitiveSchema);
+  rpc SplitCognitiveSchema(nous.wave.v1alpha1.SplitCognitiveSchemaRequest) returns (nous.wave.v1alpha1.SplitCognitiveSchemaResponse);
+  rpc MergeCognitiveSchemas(nous.wave.v1alpha1.MergeCognitiveSchemasRequest) returns (nous.wave.v1alpha1.CognitiveSchema);
   rpc GetNeighborhood(nous.wave.v1alpha1.NeighborhoodRequest) returns (nous.wave.v1alpha1.NeighborhoodResponse);
   rpc RebindEntity(nous.wave.v1alpha1.RebindEntityRequest) returns (google.protobuf.Empty);
   rpc GetStatus(google.protobuf.Empty) returns (nous.wave.v1alpha1.SystemStatus);
@@ -78,7 +82,7 @@ service AuthorityService {
   rpc CloseSession(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Session);
   rpc RecordObservation(nous.wave.v1alpha1.ObservationInput) returns (nous.wave.v1alpha1.AcceptedObservation);
   rpc Query(KernelQueryRequest) returns (nous.wave.v1alpha1.QueryResponse);
-  rpc ReportUse(nous.wave.v1alpha1.ReportUseRequest) returns (google.protobuf.Empty);
+  rpc ReportUse(nous.wave.v1alpha1.ReportUseRequest) returns (nous.wave.v1alpha1.ReportUseResponse);
   rpc GetMemory(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Memory);
   rpc ListMemories(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListMemoriesResponse);
   rpc GetMemoryRevision(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Memory);
@@ -88,6 +92,8 @@ service AuthorityService {
   rpc SuppressMemory(nous.wave.v1alpha1.MemoryMutationRequest) returns (nous.wave.v1alpha1.Memory);
   rpc RestoreMemory(nous.wave.v1alpha1.MemoryMutationRequest) returns (nous.wave.v1alpha1.Memory);
   rpc PurgeMemory(nous.wave.v1alpha1.MemoryMutationRequest) returns (google.protobuf.Empty);
+  rpc WithdrawMemory(nous.wave.v1alpha1.MemoryMutationRequest) returns (nous.wave.v1alpha1.Memory);
+  rpc ReacceptMemory(nous.wave.v1alpha1.MemoryMutationRequest) returns (nous.wave.v1alpha1.Memory);
   rpc GetArtifact(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Artifact);
   rpc ListArtifacts(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListArtifactsResponse);
   rpc MaterializeEvidence(nous.wave.v1alpha1.MaterializeRequest) returns (nous.wave.v1alpha1.MaterializedEvidence);

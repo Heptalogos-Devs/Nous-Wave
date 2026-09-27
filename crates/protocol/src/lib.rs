@@ -7,7 +7,8 @@
     clippy::too_many_arguments,
     clippy::type_complexity,
     clippy::large_enum_variant,
-    clippy::fn_params_excessive_bools
+    clippy::fn_params_excessive_bools,
+    clippy::empty_docs
 )]
 pub mod nous {
     pub mod wave {
@@ -18,6 +19,23 @@ pub mod nous {
             pub mod v1alpha1 {
                 include!("generated/nous/wave/kernel/v1alpha1/nous.wave.kernel.v1alpha1.rs");
             }
+        }
+    }
+}
+#[allow(
+    clippy::all,
+    clippy::too_many_lines,
+    clippy::large_futures,
+    clippy::excessive_nesting,
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::large_enum_variant,
+    clippy::fn_params_excessive_bools
+)]
+pub mod grpc {
+    pub mod health {
+        pub mod v1 {
+            include!("generated/grpc/health/v1/grpc.health.v1.rs");
         }
     }
 }

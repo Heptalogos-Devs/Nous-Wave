@@ -1,49 +1,172 @@
 use crate::*;
 use nous_authority_store::database_error as db;
+use sqlx::Row;
+use std::collections::HashMap;
+use uuid::Uuid;
 
 impl CognitiveRuntimeService {
-    pub async fn use_feedback(&self, input: UseFeedback) -> Result<()> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "batch UseEvent transaction owns atomic idempotency and runtime side effects"
+    )]
+    pub async fn use_feedback(&self, input: UseFeedback) -> Result<(u32, u32, Option<i64>)> {
         self.require_subject(input.subject).await?;
-        if let Some(session) = input.session_id {
-            self.require_session(input.subject, session).await?;
+        validate_consumer_ref(&input.consumer_ref)?;
+        if input.events.is_empty() || input.events.len() > 256 {
+            return Err(Error::Invalid(
+                "ReportUse events must contain 1..256 items".into(),
+            ));
         }
-        for event in input.events {
-            if !self
-                .reference_in_subject(input.subject, &event.reference)
-                .await?
+        for event in &input.events {
+            if event.occurred_at < DateTime::<Utc>::UNIX_EPOCH
+                || event.occurred_at > Utc::now() + chrono::Duration::minutes(5)
             {
                 return Err(Error::Invalid(
-                    "use feedback reference is outside Subject".into(),
+                    "UseEvent occurred_at is outside the allowed range".into(),
                 ));
             }
-            let (kind, value) = reference_parts(&event.reference);
-            let now = Utc::now();
-            sqlx::query("INSERT INTO cognitive_use_events(use_event_id,subject_id,session_id,ref_kind,ref_value,use_kind,consumer_ref,occurred_at,context) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-                .bind(Uuid::now_v7()).bind(input.subject.0).bind(input.session_id.map(|id|id.0)).bind(&kind).bind(&value).bind(event.use_kind.as_str()).bind(&input.consumer).bind(now).bind(event.context).execute(self.store.pool()).await.map_err(db)?;
-            if let Some(session) = input.session_id.filter(|_| event.use_kind.meaningful()) {
-                let updated = sqlx::query("UPDATE resident_refs SET last_meaningful_use_at=$4,state='resident' WHERE session_id=$1 AND ref_kind=$2 AND ref_value=$3")
-                    .bind(session.0).bind(&kind).bind(&value).bind(now).execute(self.store.pool()).await.map_err(db)?;
-                if updated.rows_affected() == 0 {
-                    self.admit_with_state(
-                        session,
-                        event.reference.clone(),
-                        "recalled",
-                        None,
-                        "provisional",
-                    )
-                    .await?;
-                    sqlx::query("UPDATE resident_refs SET last_meaningful_use_at=$4 WHERE session_id=$1 AND ref_kind=$2 AND ref_value=$3")
-                        .bind(session.0)
-                        .bind(&kind)
-                        .bind(&value)
-                        .bind(now)
-                        .execute(self.store.pool())
-                        .await
-                        .map_err(db)?;
-                }
-                sqlx::query("UPDATE cognitive_sessions SET last_activity_at=$2,last_meaningful_use_at=$2,state_revision=state_revision+1 WHERE session_id=$1").bind(session.0).bind(now).execute(self.store.pool()).await.map_err(db)?;
+            if !matches!(
+                event.reference,
+                CognitiveRef::MemoryRevision(_) | CognitiveRef::CognitiveSchemaRevision(_)
+            ) {
+                return Err(Error::Invalid(
+                    "UseEvent requires an exact cognition revision".into(),
+                ));
+            }
+            if serde_json::to_vec(&event.context)
+                .map_err(|error| Error::Invalid(error.to_string()))?
+                .len()
+                > 16 * 1024
+            {
+                return Err(Error::Invalid("UseEvent context exceeds 16 KiB".into()));
             }
         }
-        Ok(())
+        let mut tx = self.store.begin().await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+            .bind(format!("use:{}:{}", input.subject.0, input.consumer_ref))
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        if let Some(session) = input.session_id {
+            let same_subject: Option<Uuid> = sqlx::query_scalar("SELECT session_id FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2 AND closed_at IS NULL FOR UPDATE")
+                .bind(input.subject.0).bind(session.0).fetch_optional(&mut *tx).await.map_err(db)?;
+            if same_subject.is_none() {
+                return Err(Error::FailedPrecondition(
+                    "session is closed or not owned by Subject".into(),
+                ));
+            }
+        }
+        #[derive(Clone)]
+        struct Prepared {
+            event: UseFeedbackEvent,
+            kind: String,
+            value: String,
+            digest: String,
+            duplicate: bool,
+        }
+        let mut prepared = Vec::with_capacity(input.events.len());
+        let mut seen = HashMap::new();
+        for event in input.events {
+            let (kind, value) = reference_parts(&event.reference);
+            let digest = canonical_request_digest(
+                "use_event",
+                input.subject,
+                &serde_json::json!({"consumer_ref":input.consumer_ref,"event_id":event.event_id,"session_id":input.session_id,"reference":event.reference,"kind":event.use_kind,"occurred_at":event.occurred_at,"context":event.context}),
+            )?;
+            if let Some(existing) =
+                seen.insert((input.consumer_ref.clone(), event.event_id), digest.clone())
+            {
+                if existing != digest {
+                    return Err(Error::Conflict(
+                        "duplicate event in ReportUse has different content".into(),
+                    ));
+                }
+                return Err(Error::Conflict("duplicate event in ReportUse".into()));
+            }
+            let existing = sqlx::query("SELECT request_digest FROM cognitive_use_events WHERE subject_id=$1 AND consumer_ref=$2 AND event_id=$3")
+                .bind(input.subject.0).bind(&input.consumer_ref).bind(event.event_id.0).fetch_optional(&mut *tx).await.map_err(db)?;
+            let purged = sqlx::query("SELECT request_digest FROM purged_use_receipts WHERE subject_id=$1 AND consumer_ref=$2 AND event_id=$3")
+                .bind(input.subject.0).bind(&input.consumer_ref).bind(event.event_id.0).fetch_optional(&mut *tx).await.map_err(db)?;
+            let stored_digest = existing
+                .as_ref()
+                .map(|row| row.try_get::<String, _>("request_digest"))
+                .transpose()
+                .map_err(db)?
+                .or(purged
+                    .as_ref()
+                    .map(|row| row.try_get::<String, _>("request_digest"))
+                    .transpose()
+                    .map_err(db)?);
+            if let Some(stored) = stored_digest.as_ref()
+                && stored != &digest
+            {
+                return Err(Error::Conflict(
+                    "UseEvent idempotency key has a different request digest".into(),
+                ));
+            }
+            if stored_digest.is_none()
+                && !self
+                    .reference_in_subject(input.subject, &event.reference)
+                    .await?
+            {
+                return Err(Error::NotFound(
+                    "UseEvent revision is not in Subject".into(),
+                ));
+            }
+            prepared.push(Prepared {
+                event,
+                kind,
+                value,
+                digest,
+                duplicate: stored_digest.is_some(),
+            });
+        }
+        let recorded_at = Utc::now();
+        let mut accepted = 0u32;
+        let mut duplicates = 0u32;
+        let mut meaningful_times = Vec::new();
+        for item in prepared {
+            if item.duplicate {
+                duplicates += 1;
+                continue;
+            }
+            sqlx::query("INSERT INTO cognitive_use_events(subject_id,consumer_ref,event_id,ref_kind,ref_value,use_kind,session_id,occurred_at,recorded_at,context,request_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
+                .bind(input.subject.0).bind(&input.consumer_ref).bind(item.event.event_id.0).bind(&item.kind).bind(&item.value).bind(item.event.use_kind.as_str()).bind(input.session_id.map(|id|id.0)).bind(item.event.occurred_at).bind(recorded_at).bind(&item.event.context).bind(&item.digest).execute(&mut *tx).await.map_err(db)?;
+            accepted += 1;
+            if item.event.use_kind.meaningful() {
+                meaningful_times.push((item.kind, item.value, item.event.occurred_at));
+            }
+        }
+        let session_revision = if let Some(session) = input.session_id {
+            for (kind, value, occurred_at) in &meaningful_times {
+                let updated = sqlx::query("UPDATE resident_refs SET state='resident',last_meaningful_use_at=GREATEST(COALESCE(last_meaningful_use_at,$4),$4) WHERE session_id=$1 AND ref_kind=$2 AND ref_value=$3")
+                    .bind(session.0).bind(kind).bind(value).bind(occurred_at).execute(&mut *tx).await.map_err(db)?;
+                if updated.rows_affected() == 0 {
+                    sqlx::query("INSERT INTO resident_refs(session_id,ref_kind,ref_value,entered_at,entry_reason,last_meaningful_use_at,state,metadata) VALUES($1,$2,$3,$4,'meaningful_use',$4,'resident','{}') ON CONFLICT DO NOTHING")
+                        .bind(session.0).bind(kind).bind(value).bind(occurred_at).execute(&mut *tx).await.map_err(db)?;
+                }
+            }
+            let last_meaningful = meaningful_times.iter().map(|(_, _, time)| *time).max();
+            let row = sqlx::query("UPDATE cognitive_sessions SET last_activity_at=$2,last_meaningful_use_at=COALESCE(GREATEST(last_meaningful_use_at,$3),last_meaningful_use_at),runtime_revision=runtime_revision+1 WHERE session_id=$1 RETURNING runtime_revision")
+                .bind(session.0).bind(recorded_at).bind(last_meaningful).fetch_one(&mut *tx).await.map_err(db)?;
+            Some(row.try_get::<i64, _>("runtime_revision").map_err(db)?)
+        } else {
+            None
+        };
+        tx.commit().await.map_err(db)?;
+        Ok((accepted, duplicates, session_revision))
     }
+}
+
+fn validate_consumer_ref(value: &str) -> Result<()> {
+    if value.is_empty()
+        || value.len() > 512
+        || value.chars().any(char::is_whitespace)
+        || value.matches(':').count() < 2
+    {
+        return Err(Error::Invalid(
+            "consumer_ref must be a namespaced opaque reference".into(),
+        ));
+    }
+    Ok(())
 }
