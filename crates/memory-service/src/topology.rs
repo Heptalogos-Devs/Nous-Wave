@@ -276,13 +276,18 @@ impl MemoryService {
                 ));
             }
             AssociationSupportClass::MeaningfulUse => {
+                if use_events.iter().any(Option::is_none) {
+                    return Err(Error::Invalid(
+                        "purged UseEvent receipts cannot prove meaningful-use kind".into(),
+                    ));
+                }
                 for use_kind in use_events.into_iter().flatten() {
-                    if !matches!(
+                    let allowed = matches!(
                         use_kind.as_str(),
                         "referenced" | "acted_on" | "result_supported" | "corrected" | "pinned"
-                    ) || (input.polarity == AssociationPolarity::Positive
-                        && use_kind == "result_refuted")
-                    {
+                    ) || (input.polarity == AssociationPolarity::Negative
+                        && use_kind == "result_refuted");
+                    if !allowed {
                         return Err(Error::Invalid(
                             "UseEvent kind cannot support a positive meaningful-use association"
                                 .into(),
