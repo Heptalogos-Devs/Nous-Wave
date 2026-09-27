@@ -71,6 +71,7 @@
 不进入：
 
 -完整 Self evolution；
+
 - Social Cognition；
 - Motivation implementation；
 - Desired Condition implementation；
@@ -214,7 +215,7 @@ exact
 
 - no graph；
 - simple bounded expansion；
--现有 Wave；
+- 现有 Wave；
 - PPR 或其他候选。
 
 评价增量时必须固定：
@@ -239,7 +240,7 @@ exact
 
 1. 同一 Artifact 的两个 summary 不算两份 independent evidence；
 2. derived representation 可以追溯到原始 region；
-3.多个模型对同一来源的重述不自动增加 source independence。
+   3.多个模型对同一来源的重述不自动增加 source independence。
 
 ## Temporal / Revision
 
@@ -364,7 +365,7 @@ Heptalogos live action integration 尚未进入本里程碑，所以不声称完
 - architecture diagram；
 - experiment results；
 - demo data；
--阶段性 PDF / report 仅在此时按需要生成。
+- 阶段性 PDF / report 仅在此时按需要生成。
 
 ---
 
@@ -414,7 +415,7 @@ Heptalogos live action integration 尚未进入本里程碑，所以不声称完
 
 - Social；
 - Motivation；
--完整 Self evolution；
+- 完整 Self evolution；
 - Heptalogos live connector；
 - graph algorithm rewrite；
 - UI。

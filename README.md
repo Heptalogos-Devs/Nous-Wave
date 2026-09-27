@@ -21,4 +21,4 @@ Architecture-Vault owns long-term product semantics, accepted design decisions, 
 
 ## Development
 
-The pinned Rust toolchain is specified by [`rust-toolchain.toml`](rust-toolchain.toml). Rust workspace verification is provided by [`justfile`](justfile): `just fmt`, `just check`, `just lint`, `just test`, and `just verify`. The TypeScript/Protobuf check is `corepack pnpm check`.
+The pinned Rust toolchain is specified by [`rust-toolchain.toml`](rust-toolchain.toml). Rust workspace verification is provided by [`justfile`](justfile): `just fmt`, `just check`, `just lint`, `just test`, and `just verify`. Additional governance checks are exposed as `just nextest`, `just feature-check`, `just lint-strict`, `just dupes`, `just dupehound`, `just typos`, `just osv`, `just coverage`, and `just mutants`. The TypeScript/Protobuf check is `corepack pnpm check`.

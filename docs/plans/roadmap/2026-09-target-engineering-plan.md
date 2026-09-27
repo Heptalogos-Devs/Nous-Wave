@@ -21,7 +21,7 @@
 - semantic migration unit；
 - protocol / persistence / runtime / serving blast radius；
 - 实施依赖关系；
--阶段进入和停止条件。
+- 阶段进入和停止条件。
 
 它暂时不冻结：
 
@@ -29,7 +29,7 @@
 - SQL table / column；
 - exact Rust type；
 - crate/package 物理划分；
--算法参数；
+- 算法参数；
 - provider backend；
 - migration script。
 

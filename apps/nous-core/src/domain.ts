@@ -1,5 +1,11 @@
-export interface Ref { kind: string; value: string }
-export interface Evidence { reference?: Ref; supportRole: string }
+export interface Ref {
+  kind: string;
+  value: string;
+}
+interface Evidence {
+  reference?: Ref;
+  supportRole: string;
+}
 export interface Focus {
   focusId: string;
   descriptor: string;
@@ -8,21 +14,42 @@ export interface Focus {
   summary?: string;
   revision: bigint;
 }
-export interface Session {
+interface Session {
   sessionId: string;
   subjectId: string;
   runtimeRevision: bigint;
   closed: boolean;
   activeFocusId?: string;
 }
-export interface RuntimeSnapshot { session: Session; focuses: Focus[] }
-export interface FocusChange { focus: Focus; expectedRevision: bigint }
-export interface RuntimePort {
-  read(subjectId: string, sessionId: string, signal?: AbortSignal): Promise<RuntimeSnapshot>;
-  write(subjectId: string, sessionId: string, expected: bigint, changes: FocusChange[], foreground: string | undefined, signal?: AbortSignal): Promise<bigint>;
-  validateRefs(subjectId: string, refs: Ref[], signal?: AbortSignal): Promise<Ref[]>;
+export interface RuntimeSnapshot {
+  session: Session;
+  focuses: Focus[];
 }
-export type Requirement = "REQUIRED" | "PREFERRED" | "OPTIONAL" | "FORBIDDEN";
+export interface FocusChange {
+  focus: Focus;
+  expectedRevision: bigint;
+}
+export interface RuntimePort {
+  read(
+    subjectId: string,
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<RuntimeSnapshot>;
+  write(
+    subjectId: string,
+    sessionId: string,
+    expected: bigint,
+    changes: FocusChange[],
+    foreground: string | undefined,
+    signal?: AbortSignal,
+  ): Promise<bigint>;
+  validateRefs(
+    subjectId: string,
+    refs: Ref[],
+    signal?: AbortSignal,
+  ): Promise<Ref[]>;
+}
+type Requirement = "REQUIRED" | "PREFERRED" | "OPTIONAL" | "FORBIDDEN";
 export interface ConsumerPolicy {
   consumerId: string;
   revision: string;
@@ -43,7 +70,10 @@ export interface Segment {
   stability: string;
   sourceRevision?: string;
 }
-export interface Degradation { code: string; detail: string }
+export interface Degradation {
+  code: string;
+  detail: string;
+}
 export interface Projection {
   projectionId: string;
   consumerId: string;
@@ -51,6 +81,16 @@ export interface Projection {
   segments: Segment[];
   degradation: Degradation[];
 }
-export interface Cursor { trackId: string; epochId: string; revision: number }
-export interface ContextPatch { kind: "RESET" | "APPEND"; cursor: Cursor; projection: Projection }
-export function refKey(ref: Ref): string { return `${ref.kind}\0${ref.value}`; }
+export interface Cursor {
+  trackId: string;
+  epochId: string;
+  revision: number;
+}
+export interface ContextPatch {
+  kind: "RESET" | "APPEND";
+  cursor: Cursor;
+  projection: Projection;
+}
+export function refKey(ref: Ref): string {
+  return `${ref.kind}\0${ref.value}`;
+}

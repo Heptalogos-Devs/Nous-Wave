@@ -158,7 +158,7 @@ fn association_support(value: p::AssociationSupport) -> Result<AssociationSuppor
         .ok_or_else(|| Error::Invalid("empty association support".into()))?
     {
         p::association_support::Support::Revision(value) => {
-            Ok(AssociationSupport::Revision(super::schema::support(value)?))
+            Ok(AssociationSupport::Revision(super::support(value)?))
         }
         p::association_support::Support::UseEvent(value) => {
             Ok(AssociationSupport::UseEvent(UseEventRef {
@@ -173,7 +173,7 @@ fn association_support(value: p::AssociationSupport) -> Result<AssociationSuppor
 fn association_support_proto(value: AssociationSupport) -> p::AssociationSupport {
     let support = match value {
         AssociationSupport::Revision(value) => {
-            p::association_support::Support::Revision(super::schema::support_proto(value))
+            p::association_support::Support::Revision(super::support_proto(value))
         }
         AssociationSupport::UseEvent(value) => {
             p::association_support::Support::UseEvent(p::UseEventRef {

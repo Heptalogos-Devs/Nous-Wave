@@ -3,21 +3,42 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.4.1",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "start": "tsx apps/nous-core/src/main.ts",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "generate": "buf generate",
     "proto:check": "buf lint",
-    "check": "pnpm proto:check && pnpm typecheck && pnpm test"
+    "lint:ts": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",
+    "lint:eslint": "eslint .",
+    "lint:knip": "knip --strict",
+    "lint:deps": "dependency-cruiser apps/nous-core/src packages --config .dependency-cruiser.cjs",
+    "lint:dupes": "jscpd .",
+    "lint:sherif": "sherif",
+    "check:governance": "pnpm format:check && pnpm lint:ts && pnpm lint:eslint && pnpm lint:knip && pnpm lint:deps && pnpm lint:dupes && pnpm lint:sherif",
+    "check": "pnpm proto:check && pnpm typecheck && pnpm test && pnpm check:governance"
   },
   "devDependencies": {
     "@bufbuild/buf": "1.73.0",
     "@bufbuild/protoc-gen-es": "2.15.0",
+    "@swc/core": "1.16.2",
     "@types/node": "22.20.3",
-    "typescript": "7.0.2",
+    "dependency-cruiser": "18.4.0",
+    "eslint": "10.11.0",
+    "eslint-plugin-oxlint": "1.85.0",
+    "jscpd": "5.3.2",
+    "knip": "6.38.0",
+    "oxlint": "1.85.0",
+    "oxlint-tsgolint": "7.0.2003",
+    "prettier": "3.9.9",
+    "sherif": "1.13.0",
     "tsx": "4.23.13",
+    "typescript": "7.0.2",
     "vitest": "5.0.1"
   }
 }

@@ -1,0 +1,16 @@
+node_modules/
+.codegraph/
+target/
+coverage/
+dist/
+build/
+Cargo.lock
+pnpm-lock.yaml
+crates/authority-store/data/
+crates/protocol/src/generated/
+packages/protocol-ts/src/generated/
+docs/specs/active/r2-cognitive-retrieval/
+# Authored execution/evidence documents; preserve their contract formatting.
+docs/current-state/audits/2026-09-27-r1-reference-profile-review.md
+docs/plans/active/2026-09-27-cognitive-retrieval-evaluation-r2.md
+docs/qualification/2026-10-r2-cognitive-retrieval.md

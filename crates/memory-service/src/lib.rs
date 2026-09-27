@@ -163,20 +163,6 @@ fn operation_digest<T: Serialize>(kind: &str, subject: SubjectId, value: &T) -> 
     canonical_request_digest(kind, subject, value)
 }
 
-fn validate_content(semantic_role: &str, representation_text: &str) -> Result<()> {
-    if semantic_role.trim().is_empty() || semantic_role.len() > 128 {
-        return Err(Error::Invalid(
-            "semantic_role is required and bounded".into(),
-        ));
-    }
-    if representation_text.trim().is_empty() || representation_text.len() > 1_000_000 {
-        return Err(Error::Invalid(
-            "representation_text is required and bounded".into(),
-        ));
-    }
-    Ok(())
-}
-
 async fn lock_operation(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     subject: SubjectId,

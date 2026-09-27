@@ -483,7 +483,7 @@ impl ExplicitMemoryInput {
     }
 }
 
-fn validate_content(semantic_role: &str, representation_text: &str) -> Result<()> {
+pub fn validate_content(semantic_role: &str, representation_text: &str) -> Result<()> {
     if semantic_role.trim().is_empty() || semantic_role.len() > 128 {
         return Err(Error::Invalid(
             "semantic_role is required and bounded".into(),

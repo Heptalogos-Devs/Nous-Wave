@@ -1,9 +1,7 @@
 use super::*;
 use futures::{Stream, StreamExt};
 use nous_authority_store::database_error as db;
-use nous_core::{
-    ArtifactId, EntityRef, ObjectRef, ResourceRef, Result, SessionId, SubjectId, TemporalExtent,
-};
+use nous_core::{ArtifactId, EntityRef, ObjectRef, ResourceRef, Result, SessionId, SubjectId};
 use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, ResolvedEntityMention,
     RuntimeDirective,
@@ -24,21 +22,6 @@ fn artifact(value: nous_material::Artifact) -> p::Artifact {
     }
 }
 
-fn temporal(value: Option<p::TemporalExtent>) -> Result<TemporalExtent> {
-    let Some(value) = value else {
-        return Ok(TemporalExtent::Unknown);
-    };
-    Ok(match value.value {
-        Some(p::temporal_extent::Value::Instant(value)) => TemporalExtent::Instant {
-            at: time(Some(value))?.ok_or_else(|| Error::Invalid("invalid instant".into()))?,
-        },
-        Some(p::temporal_extent::Value::Interval(value)) => TemporalExtent::Interval {
-            start: time(value.start)?,
-            end: time(value.end)?,
-        },
-        None => TemporalExtent::Unknown,
-    })
-}
 impl KernelService {
     pub(super) async fn record_observation(
         &self,

@@ -25,16 +25,16 @@ Authority 顺序：
 - Spec 覆盖范围内不得保留 `TBD` / “自行选择” / 多个未决定方案。
 - Spec 中允许存在实验候选，但必须先指定一个 reference/default implementation。
 - benchmark 只能在稳定 reference implementation 上进行。
--阶段结束后可归档，但 Qualification 必须指向实际使用过的 Spec revision/commit。
+- 阶段结束后可归档，但 Qualification 必须指向实际使用过的 Spec revision/commit。
 
 ## 3. Implementation freedom
 
 Agent 可以自行决定：
 
 - 私有 helper 名称；
--不会改变合同的局部文件拆分；
--纯机械重构；
--等价 SQL 写法。
+  -不会改变合同的局部文件拆分；
+  -纯机械重构；
+  -等价 SQL 写法。
 
 Agent 不得自行决定：
 
@@ -48,7 +48,7 @@ Agent 不得自行决定：
 - purge；
 - ranking semantics；
 - Serving consistency；
--算法默认路径。
+- 算法默认路径。
 
 ## 4. 当前 Active Specs
 

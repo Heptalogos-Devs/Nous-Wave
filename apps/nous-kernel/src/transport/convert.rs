@@ -1,6 +1,7 @@
 use super::*;
 use chrono::{DateTime, Utc};
-use nous_core::{CognitiveRef, Result};
+use nous_core::{CognitiveRef, Result, TemporalExtent};
+use nous_memory_domain::{CognitionDependency, EvidenceLocator, EvidenceRef, RevisionSupport};
 use prost_types::{Struct, Timestamp, Value, value::Kind};
 use serde::{Serialize, de::DeserializeOwned};
 use std::collections::BTreeMap;
@@ -40,6 +41,110 @@ pub fn timestamp(value: DateTime<Utc>) -> Timestamp {
     Timestamp {
         seconds: value.timestamp(),
         nanos: value.timestamp_subsec_nanos() as i32,
+    }
+}
+
+pub fn temporal(value: Option<p::TemporalExtent>) -> Result<TemporalExtent> {
+    let Some(value) = value else {
+        return Ok(TemporalExtent::Unknown);
+    };
+    match value.value {
+        Some(p::temporal_extent::Value::Instant(value)) => Ok(TemporalExtent::Instant {
+            at: time(Some(value))?.ok_or_else(|| Error::Invalid("invalid instant".into()))?,
+        }),
+        Some(p::temporal_extent::Value::Interval(value)) => Ok(TemporalExtent::Interval {
+            start: time(value.start)?,
+            end: time(value.end)?,
+        }),
+        None => Ok(TemporalExtent::Unknown),
+    }
+}
+
+pub fn temporal_proto(value: &TemporalExtent) -> p::TemporalExtent {
+    p::TemporalExtent {
+        value: match value {
+            TemporalExtent::Unknown => None,
+            TemporalExtent::Instant { at } => {
+                Some(p::temporal_extent::Value::Instant(timestamp(*at)))
+            }
+            TemporalExtent::Interval { start, end } => {
+                Some(p::temporal_extent::Value::Interval(p::TimeInterval {
+                    start: start.map(timestamp),
+                    end: end.map(timestamp),
+                }))
+            }
+        },
+    }
+}
+
+pub fn support(value: p::RevisionSupport) -> Result<RevisionSupport> {
+    match value
+        .support
+        .ok_or_else(|| Error::Invalid("revision support is empty".into()))?
+    {
+        p::revision_support::Support::Evidence(value) => {
+            let locator = match value
+                .locator
+                .ok_or_else(|| Error::Invalid("evidence locator is empty".into()))?
+            {
+                p::evidence_ref::Locator::WholeOccurrence(_) => EvidenceLocator::WholeOccurrence,
+                p::evidence_ref::Locator::SourceRegionId(value) => {
+                    EvidenceLocator::SourceRegion(nous_core::SourceRegionId(id(&value)?))
+                }
+                p::evidence_ref::Locator::DerivedRepresentationId(value) => {
+                    EvidenceLocator::DerivedRepresentation(nous_core::DerivedRepresentationId(id(
+                        &value,
+                    )?))
+                }
+                p::evidence_ref::Locator::DerivedRegionId(value) => {
+                    EvidenceLocator::DerivedRegion(nous_core::DerivedRegionId(id(&value)?))
+                }
+            };
+            Ok(RevisionSupport::Evidence(EvidenceRef {
+                occurrence_id: nous_core::OccurrenceId(id(&value.occurrence_id)?),
+                locator,
+                support_role: enum_value(&value.support_role)?,
+            }))
+        }
+        p::revision_support::Support::CognitionDependency(value) => {
+            Ok(RevisionSupport::CognitionDependency(CognitionDependency {
+                target_revision: from_ref(required(value.target_revision, "target_revision")?)?,
+                support_role: enum_value(&value.support_role)?,
+            }))
+        }
+    }
+}
+
+pub fn support_proto(value: RevisionSupport) -> p::RevisionSupport {
+    let support = match value {
+        RevisionSupport::Evidence(value) => {
+            let locator = match value.locator {
+                EvidenceLocator::WholeOccurrence => p::evidence_ref::Locator::WholeOccurrence(true),
+                EvidenceLocator::SourceRegion(id) => {
+                    p::evidence_ref::Locator::SourceRegionId(id.0.to_string())
+                }
+                EvidenceLocator::DerivedRepresentation(id) => {
+                    p::evidence_ref::Locator::DerivedRepresentationId(id.0.to_string())
+                }
+                EvidenceLocator::DerivedRegion(id) => {
+                    p::evidence_ref::Locator::DerivedRegionId(id.0.to_string())
+                }
+            };
+            p::revision_support::Support::Evidence(p::EvidenceRef {
+                occurrence_id: value.occurrence_id.0.to_string(),
+                locator: Some(locator),
+                support_role: enum_name(value.support_role),
+            })
+        }
+        RevisionSupport::CognitionDependency(value) => {
+            p::revision_support::Support::CognitionDependency(p::CognitionDependency {
+                target_revision: Some(to_ref(value.target_revision)),
+                support_role: enum_name(value.support_role),
+            })
+        }
+    };
+    p::RevisionSupport {
+        support: Some(support),
     }
 }
 pub fn from_ref(value: p::CognitiveRef) -> Result<CognitiveRef> {
