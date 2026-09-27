@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use nous_core::{
     AssociationEvidenceId, CognitiveRef, CognitiveSchemaId, CognitiveSchemaRevisionId, EntityRef,
     EpistemicClass, Error, MemoryId, MemoryRevisionId, OccurrenceId, OperationId, Result,
-    SchemaEvidenceLinkId, SubjectId, TagId, TemporalExtent,
+    SchemaEvidenceLinkId, SubjectId, TagId, TemporalExtent, UseEventId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -378,6 +378,28 @@ pub enum AssociationSupportClass {
     DerivedStructure,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UseEventRef {
+    pub subject_id: SubjectId,
+    pub consumer_ref: String,
+    pub event_id: UseEventId,
+}
+
+impl UseEventRef {
+    pub fn canonical_key(&self) -> String {
+        format!(
+            "{}:{}:{}",
+            self.subject_id.0, self.consumer_ref, self.event_id.0
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AssociationSupport {
+    Revision(RevisionSupport),
+    UseEvent(UseEventRef),
+}
+
 impl AssociationSupportClass {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -399,7 +421,7 @@ pub struct AssociationEvidence {
     pub relation_kind: String,
     pub polarity: AssociationPolarity,
     pub support_class: AssociationSupportClass,
-    pub supports: Vec<RevisionSupport>,
+    pub supports: Vec<AssociationSupport>,
     pub producer_signature_id: Option<Uuid>,
     pub valid_time: TemporalExtent,
     pub created_at: DateTime<Utc>,
@@ -593,8 +615,26 @@ pub struct CognitiveSchemaRevision {
     pub structural_claim: String,
     pub applicability_scope: SchemaScope,
     pub boundary_definition: String,
+    pub formation_kind: SchemaFormationKind,
     pub formed_at: DateTime<Utc>,
     pub recorded_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SchemaFormationKind {
+    #[default]
+    ExplicitImport,
+    Synthesized,
+}
+
+impl SchemaFormationKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ExplicitImport => "explicit_import",
+            Self::Synthesized => "synthesized",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -643,6 +683,8 @@ pub struct CreateSchemaInput {
     pub applicability_scope: SchemaScope,
     pub boundary_definition: String,
     pub formed_at: DateTime<Utc>,
+    #[serde(default)]
+    pub formation_kind: SchemaFormationKind,
     pub evidence_links: Vec<SchemaEvidenceLinkInput>,
 }
 
@@ -676,7 +718,7 @@ pub struct CreateAssociationInput {
     pub relation_kind: String,
     pub polarity: AssociationPolarity,
     pub support_class: AssociationSupportClass,
-    pub supports: Vec<RevisionSupport>,
+    pub supports: Vec<AssociationSupport>,
     pub valid_time: TemporalExtent,
 }
 
@@ -729,7 +771,7 @@ pub struct TopologyAssociationProposal {
     pub polarity: AssociationPolarity,
     pub support_class: AssociationSupportClass,
     #[serde(default)]
-    pub supports: Vec<RevisionSupport>,
+    pub supports: Vec<AssociationSupport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

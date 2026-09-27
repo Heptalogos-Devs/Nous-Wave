@@ -41,6 +41,16 @@ pub(crate) async fn database() -> (PostgreSQL, String, TempDir) {
 }
 
 pub(crate) async fn open_runtime(url: &str, root: &TempDir) -> NousRuntime {
+    open_runtime_with_serving(url, root, false, false, false).await
+}
+
+pub(crate) async fn open_runtime_with_serving(
+    url: &str,
+    root: &TempDir,
+    lexical: bool,
+    dense: bool,
+    topology: bool,
+) -> NousRuntime {
     NousRuntime::open(RuntimeOptions {
         accessibility_policy: Default::default(),
         postgres_url: url.into(),
@@ -51,9 +61,9 @@ pub(crate) async fn open_runtime(url: &str, root: &TempDir) -> NousRuntime {
         memory_enabled: true,
         serving_options: ServingOptions {
             root: root.path().join("serving"),
-            lexical: false,
-            dense: false,
-            topology: false,
+            lexical,
+            dense,
+            topology,
             memory_enabled: true,
         },
         embedding: None,

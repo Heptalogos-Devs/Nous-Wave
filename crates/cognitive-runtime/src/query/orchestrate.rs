@@ -1,4 +1,4 @@
-use crate::{CognitiveRuntimeService, QueryPlan};
+use crate::{BoundQuery, CognitiveRuntimeService, QueryPlan};
 use nous_core::*;
 use std::collections::{BTreeMap, HashSet};
 use uuid::Uuid;
@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub trait CognitiveContributor: Send + Sync {
     async fn contribute(
         &self,
-        query: &CognitiveQuery,
+        bound: &BoundQuery,
         plan: &QueryPlan,
     ) -> Result<CognitiveQueryResult>;
 }
@@ -18,23 +18,20 @@ impl CognitiveRuntimeService {
         query: CognitiveQuery,
         memory: Option<&dyn CognitiveContributor>,
     ) -> Result<CognitiveQueryResult> {
-        let plan = QueryPlan::for_query(&query);
-        self.query_with_plan(query, memory, plan).await
+        let bound = self.bind_query(query).await?;
+        let plan = QueryPlan::for_bound_query(&bound);
+        self.query_with_plan(bound, memory, plan).await
     }
 
     pub async fn query_with_plan(
         &self,
-        query: CognitiveQuery,
+        bound: BoundQuery,
         memory: Option<&dyn CognitiveContributor>,
         plan: QueryPlan,
     ) -> Result<CognitiveQueryResult> {
-        query.validate()?;
-        self.require_subject(query.subject).await?;
-        if let Some(session) = query.session {
-            self.require_session(query.subject, session).await?;
-        }
+        let query = &bound.source_query;
         let mut result = if let Some(memory) = memory {
-            memory.contribute(&query, &plan).await?
+            memory.contribute(&bound, &plan).await?
         } else {
             if query
                 .targets
@@ -53,15 +50,15 @@ impl CognitiveRuntimeService {
                 diagnostics: None,
             }
         };
+        result.query_id = bound.query_id;
         let mut seen: HashSet<CognitiveRef> = result
             .results
             .iter()
             .map(|hit| hit.reference.clone())
             .collect();
-        for reference in query.targets.iter().filter_map(|target| match target {
-            QueryTarget::Exact { reference } => Some(reference),
-            _ => None,
-        }) {
+        for binding in &bound.exact_bindings {
+            let reference = &binding.bound_ref;
+
             if matches!(
                 reference,
                 CognitiveRef::Memory(_) | CognitiveRef::MemoryRevision(_)
@@ -75,7 +72,7 @@ impl CognitiveRuntimeService {
                 result.results.push(reference_hit(
                     reference.clone(),
                     EvidenceFamily::Exact,
-                    &query,
+                    query,
                 ));
             }
         }
@@ -98,12 +95,12 @@ impl CognitiveRuntimeService {
                     result.results.push(reference_hit(
                         resident.reference,
                         EvidenceFamily::Runtime,
-                        &query,
+                        query,
                     ));
                 }
             }
         }
-        let (actions, degradation) = self.resource_actions_for_query(&query, &plan).await?;
+        let (actions, degradation) = self.resource_actions_for_query(query, &plan).await?;
         result.resource_actions = actions;
         result.degradation.extend(degradation);
         result.results.sort_by(|a, b| {
@@ -124,7 +121,7 @@ impl CognitiveRuntimeService {
                 QueryStatus::Degraded
             };
         }
-        explain_plan(&mut result, &query, &plan);
+        explain_plan(&mut result, query, &plan);
         Ok(result)
     }
 }

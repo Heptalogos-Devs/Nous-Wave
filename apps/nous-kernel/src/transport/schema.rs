@@ -4,7 +4,7 @@ use nous_core::{
 };
 use nous_memory_domain::{
     CognitionDependency, CreateSchemaInput, EvidenceLocator, EvidenceRef, ReviseSchemaInput,
-    RevisionSupport, SchemaEvidenceLinkInput, SchemaScope,
+    RevisionSupport, SchemaEvidenceLinkInput, SchemaFormationKind, SchemaScope,
 };
 use nous_memory_service::schema::SchemaView;
 
@@ -87,6 +87,11 @@ fn schema_input(
         .ok_or_else(|| Error::Invalid("applicability_scope is required".into()))?;
     let formed_at =
         time(value.formed_at)?.ok_or_else(|| Error::Invalid("formed_at is required".into()))?;
+    let formation_kind = if value.formation_kind.is_empty() {
+        SchemaFormationKind::ExplicitImport
+    } else {
+        enum_value(&value.formation_kind)?
+    };
     Ok(CreateSchemaInput {
         operation_id,
         subject,
@@ -108,6 +113,7 @@ fn schema_input(
         },
         boundary_definition: value.boundary_definition,
         formed_at,
+        formation_kind,
         evidence_links: evidence_links
             .into_iter()
             .map(|link| {
@@ -161,6 +167,7 @@ fn schema_view(value: SchemaView) -> p::CognitiveSchema {
             .collect(),
         formed_at: Some(timestamp(revision.formed_at)),
         recorded_at: Some(timestamp(revision.recorded_at)),
+        formation_kind: enum_name(revision.formation_kind),
     }
 }
 

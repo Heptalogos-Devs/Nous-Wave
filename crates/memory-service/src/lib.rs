@@ -1,12 +1,16 @@
 //! Memory Authority orchestration for the R1 reference profile.
 
 mod accessibility;
+mod lane;
 mod lifecycle;
 mod provenance;
 mod query;
 mod runtime;
 pub mod schema;
+mod schema_lane;
+mod source_classes;
 mod topology;
+mod topology_lane;
 
 use chrono::{DateTime, Utc};
 use nous_authority_store::{AuthorityStore, ProjectionInvalidation, database_error as db};
@@ -53,6 +57,8 @@ pub struct MemoryView {
     pub relations_truncated: bool,
     pub accessibility_level: AccessibilityLevel,
     pub temporal_evidence: TemporalEvidence,
+    #[serde(default)]
+    pub source_classes: Vec<SourceClass>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,7 +102,8 @@ pub struct CreateAssociationRequest {
     pub relation_kind: String,
     pub polarity: AssociationPolarity,
     pub support_class: AssociationSupportClass,
-    pub supports: Vec<RevisionSupport>,
+    pub supports: Vec<AssociationSupport>,
+    pub producer_signature_id: Option<Uuid>,
     pub valid_time: TemporalExtent,
 }
 
@@ -422,6 +429,7 @@ impl MemoryService {
             .accessibility_level(subject, memory_id, Utc::now())
             .await?;
         let temporal_evidence = self.temporal_evidence(revision_id).await?;
+        let source_classes = self.source_classes(revision_id).await?;
         Ok(MemoryView {
             object,
             revision: revision_value,
@@ -432,6 +440,7 @@ impl MemoryService {
             relations_truncated,
             accessibility_level,
             temporal_evidence,
+            source_classes,
         })
     }
 
@@ -735,6 +744,10 @@ impl MemoryService {
         self.form_memory(proposal.into_input(subject)).await
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "memory revision owns fencing, identity guard and immutable content commit"
+    )]
     pub async fn revise_memory(&self, input: ReviseMemoryInput) -> Result<MemoryView> {
         if input.operation_id.0.is_nil() {
             return Err(Error::Invalid("operation_id is required".into()));
@@ -794,6 +807,24 @@ impl MemoryService {
         self.validate_supports_in_tx(&mut tx, input.subject, &input.supports)
             .await?;
         let parent = MemoryRevisionId(row.try_get("current_revision_id").map_err(db)?);
+        let parent_aboutness = sqlx::query_scalar::<_, String>(
+            "SELECT entity_ref FROM memory_revision_aboutness WHERE memory_revision_id=$1",
+        )
+        .bind(parent.0)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(db)?;
+        if !parent_aboutness.is_empty()
+            && !input.aboutness.iter().any(|entity| {
+                parent_aboutness
+                    .iter()
+                    .any(|value| value == entity.as_str())
+            })
+        {
+            return Err(Error::FailedPrecondition(
+                "revision aboutness is disjoint from the existing cognitive matter; form a new Memory object".into(),
+            ));
+        }
         let revision_no: i32 = sqlx::query_scalar(
             "SELECT revision_no+1 FROM memory_revisions WHERE memory_revision_id=$1",
         )

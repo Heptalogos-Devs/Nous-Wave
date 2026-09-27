@@ -67,6 +67,15 @@ impl AuthorityStore {
             .map_err(database_error)
     }
 
+    pub async fn authority_seq(&self, subject: SubjectId) -> Result<i64> {
+        sqlx::query_scalar::<_, i64>("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+            .bind(subject.0)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?
+            .ok_or_else(|| Error::NotFound("subject not found".into()))
+    }
+
     pub async fn begin(&self) -> Result<Transaction<'_, Postgres>> {
         self.pool.begin().await.map_err(database_error)
     }

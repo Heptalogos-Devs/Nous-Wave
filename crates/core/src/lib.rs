@@ -829,6 +829,7 @@ pub enum EvidenceFamily {
     Lexical,
     Dense,
     Temporal,
+    SchemaDirect,
     TopologyWave,
     Resource,
     LanguageRerank,

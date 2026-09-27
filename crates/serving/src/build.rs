@@ -156,7 +156,7 @@ impl ServingService {
                 association_kind: edge.association_kind,
                 polarity: edge.polarity,
                 support_mass: edge.support_mass,
-                provenance_root: None,
+                provenance_root: edge.provenance_root,
             })
             .collect();
         let nodes = input

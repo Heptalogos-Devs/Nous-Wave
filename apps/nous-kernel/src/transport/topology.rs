@@ -1,7 +1,7 @@
 use super::*;
 use nous_authority_store::database_error as db;
 use nous_core::{OperationId, Result, SubjectId};
-use nous_memory_domain::RevisionSupport;
+use nous_memory_domain::{AssociationSupport, UseEventRef};
 use nous_memory_service::{CreateAssociationRequest, CreateTagRequest};
 use sqlx::Row;
 
@@ -81,8 +81,8 @@ impl KernelService {
         let supports = association
             .supports
             .into_iter()
-            .map(super::schema::support)
-            .collect::<Result<Vec<RevisionSupport>>>()?;
+            .map(association_support)
+            .collect::<Result<Vec<AssociationSupport>>>()?;
         let result = self
             .require_memory()?
             .create_association(
@@ -94,6 +94,11 @@ impl KernelService {
                     polarity: enum_value(&association.polarity)?,
                     support_class: enum_value(&association.support_class)?,
                     supports,
+                    producer_signature_id: association
+                        .producer_signature_id
+                        .as_deref()
+                        .map(id)
+                        .transpose()?,
                     valid_time: nous_core::TemporalExtent::Unknown,
                 },
                 subject,
@@ -109,8 +114,9 @@ impl KernelService {
             supports: result
                 .supports
                 .into_iter()
-                .map(super::schema::support_proto)
+                .map(association_support_proto)
                 .collect(),
+            producer_signature_id: result.producer_signature_id.map(|value| value.to_string()),
         })
     }
 
@@ -143,5 +149,41 @@ impl KernelService {
         sqlx::query("INSERT INTO entity_binding_revisions(binding_revision_id,mention_id,revision_no,entity_ref,binding_state,host_resolution_ref,reason,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,now())").bind(uuid::Uuid::now_v7()).bind(mention).bind(revision).bind(input.entity_ref).bind(input.binding_state).bind(input.host_resolution_ref).bind(input.reason).execute(self.0.store.pool()).await.map_err(db)?;
         let _ = subject;
         Ok(())
+    }
+}
+
+fn association_support(value: p::AssociationSupport) -> Result<AssociationSupport> {
+    match value
+        .support
+        .ok_or_else(|| Error::Invalid("empty association support".into()))?
+    {
+        p::association_support::Support::Revision(value) => {
+            Ok(AssociationSupport::Revision(super::schema::support(value)?))
+        }
+        p::association_support::Support::UseEvent(value) => {
+            Ok(AssociationSupport::UseEvent(UseEventRef {
+                subject_id: SubjectId(id(&value.subject_id)?),
+                consumer_ref: value.consumer_ref,
+                event_id: nous_core::UseEventId(id(&value.event_id)?),
+            }))
+        }
+    }
+}
+
+fn association_support_proto(value: AssociationSupport) -> p::AssociationSupport {
+    let support = match value {
+        AssociationSupport::Revision(value) => {
+            p::association_support::Support::Revision(super::schema::support_proto(value))
+        }
+        AssociationSupport::UseEvent(value) => {
+            p::association_support::Support::UseEvent(p::UseEventRef {
+                subject_id: value.subject_id.0.to_string(),
+                consumer_ref: value.consumer_ref,
+                event_id: value.event_id.0.to_string(),
+            })
+        }
+    };
+    p::AssociationSupport {
+        support: Some(support),
     }
 }

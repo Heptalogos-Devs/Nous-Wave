@@ -107,16 +107,19 @@ impl NousRuntime {
     }
 
     pub async fn query(&self, query: CognitiveQuery) -> Result<CognitiveQueryResult> {
-        query.validate()?;
-        let plan = nous_cognitive_runtime::QueryPlan::for_query(&query);
+        let bound = self.cognition.bind_query(query).await?;
+        let plan = nous_cognitive_runtime::QueryPlan::for_bound_query(&bound);
         let projection = self
             .serving
-            .prepare(query.subject, plan.serving_need(&query))
+            .prepare(
+                bound.source_query.subject,
+                plan.serving_need(&bound.source_query),
+            )
             .await?;
         let mut result = self
             .cognition
             .query_with_plan(
-                query,
+                bound,
                 self.memory
                     .as_ref()
                     .map(|memory| memory as &dyn nous_cognitive_runtime::CognitiveContributor),

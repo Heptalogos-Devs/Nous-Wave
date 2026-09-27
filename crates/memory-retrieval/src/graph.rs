@@ -267,9 +267,7 @@ fn supported_relation(kind: &str) -> bool {
             | "tag_attachment"
             | "schema_support"
             | "derived_from"
-            | "contradicts"
             | "temporal_successor"
-            | "replaces_basis"
             | "elaborates"
             | "assoc.related"
             | "assoc.co_occurs"
@@ -316,7 +314,7 @@ mod tests {
                     from: a.clone(),
                     to: b.clone(),
                     support_class: "host_explicit".into(),
-                    association_kind: "unknown.relation".into(),
+                    association_kind: "contradicts".into(),
                     polarity: "positive".into(),
                     support_mass: 1.0,
                     provenance_root: None,

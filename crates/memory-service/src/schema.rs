@@ -14,7 +14,7 @@ impl MemoryService {
         subject: SubjectId,
         schema_id: CognitiveSchemaId,
     ) -> Result<SchemaView> {
-        let row = sqlx::query("SELECT s.schema_id,s.subject_id,s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,s.created_at,r.schema_revision_id,r.schema_id AS revision_schema_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.title,r.structural_claim,r.applicability_description,r.aboutness,r.tags,r.boundary_definition,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_revision_id=s.current_revision_id WHERE s.subject_id=$1 AND s.schema_id=$2")
+        let row = sqlx::query("SELECT s.schema_id,s.subject_id,s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,s.created_at,r.schema_revision_id,r.schema_id AS revision_schema_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.title,r.structural_claim,r.applicability_description,r.aboutness,r.tags,r.boundary_definition,r.formation_kind,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_revision_id=s.current_revision_id WHERE s.subject_id=$1 AND s.schema_id=$2")
             .bind(subject.0).bind(schema_id.0).fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(||Error::NotFound("CognitiveSchema not found".into()))?;
         let revision_id = CognitiveSchemaRevisionId(row.try_get("schema_revision_id").map_err(db)?);
         let revision = CognitiveSchemaRevision {
@@ -53,6 +53,10 @@ impl MemoryService {
                 )?,
             },
             boundary_definition: row.try_get("boundary_definition").map_err(db)?,
+            formation_kind: parse_enum(
+                row.try_get("formation_kind").map_err(db)?,
+                "schema formation kind",
+            )?,
             formed_at: row.try_get("formed_at").map_err(db)?,
             recorded_at: row.try_get("recorded_at").map_err(db)?,
         };
@@ -153,11 +157,23 @@ impl MemoryService {
             .collect()
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "schema creation owns formation gate and atomic evidence commit"
+    )]
     pub async fn create_schema(&self, input: CreateSchemaInput) -> Result<SchemaView> {
-        if input.evidence_links.len() < 2 {
-            return Err(Error::Invalid(
-                "CognitiveSchema requires at least two evidence links".into(),
-            ));
+        match input.formation_kind {
+            SchemaFormationKind::ExplicitImport if input.evidence_links.is_empty() => {
+                return Err(Error::Invalid(
+                    "explicit_import CognitiveSchema requires at least one evidence link".into(),
+                ));
+            }
+            SchemaFormationKind::Synthesized if input.evidence_links.len() < 2 => {
+                return Err(Error::Invalid(
+                    "synthesized CognitiveSchema requires at least two evidence links".into(),
+                ));
+            }
+            _ => {}
         }
         self.store.require_subject(input.subject).await?;
         validate_schema_content(&input)?;
@@ -169,10 +185,28 @@ impl MemoryService {
             self.validate_supports_for_subject(input.subject, std::slice::from_ref(&link.support))
                 .await?;
         }
+        if matches!(input.formation_kind, SchemaFormationKind::Synthesized) {
+            let supports = input
+                .evidence_links
+                .iter()
+                .map(|link| link.support.clone())
+                .collect::<Vec<_>>();
+            let summary = self.provenance_summary(input.subject, &supports).await?;
+            let independent_roots = summary
+                .roots
+                .iter()
+                .filter(|root| matches!(root.certainty, EvidenceRootCertainty::Known))
+                .count();
+            if summary.normalized_inputs.len() < 2 || independent_roots < 2 {
+                return Err(Error::Invalid(
+                    "synthesized CognitiveSchema requires two normalized inputs and two known independent provenance roots".into(),
+                ));
+            }
+        }
         let digest = operation_digest(
             "create_cognitive_schema",
             input.subject,
-            &serde_json::json!({"title":input.title,"structural_claim":input.structural_claim,"scope":input.applicability_scope,"boundary_definition":input.boundary_definition,"formed_at":input.formed_at,"evidence_links":input.evidence_links}),
+            &serde_json::json!({"title":input.title,"structural_claim":input.structural_claim,"scope":input.applicability_scope,"boundary_definition":input.boundary_definition,"formed_at":input.formed_at,"formation_kind":input.formation_kind,"evidence_links":input.evidence_links}),
         )?;
         let mut tx = self.store.begin().await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
@@ -229,7 +263,7 @@ impl MemoryService {
         self.validate_supports_in_tx(&mut tx, input.subject, &schema_supports)
             .await?;
         sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)").bind(schema_id.0).bind(input.subject.0).bind(revision_id.0).bind(now).execute(&mut *tx).await.map_err(db)?;
-        sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,revision_intent,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,NULL,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)").bind(revision_id.0).bind(schema_id.0).bind(&input.title).bind(&input.structural_claim).bind(&input.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&input.boundary_definition).bind(kind).bind(start).bind(end).bind(input.formed_at).bind(now).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,revision_intent,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,NULL,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(revision_id.0).bind(schema_id.0).bind(&input.title).bind(&input.structural_claim).bind(&input.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&input.boundary_definition).bind(input.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(input.formed_at).bind(now).execute(&mut *tx).await.map_err(db)?;
         for link in input.evidence_links {
             self.insert_schema_link(&mut tx, input.subject, revision_id, link)
                 .await?;
@@ -480,7 +514,7 @@ impl MemoryService {
             .iter()
             .map(|value| value.0)
             .collect::<Vec<_>>();
-        sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,parent_revision_id,revision_intent,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) SELECT $1,schema_id,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15 FROM cognitive_schema_revisions WHERE schema_revision_id=$3")
+        sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,parent_revision_id,revision_intent,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) SELECT $1,schema_id,$2,$3,$4,$5,$6,$7,$8,$9,$10,formation_kind,$11,$12,$13,$14,$15 FROM cognitive_schema_revisions WHERE schema_revision_id=$3")
             .bind(revision_id.0)
             .bind(revision_no)
             .bind(parent.0)
@@ -526,6 +560,10 @@ impl MemoryService {
         self.schema(input.subject, input.schema_id).await
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "schema split commits children and lineage in one Authority transaction"
+    )]
     pub async fn split_schemas(
         &self,
         subject: SubjectId,
@@ -595,7 +633,9 @@ impl MemoryService {
         let source_revision: Uuid = source.try_get("current_revision_id").map_err(db)?;
         let mut ids = Vec::new();
         for child in children {
-            if child.evidence_links.len() < 2 {
+            if matches!(child.formation_kind, SchemaFormationKind::Synthesized)
+                && child.evidence_links.len() < 2
+            {
                 return Err(Error::Invalid(
                     "schema child needs two evidence links".into(),
                 ));
@@ -621,10 +661,23 @@ impl MemoryService {
                 .iter()
                 .map(|link| link.support.clone())
                 .collect::<Vec<_>>();
+            if matches!(child.formation_kind, SchemaFormationKind::Synthesized) {
+                let summary = self.provenance_summary(subject, &child_supports).await?;
+                let independent_roots = summary
+                    .roots
+                    .iter()
+                    .filter(|root| matches!(root.certainty, EvidenceRootCertainty::Known))
+                    .count();
+                if summary.normalized_inputs.len() < 2 || independent_roots < 2 {
+                    return Err(Error::Invalid(
+                        "synthesized schema child lacks independent provenance roots".into(),
+                    ));
+                }
+            }
             self.validate_supports_in_tx(&mut tx, subject, &child_supports)
                 .await?;
             sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)").bind(child_id.0).bind(subject.0).bind(child_revision.0).bind(now).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)").bind(child_revision.0).bind(child_id.0).bind(&child.title).bind(&child.structural_claim).bind(&child.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&child.boundary_definition).bind(kind).bind(start).bind(end).bind(child.formed_at).bind(now).execute(&mut *tx).await.map_err(db)?;
+            sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(child_revision.0).bind(child_id.0).bind(&child.title).bind(&child.structural_claim).bind(&child.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&child.boundary_definition).bind(child.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(child.formed_at).bind(now).execute(&mut *tx).await.map_err(db)?;
             for link in child.evidence_links {
                 self.insert_schema_link(&mut tx, subject, child_revision, link)
                     .await?;
@@ -774,7 +827,7 @@ impl MemoryService {
             .map(|v| v.0)
             .collect::<Vec<_>>();
         sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)").bind(new_id.0).bind(subject.0).bind(new_revision.0).bind(now).execute(&mut *tx).await.map_err(db)?;
-        sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)").bind(new_revision.0).bind(new_id.0).bind(&merged.title).bind(&merged.structural_claim).bind(&merged.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&merged.boundary_definition).bind(kind).bind(start).bind(end).bind(merged.formed_at).bind(now).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(new_revision.0).bind(new_id.0).bind(&merged.title).bind(&merged.structural_claim).bind(&merged.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&merged.boundary_definition).bind(merged.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(merged.formed_at).bind(now).execute(&mut *tx).await.map_err(db)?;
         for link in merged_links.into_values() {
             self.insert_schema_link(&mut tx, subject, new_revision, link)
                 .await?;

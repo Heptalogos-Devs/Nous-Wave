@@ -14,4 +14,8 @@ Target Design → Target Engineering Plan → Active Milestone Plan → Executab
 
 - [2026-10-27 Memory Reference Profile](active/2026-10-27-memory-reference-profile.md)：Target Engineering Plan 的阶段投影，定义中期范围、Must-have 语义和 Qualification 方向。
 
-当前仓库尚未建立正式 Executable Specs 分区。后续只在对应施工阶段建立实际需要的 Spec，不创建空壳文档。
+## 当前 Executable Specs
+
+- [Executable Specs 索引](../specs/README.md)：实施合同的职责、Authority 顺序与生命周期。
+- [R2 Cognitive Retrieval & Evaluation Substrate](active/2026-09-27-cognitive-retrieval-evaluation-r2.md)：R2 当前施工计划。
+- [R2 active spec set](../specs/active/r2-cognitive-retrieval/README.md)：本阶段的 BoundQuery、fusion、Schema/Association/Topology、Runtime 与 Qualification Specs。

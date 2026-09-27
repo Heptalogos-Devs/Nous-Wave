@@ -7,6 +7,7 @@ use uuid::Uuid;
 impl CognitiveRuntimeService {
     #[expect(
         clippy::too_many_lines,
+        clippy::excessive_nesting,
         reason = "batch UseEvent transaction owns atomic idempotency and runtime side effects"
     )]
     pub async fn use_feedback(&self, input: UseFeedback) -> Result<(u32, u32, Option<i64>)> {
@@ -40,6 +41,7 @@ impl CognitiveRuntimeService {
             {
                 return Err(Error::Invalid("UseEvent context exceeds 16 KiB".into()));
             }
+            validate_context_metadata(&event.context)?;
         }
         let mut tx = self.store.begin().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
@@ -81,7 +83,14 @@ impl CognitiveRuntimeService {
                         "duplicate event in ReportUse has different content".into(),
                     ));
                 }
-                return Err(Error::Conflict("duplicate event in ReportUse".into()));
+                prepared.push(Prepared {
+                    event,
+                    kind,
+                    value,
+                    digest,
+                    duplicate: true,
+                });
+                continue;
             }
             let existing = sqlx::query("SELECT request_digest FROM cognitive_use_events WHERE subject_id=$1 AND consumer_ref=$2 AND event_id=$3")
                 .bind(input.subject.0).bind(&input.consumer_ref).bind(event.event_id.0).fetch_optional(&mut *tx).await.map_err(db)?;
@@ -138,18 +147,29 @@ impl CognitiveRuntimeService {
             }
         }
         let session_revision = if let Some(session) = input.session_id {
-            for (kind, value, occurred_at) in &meaningful_times {
-                let updated = sqlx::query("UPDATE resident_refs SET state='resident',last_meaningful_use_at=GREATEST(COALESCE(last_meaningful_use_at,$4),$4) WHERE session_id=$1 AND ref_kind=$2 AND ref_value=$3")
+            if accepted == 0 {
+                let revision: i64 = sqlx::query_scalar(
+                    "SELECT runtime_revision FROM cognitive_sessions WHERE session_id=$1",
+                )
+                .bind(session.0)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(db)?;
+                Some(revision)
+            } else {
+                for (kind, value, occurred_at) in &meaningful_times {
+                    let updated = sqlx::query("UPDATE resident_refs SET state='resident',last_meaningful_use_at=GREATEST(COALESCE(last_meaningful_use_at,$4),$4) WHERE session_id=$1 AND ref_kind=$2 AND ref_value=$3")
                     .bind(session.0).bind(kind).bind(value).bind(occurred_at).execute(&mut *tx).await.map_err(db)?;
-                if updated.rows_affected() == 0 {
-                    sqlx::query("INSERT INTO resident_refs(session_id,ref_kind,ref_value,entered_at,entry_reason,last_meaningful_use_at,state,metadata) VALUES($1,$2,$3,$4,'meaningful_use',$4,'resident','{}') ON CONFLICT DO NOTHING")
+                    if updated.rows_affected() == 0 {
+                        sqlx::query("INSERT INTO resident_refs(session_id,ref_kind,ref_value,entered_at,entry_reason,last_meaningful_use_at,state,metadata) VALUES($1,$2,$3,$4,'meaningful_use',$4,'resident','{}') ON CONFLICT DO NOTHING")
                         .bind(session.0).bind(kind).bind(value).bind(occurred_at).execute(&mut *tx).await.map_err(db)?;
+                    }
                 }
-            }
-            let last_meaningful = meaningful_times.iter().map(|(_, _, time)| *time).max();
-            let row = sqlx::query("UPDATE cognitive_sessions SET last_activity_at=$2,last_meaningful_use_at=COALESCE(GREATEST(last_meaningful_use_at,$3),last_meaningful_use_at),runtime_revision=runtime_revision+1 WHERE session_id=$1 RETURNING runtime_revision")
+                let last_meaningful = meaningful_times.iter().map(|(_, _, time)| *time).max();
+                let row = sqlx::query("UPDATE cognitive_sessions SET last_activity_at=$2,last_meaningful_use_at=COALESCE(GREATEST(last_meaningful_use_at,$3),last_meaningful_use_at),runtime_revision=runtime_revision+1 WHERE session_id=$1 RETURNING runtime_revision")
                 .bind(session.0).bind(recorded_at).bind(last_meaningful).fetch_one(&mut *tx).await.map_err(db)?;
-            Some(row.try_get::<i64, _>("runtime_revision").map_err(db)?)
+                Some(row.try_get::<i64, _>("runtime_revision").map_err(db)?)
+            }
         } else {
             None
         };
@@ -167,6 +187,24 @@ fn validate_consumer_ref(value: &str) -> Result<()> {
         return Err(Error::Invalid(
             "consumer_ref must be a namespaced opaque reference".into(),
         ));
+    }
+    Ok(())
+}
+
+fn validate_context_metadata(value: &serde_json::Value) -> Result<()> {
+    let Some(object) = value.as_object() else {
+        return Ok(());
+    };
+    for key in object.keys() {
+        if matches!(
+            key.as_str(),
+            "raw" | "prompt" | "content" | "memory_text" | "artifact_bytes"
+        ) {
+            return Err(Error::Invalid(
+                "UseEvent context may contain metadata only; raw content fields are forbidden"
+                    .into(),
+            ));
+        }
     }
     Ok(())
 }

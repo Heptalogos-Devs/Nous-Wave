@@ -8,7 +8,7 @@ mod sessions;
 mod types;
 mod use_feedback;
 mod working_set;
-pub use query::{CognitiveContributor, QueryPlan, WorkCycle};
+pub use query::{BoundQuery, CognitiveContributor, QueryPlan, WorkCycle};
 pub use working_set::*;
 
 pub use resources::*;

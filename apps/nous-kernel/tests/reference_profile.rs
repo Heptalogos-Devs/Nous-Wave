@@ -4,11 +4,7 @@ use chrono::Utc;
 use nous_authority_store::{ProjectionInvalidation, ServingRecord};
 use nous_cognitive_runtime::{UseFeedback, UseFeedbackEvent, UseKind};
 use nous_core::{CognitiveRef, EpistemicClass, OperationId, ServingGenerationId, TemporalExtent};
-use nous_memory_domain::{
-    CognitiveRole, CreateSchemaInput, EvidenceLocator, EvidenceRef, ExplicitMemoryInput,
-    FormationMode, RevisionSupport, SchemaEvidenceLinkInput, SchemaEvidenceRole, SchemaScope,
-    SupportRole,
-};
+use nous_memory_domain::*;
 use nous_subject_core::{CharacterSeedInput, CreateSubject};
 use test_support::{
     database, external_observation, form_input, observation, occurrence_only_observation,
@@ -406,11 +402,14 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
                 relation_kind: "custom.unknown_relation".into(),
                 polarity: nous_memory_domain::AssociationPolarity::Positive,
                 support_class: nous_memory_domain::AssociationSupportClass::HostExplicit,
-                supports: vec![RevisionSupport::Evidence(EvidenceRef {
-                    occurrence_id: first_observation.occurrence.occurrence_id,
-                    locator: EvidenceLocator::WholeOccurrence,
-                    support_role: SupportRole::Direct,
-                })],
+                supports: vec![nous_memory_domain::AssociationSupport::Revision(
+                    RevisionSupport::Evidence(EvidenceRef {
+                        occurrence_id: first_observation.occurrence.occurrence_id,
+                        locator: EvidenceLocator::WholeOccurrence,
+                        support_role: SupportRole::Direct,
+                    }),
+                )],
+                producer_signature_id: None,
                 valid_time: TemporalExtent::Unknown,
             },
             subject,
@@ -622,6 +621,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
         },
         boundary_definition: "when practice is absent".into(),
         formed_at: Utc::now(),
+        formation_kind: SchemaFormationKind::ExplicitImport,
         evidence_links: vec![
             schema_link(SchemaEvidenceRole::Support),
             schema_link(SchemaEvidenceRole::BoundaryCase),
@@ -754,6 +754,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
             },
             boundary_definition: "when either support is purged".into(),
             formed_at: Utc::now(),
+            formation_kind: SchemaFormationKind::ExplicitImport,
             evidence_links: vec![
                 SchemaEvidenceLinkInput {
                     role: SchemaEvidenceRole::Support,

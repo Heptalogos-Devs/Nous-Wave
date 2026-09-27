@@ -947,6 +947,30 @@ pub struct ListTagsResponse {
     #[prost(string, tag="2")]
     pub next_page_token: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UseEventRef {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub consumer_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub event_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AssociationSupport {
+    #[prost(oneof="association_support::Support", tags="1, 2")]
+    pub support: ::core::option::Option<association_support::Support>,
+}
+/// Nested message and enum types in `AssociationSupport`.
+pub mod association_support {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Support {
+        #[prost(message, tag="1")]
+        Revision(super::RevisionSupport),
+        #[prost(message, tag="2")]
+        UseEvent(super::UseEventRef),
+    }
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Association {
     #[prost(string, tag="1")]
@@ -962,7 +986,9 @@ pub struct Association {
     #[prost(string, tag="6")]
     pub support_class: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="7")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub supports: ::prost::alloc::vec::Vec<AssociationSupport>,
+    #[prost(string, optional, tag="8")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateAssociationRequest {
@@ -1069,6 +1095,8 @@ pub struct CognitiveSchema {
     pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag="15")]
     pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, tag="16")]
+    pub formation_kind: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateCognitiveSchemaRequest {

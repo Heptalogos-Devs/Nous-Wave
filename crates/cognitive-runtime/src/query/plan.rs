@@ -1,7 +1,13 @@
+use super::{BoundQuery, planned_lanes};
 use nous_core::*;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct QueryPlan {
+    pub enabled_lanes: Vec<EvidenceFamily>,
+    pub lane_budgets: BTreeMap<EvidenceFamily, usize>,
+    /// Compatibility accessor for bounded non-exact providers. The plan
+    /// itself is lane-specific; providers must use `lane_budgets`.
     pub candidate_limit: usize,
     pub final_validation_budget: usize,
     pub sense_cues: bool,
@@ -14,45 +20,52 @@ pub struct QueryPlan {
 }
 
 impl QueryPlan {
+    pub fn for_bound_query(bound: &BoundQuery) -> Self {
+        Self::from_parts(
+            &bound.source_query,
+            bound.enabled_lanes.clone(),
+            bound.lane_budgets.clone(),
+        )
+    }
+
+    /// Retained for local plan tests and non-authority callers. Production
+    /// query execution uses `BoundQuery::bind_query` and `for_bound_query`.
     pub fn for_query(query: &CognitiveQuery) -> Self {
-        let (multiplier, per_lane_max, validation, hops, states, resources): (
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-            usize,
-        ) = match query.effort {
-            CognitiveEffort::Light => (2, 128, 4, 1, 128, 1),
-            CognitiveEffort::Normal => (4, 512, 6, 2, 512, 4),
-            CognitiveEffort::Deep => (8, 2048, 8, 3, 2048, 8),
-            CognitiveEffort::Maximum => (16, 8192, 12, 4, 4096, 16),
+        let lanes = planned_lanes(query);
+        let (multiplier, per_lane_max) = match query.effort {
+            CognitiveEffort::Light => (2, 128),
+            CognitiveEffort::Normal => (4, 512),
+            CognitiveEffort::Deep => (8, 2048),
+            CognitiveEffort::Maximum => (16, 8192),
         };
-        let limit = query.result_need.limit;
-        let explicit_topology = matches!(
-            query.exploration,
-            ExplorationIntent::BoundedAssociative
-                | ExplorationIntent::AroundTag
-                | ExplorationIntent::AroundSchema
-                | ExplorationIntent::ExplainAssociation
-        ) || query.cues.iter().any(|cue| matches!(cue, Cue::Relation(_)))
-            || query.targets.iter().any(|target| {
-                matches!(
-                    target,
-                    QueryTarget::EntityNeighborhood { .. } | QueryTarget::SchemaNeighborhood { .. }
-                )
-            });
+        let budget = query
+            .result_need
+            .limit
+            .saturating_mul(multiplier)
+            .clamp(16, per_lane_max);
+        let budgets = lanes.iter().copied().map(|lane| (lane, budget)).collect();
+        Self::from_parts(query, lanes, budgets)
+    }
+
+    fn from_parts(
+        query: &CognitiveQuery,
+        enabled_lanes: Vec<EvidenceFamily>,
+        lane_budgets: BTreeMap<EvidenceFamily, usize>,
+    ) -> Self {
+        let (hops, states, resources) = match query.effort {
+            CognitiveEffort::Light => (1, 128, 1),
+            CognitiveEffort::Normal => (2, 512, 4),
+            CognitiveEffort::Deep => (3, 2048, 8),
+            CognitiveEffort::Maximum => (4, 4096, 16),
+        };
+        let candidate_limit = lane_budgets.values().copied().max().unwrap_or(0);
         Self {
-            candidate_limit: limit.saturating_mul(multiplier).clamp(16, per_lane_max),
-            final_validation_budget: validation.saturating_mul(limit).max(match query.effort {
-                CognitiveEffort::Light => 32,
-                CognitiveEffort::Normal => 48,
-                CognitiveEffort::Deep => 64,
-                CognitiveEffort::Maximum => 128,
-            }),
-            sense_cues: query.capabilities.residual_sensing == RequirementStrength::Required
-                && query.capabilities.residual_sensing != RequirementStrength::Forbidden,
-            expand_topology: explicit_topology,
+            enabled_lanes: enabled_lanes.clone(),
+            lane_budgets,
+            candidate_limit,
+            final_validation_budget: query.result_need.limit.saturating_mul(4).clamp(32, 4096),
+            sense_cues: query.capabilities.residual_sensing == RequirementStrength::Required,
+            expand_topology: enabled_lanes.contains(&EvidenceFamily::TopologyWave),
             topology_rounds: hops,
             topology_nodes: states,
             resource_limit: resources,
@@ -66,26 +79,20 @@ impl QueryPlan {
         }
     }
 
+    pub fn lane_budget(&self, family: EvidenceFamily) -> usize {
+        self.lane_budgets.get(&family).copied().unwrap_or(0)
+    }
+
     pub fn serving_need(&self, query: &CognitiveQuery) -> ServingNeed {
         let has_text = query
             .cues
             .iter()
             .any(|cue| matches!(cue, Cue::Text(_) | Cue::Example(_)));
-        let exact = query.targets.iter().any(|target| {
-            matches!(
-                target,
-                QueryTarget::Exact { .. }
-                    | QueryTarget::EntityNeighborhood { .. }
-                    | QueryTarget::SchemaNeighborhood { .. }
-            )
-        }) || query
-            .cues
-            .iter()
-            .any(|cue| matches!(cue, Cue::Entity(_) | Cue::Tag(_) | Cue::Schema(_)));
         ServingNeed {
-            exact,
-            lexical: has_text,
-            dense: has_text && query.capabilities.text_embedding != RequirementStrength::Forbidden,
+            exact: self.enabled_lanes.contains(&EvidenceFamily::Exact)
+                || self.enabled_lanes.contains(&EvidenceFamily::SchemaDirect),
+            lexical: has_text && self.enabled_lanes.contains(&EvidenceFamily::Lexical),
+            dense: has_text && self.enabled_lanes.contains(&EvidenceFamily::Dense),
             topology: self.expand_topology,
         }
     }
@@ -124,5 +131,12 @@ mod tests {
     #[test]
     fn deep_text_does_not_enable_topology_without_explicit_intent() {
         assert!(!QueryPlan::for_query(&query(CognitiveEffort::Deep)).expand_topology);
+    }
+
+    #[test]
+    fn validation_budget_is_the_frozen_reference_formula() {
+        let mut value = query(CognitiveEffort::Normal);
+        value.result_need.limit = 12;
+        assert_eq!(QueryPlan::for_query(&value).final_validation_budget, 48);
     }
 }

@@ -20,14 +20,15 @@ impl MemoryService {
             return Err(Error::Invalid("association needs support".into()));
         }
         input.valid_time.validate()?;
+        validate_association_endpoint(&input.from)?;
+        validate_association_endpoint(&input.to)?;
         self.store.validate_reference(subject, &input.from).await?;
         self.store.validate_reference(subject, &input.to).await?;
-        self.validate_supports_for_subject(subject, &input.supports)
-            .await?;
+        self.validate_association_supports(subject, &input).await?;
         let digest = operation_digest(
             "create_association",
             subject,
-            &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"support_class":input.support_class,"supports":input.supports,"valid_time":input.valid_time}),
+            &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"support_class":input.support_class,"supports":input.supports,"producer_signature_id":input.producer_signature_id,"valid_time":input.valid_time}),
         )?;
         let mut tx = self.store.begin().await?;
         lock_operation(&mut tx, subject, input.operation_id).await?;
@@ -67,7 +68,7 @@ impl MemoryService {
         let (valid_kind, valid_start, valid_end) = temporal_columns(&input.valid_time);
         let (from_kind, from_ref) = reference_parts(&input.from);
         let (to_kind, to_ref) = reference_parts(&input.to);
-        sqlx::query("INSERT INTO association_evidence(association_evidence_id,subject_id,from_ref_kind,from_ref,to_ref_kind,to_ref,relation_kind,polarity,support_class,valid_time_kind,valid_time_start,valid_time_end,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)").bind(id.0).bind(subject.0).bind(from_kind).bind(from_ref).bind(to_kind).bind(to_ref).bind(&input.relation_kind).bind(input.polarity.as_str()).bind(input.support_class.as_str()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(now).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO association_evidence(association_evidence_id,subject_id,from_ref_kind,from_ref,to_ref_kind,to_ref,relation_kind,polarity,support_class,valid_time_kind,valid_time_start,valid_time_end,producer_signature_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(id.0).bind(subject.0).bind(from_kind).bind(from_ref).bind(to_kind).bind(to_ref).bind(&input.relation_kind).bind(input.polarity.as_str()).bind(input.support_class.as_str()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.producer_signature_id).bind(now).execute(&mut *tx).await.map_err(db)?;
         for support in &input.supports {
             let (
                 kind,
@@ -131,7 +132,15 @@ impl MemoryService {
         let supports=sqlx::query("SELECT support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM association_evidence_supports WHERE association_evidence_id=$1 ORDER BY support_kind,support_ref,support_role").bind(id.0).fetch_all(self.store.pool()).await.map_err(db)?.into_iter().map(|row| {
             let kind: String = row.try_get("support_kind").map_err(db)?;
             let support_role = parse_enum(row.try_get("support_role").map_err(db)?, "association support role")?;
-            if kind == "evidence" {
+            if kind == "use_event" {
+                let value = row.try_get::<String, _>("support_ref").map_err(db)?;
+                let (consumer_ref, event_id) = parse_use_event_key(&value)?;
+                Ok(AssociationSupport::UseEvent(UseEventRef {
+                    subject_id: subject,
+                    consumer_ref,
+                    event_id: UseEventId(event_id),
+                }))
+            } else if kind == "evidence" {
                 let locator = match (
                     row.try_get::<Option<Uuid>, _>("source_region_id").map_err(db)?,
                     row.try_get::<Option<Uuid>, _>("derived_representation_id").map_err(db)?,
@@ -143,16 +152,16 @@ impl MemoryService {
                     (None, None, None) => EvidenceLocator::WholeOccurrence,
                     _ => return Err(Error::Infrastructure("association evidence locator is invalid".into())),
                 };
-                Ok(RevisionSupport::Evidence(EvidenceRef {
+                Ok(AssociationSupport::Revision(RevisionSupport::Evidence(EvidenceRef {
                     occurrence_id: OccurrenceId(row.try_get("occurrence_id").map_err(db)?),
                     locator,
                     support_role,
-                }))
+                })))
             } else {
-                Ok(RevisionSupport::CognitionDependency(CognitionDependency {
+                Ok(AssociationSupport::Revision(RevisionSupport::CognitionDependency(CognitionDependency {
                     target_revision: parse_reference(&kind, &row.try_get::<String, _>("support_ref").map_err(db)?)?,
                     support_role,
-                }))
+                })))
             }
         }).collect::<Result<Vec<_>>>()?;
         Ok(AssociationEvidence {
@@ -176,6 +185,114 @@ impl MemoryService {
             created_at: row.try_get("created_at").map_err(db)?,
             revoked_at: row.try_get("revoked_at").map_err(db)?,
         })
+    }
+
+    async fn validate_association_supports(
+        &self,
+        subject: SubjectId,
+        input: &CreateAssociationRequest,
+    ) -> Result<()> {
+        let mut has_source_evidence = false;
+        let mut use_events = Vec::new();
+        for support in &input.supports {
+            match support {
+                AssociationSupport::Revision(value) => {
+                    if matches!(value, RevisionSupport::Evidence(_)) {
+                        has_source_evidence = true;
+                    }
+                    self.validate_supports_for_subject(subject, std::slice::from_ref(value))
+                        .await?;
+                }
+                AssociationSupport::UseEvent(value) => {
+                    if value.subject_id != subject {
+                        return Err(Error::Invalid(
+                            "association UseEvent support belongs to another Subject".into(),
+                        ));
+                    }
+                    let active = sqlx::query_scalar::<_, String>(
+                        "SELECT use_kind FROM cognitive_use_events WHERE subject_id=$1 AND consumer_ref=$2 AND event_id=$3",
+                    )
+                    .bind(subject.0)
+                    .bind(&value.consumer_ref)
+                    .bind(value.event_id.0)
+                    .fetch_optional(self.store.pool())
+                    .await
+                    .map_err(db)?;
+                    let purged = sqlx::query_scalar::<_, bool>(
+                        "SELECT EXISTS(SELECT 1 FROM purged_use_receipts WHERE subject_id=$1 AND consumer_ref=$2 AND event_id=$3)",
+                    )
+                    .bind(subject.0)
+                    .bind(&value.consumer_ref)
+                    .bind(value.event_id.0)
+                    .fetch_one(self.store.pool())
+                    .await
+                    .map_err(db)?;
+                    if active.is_none() && !purged {
+                        return Err(Error::Invalid(
+                            "association UseEvent support was not recorded".into(),
+                        ));
+                    }
+                    use_events.push(active);
+                }
+            }
+        }
+        match input.support_class {
+            AssociationSupportClass::HostExplicit => {}
+            AssociationSupportClass::SourceEvidence if !has_source_evidence => {
+                return Err(Error::Invalid(
+                    "source_evidence association needs an EvidenceRef support".into(),
+                ));
+            }
+            AssociationSupportClass::CognitiveDerivation
+            | AssociationSupportClass::DerivedStructure => {
+                let producer = input.producer_signature_id.ok_or_else(|| {
+                    Error::Invalid("derived association requires producer_signature_id".into())
+                })?;
+                let exists: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM producer_signatures WHERE producer_signature_id=$1)",
+                )
+                .bind(producer)
+                .fetch_one(self.store.pool())
+                .await
+                .map_err(db)?;
+                if !exists {
+                    return Err(Error::Invalid(
+                        "producer signature is not registered".into(),
+                    ));
+                }
+                if input
+                    .supports
+                    .iter()
+                    .all(|support| matches!(support, AssociationSupport::UseEvent(_)))
+                {
+                    return Err(Error::Invalid(
+                        "derived association needs revision provenance support".into(),
+                    ));
+                }
+            }
+            AssociationSupportClass::MeaningfulUse if use_events.is_empty() => {
+                return Err(Error::Invalid(
+                    "meaningful_use association needs a UseEventRef support".into(),
+                ));
+            }
+            AssociationSupportClass::MeaningfulUse => {
+                for use_kind in use_events.into_iter().flatten() {
+                    if !matches!(
+                        use_kind.as_str(),
+                        "referenced" | "acted_on" | "result_supported" | "corrected" | "pinned"
+                    ) || (input.polarity == AssociationPolarity::Positive
+                        && use_kind == "result_refuted")
+                    {
+                        return Err(Error::Invalid(
+                            "UseEvent kind cannot support a positive meaningful-use association"
+                                .into(),
+                        ));
+                    }
+                }
+            }
+            AssociationSupportClass::SourceEvidence => {}
+        }
+        Ok(())
     }
 
     pub async fn revoke_association(
@@ -324,7 +441,7 @@ impl MemoryService {
     reason = "the tuple mirrors the normalized support columns written atomically"
 )]
 fn association_support_parts(
-    support: &RevisionSupport,
+    support: &AssociationSupport,
 ) -> Result<(
     String,
     String,
@@ -335,7 +452,16 @@ fn association_support_parts(
     Option<Uuid>,
 )> {
     match support {
-        RevisionSupport::Evidence(value) => {
+        AssociationSupport::UseEvent(value) => Ok((
+            "use_event".into(),
+            value.canonical_key(),
+            SupportRole::Contextual.as_str().into(),
+            None,
+            None,
+            None,
+            None,
+        )),
+        AssociationSupport::Revision(RevisionSupport::Evidence(value)) => {
             let (source_region, derived_representation, derived_region) = match value.locator {
                 EvidenceLocator::WholeOccurrence => (None, None, None),
                 EvidenceLocator::SourceRegion(id) => (Some(id.0), None, None),
@@ -352,7 +478,7 @@ fn association_support_parts(
                 derived_region,
             ))
         }
-        RevisionSupport::CognitionDependency(value) => {
+        AssociationSupport::Revision(RevisionSupport::CognitionDependency(value)) => {
             let (kind, reference) = reference_parts(&value.target_revision);
             Ok((
                 kind,
@@ -365,4 +491,33 @@ fn association_support_parts(
             ))
         }
     }
+}
+
+fn validate_association_endpoint(reference: &CognitiveRef) -> Result<()> {
+    match reference {
+        CognitiveRef::Memory(_) | CognitiveRef::CognitiveSchema(_) => Err(Error::Invalid(
+            "association cognition endpoints must be exact revisions".into(),
+        )),
+        CognitiveRef::MemoryRevision(_)
+        | CognitiveRef::CognitiveSchemaRevision(_)
+        | CognitiveRef::Entity(_)
+        | CognitiveRef::Tag(_)
+        | CognitiveRef::Resource(_) => Ok(()),
+        _ => Err(Error::Invalid(
+            "association endpoint must be cognition revision, Entity, Tag, or Resource".into(),
+        )),
+    }
+}
+
+fn parse_use_event_key(value: &str) -> Result<(String, Uuid)> {
+    let (_, rest) = value
+        .split_once(':')
+        .ok_or_else(|| Error::Infrastructure("invalid association UseEvent key".into()))?;
+    let (consumer, event) = rest
+        .rsplit_once(':')
+        .ok_or_else(|| Error::Infrastructure("invalid association UseEvent key".into()))?;
+    let event = event
+        .parse()
+        .map_err(|_| Error::Infrastructure("invalid association UseEvent id".into()))?;
+    Ok((consumer.into(), event))
 }

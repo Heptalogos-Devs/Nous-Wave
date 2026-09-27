@@ -1,8 +1,95 @@
 use crate::*;
 use database_error as db;
 use nous_core::*;
+use sqlx::Row;
 
 impl AuthorityStore {
+    /// Resolve a query exact target once at binding time.  Mutable cognition
+    /// object refs are deliberately converted to their current exact revision;
+    /// callers retain the returned epoch and must reject a changed head rather
+    /// than silently rebinding during execution.
+    pub async fn bind_exact_reference(
+        &self,
+        subject: SubjectId,
+        reference: &CognitiveRef,
+    ) -> Result<(CognitiveRef, Option<i64>, bool)> {
+        let bound = match reference {
+            CognitiveRef::Memory(memory) => {
+                let row = sqlx::query(
+                    "SELECT current_revision_id,object_epoch FROM memory_objects WHERE subject_id=$1 AND memory_id=$2",
+                )
+                .bind(subject.0)
+                .bind(memory.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("memory exact target not found".into()))?;
+                (
+                    CognitiveRef::MemoryRevision(MemoryRevisionId(
+                        row.try_get("current_revision_id").map_err(db)?,
+                    )),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    true,
+                )
+            }
+            CognitiveRef::MemoryRevision(revision) => {
+                let row = sqlx::query(
+                    "SELECT o.object_epoch FROM memory_revisions r JOIN memory_objects o USING(memory_id) WHERE r.subject_id=$1 AND r.memory_revision_id=$2",
+                )
+                .bind(subject.0)
+                .bind(revision.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("memory revision exact target not found".into()))?;
+                (
+                    reference.clone(),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    false,
+                )
+            }
+            CognitiveRef::CognitiveSchema(schema) => {
+                let row = sqlx::query(
+                    "SELECT current_revision_id,object_epoch FROM cognitive_schemas WHERE subject_id=$1 AND schema_id=$2",
+                )
+                .bind(subject.0)
+                .bind(schema.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("schema exact target not found".into()))?;
+                (
+                    CognitiveRef::CognitiveSchemaRevision(CognitiveSchemaRevisionId(
+                        row.try_get("current_revision_id").map_err(db)?,
+                    )),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    true,
+                )
+            }
+            CognitiveRef::CognitiveSchemaRevision(revision) => {
+                let row = sqlx::query(
+                    "SELECT s.object_epoch FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND r.schema_revision_id=$2",
+                )
+                .bind(subject.0)
+                .bind(revision.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("schema revision exact target not found".into()))?;
+                (
+                    reference.clone(),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    false,
+                )
+            }
+            _ => {
+                self.validate_reference(subject, reference).await?;
+                (reference.clone(), None, false)
+            }
+        };
+        Ok(bound)
+    }
+
     pub async fn require_subject(&self, subject: SubjectId) -> Result<()> {
         if self.subject_exists(subject).await? {
             Ok(())
