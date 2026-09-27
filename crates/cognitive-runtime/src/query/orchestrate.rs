@@ -12,44 +12,71 @@ pub trait CognitiveContributor: Send + Sync {
     ) -> Result<CognitiveQueryResult>;
 }
 
+/// The current fixed cognition-owner set. Adding an owner is a compile-time
+/// composition change; callers do not discover domains dynamically.
+pub struct CognitiveContributors<'a> {
+    pub memory: Option<&'a dyn CognitiveContributor>,
+    pub self_cognition: Option<&'a dyn CognitiveContributor>,
+}
+
 impl CognitiveRuntimeService {
     pub async fn query(
         &self,
         query: CognitiveQuery,
-        memory: Option<&dyn CognitiveContributor>,
+        contributors: CognitiveContributors<'_>,
     ) -> Result<CognitiveQueryResult> {
         let bound = self.bind_query(query).await?;
         let plan = QueryPlan::for_bound_query(&bound);
-        self.query_with_plan(bound, memory, plan).await
+        self.query_with_plan(bound, contributors, plan).await
     }
 
     pub async fn query_with_plan(
         &self,
         bound: BoundQuery,
-        memory: Option<&dyn CognitiveContributor>,
+        contributors: CognitiveContributors<'_>,
         plan: QueryPlan,
     ) -> Result<CognitiveQueryResult> {
         let query = &bound.source_query;
-        let mut result = if let Some(memory) = memory {
-            memory.contribute(&bound, &plan).await?
-        } else {
-            if query
-                .targets
-                .iter()
-                .any(|target| matches!(target, QueryTarget::Memory))
-            {
-                return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
-            }
-            CognitiveQueryResult {
-                query_id: Uuid::now_v7(),
-                generation: QueryGenerationTrace::default(),
-                status: QueryStatus::Complete,
-                results: Vec::new(),
-                resource_actions: Vec::new(),
-                degradation: Vec::new(),
-                diagnostics: None,
-            }
+        let mut result = CognitiveQueryResult {
+            query_id: Uuid::now_v7(),
+            generation: QueryGenerationTrace::default(),
+            status: QueryStatus::Complete,
+            results: Vec::new(),
+            resource_actions: Vec::new(),
+            degradation: Vec::new(),
+            diagnostics: None,
         };
+        if let Some(memory) = contributors.memory {
+            let memory_result = memory.contribute(&bound, &plan).await?;
+            result.generation = memory_result.generation;
+            result.results.extend(memory_result.results);
+            result
+                .resource_actions
+                .extend(memory_result.resource_actions);
+            result.degradation.extend(memory_result.degradation);
+            result.diagnostics = memory_result.diagnostics;
+        } else if query
+            .targets
+            .iter()
+            .any(|target| matches!(target, QueryTarget::Memory))
+        {
+            return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
+        }
+        if let Some(self_cognition) = contributors.self_cognition {
+            let self_result = self_cognition.contribute(&bound, &plan).await?;
+            result.results.extend(self_result.results);
+            result.resource_actions.extend(self_result.resource_actions);
+            result.degradation.extend(self_result.degradation);
+            if result.diagnostics.is_none() {
+                result.diagnostics = self_result.diagnostics;
+            }
+        } else if query
+            .targets
+            .iter()
+            .any(|target| matches!(target, QueryTarget::SelfCognition))
+        {
+            return Err(Error::Unavailable("Self Authority is disabled".into()));
+        }
         result.query_id = bound.query_id;
         let mut seen: HashSet<CognitiveRef> = result
             .results
@@ -61,7 +88,12 @@ impl CognitiveRuntimeService {
 
             if matches!(
                 reference,
-                CognitiveRef::Memory(_) | CognitiveRef::MemoryRevision(_)
+                CognitiveRef::Memory(_)
+                    | CognitiveRef::MemoryRevision(_)
+                    | CognitiveRef::SelfFacet(_)
+                    | CognitiveRef::SelfFacetRevision(_)
+                    | CognitiveRef::NarrativeIdentity(_)
+                    | CognitiveRef::NarrativeIdentityRevision(_)
             ) {
                 continue;
             }
@@ -180,7 +212,12 @@ fn reference_hit(
         | CognitiveRef::MemoryRevision(_)
         | CognitiveRef::Tag(_)
         | CognitiveRef::CognitiveSchema(_)
-        | CognitiveRef::CognitiveSchemaRevision(_) => AuthorityClass::SubjectCognition,
+        | CognitiveRef::CognitiveSchemaRevision(_)
+        | CognitiveRef::CognitiveSeedVersion(_)
+        | CognitiveRef::SelfFacet(_)
+        | CognitiveRef::SelfFacetRevision(_)
+        | CognitiveRef::NarrativeIdentity(_)
+        | CognitiveRef::NarrativeIdentityRevision(_) => AuthorityClass::SubjectCognition,
         CognitiveRef::Resource(_) => AuthorityClass::ResourceDescriptor,
         CognitiveRef::DerivedRepresentation(_) | CognitiveRef::DerivedRegion(_) => {
             AuthorityClass::Interpretation

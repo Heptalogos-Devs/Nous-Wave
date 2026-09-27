@@ -62,6 +62,11 @@ impl MemoryService {
                         }
                     }
                 }
+                RevisionSupport::Seed(_) => {
+                    return Err(Error::Invalid(
+                        "Memory revisions cannot use Cognitive Seed support".into(),
+                    ));
+                }
             }
         }
         Ok(())
@@ -78,6 +83,7 @@ impl MemoryService {
             .filter_map(|support| match support {
                 RevisionSupport::CognitionDependency(value) => Some(value.target_revision.clone()),
                 RevisionSupport::Evidence(_) => None,
+                RevisionSupport::Seed(_) => None,
             })
             .collect::<Vec<_>>();
         let mut visited = BTreeSet::new();
@@ -123,6 +129,11 @@ impl MemoryService {
                     summary.normalized_inputs.insert(format!("revision:{key}"));
                     stack.push((dependency.target_revision.clone(), false));
                 }
+                RevisionSupport::Seed(_) => {
+                    return Err(Error::Invalid(
+                        "Memory revisions cannot use Cognitive Seed support".into(),
+                    ));
+                }
             }
         }
 
@@ -157,6 +168,11 @@ impl MemoryService {
                     }
                     RevisionSupport::CognitionDependency(dependency) => {
                         stack.push((dependency.target_revision, false));
+                    }
+                    RevisionSupport::Seed(_) => {
+                        return Err(Error::Invalid(
+                            "Memory revisions cannot use Cognitive Seed support".into(),
+                        ));
                     }
                 }
             }

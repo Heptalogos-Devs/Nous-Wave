@@ -55,6 +55,24 @@ pub fn planned_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     {
         lanes.push(EvidenceFamily::SchemaDirect);
     }
+    if query.targets.iter().any(|target| {
+        matches!(target, QueryTarget::SelfCognition)
+            || matches!(
+                target,
+                QueryTarget::Exact {
+                    reference: CognitiveRef::SelfFacet(_)
+                        | CognitiveRef::SelfFacetRevision(_)
+                        | CognitiveRef::NarrativeIdentity(_)
+                        | CognitiveRef::NarrativeIdentityRevision(_),
+                }
+            )
+    }) || query
+        .cues
+        .iter()
+        .any(|cue| matches!(cue, Cue::SelfFacet(_)))
+    {
+        lanes.push(EvidenceFamily::SelfDirect);
+    }
     if explicit_topology(query) {
         lanes.push(EvidenceFamily::TopologyWave);
     }
@@ -150,7 +168,10 @@ impl CognitiveRuntimeService {
             if !mutable_object
                 && matches!(
                     reference,
-                    CognitiveRef::MemoryRevision(_) | CognitiveRef::CognitiveSchemaRevision(_)
+                    CognitiveRef::MemoryRevision(_)
+                        | CognitiveRef::CognitiveSchemaRevision(_)
+                        | CognitiveRef::SelfFacetRevision(_)
+                        | CognitiveRef::NarrativeIdentityRevision(_)
                 )
             {
                 allowed_revision_refs.insert(bound_ref.clone());

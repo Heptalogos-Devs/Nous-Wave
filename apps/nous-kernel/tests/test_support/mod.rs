@@ -15,7 +15,7 @@ use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};
 use std::time::Duration;
 use tempfile::TempDir;
 
-pub(crate) async fn database() -> (PostgreSQL, String, TempDir) {
+pub(crate) async fn database() -> (TempDir, String, PostgreSQL) {
     let root = TempDir::new().expect("temporary PostgreSQL root");
     let settings = SettingsBuilder::new()
         .version(VersionReq::parse("=18.6.0").expect("version"))
@@ -27,7 +27,7 @@ pub(crate) async fn database() -> (PostgreSQL, String, TempDir) {
         .data_dir(root.path().join("data"))
         .password_file(root.path().join("postgres.pgpass"))
         .timeout(Some(Duration::from_secs(30)))
-        .temporary(false)
+        .temporary(true)
         .build();
     let mut postgres = PostgreSQL::new(settings);
     postgres.setup().await.expect("setup PostgreSQL");
@@ -37,7 +37,10 @@ pub(crate) async fn database() -> (PostgreSQL, String, TempDir) {
         .await
         .expect("create database");
     let url = postgres.settings().url("nous_reference_profile");
-    (postgres, url, root)
+    // Return the root first so test bindings drop PostgreSQL before TempDir.
+    // PostgreSQL's Drop implementation stops the server; only then can TempDir
+    // remove the installation and data tree without leaving a recent .tmp root.
+    (root, url, postgres)
 }
 
 pub(crate) async fn open_runtime(url: &str, root: &TempDir) -> NousRuntime {

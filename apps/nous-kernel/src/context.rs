@@ -3,9 +3,40 @@ use nous_cognitive_runtime::{ContextResolver, ContextSource, bounded_text, modal
 use nous_core::*;
 use nous_material_service::MaterializeRequest;
 
+impl NousRuntime {
+    async fn self_context_source(
+        &self,
+        subject: SubjectId,
+        reference: &CognitiveRef,
+        max_bytes: usize,
+    ) -> Result<ContextSource> {
+        let (text, _valid_time, _formed_at, _recorded_at) =
+            self.self_cognition.context_text(subject, reference).await?;
+        Ok(ContextSource {
+            source_revision: None,
+            media_type: "text/plain".into(),
+            text: (max_bytes > 0).then(|| bounded_text(text, max_bytes)),
+            authority: AuthorityClass::SubjectCognition,
+            evidence: Vec::new(),
+            provenance: ProvenanceSummary {
+                source_count: 0,
+                producer_signatures: Vec::new(),
+                note: Some("Self Authority context".into()),
+            },
+        })
+    }
+}
+
 #[async_trait::async_trait]
 impl ContextResolver for NousRuntime {
-    #[allow(clippy::unnecessary_filter_map)]
+    #[expect(
+        clippy::unnecessary_filter_map,
+        reason = "context evidence selection preserves owner-specific support variants"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "context resolution keeps Memory, Resource, Self, and material ownership branches explicit"
+    )]
     async fn context_source(
         &self,
         subject: SubjectId,
@@ -66,6 +97,10 @@ impl ContextResolver for NousRuntime {
                             support_role: value.support_role.as_str().into(),
                         })
                     }
+                    nous_memory_domain::RevisionSupport::Seed(value) => Some(EvidenceHandle {
+                        reference: CognitiveRef::CognitiveSeedVersion(*value),
+                        support_role: "seed".into(),
+                    }),
                 })
                 .collect::<Vec<_>>();
             return Ok(ContextSource {
@@ -110,6 +145,17 @@ impl ContextResolver for NousRuntime {
                     note: Some("resource awareness".into()),
                 },
             });
+        }
+        if matches!(
+            reference,
+            CognitiveRef::SelfFacet(_)
+                | CognitiveRef::SelfFacetRevision(_)
+                | CognitiveRef::NarrativeIdentity(_)
+                | CognitiveRef::NarrativeIdentityRevision(_)
+        ) {
+            return self
+                .self_context_source(subject, reference, max_bytes)
+                .await;
         }
         let material = self
             .material

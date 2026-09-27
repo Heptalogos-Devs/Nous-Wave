@@ -71,12 +71,8 @@ impl ServingService {
                     id,
                     source.reference.clone(),
                 );
-                if let Some(revision) = source.revision {
-                    postings.insert_reference(
-                        CognitiveRef::MemoryRevision(revision).to_string(),
-                        id,
-                        source.reference.clone(),
-                    );
+                if let Some(revision) = &source.revision {
+                    postings.insert_reference(revision.to_string(), id, source.reference.clone());
                 }
                 for entity in &source.entity_refs {
                     postings.insert_reference(entity.clone(), id, source.reference.clone());

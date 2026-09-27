@@ -1,11 +1,11 @@
 use crate::*;
+use nous_cognitive_retrieval::{SourceSeed, propagate_with_budget};
 use nous_cognitive_runtime::{BoundQuery, QueryPlan};
-use nous_memory_retrieval::{SourceSeed, propagate_with_budget};
 use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
 
 pub(crate) fn topology_ranks(
-    snapshot: &nous_memory_retrieval::ServingSnapshot,
+    snapshot: &nous_cognitive_retrieval::ServingSnapshot,
     bound: &BoundQuery,
     plan: &QueryPlan,
     lane_ranks: &BTreeMap<Uuid, HashMap<EvidenceFamily, usize>>,

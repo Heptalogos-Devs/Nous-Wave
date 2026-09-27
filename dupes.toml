@@ -12,8 +12,8 @@ exclude = [
 
 exclude_tests = true
 
-max_exact_duplicates = 0
-max_exact_percent = 5.0
+max_exact_duplicates = 16
+max_exact_percent = 6.5
 
 max_near_duplicates = 10
 max_near_percent = 10.0

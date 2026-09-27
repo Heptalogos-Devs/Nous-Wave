@@ -8,6 +8,7 @@ use nous_core::*;
 use nous_material_service::MaterialService;
 use nous_memory_service::MemoryService;
 use nous_object_store::ObjectStore;
+use nous_self_service::SelfService;
 use nous_serving::{ServingOptions, ServingService, TextEmbeddingProvider};
 use nous_subject_core::SubjectCoreService;
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ pub struct NousRuntime {
     pub subjects: SubjectCoreService,
     pub cognition: CognitiveRuntimeService,
     pub memory: Option<MemoryService>,
+    pub self_cognition: SelfService,
     pub material: MaterialService,
     pub serving: ServingService,
 }
@@ -77,6 +79,7 @@ impl NousRuntime {
                 None => options.embedding,
             },
         )?;
+        let self_cognition = SelfService::new(store.clone()).with_serving(serving.clone());
         let accessibility_policy = options.accessibility_policy.validate()?;
         let memory = options.memory_enabled.then(|| {
             let mut memory =
@@ -95,6 +98,7 @@ impl NousRuntime {
             subjects,
             cognition,
             memory,
+            self_cognition,
             material,
             serving,
         })
@@ -116,16 +120,19 @@ impl NousRuntime {
                 plan.serving_need(&bound.source_query),
             )
             .await?;
-        let mut result = self
-            .cognition
-            .query_with_plan(
-                bound,
-                self.memory
-                    .as_ref()
-                    .map(|memory| memory as &dyn nous_cognitive_runtime::CognitiveContributor),
-                plan,
-            )
-            .await?;
+        let mut result =
+            self.cognition
+                .query_with_plan(
+                    bound,
+                    nous_cognitive_runtime::CognitiveContributors {
+                        memory: self.memory.as_ref().map(|memory| {
+                            memory as &dyn nous_cognitive_runtime::CognitiveContributor
+                        }),
+                        self_cognition: Some(&self.self_cognition),
+                    },
+                    plan,
+                )
+                .await?;
         result.degradation.extend(projection.degradation);
         if !result.degradation.is_empty() {
             result.status = if result

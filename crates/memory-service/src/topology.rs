@@ -495,6 +495,9 @@ fn association_support_parts(
                 None,
             ))
         }
+        AssociationSupport::Revision(RevisionSupport::Seed(_)) => Err(Error::Invalid(
+            "Association support cannot use Cognitive Seed support".into(),
+        )),
     }
 }
 

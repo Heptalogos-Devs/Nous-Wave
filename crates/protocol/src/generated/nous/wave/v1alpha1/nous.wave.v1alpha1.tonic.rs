@@ -2036,15 +2036,21 @@ pub mod subject_service_server {
             tonic::Status,
         >;
         ///
-        async fn get_character_seed(
+        async fn get_cognitive_seed(
             &self,
             request: tonic::Request<super::SubjectRequest>,
-        ) -> std::result::Result<tonic::Response<super::SeedRevision>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::CognitiveSeedVersion>,
+            tonic::Status,
+        >;
         ///
-        async fn revise_character_seed(
+        async fn adopt_cognitive_seed(
             &self,
-            request: tonic::Request<super::ReviseCharacterSeedRequest>,
-        ) -> std::result::Result<tonic::Response<super::SeedRevision>, tonic::Status>;
+            request: tonic::Request<super::AdoptCognitiveSeedRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CognitiveSeedVersion>,
+            tonic::Status,
+        >;
     }
     ///
     #[derive(Debug)]
@@ -2258,14 +2264,14 @@ pub mod subject_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.SubjectService/GetCharacterSeed" => {
+                "/nous.wave.v1alpha1.SubjectService/GetCognitiveSeed" => {
                     #[allow(non_camel_case_types)]
-                    struct GetCharacterSeedSvc<T: SubjectService>(pub Arc<T>);
+                    struct GetCognitiveSeedSvc<T: SubjectService>(pub Arc<T>);
                     impl<
                         T: SubjectService,
                     > tonic::server::UnaryService<super::SubjectRequest>
-                    for GetCharacterSeedSvc<T> {
-                        type Response = super::SeedRevision;
+                    for GetCognitiveSeedSvc<T> {
+                        type Response = super::CognitiveSeedVersion;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -2276,7 +2282,7 @@ pub mod subject_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as SubjectService>::get_character_seed(&inner, request)
+                                <T as SubjectService>::get_cognitive_seed(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -2288,7 +2294,7 @@ pub mod subject_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = GetCharacterSeedSvc(inner);
+                        let method = GetCognitiveSeedSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -2304,28 +2310,25 @@ pub mod subject_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.SubjectService/ReviseCharacterSeed" => {
+                "/nous.wave.v1alpha1.SubjectService/AdoptCognitiveSeed" => {
                     #[allow(non_camel_case_types)]
-                    struct ReviseCharacterSeedSvc<T: SubjectService>(pub Arc<T>);
+                    struct AdoptCognitiveSeedSvc<T: SubjectService>(pub Arc<T>);
                     impl<
                         T: SubjectService,
-                    > tonic::server::UnaryService<super::ReviseCharacterSeedRequest>
-                    for ReviseCharacterSeedSvc<T> {
-                        type Response = super::SeedRevision;
+                    > tonic::server::UnaryService<super::AdoptCognitiveSeedRequest>
+                    for AdoptCognitiveSeedSvc<T> {
+                        type Response = super::CognitiveSeedVersion;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::ReviseCharacterSeedRequest>,
+                            request: tonic::Request<super::AdoptCognitiveSeedRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as SubjectService>::revise_character_seed(
-                                        &inner,
-                                        request,
-                                    )
+                                <T as SubjectService>::adopt_cognitive_seed(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -2337,7 +2340,7 @@ pub mod subject_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = ReviseCharacterSeedSvc(inner);
+                        let method = AdoptCognitiveSeedSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -3987,6 +3990,510 @@ pub mod memory_service_server {
     /// Generated gRPC service name
     pub const SERVICE_NAME: &str = "nous.wave.v1alpha1.MemoryService";
     impl<T> tonic::server::NamedService for MemoryServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// Generated server implementations.
+pub mod self_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with SelfServiceServer.
+    #[async_trait]
+    pub trait SelfService: std::marker::Send + std::marker::Sync + 'static {
+        ///
+        async fn create_self_facet(
+            &self,
+            request: tonic::Request<super::CreateSelfFacetRequest>,
+        ) -> std::result::Result<tonic::Response<super::SelfFacet>, tonic::Status>;
+        ///
+        async fn get_self_facet(
+            &self,
+            request: tonic::Request<super::ObjectRequest>,
+        ) -> std::result::Result<tonic::Response<super::SelfFacet>, tonic::Status>;
+        ///
+        async fn revise_self_facet(
+            &self,
+            request: tonic::Request<super::ReviseSelfFacetRequest>,
+        ) -> std::result::Result<tonic::Response<super::SelfFacet>, tonic::Status>;
+        ///
+        async fn mutate_self_lifecycle(
+            &self,
+            request: tonic::Request<super::SelfLifecycleRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        ///
+        async fn create_narrative_identity(
+            &self,
+            request: tonic::Request<super::CreateNarrativeIdentityRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::NarrativeIdentity>,
+            tonic::Status,
+        >;
+        ///
+        async fn get_narrative_identity(
+            &self,
+            request: tonic::Request<super::ObjectRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::NarrativeIdentity>,
+            tonic::Status,
+        >;
+        ///
+        async fn revise_narrative_identity(
+            &self,
+            request: tonic::Request<super::ReviseNarrativeIdentityRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::NarrativeIdentity>,
+            tonic::Status,
+        >;
+    }
+    ///
+    #[derive(Debug)]
+    pub struct SelfServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> SelfServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for SelfServiceServer<T>
+    where
+        T: SelfService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/nous.wave.v1alpha1.SelfService/CreateSelfFacet" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateSelfFacetSvc<T: SelfService>(pub Arc<T>);
+                    impl<
+                        T: SelfService,
+                    > tonic::server::UnaryService<super::CreateSelfFacetRequest>
+                    for CreateSelfFacetSvc<T> {
+                        type Response = super::SelfFacet;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateSelfFacetRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SelfService>::create_self_facet(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateSelfFacetSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.SelfService/GetSelfFacet" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetSelfFacetSvc<T: SelfService>(pub Arc<T>);
+                    impl<
+                        T: SelfService,
+                    > tonic::server::UnaryService<super::ObjectRequest>
+                    for GetSelfFacetSvc<T> {
+                        type Response = super::SelfFacet;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ObjectRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SelfService>::get_self_facet(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetSelfFacetSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.SelfService/ReviseSelfFacet" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReviseSelfFacetSvc<T: SelfService>(pub Arc<T>);
+                    impl<
+                        T: SelfService,
+                    > tonic::server::UnaryService<super::ReviseSelfFacetRequest>
+                    for ReviseSelfFacetSvc<T> {
+                        type Response = super::SelfFacet;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReviseSelfFacetRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SelfService>::revise_self_facet(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReviseSelfFacetSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.SelfService/MutateSelfLifecycle" => {
+                    #[allow(non_camel_case_types)]
+                    struct MutateSelfLifecycleSvc<T: SelfService>(pub Arc<T>);
+                    impl<
+                        T: SelfService,
+                    > tonic::server::UnaryService<super::SelfLifecycleRequest>
+                    for MutateSelfLifecycleSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SelfLifecycleRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SelfService>::mutate_self_lifecycle(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = MutateSelfLifecycleSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.SelfService/CreateNarrativeIdentity" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateNarrativeIdentitySvc<T: SelfService>(pub Arc<T>);
+                    impl<
+                        T: SelfService,
+                    > tonic::server::UnaryService<super::CreateNarrativeIdentityRequest>
+                    for CreateNarrativeIdentitySvc<T> {
+                        type Response = super::NarrativeIdentity;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::CreateNarrativeIdentityRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SelfService>::create_narrative_identity(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateNarrativeIdentitySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.SelfService/GetNarrativeIdentity" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetNarrativeIdentitySvc<T: SelfService>(pub Arc<T>);
+                    impl<
+                        T: SelfService,
+                    > tonic::server::UnaryService<super::ObjectRequest>
+                    for GetNarrativeIdentitySvc<T> {
+                        type Response = super::NarrativeIdentity;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ObjectRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SelfService>::get_narrative_identity(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetNarrativeIdentitySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.SelfService/ReviseNarrativeIdentity" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReviseNarrativeIdentitySvc<T: SelfService>(pub Arc<T>);
+                    impl<
+                        T: SelfService,
+                    > tonic::server::UnaryService<super::ReviseNarrativeIdentityRequest>
+                    for ReviseNarrativeIdentitySvc<T> {
+                        type Response = super::NarrativeIdentity;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::ReviseNarrativeIdentityRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SelfService>::revise_narrative_identity(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReviseNarrativeIdentitySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for SelfServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "nous.wave.v1alpha1.SelfService";
+    impl<T> tonic::server::NamedService for SelfServiceServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
 }

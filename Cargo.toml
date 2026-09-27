@@ -47,9 +47,11 @@ nous-material-service = { path = "crates/material-service" }
 nous-object-store = { path = "crates/object-store" }
 nous-memory-domain = { path = "crates/memory-domain" }
 nous-authority-store = { path = "crates/authority-store" }
-nous-memory-retrieval = { path = "crates/memory-retrieval" }
+nous-cognitive-retrieval = { path = "crates/cognitive-retrieval" }
 nous-serving = { path = "crates/serving" }
 nous-memory-service = { path = "crates/memory-service" }
+nous-self-domain = { path = "crates/self-domain" }
+nous-self-service = { path = "crates/self-service" }
 
 [profile.dev]
 debug = 0

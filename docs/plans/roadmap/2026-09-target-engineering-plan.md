@@ -60,7 +60,7 @@
   - Session / ResidentSet / use feedback / QueryPlan-related runtime。
 - `crates/authority-store`
   - PostgreSQL Authority persistence。
-- `crates/memory-retrieval`
+- `crates/cognitive-retrieval`
   - candidate lanes / ranking。
 - `crates/serving`
   - rebuildable serving generation and artifacts。
@@ -363,7 +363,7 @@ Memory revision 持有 typed evidence 与 provenance references。
 
 ## 主要代码面
 
-- `crates/memory-retrieval`
+- `crates/cognitive-retrieval`
 - `crates/serving`
 - `crates/cognitive-runtime`
 - NousQL compiler

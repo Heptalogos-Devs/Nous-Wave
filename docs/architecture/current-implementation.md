@@ -11,12 +11,13 @@ TypeScript Core 负责公开 API、Focus、Projection、Managed Context、NousQL
 | Owner                                     | 当前责任                                                                                                                                     |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `crates/core`                             | typed IDs、exact references、时间范围、Query contracts、错误和 operation digest 基础。                                                       |
-| `crates/subject-core`                     | Subject identity、Character Seed lineage 和 Subject authority sequence 读取。                                                                |
+| `crates/subject-core`                     | Subject identity、immutable Cognitive Seed version/adoption 和 Subject authority sequence 读取。                                            |
 | `crates/material` / `material-service`    | Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation、材料化和上传 admission。                                               |
 | `crates/memory-domain` / `memory-service` | Memory/Revision、EvidenceRef、CognitionDependency、CognitiveSchema、AssociationEvidence、lifecycle、Accessibility 和 R1 query contribution。 |
+| `crates/self-domain` / `self-service`    | SelfFacet、NarrativeIdentity、Cognitive Seed adoption、Self lifecycle/provenance、SelfDirect query contribution。                              |
 | `crates/cognitive-runtime`                | Session、ResidentSet、QueryPlan、UseEvent scoped idempotency、runtime checkpoint 和 workset。                                                |
 | `crates/authority-store`                  | PostgreSQL migrations、mutation receipts、authority sequence、projection watermarks、reference validation 和 serving records。               |
-| `crates/memory-retrieval` / `serving`     | lexical/dense/topology artifacts、fixed RRF support、Wave R1 bounded propagation 和 immutable rebuildable generations。                      |
+| `crates/cognitive-retrieval` / `serving`  | lexical/dense/topology artifacts、fixed RRF support、bounded propagation 和 immutable rebuildable generations。                              |
 
 ## 主要流程
 

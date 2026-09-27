@@ -2,29 +2,36 @@ use crate::lane::{LaneCandidate, LaneOutput, LaneStatus};
 use crate::*;
 use nous_cognitive_runtime::{BoundQuery, QueryPlan};
 use sqlx::Row;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use uuid::Uuid;
 
-pub(crate) async fn final_schema_revision_ids(
+pub(crate) async fn final_schema_revision_states(
     service: &MemoryService,
     subject: SubjectId,
     revisions: &[Uuid],
-) -> Result<HashSet<Uuid>> {
+) -> Result<HashMap<Uuid, bool>> {
     if revisions.is_empty() {
-        return Ok(HashSet::new());
+        return Ok(HashMap::new());
     }
     let rows = sqlx::query(
-        "SELECT r.schema_revision_id FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND r.schema_revision_id=ANY($2::uuid[]) AND s.purge_state='normal'",
+        "SELECT r.schema_revision_id,r.current_revision_id FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND r.schema_revision_id=ANY($2::uuid[]) AND s.acceptance_state='accepted' AND s.integrity_state='valid' AND s.suppression_state='normal' AND s.purge_state='normal'",
     )
     .bind(subject.0)
     .bind(revisions)
     .fetch_all(service.store.pool())
     .await
     .map_err(nous_authority_store::database_error)?;
-    Ok(rows
-        .into_iter()
-        .filter_map(|row| row.try_get("schema_revision_id").ok())
-        .collect())
+    rows.into_iter()
+        .map(|row| {
+            let revision: Uuid = row
+                .try_get("schema_revision_id")
+                .map_err(nous_authority_store::database_error)?;
+            let current: Uuid = row
+                .try_get("current_revision_id")
+                .map_err(nous_authority_store::database_error)?;
+            Ok((revision, revision == current))
+        })
+        .collect()
 }
 
 #[expect(

@@ -283,20 +283,83 @@ impl k::authority_service_server::AuthorityService for KernelService {
             .map(Response::new)
             .map_err(status)
     }
-    async fn get_character_seed(
+    async fn get_cognitive_seed(
         &self,
         request: Request<p::SubjectRequest>,
-    ) -> std::result::Result<Response<p::SeedRevision>, Status> {
-        KernelService::get_character_seed(self, request.into_inner())
+    ) -> std::result::Result<Response<p::CognitiveSeedVersion>, Status> {
+        KernelService::get_cognitive_seed(self, request.into_inner())
             .await
             .map(Response::new)
             .map_err(status)
     }
-    async fn revise_character_seed(
+    async fn adopt_cognitive_seed(
         &self,
-        request: Request<p::ReviseCharacterSeedRequest>,
-    ) -> std::result::Result<Response<p::SeedRevision>, Status> {
-        KernelService::revise_character_seed(self, request.into_inner())
+        request: Request<p::AdoptCognitiveSeedRequest>,
+    ) -> std::result::Result<Response<p::CognitiveSeedVersion>, Status> {
+        KernelService::adopt_cognitive_seed(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn create_self_facet(
+        &self,
+        request: Request<p::CreateSelfFacetRequest>,
+    ) -> std::result::Result<Response<p::SelfFacet>, Status> {
+        KernelService::create_self_facet(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn get_self_facet(
+        &self,
+        request: Request<p::ObjectRequest>,
+    ) -> std::result::Result<Response<p::SelfFacet>, Status> {
+        KernelService::get_self_facet(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn revise_self_facet(
+        &self,
+        request: Request<p::ReviseSelfFacetRequest>,
+    ) -> std::result::Result<Response<p::SelfFacet>, Status> {
+        KernelService::revise_self_facet(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn mutate_self_lifecycle(
+        &self,
+        request: Request<p::SelfLifecycleRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        KernelService::mutate_self_lifecycle(self, request.into_inner())
+            .await
+            .map(|_| Response::new(()))
+            .map_err(status)
+    }
+    async fn create_narrative_identity(
+        &self,
+        request: Request<p::CreateNarrativeIdentityRequest>,
+    ) -> std::result::Result<Response<p::NarrativeIdentity>, Status> {
+        KernelService::create_narrative_identity(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn get_narrative_identity(
+        &self,
+        request: Request<p::ObjectRequest>,
+    ) -> std::result::Result<Response<p::NarrativeIdentity>, Status> {
+        KernelService::get_narrative_identity(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn revise_narrative_identity(
+        &self,
+        request: Request<p::ReviseNarrativeIdentityRequest>,
+    ) -> std::result::Result<Response<p::NarrativeIdentity>, Status> {
+        KernelService::revise_narrative_identity(self, request.into_inner())
             .await
             .map(Response::new)
             .map_err(status)

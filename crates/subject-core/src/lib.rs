@@ -4,12 +4,15 @@ mod seed;
 
 use chrono::{DateTime, Utc};
 use nous_authority_store::AuthorityStore;
-use nous_core::{Error, Result, SubjectId};
+use nous_core::{Error, OperationId, Result, SubjectId};
 use nous_object_store::ObjectStore;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 
-pub use seed::{CharacterSeedInput, CharacterSeedView};
+pub use seed::{
+    COGNITIVE_SEED_FORMAT, CognitiveSeedInput, CognitiveSeedVersion, CognitiveSeedView,
+    SeedAdoptionKind, SubjectSeedAdoption,
+};
 
 #[derive(Clone)]
 pub struct SubjectCoreService {
@@ -20,7 +23,8 @@ pub struct SubjectCoreService {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateSubject {
     pub subject_id: Option<SubjectId>,
-    pub character_seed: CharacterSeedInput,
+    pub operation_id: OperationId,
+    pub cognitive_seed: CognitiveSeedInput,
     #[serde(default)]
     pub config: serde_json::Value,
 }
@@ -40,12 +44,15 @@ impl SubjectCoreService {
     }
 
     pub async fn create_subject(&self, input: CreateSubject) -> Result<SubjectView> {
-        input.character_seed.validate()?;
+        input.cognitive_seed.validate()?;
+        if input.operation_id.0.is_nil() {
+            return Err(Error::Invalid("operation_id is required".into()));
+        }
         let subject = input.subject_id.unwrap_or_default();
         let guard = self.objects.reference_guard(false).await?;
         let hash = self
             .objects
-            .put(input.character_seed.text.as_bytes().to_vec())
+            .put(input.cognitive_seed.text.as_bytes().to_vec())
             .await?;
         let mut tx = self.store.begin().await?;
         sqlx::query("INSERT INTO subjects(subject_id,created_at,metadata) VALUES($1,$2,$3)")
@@ -55,7 +62,16 @@ impl SubjectCoreService {
             .execute(&mut *tx)
             .await
             .map_err(nous_authority_store::database_error)?;
-        seed::insert_seed(&mut tx, subject, input.character_seed, hash, 1).await?;
+        seed::insert_seed(
+            &mut tx,
+            subject,
+            input.operation_id,
+            input.cognitive_seed,
+            hash,
+            SeedAdoptionKind::Initial,
+            &nous_core::canonical_request_digest("subject.create", subject, &input.operation_id)?,
+        )
+        .await?;
         tx.commit()
             .await
             .map_err(nous_authority_store::database_error)?;

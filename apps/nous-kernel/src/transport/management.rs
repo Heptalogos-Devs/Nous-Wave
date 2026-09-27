@@ -131,7 +131,10 @@ impl KernelService {
             format!(
                 "{}.{}",
                 blake3::hash(scope.as_bytes()).to_hex(),
-                items.last().expect("page").resource_ref
+                items
+                    .last()
+                    .ok_or_else(|| Error::Internal("page continuation has no last item".into()))?
+                    .resource_ref
             )
         } else {
             String::new()

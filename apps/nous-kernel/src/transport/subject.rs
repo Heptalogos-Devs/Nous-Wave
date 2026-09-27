@@ -1,31 +1,38 @@
 use super::*;
 use nous_authority_store::database_error as db;
-use nous_core::{Result, SessionId, SubjectId};
-use nous_subject_core::{CharacterSeedInput, CharacterSeedView, CreateSubject, SubjectView};
+use nous_core::{OperationId, Result, SessionId, SubjectId};
+use nous_subject_core::{
+    CognitiveSeedInput, CognitiveSeedView, CreateSubject, SeedAdoptionKind, SubjectView,
+};
 use uuid::Uuid;
 
-fn seed(input: p::CharacterSeed) -> CharacterSeedInput {
-    CharacterSeedInput {
+fn seed(input: p::CognitiveSeed) -> CognitiveSeedInput {
+    CognitiveSeedInput {
         text: input.text,
-        media_type: input.media_type,
-        provenance: serde_json::json!({"source_ref":input.source_ref,"metadata":object(input.metadata)}),
+        format: if input.format.is_empty() {
+            nous_subject_core::COGNITIVE_SEED_FORMAT.into()
+        } else {
+            input.format
+        },
+        provenance: object(input.provenance),
     }
 }
-fn seed_view(input: CharacterSeedView) -> p::SeedRevision {
-    p::SeedRevision {
-        revision: input.revision_no,
-        created_at: Some(timestamp(input.created_at)),
-        seed: Some(p::CharacterSeed {
+fn seed_view(input: CognitiveSeedView) -> p::CognitiveSeedVersion {
+    p::CognitiveSeedVersion {
+        seed: Some(p::CognitiveSeed {
             text: input.text,
-            media_type: input.media_type,
-            source_ref: input
-                .provenance
-                .get("source_ref")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .into(),
-            metadata: to_object(input.provenance),
+            format: input.version.format.clone(),
+            provenance: to_object(input.version.provenance.clone()),
         }),
+        seed_version_id: input.version.seed_version_id.0.to_string(),
+        subject_id: input.version.subject_id.0.to_string(),
+        artifact_id: input.version.artifact_id.0.to_string(),
+        format: input.version.format,
+        content_hash: input.version.content_hash,
+        created_at: Some(timestamp(input.version.created_at)),
+        adoption_id: input.adoption.adoption_id.to_string(),
+        adoption_kind: enum_name(input.adoption.kind),
+        operation_id: input.adoption.operation_id.0.to_string(),
     }
 }
 fn subject(input: SubjectView) -> p::Subject {
@@ -52,7 +59,8 @@ impl KernelService {
                         .map(id)
                         .transpose()?
                         .map(SubjectId),
-                    character_seed: seed(required(input.character_seed, "character_seed")?),
+                    operation_id: OperationId(id(&input.operation_id)?),
+                    cognitive_seed: seed(required(input.cognitive_seed, "cognitive_seed")?),
                     config: object(input.config),
                 })
                 .await?,
@@ -77,7 +85,11 @@ impl KernelService {
         let more = ids.len() > limit as usize;
         ids.truncate(limit as usize);
         let next_page_token = if more {
-            next_token(&scope, *ids.last().expect("nonempty page"))
+            next_token(
+                &scope,
+                *ids.last()
+                    .ok_or_else(|| Error::Internal("page continuation has no last item".into()))?,
+            )
         } else {
             String::new()
         };
@@ -90,27 +102,39 @@ impl KernelService {
             next_page_token,
         })
     }
-    pub(super) async fn get_character_seed(
+    pub(super) async fn get_cognitive_seed(
         &self,
         input: p::SubjectRequest,
-    ) -> Result<p::SeedRevision> {
+    ) -> Result<p::CognitiveSeedVersion> {
         Ok(seed_view(
             self.0
                 .subjects
-                .character_seed(SubjectId(id(&input.subject_id)?), None)
+                .latest_cognitive_seed(SubjectId(id(&input.subject_id)?))
                 .await?,
         ))
     }
-    pub(super) async fn revise_character_seed(
+    pub(super) async fn adopt_cognitive_seed(
         &self,
-        input: p::ReviseCharacterSeedRequest,
-    ) -> Result<p::SeedRevision> {
+        input: p::AdoptCognitiveSeedRequest,
+    ) -> Result<p::CognitiveSeedVersion> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        let kind = match input.kind.as_str() {
+            "initial" => SeedAdoptionKind::Initial,
+            "import" | "" => SeedAdoptionKind::Import,
+            _ => {
+                return Err(Error::Invalid(
+                    "invalid Cognitive Seed adoption kind".into(),
+                ));
+            }
+        };
         Ok(seed_view(
             self.0
                 .subjects
-                .revise_character_seed(
-                    SubjectId(id(&input.subject_id)?),
+                .adopt_cognitive_seed(
+                    subject,
+                    OperationId(id(&input.operation_id)?),
                     seed(required(input.seed, "seed")?),
+                    kind,
                 )
                 .await?,
         ))
@@ -177,7 +201,11 @@ impl KernelService {
         let more = ids.len() > limit as usize;
         ids.truncate(limit as usize);
         let next_page_token = if more {
-            next_token(&scope, *ids.last().expect("nonempty page"))
+            next_token(
+                &scope,
+                *ids.last()
+                    .ok_or_else(|| Error::Internal("page continuation has no last item".into()))?,
+            )
         } else {
             String::new()
         };

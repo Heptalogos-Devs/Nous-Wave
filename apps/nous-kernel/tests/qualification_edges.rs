@@ -11,7 +11,7 @@ use nous_memory_domain::{
     AcceptanceState, AccessibilityMode, CognitiveRole, EvidenceLocator, EvidenceRef,
     ExplicitMemoryInput, FormationMode, SupportRole, SuppressionState,
 };
-use nous_subject_core::{CharacterSeedInput, CreateSubject};
+use nous_subject_core::{CognitiveSeedInput, CreateSubject};
 use test_support::{database, open_runtime};
 
 #[tokio::test]
@@ -20,15 +20,16 @@ use test_support::{database, open_runtime};
     reason = "qualification edge test keeps temporal and lifecycle assertions together"
 )]
 async fn temporal_formation_and_lifecycle_contracts() {
-    let (_postgres, url, root) = database().await;
+    let (root, url, _postgres) = database().await;
     let runtime = open_runtime(&url, &root).await;
     let subject = runtime
         .subjects
         .create_subject(CreateSubject {
             subject_id: None,
-            character_seed: CharacterSeedInput {
+            operation_id: nous_core::OperationId::new(),
+            cognitive_seed: CognitiveSeedInput {
                 text: "qualification edge".into(),
-                media_type: "text/plain".into(),
+                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             config: serde_json::json!({}),

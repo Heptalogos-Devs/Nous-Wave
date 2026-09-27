@@ -8,6 +8,15 @@ pub fn reference_parts(reference: &CognitiveRef) -> (String, String) {
         CognitiveRef::CognitiveSchemaRevision(id) => {
             ("cognitive_schema_revision".into(), id.0.to_string())
         }
+        CognitiveRef::CognitiveSeedVersion(id) => {
+            ("cognitive_seed_version".into(), id.0.to_string())
+        }
+        CognitiveRef::SelfFacet(id) => ("self_facet".into(), id.0.to_string()),
+        CognitiveRef::SelfFacetRevision(id) => ("self_facet_revision".into(), id.0.to_string()),
+        CognitiveRef::NarrativeIdentity(id) => ("narrative_identity".into(), id.0.to_string()),
+        CognitiveRef::NarrativeIdentityRevision(id) => {
+            ("narrative_identity_revision".into(), id.0.to_string())
+        }
         CognitiveRef::Artifact(id) => ("artifact".into(), id.0.to_string()),
         CognitiveRef::SourceRegion(id) => ("source_region".into(), id.0.to_string()),
         CognitiveRef::DerivedRepresentation(id) => {
@@ -45,6 +54,33 @@ pub fn parse_reference(kind: &str, value: &str) -> Result<CognitiveRef> {
                 value
                     .parse()
                     .map_err(|_| Error::Invalid("invalid CognitiveSchema revision ref".into()))?,
+            ))
+        }
+        "cognitive_seed_version" => CognitiveRef::CognitiveSeedVersion(CognitiveSeedVersionId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Cognitive Seed version ref".into()))?,
+        )),
+        "self_facet" => CognitiveRef::SelfFacet(SelfFacetId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Self facet ref".into()))?,
+        )),
+        "self_facet_revision" => CognitiveRef::SelfFacetRevision(SelfFacetRevisionId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Self facet revision ref".into()))?,
+        )),
+        "narrative_identity" => CognitiveRef::NarrativeIdentity(NarrativeIdentityId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Narrative Identity ref".into()))?,
+        )),
+        "narrative_identity_revision" => {
+            CognitiveRef::NarrativeIdentityRevision(NarrativeIdentityRevisionId(
+                value.parse().map_err(|_| {
+                    Error::Invalid("invalid Narrative Identity revision ref".into())
+                })?,
             ))
         }
         "artifact" => CognitiveRef::Artifact(ArtifactId(

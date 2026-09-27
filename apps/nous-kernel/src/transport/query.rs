@@ -59,8 +59,26 @@ fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
         capabilities: CapabilityPolicy::default(),
         diagnostics: enum_value(&modifiers.diagnostics).unwrap_or_default(),
     };
+    for domain in modifiers.domains {
+        match domain.as_str() {
+            "memory" => query.targets.push(QueryTarget::Memory),
+            "self" => query.targets.push(QueryTarget::SelfCognition),
+            "" => {}
+            _ => return Err(Error::Invalid("unsupported cognitive query domain".into())),
+        }
+    }
     for cue in expression.cues {
         append_cue(&mut query, cue)?;
+    }
+    if let Some(cue) = expression.self_facet {
+        if cue.kind.is_none() && cue.key.is_none() {
+            return Err(Error::Invalid("self_facet cue needs kind or key".into()));
+        }
+        query.targets.push(QueryTarget::SelfCognition);
+        query.cues.push(Cue::SelfFacet(SelfFacetCue {
+            kind: cue.kind,
+            key: cue.key,
+        }));
     }
     if let Some(constraints) = modifiers.constraints {
         query.constraints = constraints_from_proto(constraints)?;
@@ -134,7 +152,7 @@ fn constraints_from_proto(value: p::QueryConstraints) -> Result<QueryConstraints
 fn hit(value: CognitiveHit) -> p::Hit {
     p::Hit {
         reference: Some(to_ref(value.reference)),
-        revision_id: value.revision.map(|v| v.0.to_string()),
+        revision: value.revision.map(to_ref),
         text: value.representation,
         authority: enum_name(value.authority),
         evidence: value

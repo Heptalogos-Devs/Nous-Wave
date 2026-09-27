@@ -43,15 +43,13 @@ pub struct ListRequest {
     pub status: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CharacterSeed {
+pub struct CognitiveSeed {
     #[prost(string, tag="1")]
     pub text: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
-    pub media_type: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
-    pub source_ref: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="4")]
-    pub metadata: ::core::option::Option<::prost_types::Struct>,
+    pub format: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub provenance: ::core::option::Option<::prost_types::Struct>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Subject {
@@ -71,9 +69,11 @@ pub struct CreateSubjectRequest {
     #[prost(string, optional, tag="1")]
     pub subject_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag="2")]
-    pub character_seed: ::core::option::Option<CharacterSeed>,
+    pub cognitive_seed: ::core::option::Option<CognitiveSeed>,
     #[prost(message, optional, tag="3")]
     pub config: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, tag="4")]
+    pub operation_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListSubjectsResponse {
@@ -83,20 +83,38 @@ pub struct ListSubjectsResponse {
     pub next_page_token: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SeedRevision {
+pub struct CognitiveSeedVersion {
     #[prost(message, optional, tag="1")]
-    pub seed: ::core::option::Option<CharacterSeed>,
-    #[prost(int32, tag="2")]
-    pub revision: i32,
-    #[prost(message, optional, tag="3")]
+    pub seed: ::core::option::Option<CognitiveSeed>,
+    #[prost(string, tag="2")]
+    pub seed_version_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub artifact_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub format: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub content_hash: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="7")]
     pub created_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, tag="8")]
+    pub adoption_id: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub adoption_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub operation_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ReviseCharacterSeedRequest {
+pub struct AdoptCognitiveSeedRequest {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="2")]
-    pub seed: ::core::option::Option<CharacterSeed>,
+    #[prost(string, tag="2")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub seed: ::core::option::Option<CognitiveSeed>,
+    #[prost(string, tag="4")]
+    pub kind: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Session {
@@ -294,6 +312,13 @@ pub struct Preference {
     #[prost(string, tag="3")]
     pub key: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SelfFacetCue {
+    #[prost(string, optional, tag="1")]
+    pub kind: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="2")]
+    pub key: ::core::option::Option<::prost::alloc::string::String>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryExpr {
     #[prost(string, tag="1")]
@@ -304,6 +329,8 @@ pub struct QueryExpr {
     pub children: ::prost::alloc::vec::Vec<QueryExpr>,
     #[prost(message, optional, tag="4")]
     pub modifiers: ::core::option::Option<QueryModifiers>,
+    #[prost(message, optional, tag="5")]
+    pub self_facet: ::core::option::Option<SelfFacetCue>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryRequest {
@@ -327,8 +354,8 @@ pub struct Evidence {
 pub struct Hit {
     #[prost(message, optional, tag="1")]
     pub reference: ::core::option::Option<CognitiveRef>,
-    #[prost(string, optional, tag="2")]
-    pub revision_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="2")]
+    pub revision: ::core::option::Option<CognitiveRef>,
     #[prost(string, optional, tag="3")]
     pub text: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="4")]
@@ -443,7 +470,7 @@ pub struct CognitionDependency {
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RevisionSupport {
-    #[prost(oneof="revision_support::Support", tags="1, 2")]
+    #[prost(oneof="revision_support::Support", tags="1, 2, 3")]
     pub support: ::core::option::Option<revision_support::Support>,
 }
 /// Nested message and enum types in `RevisionSupport`.
@@ -454,6 +481,8 @@ pub mod revision_support {
         Evidence(super::EvidenceRef),
         #[prost(message, tag="2")]
         CognitionDependency(super::CognitionDependency),
+        #[prost(message, tag="3")]
+        SeedVersion(super::CognitiveRef),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -632,6 +661,218 @@ pub struct MemoryHistoryRequest {
     pub memory_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub page: ::core::option::Option<Page>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SelfFacet {
+    #[prost(string, tag="1")]
+    pub self_facet_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub current_revision_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="6")]
+    pub object_epoch: i64,
+    #[prost(string, tag="7")]
+    pub acceptance_state: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub integrity_state: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub suppression_state: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub purge_state: ::prost::alloc::string::String,
+    #[prost(int32, tag="11")]
+    pub revision_no: i32,
+    #[prost(string, optional, tag="12")]
+    pub parent_revision_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="13")]
+    pub revision_intent: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="14")]
+    pub statement: ::prost::alloc::string::String,
+    #[prost(string, tag="15")]
+    pub scope: ::prost::alloc::string::String,
+    #[prost(string, tag="16")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="17")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="18")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="19")]
+    pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="20")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(string, optional, tag="21")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="22")]
+    pub created_at: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateSelfFacetRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub statement: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub scope: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="8")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="9")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="10")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(string, optional, tag="11")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReviseSelfFacetRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub self_facet_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+    #[prost(string, tag="5")]
+    pub parent_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub revision_intent: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub statement: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub scope: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="10")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="11")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="12")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(string, optional, tag="13")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SelfLifecycleRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub reference: ::core::option::Option<CognitiveRef>,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+    #[prost(string, tag="5")]
+    pub operation: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct NarrativeReference {
+    #[prost(message, optional, tag="1")]
+    pub target_exact_ref: ::core::option::Option<CognitiveRef>,
+    #[prost(string, tag="2")]
+    pub role: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NarrativeIdentity {
+    #[prost(string, tag="1")]
+    pub narrative_identity_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub current_revision_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="5")]
+    pub object_epoch: i64,
+    #[prost(string, tag="6")]
+    pub acceptance_state: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub integrity_state: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub suppression_state: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub purge_state: ::prost::alloc::string::String,
+    #[prost(int32, tag="10")]
+    pub revision_no: i32,
+    #[prost(string, optional, tag="11")]
+    pub parent_revision_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="12")]
+    pub revision_intent: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="13")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="14")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="15")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="16")]
+    pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="17")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(message, repeated, tag="18")]
+    pub references: ::prost::alloc::vec::Vec<NarrativeReference>,
+    #[prost(string, optional, tag="19")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="20")]
+    pub created_at: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateNarrativeIdentityRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="5")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="6")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="7")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(message, repeated, tag="8")]
+    pub references: ::prost::alloc::vec::Vec<NarrativeReference>,
+    #[prost(string, optional, tag="9")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReviseNarrativeIdentityRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub narrative_identity_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+    #[prost(string, tag="5")]
+    pub parent_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub revision_intent: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="8")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="9")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="10")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(message, repeated, tag="11")]
+    pub references: ::prost::alloc::vec::Vec<NarrativeReference>,
+    #[prost(string, optional, tag="12")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Artifact {

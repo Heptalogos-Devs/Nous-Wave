@@ -1,20 +1,21 @@
 #[path = "test_support/mod.rs"]
 mod test_support;
 
-use nous_subject_core::{CharacterSeedInput, CreateSubject};
+use nous_subject_core::{CognitiveSeedInput, CreateSubject};
 use test_support::{database, form_input, observation, open_runtime};
 
 #[tokio::test]
 async fn purge_keeps_shared_observation_authority() {
-    let (_postgres, url, root) = database().await;
+    let (root, url, _postgres) = database().await;
     let runtime = open_runtime(&url, &root).await;
     let subject = runtime
         .subjects
         .create_subject(CreateSubject {
             subject_id: None,
-            character_seed: CharacterSeedInput {
+            operation_id: nous_core::OperationId::new(),
+            cognitive_seed: CognitiveSeedInput {
                 text: "shared source".into(),
-                media_type: "text/plain".into(),
+                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             config: serde_json::json!({}),

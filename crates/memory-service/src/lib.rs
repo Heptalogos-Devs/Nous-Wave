@@ -1,10 +1,12 @@
 //! Memory Authority orchestration for the R1 reference profile.
 
 mod accessibility;
+mod batch;
 mod lane;
 mod lifecycle;
 mod provenance;
 mod query;
+mod query_support;
 mod runtime;
 pub mod schema;
 mod schema_lane;
@@ -641,6 +643,11 @@ impl MemoryService {
                 }
                 sqlx::query("INSERT INTO memory_revision_dependencies(memory_revision_id,target_ref_kind,target_ref,support_role) VALUES($1,$2,$3,$4)").bind(revision.0).bind(kind).bind(value).bind(dependency.support_role.as_str()).execute(&mut **tx).await.map_err(db)?;
             }
+            RevisionSupport::Seed(_) => {
+                return Err(Error::Invalid(
+                    "Memory revisions cannot use Cognitive Seed support".into(),
+                ));
+            }
         }
         Ok(())
     }
@@ -667,6 +674,11 @@ impl MemoryService {
                     self.store
                         .validate_reference(subject, &dependency.target_revision)
                         .await?;
+                }
+                RevisionSupport::Seed(_) => {
+                    return Err(Error::Invalid(
+                        "Memory revisions cannot use Cognitive Seed support".into(),
+                    ));
                 }
             }
         }

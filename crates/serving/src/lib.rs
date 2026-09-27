@@ -7,8 +7,8 @@ mod provider;
 pub use material::*;
 
 use nous_authority_store::{AuthorityStore, ServingRecord};
+use nous_cognitive_retrieval::*;
 use nous_core::*;
-use nous_memory_retrieval::*;
 use nous_object_store::ObjectStore;
 pub use provider::*;
 use serde::{Deserialize, Serialize};

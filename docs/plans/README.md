@@ -2,6 +2,8 @@
 
 计划层连接长期目标与代码施工，不能替代 Architecture-Vault 的目标语义 Authority，也不能把研究候选直接提升为实现默认值。
 
+本页是计划集合的入口；具体计划负责范围、执行顺序和验收授权，Qualification 文档负责实际运行证据。已完成或 superseded 的计划不应继续出现在“当前”列表中。
+
 ## 文档层次
 
 Target Design → Target Engineering Plan → Active Milestone Plan → Executable Specs → Code → Qualification
@@ -17,5 +19,7 @@ Target Design → Target Engineering Plan → Active Milestone Plan → Executab
 ## 当前 Executable Specs
 
 - [Executable Specs 索引](../specs/README.md)：实施合同的职责、Authority 顺序与生命周期。
-- [R2 Cognitive Retrieval & Evaluation Substrate](active/2026-09-27-cognitive-retrieval-evaluation-r2.md)：R2 当前施工计划。
-- [R2 active spec set](../specs/active/r2-cognitive-retrieval/README.md)：本阶段的 BoundQuery、fusion、Schema/Association/Topology、Runtime 与 Qualification Specs。
+- [Cognitive Retrieval & Evaluation Substrate](active/2026-09-27-cognitive-retrieval-evaluation.md)：当前 Cognitive Retrieval 施工计划。
+- [Cognitive Retrieval active spec set](../specs/active/cognitive-retrieval/README.md)：本施工计划的 BoundQuery、fusion、Schema/Association/Topology、Runtime 与 Qualification Specs。
+- [Self Authority](active/2026-09-27-self-authority.md)：独立 Self Authority、Cognitive Seed 与多 owner Query 施工计划。
+- [Self Authority implementation specs](../specs/active/self-authority/README.md)：Self Authority 的直接实施合同。

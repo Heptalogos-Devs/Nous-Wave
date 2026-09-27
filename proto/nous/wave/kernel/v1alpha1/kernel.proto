@@ -74,8 +74,15 @@ service AuthorityService {
   rpc CreateSubject(nous.wave.v1alpha1.CreateSubjectRequest) returns (nous.wave.v1alpha1.Subject);
   rpc GetSubject(nous.wave.v1alpha1.SubjectRequest) returns (nous.wave.v1alpha1.Subject);
   rpc ListSubjects(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListSubjectsResponse);
-  rpc GetCharacterSeed(nous.wave.v1alpha1.SubjectRequest) returns (nous.wave.v1alpha1.SeedRevision);
-  rpc ReviseCharacterSeed(nous.wave.v1alpha1.ReviseCharacterSeedRequest) returns (nous.wave.v1alpha1.SeedRevision);
+  rpc GetCognitiveSeed(nous.wave.v1alpha1.SubjectRequest) returns (nous.wave.v1alpha1.CognitiveSeedVersion);
+  rpc AdoptCognitiveSeed(nous.wave.v1alpha1.AdoptCognitiveSeedRequest) returns (nous.wave.v1alpha1.CognitiveSeedVersion);
+  rpc CreateSelfFacet(nous.wave.v1alpha1.CreateSelfFacetRequest) returns (nous.wave.v1alpha1.SelfFacet);
+  rpc GetSelfFacet(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.SelfFacet);
+  rpc ReviseSelfFacet(nous.wave.v1alpha1.ReviseSelfFacetRequest) returns (nous.wave.v1alpha1.SelfFacet);
+  rpc MutateSelfLifecycle(nous.wave.v1alpha1.SelfLifecycleRequest) returns (google.protobuf.Empty);
+  rpc CreateNarrativeIdentity(nous.wave.v1alpha1.CreateNarrativeIdentityRequest) returns (nous.wave.v1alpha1.NarrativeIdentity);
+  rpc GetNarrativeIdentity(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.NarrativeIdentity);
+  rpc ReviseNarrativeIdentity(nous.wave.v1alpha1.ReviseNarrativeIdentityRequest) returns (nous.wave.v1alpha1.NarrativeIdentity);
   rpc OpenSession(nous.wave.v1alpha1.SubjectRequest) returns (nous.wave.v1alpha1.Session);
   rpc GetSession(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Session);
   rpc ListSessions(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListSessionsResponse);

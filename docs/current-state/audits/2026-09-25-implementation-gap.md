@@ -14,7 +14,7 @@
 | Artifact / Observation 分离   | [`crates/material`](../../../crates/material)、[`crates/material-service`](../../../crates/material-service)                                                                                       | 字节对象、观察事件、派生表示与 Evidence 有独立身份。                              |
 | Observation 重试              | [`types.proto`](../../../proto/nous/wave/v1alpha1/types.proto)、[`observation.rs`](../../../crates/material-service/src/observation.rs)                                                            | `request_id`、规范请求摘要和事务绑定已实现；不是当前差距。                        |
 | NousQL                        | [`parser.ts`](../../../apps/nous-core/src/nousql/parser.ts)、[`compiler.ts`](../../../apps/nous-core/src/nousql/compiler.ts)、[`nousql.test.ts`](../../../apps/nous-core/tests/nousql.test.ts)     | 当前 parser/compiler 子集和测试存在；完整产品语言语义未冻结。                     |
-| Memory/Serving owners         | [`memory-domain`](../../../crates/memory-domain)、[`memory-service`](../../../crates/memory-service)、[`memory-retrieval`](../../../crates/memory-retrieval)、[`serving`](../../../crates/serving) | 形成、revision、生命周期、检索与 projection generation 已有代码路径。             |
+| Memory/Serving owners         | [`memory-domain`](../../../crates/memory-domain)、[`memory-service`](../../../crates/memory-service)、[`cognitive-retrieval`](../../../crates/cognitive-retrieval)、[`serving`](../../../crates/serving) | 形成、revision、生命周期、检索与 projection generation 已有代码路径。             |
 
 ## 需要与 Vault 目标设计对齐的实现合同
 
@@ -40,7 +40,7 @@
 
 ### 查询融合
 
-当前 [`rank_candidates`](../../../crates/memory-retrieval/src/ranking.rs) 先按当前批次实际出现的 evidence families 计算分母，并根据相近基分候选计算 topology innovation。这样最终得分可能随无关候选变化。目标设计要求在候选产生前固定通道/预算/权重，先把多视图聚合到对象修订，再执行稳定融合。
+当前 [`rank_candidates`](../../../crates/cognitive-retrieval/src/ranking.rs) 先按当前批次实际出现的 evidence families 计算分母，并根据相近基分候选计算 topology innovation。这样最终得分可能随无关候选变化。目标设计要求在候选产生前固定通道/预算/权重，先把多视图聚合到对象修订，再执行稳定融合。
 
 ## 实现边界
 

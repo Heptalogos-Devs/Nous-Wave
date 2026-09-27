@@ -28,7 +28,10 @@ impl CognitiveRuntimeService {
             }
             if !matches!(
                 event.reference,
-                CognitiveRef::MemoryRevision(_) | CognitiveRef::CognitiveSchemaRevision(_)
+                CognitiveRef::MemoryRevision(_)
+                    | CognitiveRef::CognitiveSchemaRevision(_)
+                    | CognitiveRef::SelfFacetRevision(_)
+                    | CognitiveRef::NarrativeIdentityRevision(_)
             ) {
                 return Err(Error::Invalid(
                     "UseEvent requires an exact cognition revision".into(),

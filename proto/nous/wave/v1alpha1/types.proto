@@ -10,12 +10,12 @@ message Page { uint32 page_size = 1; string page_token = 2; }
 message SubjectRequest { string subject_id = 1; }
 message ObjectRequest { string subject_id = 1; string id = 2; }
 message ListRequest { string subject_id = 1; Page page = 2; string status = 3; }
-message CharacterSeed { string text = 1; string media_type = 2; string source_ref = 3; google.protobuf.Struct metadata = 4; }
+message CognitiveSeed { string text = 1; string format = 2; google.protobuf.Struct provenance = 3; }
 message Subject { string subject_id = 1; google.protobuf.Timestamp created_at = 2; int64 authority_seq = 3; string status = 4; google.protobuf.Struct config = 5; }
-message CreateSubjectRequest { optional string subject_id = 1; CharacterSeed character_seed = 2; google.protobuf.Struct config = 3; }
+message CreateSubjectRequest { optional string subject_id = 1; CognitiveSeed cognitive_seed = 2; google.protobuf.Struct config = 3; string operation_id = 4; }
 message ListSubjectsResponse { repeated Subject items = 1; string next_page_token = 2; }
-message SeedRevision { CharacterSeed seed = 1; int32 revision = 2; google.protobuf.Timestamp created_at = 3; }
-message ReviseCharacterSeedRequest { string subject_id = 1; CharacterSeed seed = 2; }
+message CognitiveSeedVersion { CognitiveSeed seed = 1; string seed_version_id = 2; string subject_id = 3; string artifact_id = 4; string format = 5; string content_hash = 6; google.protobuf.Timestamp created_at = 7; string adoption_id = 8; string adoption_kind = 9; string operation_id = 10; }
+message AdoptCognitiveSeedRequest { string subject_id = 1; string operation_id = 2; CognitiveSeed seed = 3; string kind = 4; }
 message Session { string session_id = 1; string subject_id = 2; int64 runtime_revision = 3; bool closed = 4; repeated CognitiveRef resident_refs = 5; optional string active_focus_id = 6; }
 message ListSessionsResponse { repeated Session items = 1; string next_page_token = 2; }
 
@@ -65,12 +65,13 @@ message Cue {
 }
 message QueryModifiers { repeated string domains = 1; QueryConstraints constraints = 2; string effort = 3; optional uint32 limit = 4; string exploration = 5; string current_authority = 6; bool materialize = 7; string diagnostics = 8; repeated Preference preferences = 9; }
 message Preference { bool negative = 1; Cue cue = 2; string key = 3; }
-message QueryExpr { string operation = 1; repeated Cue cues = 2; repeated QueryExpr children = 3; QueryModifiers modifiers = 4; }
+message SelfFacetCue { optional string kind = 1; optional string key = 2; }
+message QueryExpr { string operation = 1; repeated Cue cues = 2; repeated QueryExpr children = 3; QueryModifiers modifiers = 4; optional SelfFacetCue self_facet = 5; }
 message QueryRequest { string subject_id = 1; optional string session_id = 2; QueryExpr expression = 3; optional string nousql = 4; }
 message Evidence { CognitiveRef reference = 1; string support_role = 2; }
 message Hit {
   CognitiveRef reference = 1;
-  optional string revision_id = 2;
+  CognitiveRef revision = 2;
   optional string text = 3;
   string authority = 4;
   repeated Evidence evidence = 5;
@@ -96,7 +97,7 @@ message EvidenceRef {
   string support_role = 6;
 }
 message CognitionDependency { CognitiveRef target_revision = 1; string support_role = 2; }
-message RevisionSupport { oneof support { EvidenceRef evidence = 1; CognitionDependency cognition_dependency = 2; } }
+message RevisionSupport { oneof support { EvidenceRef evidence = 1; CognitionDependency cognition_dependency = 2; CognitiveRef seed_version = 3; } }
 message MemoryContent {
   string cognitive_role = 1;
   string formation_mode = 2;
@@ -149,6 +150,114 @@ message SetAccessibilityRequest { string operation_id = 1; string subject_id = 2
 message LinkRevisionsRequest { string operation_id = 1; string subject_id = 2; string from_revision_id = 3; string to_revision_id = 4; string relation = 5; }
 message MemoryMutationRequest { string operation_id = 1; string subject_id = 2; string memory_id = 3; int64 expected_object_epoch = 4; }
 message MemoryHistoryRequest { string subject_id = 1; string memory_id = 2; Page page = 3; }
+
+message SelfFacet {
+  string self_facet_id = 1;
+  string subject_id = 2;
+  string kind = 3;
+  string key = 4;
+  string current_revision_id = 5;
+  int64 object_epoch = 6;
+  string acceptance_state = 7;
+  string integrity_state = 8;
+  string suppression_state = 9;
+  string purge_state = 10;
+  int32 revision_no = 11;
+  optional string parent_revision_id = 12;
+  optional string revision_intent = 13;
+  string statement = 14;
+  string scope = 15;
+  string epistemic_class = 16;
+  TemporalExtent valid_time = 17;
+  google.protobuf.Timestamp formed_at = 18;
+  google.protobuf.Timestamp recorded_at = 19;
+  repeated RevisionSupport supports = 20;
+  optional string producer_signature_id = 21;
+  google.protobuf.Timestamp created_at = 22;
+}
+message CreateSelfFacetRequest {
+  string operation_id = 1;
+  string subject_id = 2;
+  string kind = 3;
+  string key = 4;
+  string statement = 5;
+  string scope = 6;
+  string epistemic_class = 7;
+  TemporalExtent valid_time = 8;
+  google.protobuf.Timestamp formed_at = 9;
+  repeated RevisionSupport supports = 10;
+  optional string producer_signature_id = 11;
+}
+message ReviseSelfFacetRequest {
+  string operation_id = 1;
+  string subject_id = 2;
+  string self_facet_id = 3;
+  int64 expected_object_epoch = 4;
+  string parent_revision_id = 5;
+  string revision_intent = 6;
+  string statement = 7;
+  string scope = 8;
+  string epistemic_class = 9;
+  TemporalExtent valid_time = 10;
+  google.protobuf.Timestamp formed_at = 11;
+  repeated RevisionSupport supports = 12;
+  optional string producer_signature_id = 13;
+}
+message SelfLifecycleRequest {
+  string operation_id = 1;
+  string subject_id = 2;
+  CognitiveRef reference = 3;
+  int64 expected_object_epoch = 4;
+  string operation = 5;
+}
+message NarrativeReference { CognitiveRef target_exact_ref = 1; string role = 2; }
+message NarrativeIdentity {
+  string narrative_identity_id = 1;
+  string subject_id = 2;
+  string key = 3;
+  string current_revision_id = 4;
+  int64 object_epoch = 5;
+  string acceptance_state = 6;
+  string integrity_state = 7;
+  string suppression_state = 8;
+  string purge_state = 9;
+  int32 revision_no = 10;
+  optional string parent_revision_id = 11;
+  optional string revision_intent = 12;
+  string text = 13;
+  TemporalExtent valid_time = 14;
+  google.protobuf.Timestamp formed_at = 15;
+  google.protobuf.Timestamp recorded_at = 16;
+  repeated RevisionSupport supports = 17;
+  repeated NarrativeReference references = 18;
+  optional string producer_signature_id = 19;
+  google.protobuf.Timestamp created_at = 20;
+}
+message CreateNarrativeIdentityRequest {
+  string operation_id = 1;
+  string subject_id = 2;
+  string key = 3;
+  string text = 4;
+  TemporalExtent valid_time = 5;
+  google.protobuf.Timestamp formed_at = 6;
+  repeated RevisionSupport supports = 7;
+  repeated NarrativeReference references = 8;
+  optional string producer_signature_id = 9;
+}
+message ReviseNarrativeIdentityRequest {
+  string operation_id = 1;
+  string subject_id = 2;
+  string narrative_identity_id = 3;
+  int64 expected_object_epoch = 4;
+  string parent_revision_id = 5;
+  string revision_intent = 6;
+  string text = 7;
+  TemporalExtent valid_time = 8;
+  google.protobuf.Timestamp formed_at = 9;
+  repeated RevisionSupport supports = 10;
+  repeated NarrativeReference references = 11;
+  optional string producer_signature_id = 12;
+}
 
 message Artifact { string artifact_id = 1; string subject_id = 2; string content_hash = 3; uint64 byte_length = 4; string media_type = 5; google.protobuf.Timestamp created_at = 6; google.protobuf.Struct metadata = 7; }
 message ListArtifactsResponse { repeated Artifact items = 1; string next_page_token = 2; }

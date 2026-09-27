@@ -131,7 +131,11 @@ impl KernelService {
         let more = ids.len() > limit as usize;
         ids.truncate(limit as usize);
         let next_page_token = if more {
-            next_token(&scope, *ids.last().expect("nonempty page"))
+            next_token(
+                &scope,
+                *ids.last()
+                    .ok_or_else(|| Error::Internal("page continuation has no last item".into()))?,
+            )
         } else {
             String::new()
         };

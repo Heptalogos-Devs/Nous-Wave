@@ -62,8 +62,10 @@ impl AuthorityStore {
             .as_ref()
             .is_some_and(|value| value.authority_watermark > record.authority_watermark)
         {
+            let current = current
+                .ok_or_else(|| Error::Infrastructure("serving current row disappeared".into()))?;
             tx.commit().await.map_err(db)?;
-            return Ok(current.unwrap());
+            return Ok(current);
         }
         let desired: i64 = sqlx::query_scalar("SELECT COALESCE(max(desired_authority_seq),0) FROM projection_watermarks WHERE subject_id=$1 AND family=$2 AND (space_signature=$3 OR space_signature='*')")
             .bind(record.subject.0).bind(&record.family).bind(&record.space).fetch_one(&mut *tx).await.map_err(db)?;

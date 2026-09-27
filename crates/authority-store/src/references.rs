@@ -8,6 +8,10 @@ impl AuthorityStore {
     /// object refs are deliberately converted to their current exact revision;
     /// callers retain the returned epoch and must reject a changed head rather
     /// than silently rebinding during execution.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "exact reference binding keeps all owner-specific fencing branches together"
+    )]
     pub async fn bind_exact_reference(
         &self,
         subject: SubjectId,
@@ -82,6 +86,74 @@ impl AuthorityStore {
                     false,
                 )
             }
+            CognitiveRef::SelfFacet(facet) => {
+                let row = sqlx::query(
+                    "SELECT current_revision_id,object_epoch FROM self_facets WHERE subject_id=$1 AND self_facet_id=$2",
+                )
+                .bind(subject.0)
+                .bind(facet.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("Self facet exact target not found".into()))?;
+                (
+                    CognitiveRef::SelfFacetRevision(SelfFacetRevisionId(
+                        row.try_get("current_revision_id").map_err(db)?,
+                    )),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    true,
+                )
+            }
+            CognitiveRef::SelfFacetRevision(revision) => {
+                let row = sqlx::query(
+                    "SELECT f.object_epoch FROM self_facet_revisions r JOIN self_facets f USING(self_facet_id) WHERE r.subject_id=$1 AND r.self_facet_revision_id=$2",
+                )
+                .bind(subject.0)
+                .bind(revision.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("Self facet revision exact target not found".into()))?;
+                (
+                    reference.clone(),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    false,
+                )
+            }
+            CognitiveRef::NarrativeIdentity(narrative) => {
+                let row = sqlx::query(
+                    "SELECT current_revision_id,object_epoch FROM narrative_identities WHERE subject_id=$1 AND narrative_identity_id=$2",
+                )
+                .bind(subject.0)
+                .bind(narrative.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("Narrative Identity exact target not found".into()))?;
+                (
+                    CognitiveRef::NarrativeIdentityRevision(NarrativeIdentityRevisionId(
+                        row.try_get("current_revision_id").map_err(db)?,
+                    )),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    true,
+                )
+            }
+            CognitiveRef::NarrativeIdentityRevision(revision) => {
+                let row = sqlx::query(
+                    "SELECT n.object_epoch FROM narrative_identity_revisions r JOIN narrative_identities n USING(narrative_identity_id) WHERE r.subject_id=$1 AND r.narrative_identity_revision_id=$2",
+                )
+                .bind(subject.0)
+                .bind(revision.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("Narrative Identity revision exact target not found".into()))?;
+                (
+                    reference.clone(),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    false,
+                )
+            }
             _ => {
                 self.validate_reference(subject, reference).await?;
                 (reference.clone(), None, false)
@@ -98,6 +170,10 @@ impl AuthorityStore {
         }
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "subject ownership checks are explicit per cognitive reference owner"
+    )]
     pub async fn reference_in_subject(
         &self,
         subject: SubjectId,
@@ -130,6 +206,46 @@ impl AuthorityStore {
             .map_err(db)?,
             CognitiveRef::CognitiveSchemaRevision(id) => sqlx::query_scalar(
                 "SELECT EXISTS(SELECT 1 FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND r.schema_revision_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::CognitiveSeedVersion(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM cognitive_seed_versions WHERE subject_id=$1 AND seed_version_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::SelfFacet(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM self_facets WHERE subject_id=$1 AND self_facet_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::SelfFacetRevision(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM self_facet_revisions WHERE subject_id=$1 AND self_facet_revision_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::NarrativeIdentity(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM narrative_identities WHERE subject_id=$1 AND narrative_identity_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::NarrativeIdentityRevision(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM narrative_identity_revisions WHERE subject_id=$1 AND narrative_identity_revision_id=$2)",
             )
             .bind(subject.0)
             .bind(id.0)

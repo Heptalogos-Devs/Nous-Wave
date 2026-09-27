@@ -30,6 +30,10 @@ async fn main() {
         std::process::exit(1);
     }
 }
+#[expect(
+    clippy::print_stdout,
+    reason = "kernel bootstrap emits the machine-readable endpoint to its parent process"
+)]
 async fn run() -> Result<()> {
     let cli = Cli::parse();
     let mut input = BufReader::new(tokio::io::stdin());

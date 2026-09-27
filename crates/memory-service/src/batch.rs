@@ -1,0 +1,275 @@
+use super::*;
+use std::collections::HashMap;
+use uuid::Uuid;
+
+impl MemoryService {
+    /// Materialize the selected revision set through owner-batched Authority
+    /// reads. Query orchestration must not turn a candidate list into one
+    /// `memory(...)` call per candidate.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one owner-level batch materializer keeps all candidate projections consistent"
+    )]
+    pub(crate) async fn memories_for_query(
+        &self,
+        subject: SubjectId,
+        revisions: &[Uuid],
+    ) -> Result<HashMap<Uuid, MemoryView>> {
+        if revisions.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let rows = sqlx::query("SELECT o.memory_id,o.subject_id,o.cognitive_role,o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,o.accessibility_mode,o.created_at,r.memory_revision_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.formation_mode,r.grounding_occurrence_id,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM memory_objects o JOIN memory_revisions r ON r.memory_id=o.memory_id WHERE o.subject_id=$1 AND r.memory_revision_id=ANY($2::uuid[])")
+        .bind(subject.0)
+        .bind(revisions)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(db)?;
+        let evidence_rows = sqlx::query("SELECT memory_revision_id,occurrence_id,source_region_id,derived_representation_id,derived_region_id,support_role,evidence_no FROM memory_revision_evidence WHERE memory_revision_id=ANY($1::uuid[]) ORDER BY memory_revision_id,evidence_no")
+        .bind(revisions)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(db)?;
+        let dependency_rows = sqlx::query("SELECT memory_revision_id,target_ref_kind,target_ref,support_role FROM memory_revision_dependencies WHERE memory_revision_id=ANY($1::uuid[]) ORDER BY memory_revision_id,target_ref_kind,target_ref")
+        .bind(revisions)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(db)?;
+        let aboutness_rows = sqlx::query("SELECT memory_revision_id,entity_ref FROM memory_revision_aboutness WHERE memory_revision_id=ANY($1::uuid[]) ORDER BY memory_revision_id,entity_ref")
+        .bind(revisions)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(db)?;
+        let temporal_rows = sqlx::query("SELECT e.memory_revision_id,o.occurred_time_kind,o.occurred_time_start,o.occurred_time_end,o.observed_at FROM memory_revision_evidence e JOIN observation_occurrences o USING(occurrence_id) WHERE e.memory_revision_id=ANY($1::uuid[]) ORDER BY e.memory_revision_id,o.observed_at")
+        .bind(revisions)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(db)?;
+        let source_rows = sqlx::query("SELECT DISTINCT e.memory_revision_id,o.source_class FROM memory_revision_evidence e JOIN observation_occurrences o USING(occurrence_id) WHERE e.memory_revision_id=ANY($1::uuid[]) ORDER BY e.memory_revision_id,o.source_class")
+        .bind(revisions)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(db)?;
+
+        let mut supports = HashMap::<Uuid, Vec<RevisionSupport>>::new();
+        for row in evidence_rows {
+            let locator = match (
+                row.try_get::<Option<Uuid>, _>("source_region_id")
+                    .map_err(db)?,
+                row.try_get::<Option<Uuid>, _>("derived_representation_id")
+                    .map_err(db)?,
+                row.try_get::<Option<Uuid>, _>("derived_region_id")
+                    .map_err(db)?,
+            ) {
+                (Some(value), None, None) => EvidenceLocator::SourceRegion(SourceRegionId(value)),
+                (None, Some(value), None) => {
+                    EvidenceLocator::DerivedRepresentation(DerivedRepresentationId(value))
+                }
+                (None, None, Some(value)) => EvidenceLocator::DerivedRegion(DerivedRegionId(value)),
+                (None, None, None) => EvidenceLocator::WholeOccurrence,
+                _ => {
+                    return Err(Error::Infrastructure(
+                        "evidence locator union is invalid".into(),
+                    ));
+                }
+            };
+            let revision: Uuid = row.try_get("memory_revision_id").map_err(db)?;
+            supports
+                .entry(revision)
+                .or_default()
+                .push(RevisionSupport::Evidence(EvidenceRef {
+                    occurrence_id: OccurrenceId(row.try_get("occurrence_id").map_err(db)?),
+                    locator,
+                    support_role: parse_enum(
+                        row.try_get("support_role").map_err(db)?,
+                        "support role",
+                    )?,
+                }));
+        }
+        for row in dependency_rows {
+            let revision: Uuid = row.try_get("memory_revision_id").map_err(db)?;
+            supports
+                .entry(revision)
+                .or_default()
+                .push(RevisionSupport::CognitionDependency(CognitionDependency {
+                    target_revision: parse_reference(
+                        &row.try_get::<String, _>("target_ref_kind").map_err(db)?,
+                        &row.try_get::<String, _>("target_ref").map_err(db)?,
+                    )?,
+                    support_role: parse_enum(
+                        row.try_get("support_role").map_err(db)?,
+                        "support role",
+                    )?,
+                }));
+        }
+        let mut aboutness = HashMap::<Uuid, Vec<EntityRef>>::new();
+        for row in aboutness_rows {
+            let revision: Uuid = row.try_get("memory_revision_id").map_err(db)?;
+            aboutness.entry(revision).or_default().push(EntityRef::new(
+                row.try_get::<String, _>("entity_ref").map_err(db)?,
+            )?);
+        }
+        let mut temporal = HashMap::<Uuid, TemporalEvidence>::new();
+        for row in temporal_rows {
+            let revision: Uuid = row.try_get("memory_revision_id").map_err(db)?;
+            let entry = temporal.entry(revision).or_default();
+            entry.occurred.push(temporal_from_columns(
+                row.try_get("occurred_time_kind").map_err(db)?,
+                row.try_get("occurred_time_start").map_err(db)?,
+                row.try_get("occurred_time_end").map_err(db)?,
+            )?);
+            if entry.observed_at.is_none() {
+                entry.observed_at = row.try_get("observed_at").map_err(db)?;
+            }
+        }
+        let mut source_classes = HashMap::<Uuid, Vec<SourceClass>>::new();
+        for row in source_rows {
+            let revision: Uuid = row.try_get("memory_revision_id").map_err(db)?;
+            source_classes
+                .entry(revision)
+                .or_default()
+                .push(SourceClass::from(
+                    row.try_get::<String, _>("source_class").map_err(db)?,
+                ));
+        }
+        let memory_ids = rows
+            .iter()
+            .map(|row| row.try_get::<Uuid, _>("memory_id").map_err(db))
+            .collect::<Result<Vec<_>>>()?;
+        let accessibility_rows = sqlx::query("SELECT o.memory_id,o.accessibility_mode,o.created_at,u.use_kind,u.occurred_at FROM memory_objects o LEFT JOIN cognitive_use_events u ON u.subject_id=o.subject_id AND u.ref_kind='memory_revision' AND u.ref_value IN (SELECT memory_revision_id::text FROM memory_revisions mr2 WHERE mr2.memory_id=o.memory_id) AND u.use_kind <> 'presented' WHERE o.subject_id=$1 AND o.memory_id=ANY($2::uuid[])")
+        .bind(subject.0)
+        .bind(&memory_ids)
+        .fetch_all(self.store.pool())
+        .await
+        .map_err(db)?;
+        let mut accessibility = HashMap::<Uuid, AccessibilityLevel>::new();
+        let mut accessibility_inputs =
+            HashMap::<Uuid, (String, DateTime<Utc>, Vec<(String, f64)>)>::new();
+        for row in accessibility_rows {
+            let memory: Uuid = row.try_get("memory_id").map_err(db)?;
+            let entry = accessibility_inputs.entry(memory).or_insert_with(|| {
+                (
+                    row.try_get("accessibility_mode")
+                        .unwrap_or_else(|_| "auto".into()),
+                    row.try_get("created_at").unwrap_or_else(|_| Utc::now()),
+                    Vec::new(),
+                )
+            });
+            if let (Some(kind), Some(at)) = (
+                row.try_get::<Option<String>, _>("use_kind").map_err(db)?,
+                row.try_get::<Option<DateTime<Utc>>, _>("occurred_at")
+                    .map_err(db)?,
+            ) {
+                entry.2.push((
+                    kind,
+                    (Utc::now() - at).num_seconds().max(0) as f64 / 86400.0,
+                ));
+            }
+        }
+        for (memory, (mode, created, uses)) in accessibility_inputs {
+            let level = match mode.as_str() {
+                "normal" => AccessibilityLevel::Normal,
+                "deep" => AccessibilityLevel::Deep,
+                "explicit" => AccessibilityLevel::Explicit,
+                _ => self.accessibility_policy.level_from_activation(
+                    self.accessibility_policy.activation(
+                        (Utc::now() - created).num_seconds().max(0) as f64 / 86400.0,
+                        &uses,
+                    ),
+                ),
+            };
+            accessibility.insert(memory, level);
+        }
+
+        let mut result = HashMap::new();
+        for row in rows {
+            let memory_id = MemoryId(row.try_get("memory_id").map_err(db)?);
+            let revision_id = MemoryRevisionId(row.try_get("memory_revision_id").map_err(db)?);
+            let object = MemoryObject {
+                memory_id,
+                subject_id: SubjectId(row.try_get("subject_id").map_err(db)?),
+                cognitive_role: parse_enum(
+                    row.try_get("cognitive_role").map_err(db)?,
+                    "cognitive role",
+                )?,
+                current_revision_id: MemoryRevisionId(
+                    row.try_get("current_revision_id").map_err(db)?,
+                ),
+                object_epoch: row.try_get("object_epoch").map_err(db)?,
+                acceptance_state: parse_enum(
+                    row.try_get("acceptance_state").map_err(db)?,
+                    "acceptance state",
+                )?,
+                integrity_state: parse_enum(
+                    row.try_get("integrity_state").map_err(db)?,
+                    "integrity state",
+                )?,
+                suppression_state: parse_enum(
+                    row.try_get("suppression_state").map_err(db)?,
+                    "suppression state",
+                )?,
+                purge_state: parse_enum(row.try_get("purge_state").map_err(db)?, "purge state")?,
+                accessibility_mode: parse_enum(
+                    row.try_get("accessibility_mode").map_err(db)?,
+                    "accessibility mode",
+                )?,
+                created_at: row.try_get("created_at").map_err(db)?,
+            };
+            let revision = MemoryRevision {
+                memory_revision_id: revision_id,
+                memory_id,
+                subject_id: subject,
+                revision_no: row.try_get("revision_no").map_err(db)?,
+                parent_revision_id: row
+                    .try_get::<Option<Uuid>, _>("parent_revision_id")
+                    .map_err(db)?
+                    .map(MemoryRevisionId),
+                revision_intent: row
+                    .try_get::<Option<String>, _>("revision_intent")
+                    .map_err(db)?
+                    .map(|value| parse_enum(value, "revision intent"))
+                    .transpose()?,
+                formation_mode: parse_enum(
+                    row.try_get("formation_mode").map_err(db)?,
+                    "formation mode",
+                )?,
+                grounding_occurrence_id: row
+                    .try_get::<Option<Uuid>, _>("grounding_occurrence_id")
+                    .map_err(db)?
+                    .map(OccurrenceId),
+                semantic_role: row.try_get("semantic_role").map_err(db)?,
+                title: row.try_get("title").map_err(db)?,
+                representation_text: row.try_get("representation_text").map_err(db)?,
+                epistemic_class: parse_enum(
+                    row.try_get("epistemic_class").map_err(db)?,
+                    "epistemic class",
+                )?,
+                valid_time: temporal_from_columns(
+                    row.try_get("valid_time_kind").map_err(db)?,
+                    row.try_get("valid_time_start").map_err(db)?,
+                    row.try_get("valid_time_end").map_err(db)?,
+                )?,
+                formed_at: row.try_get("formed_at").map_err(db)?,
+                recorded_at: row.try_get("recorded_at").map_err(db)?,
+            };
+            result.insert(
+                revision_id.0,
+                MemoryView {
+                    object,
+                    revision,
+                    supports: supports.remove(&revision_id.0).unwrap_or_default(),
+                    aboutness: aboutness.remove(&revision_id.0).unwrap_or_default(),
+                    tags: Vec::new(),
+                    relations: Vec::new(),
+                    relations_truncated: false,
+                    accessibility_level: accessibility
+                        .get(&memory_id.0)
+                        .copied()
+                        .unwrap_or(AccessibilityLevel::Normal),
+                    temporal_evidence: temporal.remove(&revision_id.0).unwrap_or_default(),
+                    source_classes: source_classes.remove(&revision_id.0).unwrap_or_default(),
+                },
+            );
+        }
+        Ok(result)
+    }
+}

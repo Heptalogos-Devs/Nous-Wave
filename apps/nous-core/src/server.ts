@@ -14,6 +14,7 @@ import {
   SubjectService,
   CognitionService,
   MemoryService,
+  SelfService,
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import {
@@ -327,10 +328,10 @@ export async function createCore(settings: CoreOptions) {
     createSubject: (r, c) => kernel.authority.createSubject(r, options(c)),
     getSubject: (r, c) => kernel.authority.getSubject(r, options(c)),
     listSubjects: (r, c) => kernel.authority.listSubjects(r, options(c)),
-    getCharacterSeed: (r, c) =>
-      kernel.authority.getCharacterSeed(r, options(c)),
-    reviseCharacterSeed: (r, c) =>
-      kernel.authority.reviseCharacterSeed(r, options(c)),
+    getCognitiveSeed: (r, c) =>
+      kernel.authority.getCognitiveSeed(r, options(c)),
+    adoptCognitiveSeed: (r, c) =>
+      kernel.authority.adoptCognitiveSeed(r, options(c)),
   };
   const memories: ServiceImpl<typeof MemoryService> = {
     setAccessibility: (r, c) =>
@@ -351,6 +352,19 @@ export async function createCore(settings: CoreOptions) {
     withdrawMemory: (r, c) => kernel.authority.withdrawMemory(r, options(c)),
     reacceptMemory: (r, c) => kernel.authority.reacceptMemory(r, options(c)),
     purgeMemory: (r, c) => kernel.authority.purgeMemory(r, options(c)),
+  };
+  const self: ServiceImpl<typeof SelfService> = {
+    createSelfFacet: (r, c) => kernel.authority.createSelfFacet(r, options(c)),
+    getSelfFacet: (r, c) => kernel.authority.getSelfFacet(r, options(c)),
+    reviseSelfFacet: (r, c) => kernel.authority.reviseSelfFacet(r, options(c)),
+    mutateSelfLifecycle: (r, c) =>
+      kernel.authority.mutateSelfLifecycle(r, options(c)),
+    createNarrativeIdentity: (r, c) =>
+      kernel.authority.createNarrativeIdentity(r, options(c)),
+    getNarrativeIdentity: (r, c) =>
+      kernel.authority.getNarrativeIdentity(r, options(c)),
+    reviseNarrativeIdentity: (r, c) =>
+      kernel.authority.reviseNarrativeIdentity(r, options(c)),
   };
   const material: ServiceImpl<typeof MaterialService> = {
     getOccurrence: (r, c) => kernel.authority.getOccurrence(r, options(c)),
@@ -442,6 +456,7 @@ export async function createCore(settings: CoreOptions) {
       router.service(SubjectService, subjects);
       router.service(CognitionService, cognition);
       router.service(MemoryService, memories);
+      router.service(SelfService, self);
       router.service(MaterialService, material);
       router.service(IdentityService, identities);
       router.service(ResourceService, resources);

@@ -3,7 +3,6 @@ mod orchestrate;
 mod plan;
 mod types;
 pub use bind::planned_lanes;
-pub use orchestrate::CognitiveContributor;
+pub use orchestrate::{CognitiveContributor, CognitiveContributors};
 pub use plan::{QueryPlan, WorkCycle};
-#[allow(unused_imports)]
-pub use types::{AccessibilityQueryPolicy, BoundQuery, ExactBinding, RerankPolicy, RevisionPolicy};
+pub use types::BoundQuery;

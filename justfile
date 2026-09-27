@@ -9,6 +9,12 @@ fmt:
 fmt-check:
     cargo fmt --all -- --check
 
+clean-build:
+    cargo clean
+
+clean-test-temp:
+    powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1
+
 check:
     cargo check --workspace --all-targets --all-features
 
@@ -16,16 +22,20 @@ lint:
     cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 test:
-    cargo test --workspace --all-features
+    cargo test --workspace --all-features -- --test-threads=1
+
+test-fast:
+    cargo test -p nous-self-domain --lib --all-features
+    cargo test -p nous-kernel --test self_authority --no-fail-fast -- --test-threads=1
 
 nextest:
-    cargo nextest run --workspace --all-features
+    cargo nextest run --workspace --all-features --test-threads 1
 
 feature-check:
     cargo hack check --workspace --each-feature --no-dev-deps
 
-lint-strict:
-    cargo clippy --no-deps --workspace --exclude nous-protocol --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::todo -D clippy::dbg_macro -D clippy::print_stdout -D clippy::print_stderr -D clippy::allow_attributes -D clippy::allow_attributes_without_reason -D warnings
+lint-maintainability:
+    cargo clippy --no-deps --workspace --exclude nous-protocol --lib --bins --all-features -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::todo -D clippy::dbg_macro -D clippy::print_stdout -D clippy::print_stderr -D clippy::allow_attributes_without_reason -D warnings
 
 dupes:
     cargo dupes check
@@ -37,13 +47,13 @@ typos:
     typos
 
 osv:
-    $osv = Join-Path (go env GOPATH) "bin/osv-scanner.exe"; if (-not (Test-Path -LiteralPath $osv)) { throw "osv-scanner is not installed at $osv" }; & $osv scan -r .
+    osv-scanner scan -r .
 
 coverage:
     cargo llvm-cov --workspace --all-features --summary-only
 
-mutants:
-    cargo mutants --workspace --test-tool nextest --test-workspace true
+mutants path:
+    cargo mutants --file "{{path}}"
 
 deny:
     cargo deny check
@@ -52,7 +62,7 @@ deps:
     cargo shear --deny-warnings
 
 structure:
-    python scripts/check_source_shape.py
+    python scripts/check/source_shape.py
 
-verify: fmt-check check lint test deny deps structure
+verify: fmt-check structure test-fast check lint lint-maintainability test deny deps
     @echo "Nous Wave verification passed."

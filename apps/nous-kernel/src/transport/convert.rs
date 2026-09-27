@@ -20,11 +20,14 @@ pub fn enum_value<T: DeserializeOwned>(value: &str) -> Result<T> {
         .map_err(|_| Error::Invalid(format!("invalid enum value: {value}")))
 }
 pub fn enum_name<T: Serialize>(value: T) -> String {
-    serde_json::to_value(value)
-        .expect("domain enum serialization")
-        .as_str()
-        .expect("unit enum")
-        .into()
+    serde_json::to_value(value).map_or_else(
+        |_| "invalid_enum".into(),
+        |value| {
+            value
+                .as_str()
+                .map_or_else(|| "invalid_enum".into(), str::to_owned)
+        },
+    )
 }
 pub fn time(value: Option<Timestamp>) -> Result<Option<DateTime<Utc>>> {
     value
@@ -112,6 +115,15 @@ pub fn support(value: p::RevisionSupport) -> Result<RevisionSupport> {
                 support_role: enum_value(&value.support_role)?,
             }))
         }
+        p::revision_support::Support::SeedVersion(value) => {
+            let reference = from_ref(value)?;
+            match reference {
+                CognitiveRef::CognitiveSeedVersion(id) => Ok(RevisionSupport::Seed(id)),
+                _ => Err(Error::Invalid(
+                    "seed support must target a Cognitive Seed version".into(),
+                )),
+            }
+        }
     }
 }
 
@@ -142,6 +154,9 @@ pub fn support_proto(value: RevisionSupport) -> p::RevisionSupport {
                 support_role: enum_name(value.support_role),
             })
         }
+        RevisionSupport::Seed(value) => p::revision_support::Support::SeedVersion(to_ref(
+            CognitiveRef::CognitiveSeedVersion(value),
+        )),
     };
     p::RevisionSupport {
         support: Some(support),
@@ -181,7 +196,9 @@ pub fn value(json: serde_json::Value) -> Value {
         kind: Some(match json {
             serde_json::Value::Null => Kind::NullValue(0),
             serde_json::Value::Bool(v) => Kind::BoolValue(v),
-            serde_json::Value::Number(v) => Kind::NumberValue(v.as_f64().expect("JSON number")),
+            serde_json::Value::Number(v) => v
+                .as_f64()
+                .map_or_else(|| Kind::StringValue(v.to_string()), Kind::NumberValue),
             serde_json::Value::String(v) => Kind::StringValue(v),
             serde_json::Value::Array(v) => Kind::ListValue(prost_types::ListValue {
                 values: v.into_iter().map(value).collect(),

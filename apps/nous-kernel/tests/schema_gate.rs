@@ -3,7 +3,7 @@ mod test_support;
 
 #[tokio::test]
 async fn reference_profile_schema_gate() {
-    let (_postgres, url, root) = test_support::database().await;
+    let (root, url, _postgres) = test_support::database().await;
     let runtime = test_support::open_runtime(&url, &root).await;
     let pool = runtime.store.pool().clone();
     let has_column = |table: &'static str, column: &'static str| {

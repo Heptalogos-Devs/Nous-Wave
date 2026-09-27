@@ -1903,6 +1903,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nous-cognitive-retrieval"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "blake3",
+ "nalgebra",
+ "nous-core",
+ "roaring",
+ "serde",
+ "serde_json",
+ "tantivy",
+ "usearch",
+]
+
+[[package]]
 name = "nous-cognitive-runtime"
 version = "0.1.0"
 dependencies = [
@@ -1946,6 +1961,8 @@ dependencies = [
  "nous-memory-service",
  "nous-object-store",
  "nous-protocol",
+ "nous-self-domain",
+ "nous-self-service",
  "nous-serving",
  "nous-subject-core",
  "postgresql_embedded",
@@ -2005,31 +2022,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "nous-memory-retrieval"
-version = "0.1.0"
-dependencies = [
- "arc-swap",
- "blake3",
- "nalgebra",
- "nous-core",
- "roaring",
- "serde",
- "serde_json",
- "tantivy",
- "usearch",
-]
-
-[[package]]
 name = "nous-memory-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
  "nous-authority-store",
+ "nous-cognitive-retrieval",
  "nous-cognitive-runtime",
  "nous-core",
  "nous-memory-domain",
- "nous-memory-retrieval",
  "nous-object-store",
  "nous-serving",
  "serde",
@@ -2061,6 +2063,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "nous-self-domain"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "nous-core",
+ "serde",
+ "uuid",
+]
+
+[[package]]
+name = "nous-self-service"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "nous-authority-store",
+ "nous-cognitive-retrieval",
+ "nous-cognitive-runtime",
+ "nous-core",
+ "nous-self-domain",
+ "nous-serving",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
 name = "nous-serving"
 version = "0.1.0"
 dependencies = [
@@ -2068,8 +2098,8 @@ dependencies = [
  "blake3",
  "chrono",
  "nous-authority-store",
+ "nous-cognitive-retrieval",
  "nous-core",
- "nous-memory-retrieval",
  "nous-object-store",
  "serde",
  "serde_json",

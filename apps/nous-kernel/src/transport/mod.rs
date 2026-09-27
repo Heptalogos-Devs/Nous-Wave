@@ -10,6 +10,7 @@ mod model;
 mod query;
 mod runtime;
 mod schema;
+mod self_authority;
 mod subject;
 mod topology;
 

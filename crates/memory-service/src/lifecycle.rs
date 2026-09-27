@@ -139,6 +139,14 @@ impl MemoryService {
             "acceptance_state" => sqlx::query("UPDATE memory_objects SET acceptance_state=$3,object_epoch=object_epoch+1 WHERE subject_id=$1 AND memory_id=$2"),
             _ => return Err(Error::Internal("unsupported lifecycle state".into())),
         }.bind(subject.0).bind(memory.0).bind(to).execute(&mut *tx).await.map_err(db)?;
+        if field == "acceptance_state" && to == "withdrawn" {
+            sqlx::query("UPDATE narrative_identities SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE subject_id=$1 AND EXISTS (SELECT 1 FROM narrative_references WHERE narrative_identity_revision_id=narrative_identities.current_revision_id AND target_ref_kind='memory_revision' AND target_ref=(SELECT current_revision_id::text FROM memory_objects WHERE subject_id=$1 AND memory_id=$2))")
+                .bind(subject.0)
+                .bind(memory.0)
+                .execute(&mut *tx)
+                .await
+                .map_err(db)?;
+        }
         sqlx::query("DELETE FROM resident_refs WHERE ref_kind='memory_revision' AND ref_value IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$1)").bind(memory.0).execute(&mut *tx).await.map_err(db)?;
         AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
         commit_receipt(
@@ -216,6 +224,12 @@ impl MemoryService {
         .await
         .map_err(db)?;
         for revision in &revisions {
+            sqlx::query("UPDATE narrative_identities SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE subject_id=$1 AND EXISTS (SELECT 1 FROM narrative_references WHERE narrative_identity_revision_id=narrative_identities.current_revision_id AND target_ref_kind='memory_revision' AND target_ref=$2)")
+                .bind(subject.0)
+                .bind(revision.to_string())
+                .execute(&mut *tx)
+                .await
+                .map_err(db)?;
             sqlx::query("INSERT INTO cognition_dependency_invalidations(subject_id,dependent_kind,dependent_ref,invalidated_by_kind,invalidated_by_ref,reason,created_at) SELECT $1,'memory_revision',memory_revision_id::text,'memory_revision',$2,'support_purged',$3 FROM memory_revision_dependencies WHERE target_ref_kind='memory_revision' AND target_ref=$2 ON CONFLICT DO NOTHING")
                 .bind(subject.0).bind(revision.to_string()).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
             sqlx::query("INSERT INTO cognition_dependency_invalidations(subject_id,dependent_kind,dependent_ref,invalidated_by_kind,invalidated_by_ref,reason,created_at) SELECT $1,'cognitive_schema_revision',schema_revision_id::text,'memory_revision',$2,'support_purged',$3 FROM cognitive_schema_evidence_links WHERE support_kind='memory_revision' AND support_ref=$2 AND revoked_at IS NULL ON CONFLICT DO NOTHING")

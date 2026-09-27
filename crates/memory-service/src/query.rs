@@ -1,11 +1,12 @@
 use crate::lane::{LaneCandidate, LaneOutput, LaneStatus};
-use crate::schema_lane::final_schema_revision_ids;
+use crate::query_support::resolve_memory_references;
+use crate::schema_lane::final_schema_revision_states;
 use crate::schema_lane::schema_direct_lane;
 use crate::topology_lane::topology_ranks;
 use crate::*;
 use async_trait::async_trait;
+use nous_cognitive_retrieval::{CandidateRankInput, rank_candidates};
 use nous_cognitive_runtime::{BoundQuery, CognitiveContributor, QueryPlan};
-use nous_memory_retrieval::{CandidateRankInput, rank_candidates};
 use nous_serving::TextEmbeddingRequest;
 use sqlx::Row;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -124,10 +125,11 @@ impl CognitiveContributor for MemoryService {
 
         if bound.lane_enabled(EvidenceFamily::TopologyWave) {
             let topology = topology_ranks(&snapshot, bound, plan, &lane_ranks);
+            let topology_refs = topology.keys().cloned().collect::<Vec<_>>();
+            let resolved_topology =
+                resolve_memory_references(self, query.subject, &topology_refs).await?;
             for (reference, rank) in topology {
-                if let Some((memory_id, revision_id)) =
-                    resolve_memory_reference(self, query.subject, &reference).await?
-                {
+                if let Some((memory_id, revision_id)) = resolved_topology.get(&reference).copied() {
                     selected.insert(revision_id.0, memory_id.0);
                     lane_ranks
                         .entry(revision_id.0)
@@ -137,17 +139,15 @@ impl CognitiveContributor for MemoryService {
             }
         }
 
+        let selected_revisions = selected.keys().copied().collect::<Vec<_>>();
+        let materialized = self
+            .memories_for_query(query.subject, &selected_revisions)
+            .await?;
         let mut candidates = Vec::new();
-        for (revision_id, memory_id) in selected {
+        for (revision_id, _memory_id) in selected {
             let revision_id = MemoryRevisionId(revision_id);
-            let memory_id = MemoryId(memory_id);
-            let view = match self
-                .memory(query.subject, memory_id, Some(revision_id))
-                .await
-            {
-                Ok(value) => value,
-                Err(Error::NotFound(_)) => continue,
-                Err(error) => return Err(error),
+            let Some(view) = materialized.get(&revision_id.0).cloned() else {
+                continue;
             };
             let exact = bound
                 .exact_bindings
@@ -255,7 +255,7 @@ impl CognitiveContributor for MemoryService {
         if bound.rerank_policy.enabled {
             degradation.push(Degradation {
                 code: "required_reranker_unavailable".into(),
-                detail: Some("R2 reference runtime has no configured reranker provider".into()),
+                detail: Some("Reference runtime has no configured reranker provider".into()),
             });
         }
         let mut diagnostics = QueryDiagnostics {
@@ -302,11 +302,12 @@ impl CognitiveContributor for MemoryService {
             })
             .collect::<Vec<_>>();
         let valid_schema_refs =
-            final_schema_revision_ids(self, query.subject, &schema_refs).await?;
+            final_schema_revision_states(self, query.subject, &schema_refs).await?;
         validated.retain(|hit| match hit.reference {
             CognitiveRef::CognitiveSchemaRevision(revision) => {
-                valid_schema_refs.contains(&revision.0)
-                    || bound.revision_policy.allows_historical(&hit.reference)
+                valid_schema_refs.get(&revision.0).is_some_and(|current| {
+                    *current || bound.revision_policy.allows_historical(&hit.reference)
+                })
             }
             _ => true,
         });
@@ -344,7 +345,7 @@ async fn lexical_lane(
     service: &MemoryService,
     bound: &BoundQuery,
     plan: &QueryPlan,
-    snapshot: &nous_memory_retrieval::ServingSnapshot,
+    snapshot: &nous_cognitive_retrieval::ServingSnapshot,
 ) -> Result<LaneOutput> {
     let mut output = LaneOutput::empty(EvidenceFamily::Lexical, LaneStatus::Unavailable);
     let text = text_query(&bound.source_query);
@@ -382,7 +383,7 @@ async fn dense_lane(
     service: &MemoryService,
     bound: &BoundQuery,
     plan: &QueryPlan,
-    snapshot: &nous_memory_retrieval::ServingSnapshot,
+    snapshot: &nous_cognitive_retrieval::ServingSnapshot,
 ) -> Result<LaneOutput> {
     let mut output = LaneOutput::empty(EvidenceFamily::Dense, LaneStatus::Unavailable);
     let text = text_query(&bound.source_query);
@@ -697,10 +698,14 @@ async fn apply_lane_output(
     lane_ranks: &mut BTreeMap<Uuid, HashMap<EvidenceFamily, usize>>,
     variants: &mut BTreeMap<Uuid, Vec<String>>,
 ) -> Result<()> {
+    let references = output
+        .candidates
+        .iter()
+        .map(|candidate| candidate.reference.clone())
+        .collect::<Vec<_>>();
+    let resolved = resolve_memory_references(service, subject, &references).await?;
     for candidate in output.candidates {
-        let Some((memory_id, revision_id)) =
-            resolve_memory_reference(service, subject, &candidate.reference).await?
-        else {
+        let Some((memory_id, revision_id)) = resolved.get(&candidate.reference).copied() else {
             continue;
         };
         selected.insert(revision_id.0, memory_id.0);
@@ -714,45 +719,6 @@ async fn apply_lane_output(
             .extend(candidate.variants);
     }
     Ok(())
-}
-
-async fn resolve_memory_reference(
-    service: &MemoryService,
-    subject: SubjectId,
-    reference: &CognitiveRef,
-) -> Result<Option<(MemoryId, MemoryRevisionId)>> {
-    let row = match reference {
-        CognitiveRef::Memory(memory) => sqlx::query(
-            "SELECT memory_id,current_revision_id FROM memory_objects WHERE subject_id=$1 AND memory_id=$2",
-        )
-        .bind(subject.0)
-        .bind(memory.0)
-        .fetch_optional(service.store.pool())
-        .await
-        .map_err(nous_authority_store::database_error)?,
-        CognitiveRef::MemoryRevision(revision) => sqlx::query(
-            "SELECT memory_id,memory_revision_id FROM memory_revisions WHERE subject_id=$1 AND memory_revision_id=$2",
-        )
-        .bind(subject.0)
-        .bind(revision.0)
-        .fetch_optional(service.store.pool())
-        .await
-        .map_err(nous_authority_store::database_error)?,
-        _ => None,
-    };
-    row.map(|row| {
-        Ok((
-            MemoryId(
-                row.try_get("memory_id")
-                    .map_err(nous_authority_store::database_error)?,
-            ),
-            MemoryRevisionId(
-                row.try_get("memory_revision_id")
-                    .map_err(nous_authority_store::database_error)?,
-            ),
-        ))
-    })
-    .transpose()
 }
 
 async fn final_memory_states(
@@ -849,11 +815,13 @@ fn final_state_filter(
 fn to_hit(
     query: &CognitiveQuery,
     candidate: &Candidate,
-    ranked: &nous_memory_retrieval::RankedCandidate,
+    ranked: &nous_cognitive_retrieval::RankedCandidate,
 ) -> CognitiveHit {
     CognitiveHit {
         reference: ranked.reference.clone(),
-        revision: Some(candidate.view.revision.memory_revision_id),
+        revision: Some(CognitiveRef::MemoryRevision(
+            candidate.view.revision.memory_revision_id,
+        )),
         semantic_role: Some(candidate.view.revision.semantic_role.clone()),
         cognitive_role: Some(candidate.view.object.cognitive_role.as_str().into()),
         formation_mode: Some(candidate.view.revision.formation_mode.as_str().into()),
@@ -879,6 +847,10 @@ fn to_hit(
                     RevisionSupport::CognitionDependency(value) => EvidenceHandle {
                         reference: value.target_revision.clone(),
                         support_role: value.support_role.as_str().into(),
+                    },
+                    RevisionSupport::Seed(value) => EvidenceHandle {
+                        reference: CognitiveRef::CognitiveSeedVersion(*value),
+                        support_role: "seed".into(),
                     },
                 })
                 .collect()

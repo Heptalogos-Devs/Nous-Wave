@@ -48,7 +48,10 @@ impl LaneOutput {
 }
 
 #[async_trait]
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "LaneProvider is the reserved owner seam for future bounded lane implementations"
+)]
 pub(crate) trait LaneProvider: Send + Sync {
     fn family(&self) -> EvidenceFamily;
 

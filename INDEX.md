@@ -1,13 +1,17 @@
-# Nous Wave Repository Index
+# Nous Wave 仓库地图
 
-| Area                | Entry point                                                                                                                   | Responsibility                                                                           |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Human documentation | [docs/INDEX.md](docs/INDEX.md)                                                                                                | Current architecture, implementation status, plans, and API references                   |
-| Target design       | [Nous Wave TARGET_DESIGN.md](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md) | Long-term semantics, decisions, rationale, and research                                  |
-| TypeScript Core     | [apps/nous-core/README.md](apps/nous-core/README.md)                                                                          | Public Core service, Focus/Projection/Context, NousQL, and model orchestration           |
-| Rust Kernel         | [apps/nous-kernel/README.md](apps/nous-kernel/README.md)                                                                      | Private Kernel process and composition of Rust owners                                    |
-| Rust owners         | [crates/README.md](crates/README.md)                                                                                          | Subject, Cognitive Runtime, material, Memory, persistence, retrieval, and Serving crates |
-| Protocol source     | [proto/README.md](proto/README.md)                                                                                            | Canonical Protobuf service and data contracts                                            |
-| TypeScript packages | [packages/README.md](packages/README.md)                                                                                      | Generated protocol bindings and official Client                                          |
-| Validation          | [justfile](justfile), [package.json](package.json)                                                                            | Rust and TypeScript verification entry points                                            |
-| Scripts             | [scripts/](scripts/)                                                                                                          | Source-shape checks and repository maintenance commands                                  |
+本页只回答“哪个边界负责什么、从哪里继续阅读”。具体行为和命令由各入口文档或机器可读合同负责。
+
+| 区域 | 入口 | 责任边界 |
+| --- | --- | --- |
+| 人类文档 | [docs/INDEX.md](docs/INDEX.md) | 当前架构、状态、计划、参考和 Qualification 目录 |
+| 长期目标设计 | [Architecture-Vault TARGET_DESIGN.md](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md) | 长期语义、决定、理由和研究 |
+| TypeScript Core | [apps/nous-core/README.md](apps/nous-core/README.md) | 公共 Core、Focus/Projection/Context、NousQL 和模型编排 |
+| Rust Kernel | [apps/nous-kernel/README.md](apps/nous-kernel/README.md) | 私有 Kernel 进程和 Rust owners 的组合 |
+| Rust owners | [crates/README.md](crates/README.md) | Subject、Runtime、Material、Memory、Authority Store、Retrieval 和 Serving |
+| Protobuf source | [proto/README.md](proto/README.md) | 唯一的跨语言 wire-contract source |
+| TypeScript packages | [packages/README.md](packages/README.md) | 官方 Client 和生成的 TypeScript protocol bindings |
+| 验证入口 | [justfile](justfile) / [package.json](package.json) | Rust、Protobuf 和 TypeScript checks |
+| 脚本与维护 | [scripts/README.md](scripts/README.md) | source-shape 和有边界的开发期维护操作 |
+
+`crates/`、`apps/`、`packages/`、`proto/` 和 `scripts/` 的局部 `README.md` 负责解释各自边界；局部 `AGENTS.md` 只补充该区域相对根规则的 AI 操作约束。

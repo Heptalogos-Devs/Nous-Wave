@@ -330,6 +330,11 @@ impl MemoryService {
                     None,
                 )
             }
+            RevisionSupport::Seed(_) => {
+                return Err(Error::Invalid(
+                    "CognitiveSchema cannot use Cognitive Seed support".into(),
+                ));
+            }
         };
         sqlx::query("INSERT INTO cognitive_schema_evidence_links(link_id,subject_id,schema_revision_id,role,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)").bind(id.0).bind(subject.0).bind(revision.0).bind(input.role.as_str()).bind(kind).bind(value).bind(support_role).bind(occurrence).bind(source_region).bind(derived_representation).bind(derived_region).bind(Utc::now()).execute(&mut **tx).await.map_err(db)?;
         Ok(())

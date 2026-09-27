@@ -5,7 +5,7 @@ use nous_authority_store::{ProjectionInvalidation, ServingRecord};
 use nous_cognitive_runtime::{UseFeedback, UseFeedbackEvent, UseKind};
 use nous_core::{CognitiveRef, EpistemicClass, OperationId, ServingGenerationId, TemporalExtent};
 use nous_memory_domain::*;
-use nous_subject_core::{CharacterSeedInput, CreateSubject};
+use nous_subject_core::{CognitiveSeedInput, CreateSubject};
 use test_support::{
     database, external_observation, form_input, observation, occurrence_only_observation,
     open_runtime,
@@ -14,18 +14,19 @@ use test_support::{
 #[tokio::test]
 #[expect(
     clippy::too_many_lines,
-    reason = "R1 qualification exercises the complete vertical contract"
+    reason = "Reference profile qualification exercises the complete vertical contract"
 )]
 async fn reference_profile_authority_runtime_and_purge_contracts() {
-    let (_postgres, url, root) = database().await;
+    let (root, url, _postgres) = database().await;
     let runtime = open_runtime(&url, &root).await;
     let subject = runtime
         .subjects
         .create_subject(CreateSubject {
             subject_id: None,
-            character_seed: CharacterSeedInput {
+            operation_id: OperationId::new(),
+            cognitive_seed: CognitiveSeedInput {
                 text: "reference profile".into(),
-                media_type: "text/plain".into(),
+                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             config: serde_json::json!({}),

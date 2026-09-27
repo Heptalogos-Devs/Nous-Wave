@@ -52,4 +52,5 @@ Agent 不得自行决定：
 
 ## 4. 当前 Active Specs
 
-- `active/r2-cognitive-retrieval/`
+- `active/cognitive-retrieval/`
+- `active/self-authority/`
