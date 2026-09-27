@@ -4,7 +4,7 @@
 
 状态：CURRENT QUALIFICATION EVIDENCE
 
-实施提交：`14f644376ce0664c0d3d6b1195a836eb96ba3c19`
+实施提交：`14f644376ce0664c0d3d6b1195a836eb96ba3c19`；最终语义修正：`5d78d7001a71ea142d8625a8366f0560ef5fd7fb`
 
 Spec set：`docs/specs/active/r2-cognitive-retrieval/`
 
