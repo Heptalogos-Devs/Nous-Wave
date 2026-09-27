@@ -18,6 +18,7 @@
 - [R2 Cognitive Retrieval & Evaluation Substrate](plans/active/2026-09-27-cognitive-retrieval-evaluation-r2.md)：R2 当前施工计划。
 - [Executable Specs 索引](specs/README.md)：实施合同的职责、层次与生命周期。
 - [R2 active spec set](specs/active/r2-cognitive-retrieval/README.md)：BoundQuery、fusion、topology、runtime 与 Qualification Specs。
+- [R2 Qualification evidence](qualification/2026-10-r2-cognitive-retrieval.md)：实际运行的资格门、回归状态与 benchmark admission 结论。
 
 ## 当前代码参考
 
