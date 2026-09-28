@@ -2,12 +2,20 @@
   "version": "memory-reference-r1-2026-09-29",
   "subjects": ["subject-s", "subject-t"],
   "sessions": [
-    {"label": "session-a", "consumer": "consumer:alpha:reference"},
-    {"label": "session-b", "consumer": "consumer:beta:reference"}
+    { "label": "session-a", "consumer": "consumer:alpha:reference" },
+    { "label": "session-b", "consumer": "consumer:beta:reference" }
   ],
   "observations": [
-    {"label": "o1", "session": "session-a", "observed_at": "2026-09-01T00:00:00Z"},
-    {"label": "o2", "session": "session-b", "observed_at": "2026-09-02T00:00:00Z"}
+    {
+      "label": "o1",
+      "session": "session-a",
+      "observed_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "label": "o2",
+      "session": "session-b",
+      "observed_at": "2026-09-02T00:00:00Z"
+    }
   ],
   "cognition": {
     "grounded": "m1",
