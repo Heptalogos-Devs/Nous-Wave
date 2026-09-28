@@ -24,7 +24,7 @@
 
 - `NOT_RUN`：Social purge dedicated integration matrix；包括 purge retry/tombstone、source retention、restart/rebuild 和 dependency invalidation。A→B、revision fencing、suppress/restore 已在 focused scenario 中覆盖。
 - `PASS`：LanguageConvention actor match、independent external roots、same-root rejection 和 Seed import relation/convention unchanged/conflict 已由 Social focused fixture 覆盖；多来源/时间序列 full matrix 仍未运行。
-- `NOT_RUN`：Social disabled deferred import、purge retry/source retention/restart/rebuild/dependency invalidation dedicated matrix。
+- `NOT_RUN`：Social disabled deferred import dedicated matrix。
 - `NOT_RUN`：clean restart/rebuild 后的 mixed Memory+Self+Social serving/query recovery、full corpus/oracle/scale/benchmark gates。
 
 ## 真实告警与未决项

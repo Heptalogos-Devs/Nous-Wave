@@ -43,7 +43,7 @@
 
 ## 当前未完成或未运行
 
-- Social revise/lifecycle/purge、LanguageConvention evidence independence 和 Seed→Social import 具有实现路径，但本轮尚未为每个异常场景运行 dedicated Qualification；状态保持 `NOT_RUN`，不等同于 PASS。
+- Social revise/lifecycle/suppression、LanguageConvention actor/root acceptance 和 Seed→Social created/unchanged/conflict 已有 focused evidence；purge retry/source retention、disabled deferred、restart/rebuild 和完整多来源矩阵仍为 `NOT_RUN`，不等同于 PASS。
 - Motivation、Desired Condition、Episode/Journal、Heptalogos live integration、自动人格学习和新图算法仍不属于本轮。
 
 ## 当前验证证据
