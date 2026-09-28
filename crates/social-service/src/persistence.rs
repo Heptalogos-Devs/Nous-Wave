@@ -52,34 +52,68 @@ pub(super) async fn insert_supports(
     supports: &[RevisionSupport],
 ) -> Result<()> {
     for support in supports {
-        let (kind, reference, role, seed_path) = match support {
-            RevisionSupport::Evidence(value) => (
-                "evidence".into(),
-                value.canonical_key(),
-                value.support_role.as_str().to_owned(),
-                None,
-            ),
+        let (
+            kind,
+            reference,
+            role,
+            occurrence_id,
+            source_region_id,
+            derived_representation_id,
+            derived_region_id,
+            seed_path,
+        ) = match support {
+            RevisionSupport::Evidence(value) => {
+                let (source_region_id, derived_representation_id, derived_region_id) =
+                    match value.locator {
+                        EvidenceLocator::WholeOccurrence => (None, None, None),
+                        EvidenceLocator::SourceRegion(id) => (Some(id.0), None, None),
+                        EvidenceLocator::DerivedRepresentation(id) => (None, Some(id.0), None),
+                        EvidenceLocator::DerivedRegion(id) => (None, None, Some(id.0)),
+                    };
+                (
+                    "evidence".into(),
+                    value.canonical_key(),
+                    value.support_role.as_str().to_owned(),
+                    Some(value.occurrence_id.0),
+                    source_region_id,
+                    derived_representation_id,
+                    derived_region_id,
+                    None,
+                )
+            }
             RevisionSupport::CognitionDependency(value) => (
                 reference_parts(&value.target_revision).0,
                 reference_parts(&value.target_revision).1,
                 value.support_role.as_str().to_owned(),
+                None,
+                None,
+                None,
+                None,
                 None,
             ),
             RevisionSupport::Seed(value) => (
                 "cognitive_seed_version".into(),
                 value.seed_version_id.0.to_string(),
                 "direct".into(),
+                None,
+                None,
+                None,
+                None,
                 Some(value.semantic_path.clone()),
             ),
         };
         let query = format!(
-            "INSERT INTO {table}({column},support_kind,support_ref,support_role,seed_path) VALUES($1,$2,$3,$4,$5)"
+            "INSERT INTO {table}({column},support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,seed_path) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)"
         );
         sqlx::query(sqlx::AssertSqlSafe(query))
             .bind(revision)
             .bind(kind)
             .bind(reference)
             .bind(role)
+            .bind(occurrence_id)
+            .bind(source_region_id)
+            .bind(derived_representation_id)
+            .bind(derived_region_id)
             .bind(seed_path)
             .execute(&mut **tx)
             .await

@@ -9,6 +9,13 @@ impl SocialService {
         let row = sqlx::query("SELECT a.relation_type_id,a.from_kind,a.from_entity_ref,a.to_kind,a.to_entity_ref,a.current_revision_id,a.object_epoch,a.acceptance_state,a.integrity_state,a.suppression_state,a.purge_state,a.created_at,r.revision_no,r.parent_revision_id,r.revision_intent,r.degree_kind,r.degree_value,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at,r.producer_signature_id FROM relationship_assertions a JOIN relationship_revisions r ON r.relationship_revision_id=a.current_revision_id WHERE a.subject_id=$1 AND a.relationship_id=$2")
             .bind(subject.0).bind(id.0).fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(|| Error::NotFound("relationship not found".into()))?;
         let revision_id = RelationshipRevisionId(row.try_get("current_revision_id").map_err(db)?);
+        let supports = load_revision_supports(
+            &self.store,
+            "relationship_revision_supports",
+            "relationship_revision_id",
+            revision_id.0,
+        )
+        .await?;
         let from = party_from_columns(
             row.try_get("from_kind").map_err(db)?,
             row.try_get("from_entity_ref").map_err(db)?,
@@ -52,7 +59,7 @@ impl SocialService {
                 formed_at: row.try_get("formed_at").map_err(db)?,
                 recorded_at: row.try_get("recorded_at").map_err(db)?,
                 producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
-                supports: Vec::new(),
+                supports,
             },
         })
     }
@@ -81,6 +88,14 @@ impl SocialService {
             .bind(subject.0).bind(id.0).fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(|| Error::NotFound("LanguageConvention not found".into()))?;
         let revision_id =
             LanguageConventionRevisionId(row.try_get("current_revision_id").map_err(db)?);
+        let supports = load_revision_supports(
+            &self.store,
+            "language_convention_revision_supports",
+            "convention_revision_id",
+            revision_id.0,
+        )
+        .await?;
+        let formation_evidence = load_formation_evidence(&self.store, revision_id.0).await?;
         let scope = scope_from_columns(
             row.try_get("scope_kind").map_err(db)?,
             row.try_get("scope_refs").map_err(db)?,
@@ -124,9 +139,103 @@ impl SocialService {
                 recorded_at: row.try_get("recorded_at").map_err(db)?,
                 producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
                 formation_policy_digest: row.try_get("formation_policy_digest").map_err(db)?,
-                supports: Vec::new(),
+                supports,
             },
-            formation_evidence: Vec::new(),
+            formation_evidence,
         })
     }
+}
+
+async fn load_revision_supports(
+    store: &AuthorityStore,
+    table: &str,
+    revision_column: &str,
+    revision_id: Uuid,
+) -> Result<Vec<RevisionSupport>> {
+    let sql = format!(
+        "SELECT support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,seed_path FROM {table} WHERE {revision_column}=$1 ORDER BY support_kind,support_ref,support_role"
+    );
+    let rows = sqlx::query(sqlx::AssertSqlSafe(sql))
+        .bind(revision_id)
+        .fetch_all(store.pool())
+        .await
+        .map_err(db)?;
+    let mut supports = Vec::with_capacity(rows.len());
+    for row in rows {
+        let kind: String = row.try_get("support_kind").map_err(db)?;
+        let support_ref: String = row.try_get("support_ref").map_err(db)?;
+        let role: SupportRole = parse_enum(row.try_get("support_role").map_err(db)?)?;
+        supports.push(match kind.as_str() {
+            "evidence" => {
+                let occurrence_id: Uuid = row
+                    .try_get::<Option<Uuid>, _>("occurrence_id")
+                    .map_err(db)?
+                    .ok_or_else(|| {
+                        Error::Infrastructure("social evidence occurrence missing".into())
+                    })?;
+                let locator = if let Some(value) = row
+                    .try_get::<Option<Uuid>, _>("source_region_id")
+                    .map_err(db)?
+                {
+                    EvidenceLocator::SourceRegion(SourceRegionId(value))
+                } else if let Some(value) = row
+                    .try_get::<Option<Uuid>, _>("derived_representation_id")
+                    .map_err(db)?
+                {
+                    EvidenceLocator::DerivedRepresentation(DerivedRepresentationId(value))
+                } else if let Some(value) = row
+                    .try_get::<Option<Uuid>, _>("derived_region_id")
+                    .map_err(db)?
+                {
+                    EvidenceLocator::DerivedRegion(DerivedRegionId(value))
+                } else {
+                    EvidenceLocator::WholeOccurrence
+                };
+                RevisionSupport::Evidence(EvidenceRef {
+                    occurrence_id: OccurrenceId(occurrence_id),
+                    locator,
+                    support_role: role,
+                })
+            }
+            "cognitive_seed_version" => {
+                RevisionSupport::Seed(SeedSupportRef::new(
+                    CognitiveSeedVersionId(support_ref.parse().map_err(|_| {
+                        Error::Infrastructure("invalid Seed support reference".into())
+                    })?),
+                    row.try_get::<Option<String>, _>("seed_path")
+                        .map_err(db)?
+                        .ok_or_else(|| Error::Infrastructure("Seed support path missing".into()))?,
+                )?)
+            }
+            _ => RevisionSupport::CognitionDependency(CognitionDependency {
+                target_revision: parse_reference(&kind, &support_ref)?,
+                support_role: role,
+            }),
+        });
+    }
+    Ok(supports)
+}
+
+async fn load_formation_evidence(
+    store: &AuthorityStore,
+    revision_id: Uuid,
+) -> Result<Vec<ConventionFormationEvidence>> {
+    let rows = sqlx::query("SELECT support_ordinal,evidence_kind,external_actor_ref FROM language_convention_formation_evidence WHERE convention_revision_id=$1 ORDER BY support_ordinal")
+        .bind(revision_id)
+        .fetch_all(store.pool())
+        .await
+        .map_err(db)?;
+    rows.into_iter()
+        .map(|row| {
+            Ok(ConventionFormationEvidence {
+                support_index: row.try_get("support_ordinal").map_err(db)?,
+                kind: parse_enum(row.try_get("evidence_kind").map_err(db)?)?,
+                external_actor: row
+                    .try_get::<Option<String>, _>("external_actor_ref")
+                    .map_err(db)?
+                    .map(EntityRef::new)
+                    .transpose()?,
+            })
+        })
+        .collect()
 }

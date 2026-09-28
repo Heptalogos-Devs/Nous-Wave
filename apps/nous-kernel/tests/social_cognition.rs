@@ -94,6 +94,12 @@ async fn directed_relationship_has_social_authority_and_query_projection() {
         })
         .await
         .expect("relationship");
+    assert!(matches!(
+        relationship.revision.supports.first(),
+        Some(RevisionSupport::Seed(value))
+            if value.seed_version_id == seed_version_id
+                && value.semantic_path == "social.relationships/alice-friend"
+    ));
     let revised = runtime
         .social
         .as_ref()
@@ -116,6 +122,12 @@ async fn directed_relationship_has_social_authority_and_query_projection() {
         })
         .await
         .expect("relationship revision");
+    assert!(matches!(
+        revised.revision.supports.first(),
+        Some(RevisionSupport::Seed(value))
+            if value.seed_version_id == seed_version_id
+                && value.semantic_path == "social.relationships/alice-friend"
+    ));
     runtime
         .social
         .as_ref()
@@ -292,7 +304,7 @@ async fn directed_relationship_has_social_authority_and_query_projection() {
         })
         .await
         .expect("relationship restore");
-    runtime
+    let convention = runtime
         .social
         .as_ref()
         .expect("social capability")
@@ -321,6 +333,16 @@ async fn directed_relationship_has_social_authority_and_query_projection() {
         })
         .await
         .expect("language convention");
+    assert!(matches!(
+        convention.revision.supports.first(),
+        Some(RevisionSupport::Seed(value))
+            if value.seed_version_id == seed_version_id
+                && value.semantic_path == "social.conventions/alice-project"
+    ));
+    assert!(matches!(
+        convention.formation_evidence.first(),
+        Some(value) if value.support_index == 0 && value.kind == FormationEvidenceKind::SeedDirect
+    ));
     let result = runtime
         .query(CognitiveQuery {
             api_version: nous_core::API_VERSION,
