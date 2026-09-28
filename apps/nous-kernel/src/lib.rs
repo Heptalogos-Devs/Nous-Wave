@@ -201,7 +201,7 @@ impl NousRuntime {
             )
             .await?;
         result.degradation.extend(projection.degradation);
-        if !result.degradation.is_empty() {
+        if !result.degradation.is_empty() && result.status != QueryStatus::Partial {
             result.status = if result
                 .degradation
                 .iter()

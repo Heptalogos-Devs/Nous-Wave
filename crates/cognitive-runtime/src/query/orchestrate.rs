@@ -175,6 +175,17 @@ impl CognitiveRuntimeService {
             &bound.retrieval_policy,
         );
         let validation_bound = plan.final_validation_budget.min(ranked.len());
+        let validation_budget_exhausted = ranked.len() > validation_bound;
+        if validation_budget_exhausted {
+            result.status = QueryStatus::Partial;
+            result.degradation.push(Degradation {
+                code: "validation_budget_exhausted".into(),
+                detail: Some(format!(
+                    "validated {validation_bound} of {} ranked candidates",
+                    ranked.len()
+                )),
+            });
+        }
         let mut by_owner = [Vec::<CognitiveRef>::new(), Vec::new(), Vec::new()];
         let mut generic = Vec::new();
         for candidate in ranked.iter().take(validation_bound) {
@@ -214,6 +225,12 @@ impl CognitiveRuntimeService {
         let mut materialized = HashMap::new();
         let mut validation_drops = BTreeMap::new();
         merge_counts(&mut validation_drops, lane_drops);
+        if validation_budget_exhausted {
+            validation_drops.insert(
+                "validation_budget_exhausted".into(),
+                ranked.len().saturating_sub(validation_bound),
+            );
+        }
         if let Some(owner) = contributors.memory {
             let (hits, drops) = owner
                 .validate_and_materialize(query.subject, &by_owner[0], &bound)
@@ -293,7 +310,7 @@ impl CognitiveRuntimeService {
         result.resource_actions = actions;
         result.degradation.extend(degradation);
         result.results.truncate(query.result_need.limit);
-        if !result.degradation.is_empty() {
+        if !result.degradation.is_empty() && result.status != QueryStatus::Partial {
             result.status = if result
                 .degradation
                 .iter()
@@ -303,6 +320,9 @@ impl CognitiveRuntimeService {
             } else {
                 QueryStatus::Degraded
             };
+        }
+        if validation_budget_exhausted {
+            result.status = QueryStatus::Partial;
         }
         explain_plan(&mut result, query, &plan);
         if !validation_drops.is_empty() {
@@ -318,6 +338,9 @@ impl CognitiveRuntimeService {
                     .candidate_counts
                     .insert(format!("drop_{reason}"), count);
             }
+        }
+        if validation_budget_exhausted {
+            result.status = QueryStatus::Partial;
         }
         Ok(result)
     }
