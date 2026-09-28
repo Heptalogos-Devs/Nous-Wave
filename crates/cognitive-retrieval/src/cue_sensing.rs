@@ -48,9 +48,24 @@ pub fn build_epa_basis(vectors: &[(u64, Vec<f64>)], embedding_space: &str) -> Op
         let weights = vec![1.0; vectors.len()];
         (vectors, weights)
     };
+    build_weighted_epa_basis(&vectors, &weights, embedding_space, dimension)
+}
+
+fn build_weighted_epa_basis(
+    vectors: &[(u64, Vec<f64>)],
+    weights: &[f64],
+    embedding_space: &str,
+    dimension: usize,
+) -> Option<EpaBasis> {
+    if vectors.is_empty()
+        || vectors.len() != weights.len()
+        || vectors.iter().any(|(_, vector)| vector.len() != dimension)
+    {
+        return None;
+    }
     let mut mean = vec![0.0; dimension];
     let total_weight = weights.iter().sum::<f64>().max(f64::EPSILON);
-    for ((_, vector), weight) in vectors.iter().zip(&weights) {
+    for ((_, vector), weight) in vectors.iter().zip(weights) {
         for (target, value) in mean.iter_mut().zip(vector.iter()) {
             *target += *weight * *value;
         }
@@ -58,13 +73,16 @@ pub fn build_epa_basis(vectors: &[(u64, Vec<f64>)], embedding_space: &str) -> Op
     for value in &mut mean {
         *value /= total_weight;
     }
+    let mean_ref = &mean;
     let data = vectors
         .iter()
-        .flat_map(|(_, vector)| {
+        .zip(weights)
+        .flat_map(|((_, vector), weight)| {
+            let scale = weight.sqrt();
             vector
                 .iter()
                 .enumerate()
-                .map(|(index, value)| value - mean[index])
+                .map(move |(index, value)| scale * (value - mean_ref[index]))
         })
         .collect::<Vec<_>>();
     let matrix = DMatrix::from_row_slice(vectors.len(), dimension, &data);
@@ -88,16 +106,12 @@ pub fn build_epa_basis(vectors: &[(u64, Vec<f64>)], embedding_space: &str) -> Op
             basis.push(row.iter().copied().collect());
         }
     }
-    if basis.is_empty() {
-        None
-    } else {
-        Some(EpaBasis {
-            mean,
-            basis,
-            singular_energies: energies,
-            embedding_space: embedding_space.to_owned(),
-        })
-    }
+    (!basis.is_empty()).then_some(EpaBasis {
+        mean,
+        basis,
+        singular_energies: energies,
+        embedding_space: embedding_space.to_owned(),
+    })
 }
 
 pub(crate) fn representative_vectors(
@@ -294,4 +308,55 @@ pub fn observe_epa(basis: &EpaBasis, query: &[f64]) -> Option<EpaObservation> {
         dominant_axes,
         resonances,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn weighted_representatives_match_expanded_sample_pca() {
+        let representatives = [
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 1.0],
+        ];
+        let multiplicities = [240usize, 40, 20];
+        let mut expanded = Vec::new();
+        let mut key = 0;
+        for (vector, count) in representatives.iter().zip(multiplicities) {
+            for _ in 0..count {
+                expanded.push((key, vector.clone()));
+                key += 1;
+            }
+        }
+        let compressed = build_epa_basis(&expanded, "test-space").expect("compressed EPA basis");
+        let explicit_weights = vec![1.0; expanded.len()];
+        let explicit = build_weighted_epa_basis(
+            &expanded,
+            &explicit_weights,
+            "test-space",
+            representatives[0].len(),
+        )
+        .expect("expanded EPA basis");
+
+        assert_eq!(compressed.mean, explicit.mean);
+        assert_eq!(compressed.basis.len(), explicit.basis.len());
+        for (compressed_axis, explicit_axis) in compressed.basis.iter().zip(&explicit.basis) {
+            let alignment = compressed_axis
+                .iter()
+                .zip(explicit_axis)
+                .map(|(left, right)| left * right)
+                .sum::<f64>()
+                .abs();
+            assert!(alignment > 1.0 - 1e-10, "axis alignment={alignment}");
+        }
+        for (compressed_energy, explicit_energy) in compressed
+            .singular_energies
+            .iter()
+            .zip(&explicit.singular_energies)
+        {
+            assert!((compressed_energy - explicit_energy).abs() < 1e-10);
+        }
+    }
 }
