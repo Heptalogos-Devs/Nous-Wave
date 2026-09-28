@@ -9,6 +9,7 @@ license.workspace = true
 [dependencies]
 nous-core.workspace = true
 nous-self-domain.workspace = true
+nous-cognitive-seed.workspace = true
 nous-authority-store.workspace = true
 nous-cognitive-runtime.workspace = true
 nous-cognitive-retrieval.workspace = true

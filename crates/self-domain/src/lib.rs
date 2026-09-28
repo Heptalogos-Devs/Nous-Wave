@@ -396,7 +396,13 @@ mod tests {
     }
 
     fn seed_support() -> RevisionSupport {
-        RevisionSupport::Seed(nous_core::CognitiveSeedVersionId::new())
+        RevisionSupport::Seed(
+            nous_core::SeedSupportRef::new(
+                nous_core::CognitiveSeedVersionId::new(),
+                "self.facets/identity/test",
+            )
+            .unwrap(),
+        )
     }
 
     fn facet_create() -> CreateSelfFacet {

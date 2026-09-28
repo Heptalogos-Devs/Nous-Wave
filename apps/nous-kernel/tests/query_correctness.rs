@@ -45,11 +45,12 @@ async fn subject(runtime: &nous_kernel::NousRuntime) -> nous_core::SubjectId {
             subject_id: None,
             operation_id: nous_core::OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
-                text: "Cognitive retrieval correctness".into(),
+                text: "schema_version = 1".into(),
                 format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
-            config: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            capabilities: None,
         })
         .await
         .expect("subject")
@@ -303,6 +304,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
             nous_cognitive_runtime::CognitiveContributors {
                 memory: Some(memory_service as &dyn nous_cognitive_runtime::CognitiveContributor),
                 self_cognition: None,
+                social: None,
             },
             plan,
         )
@@ -734,7 +736,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     assert_eq!(association.supports.len(), 1);
     let topology = runtime
         .store
-        .topology_projection_input(subject, true)
+        .topology_projection_input(subject, true, true, false)
         .await
         .expect("topology input");
     assert!(topology.edges.iter().any(|edge| {

@@ -22,4 +22,6 @@ Target Design → Target Engineering Plan → Active Milestone Plan → Executab
 - [Cognitive Retrieval & Evaluation Substrate](active/2026-09-27-cognitive-retrieval-evaluation.md)：当前 Cognitive Retrieval 施工计划。
 - [Cognitive Retrieval active spec set](../specs/active/cognitive-retrieval/README.md)：本施工计划的 BoundQuery、fusion、Schema/Association/Topology、Runtime 与 Qualification Specs。
 - [Self Authority](active/2026-09-27-self-authority.md)：独立 Self Authority、Cognitive Seed 与多 owner Query 施工计划。
+- [Configuration Foundation and Social Cognition](active/2026-09-28-configuration-foundation-and-social-cognition.md)：Configuration Service、Memory-first capability composition、统一 Query 与 Social Cognition 施工计划。
 - [Self Authority implementation specs](../specs/active/self-authority/README.md)：Self Authority 的直接实施合同。
+- [Configuration Foundation and Social Cognition implementation specs](../specs/active/configuration-foundation-and-social-cognition/README.md)：配置基础、能力组合、Seed/Self、统一 Query 与 Social Cognition 的直接实施合同。

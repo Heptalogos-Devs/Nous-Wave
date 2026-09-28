@@ -1,4 +1,9 @@
 use crate::*;
+use nous_configuration_service::{
+    ConfigApplyMode, ConfigExposure, ConfigKey, ConfigRegistryBuilder, ConfigScopePolicy,
+    ConfigSemanticEffect, ConfigSnapshot,
+};
+use nous_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,7 +38,7 @@ pub struct WaveEdgeEvidence {
     pub provenance_root: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaveConfig {
     pub hub_beta: f64,
     pub hub_penalty_min: f64,
@@ -47,6 +52,234 @@ pub struct WaveConfig {
     pub initial_budget_steps: u32,
     pub normal_edge_cost: u32,
     pub fir_gamma: f64,
+    #[serde(default)]
+    pub class_quality: std::collections::BTreeMap<String, f64>,
+    #[serde(default)]
+    pub seed_weights: std::collections::BTreeMap<String, f64>,
+}
+
+pub const HUB_BETA_KEY: ConfigKey<f64> = ConfigKey::new("topology.wave.hub_beta");
+pub const HUB_PENALTY_MIN_KEY: ConfigKey<f64> = ConfigKey::new("topology.wave.hub_penalty_min");
+pub const HUB_PENALTY_MAX_KEY: ConfigKey<f64> = ConfigKey::new("topology.wave.hub_penalty_max");
+pub const OUTBOUND_BUDGET_KEY: ConfigKey<f64> = ConfigKey::new("topology.wave.outbound_budget");
+pub const MAX_HOPS_KEY: ConfigKey<usize> = ConfigKey::new("topology.wave.max_hops");
+pub const MAX_STATES_KEY: ConfigKey<usize> = ConfigKey::new("topology.wave.max_states");
+pub const MAX_NEIGHBORS_KEY: ConfigKey<usize> =
+    ConfigKey::new("topology.wave.max_neighbors_per_node");
+pub const MINIMUM_STATE_ENERGY_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.minimum_state_energy");
+pub const IMMEDIATE_RETURN_MULTIPLIER_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.immediate_return_multiplier");
+pub const INITIAL_BUDGET_STEPS_KEY: ConfigKey<u32> =
+    ConfigKey::new("topology.wave.initial_budget_steps");
+pub const NORMAL_EDGE_COST_KEY: ConfigKey<u32> = ConfigKey::new("topology.wave.normal_edge_cost");
+pub const FIR_GAMMA_KEY: ConfigKey<f64> = ConfigKey::new("topology.wave.fir_gamma");
+pub const QUALITY_HOST_EXPLICIT_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.quality.host_explicit");
+pub const QUALITY_SOURCE_EVIDENCE_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.quality.source_evidence");
+pub const QUALITY_COGNITIVE_DERIVATION_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.quality.cognitive_derivation");
+pub const QUALITY_DERIVED_STRUCTURE_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.quality.derived_structure");
+pub const QUALITY_MEANINGFUL_USE_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.quality.meaningful_use");
+pub const SEED_EXACT_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.seed_weights.exact_target");
+pub const SEED_RUNTIME_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.seed_weights.runtime_situation");
+pub const SEED_RELATION_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.seed_weights.relation_cue");
+pub const SEED_ENTITY_KEY: ConfigKey<f64> = ConfigKey::new("topology.wave.seed_weights.entity_cue");
+pub const SEED_TAG_KEY: ConfigKey<f64> = ConfigKey::new("topology.wave.seed_weights.tag_cue");
+pub const SEED_LEXICAL_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.seed_weights.lexical_promoted");
+pub const SEED_DENSE_KEY: ConfigKey<f64> =
+    ConfigKey::new("topology.wave.seed_weights.dense_promoted");
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "Wave registration keeps the complete reference policy catalog in one owner boundary"
+)]
+pub fn register_wave_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    let finite = |value: &f64| {
+        if value.is_finite() {
+            Ok(())
+        } else {
+            Err(Error::Invalid("Wave value must be finite".into()))
+        }
+    };
+    let positive_usize = |value: &usize| {
+        if *value > 0 {
+            Ok(())
+        } else {
+            Err(Error::Invalid("Wave bound must be positive".into()))
+        }
+    };
+    let positive_u32 = |value: &u32| {
+        if *value > 0 {
+            Ok(())
+        } else {
+            Err(Error::Invalid("Wave bound must be positive".into()))
+        }
+    };
+    macro_rules! float {
+        ($key:expr, $default:expr, $description:expr) => {
+            registry.register(
+                $key,
+                "cognitive-retrieval",
+                $description,
+                $default,
+                ConfigExposure::Developer,
+                ConfigScopePolicy::SystemOnly,
+                ConfigApplyMode::ServingRebuild,
+                ConfigSemanticEffect::ServingProjection,
+                finite,
+            )?;
+        };
+    }
+    macro_rules! usize_key {
+        ($key:expr, $default:expr, $description:expr) => {
+            registry.register(
+                $key,
+                "cognitive-retrieval",
+                $description,
+                $default,
+                ConfigExposure::Developer,
+                ConfigScopePolicy::SystemOnly,
+                ConfigApplyMode::ServingRebuild,
+                ConfigSemanticEffect::ServingProjection,
+                positive_usize,
+            )?;
+        };
+    }
+    macro_rules! u32_key {
+        ($key:expr, $default:expr, $description:expr) => {
+            registry.register(
+                $key,
+                "cognitive-retrieval",
+                $description,
+                $default,
+                ConfigExposure::Developer,
+                ConfigScopePolicy::SystemOnly,
+                ConfigApplyMode::ServingRebuild,
+                ConfigSemanticEffect::ServingProjection,
+                positive_u32,
+            )?;
+        };
+    }
+    float!(HUB_BETA_KEY, 0.35, "Wave hub penalty exponent.");
+    float!(HUB_PENALTY_MIN_KEY, 0.35, "Wave hub penalty minimum.");
+    float!(HUB_PENALTY_MAX_KEY, 1.25, "Wave hub penalty maximum.");
+    float!(
+        OUTBOUND_BUDGET_KEY,
+        0.90,
+        "Wave outbound conductance budget."
+    );
+    usize_key!(MAX_HOPS_KEY, 4, "Wave maximum hops.");
+    usize_key!(MAX_STATES_KEY, 4096, "Wave maximum states.");
+    usize_key!(MAX_NEIGHBORS_KEY, 32, "Wave maximum neighbors per node.");
+    float!(MINIMUM_STATE_ENERGY_KEY, 1e-4, "Wave minimum state energy.");
+    float!(
+        IMMEDIATE_RETURN_MULTIPLIER_KEY,
+        0.20,
+        "Wave immediate return multiplier."
+    );
+    u32_key!(INITIAL_BUDGET_STEPS_KEY, 4, "Wave initial budget steps.");
+    u32_key!(NORMAL_EDGE_COST_KEY, 1, "Wave normal edge cost.");
+    float!(FIR_GAMMA_KEY, 0.55, "Wave finite impulse response gamma.");
+    float!(
+        QUALITY_HOST_EXPLICIT_KEY,
+        1.0,
+        "Wave host-explicit edge quality."
+    );
+    float!(
+        QUALITY_SOURCE_EVIDENCE_KEY,
+        0.9,
+        "Wave source-evidence edge quality."
+    );
+    float!(
+        QUALITY_COGNITIVE_DERIVATION_KEY,
+        0.75,
+        "Wave cognitive-derivation edge quality."
+    );
+    float!(
+        QUALITY_DERIVED_STRUCTURE_KEY,
+        0.65,
+        "Wave derived-structure edge quality."
+    );
+    float!(
+        QUALITY_MEANINGFUL_USE_KEY,
+        0.5,
+        "Wave meaningful-use edge quality."
+    );
+    float!(SEED_EXACT_KEY, 1.0, "Wave exact-target seed weight.");
+    float!(SEED_RUNTIME_KEY, 0.85, "Wave runtime seed weight.");
+    float!(SEED_RELATION_KEY, 1.0, "Wave relation-cue seed weight.");
+    float!(SEED_ENTITY_KEY, 0.90, "Wave entity-cue seed weight.");
+    float!(SEED_TAG_KEY, 0.75, "Wave tag-cue seed weight.");
+    float!(
+        SEED_LEXICAL_KEY,
+        0.60,
+        "Wave lexical-promotion seed weight."
+    );
+    float!(SEED_DENSE_KEY, 0.60, "Wave dense-promotion seed weight.");
+    Ok(())
+}
+
+pub fn resolve_wave_config(snapshot: &ConfigSnapshot) -> Result<WaveConfig> {
+    let config = WaveConfig {
+        hub_beta: snapshot.get(HUB_BETA_KEY)?,
+        hub_penalty_min: snapshot.get(HUB_PENALTY_MIN_KEY)?,
+        hub_penalty_max: snapshot.get(HUB_PENALTY_MAX_KEY)?,
+        outbound_budget: snapshot.get(OUTBOUND_BUDGET_KEY)?,
+        max_hops: snapshot.get(MAX_HOPS_KEY)?,
+        max_states: snapshot.get(MAX_STATES_KEY)?,
+        max_neighbors_per_node: snapshot.get(MAX_NEIGHBORS_KEY)?,
+        minimum_state_energy: snapshot.get(MINIMUM_STATE_ENERGY_KEY)?,
+        immediate_return_multiplier: snapshot.get(IMMEDIATE_RETURN_MULTIPLIER_KEY)?,
+        initial_budget_steps: snapshot.get(INITIAL_BUDGET_STEPS_KEY)?,
+        normal_edge_cost: snapshot.get(NORMAL_EDGE_COST_KEY)?,
+        fir_gamma: snapshot.get(FIR_GAMMA_KEY)?,
+        class_quality: std::collections::BTreeMap::from([
+            (
+                "host_explicit".into(),
+                snapshot.get(QUALITY_HOST_EXPLICIT_KEY)?,
+            ),
+            (
+                "source_evidence".into(),
+                snapshot.get(QUALITY_SOURCE_EVIDENCE_KEY)?,
+            ),
+            (
+                "cognitive_derivation".into(),
+                snapshot.get(QUALITY_COGNITIVE_DERIVATION_KEY)?,
+            ),
+            (
+                "derived_structure".into(),
+                snapshot.get(QUALITY_DERIVED_STRUCTURE_KEY)?,
+            ),
+            (
+                "meaningful_use".into(),
+                snapshot.get(QUALITY_MEANINGFUL_USE_KEY)?,
+            ),
+        ]),
+        seed_weights: std::collections::BTreeMap::from([
+            ("exact_target".into(), snapshot.get(SEED_EXACT_KEY)?),
+            ("runtime_situation".into(), snapshot.get(SEED_RUNTIME_KEY)?),
+            ("relation_cue".into(), snapshot.get(SEED_RELATION_KEY)?),
+            ("entity_cue".into(), snapshot.get(SEED_ENTITY_KEY)?),
+            ("tag_cue".into(), snapshot.get(SEED_TAG_KEY)?),
+            ("lexical_promoted".into(), snapshot.get(SEED_LEXICAL_KEY)?),
+            ("dense_promoted".into(), snapshot.get(SEED_DENSE_KEY)?),
+        ]),
+    };
+    config.validate()?;
+    if config.hub_penalty_min > config.hub_penalty_max {
+        return Err(Error::Invalid(
+            "Wave hub penalty bounds are inverted".into(),
+        ));
+    }
+    Ok(config)
 }
 
 impl Default for WaveConfig {
@@ -64,6 +297,22 @@ impl Default for WaveConfig {
             initial_budget_steps: 4,
             normal_edge_cost: 1,
             fir_gamma: 0.55,
+            class_quality: std::collections::BTreeMap::from([
+                ("host_explicit".into(), 1.0),
+                ("source_evidence".into(), 0.9),
+                ("cognitive_derivation".into(), 0.75),
+                ("derived_structure".into(), 0.65),
+                ("meaningful_use".into(), 0.5),
+            ]),
+            seed_weights: std::collections::BTreeMap::from([
+                ("exact_target".into(), 1.0),
+                ("runtime_situation".into(), 0.85),
+                ("relation_cue".into(), 1.0),
+                ("entity_cue".into(), 0.90),
+                ("tag_cue".into(), 0.75),
+                ("lexical_promoted".into(), 0.60),
+                ("dense_promoted".into(), 0.60),
+            ]),
         }
     }
 }
@@ -78,6 +327,14 @@ impl WaveConfig {
             || !(0.0..1.0).contains(&self.fir_gamma)
             || self.normal_edge_cost == 0
             || self.initial_budget_steps == 0
+            || self
+                .class_quality
+                .values()
+                .any(|value| !value.is_finite() || *value < 0.0)
+            || self
+                .seed_weights
+                .values()
+                .any(|value| !value.is_finite() || *value < 0.0)
         {
             return Err(Error::Invalid("invalid WaveConfig bounds".into()));
         }
@@ -112,7 +369,7 @@ impl WaveGraphGeneration {
             generation_id: self.generation_id,
             nodes: self.nodes.clone(),
             edges,
-            config: self.config,
+            config: self.config.clone(),
         }
     }
 
@@ -174,7 +431,8 @@ impl WaveGraphGeneration {
             else {
                 continue;
             };
-            let quality = class_quality(&item.support_class) * item.support_mass;
+            let quality =
+                class_quality(&item.support_class, &config.class_quality) * item.support_mass;
             let entry = by_root
                 .entry((from, to, item.provenance_root.clone()))
                 .or_default();
@@ -276,15 +534,8 @@ fn supported_relation(kind: &str) -> bool {
             | "assoc.shared_outcome"
     )
 }
-fn class_quality(class: &str) -> f64 {
-    match class {
-        "host_explicit" => 1.0,
-        "source_evidence" => 0.9,
-        "cognitive_derivation" => 0.75,
-        "derived_structure" => 0.65,
-        "meaningful_use" => 0.5,
-        _ => 0.0,
-    }
+fn class_quality(class: &str, values: &std::collections::BTreeMap<String, f64>) -> f64 {
+    values.get(class).copied().unwrap_or(0.0)
 }
 
 #[cfg(test)]

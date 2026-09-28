@@ -14,17 +14,24 @@
 - [2026-10-27 Memory Reference Profile](plans/active/2026-10-27-memory-reference-profile.md)：当前中期 milestone plan。
 - [Cognitive Retrieval 施工计划](plans/active/2026-09-27-cognitive-retrieval-evaluation.md)：Retrieval、Serving、Runtime 与 Evaluation 施工授权。
 - [Self Authority 施工计划](plans/active/2026-09-27-self-authority.md)：Self、Cognitive Seed 与多 owner Query 施工授权。
+- [Configuration Foundation and Social Cognition 施工计划](plans/active/2026-09-28-configuration-foundation-and-social-cognition.md)：Configuration Service、Memory-first capability composition、统一 Query 与 Social Cognition 施工授权。
 - [Executable Specs 目录](specs/README.md)：直接实施合同的职责、层次与生命周期。
 - [Cognitive Retrieval active Specs](specs/active/cognitive-retrieval/README.md)：BoundQuery、fusion、topology、runtime 和 Qualification contracts。
 - [Self Authority active Specs](specs/active/self-authority/README.md)：Self、Seed、Query/Serving 和 maintenance contracts。
+- [Configuration Foundation and Social Cognition active Specs](specs/active/configuration-foundation-and-social-cognition/README.md)：配置基础、能力组合、Seed/Self、统一 Query 与 Social Cognition contracts。
 - [Cognitive Retrieval Qualification](qualification/2026-10-cognitive-retrieval.md)：Retrieval reference profile 的实际 Qualification evidence。
 - [Self Authority Qualification](qualification/2026-09-self-authority.md)：Self semantic slices、门禁结果和剩余 `SPEC_GAP`。
+- [Configuration Foundation and Social Cognition Qualification](qualification/2026-09-28-configuration-foundation-and-social-cognition.md)：配置、能力、Seed、统一 Query 与 Social focused evidence 和未运行矩阵。
+- [配置基础与 Self 实施审查](current-state/audits/2026-09-28-configuration-foundation-and-self-review.md)：配置基础、Memory-only 组合、Seed/Self 与统一 Query 的施工前审查。
 
 ## 当前接口参考
 
 - [参考目录](reference/README.md)：当前接口参考的职责和入口。
 - [NousQL](reference/NOUSQL.md)：TypeScript parser/compiler 的当前语法、绑定行为和限制。
 - [Self Authority](reference/SELF.md)：Self Facet、Narrative Identity、Cognitive Seed 和 SelfDirect 的当前边界。
+- [Configuration Service](reference/CONFIGURATION.md)：registry、覆盖优先级、快照、digest 和 persistence。
+- [Capability Composition](reference/CAPABILITIES.md)：Process/Subject capability 与 Memory-only 运行合同。
+- [Social Cognition](reference/SOCIAL.md)：Relation Type、Relationship、LanguageConvention、Query/Serving 与当前 Qualification 边界。
 
 ## 审查与历史证据
 

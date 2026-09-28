@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 nous-core.workspace = true
+nous-configuration-service.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 usearch.workspace = true

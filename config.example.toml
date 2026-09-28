@@ -1,26 +1,29 @@
-memory_enabled = true
-
-[server]
+[bootstrap.server]
 bind = "127.0.0.1:9470"
 remote_access = false
 
-[database]
+[bootstrap.database]
 mode = "managed"
 url = ""
 max_connections = 8
-name = "nous_wave_20260917"
+name = "nous_wave_20260928"
 install_dir = "./data/postgres-install"
 data_dir = "./data/postgres"
 
-[object_store]
+[bootstrap.object_store]
 backend = "fs"
 root = "./data/objects"
 max_upload_bytes = 8589934592
 
-[retrieval]
-resident_limit = 256
+[bootstrap.serving]
 root = "./data/serving"
-lexical_enabled = true
-dense_enabled = true
-topology_enabled = true
 
+[settings.capabilities.process]
+memory = true
+self_cognition = false
+social = false
+
+[settings.capabilities.subject_defaults]
+memory = true
+self_cognition = false
+social = false

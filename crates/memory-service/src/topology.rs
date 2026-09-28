@@ -360,7 +360,10 @@ impl MemoryService {
         memory: MemoryId,
         now: DateTime<Utc>,
     ) -> Result<AccessibilityLevel> {
-        self.accessibility_policy
+        let policy = crate::resolve_accessibility_policy(
+            &self.configuration.snapshot_for_subject(subject)?,
+        )?;
+        policy
             .level_for_memory(&self.store, subject, memory, now)
             .await
     }

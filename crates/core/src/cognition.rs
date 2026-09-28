@@ -11,6 +11,33 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeedSupportRef {
+    pub seed_version_id: CognitiveSeedVersionId,
+    pub semantic_path: String,
+}
+
+impl SeedSupportRef {
+    pub fn new(
+        seed_version_id: CognitiveSeedVersionId,
+        semantic_path: impl Into<String>,
+    ) -> Result<Self> {
+        let semantic_path = semantic_path.into();
+        if semantic_path.is_empty()
+            || semantic_path.len() > 512
+            || semantic_path.chars().any(char::is_whitespace)
+        {
+            return Err(Error::Invalid(
+                "invalid Cognitive Seed semantic path".into(),
+            ));
+        }
+        Ok(Self {
+            seed_version_id,
+            semantic_path,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AcceptanceState {
@@ -168,7 +195,7 @@ pub struct CognitionDependency {
 pub enum RevisionSupport {
     Evidence(EvidenceRef),
     CognitionDependency(CognitionDependency),
-    Seed(CognitiveSeedVersionId),
+    Seed(SeedSupportRef),
 }
 
 impl RevisionSupport {
@@ -182,7 +209,9 @@ impl RevisionSupport {
                     value.support_role.as_str()
                 )
             }
-            Self::Seed(value) => format!("seed:{}", value.0),
+            Self::Seed(value) => {
+                format!("seed:{}:{}", value.seed_version_id.0, value.semantic_path)
+            }
         }
     }
 }
@@ -203,6 +232,8 @@ pub fn validate_exact_supports(supports: &[RevisionSupport]) -> Result<()> {
                     | CognitiveRef::CognitiveSchemaRevision(_)
                     | CognitiveRef::SelfFacetRevision(_)
                     | CognitiveRef::NarrativeIdentityRevision(_)
+                    | CognitiveRef::RelationshipRevision(_)
+                    | CognitiveRef::LanguageConventionRevision(_)
             )
         {
             return Err(Error::Invalid(

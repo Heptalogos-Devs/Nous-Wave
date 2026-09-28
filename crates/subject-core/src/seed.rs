@@ -36,6 +36,7 @@ impl CognitiveSeedInput {
                 self.format
             )));
         }
+        nous_cognitive_seed::parse(&self.text)?;
         Ok(())
     }
 }

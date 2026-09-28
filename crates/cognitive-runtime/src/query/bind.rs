@@ -2,6 +2,7 @@ use super::types::{
     AccessibilityQueryPolicy, BoundQuery, ExactBinding, RerankPolicy, RevisionPolicy,
 };
 use crate::CognitiveRuntimeService;
+use nous_cognitive_retrieval::resolve_retrieval_policy;
 use nous_core::*;
 use std::collections::{BTreeMap, HashSet};
 use uuid::Uuid;
@@ -73,6 +74,18 @@ pub fn planned_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     {
         lanes.push(EvidenceFamily::SelfDirect);
     }
+    if query
+        .targets
+        .iter()
+        .any(|target| matches!(target, QueryTarget::Social))
+        || query
+            .cues
+            .iter()
+            .any(|cue| matches!(cue, Cue::SocialRelation(_) | Cue::LanguageConvention(_)))
+    {
+        lanes.push(EvidenceFamily::SocialRelationDirect);
+        lanes.push(EvidenceFamily::LanguageConventionDirect);
+    }
     if explicit_topology(query) {
         lanes.push(EvidenceFamily::TopologyWave);
     }
@@ -131,26 +144,33 @@ fn validate_hard_constraints(query: &CognitiveQuery) -> Result<()> {
 fn budget_values(
     query: &CognitiveQuery,
     lanes: &[EvidenceFamily],
+    policy: &nous_cognitive_retrieval::RetrievalPolicy,
 ) -> BTreeMap<EvidenceFamily, usize> {
-    let (multiplier, per_lane_max) = match query.effort {
-        CognitiveEffort::Light => (2, 128),
-        CognitiveEffort::Normal => (4, 512),
-        CognitiveEffort::Deep => (8, 2048),
-        CognitiveEffort::Maximum => (16, 8192),
+    let index = match query.effort {
+        CognitiveEffort::Light => 0,
+        CognitiveEffort::Normal => 1,
+        CognitiveEffort::Deep => 2,
+        CognitiveEffort::Maximum => 3,
     };
     let budget = query
         .result_need
         .limit
-        .saturating_mul(multiplier)
-        .clamp(16, per_lane_max);
+        .saturating_mul(policy.effort_multipliers[index])
+        .clamp(16, policy.per_lane_max[index]);
     lanes.iter().copied().map(|lane| (lane, budget)).collect()
 }
 
 impl CognitiveRuntimeService {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "query binding freezes identity, capabilities, config snapshot, lanes, and revision fences together"
+    )]
     pub async fn bind_query(&self, query: CognitiveQuery) -> Result<BoundQuery> {
         query.validate()?;
         validate_hard_constraints(&query)?;
         self.require_subject(query.subject).await?;
+        let config_snapshot = self.configuration.snapshot_for_subject(query.subject)?;
+        let retrieval_policy = resolve_retrieval_policy(&config_snapshot)?;
         if let Some(session) = query.session {
             self.require_session(query.subject, session).await?;
         }
@@ -172,6 +192,8 @@ impl CognitiveRuntimeService {
                         | CognitiveRef::CognitiveSchemaRevision(_)
                         | CognitiveRef::SelfFacetRevision(_)
                         | CognitiveRef::NarrativeIdentityRevision(_)
+                        | CognitiveRef::RelationshipRevision(_)
+                        | CognitiveRef::LanguageConventionRevision(_)
                 )
             {
                 allowed_revision_refs.insert(bound_ref.clone());
@@ -239,7 +261,7 @@ impl CognitiveRuntimeService {
         if enabled_lanes.is_empty() {
             return Err(Error::Invalid("query has no enabled retrieval lane".into()));
         }
-        let lane_budgets = budget_values(&query, &enabled_lanes);
+        let lane_budgets = budget_values(&query, &enabled_lanes, &retrieval_policy);
         let bound_at_authority_seq = self.store.authority_seq(query.subject).await?;
         let exact_target_bypasses_auto_level = !exact_bindings.is_empty();
         Ok(BoundQuery {
@@ -265,6 +287,8 @@ impl CognitiveRuntimeService {
                 enabled: query.capabilities.text_rerank == RequirementStrength::Required,
                 top_n: (query.result_need.limit.saturating_mul(4)).clamp(12, 50),
             },
+            config_snapshot,
+            retrieval_policy,
         })
     }
 }

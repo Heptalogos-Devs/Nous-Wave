@@ -25,11 +25,12 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
             subject_id: None,
             operation_id: OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
-                text: "reference profile".into(),
+                text: "schema_version = 1".into(),
                 format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
-            config: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            capabilities: None,
         })
         .await
         .expect("subject")

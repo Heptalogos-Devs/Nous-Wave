@@ -364,6 +364,60 @@ impl k::authority_service_server::AuthorityService for KernelService {
             .map(Response::new)
             .map_err(status)
     }
+    async fn register_relation_type(
+        &self,
+        request: Request<p::RegisterRelationTypeRequest>,
+    ) -> std::result::Result<Response<p::RelationType>, Status> {
+        KernelService::register_relation_type(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn create_relationship(
+        &self,
+        request: Request<p::CreateRelationshipRequest>,
+    ) -> std::result::Result<Response<p::Relationship>, Status> {
+        KernelService::create_relationship(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn create_language_convention(
+        &self,
+        request: Request<p::CreateLanguageConventionRequest>,
+    ) -> std::result::Result<Response<p::LanguageConvention>, Status> {
+        KernelService::create_language_convention(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn revise_relationship(
+        &self,
+        request: Request<p::ReviseRelationshipRequest>,
+    ) -> std::result::Result<Response<p::Relationship>, Status> {
+        KernelService::revise_relationship(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn revise_language_convention(
+        &self,
+        request: Request<p::ReviseLanguageConventionRequest>,
+    ) -> std::result::Result<Response<p::LanguageConvention>, Status> {
+        KernelService::revise_language_convention(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn mutate_social_lifecycle(
+        &self,
+        request: Request<p::SocialLifecycleRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        KernelService::mutate_social_lifecycle(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
     async fn open_session(
         &self,
         request: Request<p::SubjectRequest>,

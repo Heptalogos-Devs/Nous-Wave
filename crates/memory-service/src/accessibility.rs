@@ -1,5 +1,9 @@
 use crate::*;
 use nous_authority_store::database_error as db;
+use nous_configuration_service::{
+    ConfigApplyMode, ConfigExposure, ConfigKey, ConfigRegistryBuilder, ConfigScopePolicy,
+    ConfigSemanticEffect, ConfigSnapshot,
+};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -8,6 +12,14 @@ pub struct AccessibilityPolicy {
     pub tau_days: f64,
     pub decay: f64,
     pub formation_weight: f64,
+    pub referenced_weight: f64,
+    pub acted_on_weight: f64,
+    pub result_supported_weight: f64,
+    pub result_refuted_weight: f64,
+    pub corrected_weight: f64,
+    pub pinned_weight: f64,
+    pub normal_threshold: f64,
+    pub deep_threshold: f64,
 }
 
 impl Default for AccessibilityPolicy {
@@ -17,6 +29,14 @@ impl Default for AccessibilityPolicy {
             tau_days: 30.0,
             decay: 0.5,
             formation_weight: 1.0,
+            referenced_weight: 1.0,
+            acted_on_weight: 1.4,
+            result_supported_weight: 1.1,
+            result_refuted_weight: 1.2,
+            corrected_weight: 1.5,
+            pinned_weight: 2.0,
+            normal_threshold: -0.80,
+            deep_threshold: -1.60,
         }
     }
 }
@@ -27,6 +47,9 @@ impl AccessibilityPolicy {
             || self.tau_days <= 0.0
             || self.decay <= 0.0
             || self.formation_weight < 0.0
+            || !self.normal_threshold.is_finite()
+            || !self.deep_threshold.is_finite()
+            || self.normal_threshold <= self.deep_threshold
         {
             return Err(Error::Invalid(
                 "invalid accessibility reference parameters".into(),
@@ -41,15 +64,15 @@ impl AccessibilityPolicy {
         };
         let mut mass = self.epsilon + contribution(self.formation_weight, age_days);
         for (kind, delta) in uses {
-            mass += contribution(use_weight(kind), *delta);
+            mass += contribution(self.use_weight(kind), *delta);
         }
         mass.ln()
     }
 
     pub fn level_from_activation(&self, activation: f64) -> AccessibilityLevel {
-        if activation >= -0.80 {
+        if activation >= self.normal_threshold {
             AccessibilityLevel::Normal
-        } else if activation >= -1.60 {
+        } else if activation >= self.deep_threshold {
             AccessibilityLevel::Deep
         } else {
             AccessibilityLevel::Explicit
@@ -100,19 +123,155 @@ impl AccessibilityPolicy {
             self.activation((now - created).num_seconds().max(0) as f64 / 86400.0, &uses),
         ))
     }
+
+    fn use_weight(&self, kind: &str) -> f64 {
+        match kind {
+            "referenced" => self.referenced_weight,
+            "acted_on" => self.acted_on_weight,
+            "result_supported" => self.result_supported_weight,
+            "result_refuted" => self.result_refuted_weight,
+            "corrected" => self.corrected_weight,
+            "pinned" => self.pinned_weight,
+            "presented" => 0.0,
+            _ => 0.0,
+        }
+    }
 }
 
-fn use_weight(kind: &str) -> f64 {
-    match kind {
-        "referenced" => 1.0,
-        "acted_on" => 1.4,
-        "result_supported" => 1.1,
-        "result_refuted" => 1.2,
-        "corrected" => 1.5,
-        "pinned" => 2.0,
-        "presented" => 0.0,
-        _ => 0.0,
+pub const EPSILON: ConfigKey<f64> = ConfigKey::new("memory.accessibility.epsilon");
+pub const TAU_DAYS: ConfigKey<f64> = ConfigKey::new("memory.accessibility.tau_days");
+pub const DECAY: ConfigKey<f64> = ConfigKey::new("memory.accessibility.decay");
+pub const FORMATION_WEIGHT: ConfigKey<f64> =
+    ConfigKey::new("memory.accessibility.formation_weight");
+pub const REFERENCED_WEIGHT: ConfigKey<f64> =
+    ConfigKey::new("memory.accessibility.use_weights.referenced");
+pub const ACTED_ON_WEIGHT: ConfigKey<f64> =
+    ConfigKey::new("memory.accessibility.use_weights.acted_on");
+pub const RESULT_SUPPORTED_WEIGHT: ConfigKey<f64> =
+    ConfigKey::new("memory.accessibility.use_weights.result_supported");
+pub const RESULT_REFUTED_WEIGHT: ConfigKey<f64> =
+    ConfigKey::new("memory.accessibility.use_weights.result_refuted");
+pub const CORRECTED_WEIGHT: ConfigKey<f64> =
+    ConfigKey::new("memory.accessibility.use_weights.corrected");
+pub const PINNED_WEIGHT: ConfigKey<f64> = ConfigKey::new("memory.accessibility.use_weights.pinned");
+pub const NORMAL_THRESHOLD: ConfigKey<f64> =
+    ConfigKey::new("memory.accessibility.normal_threshold");
+pub const DEEP_THRESHOLD: ConfigKey<f64> = ConfigKey::new("memory.accessibility.deep_threshold");
+
+pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    let positive = |value: &f64| {
+        if value.is_finite() && *value > 0.0 {
+            Ok(())
+        } else {
+            Err(Error::Invalid(
+                "accessibility value must be finite and positive".into(),
+            ))
+        }
+    };
+    let nonnegative = |value: &f64| {
+        if value.is_finite() && *value >= 0.0 {
+            Ok(())
+        } else {
+            Err(Error::Invalid(
+                "accessibility weight must be finite and nonnegative".into(),
+            ))
+        }
+    };
+    let threshold = |value: &f64| {
+        if value.is_finite() {
+            Ok(())
+        } else {
+            Err(Error::Invalid(
+                "accessibility threshold must be finite".into(),
+            ))
+        }
+    };
+    macro_rules! register {
+        ($key:expr, $default:expr, $description:expr, $validator:expr) => {
+            registry.register(
+                $key,
+                "memory-service",
+                $description,
+                $default,
+                ConfigExposure::Advanced,
+                ConfigScopePolicy::SubjectOverrideAllowed,
+                ConfigApplyMode::Live,
+                ConfigSemanticEffect::Operational,
+                $validator,
+            )?;
+        };
     }
+    register!(EPSILON, 0.02, "Accessibility epsilon.", positive);
+    register!(
+        TAU_DAYS,
+        30.0,
+        "Accessibility decay time constant in days.",
+        positive
+    );
+    register!(DECAY, 0.5, "Accessibility power decay.", positive);
+    register!(
+        FORMATION_WEIGHT,
+        1.0,
+        "Initial formation contribution.",
+        nonnegative
+    );
+    register!(
+        REFERENCED_WEIGHT,
+        1.0,
+        "Meaningful referenced-use weight.",
+        nonnegative
+    );
+    register!(
+        ACTED_ON_WEIGHT,
+        1.4,
+        "Meaningful acted-on-use weight.",
+        nonnegative
+    );
+    register!(
+        RESULT_SUPPORTED_WEIGHT,
+        1.1,
+        "Result-supported-use weight.",
+        nonnegative
+    );
+    register!(
+        RESULT_REFUTED_WEIGHT,
+        1.2,
+        "Result-refuted-use weight.",
+        nonnegative
+    );
+    register!(CORRECTED_WEIGHT, 1.5, "Corrected-use weight.", nonnegative);
+    register!(PINNED_WEIGHT, 2.0, "Pinned-use weight.", nonnegative);
+    register!(
+        NORMAL_THRESHOLD,
+        -0.80,
+        "Normal accessibility threshold.",
+        threshold
+    );
+    register!(
+        DEEP_THRESHOLD,
+        -1.60,
+        "Deep accessibility threshold.",
+        threshold
+    );
+    Ok(())
+}
+
+pub fn resolve_accessibility_policy(snapshot: &ConfigSnapshot) -> Result<AccessibilityPolicy> {
+    AccessibilityPolicy {
+        epsilon: snapshot.get(EPSILON)?,
+        tau_days: snapshot.get(TAU_DAYS)?,
+        decay: snapshot.get(DECAY)?,
+        formation_weight: snapshot.get(FORMATION_WEIGHT)?,
+        referenced_weight: snapshot.get(REFERENCED_WEIGHT)?,
+        acted_on_weight: snapshot.get(ACTED_ON_WEIGHT)?,
+        result_supported_weight: snapshot.get(RESULT_SUPPORTED_WEIGHT)?,
+        result_refuted_weight: snapshot.get(RESULT_REFUTED_WEIGHT)?,
+        corrected_weight: snapshot.get(CORRECTED_WEIGHT)?,
+        pinned_weight: snapshot.get(PINNED_WEIGHT)?,
+        normal_threshold: snapshot.get(NORMAL_THRESHOLD)?,
+        deep_threshold: snapshot.get(DEEP_THRESHOLD)?,
+    }
+    .validate()
 }
 
 pub fn eligible(level: AccessibilityLevel, effort: CognitiveEffort, exact: bool) -> bool {

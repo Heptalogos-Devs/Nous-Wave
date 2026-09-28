@@ -28,11 +28,12 @@ async fn temporal_formation_and_lifecycle_contracts() {
             subject_id: None,
             operation_id: nous_core::OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
-                text: "qualification edge".into(),
+                text: "schema_version = 1".into(),
                 format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
-            config: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            capabilities: None,
         })
         .await
         .expect("subject")

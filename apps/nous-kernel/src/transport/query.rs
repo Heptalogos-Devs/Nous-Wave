@@ -80,6 +80,28 @@ fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
             key: cue.key,
         }));
     }
+    if let Some(situation) = expression.social_situation {
+        query.situation.social = Some(SocialSituation {
+            participants: situation
+                .participants
+                .into_iter()
+                .map(EntityRef::new)
+                .collect::<Result<_>>()?,
+            groups: situation
+                .groups
+                .into_iter()
+                .map(EntityRef::new)
+                .collect::<Result<_>>()?,
+            communities: situation
+                .communities
+                .into_iter()
+                .map(EntityRef::new)
+                .collect::<Result<_>>()?,
+            channel: situation.channel.map(EntityRef::new).transpose()?,
+            context_tokens: situation.context_tokens,
+            topic_tokens: situation.topic_tokens,
+        });
+    }
     if let Some(constraints) = modifiers.constraints {
         query.constraints = constraints_from_proto(constraints)?;
     }
@@ -100,6 +122,24 @@ fn append_cue(query: &mut CognitiveQuery, cue: p::Cue) -> Result<()> {
         p::cue::Cue::Reference(value) => {
             let reference = from_ref(value)?;
             query.targets.push(QueryTarget::Exact { reference });
+        }
+        p::cue::Cue::SocialRelation(value) => {
+            query.targets.push(QueryTarget::Social);
+            query.cues.push(Cue::SocialRelation(SocialRelationCue {
+                relation_type_key: value.relation_type_key,
+                from: value.from.map(EntityRef::new).transpose()?,
+                to: value.to.map(EntityRef::new).transpose()?,
+                include_views: value.include_views,
+            }));
+        }
+        p::cue::Cue::LanguageConvention(value) => {
+            query.targets.push(QueryTarget::Social);
+            query
+                .cues
+                .push(Cue::LanguageConvention(LanguageConventionCue {
+                    expression: value.expression,
+                    scope: value.scope,
+                }));
         }
     }
     Ok(())

@@ -17,6 +17,16 @@ pub fn reference_parts(reference: &CognitiveRef) -> (String, String) {
         CognitiveRef::NarrativeIdentityRevision(id) => {
             ("narrative_identity_revision".into(), id.0.to_string())
         }
+        CognitiveRef::RelationshipAssertion(id) => {
+            ("relationship_assertion".into(), id.0.to_string())
+        }
+        CognitiveRef::RelationshipRevision(id) => {
+            ("relationship_revision".into(), id.0.to_string())
+        }
+        CognitiveRef::LanguageConvention(id) => ("language_convention".into(), id.0.to_string()),
+        CognitiveRef::LanguageConventionRevision(id) => {
+            ("language_convention_revision".into(), id.0.to_string())
+        }
         CognitiveRef::Artifact(id) => ("artifact".into(), id.0.to_string()),
         CognitiveRef::SourceRegion(id) => ("source_region".into(), id.0.to_string()),
         CognitiveRef::DerivedRepresentation(id) => {
@@ -80,6 +90,28 @@ pub fn parse_reference(kind: &str, value: &str) -> Result<CognitiveRef> {
             CognitiveRef::NarrativeIdentityRevision(NarrativeIdentityRevisionId(
                 value.parse().map_err(|_| {
                     Error::Invalid("invalid Narrative Identity revision ref".into())
+                })?,
+            ))
+        }
+        "relationship_assertion" => CognitiveRef::RelationshipAssertion(RelationshipAssertionId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Relationship assertion ref".into()))?,
+        )),
+        "relationship_revision" => CognitiveRef::RelationshipRevision(RelationshipRevisionId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Relationship revision ref".into()))?,
+        )),
+        "language_convention" => CognitiveRef::LanguageConvention(LanguageConventionId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Language Convention ref".into()))?,
+        )),
+        "language_convention_revision" => {
+            CognitiveRef::LanguageConventionRevision(LanguageConventionRevisionId(
+                value.parse().map_err(|_| {
+                    Error::Invalid("invalid Language Convention revision ref".into())
                 })?,
             ))
         }

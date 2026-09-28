@@ -83,6 +83,12 @@ service AuthorityService {
   rpc CreateNarrativeIdentity(nous.wave.v1alpha1.CreateNarrativeIdentityRequest) returns (nous.wave.v1alpha1.NarrativeIdentity);
   rpc GetNarrativeIdentity(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.NarrativeIdentity);
   rpc ReviseNarrativeIdentity(nous.wave.v1alpha1.ReviseNarrativeIdentityRequest) returns (nous.wave.v1alpha1.NarrativeIdentity);
+  rpc RegisterRelationType(nous.wave.v1alpha1.RegisterRelationTypeRequest) returns (nous.wave.v1alpha1.RelationType);
+  rpc CreateRelationship(nous.wave.v1alpha1.CreateRelationshipRequest) returns (nous.wave.v1alpha1.Relationship);
+  rpc ReviseRelationship(nous.wave.v1alpha1.ReviseRelationshipRequest) returns (nous.wave.v1alpha1.Relationship);
+  rpc CreateLanguageConvention(nous.wave.v1alpha1.CreateLanguageConventionRequest) returns (nous.wave.v1alpha1.LanguageConvention);
+  rpc ReviseLanguageConvention(nous.wave.v1alpha1.ReviseLanguageConventionRequest) returns (nous.wave.v1alpha1.LanguageConvention);
+  rpc MutateSocialLifecycle(nous.wave.v1alpha1.SocialLifecycleRequest) returns (google.protobuf.Empty);
   rpc OpenSession(nous.wave.v1alpha1.SubjectRequest) returns (nous.wave.v1alpha1.Session);
   rpc GetSession(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Session);
   rpc ListSessions(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListSessionsResponse);

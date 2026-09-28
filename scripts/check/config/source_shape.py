@@ -18,5 +18,6 @@ EXCLUDED_PARTS = frozenset(
         "generated",
         "migrations",
         "fixtures",
+        "tests",
     }
 )

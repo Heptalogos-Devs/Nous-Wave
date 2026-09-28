@@ -154,6 +154,66 @@ impl AuthorityStore {
                     false,
                 )
             }
+            CognitiveRef::RelationshipAssertion(relationship) => {
+                let row = sqlx::query("SELECT current_revision_id,object_epoch FROM relationship_assertions WHERE subject_id=$1 AND relationship_id=$2")
+                    .bind(subject.0)
+                    .bind(relationship.0)
+                    .fetch_optional(self.pool())
+                    .await
+                    .map_err(db)?
+                    .ok_or_else(|| Error::NotFound("relationship exact target not found".into()))?;
+                (
+                    CognitiveRef::RelationshipRevision(RelationshipRevisionId(
+                        row.try_get("current_revision_id").map_err(db)?,
+                    )),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    true,
+                )
+            }
+            CognitiveRef::RelationshipRevision(revision) => {
+                let row = sqlx::query("SELECT a.object_epoch FROM relationship_revisions r JOIN relationship_assertions a USING(relationship_id) WHERE r.subject_id=$1 AND r.relationship_revision_id=$2")
+                    .bind(subject.0)
+                    .bind(revision.0)
+                    .fetch_optional(self.pool())
+                    .await
+                    .map_err(db)?
+                    .ok_or_else(|| Error::NotFound("relationship revision exact target not found".into()))?;
+                (
+                    reference.clone(),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    false,
+                )
+            }
+            CognitiveRef::LanguageConvention(convention) => {
+                let row = sqlx::query("SELECT current_revision_id,object_epoch FROM language_conventions WHERE subject_id=$1 AND convention_id=$2")
+                    .bind(subject.0)
+                    .bind(convention.0)
+                    .fetch_optional(self.pool())
+                    .await
+                    .map_err(db)?
+                    .ok_or_else(|| Error::NotFound("LanguageConvention exact target not found".into()))?;
+                (
+                    CognitiveRef::LanguageConventionRevision(LanguageConventionRevisionId(
+                        row.try_get("current_revision_id").map_err(db)?,
+                    )),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    true,
+                )
+            }
+            CognitiveRef::LanguageConventionRevision(revision) => {
+                let row = sqlx::query("SELECT c.object_epoch FROM language_convention_revisions r JOIN language_conventions c USING(convention_id) WHERE r.subject_id=$1 AND r.convention_revision_id=$2")
+                    .bind(subject.0)
+                    .bind(revision.0)
+                    .fetch_optional(self.pool())
+                    .await
+                    .map_err(db)?
+                    .ok_or_else(|| Error::NotFound("LanguageConvention revision exact target not found".into()))?;
+                (
+                    reference.clone(),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    false,
+                )
+            }
             _ => {
                 self.validate_reference(subject, reference).await?;
                 (reference.clone(), None, false)
@@ -246,6 +306,38 @@ impl AuthorityStore {
             .map_err(db)?,
             CognitiveRef::NarrativeIdentityRevision(id) => sqlx::query_scalar(
                 "SELECT EXISTS(SELECT 1 FROM narrative_identity_revisions WHERE subject_id=$1 AND narrative_identity_revision_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::RelationshipAssertion(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM relationship_assertions WHERE subject_id=$1 AND relationship_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::RelationshipRevision(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM relationship_revisions WHERE subject_id=$1 AND relationship_revision_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::LanguageConvention(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM language_conventions WHERE subject_id=$1 AND convention_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(self.pool())
+            .await
+            .map_err(db)?,
+            CognitiveRef::LanguageConventionRevision(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM language_convention_revisions WHERE subject_id=$1 AND convention_revision_id=$2)",
             )
             .bind(subject.0)
             .bind(id.0)

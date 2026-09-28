@@ -13,11 +13,15 @@ pub(crate) enum OpenArtifact {
 }
 
 impl ServingService {
-    pub(crate) fn config_digest(&self, family: &str) -> Result<String> {
-        let mut config =
-            serde_json::json!({"schema":1,"memory_enabled":self.options.memory_enabled});
+    pub(crate) fn config_digest(
+        &self,
+        _subject: SubjectId,
+        family: &str,
+        snapshot: &nous_configuration_service::ConfigSnapshot,
+    ) -> Result<String> {
+        let mut config = serde_json::json!({"schema":1,"memory_enabled":self.options.memory_enabled,"self_enabled":self.options.self_enabled,"social_enabled":self.options.social_enabled});
         if family == "topology" {
-            config["propagation"] = serde_json::to_value(WaveConfig::default())
+            config["propagation"] = serde_json::to_value(resolve_wave_config(snapshot)?)
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
         }
         if family == "dense"
@@ -28,11 +32,53 @@ impl ServingService {
             config["producer"] = serde_json::to_value(provider.producer())
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
         }
+        let keys: &[&str] = match family {
+            "lexical" => &["serving.lexical.enabled"],
+            "dense" => &["serving.dense.enabled"],
+            "topology" => &[
+                "topology.wave.hub_beta",
+                "topology.wave.hub_penalty_min",
+                "topology.wave.hub_penalty_max",
+                "topology.wave.outbound_budget",
+                "topology.wave.max_hops",
+                "topology.wave.max_states",
+                "topology.wave.max_neighbors_per_node",
+                "topology.wave.minimum_state_energy",
+                "topology.wave.immediate_return_multiplier",
+                "topology.wave.initial_budget_steps",
+                "topology.wave.normal_edge_cost",
+                "topology.wave.fir_gamma",
+                "topology.wave.quality.host_explicit",
+                "topology.wave.quality.source_evidence",
+                "topology.wave.quality.cognitive_derivation",
+                "topology.wave.quality.derived_structure",
+                "topology.wave.quality.meaningful_use",
+                "topology.wave.seed_weights.exact_target",
+                "topology.wave.seed_weights.runtime_situation",
+                "topology.wave.seed_weights.relation_cue",
+                "topology.wave.seed_weights.entity_cue",
+                "topology.wave.seed_weights.tag_cue",
+                "topology.wave.seed_weights.lexical_promoted",
+                "topology.wave.seed_weights.dense_promoted",
+            ],
+            _ => &[],
+        };
+        config["policy_digest"] = serde_json::Value::String(snapshot.digest_for(keys)?);
         digest(&config)
     }
 
     /// Prepare only the serving families required by one semantic query.
     pub async fn prepare(&self, subject: SubjectId, need: ServingNeed) -> Result<ProjectionStatus> {
+        let snapshot = self.configuration.snapshot_for_subject(subject)?;
+        self.prepare_with_snapshot(subject, need, &snapshot).await
+    }
+
+    pub async fn prepare_with_snapshot(
+        &self,
+        subject: SubjectId,
+        need: ServingNeed,
+        snapshot: &nous_configuration_service::ConfigSnapshot,
+    ) -> Result<ProjectionStatus> {
         self.store.require_subject(subject).await?;
         let current = self.store.serving_current(subject).await?;
         let mut requested = Vec::new();
@@ -71,7 +117,7 @@ impl ServingService {
                 .store
                 .projection_watermark(subject, family, &space)
                 .await?;
-            let compatible = existing.filter(|record| self.compatible(record));
+            let compatible = existing.filter(|record| self.compatible(record, snapshot));
             if let Some(record) = compatible
                 .filter(|record| record.authority_watermark >= watermark && self.loaded(record))
             {
@@ -88,14 +134,14 @@ impl ServingService {
                         Ok(record.clone())
                     }
                     Err(_) => self
-                        .build_and_open(subject, family, &space)
+                        .build_and_open(subject, family, &space, snapshot)
                         .await
                         .inspect(|_| {
                             result.rebuilt.push(key.clone());
                         }),
                 }
             } else {
-                self.build_and_open(subject, family, &space)
+                self.build_and_open(subject, family, &space, snapshot)
                     .await
                     .inspect(|_| {
                         result.rebuilt.push(key.clone());
@@ -141,14 +187,19 @@ impl ServingService {
         subject: SubjectId,
         family: &str,
         space: &str,
+        snapshot: &nous_configuration_service::ConfigSnapshot,
     ) -> Result<ServingRecord> {
-        let record = self.build_family(subject, family, space).await?;
+        let record = self.build_family(subject, family, space, snapshot).await?;
         let artifact = self.open_record(&record)?;
         self.publish_snapshot(&record, artifact);
         Ok(record)
     }
 
-    fn compatible(&self, record: &ServingRecord) -> bool {
+    fn compatible(
+        &self,
+        record: &ServingRecord,
+        snapshot: &nous_configuration_service::ConfigSnapshot,
+    ) -> bool {
         let identity = record
             .metadata
             .get("implementation")
@@ -163,7 +214,10 @@ impl ServingService {
             return identity;
         }
         identity
-            && self.config_digest(&record.family).ok().as_deref()
+            && self
+                .config_digest(record.subject, &record.family, snapshot)
+                .ok()
+                .as_deref()
                 == record
                     .metadata
                     .get("config_digest")

@@ -23,5 +23,5 @@ Rust toolchain 由 [`rust-toolchain.toml`](rust-toolchain.toml) 固定。`just v
 - [当前实现架构](docs/architecture/current-implementation.md)：代码 owner 和运行边界。
 - [当前状态与差距](docs/current-state/CURRENT_STATE.md)：实现事实、验证证据和未决 gap。
 - [当前计划](docs/plans/README.md)：active plan、Executable Spec 和 Qualification 的关系。
-- [NousQL 参考](docs/reference/NOUSQL.md) / [Self Authority 参考](docs/reference/SELF.md)：当前接口行为。
+- [NousQL 参考](docs/reference/NOUSQL.md) / [Self Authority 参考](docs/reference/SELF.md) / [Configuration 参考](docs/reference/CONFIGURATION.md) / [Capability 参考](docs/reference/CAPABILITIES.md)：当前接口行为。
 - [脚本与维护](scripts/README.md)：检查器、配置和有边界的清理操作。

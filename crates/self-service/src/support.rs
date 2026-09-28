@@ -162,7 +162,7 @@ pub(super) async fn validate_supports(
             RevisionSupport::Seed(value) => {
                 let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM cognitive_seed_versions WHERE subject_id=$1 AND seed_version_id=$2)")
                     .bind(subject.0)
-                    .bind(value.0)
+                    .bind(value.seed_version_id.0)
                     .fetch_one(&mut **tx)
                     .await
                     .map_err(db)?;
@@ -263,6 +263,7 @@ pub(super) async fn insert_supports(
             source_region,
             derived_representation,
             derived_region,
+            seed_path,
         ) = match support {
             RevisionSupport::Evidence(value) => {
                 let (kind, reference) = reference_parts(&value.cognitive_ref());
@@ -283,6 +284,7 @@ pub(super) async fn insert_supports(
                         EvidenceLocator::DerivedRegion(id) => Some(id.0),
                         _ => None,
                     },
+                    None,
                 )
             }
             RevisionSupport::CognitionDependency(value) => {
@@ -295,20 +297,22 @@ pub(super) async fn insert_supports(
                     None,
                     None,
                     None,
+                    None,
                 )
             }
             RevisionSupport::Seed(value) => (
                 "cognitive_seed_version".into(),
-                value.0.to_string(),
+                value.seed_version_id.0.to_string(),
                 "direct".into(),
                 None,
                 None,
                 None,
                 None,
+                Some(value.semantic_path.clone()),
             ),
         };
         let sql = format!(
-            "INSERT INTO {table}({column},support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)"
+            "INSERT INTO {table}({column},support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,seed_path) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)"
         );
         sqlx::query(sqlx::AssertSqlSafe(sql))
             .bind(revision)
@@ -319,6 +323,7 @@ pub(super) async fn insert_supports(
             .bind(source_region)
             .bind(derived_representation)
             .bind(derived_region)
+            .bind(seed_path)
             .execute(&mut **tx)
             .await
             .map_err(db)?;
@@ -334,7 +339,7 @@ pub(super) async fn load_supports(
     subject: SubjectId,
 ) -> Result<Vec<RevisionSupport>> {
     let sql = format!(
-        "SELECT support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM {table} WHERE {column}=$1 ORDER BY support_kind,support_ref,support_role"
+        "SELECT support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,seed_path FROM {table} WHERE {column}=$1 ORDER BY support_kind,support_ref,support_role"
     );
     let rows = sqlx::query(sqlx::AssertSqlSafe(sql))
         .bind(revision)
@@ -396,7 +401,10 @@ pub(super) async fn load_supports(
                     "invalid Cognitive Seed support reference".into(),
                 ));
             };
-            result.push(RevisionSupport::Seed(seed));
+            let path: String = row.try_get("seed_path").map_err(db)?;
+            result.push(RevisionSupport::Seed(nous_core::SeedSupportRef::new(
+                seed, path,
+            )?));
         } else {
             let target = parse_reference(&kind, &reference)?;
             result.push(RevisionSupport::CognitionDependency(

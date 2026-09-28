@@ -6,6 +6,7 @@ mod lane;
 mod lifecycle;
 mod provenance;
 mod query;
+mod query_materialization;
 mod query_support;
 mod runtime;
 pub mod schema;
@@ -25,13 +26,16 @@ use sqlx::Row;
 use std::sync::Arc;
 use uuid::Uuid;
 
-pub use accessibility::{AccessibilityPolicy, eligible as accessibility_eligible};
+pub use accessibility::{
+    AccessibilityPolicy, eligible as accessibility_eligible, register_configuration,
+    resolve_accessibility_policy,
+};
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
 pub use nous_memory_domain::{CognitiveRole, FormationMode};
 
 #[derive(Clone)]
 pub struct MemoryService {
-    pub accessibility_policy: AccessibilityPolicy,
+    pub configuration: nous_configuration_service::ConfigurationService,
     pub store: AuthorityStore,
     pub objects: ObjectStore,
     pub serving: nous_serving::ServingService,
@@ -245,9 +249,10 @@ impl MemoryService {
         objects: ObjectStore,
         cognition: nous_cognitive_runtime::CognitiveRuntimeService,
         serving: nous_serving::ServingService,
+        configuration: nous_configuration_service::ConfigurationService,
     ) -> Self {
         Self {
-            accessibility_policy: AccessibilityPolicy::default(),
+            configuration,
             store,
             objects,
             cognition,

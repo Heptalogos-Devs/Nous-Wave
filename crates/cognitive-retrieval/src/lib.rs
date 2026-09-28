@@ -1,5 +1,5 @@
 //! Read-only serving adapters, bounded retrieval and evidence-aware ranking.
-use nous_core::{CognitiveRef, Error, EvidenceFamily, Result, ServingGenerationId};
+use nous_core::{CognitiveRef, EvidenceFamily, Result, ServingGenerationId};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;

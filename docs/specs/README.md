@@ -54,3 +54,4 @@ Agent 不得自行决定：
 
 - `active/cognitive-retrieval/`
 - `active/self-authority/`
+- `active/configuration-foundation-and-social-cognition/`

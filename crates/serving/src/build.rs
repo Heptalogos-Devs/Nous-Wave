@@ -14,6 +14,7 @@ impl ServingService {
         subject: SubjectId,
         family: &str,
         space: &str,
+        snapshot: &nous_configuration_service::ConfigSnapshot,
     ) -> Result<ServingRecord> {
         let staging = tempfile::Builder::new()
             .prefix(".staging-")
@@ -21,7 +22,10 @@ impl ServingService {
             .map_err(io)?;
         let id = ServingGenerationId::new();
         let watermark = match family {
-            "topology" => self.build_topology(subject, id, staging.path()).await?,
+            "topology" => {
+                self.build_topology(subject, id, staging.path(), snapshot)
+                    .await?
+            }
             "dense" => self.build_dense(subject, id, space, staging.path()).await?,
             "lexical" | "exact" => self.build_text(subject, family, staging.path()).await?,
             _ => return Err(Error::Invalid("unknown serving family".into())),
@@ -33,7 +37,7 @@ impl ServingService {
         let target = self.options.root.join(id.0.to_string());
         std::fs::rename(staging.path(), &target).map_err(io)?;
         let implementation_id = implementation(family).to_owned();
-        let config_digest = self.config_digest(family)?;
+        let config_digest = self.config_digest(subject, family, snapshot)?;
         let record = ServingRecord {
             generation_id: id,
             subject,
@@ -59,7 +63,14 @@ impl ServingService {
     ) -> Result<i64> {
         let input = self
             .store
-            .text_projection_input(subject, family, "", self.options.memory_enabled)
+            .text_projection_input(
+                subject,
+                family,
+                "",
+                self.options.memory_enabled,
+                self.options.self_enabled,
+                self.options.social_enabled,
+            )
             .await?;
         if family == "exact" {
             let mut postings = ExactPostings::default();
@@ -137,10 +148,16 @@ impl ServingService {
         subject: SubjectId,
         id: ServingGenerationId,
         dir: &std::path::Path,
+        snapshot: &nous_configuration_service::ConfigSnapshot,
     ) -> Result<i64> {
         let input = self
             .store
-            .topology_projection_input(subject, self.options.memory_enabled)
+            .topology_projection_input(
+                subject,
+                self.options.memory_enabled,
+                self.options.self_enabled,
+                self.options.social_enabled,
+            )
             .await?;
         let edges: Vec<_> = input
             .edges
@@ -180,8 +197,9 @@ impl ServingService {
             })
             .collect();
         let path = dir.join("topology.json");
+        let config = resolve_wave_config(snapshot)?;
         tokio::task::spawn_blocking(move || {
-            let mut graph = WaveGraphGeneration::build(nodes, &edges, WaveConfig::default())?;
+            let mut graph = WaveGraphGeneration::build(nodes, &edges, config)?;
             graph.generation_id = id;
             write_json(&path, &graph.artifact())
         })
@@ -209,7 +227,14 @@ impl ServingService {
         }
         let input = self
             .store
-            .text_projection_input(subject, "dense", space_key, self.options.memory_enabled)
+            .text_projection_input(
+                subject,
+                "dense",
+                space_key,
+                self.options.memory_enabled,
+                self.options.self_enabled,
+                self.options.social_enabled,
+            )
             .await?;
         let source_regions: std::collections::HashMap<_, _> = input
             .sources

@@ -5,7 +5,7 @@ use chrono::Utc;
 use nous_cognitive_runtime::{ContextResolver, UseFeedback, UseFeedbackEvent, UseKind};
 use nous_core::{
     CognitiveQuery, CognitiveRef, EpistemicClass, OperationId, QueryTarget, ResultNeed,
-    RevisionSupport, TemporalExtent, UseEventId,
+    RevisionSupport, SeedSupportRef, TemporalExtent, UseEventId,
 };
 use nous_self_domain::{
     CreateNarrativeIdentity, CreateSelfFacet, MutateSelfLifecycle, NarrativeReferenceInput,
@@ -35,7 +35,8 @@ async fn self_facet_revision_fencing_lifecycle_and_direct_query() {
                 format: COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({"source":"test"}),
             },
-            config: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            capabilities: None,
         })
         .await
         .expect("subject")
@@ -52,6 +53,8 @@ async fn self_facet_revision_fencing_lifecycle_and_direct_query() {
         .expect("subject state");
     let created = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .create_facet(CreateSelfFacet {
             operation_id: OperationId::new(),
             subject,
@@ -62,7 +65,9 @@ async fn self_facet_revision_fencing_lifecycle_and_direct_query() {
             epistemic_class: EpistemicClass::Reported,
             valid_time: TemporalExtent::Unknown,
             formed_at: Utc::now(),
-            supports: vec![RevisionSupport::Seed(seed.version.seed_version_id)],
+            supports: vec![RevisionSupport::Seed(
+                SeedSupportRef::new(seed.version.seed_version_id, "self.test").unwrap(),
+            )],
             producer_signature_id: None,
         })
         .await
@@ -105,6 +110,8 @@ async fn self_facet_revision_fencing_lifecycle_and_direct_query() {
     );
     let revised = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .revise_facet(ReviseSelfFacet {
             operation_id: OperationId::new(),
             subject,
@@ -117,7 +124,9 @@ async fn self_facet_revision_fencing_lifecycle_and_direct_query() {
             epistemic_class: EpistemicClass::Reported,
             valid_time: TemporalExtent::Unknown,
             formed_at: Utc::now(),
-            supports: vec![RevisionSupport::Seed(seed.version.seed_version_id)],
+            supports: vec![RevisionSupport::Seed(
+                SeedSupportRef::new(seed.version.seed_version_id, "self.test").unwrap(),
+            )],
             producer_signature_id: None,
         })
         .await
@@ -162,6 +171,8 @@ async fn self_facet_revision_fencing_lifecycle_and_direct_query() {
     );
     let stale = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .revise_facet(ReviseSelfFacet {
             operation_id: OperationId::new(),
             subject,
@@ -174,13 +185,17 @@ async fn self_facet_revision_fencing_lifecycle_and_direct_query() {
             epistemic_class: EpistemicClass::Reported,
             valid_time: TemporalExtent::Unknown,
             formed_at: Utc::now(),
-            supports: vec![RevisionSupport::Seed(seed.version.seed_version_id)],
+            supports: vec![RevisionSupport::Seed(
+                SeedSupportRef::new(seed.version.seed_version_id, "self.test").unwrap(),
+            )],
             producer_signature_id: None,
         })
         .await;
     assert!(matches!(stale, Err(nous_core::Error::Conflict(_))));
     runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .lifecycle(MutateSelfLifecycle {
             operation_id: OperationId::new(),
             subject,
@@ -228,14 +243,15 @@ async fn cognitive_seed_adoption_is_idempotent_and_digest_fenced() {
                 format: COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
-            config: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            capabilities: None,
         })
         .await
         .expect("subject")
         .subject_id;
     let operation_id = OperationId::new();
     let input = CognitiveSeedInput {
-        text: "schema_version = 1\n\n[[self.facets]]".into(),
+        text: "schema_version = 1\n\n[[self.facets]]\nkind = \"identity\"\nkey = \"test\"\nstatement = \"test\"".into(),
         format: COGNITIVE_SEED_FORMAT.into(),
         provenance: serde_json::json!({"source":"test"}),
     };
@@ -261,7 +277,7 @@ async fn cognitive_seed_adoption_is_idempotent_and_digest_fenced() {
             subject,
             operation_id,
             CognitiveSeedInput {
-                text: "schema_version = 2".into(),
+                text: "schema_version = 1".into(),
                 format: COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({"source":"different"}),
             },
@@ -289,7 +305,8 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
                 format: COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
-            config: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            capabilities: None,
         })
         .await
         .expect("subject")
@@ -301,6 +318,8 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
         .expect("seed");
     let facet = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .create_facet(CreateSelfFacet {
             operation_id: OperationId::new(),
             subject,
@@ -311,13 +330,17 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
             epistemic_class: EpistemicClass::Reported,
             valid_time: TemporalExtent::Unknown,
             formed_at: Utc::now(),
-            supports: vec![RevisionSupport::Seed(seed.version.seed_version_id)],
+            supports: vec![RevisionSupport::Seed(
+                SeedSupportRef::new(seed.version.seed_version_id, "self.test").unwrap(),
+            )],
             producer_signature_id: None,
         })
         .await
         .expect("facet");
     let dependent = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .create_facet(CreateSelfFacet {
             operation_id: OperationId::new(),
             subject,
@@ -342,6 +365,8 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
         .expect("dependent facet");
     let narrative = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .create_narrative(CreateNarrativeIdentity {
             operation_id: OperationId::new(),
             subject,
@@ -349,7 +374,9 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
             text: "I am Nous.".into(),
             valid_time: TemporalExtent::Unknown,
             formed_at: Utc::now(),
-            supports: vec![RevisionSupport::Seed(seed.version.seed_version_id)],
+            supports: vec![RevisionSupport::Seed(
+                SeedSupportRef::new(seed.version.seed_version_id, "self.test").unwrap(),
+            )],
             references: vec![NarrativeReferenceInput {
                 target_exact_ref: CognitiveRef::SelfFacetRevision(
                     facet.revision.self_facet_revision_id,
@@ -362,6 +389,8 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
         .expect("narrative");
     let revised = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .revise_narrative(ReviseNarrativeIdentity {
             operation_id: OperationId::new(),
             subject,
@@ -372,7 +401,9 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
             text: "I am Nous Wave.".into(),
             valid_time: TemporalExtent::Unknown,
             formed_at: Utc::now(),
-            supports: vec![RevisionSupport::Seed(seed.version.seed_version_id)],
+            supports: vec![RevisionSupport::Seed(
+                SeedSupportRef::new(seed.version.seed_version_id, "self.test").unwrap(),
+            )],
             references: narrative
                 .revision
                 .references
@@ -388,6 +419,8 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
         .expect("narrative revision");
     runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .lifecycle(MutateSelfLifecycle {
             operation_id: OperationId::new(),
             subject,
@@ -399,6 +432,8 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
         .expect("facet purge");
     let after = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .narrative(subject, revised.object.narrative_identity_id)
         .await
         .expect("narrative remains for revalidation");
@@ -408,6 +443,8 @@ async fn narrative_reference_is_exact_and_source_purge_revalidates_narrative() {
     ));
     let dependent_after = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .facet(subject, dependent.object.self_facet_id)
         .await
         .expect("dependent facet remains");
@@ -435,7 +472,8 @@ async fn self_serving_projection_and_context_use_exact_revision_documents() {
                 format: COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
-            config: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            capabilities: None,
         })
         .await
         .expect("subject")
@@ -447,6 +485,8 @@ async fn self_serving_projection_and_context_use_exact_revision_documents() {
         .expect("seed");
     let facet = runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .create_facet(CreateSelfFacet {
             operation_id: OperationId::new(),
             subject,
@@ -457,7 +497,9 @@ async fn self_serving_projection_and_context_use_exact_revision_documents() {
             epistemic_class: EpistemicClass::Reported,
             valid_time: TemporalExtent::Unknown,
             formed_at: Utc::now(),
-            supports: vec![RevisionSupport::Seed(seed.version.seed_version_id)],
+            supports: vec![RevisionSupport::Seed(
+                SeedSupportRef::new(seed.version.seed_version_id, "self.test").unwrap(),
+            )],
             producer_signature_id: None,
         })
         .await
@@ -546,6 +588,8 @@ async fn self_serving_projection_and_context_use_exact_revision_documents() {
     assert_eq!(context.text.as_deref(), Some("Nous"));
     runtime
         .self_cognition
+        .as_ref()
+        .expect("Self capability")
         .lifecycle(MutateSelfLifecycle {
             operation_id: OperationId::new(),
             subject,

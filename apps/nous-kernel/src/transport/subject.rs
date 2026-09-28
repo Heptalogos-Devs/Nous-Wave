@@ -1,5 +1,6 @@
 use super::*;
 use nous_authority_store::database_error as db;
+use nous_configuration_service::SubjectCapabilities;
 use nous_core::{OperationId, Result, SessionId, SubjectId};
 use nous_subject_core::{
     CognitiveSeedInput, CognitiveSeedView, CreateSubject, SeedAdoptionKind, SubjectView,
@@ -36,12 +37,18 @@ fn seed_view(input: CognitiveSeedView) -> p::CognitiveSeedVersion {
     }
 }
 fn subject(input: SubjectView) -> p::Subject {
+    let capabilities = input.capabilities;
     p::Subject {
         subject_id: input.subject_id.0.to_string(),
         created_at: Some(timestamp(input.created_at)),
         authority_seq: input.authority_seq,
         status: input.status,
-        config: to_object(input.config),
+        metadata: to_object(input.metadata),
+        capabilities: Some(p::SubjectCapabilities {
+            memory: capabilities.memory,
+            self_cognition: capabilities.self_cognition,
+            social: capabilities.social,
+        }),
     }
 }
 impl KernelService {
@@ -49,22 +56,51 @@ impl KernelService {
         &self,
         input: p::CreateSubjectRequest,
     ) -> Result<p::Subject> {
-        Ok(subject(
-            self.0
+        let view = self
+            .0
+            .subjects
+            .create_subject(CreateSubject {
+                subject_id: input
+                    .subject_id
+                    .as_deref()
+                    .map(id)
+                    .transpose()?
+                    .map(SubjectId),
+                operation_id: OperationId(id(&input.operation_id)?),
+                cognitive_seed: seed(required(input.cognitive_seed, "cognitive_seed")?),
+                metadata: object(input.metadata),
+                capabilities: input.capabilities.map(|value| SubjectCapabilities {
+                    memory: value.memory,
+                    self_cognition: value.self_cognition,
+                    social: value.social,
+                }),
+            })
+            .await?;
+        if view.capabilities.self_cognition {
+            let seed = self
+                .0
                 .subjects
-                .create_subject(CreateSubject {
-                    subject_id: input
-                        .subject_id
-                        .as_deref()
-                        .map(id)
-                        .transpose()?
-                        .map(SubjectId),
-                    operation_id: OperationId(id(&input.operation_id)?),
-                    cognitive_seed: seed(required(input.cognitive_seed, "cognitive_seed")?),
-                    config: object(input.config),
-                })
-                .await?,
-        ))
+                .latest_cognitive_seed(view.subject_id)
+                .await?;
+            self.0
+                .require_self()?
+                .import_seed(view.subject_id, seed.version.seed_version_id, &seed.text)
+                .await?;
+        }
+        if view.capabilities.social {
+            let seed = self
+                .0
+                .subjects
+                .latest_cognitive_seed(view.subject_id)
+                .await?;
+            self.0
+                .social
+                .as_ref()
+                .ok_or_else(|| Error::Unavailable("Social Cognition is disabled".into()))?
+                .import_seed(view.subject_id, seed.version.seed_version_id, &seed.text)
+                .await?;
+        }
+        Ok(subject(view))
     }
     pub(super) async fn get_subject(&self, input: p::SubjectRequest) -> Result<p::Subject> {
         Ok(subject(

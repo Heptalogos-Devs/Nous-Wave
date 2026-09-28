@@ -14,32 +14,52 @@ pub(crate) fn topology_ranks(
         return HashMap::new();
     };
     let query = &bound.source_query;
+    let seed_weight = |name: &str, default: f64| {
+        graph
+            .config
+            .seed_weights
+            .get(name)
+            .copied()
+            .unwrap_or(default)
+    };
     let mut seeds = Vec::new();
     for binding in &bound.exact_bindings {
         if let Some(node) = graph.node_id(&binding.bound_ref) {
-            seeds.push((node, 1.0, "exact_target"));
+            seeds.push((node, seed_weight("exact_target", 1.0), "exact_target"));
         }
     }
     for reference in &bound.runtime_refs {
         if let Some(node) = graph.node_id(reference) {
-            seeds.push((node, 0.85, "runtime_situation"));
+            seeds.push((
+                node,
+                seed_weight("runtime_situation", 0.85),
+                "runtime_situation",
+            ));
         }
     }
     for (reference, family) in &bound.topology_seed_refs {
         if let Some(node) = graph.node_id(reference) {
-            seeds.push((node, 1.0, family.as_str()));
+            seeds.push((node, seed_weight(family.as_str(), 1.0), family.as_str()));
         }
     }
     for cue in &query.cues {
         let (reference, weight, family) = match cue {
             Cue::Entity(value) => (
                 CognitiveRef::Entity(value.entity_ref.clone()),
-                0.90,
+                seed_weight("entity_cue", 0.90),
                 "entity_cue",
             ),
-            Cue::Tag(value) => (CognitiveRef::Tag(value.tag), 0.75, "tag_cue"),
+            Cue::Tag(value) => (
+                CognitiveRef::Tag(value.tag),
+                seed_weight("tag_cue", 0.75),
+                "tag_cue",
+            ),
             Cue::Schema(_) => continue,
-            Cue::Relation(value) => (value.from.clone(), 1.0, "relation_cue"),
+            Cue::Relation(value) => (
+                value.from.clone(),
+                seed_weight("relation_cue", 1.0),
+                "relation_cue",
+            ),
             _ => continue,
         };
         if let Some(node) = graph.node_id(&reference) {
@@ -53,9 +73,9 @@ pub(crate) fn topology_ranks(
             let reference = CognitiveRef::MemoryRevision(MemoryRevisionId(*revision));
             if let Some(node) = graph.node_id(&reference) {
                 let (weight, family) = if ranks.contains_key(&EvidenceFamily::Lexical) {
-                    (0.60, "lexical_promoted")
+                    (seed_weight("lexical_promoted", 0.60), "lexical_promoted")
                 } else {
-                    (0.60, "dense_promoted")
+                    (seed_weight("dense_promoted", 0.60), "dense_promoted")
                 };
                 seeds.push((node, weight, family));
             }

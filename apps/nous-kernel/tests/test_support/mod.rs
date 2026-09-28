@@ -47,6 +47,41 @@ pub(crate) async fn open_runtime(url: &str, root: &TempDir) -> NousRuntime {
     open_runtime_with_serving(url, root, false, false, false).await
 }
 
+pub(crate) async fn open_runtime_with_social(url: &str, root: &TempDir) -> NousRuntime {
+    NousRuntime::open(RuntimeOptions {
+        postgres_url: url.into(),
+        max_connections: 4,
+        object_root: root.path().join("objects").to_string_lossy().into_owned(),
+        max_upload_bytes: 1024 * 1024,
+        serving_options: ServingOptions {
+            root: root.path().join("serving"),
+            lexical: false,
+            dense: false,
+            topology: false,
+            memory_enabled: true,
+            self_enabled: false,
+            social_enabled: true,
+        },
+        embedding: None,
+        stored_embedding: None,
+        deployment_settings: serde_json::json!({
+            "settings": {
+                "capabilities": {
+                    "process": { "memory": true, "self_cognition": false, "social": true },
+                    "subject_defaults": { "memory": true, "self_cognition": false, "social": false }
+                },
+                "serving": {
+                    "lexical": { "enabled": false },
+                    "dense": { "enabled": false },
+                    "topology": { "enabled": false }
+                }
+            }
+        }),
+    })
+    .await
+    .expect("open social runtime")
+}
+
 pub(crate) async fn open_runtime_with_serving(
     url: &str,
     root: &TempDir,
@@ -55,22 +90,34 @@ pub(crate) async fn open_runtime_with_serving(
     topology: bool,
 ) -> NousRuntime {
     NousRuntime::open(RuntimeOptions {
-        accessibility_policy: Default::default(),
         postgres_url: url.into(),
         max_connections: 4,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
         max_upload_bytes: 1024 * 1024,
-        resident_limit: 256,
-        memory_enabled: true,
         serving_options: ServingOptions {
             root: root.path().join("serving"),
             lexical,
             dense,
             topology,
             memory_enabled: true,
+            self_enabled: true,
+            social_enabled: false,
         },
         embedding: None,
         stored_embedding: None,
+        deployment_settings: serde_json::json!({
+            "settings": {
+                "capabilities": {
+                    "process": { "memory": true, "self_cognition": true, "social": false },
+                    "subject_defaults": { "memory": true, "self_cognition": true, "social": false }
+                },
+                "serving": {
+                    "lexical": { "enabled": lexical },
+                    "dense": { "enabled": dense },
+                    "topology": { "enabled": topology }
+                }
+            }
+        }),
     })
     .await
     .expect("open runtime")

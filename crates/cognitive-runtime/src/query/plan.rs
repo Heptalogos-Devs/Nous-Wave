@@ -25,6 +25,7 @@ impl QueryPlan {
             &bound.source_query,
             bound.enabled_lanes.clone(),
             bound.lane_budgets.clone(),
+            &bound.retrieval_policy,
         )
     }
 
@@ -44,13 +45,19 @@ impl QueryPlan {
             .saturating_mul(multiplier)
             .clamp(16, per_lane_max);
         let budgets = lanes.iter().copied().map(|lane| (lane, budget)).collect();
-        Self::from_parts(query, lanes, budgets)
+        Self::from_parts(
+            query,
+            lanes,
+            budgets,
+            &nous_cognitive_retrieval::RetrievalPolicy::reference(),
+        )
     }
 
     fn from_parts(
         query: &CognitiveQuery,
         enabled_lanes: Vec<EvidenceFamily>,
         lane_budgets: BTreeMap<EvidenceFamily, usize>,
+        retrieval_policy: &nous_cognitive_retrieval::RetrievalPolicy,
     ) -> Self {
         let (hops, states, resources) = match query.effort {
             CognitiveEffort::Light => (1, 128, 1),
@@ -63,7 +70,14 @@ impl QueryPlan {
             enabled_lanes: enabled_lanes.clone(),
             lane_budgets,
             candidate_limit,
-            final_validation_budget: query.result_need.limit.saturating_mul(4).clamp(32, 4096),
+            final_validation_budget: query
+                .result_need
+                .limit
+                .saturating_mul(retrieval_policy.validation_multiplier)
+                .clamp(
+                    retrieval_policy.validation_min,
+                    retrieval_policy.validation_max,
+                ),
             sense_cues: query.capabilities.residual_sensing == RequirementStrength::Required,
             expand_topology: enabled_lanes.contains(&EvidenceFamily::TopologyWave),
             topology_rounds: hops,

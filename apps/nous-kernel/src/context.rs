@@ -10,8 +10,10 @@ impl NousRuntime {
         reference: &CognitiveRef,
         max_bytes: usize,
     ) -> Result<ContextSource> {
-        let (text, _valid_time, _formed_at, _recorded_at) =
-            self.self_cognition.context_text(subject, reference).await?;
+        let (text, _valid_time, _formed_at, _recorded_at) = self
+            .require_self()?
+            .context_text(subject, reference)
+            .await?;
         Ok(ContextSource {
             source_revision: None,
             media_type: "text/plain".into(),
@@ -98,7 +100,7 @@ impl ContextResolver for NousRuntime {
                         })
                     }
                     nous_memory_domain::RevisionSupport::Seed(value) => Some(EvidenceHandle {
-                        reference: CognitiveRef::CognitiveSeedVersion(*value),
+                        reference: CognitiveRef::CognitiveSeedVersion(value.seed_version_id),
                         support_role: "seed".into(),
                     }),
                 })

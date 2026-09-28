@@ -14,11 +14,12 @@ async fn purge_keeps_shared_observation_authority() {
             subject_id: None,
             operation_id: nous_core::OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
-                text: "shared source".into(),
+                text: "schema_version = 1".into(),
                 format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
-            config: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            capabilities: None,
         })
         .await
         .expect("subject")

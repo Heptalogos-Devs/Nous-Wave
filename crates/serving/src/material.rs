@@ -114,6 +114,8 @@ impl ServingService {
                 "dense",
                 &config.space_hash,
                 self.options.memory_enabled,
+                self.options.self_enabled,
+                self.options.social_enabled,
             )
             .await?;
         let mut needs = vec![];
@@ -161,7 +163,14 @@ impl ServingService {
         }
         let input = self
             .store
-            .text_projection_input(subject, "dense", space, self.options.memory_enabled)
+            .text_projection_input(
+                subject,
+                "dense",
+                space,
+                self.options.memory_enabled,
+                self.options.self_enabled,
+                self.options.social_enabled,
+            )
             .await?;
         let exists = self
             .documents(input.sources)

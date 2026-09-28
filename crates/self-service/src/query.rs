@@ -20,21 +20,7 @@ pub(super) fn hit(
     variant: &str,
     enabled_lanes: &[nous_core::EvidenceFamily],
 ) -> nous_core::CognitiveHit {
-    let denominator = nous_cognitive_retrieval::default_rrf_plan(enabled_lanes)
-        .into_iter()
-        .map(|lane| lane.weight / (nous_cognitive_retrieval::RRF_K + 1.0))
-        .sum::<f64>();
-    let weight = match family {
-        nous_core::EvidenceFamily::SelfDirect => 2.0,
-        nous_core::EvidenceFamily::Lexical | nous_core::EvidenceFamily::Dense => 1.5,
-        _ => 1.0,
-    };
-    let raw = weight / (nous_cognitive_retrieval::RRF_K + rank as f64);
-    let score = if denominator > 0.0 {
-        raw / denominator
-    } else {
-        0.0
-    };
+    let score = 1.0 / rank.max(1) as f64;
     nous_core::CognitiveHit {
         revision: Some(reference.clone()),
         reference,

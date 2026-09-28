@@ -68,6 +68,11 @@ uuid_id!(SelfFacetId);
 uuid_id!(SelfFacetRevisionId);
 uuid_id!(NarrativeIdentityId);
 uuid_id!(NarrativeIdentityRevisionId);
+uuid_id!(RelationTypeId);
+uuid_id!(RelationshipAssertionId);
+uuid_id!(RelationshipRevisionId);
+uuid_id!(LanguageConventionId);
+uuid_id!(LanguageConventionRevisionId);
 
 /// A Host-owned identity. The string is opaque to Nous except for exact
 /// equality and its namespace/type prefix.
@@ -174,6 +179,10 @@ pub enum CognitiveRef {
     SelfFacetRevision(SelfFacetRevisionId),
     NarrativeIdentity(NarrativeIdentityId),
     NarrativeIdentityRevision(NarrativeIdentityRevisionId),
+    RelationshipAssertion(RelationshipAssertionId),
+    RelationshipRevision(RelationshipRevisionId),
+    LanguageConvention(LanguageConventionId),
+    LanguageConventionRevision(LanguageConventionRevisionId),
     Artifact(ArtifactId),
     SourceRegion(SourceRegionId),
     DerivedRepresentation(DerivedRepresentationId),
@@ -532,6 +541,22 @@ pub struct SituationDescriptor {
     pub current_refs: Vec<CognitiveRef>,
     #[serde(default)]
     pub current_objects: Vec<ObjectRef>,
+    pub social: Option<SocialSituation>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SocialSituation {
+    #[serde(default)]
+    pub participants: Vec<EntityRef>,
+    #[serde(default)]
+    pub groups: Vec<EntityRef>,
+    #[serde(default)]
+    pub communities: Vec<EntityRef>,
+    pub channel: Option<EntityRef>,
+    #[serde(default)]
+    pub context_tokens: Vec<String>,
+    #[serde(default)]
+    pub topic_tokens: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -569,6 +594,12 @@ impl fmt::Display for CognitiveRef {
             Self::NarrativeIdentity(id) => write!(f, "narrative_identity:{}", id.0),
             Self::NarrativeIdentityRevision(id) => {
                 write!(f, "narrative_identity_revision:{}", id.0)
+            }
+            Self::RelationshipAssertion(id) => write!(f, "relationship_assertion:{}", id.0),
+            Self::RelationshipRevision(id) => write!(f, "relationship_revision:{}", id.0),
+            Self::LanguageConvention(id) => write!(f, "language_convention:{}", id.0),
+            Self::LanguageConventionRevision(id) => {
+                write!(f, "language_convention_revision:{}", id.0)
             }
             Self::Artifact(id) => write!(f, "artifact:{}", id.0),
             Self::SourceRegion(id) => write!(f, "source_region:{}", id.0),

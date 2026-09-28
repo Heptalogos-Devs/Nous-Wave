@@ -12,21 +12,24 @@ TypeScript Core 负责公开 API、Focus、Projection、Managed Context、NousQL
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `crates/core`                             | typed IDs、exact references、时间范围、Query contracts、错误和 operation digest 基础。                                                       |
 | `crates/subject-core`                     | Subject identity、immutable Cognitive Seed version/adoption 和 Subject authority sequence 读取。                                            |
+| `crates/configuration-service`             | owner registry、typed descriptors、deployment/system/subject overrides、immutable snapshots、权限和 subset digest。                       |
+| `crates/cognitive-seed`                    | Cognitive Seed v1 TOML parser、deny-unknown-fields validation 和 semantic paths。                                                          |
 | `crates/material` / `material-service`    | Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation、材料化和上传 admission。                                               |
 | `crates/memory-domain` / `memory-service` | Memory/Revision、EvidenceRef、CognitionDependency、CognitiveSchema、AssociationEvidence、lifecycle、Accessibility 和 R1 query contribution。 |
 | `crates/self-domain` / `self-service`    | SelfFacet、NarrativeIdentity、Cognitive Seed adoption、Self lifecycle/provenance、SelfDirect query contribution。                              |
+| `crates/social-domain` / `social-service` | Relation Type、directed Relationship、LanguageConvention、Social evidence acceptance、Social query/Serving source 和 lifecycle Authority。 |
 | `crates/cognitive-runtime`                | Session、ResidentSet、QueryPlan、UseEvent scoped idempotency、runtime checkpoint 和 workset。                                                |
 | `crates/authority-store`                  | PostgreSQL migrations、mutation receipts、authority sequence、projection watermarks、reference validation 和 serving records。               |
-| `crates/cognitive-retrieval` / `serving`  | lexical/dense/topology artifacts、fixed RRF support、bounded propagation 和 immutable rebuildable generations。                              |
+| `crates/cognitive-retrieval` / `serving`  | lexical/dense/topology artifacts、registry-driven RRF/Wave policy、bounded propagation 和 immutable rebuildable generations。              |
 
 ## 主要流程
 
 Observation 先写 Material Authority，再由 Memory owner 以 occurrence-bound EvidenceRef 形成 immutable Memory revision。Memory mutation 在 receipt、object epoch、authority sequence 和 projection watermark 的同一 Authority transaction 中提交；外部模型、embedding、reranker 和大对象读取位于 transaction 外。
 
-Query 在 candidate generation 前建立固定 QueryPlan。Candidate identity 使用 exact revision；lane 内先聚合 view，再使用固定 RRF，最终由当前 Authority/lifecycle/accessibility 批量校验。Serving generation 只提供可重建候选来源，不拥有认知真值。
+Query bind 开始时固定一个 Subject `ConfigSnapshot` 和 `QueryPlan`。Memory/Self/Social 只产生 lane candidates；Runtime 先按 exact revision 聚合多 lane，再由 `cognitive-retrieval` 唯一执行一次 registry-driven RRF，最后按 owner 批量 validation/materialization 并恢复 fused order。Serving generation 只提供可重建候选来源，不拥有认知真值。
 
 Context/Projection 仍属于 Core/Runtime；进入调用方上下文的呈现和后续 referenced/acted_on/result use 通过 UseEvent 独立记录。Purge 是 cognition-scope 的可恢复两阶段操作，不删除共享 source Authority。
 
 ## 当前边界
 
-Self、Social Cognition、Motivation、Desired Condition、Episode/Journal 和 Heptalogos live integration 没有当前实现 owner。它们的目标语义不由本仓库的代码状态推断。
+当前 checkout 已有 Self 与首批 Social Cognition owner；Motivation、Desired Condition、Episode/Journal 和 Heptalogos live integration 仍没有实现 owner。它们的目标语义不由本仓库的代码状态推断。

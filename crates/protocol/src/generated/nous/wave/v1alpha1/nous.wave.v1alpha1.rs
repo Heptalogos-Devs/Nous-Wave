@@ -51,6 +51,15 @@ pub struct CognitiveSeed {
     #[prost(message, optional, tag="3")]
     pub provenance: ::core::option::Option<::prost_types::Struct>,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SubjectCapabilities {
+    #[prost(bool, tag="1")]
+    pub memory: bool,
+    #[prost(bool, tag="2")]
+    pub self_cognition: bool,
+    #[prost(bool, tag="3")]
+    pub social: bool,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Subject {
     #[prost(string, tag="1")]
@@ -62,7 +71,9 @@ pub struct Subject {
     #[prost(string, tag="4")]
     pub status: ::prost::alloc::string::String,
     #[prost(message, optional, tag="5")]
-    pub config: ::core::option::Option<::prost_types::Struct>,
+    pub metadata: ::core::option::Option<::prost_types::Struct>,
+    #[prost(message, optional, tag="6")]
+    pub capabilities: ::core::option::Option<SubjectCapabilities>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateSubjectRequest {
@@ -71,9 +82,11 @@ pub struct CreateSubjectRequest {
     #[prost(message, optional, tag="2")]
     pub cognitive_seed: ::core::option::Option<CognitiveSeed>,
     #[prost(message, optional, tag="3")]
-    pub config: ::core::option::Option<::prost_types::Struct>,
+    pub metadata: ::core::option::Option<::prost_types::Struct>,
     #[prost(string, tag="4")]
     pub operation_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="5")]
+    pub capabilities: ::core::option::Option<SubjectCapabilities>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListSubjectsResponse {
@@ -137,6 +150,291 @@ pub struct ListSessionsResponse {
     pub items: ::prost::alloc::vec::Vec<Session>,
     #[prost(string, tag="2")]
     pub next_page_token: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SocialParty {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub entity_ref: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RelationType {
+    #[prost(string, tag="1")]
+    pub relation_type_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="4")]
+    pub allowed_from_kinds: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub allowed_to_kinds: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="6")]
+    pub view: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="7")]
+    pub inverse_key: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="8")]
+    pub degree_kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="9")]
+    pub degree_config: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, tag="10")]
+    pub temporal: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="11")]
+    pub created_at: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RegisterRelationTypeRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="4")]
+    pub allowed_from_kinds: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub allowed_to_kinds: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag="6")]
+    pub view: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="7")]
+    pub inverse_key: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="8")]
+    pub degree_kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="9")]
+    pub degree_config: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, tag="10")]
+    pub temporal: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Relationship {
+    #[prost(string, tag="1")]
+    pub relationship_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub relation_type_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="4")]
+    pub from: ::core::option::Option<SocialParty>,
+    #[prost(message, optional, tag="5")]
+    pub to: ::core::option::Option<SocialParty>,
+    #[prost(string, tag="6")]
+    pub current_revision_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="7")]
+    pub object_epoch: i64,
+    #[prost(string, tag="8")]
+    pub acceptance_state: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub integrity_state: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub suppression_state: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub purge_state: ::prost::alloc::string::String,
+    #[prost(int32, tag="12")]
+    pub revision_no: i32,
+    #[prost(message, optional, tag="13")]
+    pub degree: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, tag="14")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="15")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="16")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="17")]
+    pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="18")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateRelationshipRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub relation_type_key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="4")]
+    pub from: ::core::option::Option<SocialParty>,
+    #[prost(message, optional, tag="5")]
+    pub to: ::core::option::Option<SocialParty>,
+    #[prost(message, optional, tag="6")]
+    pub degree: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, tag="7")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="8")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="9")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="10")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(string, optional, tag="11")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReviseRelationshipRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub relationship_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+    #[prost(string, tag="5")]
+    pub parent_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub revision_intent: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="7")]
+    pub degree: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, tag="8")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="9")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="10")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="11")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(string, optional, tag="12")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConventionFormationEvidence {
+    #[prost(int32, tag="1")]
+    pub support_index: i32,
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub external_actor: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LanguageConvention {
+    #[prost(string, tag="1")]
+    pub convention_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub expression: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub scope_kind: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="6")]
+    pub scope_refs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub context_scope: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="8")]
+    pub topic_scope: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="9")]
+    pub current_revision_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="10")]
+    pub object_epoch: i64,
+    #[prost(string, tag="11")]
+    pub acceptance_state: ::prost::alloc::string::String,
+    #[prost(string, tag="12")]
+    pub integrity_state: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub suppression_state: ::prost::alloc::string::String,
+    #[prost(string, tag="14")]
+    pub purge_state: ::prost::alloc::string::String,
+    #[prost(int32, tag="15")]
+    pub revision_no: i32,
+    #[prost(string, tag="16")]
+    pub meaning: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="17")]
+    pub pragmatic_role: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="18")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="19")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="20")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="21")]
+    pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="22")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(message, repeated, tag="23")]
+    pub formation_evidence: ::prost::alloc::vec::Vec<ConventionFormationEvidence>,
+    #[prost(string, tag="24")]
+    pub formation_policy_digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateLanguageConventionRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub expression: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub scope_kind: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="6")]
+    pub scope_refs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub context_scope: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="8")]
+    pub topic_scope: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="9")]
+    pub meaning: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="10")]
+    pub pragmatic_role: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="11")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="12")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="13")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="14")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(message, repeated, tag="15")]
+    pub formation_evidence: ::prost::alloc::vec::Vec<ConventionFormationEvidence>,
+    #[prost(string, optional, tag="16")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReviseLanguageConventionRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub convention_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+    #[prost(string, tag="5")]
+    pub parent_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub revision_intent: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub meaning: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="8")]
+    pub pragmatic_role: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="9")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="10")]
+    pub valid_time: ::core::option::Option<TemporalExtent>,
+    #[prost(message, optional, tag="11")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="12")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(message, repeated, tag="13")]
+    pub formation_evidence: ::prost::alloc::vec::Vec<ConventionFormationEvidence>,
+    #[prost(string, optional, tag="14")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SocialLifecycleRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub reference: ::core::option::Option<CognitiveRef>,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+    #[prost(string, tag="5")]
+    pub operation: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EntityMention {
@@ -264,8 +562,41 @@ pub struct QueryConstraints {
     pub evidence_classes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SocialRelationCue {
+    #[prost(string, optional, tag="1")]
+    pub relation_type_key: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="2")]
+    pub from: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="3")]
+    pub to: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, tag="4")]
+    pub include_views: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LanguageConventionCue {
+    #[prost(string, tag="1")]
+    pub expression: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub scope: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SocialSituation {
+    #[prost(string, repeated, tag="1")]
+    pub participants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="2")]
+    pub groups: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="3")]
+    pub communities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="4")]
+    pub channel: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub context_tokens: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="6")]
+    pub topic_tokens: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Cue {
-    #[prost(oneof="cue::Cue", tags="1, 2, 3, 4")]
+    #[prost(oneof="cue::Cue", tags="1, 2, 3, 4, 5, 6")]
     pub cue: ::core::option::Option<cue::Cue>,
 }
 /// Nested message and enum types in `Cue`.
@@ -280,6 +611,10 @@ pub mod cue {
         Concept(::prost::alloc::string::String),
         #[prost(string, tag="4")]
         SchemaId(::prost::alloc::string::String),
+        #[prost(message, tag="5")]
+        SocialRelation(super::SocialRelationCue),
+        #[prost(message, tag="6")]
+        LanguageConvention(super::LanguageConventionCue),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -331,6 +666,8 @@ pub struct QueryExpr {
     pub modifiers: ::core::option::Option<QueryModifiers>,
     #[prost(message, optional, tag="5")]
     pub self_facet: ::core::option::Option<SelfFacetCue>,
+    #[prost(message, optional, tag="6")]
+    pub social_situation: ::core::option::Option<SocialSituation>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryRequest {
@@ -469,6 +806,13 @@ pub struct CognitionDependency {
     pub support_role: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SeedSupportRef {
+    #[prost(message, optional, tag="1")]
+    pub seed_version: ::core::option::Option<CognitiveRef>,
+    #[prost(string, tag="2")]
+    pub semantic_path: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RevisionSupport {
     #[prost(oneof="revision_support::Support", tags="1, 2, 3")]
     pub support: ::core::option::Option<revision_support::Support>,
@@ -482,7 +826,7 @@ pub mod revision_support {
         #[prost(message, tag="2")]
         CognitionDependency(super::CognitionDependency),
         #[prost(message, tag="3")]
-        SeedVersion(super::CognitiveRef),
+        Seed(super::SeedSupportRef),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

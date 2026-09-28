@@ -14,6 +14,7 @@ impl MemoryService {
         &self,
         subject: SubjectId,
         revisions: &[Uuid],
+        accessibility_policy: &AccessibilityPolicy,
     ) -> Result<HashMap<Uuid, MemoryView>> {
         if revisions.is_empty() {
             return Ok(HashMap::new());
@@ -170,12 +171,10 @@ impl MemoryService {
                 "normal" => AccessibilityLevel::Normal,
                 "deep" => AccessibilityLevel::Deep,
                 "explicit" => AccessibilityLevel::Explicit,
-                _ => self.accessibility_policy.level_from_activation(
-                    self.accessibility_policy.activation(
-                        (Utc::now() - created).num_seconds().max(0) as f64 / 86400.0,
-                        &uses,
-                    ),
-                ),
+                _ => accessibility_policy.level_from_activation(accessibility_policy.activation(
+                    (Utc::now() - created).num_seconds().max(0) as f64 / 86400.0,
+                    &uses,
+                )),
             };
             accessibility.insert(memory, level);
         }

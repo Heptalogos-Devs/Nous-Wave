@@ -1,0 +1,113 @@
+use crate::{ConfigRegistry, ConfigSource};
+use nous_core::{Error, Result, SubjectId};
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+use std::{collections::BTreeMap, fmt, sync::Arc};
+
+#[derive(Debug, Clone)]
+pub struct ResolvedConfigValue {
+    pub json: Value,
+    pub source: ConfigSource,
+}
+
+#[derive(Clone)]
+pub struct ConfigSnapshot {
+    pub subject_id: Option<SubjectId>,
+    pub revision: i64,
+    pub registry_digest: String,
+    pub effective_digest: String,
+    values: Arc<BTreeMap<String, ResolvedConfigValue>>,
+    registry: ConfigRegistry,
+}
+
+impl fmt::Debug for ConfigSnapshot {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ConfigSnapshot")
+            .field("subject_id", &self.subject_id)
+            .field("revision", &self.revision)
+            .field("registry_digest", &self.registry_digest)
+            .field("effective_digest", &self.effective_digest)
+            .field("values", &self.values)
+            .finish()
+    }
+}
+
+impl ConfigSnapshot {
+    pub(crate) fn new(
+        subject_id: Option<SubjectId>,
+        revision: i64,
+        registry: ConfigRegistry,
+        values: BTreeMap<String, ResolvedConfigValue>,
+    ) -> Result<Self> {
+        let digest_input = values
+            .iter()
+            .map(|(key, value)| serde_json::json!({"key": key, "value": value.json}))
+            .collect::<Vec<_>>();
+        let effective_digest = blake3::hash(
+            serde_json::to_string(&(registry.digest(), &digest_input))
+                .map_err(|error| Error::Internal(error.to_string()))?
+                .as_bytes(),
+        )
+        .to_hex()
+        .to_string();
+        Ok(Self {
+            subject_id,
+            revision,
+            registry_digest: registry.digest().to_owned(),
+            effective_digest,
+            values: Arc::new(values),
+            registry,
+        })
+    }
+
+    pub fn get<T>(&self, key: crate::ConfigKey<T>) -> Result<T>
+    where
+        T: DeserializeOwned + 'static,
+    {
+        self.get_path(key.path())
+    }
+
+    pub fn get_path<T>(&self, path: &str) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        let value = self
+            .values
+            .get(path)
+            .ok_or_else(|| Error::Internal(format!("configuration key is not resolved: {path}")))?;
+        serde_json::from_value(value.json.clone())
+            .map_err(|error| Error::Internal(format!("resolved configuration {path}: {error}")))
+    }
+
+    pub fn json(&self, path: &str) -> Option<&Value> {
+        self.values.get(path).map(|value| &value.json)
+    }
+
+    pub fn source(&self, path: &str) -> Option<ConfigSource> {
+        self.values.get(path).map(|value| value.source)
+    }
+
+    pub fn digest_for(&self, keys: &[&str]) -> Result<String> {
+        let values = keys
+            .iter()
+            .map(|key| {
+                let value = self.json(key).ok_or_else(|| {
+                    Error::Invalid(format!("configuration key is not resolved: {key}"))
+                })?;
+                Ok(serde_json::json!({"key": key, "value": value}))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(blake3::hash(
+            serde_json::to_string(&values)
+                .map_err(|error| Error::Internal(error.to_string()))?
+                .as_bytes(),
+        )
+        .to_hex()
+        .to_string())
+    }
+
+    pub fn descriptors(&self) -> impl Iterator<Item = &crate::ConfigDescriptor> {
+        self.registry.descriptors()
+    }
+}

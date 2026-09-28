@@ -1,45 +1,46 @@
 use crate::lane::{LaneCandidate, LaneOutput, LaneStatus};
+use crate::query_materialization::*;
 use crate::query_support::resolve_memory_references;
 use crate::schema_lane::final_schema_revision_states;
 use crate::schema_lane::schema_direct_lane;
 use crate::topology_lane::topology_ranks;
 use crate::*;
 use async_trait::async_trait;
-use nous_cognitive_retrieval::{CandidateRankInput, rank_candidates};
+use nous_cognitive_retrieval::{CandidateRankInput, RankedCandidate};
 use nous_cognitive_runtime::{BoundQuery, CognitiveContributor, QueryPlan};
 use nous_serving::TextEmbeddingRequest;
 use sqlx::Row;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use uuid::Uuid;
 #[derive(Debug, Clone)]
-struct Candidate {
-    view: MemoryView,
-    lane_ranks: HashMap<EvidenceFamily, usize>,
-    variants: Vec<String>,
+pub(super) struct Candidate {
+    pub(super) view: MemoryView,
+    pub(super) lane_ranks: HashMap<EvidenceFamily, usize>,
+    pub(super) variants: Vec<String>,
 }
 #[derive(Debug, Clone)]
-struct FinalMemoryState {
-    current_revision_id: MemoryRevisionId,
-    object_epoch: i64,
-    acceptance_state: AcceptanceState,
-    integrity_state: IntegrityState,
-    suppression_state: SuppressionState,
-    purge_state: PurgeState,
-    accessibility_mode: AccessibilityMode,
+pub(super) struct FinalMemoryState {
+    pub(super) current_revision_id: MemoryRevisionId,
+    pub(super) object_epoch: i64,
+    pub(super) acceptance_state: AcceptanceState,
+    pub(super) integrity_state: IntegrityState,
+    pub(super) suppression_state: SuppressionState,
+    pub(super) purge_state: PurgeState,
+    pub(super) accessibility_mode: AccessibilityMode,
 }
 
-#[async_trait]
-impl CognitiveContributor for MemoryService {
+impl MemoryService {
     #[expect(
         clippy::too_many_lines,
         reason = "query contribution owns the bounded lane pipeline and final validation"
     )]
-    async fn contribute(
+    async fn legacy_contribute(
         &self,
         bound: &BoundQuery,
         plan: &QueryPlan,
     ) -> Result<CognitiveQueryResult> {
         let query = &bound.source_query;
+        let accessibility_policy = resolve_accessibility_policy(&bound.config_snapshot)?;
         let snapshot = self.serving.publisher.snapshot_for(query.subject);
         let mut selected = BTreeMap::<Uuid, Uuid>::new();
         let mut lane_ranks = BTreeMap::<Uuid, HashMap<EvidenceFamily, usize>>::new();
@@ -141,7 +142,7 @@ impl CognitiveContributor for MemoryService {
 
         let selected_revisions = selected.keys().copied().collect::<Vec<_>>();
         let materialized = self
-            .memories_for_query(query.subject, &selected_revisions)
+            .memories_for_query(query.subject, &selected_revisions, &accessibility_policy)
             .await?;
         let mut candidates = Vec::new();
         for (revision_id, _memory_id) in selected {
@@ -182,7 +183,39 @@ impl CognitiveContributor for MemoryService {
                 variants: candidate.variants.clone(),
             })
             .collect::<Vec<_>>();
-        let ranked = rank_candidates(&rank_inputs, &bound.enabled_lanes);
+        let mut ranked = rank_inputs
+            .into_iter()
+            .map(|candidate| {
+                let mut families = candidate.family_ranks.keys().copied().collect::<Vec<_>>();
+                families.sort();
+                let best_lane_rank = candidate
+                    .family_ranks
+                    .values()
+                    .copied()
+                    .min()
+                    .unwrap_or(usize::MAX);
+                let score = if best_lane_rank == usize::MAX {
+                    0.0
+                } else {
+                    1.0 / (best_lane_rank as f64)
+                };
+                RankedCandidate {
+                    reference: candidate.reference,
+                    baseline_score: score,
+                    final_score: score,
+                    best_lane_rank,
+                    exact_match: candidate.family_ranks.contains_key(&EvidenceFamily::Exact),
+                    families,
+                    variants: candidate.variants,
+                }
+            })
+            .collect::<Vec<_>>();
+        ranked.sort_by(|left, right| {
+            right
+                .final_score
+                .total_cmp(&left.final_score)
+                .then_with(|| left.reference.to_string().cmp(&right.reference.to_string()))
+        });
         let candidates_by_ref = candidates.into_iter().collect::<HashMap<_, _>>();
         let validation_bound = plan.final_validation_budget.min(ranked.len());
         let validation_refs = ranked
@@ -338,6 +371,74 @@ impl CognitiveContributor for MemoryService {
             degradation,
             diagnostics: (query.diagnostics != DiagnosticsRequest::None).then_some(diagnostics),
         })
+    }
+}
+
+#[async_trait]
+impl CognitiveContributor for MemoryService {
+    fn owns(&self, reference: &CognitiveRef) -> bool {
+        matches!(
+            reference,
+            CognitiveRef::Memory(_)
+                | CognitiveRef::MemoryRevision(_)
+                | CognitiveRef::CognitiveSchema(_)
+                | CognitiveRef::CognitiveSchemaRevision(_)
+        )
+    }
+
+    async fn direct_lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
+        let result = self.legacy_contribute(bound, plan).await?;
+        let mut outputs = BTreeMap::<EvidenceFamily, LaneOutput>::new();
+        for hit in result.results {
+            for family in &hit.match_evidence.families {
+                let output = outputs
+                    .entry(*family)
+                    .or_insert_with(|| LaneOutput::empty(*family, LaneStatus::Ready));
+                output.candidates.push(LaneCandidate {
+                    reference: hit.reference.clone(),
+                    rank: hit.match_evidence.best_lane_rank,
+                    variants: hit.match_evidence.variants.clone(),
+                    provider_metadata: serde_json::Value::Null,
+                });
+            }
+        }
+        if let Some(diagnostics) = result.diagnostics {
+            let output = outputs
+                .entry(EvidenceFamily::Exact)
+                .or_insert_with(|| LaneOutput::empty(EvidenceFamily::Exact, LaneStatus::Ready));
+            for (reason, count) in diagnostics.candidate_counts {
+                if reason.starts_with("drop_") {
+                    output.diagnostics.push(format!("drop:{reason}={count}"));
+                }
+            }
+        }
+        Ok(outputs.into_values().collect())
+    }
+
+    async fn validate_and_materialize(
+        &self,
+        _subject: SubjectId,
+        references: &[CognitiveRef],
+        bound: &BoundQuery,
+    ) -> Result<(Vec<CognitiveHit>, BTreeMap<String, usize>)> {
+        let result = self
+            .legacy_contribute(bound, &QueryPlan::for_bound_query(bound))
+            .await?;
+        let drops = result
+            .diagnostics
+            .as_ref()
+            .map(|value| value.candidate_counts.clone())
+            .unwrap_or_default();
+        let hits = result
+            .results
+            .into_iter()
+            .filter(|hit| references.contains(&hit.reference))
+            .map(|mut hit| {
+                hit.match_evidence = MatchEvidence::default();
+                hit
+            })
+            .collect();
+        Ok((hits, drops))
     }
 }
 
@@ -688,281 +789,4 @@ async fn runtime_lane(
         .candidates
         .truncate(plan.lane_budget(EvidenceFamily::Runtime));
     Ok(output)
-}
-
-async fn apply_lane_output(
-    service: &MemoryService,
-    subject: SubjectId,
-    output: LaneOutput,
-    selected: &mut BTreeMap<Uuid, Uuid>,
-    lane_ranks: &mut BTreeMap<Uuid, HashMap<EvidenceFamily, usize>>,
-    variants: &mut BTreeMap<Uuid, Vec<String>>,
-) -> Result<()> {
-    let references = output
-        .candidates
-        .iter()
-        .map(|candidate| candidate.reference.clone())
-        .collect::<Vec<_>>();
-    let resolved = resolve_memory_references(service, subject, &references).await?;
-    for candidate in output.candidates {
-        let Some((memory_id, revision_id)) = resolved.get(&candidate.reference).copied() else {
-            continue;
-        };
-        selected.insert(revision_id.0, memory_id.0);
-        lane_ranks
-            .entry(revision_id.0)
-            .or_default()
-            .insert(output.family, candidate.rank as usize);
-        variants
-            .entry(revision_id.0)
-            .or_default()
-            .extend(candidate.variants);
-    }
-    Ok(())
-}
-
-async fn final_memory_states(
-    service: &MemoryService,
-    subject: SubjectId,
-    revisions: &[Uuid],
-) -> Result<HashMap<Uuid, FinalMemoryState>> {
-    if revisions.is_empty() {
-        return Ok(HashMap::new());
-    }
-    let rows = sqlx::query(
-        "SELECT r.memory_revision_id,o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,o.accessibility_mode FROM memory_revisions r JOIN memory_objects o USING(memory_id) WHERE r.subject_id=$1 AND r.memory_revision_id=ANY($2::uuid[])",
-    )
-    .bind(subject.0)
-    .bind(revisions)
-    .fetch_all(service.store.pool())
-    .await
-    .map_err(nous_authority_store::database_error)?;
-    rows.into_iter()
-        .map(|row| {
-            let revision: Uuid = row
-                .try_get("memory_revision_id")
-                .map_err(nous_authority_store::database_error)?;
-            Ok((
-                revision,
-                FinalMemoryState {
-                    current_revision_id: MemoryRevisionId(
-                        row.try_get("current_revision_id")
-                            .map_err(nous_authority_store::database_error)?,
-                    ),
-                    object_epoch: row
-                        .try_get("object_epoch")
-                        .map_err(nous_authority_store::database_error)?,
-                    acceptance_state: parse_enum(
-                        row.try_get("acceptance_state")
-                            .map_err(nous_authority_store::database_error)?,
-                        "acceptance state",
-                    )?,
-                    integrity_state: parse_enum(
-                        row.try_get("integrity_state")
-                            .map_err(nous_authority_store::database_error)?,
-                        "integrity state",
-                    )?,
-                    suppression_state: parse_enum(
-                        row.try_get("suppression_state")
-                            .map_err(nous_authority_store::database_error)?,
-                        "suppression state",
-                    )?,
-                    purge_state: parse_enum(
-                        row.try_get("purge_state")
-                            .map_err(nous_authority_store::database_error)?,
-                        "purge state",
-                    )?,
-                    accessibility_mode: parse_enum(
-                        row.try_get("accessibility_mode")
-                            .map_err(nous_authority_store::database_error)?,
-                        "accessibility mode",
-                    )?,
-                },
-            ))
-        })
-        .collect()
-}
-
-fn final_state_filter(
-    query: &CognitiveQuery,
-    candidate: &Candidate,
-    state: &FinalMemoryState,
-    exact: bool,
-    historical: bool,
-) -> bool {
-    if !matches!(state.purge_state, PurgeState::Normal) {
-        return false;
-    }
-    if !historical
-        && (!matches!(state.acceptance_state, AcceptanceState::Accepted)
-            || !matches!(state.integrity_state, IntegrityState::Valid)
-            || !matches!(state.suppression_state, SuppressionState::Normal))
-    {
-        return false;
-    }
-    if !hard_filter(query, &candidate.view, exact, historical) {
-        return false;
-    }
-    let level = match state.accessibility_mode {
-        AccessibilityMode::Normal => AccessibilityLevel::Normal,
-        AccessibilityMode::Deep => AccessibilityLevel::Deep,
-        AccessibilityMode::Explicit => AccessibilityLevel::Explicit,
-        AccessibilityMode::Auto => candidate.view.accessibility_level,
-    };
-    accessibility_eligible(level, query.effort, exact || historical)
-}
-
-fn to_hit(
-    query: &CognitiveQuery,
-    candidate: &Candidate,
-    ranked: &nous_cognitive_retrieval::RankedCandidate,
-) -> CognitiveHit {
-    CognitiveHit {
-        reference: ranked.reference.clone(),
-        revision: Some(CognitiveRef::MemoryRevision(
-            candidate.view.revision.memory_revision_id,
-        )),
-        semantic_role: Some(candidate.view.revision.semantic_role.clone()),
-        cognitive_role: Some(candidate.view.object.cognitive_role.as_str().into()),
-        formation_mode: Some(candidate.view.revision.formation_mode.as_str().into()),
-        representation: Some(candidate.view.revision.representation_text.clone()),
-        authority: AuthorityClass::SubjectCognition,
-        freshness: FreshnessDescriptor {
-            observed_at: candidate.view.temporal_evidence.observed_at,
-            valid_time: candidate.view.revision.valid_time.clone(),
-            formed_at: Some(candidate.view.revision.formed_at),
-            recorded_at: Some(candidate.view.revision.recorded_at),
-        },
-        entity_refs: candidate.view.aboutness.clone(),
-        evidence: if query.result_need.need_evidence {
-            candidate
-                .view
-                .supports
-                .iter()
-                .map(|support| match support {
-                    RevisionSupport::Evidence(value) => EvidenceHandle {
-                        reference: value.cognitive_ref(),
-                        support_role: value.support_role.as_str().into(),
-                    },
-                    RevisionSupport::CognitionDependency(value) => EvidenceHandle {
-                        reference: value.target_revision.clone(),
-                        support_role: value.support_role.as_str().into(),
-                    },
-                    RevisionSupport::Seed(value) => EvidenceHandle {
-                        reference: CognitiveRef::CognitiveSeedVersion(*value),
-                        support_role: "seed".into(),
-                    },
-                })
-                .collect()
-        } else {
-            Vec::new()
-        },
-        match_evidence: MatchEvidence {
-            families: ranked.families.clone(),
-            base_rank_score: ranked.baseline_score,
-            best_lane_rank: ranked.best_lane_rank as u32,
-            enabled_lane_count: ranked.families.len() as u32,
-            final_score: ranked.final_score,
-            variants: ranked.variants.clone(),
-            explanation: None,
-        },
-        materialization: Vec::new(),
-    }
-}
-
-fn hard_filter(query: &CognitiveQuery, view: &MemoryView, exact: bool, historical: bool) -> bool {
-    (historical
-        || (matches!(view.object.acceptance_state, AcceptanceState::Accepted)
-            && matches!(view.object.integrity_state, IntegrityState::Valid)
-            && matches!(view.object.suppression_state, SuppressionState::Normal)))
-        && matches!(view.object.purge_state, PurgeState::Normal)
-        && accessibility_eligible(view.accessibility_level, query.effort, exact || historical)
-        && (query.constraints.cognitive_roles_include.is_empty()
-            || query
-                .constraints
-                .cognitive_roles_include
-                .iter()
-                .any(|role| role == view.object.cognitive_role.as_str()))
-        && (query.constraints.formation_modes_include.is_empty()
-            || query
-                .constraints
-                .formation_modes_include
-                .iter()
-                .any(|mode| mode == view.revision.formation_mode.as_str()))
-        && query
-            .constraints
-            .entity_requirements
-            .iter()
-            .all(|entity| view.aboutness.contains(entity))
-        && query
-            .constraints
-            .authority
-            .is_none_or(|value| value == AuthorityClass::SubjectCognition)
-        && (query.constraints.source_classes_include.is_empty()
-            || query
-                .constraints
-                .source_classes_include
-                .iter()
-                .any(|value| view.source_classes.contains(value)))
-        && !query
-            .constraints
-            .source_classes_exclude
-            .iter()
-            .any(|value| view.source_classes.contains(value))
-        && (query.constraints.modalities.is_empty()
-            || query.constraints.modalities.contains(&Modality::Text))
-        && (query.constraints.evidence_classes.is_empty()
-            || query.constraints.evidence_classes.iter().any(|value| {
-                format!("{:?}", view.revision.epistemic_class).to_lowercase() == *value
-            }))
-        && temporal_match(query, view)
-}
-
-fn temporal_match(query: &CognitiveQuery, view: &MemoryView) -> bool {
-    query
-        .constraints
-        .valid
-        .is_none_or(|interval| view.revision.valid_time.overlaps_interval(&interval))
-        && query.constraints.occurred.is_none_or(|interval| {
-            view.temporal_evidence
-                .occurred
-                .iter()
-                .any(|value| value.overlaps_interval(&interval))
-        })
-        && query.constraints.observed.is_none_or(|interval| {
-            view.temporal_evidence
-                .observed_at
-                .is_some_and(|value| interval.contains(value))
-        })
-}
-
-fn text_query(query: &CognitiveQuery) -> String {
-    query
-        .cues
-        .iter()
-        .filter_map(|cue| match cue {
-            Cue::Text(value) => Some(value.text.as_str()),
-            Cue::Example(value) => Some(value.text.as_str()),
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn increment_drop(counts: &mut BTreeMap<String, usize>, reason: &str) {
-    *counts.entry(reason.into()).or_default() += 1;
-}
-
-fn lifecycle_drop_reason(state: &FinalMemoryState) -> String {
-    if !matches!(state.acceptance_state, AcceptanceState::Accepted) {
-        "withdrawn".into()
-    } else if !matches!(state.integrity_state, IntegrityState::Valid) {
-        "revalidation_required".into()
-    } else if !matches!(state.suppression_state, SuppressionState::Normal) {
-        "suppressed".into()
-    } else if !matches!(state.purge_state, PurgeState::Normal) {
-        "purging".into()
-    } else {
-        "accessibility".into()
-    }
 }

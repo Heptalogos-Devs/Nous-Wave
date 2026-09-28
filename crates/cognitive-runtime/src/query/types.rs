@@ -24,6 +24,8 @@ pub struct BoundQuery {
     pub topology_required: bool,
     pub fusion_version: String,
     pub rerank_policy: RerankPolicy,
+    pub config_snapshot: nous_configuration_service::ConfigSnapshot,
+    pub retrieval_policy: nous_cognitive_retrieval::RetrievalPolicy,
 }
 
 #[derive(Debug, Clone)]

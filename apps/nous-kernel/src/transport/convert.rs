@@ -115,10 +115,12 @@ pub fn support(value: p::RevisionSupport) -> Result<RevisionSupport> {
                 support_role: enum_value(&value.support_role)?,
             }))
         }
-        p::revision_support::Support::SeedVersion(value) => {
-            let reference = from_ref(value)?;
+        p::revision_support::Support::Seed(value) => {
+            let reference = from_ref(required(value.seed_version, "seed_version")?)?;
             match reference {
-                CognitiveRef::CognitiveSeedVersion(id) => Ok(RevisionSupport::Seed(id)),
+                CognitiveRef::CognitiveSeedVersion(id) => Ok(RevisionSupport::Seed(
+                    nous_core::SeedSupportRef::new(id, value.semantic_path)?,
+                )),
                 _ => Err(Error::Invalid(
                     "seed support must target a Cognitive Seed version".into(),
                 )),
@@ -154,9 +156,12 @@ pub fn support_proto(value: RevisionSupport) -> p::RevisionSupport {
                 support_role: enum_name(value.support_role),
             })
         }
-        RevisionSupport::Seed(value) => p::revision_support::Support::SeedVersion(to_ref(
-            CognitiveRef::CognitiveSeedVersion(value),
-        )),
+        RevisionSupport::Seed(value) => p::revision_support::Support::Seed(p::SeedSupportRef {
+            seed_version: Some(to_ref(CognitiveRef::CognitiveSeedVersion(
+                value.seed_version_id,
+            ))),
+            semantic_path: value.semantic_path,
+        }),
     };
     p::RevisionSupport {
         support: Some(support),

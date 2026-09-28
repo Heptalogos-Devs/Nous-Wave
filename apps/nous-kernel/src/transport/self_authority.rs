@@ -109,9 +109,8 @@ impl KernelService {
         input: p::CreateSelfFacetRequest,
     ) -> Result<p::SelfFacet> {
         let subject = SubjectId(id(&input.subject_id)?);
-        let value = self
-            .0
-            .self_cognition
+        let service = self.0.require_self()?;
+        let value = service
             .create_facet(CreateSelfFacet {
                 operation_id: OperationId(id(&input.operation_id)?),
                 subject,
@@ -134,9 +133,9 @@ impl KernelService {
     }
 
     pub(super) async fn get_self_facet(&self, input: p::ObjectRequest) -> Result<p::SelfFacet> {
+        let service = self.0.require_self()?;
         Ok(facet_view(
-            self.0
-                .self_cognition
+            service
                 .facet(
                     SubjectId(id(&input.subject_id)?),
                     nous_core::SelfFacetId(id(&input.id)?),
@@ -149,9 +148,8 @@ impl KernelService {
         &self,
         input: p::ReviseSelfFacetRequest,
     ) -> Result<p::SelfFacet> {
-        let value = self
-            .0
-            .self_cognition
+        let service = self.0.require_self()?;
+        let value = service
             .revise_facet(ReviseSelfFacet {
                 operation_id: OperationId(id(&input.operation_id)?),
                 subject: SubjectId(id(&input.subject_id)?),
@@ -177,7 +175,7 @@ impl KernelService {
 
     pub(super) async fn mutate_self_lifecycle(&self, input: p::SelfLifecycleRequest) -> Result<()> {
         self.0
-            .self_cognition
+            .require_self()?
             .lifecycle(MutateSelfLifecycle {
                 operation_id: OperationId(id(&input.operation_id)?),
                 subject: SubjectId(id(&input.subject_id)?),
@@ -192,9 +190,8 @@ impl KernelService {
         &self,
         input: p::CreateNarrativeIdentityRequest,
     ) -> Result<p::NarrativeIdentity> {
-        let value = self
-            .0
-            .self_cognition
+        let service = self.0.require_self()?;
+        let value = service
             .create_narrative(CreateNarrativeIdentity {
                 operation_id: OperationId(id(&input.operation_id)?),
                 subject: SubjectId(id(&input.subject_id)?),
@@ -218,9 +215,9 @@ impl KernelService {
         &self,
         input: p::ObjectRequest,
     ) -> Result<p::NarrativeIdentity> {
+        let service = self.0.require_self()?;
         Ok(narrative_view(
-            self.0
-                .self_cognition
+            service
                 .narrative(
                     SubjectId(id(&input.subject_id)?),
                     nous_core::NarrativeIdentityId(id(&input.id)?),
@@ -233,9 +230,8 @@ impl KernelService {
         &self,
         input: p::ReviseNarrativeIdentityRequest,
     ) -> Result<p::NarrativeIdentity> {
-        let value = self
-            .0
-            .self_cognition
+        let service = self.0.require_self()?;
+        let value = service
             .revise_narrative(ReviseNarrativeIdentity {
                 operation_id: OperationId(id(&input.operation_id)?),
                 subject: SubjectId(id(&input.subject_id)?),

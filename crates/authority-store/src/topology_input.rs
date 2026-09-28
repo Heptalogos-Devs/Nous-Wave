@@ -49,6 +49,8 @@ impl AuthorityStore {
         &self,
         subject: SubjectId,
         memory_enabled: bool,
+        self_enabled: bool,
+        social_enabled: bool,
     ) -> Result<TopologyProjectionInput> {
         let mut tx = self.begin().await?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -58,6 +60,7 @@ impl AuthorityStore {
         let watermark = watermark(&mut tx, subject, "topology", "").await?;
         let mut nodes = HashSet::new();
         let mut edges = Vec::new();
+        let _ = (self_enabled, social_enabled);
         if memory_enabled {
             let sources = crate::projection_input::memory_sources(&mut tx, subject).await?;
             for source in sources {

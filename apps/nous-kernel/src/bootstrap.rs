@@ -9,16 +9,27 @@ use std::{
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Config {
+    bootstrap: BootstrapConfig,
     #[serde(default)]
-    accessibility: nous_memory_service::AccessibilityPolicy,
-    stored_embedding: Option<nous_serving::StoredEmbeddingConfig>,
+    settings: Option<toml::Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BootstrapConfig {
     server: ServerConfig,
-    #[serde(default = "default_true")]
-    memory_enabled: bool,
     database: DatabaseConfig,
     object_store: ObjectStoreConfig,
+    serving: ServingBootstrapConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ServingBootstrapConfig {
+    #[serde(default = "default_serving_root")]
+    root: String,
     #[serde(default)]
-    retrieval: RetrievalConfig,
+    stored_embedding: Option<nous_serving::StoredEmbeddingConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -83,40 +94,8 @@ fn default_upload_limit() -> u64 {
     8 * 1024 * 1024 * 1024
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RetrievalConfig {
-    #[serde(default = "default_resident_limit")]
-    resident_limit: usize,
-    #[serde(default = "default_serving_root")]
-    root: String,
-    #[serde(default = "default_true")]
-    lexical_enabled: bool,
-    #[serde(default = "default_true")]
-    dense_enabled: bool,
-    #[serde(default = "default_true")]
-    topology_enabled: bool,
-}
 fn default_serving_root() -> String {
     "./data/serving".into()
-}
-fn default_true() -> bool {
-    true
-}
-impl Default for RetrievalConfig {
-    fn default() -> Self {
-        Self {
-            resident_limit: 256,
-            root: default_serving_root(),
-            lexical_enabled: true,
-            dense_enabled: true,
-            topology_enabled: true,
-        }
-    }
-}
-
-fn default_resident_limit() -> usize {
-    256
 }
 
 pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
@@ -125,39 +104,44 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
         .map_err(|e| Error::Invalid(e.to_string()))?;
     let mut config: Config = toml::from_str(&text).map_err(|e| Error::Invalid(e.to_string()))?;
     if let Ok(url) = std::env::var("NOUS_WAVE_POSTGRES_URL") {
-        config.database.mode = "external".into();
-        config.database.url = url;
+        config.bootstrap.database.mode = "external".into();
+        config.bootstrap.database.url = url;
     }
-    if config.server.remote_access || !config.server.bind.ip().is_loopback() {
+    if config.bootstrap.server.remote_access || !config.bootstrap.server.bind.ip().is_loopback() {
         return Err(Error::Invalid("loopback binding required".into()));
     }
-    if config.object_store.backend != "fs" {
+    if config.bootstrap.object_store.backend != "fs" {
         return Err(Error::Invalid("object store backend must be fs".into()));
     }
     let absolute = std::path::absolute(path).map_err(|e| Error::Invalid(e.to_string()))?;
     let root = absolute
         .parent()
         .ok_or_else(|| Error::Invalid("config parent required".into()))?;
-    let (postgres_url, managed) = open_database(root, &config.database).await?;
+    let (postgres_url, managed) = open_database(root, &config.bootstrap.database).await?;
     let result = NousRuntime::open(RuntimeOptions {
-        accessibility_policy: config.accessibility,
         postgres_url,
-        max_connections: config.database.max_connections,
-        object_root: resolve_path(root, &config.object_store.root)
+        max_connections: config.bootstrap.database.max_connections,
+        object_root: resolve_path(root, &config.bootstrap.object_store.root)
             .to_string_lossy()
             .into_owned(),
-        max_upload_bytes: config.object_store.max_upload_bytes,
-        resident_limit: config.retrieval.resident_limit,
-        memory_enabled: config.memory_enabled,
+        max_upload_bytes: config.bootstrap.object_store.max_upload_bytes,
         serving_options: nous_serving::ServingOptions {
-            root: resolve_path(root, &config.retrieval.root),
-            lexical: config.retrieval.lexical_enabled,
-            dense: config.retrieval.dense_enabled,
-            topology: config.retrieval.topology_enabled,
-            memory_enabled: config.memory_enabled,
+            root: resolve_path(root, &config.bootstrap.serving.root),
+            lexical: true,
+            dense: true,
+            topology: true,
+            memory_enabled: true,
+            self_enabled: false,
+            social_enabled: false,
         },
         embedding: None,
-        stored_embedding: config.stored_embedding,
+        stored_embedding: config.bootstrap.serving.stored_embedding,
+        deployment_settings: serde_json::to_value(
+            config
+                .settings
+                .unwrap_or_else(|| toml::Value::Table(Default::default())),
+        )
+        .map_err(|error| Error::Invalid(error.to_string()))?,
     })
     .await;
     match result {
