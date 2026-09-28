@@ -3,6 +3,7 @@ use crate::{
     build::{DenseManifest, implementation},
     *,
 };
+use sqlx::Row;
 use std::path::Path;
 
 pub(crate) enum OpenArtifact {
@@ -13,13 +14,14 @@ pub(crate) enum OpenArtifact {
 }
 
 impl ServingService {
-    pub(crate) fn config_digest(
+    pub(crate) async fn config_digest(
         &self,
-        _subject: SubjectId,
+        subject: SubjectId,
         family: &str,
         snapshot: &nous_configuration_service::ConfigSnapshot,
     ) -> Result<String> {
-        let mut config = serde_json::json!({"schema":1,"memory_enabled":self.options.memory_enabled,"self_enabled":self.options.self_enabled,"social_enabled":self.options.social_enabled});
+        let capabilities = self.projection_capabilities(subject).await?;
+        let mut config = serde_json::json!({"schema":1,"memory_enabled":capabilities.memory,"self_enabled":capabilities.self_cognition,"social_enabled":capabilities.social});
         if family == "topology" {
             config["propagation"] = serde_json::to_value(resolve_wave_config(snapshot)?)
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
@@ -65,6 +67,34 @@ impl ServingService {
         };
         config["policy_digest"] = serde_json::Value::String(snapshot.digest_for(keys)?);
         digest(&config)
+    }
+
+    pub(crate) async fn projection_capabilities(
+        &self,
+        subject: SubjectId,
+    ) -> Result<ProjectionCapabilities> {
+        let row = sqlx::query(
+            "SELECT memory,self_cognition,social FROM subject_capabilities WHERE subject_id=$1",
+        )
+        .bind(subject.0)
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(nous_authority_store::database_error)?
+        .ok_or_else(|| Error::NotFound("subject capabilities not found".into()))?;
+        Ok(ProjectionCapabilities {
+            memory: self.options.memory_enabled
+                && row
+                    .try_get("memory")
+                    .map_err(nous_authority_store::database_error)?,
+            self_cognition: self.options.self_enabled
+                && row
+                    .try_get("self_cognition")
+                    .map_err(nous_authority_store::database_error)?,
+            social: self.options.social_enabled
+                && row
+                    .try_get("social")
+                    .map_err(nous_authority_store::database_error)?,
+        })
     }
 
     /// Prepare only the serving families required by one semantic query.
@@ -117,7 +147,11 @@ impl ServingService {
                 .store
                 .projection_watermark(subject, family, &space)
                 .await?;
-            let compatible = existing.filter(|record| self.compatible(record, snapshot));
+            let compatible = if let Some(record) = existing {
+                self.compatible(record, snapshot).await.then_some(record)
+            } else {
+                None
+            };
             if let Some(record) = compatible
                 .filter(|record| record.authority_watermark >= watermark && self.loaded(record))
             {
@@ -195,7 +229,7 @@ impl ServingService {
         Ok(record)
     }
 
-    fn compatible(
+    async fn compatible(
         &self,
         record: &ServingRecord,
         snapshot: &nous_configuration_service::ConfigSnapshot,
@@ -210,12 +244,10 @@ impl ServingService {
                 .get("implementation_revision")
                 .and_then(|v| v.as_u64())
                 == Some(1);
-        if record.family == "dense" && self.embedding.is_none() {
-            return identity;
-        }
         identity
             && self
                 .config_digest(record.subject, &record.family, snapshot)
+                .await
                 .ok()
                 .as_deref()
                 == record

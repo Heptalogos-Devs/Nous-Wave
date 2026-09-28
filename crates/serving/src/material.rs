@@ -107,15 +107,16 @@ impl ServingService {
             .ok_or_else(|| Error::Unavailable("embedding space not configured".into()))?;
         let config = provider.space();
         let producer = provider.producer();
+        let capabilities = self.projection_capabilities(subject).await?;
         let input = self
             .store
             .text_projection_input(
                 subject,
                 "dense",
                 &config.space_hash,
-                self.options.memory_enabled,
-                self.options.self_enabled,
-                self.options.social_enabled,
+                capabilities.memory,
+                capabilities.self_cognition,
+                capabilities.social,
             )
             .await?;
         let mut needs = vec![];
@@ -161,15 +162,16 @@ impl ServingService {
                 "embedding material disagrees with configured space/producer".into(),
             ));
         }
+        let input = self.projection_capabilities(subject).await?;
         let input = self
             .store
             .text_projection_input(
                 subject,
                 "dense",
                 space,
-                self.options.memory_enabled,
-                self.options.self_enabled,
-                self.options.social_enabled,
+                input.memory,
+                input.self_cognition,
+                input.social,
             )
             .await?;
         let exists = self

@@ -1,52 +1,9 @@
 use crate::{BoundQuery, CognitiveRuntimeService, QueryPlan};
-use nous_cognitive_retrieval::{CandidateRankInput, rank_candidates_with_policy};
+use nous_cognitive_retrieval::{
+    CandidateRankInput, LaneCandidate, LaneOutput, LaneStatus, rank_candidates_with_policy,
+};
 use nous_core::*;
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum LaneStatus {
-    Disabled,
-    Ready,
-    Stale,
-    Unavailable,
-    Truncated,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LaneCandidate {
-    pub reference: CognitiveRef,
-    pub rank: u32,
-    #[serde(default)]
-    pub variants: Vec<String>,
-    #[serde(default)]
-    pub provider_metadata: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LaneOutput {
-    pub family: EvidenceFamily,
-    pub status: LaneStatus,
-    pub generation_ref: Option<ServingGenerationId>,
-    pub authority_watermark: Option<i64>,
-    pub candidates: Vec<LaneCandidate>,
-    #[serde(default)]
-    pub diagnostics: Vec<String>,
-}
-
-impl LaneOutput {
-    pub fn empty(family: EvidenceFamily, status: LaneStatus) -> Self {
-        Self {
-            family,
-            status,
-            generation_ref: None,
-            authority_watermark: None,
-            candidates: Vec::new(),
-            diagnostics: Vec::new(),
-        }
-    }
-}
 
 #[async_trait::async_trait]
 pub trait CognitiveContributor: Send + Sync {
@@ -62,9 +19,18 @@ pub trait CognitiveContributor: Send + Sync {
     ) -> Result<(Vec<CognitiveHit>, BTreeMap<String, usize>)>;
 }
 
+/// Shared Serving owns projection-backed lexical/dense/topology lanes. Domain
+/// owners receive the resulting references and only validate/materialize their
+/// own Authority objects after the runtime performs one fusion.
+#[async_trait::async_trait]
+pub trait SharedLaneProvider: Send + Sync {
+    async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>>;
+}
+
 /// The current fixed cognition-owner set. Adding an owner is a compile-time
 /// composition change; callers do not discover domains dynamically.
 pub struct CognitiveContributors<'a> {
+    pub shared: Option<&'a dyn SharedLaneProvider>,
     pub memory: Option<&'a dyn CognitiveContributor>,
     pub self_cognition: Option<&'a dyn CognitiveContributor>,
     pub social: Option<&'a dyn CognitiveContributor>,
@@ -102,6 +68,9 @@ impl CognitiveRuntimeService {
             diagnostics: None,
         };
         let mut lane_outputs = Vec::new();
+        if let Some(shared) = contributors.shared {
+            lane_outputs.extend(shared.lanes(&bound, &plan).await?);
+        }
         if let Some(memory) = contributors.memory {
             lane_outputs.extend(memory.direct_lanes(&bound, &plan).await?);
         } else if query
@@ -209,21 +178,35 @@ impl CognitiveRuntimeService {
         let mut by_owner = [Vec::<CognitiveRef>::new(), Vec::new(), Vec::new()];
         let mut generic = Vec::new();
         for candidate in ranked.iter().take(validation_bound) {
-            if contributors
+            let memory_owner = contributors
                 .memory
-                .is_some_and(|owner| owner.owns(&candidate.reference))
-            {
-                by_owner[0].push(candidate.reference.clone());
-            } else if contributors
+                .filter(|owner| owner.owns(&candidate.reference));
+            let self_owner = contributors
                 .self_cognition
-                .is_some_and(|owner| owner.owns(&candidate.reference))
-            {
-                by_owner[1].push(candidate.reference.clone());
-            } else if contributors
+                .filter(|owner| owner.owns(&candidate.reference));
+            let social_owner = contributors
                 .social
-                .is_some_and(|owner| owner.owns(&candidate.reference))
-            {
+                .filter(|owner| owner.owns(&candidate.reference));
+            let owner_count = usize::from(memory_owner.is_some())
+                + usize::from(self_owner.is_some())
+                + usize::from(social_owner.is_some());
+            if owner_count > 1 {
+                return Err(Error::Infrastructure(format!(
+                    "multiple cognition owners claim {}",
+                    candidate.reference
+                )));
+            }
+            if memory_owner.is_some() {
+                by_owner[0].push(candidate.reference.clone());
+            } else if self_owner.is_some() {
+                by_owner[1].push(candidate.reference.clone());
+            } else if social_owner.is_some() {
                 by_owner[2].push(candidate.reference.clone());
+            } else if is_persistent_cognition(&candidate.reference) {
+                return Err(Error::Unavailable(format!(
+                    "no cognition owner is available for {}",
+                    candidate.reference
+                )));
             } else {
                 generic.push(candidate.reference.clone());
             }
@@ -260,6 +243,18 @@ impl CognitiveRuntimeService {
         }
         for binding in &bound.exact_bindings {
             if binding.mutable_object {
+                let owner_validates = contributors
+                    .memory
+                    .is_some_and(|owner| owner.owns(&binding.bound_ref))
+                    || contributors
+                        .self_cognition
+                        .is_some_and(|owner| owner.owns(&binding.bound_ref))
+                    || contributors
+                        .social
+                        .is_some_and(|owner| owner.owns(&binding.bound_ref));
+                if owner_validates {
+                    continue;
+                }
                 let (current, epoch, _) = self
                     .store
                     .bind_exact_reference(query.subject, &binding.requested_ref)
@@ -332,6 +327,24 @@ fn merge_counts(target: &mut BTreeMap<String, usize>, incoming: BTreeMap<String,
     for (key, value) in incoming {
         *target.entry(key).or_default() += value;
     }
+}
+
+fn is_persistent_cognition(reference: &CognitiveRef) -> bool {
+    matches!(
+        reference,
+        CognitiveRef::Memory(_)
+            | CognitiveRef::MemoryRevision(_)
+            | CognitiveRef::CognitiveSchema(_)
+            | CognitiveRef::CognitiveSchemaRevision(_)
+            | CognitiveRef::SelfFacet(_)
+            | CognitiveRef::SelfFacetRevision(_)
+            | CognitiveRef::NarrativeIdentity(_)
+            | CognitiveRef::NarrativeIdentityRevision(_)
+            | CognitiveRef::RelationshipAssertion(_)
+            | CognitiveRef::RelationshipRevision(_)
+            | CognitiveRef::LanguageConvention(_)
+            | CognitiveRef::LanguageConventionRevision(_)
+    )
 }
 
 fn explain_plan(result: &mut CognitiveQueryResult, query: &CognitiveQuery, plan: &QueryPlan) {

@@ -2,6 +2,8 @@
 
 mod persistence;
 mod query;
+mod seed;
+mod views;
 use persistence::*;
 
 use chrono::{DateTime, Utc};
@@ -133,6 +135,10 @@ pub struct RegisterRelationType {
     pub view_semantics: ViewSemantics,
     pub degree_semantics: DegreeSemantics,
     pub temporal_semantics: TemporalSemantics,
+    #[serde(default)]
+    pub source_seed_version_id: Option<CognitiveSeedVersionId>,
+    #[serde(default)]
+    pub source_seed_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -238,104 +244,29 @@ pub struct SocialService {
     pub configuration: nous_configuration_service::ConfigurationService,
 }
 
-impl SocialService {
-    pub async fn import_seed(
-        &self,
-        subject: SubjectId,
-        seed_version_id: CognitiveSeedVersionId,
-        text: &str,
-    ) -> Result<SocialSeedImportResult> {
-        let document = nous_cognitive_seed::parse(text)?;
-        let mut result = SocialSeedImportResult::default();
-        let Some(social) = document.social else {
-            return Ok(result);
-        };
-        for relation in social.relation_types {
-            let path = format!("social.relation-types/{}", relation.key);
-            let operation_id = seed_operation(subject, seed_version_id, &path);
-            let definition = RegisterRelationType {
-                operation_id,
-                subject,
-                key: relation.key,
-                allowed_from_kinds: relation.allowed_from,
-                allowed_to_kinds: relation.allowed_to,
-                view_semantics: seed_view(relation.view, relation.inverse_key)?,
-                degree_semantics: seed_degree(relation.degree)?,
-                temporal_semantics: seed_temporal(&relation.temporal)?,
-            };
-            match self.register_relation_type(definition).await {
-                Ok(_) => result.created.push(path),
-                Err(Error::Conflict(_)) => result.conflicts.push(path),
-                Err(error) => return Err(error),
-            }
-        }
-        for relationship in social.relationships {
-            let path = format!("social.relationships/{}", relationship.key);
-            let operation_id = seed_operation(subject, seed_version_id, &path);
-            let input = CreateRelationship {
-                operation_id,
-                subject,
-                relation_type_key: relationship.relation_type,
-                from: seed_party(relationship.from)?,
-                to: seed_party(relationship.to)?,
-                degree: relationship
-                    .degree
-                    .map(|value| {
-                        serde_json::to_value(value)
-                            .map_err(|error| Error::Invalid(error.to_string()))
-                    })
-                    .transpose()?,
-                epistemic_class: parse_epistemic(&relationship.epistemic)?,
-                valid_time: seed_time(relationship.valid_time)?,
-                formed_at: Utc::now(),
-                supports: vec![RevisionSupport::Seed(SeedSupportRef::new(
-                    seed_version_id,
-                    path.clone(),
-                )?)],
-                producer_signature_id: None,
-            };
-            match self.create_relationship(input).await {
-                Ok(_) => result.created.push(path),
-                Err(Error::Conflict(_)) => result.conflicts.push(path),
-                Err(error) => return Err(error),
-            }
-        }
-        for convention in social.conventions {
-            let path = format!("social.conventions/{}", convention.key);
-            let operation_id = seed_operation(subject, seed_version_id, &path);
-            let input = CreateLanguageConvention {
-                operation_id,
-                subject,
-                key: convention.key,
-                expression: convention.expression,
-                scope: seed_scope(convention.scope)?,
-                context_scope: convention.context,
-                topic_scope: convention.topic,
-                meaning: convention.meaning,
-                pragmatic_role: convention.pragmatic_role,
-                epistemic_class: parse_epistemic(&convention.epistemic)?,
-                valid_time: TemporalExtent::Unknown,
-                formed_at: Utc::now(),
-                supports: vec![RevisionSupport::Seed(SeedSupportRef::new(
-                    seed_version_id,
-                    path.clone(),
-                )?)],
-                formation_evidence: vec![ConventionFormationEvidence {
-                    support_index: 0,
-                    kind: FormationEvidenceKind::SeedDirect,
-                    external_actor: None,
-                }],
-                producer_signature_id: None,
-            };
-            match self.create_language_convention(input).await {
-                Ok(_) => result.created.push(path),
-                Err(Error::Conflict(_)) => result.conflicts.push(path),
-                Err(error) => return Err(error),
-            }
-        }
-        Ok(result)
-    }
+fn relation_type_matches(existing: &RelationTypeDefinition, input: &RegisterRelationType) -> bool {
+    existing.key == input.key
+        && existing.allowed_from_kinds == input.allowed_from_kinds
+        && existing.allowed_to_kinds == input.allowed_to_kinds
+        && existing.view_semantics == input.view_semantics
+        && existing.degree_semantics == input.degree_semantics
+        && existing.temporal_semantics == input.temporal_semantics
+        && existing.source_seed_version_id == input.source_seed_version_id
+        && existing.source_seed_path == input.source_seed_path
+}
 
+fn convention_matches(existing: &SocialConventionView, input: &CreateLanguageConvention) -> bool {
+    existing.convention.key == input.key
+        && existing.convention.expression == input.expression
+        && scope_columns(&existing.convention.scope) == scope_columns(&input.scope)
+        && existing.convention.context_scope == input.context_scope
+        && existing.convention.topic_scope == input.topic_scope
+        && existing.revision.meaning == input.meaning
+        && existing.revision.pragmatic_role == input.pragmatic_role
+        && existing.revision.epistemic_class == input.epistemic_class
+}
+
+impl SocialService {
     pub fn new(
         store: AuthorityStore,
         configuration: nous_configuration_service::ConfigurationService,
@@ -344,6 +275,133 @@ impl SocialService {
             store,
             configuration,
         }
+    }
+
+    async fn relation_type_by_key(
+        &self,
+        subject: SubjectId,
+        key: &str,
+    ) -> Result<Option<RelationTypeDefinition>> {
+        let row = sqlx::query("SELECT relation_type_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,source_seed_version_id,source_seed_path,created_at FROM relation_type_definitions WHERE subject_id=$1 AND key=$2")
+            .bind(subject.0)
+            .bind(key)
+            .fetch_optional(self.store.pool())
+            .await
+            .map_err(db)?;
+        row.map(|value| load_relation_type_row(&value, subject))
+            .transpose()
+    }
+
+    async fn relationship_exists(&self, input: &CreateRelationship) -> Result<bool> {
+        let relation_type = self
+            .relation_type_by_key(input.subject, &input.relation_type_key)
+            .await?
+            .ok_or_else(|| Error::NotFound("relation type not found".into()))?;
+        let (from_kind, from_ref) = party_columns(&input.from);
+        let (to_kind, to_ref) = party_columns(&input.to);
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM relationship_assertions WHERE subject_id=$1 AND relation_type_id=$2 AND from_kind=$3 AND COALESCE(from_entity_ref,'')=COALESCE($4,'') AND to_kind=$5 AND COALESCE(to_entity_ref,'')=COALESCE($6,''))")
+            .bind(input.subject.0)
+            .bind(relation_type.relation_type_id.0)
+            .bind(from_kind)
+            .bind(from_ref)
+            .bind(to_kind)
+            .bind(to_ref)
+            .fetch_one(self.store.pool())
+            .await
+            .map_err(db)
+    }
+
+    async fn relationship_seed_matches(&self, input: &CreateRelationship) -> Result<bool> {
+        let Some(RevisionSupport::Seed(seed)) = input
+            .supports
+            .iter()
+            .find(|support| matches!(support, RevisionSupport::Seed(_)))
+        else {
+            return Ok(true);
+        };
+        let relation_type = self
+            .relation_type_by_key(input.subject, &input.relation_type_key)
+            .await?
+            .ok_or_else(|| Error::NotFound("relation type not found".into()))?;
+        let (from_kind, from_ref) = party_columns(&input.from);
+        let (to_kind, to_ref) = party_columns(&input.to);
+        let relationship_id: Option<Uuid> = sqlx::query_scalar("SELECT relationship_id FROM relationship_assertions WHERE subject_id=$1 AND relation_type_id=$2 AND from_kind=$3 AND COALESCE(from_entity_ref,'')=COALESCE($4,'') AND to_kind=$5 AND COALESCE(to_entity_ref,'')=COALESCE($6,'')")
+            .bind(input.subject.0)
+            .bind(relation_type.relation_type_id.0)
+            .bind(from_kind)
+            .bind(from_ref)
+            .bind(to_kind)
+            .bind(to_ref)
+            .fetch_optional(self.store.pool())
+            .await
+            .map_err(db)?;
+        let Some(relationship_id) = relationship_id else {
+            return Ok(false);
+        };
+        let current: Uuid = sqlx::query_scalar(
+            "SELECT current_revision_id FROM relationship_assertions WHERE subject_id=$1 AND relationship_id=$2",
+        )
+        .bind(input.subject.0)
+        .bind(relationship_id)
+        .fetch_one(self.store.pool())
+        .await
+        .map_err(db)?;
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM relationship_revision_supports WHERE relationship_revision_id=$1 AND support_kind='cognitive_seed_version' AND support_ref=$2 AND seed_path=$3)")
+            .bind(current)
+            .bind(seed.seed_version_id.0.to_string())
+            .bind(&seed.semantic_path)
+            .fetch_one(self.store.pool())
+            .await
+            .map_err(db)
+    }
+
+    async fn convention_by_key(
+        &self,
+        subject: SubjectId,
+        key: &str,
+    ) -> Result<Option<SocialConventionView>> {
+        let id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT convention_id FROM language_conventions WHERE subject_id=$1 AND key=$2",
+        )
+        .bind(subject.0)
+        .bind(key)
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(db)?;
+        if let Some(value) = id {
+            Ok(Some(
+                self.convention(subject, LanguageConventionId(value))
+                    .await?,
+            ))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn convention_seed_matches(
+        &self,
+        subject: SubjectId,
+        key: &str,
+        seed: &SeedSupportRef,
+    ) -> Result<bool> {
+        let revision: Option<Uuid> = sqlx::query_scalar(
+            "SELECT current_revision_id FROM language_conventions WHERE subject_id=$1 AND key=$2",
+        )
+        .bind(subject.0)
+        .bind(key)
+        .fetch_optional(self.store.pool())
+        .await
+        .map_err(db)?;
+        let Some(revision) = revision else {
+            return Ok(false);
+        };
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM language_convention_revision_supports WHERE convention_revision_id=$1 AND support_kind='cognitive_seed_version' AND support_ref=$2 AND seed_path=$3)")
+            .bind(revision)
+            .bind(seed.seed_version_id.0.to_string())
+            .bind(&seed.semantic_path)
+            .fetch_one(self.store.pool())
+            .await
+            .map_err(db)
     }
 
     pub async fn register_relation_type(
@@ -360,6 +418,8 @@ impl SocialService {
             view_semantics: input.view_semantics,
             degree_semantics: input.degree_semantics,
             temporal_semantics: input.temporal_semantics,
+            source_seed_version_id: input.source_seed_version_id,
+            source_seed_path: input.source_seed_path,
             created_at: Utc::now(),
         };
         definition.validate()?;
@@ -376,7 +436,7 @@ impl SocialService {
                 .ok_or_else(|| Error::Infrastructure("Social receipt has no result".into()))?;
             return self.relation_type(input.subject, RelationTypeId(id)).await;
         }
-        let existing = sqlx::query("SELECT relation_type_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,created_at FROM relation_type_definitions WHERE subject_id=$1 AND key=$2")
+        let existing = sqlx::query("SELECT relation_type_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,source_seed_version_id,source_seed_path,created_at FROM relation_type_definitions WHERE subject_id=$1 AND key=$2")
             .bind(input.subject.0).bind(&definition.key).fetch_optional(&mut *tx).await.map_err(db)?;
         if let Some(row) = existing {
             let existing_def = load_relation_type_row(&row, input.subject)?;
@@ -404,8 +464,8 @@ impl SocialService {
         }
         let (view_kind, inverse_key) = view_columns(&definition.view_semantics);
         let (degree_kind, degree_config) = degree_columns(&definition.degree_semantics)?;
-        sqlx::query("INSERT INTO relation_type_definitions(relation_type_id,subject_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
-            .bind(definition.relation_type_id.0).bind(input.subject.0).bind(&definition.key).bind(&definition.allowed_from_kinds).bind(&definition.allowed_to_kinds).bind(view_kind).bind(inverse_key).bind(degree_kind).bind(degree_config).bind(format_temporal(definition.temporal_semantics)).bind(definition.created_at).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO relation_type_definitions(relation_type_id,subject_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,source_seed_version_id,source_seed_path,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
+            .bind(definition.relation_type_id.0).bind(input.subject.0).bind(&definition.key).bind(&definition.allowed_from_kinds).bind(&definition.allowed_to_kinds).bind(view_kind).bind(inverse_key).bind(degree_kind).bind(degree_config).bind(format_temporal(definition.temporal_semantics)).bind(definition.source_seed_version_id.map(|value| value.0)).bind(&definition.source_seed_path).bind(definition.created_at).execute(&mut *tx).await.map_err(db)?;
         bump_subject(&mut tx, input.subject).await?;
         commit_receipt(
             &mut tx,
@@ -443,7 +503,8 @@ impl SocialService {
                 .relationship(input.subject, RelationshipAssertionId(id))
                 .await;
         }
-        let type_row = sqlx::query("SELECT relation_type_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,created_at FROM relation_type_definitions WHERE subject_id=$1 AND key=$2")
+        validate_social_supports(&mut tx, input.subject, &input.supports).await?;
+        let type_row = sqlx::query("SELECT relation_type_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,source_seed_version_id,source_seed_path,created_at FROM relation_type_definitions WHERE subject_id=$1 AND key=$2")
             .bind(input.subject.0).bind(&input.relation_type_key).fetch_optional(&mut *tx).await.map_err(db)?.ok_or_else(|| Error::NotFound("relation type not found".into()))?;
         let relation_type = load_relation_type_row(&type_row, input.subject)?;
         validate_party_against(&relation_type.allowed_from_kinds, &input.from)?;
@@ -503,7 +564,14 @@ impl SocialService {
         let scope = input.scope.clone().canonicalize()?;
         let snapshot = self.configuration.snapshot_for_subject(input.subject)?;
         let policy = resolve_social_policy(&snapshot)?;
-        accept_formation(&input.formation_evidence, &input.supports, &policy)?;
+        accept_formation(
+            &self.store,
+            input.subject,
+            &input.formation_evidence,
+            &input.supports,
+            &policy,
+        )
+        .await?;
         let formation_digest =
             snapshot.digest_for(&[REPEATED_EXTERNAL_USE_MIN.path(), REQUIRE_SAME_ACTOR.path()])?;
         let digest =
@@ -520,6 +588,7 @@ impl SocialService {
                 .convention(input.subject, LanguageConventionId(id))
                 .await;
         }
+        validate_social_supports(&mut tx, input.subject, &input.supports).await?;
         let duplicate: Option<Uuid> = sqlx::query_scalar(
             "SELECT convention_id FROM language_conventions WHERE subject_id=$1 AND key=$2",
         )
@@ -586,6 +655,7 @@ impl SocialService {
                 .relationship(input.subject, RelationshipAssertionId(id))
                 .await;
         }
+        validate_social_supports(&mut tx, input.subject, &input.supports).await?;
         let row = sqlx::query("SELECT relation_type_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state FROM relationship_assertions WHERE subject_id=$1 AND relationship_id=$2 FOR UPDATE")
             .bind(input.subject.0)
             .bind(input.relationship_id.0)
@@ -608,7 +678,7 @@ impl SocialService {
             ));
         }
         let type_id = RelationTypeId(row.try_get("relation_type_id").map_err(db)?);
-        let type_row = sqlx::query("SELECT relation_type_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,created_at FROM relation_type_definitions WHERE subject_id=$1 AND relation_type_id=$2")
+        let type_row = sqlx::query("SELECT relation_type_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,source_seed_version_id,source_seed_path,created_at FROM relation_type_definitions WHERE subject_id=$1 AND relation_type_id=$2")
             .bind(input.subject.0)
             .bind(type_id.0)
             .fetch_one(&mut *tx)
@@ -680,7 +750,14 @@ impl SocialService {
         validate_exact_supports(&input.supports)?;
         let snapshot = self.configuration.snapshot_for_subject(input.subject)?;
         let policy = resolve_social_policy(&snapshot)?;
-        accept_formation(&input.formation_evidence, &input.supports, &policy)?;
+        accept_formation(
+            &self.store,
+            input.subject,
+            &input.formation_evidence,
+            &input.supports,
+            &policy,
+        )
+        .await?;
         let digest =
             canonical_request_digest("social.language_convention.revise", input.subject, &input)?;
         let formation_digest =
@@ -697,6 +774,7 @@ impl SocialService {
                 .convention(input.subject, LanguageConventionId(id))
                 .await;
         }
+        validate_social_supports(&mut tx, input.subject, &input.supports).await?;
         let row = sqlx::query("SELECT current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state FROM language_conventions WHERE subject_id=$1 AND convention_id=$2 FOR UPDATE")
             .bind(input.subject.0)
             .bind(input.convention_id.0)
@@ -820,6 +898,16 @@ impl SocialService {
             return Err(Error::Conflict("Social object epoch is stale".into()));
         }
         if input.operation == "purge" {
+            sqlx::query("INSERT INTO social_purge_tombstones(subject_id,reference_kind,reference_id,operation_id,object_epoch,purged_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (subject_id,reference_kind,reference_id) DO NOTHING")
+                .bind(input.subject.0)
+                .bind(kind)
+                .bind(id)
+                .bind(input.operation_id.0)
+                .bind(epoch)
+                .bind(Utc::now())
+                .execute(&mut *tx)
+                .await
+                .map_err(db)?;
             sqlx::query(sqlx::AssertSqlSafe(format!(
                 "DELETE FROM {table} WHERE subject_id=$1 AND {id_column}=$2"
             )))
@@ -857,134 +945,5 @@ impl SocialService {
         )
         .await?;
         tx.commit().await.map_err(db)
-    }
-
-    pub async fn relationship(
-        &self,
-        subject: SubjectId,
-        id: RelationshipAssertionId,
-    ) -> Result<SocialRelationshipView> {
-        let row = sqlx::query("SELECT a.relation_type_id,a.from_kind,a.from_entity_ref,a.to_kind,a.to_entity_ref,a.current_revision_id,a.object_epoch,a.acceptance_state,a.integrity_state,a.suppression_state,a.purge_state,a.created_at,r.revision_no,r.parent_revision_id,r.revision_intent,r.degree_kind,r.degree_value,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at,r.producer_signature_id FROM relationship_assertions a JOIN relationship_revisions r ON r.relationship_revision_id=a.current_revision_id WHERE a.subject_id=$1 AND a.relationship_id=$2")
-            .bind(subject.0).bind(id.0).fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(|| Error::NotFound("relationship not found".into()))?;
-        let revision_id = RelationshipRevisionId(row.try_get("current_revision_id").map_err(db)?);
-        let from = party_from_columns(
-            row.try_get("from_kind").map_err(db)?,
-            row.try_get("from_entity_ref").map_err(db)?,
-        )?;
-        let to = party_from_columns(
-            row.try_get("to_kind").map_err(db)?,
-            row.try_get("to_entity_ref").map_err(db)?,
-        )?;
-        Ok(SocialRelationshipView {
-            assertion: RelationshipAssertion {
-                relationship_id: id,
-                subject_id: subject,
-                relation_type_id: RelationTypeId(row.try_get("relation_type_id").map_err(db)?),
-                from,
-                to,
-                current_revision_id: revision_id,
-                object_epoch: row.try_get("object_epoch").map_err(db)?,
-                acceptance_state: row.try_get("acceptance_state").map_err(db)?,
-                integrity_state: row.try_get("integrity_state").map_err(db)?,
-                suppression_state: row.try_get("suppression_state").map_err(db)?,
-                purge_state: row.try_get("purge_state").map_err(db)?,
-                created_at: row.try_get("created_at").map_err(db)?,
-            },
-            revision: RelationshipRevision {
-                relationship_revision_id: revision_id,
-                relationship_id: id,
-                subject_id: subject,
-                revision_no: row.try_get("revision_no").map_err(db)?,
-                parent_revision_id: row
-                    .try_get::<Option<Uuid>, _>("parent_revision_id")
-                    .map_err(db)?
-                    .map(RelationshipRevisionId),
-                revision_intent: row.try_get("revision_intent").map_err(db)?,
-                degree: row.try_get("degree_value").map_err(db)?,
-                epistemic_class: parse_enum(row.try_get("epistemic_class").map_err(db)?)?,
-                valid_time: temporal_from_columns(
-                    row.try_get("valid_time_kind").map_err(db)?,
-                    row.try_get("valid_time_start").map_err(db)?,
-                    row.try_get("valid_time_end").map_err(db)?,
-                )?,
-                formed_at: row.try_get("formed_at").map_err(db)?,
-                recorded_at: row.try_get("recorded_at").map_err(db)?,
-                producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
-                supports: Vec::new(),
-            },
-        })
-    }
-
-    pub async fn relation_type(
-        &self,
-        subject: SubjectId,
-        id: RelationTypeId,
-    ) -> Result<RelationTypeDefinition> {
-        let row = sqlx::query("SELECT relation_type_id,key,allowed_from_kinds,allowed_to_kinds,view_kind,inverse_key,degree_kind,degree_config,temporal_kind,created_at FROM relation_type_definitions WHERE subject_id=$1 AND relation_type_id=$2")
-            .bind(subject.0)
-            .bind(id.0)
-            .fetch_optional(self.store.pool())
-            .await
-            .map_err(db)?
-            .ok_or_else(|| Error::NotFound("relation type not found".into()))?;
-        load_relation_type_row(&row, subject)
-    }
-
-    pub async fn convention(
-        &self,
-        subject: SubjectId,
-        id: LanguageConventionId,
-    ) -> Result<SocialConventionView> {
-        let row = sqlx::query("SELECT c.key,c.expression,c.scope_kind,c.scope_refs,c.context_scope,c.topic_scope,c.current_revision_id,c.object_epoch,c.acceptance_state,c.integrity_state,c.suppression_state,c.purge_state,c.created_at,r.revision_no,r.parent_revision_id,r.revision_intent,r.meaning,r.pragmatic_role,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at,r.producer_signature_id,r.formation_policy_digest FROM language_conventions c JOIN language_convention_revisions r ON r.convention_revision_id=c.current_revision_id WHERE c.subject_id=$1 AND c.convention_id=$2")
-            .bind(subject.0).bind(id.0).fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(|| Error::NotFound("LanguageConvention not found".into()))?;
-        let revision_id =
-            LanguageConventionRevisionId(row.try_get("current_revision_id").map_err(db)?);
-        let scope = scope_from_columns(
-            row.try_get("scope_kind").map_err(db)?,
-            row.try_get("scope_refs").map_err(db)?,
-        )?;
-        Ok(SocialConventionView {
-            convention: LanguageConvention {
-                convention_id: id,
-                subject_id: subject,
-                key: row.try_get("key").map_err(db)?,
-                expression: row.try_get("expression").map_err(db)?,
-                scope,
-                context_scope: row.try_get("context_scope").map_err(db)?,
-                topic_scope: row.try_get("topic_scope").map_err(db)?,
-                current_revision_id: revision_id,
-                object_epoch: row.try_get("object_epoch").map_err(db)?,
-                acceptance_state: row.try_get("acceptance_state").map_err(db)?,
-                integrity_state: row.try_get("integrity_state").map_err(db)?,
-                suppression_state: row.try_get("suppression_state").map_err(db)?,
-                purge_state: row.try_get("purge_state").map_err(db)?,
-                created_at: row.try_get("created_at").map_err(db)?,
-            },
-            revision: LanguageConventionRevision {
-                convention_revision_id: revision_id,
-                convention_id: id,
-                subject_id: subject,
-                revision_no: row.try_get("revision_no").map_err(db)?,
-                parent_revision_id: row
-                    .try_get::<Option<Uuid>, _>("parent_revision_id")
-                    .map_err(db)?
-                    .map(LanguageConventionRevisionId),
-                revision_intent: row.try_get("revision_intent").map_err(db)?,
-                meaning: row.try_get("meaning").map_err(db)?,
-                pragmatic_role: row.try_get("pragmatic_role").map_err(db)?,
-                epistemic_class: parse_enum(row.try_get("epistemic_class").map_err(db)?)?,
-                valid_time: temporal_from_columns(
-                    row.try_get("valid_time_kind").map_err(db)?,
-                    row.try_get("valid_time_start").map_err(db)?,
-                    row.try_get("valid_time_end").map_err(db)?,
-                )?,
-                formed_at: row.try_get("formed_at").map_err(db)?,
-                recorded_at: row.try_get("recorded_at").map_err(db)?,
-                producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
-                formation_policy_digest: row.try_get("formation_policy_digest").map_err(db)?,
-                supports: Vec::new(),
-            },
-            formation_evidence: Vec::new(),
-        })
     }
 }

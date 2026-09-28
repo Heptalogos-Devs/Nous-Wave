@@ -21,13 +21,20 @@ impl ServingService {
             .tempdir_in(&self.options.root)
             .map_err(io)?;
         let id = ServingGenerationId::new();
+        let capabilities = self.projection_capabilities(subject).await?;
         let watermark = match family {
             "topology" => {
-                self.build_topology(subject, id, staging.path(), snapshot)
+                self.build_topology(subject, id, staging.path(), snapshot, capabilities)
                     .await?
             }
-            "dense" => self.build_dense(subject, id, space, staging.path()).await?,
-            "lexical" | "exact" => self.build_text(subject, family, staging.path()).await?,
+            "dense" => {
+                self.build_dense(subject, id, space, staging.path(), capabilities)
+                    .await?
+            }
+            "lexical" | "exact" => {
+                self.build_text(subject, family, staging.path(), capabilities)
+                    .await?
+            }
             _ => return Err(Error::Invalid("unknown serving family".into())),
         };
         // Reopen the staged native artifact before publishing any durable pointer.
@@ -37,7 +44,7 @@ impl ServingService {
         let target = self.options.root.join(id.0.to_string());
         std::fs::rename(staging.path(), &target).map_err(io)?;
         let implementation_id = implementation(family).to_owned();
-        let config_digest = self.config_digest(subject, family, snapshot)?;
+        let config_digest = self.config_digest(subject, family, snapshot).await?;
         let record = ServingRecord {
             generation_id: id,
             subject,
@@ -60,6 +67,7 @@ impl ServingService {
         subject: SubjectId,
         family: &str,
         dir: &std::path::Path,
+        capabilities: ProjectionCapabilities,
     ) -> Result<i64> {
         let input = self
             .store
@@ -67,9 +75,9 @@ impl ServingService {
                 subject,
                 family,
                 "",
-                self.options.memory_enabled,
-                self.options.self_enabled,
-                self.options.social_enabled,
+                capabilities.memory,
+                capabilities.self_cognition,
+                capabilities.social,
             )
             .await?;
         if family == "exact" {
@@ -149,14 +157,15 @@ impl ServingService {
         id: ServingGenerationId,
         dir: &std::path::Path,
         snapshot: &nous_configuration_service::ConfigSnapshot,
+        capabilities: ProjectionCapabilities,
     ) -> Result<i64> {
         let input = self
             .store
             .topology_projection_input(
                 subject,
-                self.options.memory_enabled,
-                self.options.self_enabled,
-                self.options.social_enabled,
+                capabilities.memory,
+                capabilities.self_cognition,
+                capabilities.social,
             )
             .await?;
         let edges: Vec<_> = input
@@ -214,6 +223,7 @@ impl ServingService {
         id: ServingGenerationId,
         space_key: &str,
         dir: &std::path::Path,
+        capabilities: ProjectionCapabilities,
     ) -> Result<i64> {
         let provider = self
             .embedding
@@ -231,9 +241,9 @@ impl ServingService {
                 subject,
                 "dense",
                 space_key,
-                self.options.memory_enabled,
-                self.options.self_enabled,
-                self.options.social_enabled,
+                capabilities.memory,
+                capabilities.self_cognition,
+                capabilities.social,
             )
             .await?;
         let source_regions: std::collections::HashMap<_, _> = input

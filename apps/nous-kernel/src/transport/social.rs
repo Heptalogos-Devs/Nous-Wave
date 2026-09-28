@@ -310,6 +310,8 @@ impl KernelService {
                 view_semantics: view(&input.view, input.inverse_key)?,
                 degree_semantics: degree(&input.degree_kind, object(input.degree_config))?,
                 temporal_semantics: temporal_kind(&input.temporal)?,
+                source_seed_version_id: None,
+                source_seed_path: None,
             })
             .await?;
         Ok(relation_type(definition))

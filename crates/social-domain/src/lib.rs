@@ -92,6 +92,8 @@ pub struct RelationTypeDefinition {
     pub view_semantics: ViewSemantics,
     pub degree_semantics: DegreeSemantics,
     pub temporal_semantics: TemporalSemantics,
+    pub source_seed_version_id: Option<nous_core::CognitiveSeedVersionId>,
+    pub source_seed_path: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -107,6 +109,13 @@ impl RelationTypeDefinition {
         }
         if let ViewSemantics::InverseView { inverse_key } = &self.view_semantics {
             validate_social_key(inverse_key, "inverse relation type key")?;
+        }
+        if self.source_seed_version_id.is_some() != self.source_seed_path.is_some()
+            || self.source_seed_path.as_deref().is_some_and(str::is_empty)
+        {
+            return Err(Error::Invalid(
+                "relation type seed provenance must contain version and path".into(),
+            ));
         }
         validate_degree(&self.degree_semantics)
     }

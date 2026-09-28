@@ -4,23 +4,14 @@ use nous_authority_store::database_error as db;
 use nous_core::{CognitiveRef, Result, SubjectId, TemporalExtent};
 use sqlx::Row;
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "RRF hit construction keeps owner, freshness, and lane evidence together"
-)]
 pub(super) fn hit(
     reference: CognitiveRef,
     role: String,
     text: String,
-    rank: usize,
     valid: TemporalExtent,
     formed: DateTime<Utc>,
     recorded: DateTime<Utc>,
-    family: nous_core::EvidenceFamily,
-    variant: &str,
-    enabled_lanes: &[nous_core::EvidenceFamily],
 ) -> nous_core::CognitiveHit {
-    let score = 1.0 / rank.max(1) as f64;
     nous_core::CognitiveHit {
         revision: Some(reference.clone()),
         reference,
@@ -37,15 +28,7 @@ pub(super) fn hit(
         },
         entity_refs: Vec::new(),
         evidence: Vec::new(),
-        match_evidence: nous_core::MatchEvidence {
-            families: vec![family],
-            base_rank_score: score,
-            best_lane_rank: rank as u32,
-            enabled_lane_count: enabled_lanes.len() as u32,
-            final_score: score,
-            variants: vec![variant.into()],
-            explanation: None,
-        },
+        match_evidence: Default::default(),
         materialization: Vec::new(),
     }
 }

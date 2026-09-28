@@ -10,7 +10,7 @@ mod use_feedback;
 mod working_set;
 pub use query::{
     BoundQuery, CognitiveContributor, CognitiveContributors, LaneCandidate, LaneOutput, LaneStatus,
-    QueryPlan, WorkCycle,
+    QueryPlan, SharedLaneProvider, WorkCycle,
 };
 pub use working_set::*;
 

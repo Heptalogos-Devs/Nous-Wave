@@ -302,6 +302,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         .query_with_plan(
             bound,
             nous_cognitive_runtime::CognitiveContributors {
+                shared: None,
                 memory: Some(memory_service as &dyn nous_cognitive_runtime::CognitiveContributor),
                 self_cognition: None,
                 social: None,

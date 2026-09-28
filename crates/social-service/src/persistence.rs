@@ -88,11 +88,227 @@ pub(super) async fn insert_supports(
     Ok(())
 }
 
-pub(super) fn accept_formation(
+pub(super) async fn validate_social_supports(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    supports: &[RevisionSupport],
+) -> Result<()> {
+    for support in supports {
+        match support {
+            RevisionSupport::Evidence(value) => {
+                let row = sqlx::query(
+                    "SELECT artifact_id FROM observation_occurrences WHERE subject_id=$1 AND occurrence_id=$2 FOR SHARE",
+                )
+                .bind(subject.0)
+                .bind(value.occurrence_id.0)
+                .fetch_optional(&mut **tx)
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::FailedPrecondition("Social evidence occurrence is not owned by Subject".into()))?;
+                let occurrence_artifact: Option<Uuid> = row.try_get("artifact_id").map_err(db)?;
+                match value.locator {
+                    EvidenceLocator::WholeOccurrence => {}
+                    EvidenceLocator::SourceRegion(id) => {
+                        let artifact: Uuid = sqlx::query_scalar(
+                            "SELECT artifact_id FROM source_regions WHERE subject_id=$1 AND source_region_id=$2",
+                        )
+                        .bind(subject.0)
+                        .bind(id.0)
+                        .fetch_one(&mut **tx)
+                        .await
+                        .map_err(db)?;
+                        if Some(artifact) != occurrence_artifact {
+                            return Err(Error::FailedPrecondition(
+                                "Social source region does not match occurrence".into(),
+                            ));
+                        }
+                    }
+                    EvidenceLocator::DerivedRepresentation(id) => {
+                        let artifact: Option<Uuid> = sqlx::query_scalar(
+                            "SELECT sr.artifact_id FROM derived_representations d JOIN source_regions sr USING(source_region_id) WHERE d.subject_id=$1 AND d.derived_representation_id=$2",
+                        )
+                        .bind(subject.0)
+                        .bind(id.0)
+                        .fetch_one(&mut **tx)
+                        .await
+                        .map_err(db)?;
+                        if artifact != occurrence_artifact {
+                            return Err(Error::FailedPrecondition(
+                                "Social derived representation does not match occurrence".into(),
+                            ));
+                        }
+                    }
+                    EvidenceLocator::DerivedRegion(id) => {
+                        let artifact: Option<Uuid> = sqlx::query_scalar(
+                            "SELECT sr.artifact_id FROM derived_regions dr JOIN derived_representations d USING(derived_representation_id) JOIN source_regions sr USING(source_region_id) WHERE dr.subject_id=$1 AND dr.derived_region_id=$2",
+                        )
+                        .bind(subject.0)
+                        .bind(id.0)
+                        .fetch_one(&mut **tx)
+                        .await
+                        .map_err(db)?;
+                        if artifact != occurrence_artifact {
+                            return Err(Error::FailedPrecondition(
+                                "Social derived region does not match occurrence".into(),
+                            ));
+                        }
+                    }
+                }
+            }
+            RevisionSupport::CognitionDependency(value) => {
+                let (kind, reference) = reference_parts(&value.target_revision);
+                let id = Uuid::parse_str(&reference)
+                    .map_err(|_| Error::Invalid("invalid Social dependency reference".into()))?;
+                let exists = match kind.as_str() {
+                    "memory_revision" => sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM memory_revisions WHERE subject_id=$1 AND memory_revision_id=$2)").bind(subject.0).bind(id).fetch_one(&mut **tx).await.map_err(db)?,
+                    "cognitive_schema_revision" => sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND r.schema_revision_id=$2)").bind(subject.0).bind(id).fetch_one(&mut **tx).await.map_err(db)?,
+                    "self_facet_revision" => sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM self_facet_revisions WHERE subject_id=$1 AND self_facet_revision_id=$2)").bind(subject.0).bind(id).fetch_one(&mut **tx).await.map_err(db)?,
+                    "narrative_identity_revision" => sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM narrative_identity_revisions WHERE subject_id=$1 AND narrative_identity_revision_id=$2)").bind(subject.0).bind(id).fetch_one(&mut **tx).await.map_err(db)?,
+                    "relationship_revision" => sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM relationship_revisions WHERE subject_id=$1 AND relationship_revision_id=$2)").bind(subject.0).bind(id).fetch_one(&mut **tx).await.map_err(db)?,
+                    "language_convention_revision" => sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM language_convention_revisions WHERE subject_id=$1 AND convention_revision_id=$2)").bind(subject.0).bind(id).fetch_one(&mut **tx).await.map_err(db)?,
+                    _ => false,
+                };
+                if !exists {
+                    return Err(Error::FailedPrecondition(
+                        "Social cognition dependency is not an owned exact revision".into(),
+                    ));
+                }
+            }
+            RevisionSupport::Seed(value) => {
+                let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM cognitive_seed_versions WHERE subject_id=$1 AND seed_version_id=$2)")
+                    .bind(subject.0)
+                    .bind(value.seed_version_id.0)
+                    .fetch_one(&mut **tx)
+                    .await
+                    .map_err(db)?;
+                if !exists {
+                    return Err(Error::FailedPrecondition(
+                        "Cognitive Seed support is not owned by Subject".into(),
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "Formation acceptance validates support ownership, actor identity, and provenance roots together"
+)]
+pub(super) async fn accept_formation(
+    store: &AuthorityStore,
+    subject: SubjectId,
     evidence: &[ConventionFormationEvidence],
     supports: &[RevisionSupport],
     policy: &SocialPolicy,
 ) -> Result<()> {
+    #[derive(Debug)]
+    struct OccurrenceEvidence {
+        actor: EntityRef,
+        root: Option<String>,
+        observed_at: DateTime<Utc>,
+    }
+
+    let mut occurrence_ids = BTreeSet::new();
+    for item in evidence {
+        let index = usize::try_from(item.support_index)
+            .map_err(|_| Error::Invalid("formation support index must be non-negative".into()))?;
+        let support = supports
+            .get(index)
+            .ok_or_else(|| Error::Invalid("formation support index is out of range".into()))?;
+        match item.kind {
+            FormationEvidenceKind::SeedDirect => {
+                if !matches!(support, RevisionSupport::Seed(_)) || item.external_actor.is_some() {
+                    return Err(Error::Invalid(
+                        "seed_direct must reference a SeedSupportRef and no external actor".into(),
+                    ));
+                }
+            }
+            FormationEvidenceKind::Contextual => {
+                if !matches!(
+                    support,
+                    RevisionSupport::Evidence(_) | RevisionSupport::CognitionDependency(_)
+                ) {
+                    return Err(Error::Invalid(
+                        "contextual formation evidence must reference evidence or cognition dependency".into(),
+                    ));
+                }
+            }
+            _ => {
+                let RevisionSupport::Evidence(value) = support else {
+                    return Err(Error::Invalid(
+                        "external formation evidence must reference an EvidenceRef".into(),
+                    ));
+                };
+                if item.external_actor.is_none() {
+                    return Err(Error::Invalid(
+                        "external formation evidence requires external_actor".into(),
+                    ));
+                }
+                occurrence_ids.insert(value.occurrence_id.0);
+            }
+        }
+    }
+    let rows = if occurrence_ids.is_empty() {
+        Vec::new()
+    } else {
+        sqlx::query("SELECT occurrence_id,actor_entity_ref,artifact_id,external_object_ref,conversation_ref,observed_at FROM observation_occurrences WHERE subject_id=$1 AND occurrence_id=ANY($2::uuid[])")
+            .bind(subject.0)
+            .bind(occurrence_ids.iter().copied().collect::<Vec<_>>())
+            .fetch_all(store.pool())
+            .await
+            .map_err(db)?
+    };
+    let mut occurrence_evidence = std::collections::HashMap::new();
+    for row in rows {
+        let occurrence_id: Uuid = row.try_get("occurrence_id").map_err(db)?;
+        let actor = row
+            .try_get::<Option<String>, _>("actor_entity_ref")
+            .map_err(db)?
+            .ok_or_else(|| Error::FailedPrecondition("formation occurrence has no actor".into()))?;
+        let actor = EntityRef::new(actor)?;
+        let external_object_ref: Option<String> = row.try_get("external_object_ref").map_err(db)?;
+        let artifact_id: Option<Uuid> = row.try_get("artifact_id").map_err(db)?;
+        let conversation_ref: Option<String> = row.try_get("conversation_ref").map_err(db)?;
+        let root = external_object_ref
+            .map(|value| format!("external_object:{value}"))
+            .or_else(|| artifact_id.map(|value| format!("artifact:{value}")))
+            .or_else(|| conversation_ref.map(|value| format!("conversation:{value}")));
+        occurrence_evidence.insert(
+            occurrence_id,
+            OccurrenceEvidence {
+                actor,
+                root,
+                observed_at: row.try_get("observed_at").map_err(db)?,
+            },
+        );
+    }
+    let mut resolved = Vec::new();
+    for item in evidence {
+        let index = usize::try_from(item.support_index)
+            .map_err(|_| Error::Invalid("formation support index must be non-negative".into()))?;
+        let Some(RevisionSupport::Evidence(value)) = supports.get(index) else {
+            continue;
+        };
+        if item.kind == FormationEvidenceKind::Contextual && item.external_actor.is_none() {
+            continue;
+        }
+        let occurrence = occurrence_evidence
+            .get(&value.occurrence_id.0)
+            .ok_or_else(|| {
+                Error::FailedPrecondition("formation occurrence is not in Subject Authority".into())
+            })?;
+        let actor = item.external_actor.as_ref().ok_or_else(|| {
+            Error::Invalid("external formation evidence requires external_actor".into())
+        })?;
+        if actor != &occurrence.actor {
+            return Err(Error::FailedPrecondition(
+                "external_actor does not match ObservationOccurrence actor".into(),
+            ));
+        }
+        resolved.push((item, occurrence));
+    }
     let has = |kind| evidence.iter().any(|value| value.kind == kind);
     if has(FormationEvidenceKind::SeedDirect)
         || has(FormationEvidenceKind::ExplicitExplanation)
@@ -106,27 +322,43 @@ pub(super) fn accept_formation(
         .filter(|value| value.kind == FormationEvidenceKind::ExternalConsistentUse)
         .collect::<Vec<_>>();
     if uses.len() >= policy.repeated_external_use_min {
-        let actors = uses
+        let roots = uses
             .iter()
-            .filter_map(|value| value.external_actor.as_ref())
-            .map(|value| value.as_str())
+            .filter_map(|value| {
+                let index = usize::try_from(value.support_index).ok()?;
+                let RevisionSupport::Evidence(support) = supports.get(index)? else {
+                    return None;
+                };
+                occurrence_evidence
+                    .get(&support.occurrence_id.0)
+                    .and_then(|item| item.root.clone())
+            })
             .collect::<BTreeSet<_>>();
-        if actors.len() == uses.len() && supports.len() >= uses.len() {
+        if roots.len() >= policy.repeated_external_use_min && roots.len() == uses.len() {
             return Ok(());
         }
     }
     if has(FormationEvidenceKind::SuccessfulUnderstanding)
         && has(FormationEvidenceKind::ExternalConsistentUse)
     {
-        let success_actor = evidence
+        let success = resolved
             .iter()
-            .find(|value| value.kind == FormationEvidenceKind::SuccessfulUnderstanding)
-            .and_then(|value| value.external_actor.as_ref());
-        let use_actor = evidence
+            .find(|(value, _)| value.kind == FormationEvidenceKind::SuccessfulUnderstanding);
+        let continued = resolved
             .iter()
-            .find(|value| value.kind == FormationEvidenceKind::ExternalConsistentUse)
-            .and_then(|value| value.external_actor.as_ref());
-        if !policy.require_same_actor_after_successful_understanding || success_actor == use_actor {
+            .filter(|(value, _)| value.kind == FormationEvidenceKind::ExternalConsistentUse)
+            .find(|(_, occurrence)| {
+                success.is_some_and(|(_, success_occurrence)| {
+                    occurrence.observed_at >= success_occurrence.observed_at
+                        && occurrence.root.is_some()
+                        && occurrence.root != success_occurrence.root
+                })
+            });
+        if let (Some((_, success_occurrence)), Some((_, continued_occurrence))) =
+            (success, continued)
+            && (!policy.require_same_actor_after_successful_understanding
+                || success_occurrence.actor == continued_occurrence.actor)
+        {
             return Ok(());
         }
     }
@@ -277,6 +509,11 @@ pub(super) fn load_relation_type_row(
         view_semantics,
         degree_semantics,
         temporal_semantics: parse_temporal(row.try_get("temporal_kind").map_err(db)?)?,
+        source_seed_version_id: row
+            .try_get::<Option<Uuid>, _>("source_seed_version_id")
+            .map_err(db)?
+            .map(CognitiveSeedVersionId),
+        source_seed_path: row.try_get("source_seed_path").map_err(db)?,
         created_at: row.try_get("created_at").map_err(db)?,
     })
 }

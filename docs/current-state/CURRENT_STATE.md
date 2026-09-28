@@ -30,14 +30,15 @@
 - Self mutation 已在同一 Authority transaction 内递增 `authority_seq` 并写入全部 Serving projection watermarks；Self/Narrative current revision 可进入 lexical/exact Serving projection，并可由 Context resolver 按 exact revision materialize。
 - Subject Core 已将 Character Seed active model 替换为 immutable Cognitive Seed version + Subject adoption；旧 `character_seeds` 在当前 migration 中被直接移除。
 - Cognitive Seed v1 parser 已拒绝 unknown fields，完整 Narrative multiline、Self key/scope 和 semantic path 已纳入 Seed contract；启用 Self 的 Subject 会使用 deterministic UUIDv5 operation id 导入 facet/narrative entries。
-- Cognitive Query 由 Runtime 统一聚合 Memory/Self/Social lanes 并执行一次 RRF；Self owner 只提供 direct lane/batch materialization。
+- Cognitive Query 由 Runtime 统一聚合 Shared lexical/dense、Memory/Self/Social direct lanes 并执行一次 RRF；`LaneOutput` generic contract 由 `cognitive-retrieval` 持有，owner 只提供 direct lane/batch materialization。
+- Serving generation 的 text/topology source composition 同时受 process 与 Subject capabilities约束；Self/Social owner不直接读取 Tantivy/usearch。
 - Memory candidate materialization 已改为 owner-batch Authority reads；Schema final revalidation 同时检查 current、accepted、valid、normal 和 not-purging。
 
 ## Social Cognition 当前实现
 
 - `crates/social-domain` 拥有 SocialParty、Relation Type view/degree/temporal semantics、Relationship/LanguageConvention value validation 和 scope canonicalization。
-- `crates/social-service` 持久化 Relation Type、directed Relationship revisions、LanguageConvention revisions/formation evidence、policy digest 和 lifecycle/purge mutations；formation policy 从同一 ConfigSnapshot 解析。
-- `0007_social_cognition.sql` 建立 Social Authority tables/indexes；Social semantic refs 已加入 shared `CognitiveRef`、Authority exact binding、Serving source 和 Query direct lanes。
+- `crates/social-service` 持久化 Relation Type、directed Relationship revisions、LanguageConvention revisions/formation evidence、policy digest 和 lifecycle/purge mutations；formation policy 从同一 ConfigSnapshot 解析，并在 Authority-backed acceptance 中验证 support ownership、external actor 和 provenance independence。
+- `0007_social_cognition.sql` 建立 Social Authority tables/indexes 与 purge tombstones；Social semantic refs 已加入 shared `CognitiveRef`、Authority exact binding、Serving source 和 Query direct lanes。
 - Proto、generated Rust/TypeScript 和 official Client 已包含 Social create/revise/lifecycle contracts；Social seed import 使用 `social.relation-types/*`、`social.relationships/*`、`social.conventions/*` semantic paths。
 
 ## 当前未完成或未运行
@@ -49,7 +50,7 @@
 
 - `corepack pnpm check`：PASS（Buf lint、TypeScript check、Vitest）。
 - `just verify`：PASS（本轮 configuration/social 扩展后的 fmt、source-shape、Self focused tests、workspace check、两组 Clippy、串行 Rust tests、deny、cargo-shear）。
-- `just nextest`：PASS（48/48，单测试线程；测试结束后 embedded PostgreSQL 进程和精确临时根均为 0）。
+- `just nextest`：PASS（exit code 0，当前 57 个可发现测试，单测试线程；测试结束后 embedded PostgreSQL 进程和精确临时根均为 0）。
 - `cargo test -p nous-kernel --test self_authority -- --test-threads=1`：PASS；Self facet/narrative create/revision fencing、historical exact binding、SelfDirect/lexical Serving、Self context、Self/Narrative UseEvent resident、lifecycle、dependency revalidation 和 purge projection refresh。
 - `cargo test -p nous-kernel --test query_correctness`：PASS；包含 stale lexical、tokenizer hit 与 derived producer association regression scenarios。
 - `cargo test -p nous-kernel --test reference_profile`：PASS；使用 embedded PostgreSQL 覆盖 migration、form idempotency/digest conflict、revision、UseEvent、lifecycle、purge 和共享 source retention。

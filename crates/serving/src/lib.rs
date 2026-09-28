@@ -4,6 +4,7 @@ mod build;
 mod lifecycle;
 mod material;
 mod provider;
+mod query;
 pub use material::*;
 
 use nous_authority_store::{AuthorityStore, ServingRecord};
@@ -53,6 +54,13 @@ pub struct ServingOptions {
     pub memory_enabled: bool,
     pub self_enabled: bool,
     pub social_enabled: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ProjectionCapabilities {
+    pub memory: bool,
+    pub self_cognition: bool,
+    pub social: bool,
 }
 
 #[derive(Clone)]

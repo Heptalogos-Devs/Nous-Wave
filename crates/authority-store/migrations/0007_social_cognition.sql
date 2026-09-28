@@ -9,6 +9,8 @@ CREATE TABLE relation_type_definitions (
     degree_kind text NOT NULL,
     degree_config jsonb NOT NULL DEFAULT '{}',
     temporal_kind text NOT NULL CHECK (temporal_kind IN ('state','interval','instant')),
+    source_seed_version_id uuid NULL REFERENCES cognitive_seed_versions(seed_version_id) ON DELETE RESTRICT,
+    source_seed_path text NULL,
     created_at timestamptz NOT NULL,
     UNIQUE(subject_id, key)
 );
@@ -137,6 +139,16 @@ CREATE TABLE language_convention_formation_evidence (
     evidence_kind text NOT NULL CHECK (evidence_kind IN ('seed_direct','explicit_explanation','explicit_confirmation','external_consistent_use','successful_understanding','repair_sequence','contextual')),
     external_actor_ref text NULL,
     PRIMARY KEY(convention_revision_id, support_ordinal)
+);
+
+CREATE TABLE social_purge_tombstones (
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    reference_kind text NOT NULL CHECK (reference_kind IN ('relationship','convention')),
+    reference_id uuid NOT NULL,
+    operation_id uuid NOT NULL,
+    object_epoch bigint NOT NULL CHECK (object_epoch > 0),
+    purged_at timestamptz NOT NULL,
+    PRIMARY KEY(subject_id, reference_kind, reference_id)
 );
 
 CREATE INDEX relationship_assertions_subject_current_idx ON relationship_assertions(subject_id, acceptance_state, integrity_state, suppression_state, purge_state);

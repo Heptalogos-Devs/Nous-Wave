@@ -1,19 +1,23 @@
+use crate::lane::{LaneCandidate, LaneOutput, LaneStatus};
 use crate::*;
 use nous_cognitive_retrieval::{SourceSeed, propagate_with_budget};
 use nous_cognitive_runtime::{BoundQuery, QueryPlan};
-use std::collections::{BTreeMap, HashMap};
-use uuid::Uuid;
+use std::collections::HashMap;
 
-pub(crate) fn topology_ranks(
+pub(super) fn topology_lane(
     snapshot: &nous_cognitive_retrieval::ServingSnapshot,
     bound: &BoundQuery,
     plan: &QueryPlan,
-    lane_ranks: &BTreeMap<Uuid, HashMap<EvidenceFamily, usize>>,
-) -> HashMap<CognitiveRef, usize> {
+) -> LaneOutput {
+    let mut output = LaneOutput::empty(EvidenceFamily::TopologyWave, LaneStatus::Ready);
     let Some(graph) = snapshot.topology.as_ref() else {
-        return HashMap::new();
+        output.status = LaneStatus::Unavailable;
+        output
+            .diagnostics
+            .push("topology serving generation is unavailable".into());
+        return output;
     };
-    let query = &bound.source_query;
+    output.generation_ref = Some(graph.generation_id);
     let seed_weight = |name: &str, default: f64| {
         graph
             .config
@@ -42,7 +46,7 @@ pub(crate) fn topology_ranks(
             seeds.push((node, seed_weight(family.as_str(), 1.0), family.as_str()));
         }
     }
-    for cue in &query.cues {
+    for cue in &bound.source_query.cues {
         let (reference, weight, family) = match cue {
             Cue::Entity(value) => (
                 CognitiveRef::Entity(value.entity_ref.clone()),
@@ -54,7 +58,6 @@ pub(crate) fn topology_ranks(
                 seed_weight("tag_cue", 0.75),
                 "tag_cue",
             ),
-            Cue::Schema(_) => continue,
             Cue::Relation(value) => (
                 value.from.clone(),
                 seed_weight("relation_cue", 1.0),
@@ -66,20 +69,8 @@ pub(crate) fn topology_ranks(
             seeds.push((node, weight, family));
         }
     }
-    for (revision, ranks) in lane_ranks {
-        let promoted = ranks.contains_key(&EvidenceFamily::Lexical)
-            || ranks.contains_key(&EvidenceFamily::Dense);
-        if promoted {
-            let reference = CognitiveRef::MemoryRevision(MemoryRevisionId(*revision));
-            if let Some(node) = graph.node_id(&reference) {
-                let (weight, family) = if ranks.contains_key(&EvidenceFamily::Lexical) {
-                    (seed_weight("lexical_promoted", 0.60), "lexical_promoted")
-                } else {
-                    (seed_weight("dense_promoted", 0.60), "dense_promoted")
-                };
-                seeds.push((node, weight, family));
-            }
-        }
+    if seeds.is_empty() {
+        return output;
     }
     let mut merged = HashMap::<u32, SourceSeed>::new();
     for (node, weight, family) in seeds {
@@ -94,11 +85,12 @@ pub(crate) fn topology_ranks(
                 hop_zero: true,
             });
     }
-    let seeds = merged.into_values().collect::<Vec<_>>();
-    if seeds.is_empty() {
-        return HashMap::new();
-    }
-    let river = propagate_with_budget(graph, &seeds, plan.topology_rounds, plan.topology_nodes);
+    let river = propagate_with_budget(
+        graph,
+        &merged.into_values().collect::<Vec<_>>(),
+        plan.topology_rounds,
+        plan.topology_nodes,
+    );
     let mut values = river
         .node_potential
         .iter()
@@ -115,9 +107,16 @@ pub(crate) fn topology_ranks(
             .total_cmp(&left.1)
             .then_with(|| left.0.to_string().cmp(&right.0.to_string()))
     });
-    values
+    output.candidates = values
         .into_iter()
+        .take(plan.lane_budget(EvidenceFamily::TopologyWave))
         .enumerate()
-        .map(|(index, (reference, _))| (reference, index + 1))
-        .collect()
+        .map(|(index, (reference, _))| LaneCandidate {
+            reference,
+            rank: (index + 1) as u32,
+            variants: vec!["topology:wave".into()],
+            provider_metadata: serde_json::Value::Null,
+        })
+        .collect();
+    output
 }

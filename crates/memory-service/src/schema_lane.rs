@@ -2,37 +2,8 @@ use crate::lane::{LaneCandidate, LaneOutput, LaneStatus};
 use crate::*;
 use nous_cognitive_runtime::{BoundQuery, QueryPlan};
 use sqlx::Row;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use uuid::Uuid;
-
-pub(crate) async fn final_schema_revision_states(
-    service: &MemoryService,
-    subject: SubjectId,
-    revisions: &[Uuid],
-) -> Result<HashMap<Uuid, bool>> {
-    if revisions.is_empty() {
-        return Ok(HashMap::new());
-    }
-    let rows = sqlx::query(
-        "SELECT r.schema_revision_id,r.current_revision_id FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND r.schema_revision_id=ANY($2::uuid[]) AND s.acceptance_state='accepted' AND s.integrity_state='valid' AND s.suppression_state='normal' AND s.purge_state='normal'",
-    )
-    .bind(subject.0)
-    .bind(revisions)
-    .fetch_all(service.store.pool())
-    .await
-    .map_err(nous_authority_store::database_error)?;
-    rows.into_iter()
-        .map(|row| {
-            let revision: Uuid = row
-                .try_get("schema_revision_id")
-                .map_err(nous_authority_store::database_error)?;
-            let current: Uuid = row
-                .try_get("current_revision_id")
-                .map_err(nous_authority_store::database_error)?;
-            Ok((revision, revision == current))
-        })
-        .collect()
-}
 
 #[expect(
     clippy::too_many_lines,
@@ -42,7 +13,7 @@ pub(crate) async fn schema_direct_lane(
     service: &MemoryService,
     bound: &BoundQuery,
     _plan: &QueryPlan,
-) -> Result<(LaneOutput, Vec<CognitiveHit>)> {
+) -> Result<LaneOutput> {
     let query = &bound.source_query;
     let mut schema_ids = BTreeSet::new();
     let mut exact_revisions = BTreeSet::new();
@@ -69,7 +40,7 @@ pub(crate) async fn schema_direct_lane(
     }
     let mut output = LaneOutput::empty(EvidenceFamily::SchemaDirect, LaneStatus::Ready);
     if schema_ids.is_empty() && exact_revisions.is_empty() {
-        return Ok((output, Vec::new()));
+        return Ok(output);
     }
     let rows = sqlx::query(
         "SELECT s.schema_id,s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND (s.schema_id=ANY($2::uuid[]) OR r.schema_revision_id=ANY($3::uuid[]))",
@@ -116,7 +87,6 @@ pub(crate) async fn schema_direct_lane(
             .push(SourceClass::from(source_class));
     }
     let mut revision_ids = Vec::new();
-    let mut hits = Vec::new();
     for (index, row) in rows.into_iter().enumerate() {
         let revision = CognitiveSchemaRevisionId(
             row.try_get("schema_revision_id")
@@ -186,49 +156,6 @@ pub(crate) async fn schema_direct_lane(
                 variants: vec!["schema:direct".into()],
                 provider_metadata: serde_json::Value::Null,
             });
-            hits.push(CognitiveHit {
-                reference,
-                revision: None,
-                semantic_role: Some("cognitive_schema".into()),
-                cognitive_role: None,
-                formation_mode: None,
-                representation: Some(
-                    row.try_get("structural_claim")
-                        .map_err(nous_authority_store::database_error)?,
-                ),
-                authority: AuthorityClass::SubjectCognition,
-                freshness: FreshnessDescriptor {
-                    observed_at: None,
-                    valid_time: temporal_from_columns(
-                        row.try_get("valid_time_kind")
-                            .map_err(nous_authority_store::database_error)?,
-                        row.try_get("valid_time_start")
-                            .map_err(nous_authority_store::database_error)?,
-                        row.try_get("valid_time_end")
-                            .map_err(nous_authority_store::database_error)?,
-                    )?,
-                    formed_at: Some(
-                        row.try_get("formed_at")
-                            .map_err(nous_authority_store::database_error)?,
-                    ),
-                    recorded_at: Some(
-                        row.try_get("recorded_at")
-                            .map_err(nous_authority_store::database_error)?,
-                    ),
-                },
-                entity_refs: aboutness,
-                evidence: Vec::new(),
-                match_evidence: MatchEvidence {
-                    families: vec![EvidenceFamily::SchemaDirect],
-                    base_rank_score: 1.0,
-                    best_lane_rank: (index + 1) as u32,
-                    enabled_lane_count: 1,
-                    final_score: 1.0,
-                    variants: vec!["schema:direct".into()],
-                    explanation: None,
-                },
-                materialization: Vec::new(),
-            });
         }
     }
     if !revision_ids.is_empty() {
@@ -259,5 +186,142 @@ pub(crate) async fn schema_direct_lane(
             }
         }
     }
-    Ok((output, hits))
+    Ok(output)
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "Schema owner batch materialization keeps lifecycle, constraints, and payload aligned"
+)]
+pub(crate) async fn materialize_schema_revisions(
+    service: &MemoryService,
+    bound: &BoundQuery,
+    references: &[CognitiveRef],
+) -> Result<(Vec<CognitiveHit>, BTreeMap<String, usize>)> {
+    let revision_ids = references
+        .iter()
+        .filter_map(|reference| match reference {
+            CognitiveRef::CognitiveSchemaRevision(value) => Some(value.0),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if revision_ids.is_empty() {
+        return Ok((Vec::new(), BTreeMap::new()));
+    }
+    let rows = sqlx::query("SELECT s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND r.schema_revision_id=ANY($2::uuid[])")
+        .bind(bound.source_query.subject.0)
+        .bind(&revision_ids)
+        .fetch_all(service.store.pool())
+        .await
+        .map_err(nous_authority_store::database_error)?;
+    let mut drops = BTreeMap::new();
+    let mut hits = Vec::new();
+    for row in rows {
+        let revision = CognitiveSchemaRevisionId(
+            row.try_get("schema_revision_id")
+                .map_err(nous_authority_store::database_error)?,
+        );
+        let reference = CognitiveRef::CognitiveSchemaRevision(revision);
+        let historical = bound.revision_policy.allows_historical(&reference);
+        let current: Uuid = row
+            .try_get("current_revision_id")
+            .map_err(nous_authority_store::database_error)?;
+        if !historical && current != revision.0 {
+            *drops.entry("not_current".into()).or_default() += 1;
+            continue;
+        }
+        let accepted: String = row
+            .try_get("acceptance_state")
+            .map_err(nous_authority_store::database_error)?;
+        let valid: String = row
+            .try_get("integrity_state")
+            .map_err(nous_authority_store::database_error)?;
+        let suppression: String = row
+            .try_get("suppression_state")
+            .map_err(nous_authority_store::database_error)?;
+        let purge: String = row
+            .try_get("purge_state")
+            .map_err(nous_authority_store::database_error)?;
+        if accepted != "accepted"
+            || valid != "valid"
+            || suppression != "normal"
+            || purge != "normal"
+        {
+            *drops.entry("unavailable_lifecycle".into()).or_default() += 1;
+            continue;
+        }
+        if let Some(binding) = bound
+            .exact_bindings
+            .iter()
+            .find(|binding| binding.bound_ref == reference)
+            && binding.mutable_object
+            && binding.bound_object_epoch
+                != Some(
+                    row.try_get("object_epoch")
+                        .map_err(nous_authority_store::database_error)?,
+                )
+        {
+            *drops.entry("stale_exact_binding".into()).or_default() += 1;
+            continue;
+        }
+        let aboutness = row
+            .try_get::<Vec<String>, _>("aboutness")
+            .map_err(nous_authority_store::database_error)?
+            .into_iter()
+            .map(EntityRef::new)
+            .collect::<Result<Vec<_>>>()?;
+        if !bound
+            .source_query
+            .constraints
+            .entity_requirements
+            .iter()
+            .all(|entity| aboutness.contains(entity))
+            || (!bound.source_query.constraints.modalities.is_empty()
+                && !bound
+                    .source_query
+                    .constraints
+                    .modalities
+                    .contains(&Modality::Text))
+            || !bound.source_query.constraints.evidence_classes.is_empty()
+        {
+            *drops.entry("query_constraints".into()).or_default() += 1;
+            continue;
+        }
+        hits.push(CognitiveHit {
+            reference: reference.clone(),
+            revision: None,
+            semantic_role: Some("cognitive_schema".into()),
+            cognitive_role: None,
+            formation_mode: None,
+            representation: Some(
+                row.try_get("structural_claim")
+                    .map_err(nous_authority_store::database_error)?,
+            ),
+            authority: AuthorityClass::SubjectCognition,
+            freshness: FreshnessDescriptor {
+                observed_at: None,
+                valid_time: temporal_from_columns(
+                    row.try_get("valid_time_kind")
+                        .map_err(nous_authority_store::database_error)?,
+                    row.try_get("valid_time_start")
+                        .map_err(nous_authority_store::database_error)?,
+                    row.try_get("valid_time_end")
+                        .map_err(nous_authority_store::database_error)?,
+                )?,
+                formed_at: Some(
+                    row.try_get("formed_at")
+                        .map_err(nous_authority_store::database_error)?,
+                ),
+                recorded_at: Some(
+                    row.try_get("recorded_at")
+                        .map_err(nous_authority_store::database_error)?,
+                ),
+            },
+            entity_refs: aboutness,
+            evidence: Vec::new(),
+            match_evidence: MatchEvidence::default(),
+            materialization: Vec::new(),
+        });
+    }
+    Ok((hits, drops))
 }

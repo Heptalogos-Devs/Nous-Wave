@@ -47,6 +47,21 @@ pub(crate) async fn open_runtime(url: &str, root: &TempDir) -> NousRuntime {
     open_runtime_with_serving(url, root, false, false, false).await
 }
 
+pub(crate) async fn initial_seed_version(
+    runtime: &NousRuntime,
+    subject: nous_core::SubjectId,
+) -> nous_core::CognitiveSeedVersionId {
+    nous_core::CognitiveSeedVersionId(
+        sqlx::query_scalar(
+            "SELECT seed_version_id FROM cognitive_seed_versions WHERE subject_id=$1 ORDER BY created_at LIMIT 1",
+        )
+        .bind(subject.0)
+        .fetch_one(runtime.store.pool())
+        .await
+        .expect("initial seed version"),
+    )
+}
+
 pub(crate) async fn open_runtime_with_social(url: &str, root: &TempDir) -> NousRuntime {
     NousRuntime::open(RuntimeOptions {
         postgres_url: url.into(),
@@ -80,6 +95,41 @@ pub(crate) async fn open_runtime_with_social(url: &str, root: &TempDir) -> NousR
     })
     .await
     .expect("open social runtime")
+}
+
+pub(crate) async fn open_runtime_with_all_domains(url: &str, root: &TempDir) -> NousRuntime {
+    NousRuntime::open(RuntimeOptions {
+        postgres_url: url.into(),
+        max_connections: 4,
+        object_root: root.path().join("objects").to_string_lossy().into_owned(),
+        max_upload_bytes: 1024 * 1024,
+        serving_options: ServingOptions {
+            root: root.path().join("serving"),
+            lexical: true,
+            dense: false,
+            topology: false,
+            memory_enabled: true,
+            self_enabled: true,
+            social_enabled: true,
+        },
+        embedding: None,
+        stored_embedding: None,
+        deployment_settings: serde_json::json!({
+            "settings": {
+                "capabilities": {
+                    "process": { "memory": true, "self_cognition": true, "social": true },
+                    "subject_defaults": { "memory": true, "self_cognition": true, "social": true }
+                },
+                "serving": {
+                    "lexical": { "enabled": true },
+                    "dense": { "enabled": false },
+                    "topology": { "enabled": false }
+                }
+            }
+        }),
+    })
+    .await
+    .expect("open all-domain runtime")
 }
 
 pub(crate) async fn open_runtime_with_serving(
@@ -182,6 +232,39 @@ pub(crate) async fn external_observation(
         })
         .await
         .expect("record external observation")
+}
+
+pub(crate) async fn external_actor_observation(
+    runtime: &NousRuntime,
+    subject: nous_core::SubjectId,
+    actor: &str,
+    object_ref: &str,
+) -> nous_material::AcceptedObservation {
+    let actor = nous_core::EntityRef::new(actor).expect("actor ref");
+    let object_ref = nous_core::ObjectRef::new(object_ref).expect("object ref");
+    runtime
+        .material
+        .record_observation(ObservationInput {
+            subject,
+            session: None,
+            occurrence: OccurrenceDescriptor {
+                source_class: nous_core::SourceClass::Message,
+                external_object_ref: Some(object_ref.clone()),
+                occurred_time: TemporalExtent::Unknown,
+                observed_at: Utc::now(),
+                conversation_ref: None,
+                actor_entity_ref: Some(actor),
+                context: serde_json::json!({}),
+            },
+            material: ObservationMaterial::ExternalObjectRef { object_ref },
+            entities: Vec::new(),
+            runtime: RuntimeDirective {
+                admit: false,
+                hold_until: None,
+            },
+        })
+        .await
+        .expect("record external actor observation")
 }
 
 pub(crate) async fn occurrence_only_observation(

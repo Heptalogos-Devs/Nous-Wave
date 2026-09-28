@@ -265,28 +265,25 @@ pub(super) async fn insert_supports(
             derived_region,
             seed_path,
         ) = match support {
-            RevisionSupport::Evidence(value) => {
-                let (kind, reference) = reference_parts(&value.cognitive_ref());
-                (
-                    kind,
-                    reference,
-                    value.support_role.as_str().to_owned(),
-                    Some(value.occurrence_id.0),
-                    match value.locator {
-                        EvidenceLocator::SourceRegion(id) => Some(id.0),
-                        _ => None,
-                    },
-                    match value.locator {
-                        EvidenceLocator::DerivedRepresentation(id) => Some(id.0),
-                        _ => None,
-                    },
-                    match value.locator {
-                        EvidenceLocator::DerivedRegion(id) => Some(id.0),
-                        _ => None,
-                    },
-                    None,
-                )
-            }
+            RevisionSupport::Evidence(value) => (
+                "evidence".into(),
+                value.canonical_key(),
+                value.support_role.as_str().to_owned(),
+                Some(value.occurrence_id.0),
+                match value.locator {
+                    EvidenceLocator::SourceRegion(id) => Some(id.0),
+                    _ => None,
+                },
+                match value.locator {
+                    EvidenceLocator::DerivedRepresentation(id) => Some(id.0),
+                    _ => None,
+                },
+                match value.locator {
+                    EvidenceLocator::DerivedRegion(id) => Some(id.0),
+                    _ => None,
+                },
+                None,
+            ),
             RevisionSupport::CognitionDependency(value) => {
                 let (kind, reference) = reference_parts(&value.target_revision);
                 (

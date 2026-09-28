@@ -111,7 +111,7 @@ impl NousRuntime {
         )?;
         let self_cognition = process_capabilities
             .self_cognition
-            .then(|| SelfService::new(store.clone()).with_serving(serving.clone()));
+            .then(|| SelfService::new(store.clone()));
         let social = process_capabilities
             .social
             .then(|| SocialService::new(store.clone(), configuration.clone()));
@@ -171,6 +171,7 @@ impl NousRuntime {
             .query_with_plan(
                 bound,
                 nous_cognitive_runtime::CognitiveContributors {
+                    shared: Some(&self.serving),
                     memory: subject_capabilities
                         .memory
                         .then(|| {

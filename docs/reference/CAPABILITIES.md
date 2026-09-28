@@ -14,4 +14,6 @@ Social=false
 
 Memory-only Subject 可以形成 Memory、Query、Serving 和恢复；未启用的 Self/Social 不产生 placeholder cognition，也不使 Memory query/Serving degraded。显式查询 disabled domain 返回 `Unavailable`。
 
+Serving text/topology projection 的 source composition 同时检查 process 与 Subject capability；query 使用同一 bound `ConfigSnapshot`，shared lexical/dense lane 只执行一次，再按 owner 批量 validation/materialization。
+
 当前公共 wire contract 在 `proto/nous/wave/v1alpha1/types.proto` 中声明 `SubjectCapabilities`、`CreateSubject.metadata` 和 `Subject.metadata`；Rust/TypeScript bindings 由 Buf 生成。
