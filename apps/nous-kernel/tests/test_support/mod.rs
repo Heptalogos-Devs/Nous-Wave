@@ -47,6 +47,41 @@ pub(crate) async fn open_runtime(url: &str, root: &TempDir) -> NousRuntime {
     open_runtime_with_serving(url, root, false, false, false).await
 }
 
+pub(crate) async fn open_memory_only_runtime(url: &str, root: &TempDir) -> NousRuntime {
+    NousRuntime::open(RuntimeOptions {
+        postgres_url: url.into(),
+        max_connections: 4,
+        object_root: root.path().join("objects").to_string_lossy().into_owned(),
+        max_upload_bytes: 1024 * 1024,
+        serving_options: ServingOptions {
+            root: root.path().join("serving").to_path_buf(),
+            lexical: false,
+            dense: false,
+            topology: false,
+            memory_enabled: true,
+            self_enabled: false,
+            social_enabled: false,
+        },
+        embedding: None,
+        stored_embedding: None,
+        deployment_settings: serde_json::json!({
+            "settings": {
+                "capabilities": {
+                    "process": { "memory": true, "self_cognition": false, "social": false },
+                    "subject_defaults": { "memory": true, "self_cognition": false, "social": false }
+                },
+                "serving": {
+                    "lexical": { "enabled": false },
+                    "dense": { "enabled": false },
+                    "topology": { "enabled": false }
+                }
+            }
+        }),
+    })
+    .await
+    .expect("open memory-only runtime")
+}
+
 pub(crate) async fn initial_seed_version(
     runtime: &NousRuntime,
     subject: nous_core::SubjectId,

@@ -1,0 +1,28 @@
+{
+  "version": "memory-reference-r1-2026-09-29",
+  "subjects": ["subject-s", "subject-t"],
+  "sessions": [
+    {"label": "session-a", "consumer": "consumer:alpha:reference"},
+    {"label": "session-b", "consumer": "consumer:beta:reference"}
+  ],
+  "observations": [
+    {"label": "o1", "session": "session-a", "observed_at": "2026-09-01T00:00:00Z"},
+    {"label": "o2", "session": "session-b", "observed_at": "2026-09-02T00:00:00Z"}
+  ],
+  "cognition": {
+    "grounded": "m1",
+    "synthesized": "m2",
+    "correction_revision": "m1-r2",
+    "temporal_successor": "m3",
+    "foreign_subject_memory": "foreign-m1"
+  },
+  "invariants": [
+    "same-subject-durable-memory",
+    "session-resident-isolation",
+    "consumer-working-set-isolation",
+    "entity-mention-aboutness-separation",
+    "current-vs-historical-revision",
+    "use-event-consumer-scope",
+    "memory-only-capability"
+  ]
+}
