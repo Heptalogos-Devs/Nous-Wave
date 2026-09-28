@@ -77,6 +77,32 @@ pub enum ResidentState {
     Evicted,
 }
 
+impl ResidentState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Resident => "resident",
+            Self::Provisional => "provisional",
+            Self::Evicted => "evicted",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResidentAdmission {
+    pub reference: CognitiveRef,
+    pub reason: String,
+    pub hold_until: Option<DateTime<Utc>>,
+    pub state: ResidentState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResidentMutationOutcome {
+    pub changed: bool,
+    pub runtime_revision: i64,
+    pub admitted_count: u32,
+    pub evicted_count: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionView {
     pub session_id: SessionId,

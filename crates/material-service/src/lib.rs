@@ -10,7 +10,7 @@ pub use types::*;
 use chrono::{DateTime, Utc};
 use futures::Stream;
 use nous_authority_store::{AuthorityStore, ProjectionInvalidation};
-use nous_cognitive_runtime::CognitiveRuntimeService;
+use nous_cognitive_runtime::{CognitiveRuntimeService, ResidentAdmission, ResidentState};
 use nous_core::*;
 use nous_material::*;
 use nous_object_store::ObjectStore;

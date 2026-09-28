@@ -214,38 +214,34 @@ impl MaterialService {
         occurrence_id: OccurrenceId,
     ) -> Result<()> {
         if let Some(session) = input.session.filter(|_| input.runtime.admit) {
-            self.cognition
-                .admit(
-                    session,
-                    CognitiveRef::Occurrence(occurrence_id),
-                    "observed",
-                    input.runtime.hold_until,
-                )
-                .await?;
+            let mut admissions = vec![ResidentAdmission {
+                reference: CognitiveRef::Occurrence(occurrence_id),
+                reason: "observed".into(),
+                hold_until: input.runtime.hold_until,
+                state: ResidentState::Resident,
+            }];
             for mention in &input.entities {
                 if let Some(entity) = &mention.entity_ref {
-                    self.cognition
-                        .admit(
-                            session,
-                            CognitiveRef::Entity(entity.clone()),
-                            "observed",
-                            input.runtime.hold_until,
-                        )
-                        .await?;
+                    admissions.push(ResidentAdmission {
+                        reference: CognitiveRef::Entity(entity.clone()),
+                        reason: "observed".into(),
+                        hold_until: input.runtime.hold_until,
+                        state: ResidentState::Resident,
+                    });
                 }
             }
             if let ObservationMaterial::ResourceAvailability { resource } = &input.material {
                 ResourceRef::new(resource.as_str())?;
-                self.cognition
-                    .admit(
-                        session,
-                        CognitiveRef::Resource(resource.clone()),
-                        "resource_awareness",
-                        input.runtime.hold_until,
-                    )
-                    .await?;
+                admissions.push(ResidentAdmission {
+                    reference: CognitiveRef::Resource(resource.clone()),
+                    reason: "resource_awareness".into(),
+                    hold_until: input.runtime.hold_until,
+                    state: ResidentState::Resident,
+                });
             }
-            self.cognition.evict_if_needed(session).await?;
+            self.cognition
+                .admit_batch(input.subject, session, admissions)
+                .await?;
         }
         Ok(())
     }
