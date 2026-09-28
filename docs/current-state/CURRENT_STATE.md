@@ -1,5 +1,9 @@
 # Nous Wave 当前实现状态
 
+## 当前施工授权
+
+当前唯一新增代码施工线是 [Memory Reference Profile Closure R2](../plans/active/2026-09-28-memory-reference-profile-closure.md)。Self Authority 与 Configuration/Social 是已实现的 frozen early slices；其计划和 Specs 位于 `plans/superseded/` 与 `specs/superseded/`，不授权当前扩展。
+
 ## 当前组合
 
 当前 checkout 由 TypeScript Core、Rust Kernel、Protobuf contracts、官方 TypeScript Client、Configuration Service、Subject/Material、Memory、Self、Social、Cognitive Runtime、Retrieval、Serving 和 PostgreSQL Authority Store 组成。Memory、Self、Social 都按 Process/Subject capabilities optional composition；Core 不直接访问 Kernel 数据库。
@@ -22,7 +26,10 @@
 - UseEvent 使用调用方 `event_id`，幂等域为 `(subject, consumer_ref, event_id)`；`presented` 与 meaningful use 分离，结果支持/反驳使用保留。
 - QueryPlan 固定 effort budgets、RRF lane plan 和 topology activation；Wave 使用包含 hop 与 remaining budget 的 propagation state；Serving generation 使用 authority watermark 和可重建 artifact。
 - Purge 使用 durable receipt 两阶段 fence，删除 cognition-scope 内容与详细 UseEvent，并保留最小 retry tombstone；共享 Observation/Artifact 保留。
-- Authority Store 使用七个按语义连续编号的 fresh-schema migrations：`0001_foundation`–`0005_self_authority`、`0006_configuration` 和 `0007_social_cognition`；不保留日期或阶段兼容迁移。
+- Observation admission 使用 subject-safe atomic ResidentSet batch；batch 内重复 ref 合并，no-op 不推进 runtime revision，eviction 与 admission 在同一 transaction；持久坏 resident ref 显式返回错误。
+- Authority Store 使用九个按语义连续编号的 fresh-schema migrations：`0001_foundation`–`0005_self_authority`、`0006_configuration`、`0007_social_cognition`、`0008_memory_reference_closure` 和 `0009_configuration_receipt_digests`；不保留日期或阶段兼容迁移。
+- Configuration mutation receipt 冻结对应 system/subject resolved `active_digest` 与 `desired_digest`；旧 pre-production receipt 在 `0009` 中清空，不伪造历史结果。
+- TemporalLane 对 instant 与 interval 使用不同 half-open overlap 条件；instant 位于查询区间起点时不再被错误排除。
 
 ## Self Authority 当前实现
 
@@ -44,6 +51,8 @@
 ## 当前未完成或未运行
 
 - Social revise/lifecycle/suppression、LanguageConvention actor/root acceptance 和 Seed→Social created/unchanged/conflict 已有 focused evidence；purge retry/source retention、disabled deferred、restart/rebuild 和完整多来源矩阵仍为 `NOT_RUN`，不等同于 PASS。
+- Memory Reference Profile Closure R2 已有 deterministic multi-session closure scenario、versioned fixture/oracle、full-scale structural fixture 和 observed performance baseline；完整 lane/diagnostic oracle、official TypeScript Client 驱动的 Core+Kernel 场景、独立 Kernel subprocess restart 和最终 full verification 仍为 `NOT_RUN`。
+- R2 scale fixture 当前记录 10,000 current Memory revisions、3,000 historical revisions、30,000 AssociationEvidence、2,000 entity refs、1,000 Tags、200 CognitiveSchemas；query count 与 RSS 尚未 instrument。
 - Motivation、Desired Condition、Episode/Journal、Heptalogos live integration、自动人格学习和新图算法仍不属于本轮。
 
 ## 当前验证证据
@@ -55,3 +64,4 @@
 - `cargo test -p nous-kernel --test query_correctness`：PASS；包含 stale lexical、tokenizer hit 与 derived producer association regression scenarios。
 - `cargo test -p nous-kernel --test reference_profile`：PASS；使用 embedded PostgreSQL 覆盖 migration、form idempotency/digest conflict、revision、UseEvent、lifecycle、purge 和共享 source retention。
 - `cargo deny` 的 advisory gate：PASS；lockfile 中 rustls 已升级到 0.23.45。剩余 duplicate dependency/license allowance 为 warning。
+- R2 focused evidence：`runtime_residency` 4/4、`configuration` 2/2、`social_cognition` 4/4、`memory_reference_closure` 1/1、`scale_fixture` 1/1、`nous-cognitive-retrieval` unit 8/8；这些是本轮实际运行边界，不替代最终 `just verify`/`nextest`。
