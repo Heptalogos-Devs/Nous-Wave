@@ -6,7 +6,7 @@
 
 直接执行包：`Nous-Wave-Memory-Reference-Closure-Spec-R2`。包内 `MANIFEST.md` 列出的 11 个合同 Markdown 加 `README.md` 共 12 个文件；SHA-256 全部匹配（`SPEC_HASH_MISMATCHES=0`）。
 
-实现证据范围：`ecc4435..ebb2a4c`（最终 docs-only 状态以本记录所在提交为准）。
+实现证据范围：R2 施工提交 `c64c01c..5e037a4`；本记录随 Qualification 文档提交更新。
 
 ## A. Documentation
 
@@ -37,7 +37,7 @@
 | provenance trace to source | PASS | scenario 读取 returned revision support，并由 Occurrence materialization 回溯到 source material。 |
 | retrieval hit 与 meaningful use 分离 / UseEvent idempotency | PASS | scenario + `query_correctness`；重复 event 不重复 durable/runtime effect，consumer scope 独立。 |
 | suppression / restore / purge / serving invalidation | PASS | scenario 与既有 `reference_profile`；purged exact target 显式 `NotFound`，旧 use retry 返回 duplicate。 |
-| full R2 corpus categories（lexical/dense/topology/budget/unavailable 的统一 oracle） | NOT_RUN | 现有 targeted tests 分别覆盖部分行为；尚未将全部 lane/diagnostic category 合并到同一版本化 oracle。 |
+| full R2 corpus categories（lexical/dense/topology/budget/unavailable 的统一 oracle） | NOT_RUN | `query_diagnostics` 已对 provider unavailable、suppressed exact、validation budget exhaustion 完成 3/3 targeted oracle；全部 lane/category 尚未合并到同一版本化 oracle。 |
 
 ## D. Multi-session Runtime
 
@@ -72,7 +72,7 @@
 | temporal instant boundary correctness | PASS | `0f5bf1c`；scale instant-at-query-start gate PASS。 |
 | serving rebuild/reopen | PASS | existing reference profile matrix。 |
 | performance baseline | PASS（observed, no SLA） | `scale_fixture --nocapture`：20 queries，p50 约 5.27 ms，p95/max 约 84.17 ms，Serving build 约 4003.49 ms；query count/RSS 未 instrument。 |
-| correctness admission gate | NOT_RUN | 完整 lane/diagnostic oracle、subprocess restart 和 official client path 尚未全部 PASS。 |
+| correctness admission gate | NOT_RUN | subprocess restart 与 official client path 已 PASS；完整 lane/category oracle 仍未 PASS，因此 Spec admission gate 仍未闭合。 |
 | baseline vs Wave | NOT_RUN | 按 Spec gate，未在 admission gate PASS 前运行。 |
 
 ## G. Official API / Client
@@ -84,14 +84,14 @@
 
 ## H. Full verification / repository gates
 
-本轮 R2 新增提交后，完整命令尚未重跑，暂记：
+以下结果均在当前 R2 提交范围上实际执行：
 
 | 命令 | 状态 |
 | --- | --- |
 | `corepack pnpm generate` | PASS |
 | `corepack pnpm check` | PASS（Buf、tsc、Vitest 3 files/7 tests、Prettier、Oxlint、Knip、dependency-cruiser、jscpd、Sherif） |
-| `cargo nextest run --workspace --all-features` | PASS（`just nextest` exit 0，serial test threads） |
-| `just verify` | PASS（fmt/source-shape/check/clippy/workspace tests/deny/shear） |
+| `cargo nextest run --workspace --all-features` | PASS（`just nextest` exit 0；69/69，serial test threads） |
+| `just verify` | PASS（当前 HEAD；fmt/source-shape/check/clippy/workspace tests/deny/shear） |
 | `git diff --check` | PASS（每个 commit 前） |
 | `just dupes` | FAIL（32 exact groups，threshold 16；未扩大 threshold/exclude） |
 | `just osv` | FAIL（`osv-scanner` executable 未安装/不可识别；未增加 ignore） |
@@ -101,4 +101,4 @@
 - `SPEC_CONFLICT`: None observed against scoped AGENTS, Architecture-Vault Target Design/Decisions and R2 Spec.
 - `SPEC_GAP`: None observed. Remaining items are missing qualification/path evidence, not undecided public semantics.
 - Intentional deviation from Spec: None.
-- R2 status remains `PARTIAL / ACTIVE`;不得写 `Memory Reference Profile R1: PASS`，直到 full oracle、subprocess restart、official client path 和 full verification gates 完成。
+- R2 status remains `PARTIAL / ACTIVE`; subprocess restart、official client path 和 full repository gates 已 PASS，但 full lane/category oracle 尚未完成，因此 correctness admission gate 与 baseline/Wave benchmark 仍为 `NOT_RUN`。

@@ -14,7 +14,19 @@
   { "id": "runtime-session-b", "kind": "runtime", "session": "session-b" },
   { "id": "post-restore-m1", "kind": "exact_current", "target": "m1" },
   { "id": "post-purge-m1", "kind": "exact_current", "target": "m1" },
-  { "id": "dense-provider-unavailable", "kind": "diagnostic", "expected_status": "DEGRADED" },
-  { "id": "validation-budget", "kind": "diagnostic", "expected_status": "PARTIAL" },
-  { "id": "suppressed-exact", "kind": "diagnostic", "expected_drop": "suppressed" }
+  {
+    "id": "dense-provider-unavailable",
+    "kind": "diagnostic",
+    "expected_status": "DEGRADED"
+  },
+  {
+    "id": "validation-budget",
+    "kind": "diagnostic",
+    "expected_status": "PARTIAL"
+  },
+  {
+    "id": "suppressed-exact",
+    "kind": "diagnostic",
+    "expected_drop": "suppressed"
+  }
 ]

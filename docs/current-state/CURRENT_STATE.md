@@ -51,7 +51,7 @@
 ## 当前未完成或未运行
 
 - Social revise/lifecycle/suppression、LanguageConvention actor/root acceptance 和 Seed→Social created/unchanged/conflict 已有 focused evidence；purge retry/source retention、disabled deferred、restart/rebuild 和完整多来源矩阵仍为 `NOT_RUN`，不等同于 PASS。
-- Memory Reference Profile Closure R2 已有 deterministic multi-session closure scenario、versioned fixture/oracle、full-scale structural fixture、observed performance baseline、真实 Kernel subprocess restart 和 Core+Kernel+official TypeScript Client 场景；完整 lane/diagnostic oracle 与 Wave benchmark gate 仍为 `NOT_RUN`。
+- Memory Reference Profile Closure R2 已有 deterministic multi-session closure scenario、versioned fixture/oracle、full-scale structural fixture、observed performance baseline、真实 Kernel subprocess restart 和 Core+Kernel+official TypeScript Client 场景；provider-unavailable、suppressed-exact、validation-budget 三项 targeted diagnostic oracle 已 PASS，完整 lane/category oracle 与 Wave benchmark gate 仍为 `NOT_RUN`。
 - R2 scale fixture 当前记录 10,000 current Memory revisions、3,000 historical revisions、30,000 AssociationEvidence、2,000 entity refs、1,000 Tags、200 CognitiveSchemas；query count 与 RSS 尚未 instrument。
 - Motivation、Desired Condition、Episode/Journal、Heptalogos live integration、自动人格学习和新图算法仍不属于本轮。
 
@@ -65,4 +65,4 @@
 - `cargo test -p nous-kernel --test reference_profile`：PASS；使用 embedded PostgreSQL 覆盖 migration、form idempotency/digest conflict、revision、UseEvent、lifecycle、purge 和共享 source retention。
 - `cargo deny` 的 advisory gate：PASS；lockfile 中 rustls 已升级到 0.23.45。剩余 duplicate dependency/license allowance 为 warning。
 - R2 focused evidence：`runtime_residency` 4/4、`configuration` 2/2、`social_cognition` 4/4、`memory_reference_closure` 1/1、`scale_fixture` 1/1、`nous-cognitive-retrieval` unit 8/8；这些是本轮实际运行边界，不替代最终 `just verify`/`nextest`。
-- 最终 R2 门禁：`corepack pnpm generate` PASS、`corepack pnpm check` PASS、`just verify` PASS、`just nextest` PASS；`just dupes` FAIL（32 exact groups，max 16），`just osv` FAIL（`osv-scanner` 不可用）。
+- 最终 R2 门禁：`corepack pnpm generate` PASS、`corepack pnpm check` PASS、`just verify` PASS、`just nextest` PASS（当前提交范围均已重跑）；`just dupes` FAIL（32 exact groups，max 16），`just osv` FAIL（`osv-scanner` 不可用）。
