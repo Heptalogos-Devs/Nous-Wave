@@ -33,6 +33,7 @@ struct Inner {
     state: RwLock<ConfigurationState>,
 }
 
+#[derive(Clone)]
 struct ConfigurationState {
     revision: i64,
     active_system: BTreeMap<String, Value>,
@@ -128,6 +129,15 @@ impl ConfigurationService {
             .state
             .read()
             .map_err(|_| Error::Internal("configuration state lock poisoned".into()))?;
+        self.snapshot_from_state(&state, subject, desired)
+    }
+
+    fn snapshot_from_state(
+        &self,
+        state: &ConfigurationState,
+        subject: Option<SubjectId>,
+        desired: bool,
+    ) -> Result<ConfigSnapshot> {
         let system = if desired {
             &state.desired_system
         } else {
@@ -166,6 +176,22 @@ impl ConfigurationService {
             );
         }
         ConfigSnapshot::new(subject, state.revision, self.inner.registry.clone(), values)
+    }
+
+    fn scoped_digests(
+        &self,
+        state: &ConfigurationState,
+        subject: Option<SubjectId>,
+    ) -> Result<(String, String)> {
+        let active = self
+            .snapshot_from_state(state, subject, false)?
+            .effective_digest
+            .clone();
+        let desired = self
+            .snapshot_from_state(state, subject, true)?
+            .effective_digest
+            .clone();
+        Ok((active, desired))
     }
 
     pub async fn set_system_override(
@@ -257,9 +283,15 @@ impl ConfigurationService {
         )
         .to_hex()
         .to_string();
+        let mut next_state = self
+            .inner
+            .state
+            .read()
+            .map_err(|_| Error::Internal("configuration state lock poisoned".into()))?
+            .clone();
         let mut tx = self.inner.store.begin().await?;
         let existing = sqlx::query(
-            "SELECT request_digest,revision,apply_mode,pending_restart FROM configuration_mutation_receipts WHERE operation_id=$1 FOR UPDATE",
+            "SELECT request_digest,revision,apply_mode,pending_restart,active_digest,desired_digest FROM configuration_mutation_receipts WHERE operation_id=$1 FOR UPDATE",
         )
         .bind(operation_id.0)
         .fetch_optional(&mut *tx)
@@ -276,8 +308,8 @@ impl ConfigurationService {
                 revision: row.try_get("revision").map_err(db)?,
                 apply_mode: parse_apply_mode(row.try_get("apply_mode").map_err(db)?)?,
                 pending_restart: row.try_get("pending_restart").map_err(db)?,
-                active_digest: self.active_system_snapshot()?.effective_digest,
-                desired_digest: self.desired_system_snapshot()?.effective_digest,
+                active_digest: row.try_get("active_digest").map_err(db)?,
+                desired_digest: row.try_get("desired_digest").map_err(db)?,
             };
             tx.commit().await.map_err(db)?;
             return Ok(outcome);
@@ -316,8 +348,17 @@ impl ConfigurationService {
             }
         }
         let pending_restart = descriptor.apply_mode == ConfigApplyMode::RestartProcess;
-        sqlx::query("INSERT INTO configuration_mutation_receipts(operation_id,request_digest,subject_id,key,action,revision,apply_mode,pending_restart,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-            .bind(operation_id.0).bind(&digest).bind(subject.map(|value| value.0)).bind(key).bind(action).bind(revision).bind(format_apply_mode(descriptor.apply_mode)).bind(pending_restart).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
+        apply_mutation_to_state(
+            &mut next_state,
+            subject,
+            key,
+            value.clone(),
+            pending_restart,
+        );
+        next_state.revision = revision;
+        let (active_digest, desired_digest) = self.scoped_digests(&next_state, subject)?;
+        sqlx::query("INSERT INTO configuration_mutation_receipts(operation_id,request_digest,subject_id,key,action,revision,apply_mode,pending_restart,active_digest,desired_digest,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
+            .bind(operation_id.0).bind(&digest).bind(subject.map(|value| value.0)).bind(key).bind(action).bind(revision).bind(format_apply_mode(descriptor.apply_mode)).bind(pending_restart).bind(&active_digest).bind(&desired_digest).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
         tx.commit().await.map_err(db)?;
         {
             let mut state = self
@@ -325,33 +366,38 @@ impl ConfigurationService {
                 .state
                 .write()
                 .map_err(|_| Error::Internal("configuration state lock poisoned".into()))?;
-            state.revision = revision;
-            let desired = if let Some(subject) = subject {
-                state.desired_subject.entry(subject).or_default()
-            } else {
-                &mut state.desired_system
-            };
-            apply_map(desired, key, value.clone());
-            if !pending_restart {
-                let active = if let Some(subject) = subject {
-                    state.active_subject.entry(subject).or_default()
-                } else {
-                    &mut state.active_system
-                };
-                apply_map(active, key, value);
-            }
+            *state = next_state;
         }
         Ok(ConfigChangeOutcome {
             revision,
             apply_mode: descriptor.apply_mode,
             pending_restart,
-            active_digest: self.active_system_snapshot()?.effective_digest,
-            desired_digest: self.desired_system_snapshot()?.effective_digest,
+            active_digest,
+            desired_digest,
         })
     }
+}
 
-    pub fn descriptors(&self) -> impl Iterator<Item = &ConfigDescriptor> {
-        self.inner.registry.descriptors()
+fn apply_mutation_to_state(
+    state: &mut ConfigurationState,
+    subject: Option<SubjectId>,
+    key: &str,
+    value: Option<Value>,
+    pending_restart: bool,
+) {
+    let desired = if let Some(subject) = subject {
+        state.desired_subject.entry(subject).or_default()
+    } else {
+        &mut state.desired_system
+    };
+    apply_map(desired, key, value.clone());
+    if !pending_restart {
+        let active = if let Some(subject) = subject {
+            state.active_subject.entry(subject).or_default()
+        } else {
+            &mut state.active_system
+        };
+        apply_map(active, key, value);
     }
 }
 

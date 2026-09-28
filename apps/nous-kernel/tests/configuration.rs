@@ -117,3 +117,86 @@ async fn configuration_precedence_permissions_and_restart_state_are_explicit() {
             .unwrap(),
     );
 }
+
+#[tokio::test]
+async fn configuration_receipts_freeze_subject_scope_and_replay_outcomes() {
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = runtime
+        .subjects
+        .create_subject(CreateSubject {
+            subject_id: None,
+            operation_id: OperationId::new(),
+            cognitive_seed: CognitiveSeedInput {
+                text: "schema_version = 1".into(),
+                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                provenance: json!({}),
+            },
+            metadata: json!({}),
+            capabilities: None,
+        })
+        .await
+        .expect("subject")
+        .subject_id;
+    let service = &runtime.configuration;
+    let first_id = OperationId::new();
+    let first = service
+        .set_subject_override(
+            first_id,
+            subject,
+            EPSILON.path(),
+            json!(0.08),
+            ConfigActorTier::AdvancedUser,
+        )
+        .await
+        .expect("first subject override");
+    assert_eq!(
+        first.active_digest,
+        service
+            .snapshot_for_subject(subject)
+            .unwrap()
+            .effective_digest
+    );
+    assert_eq!(first.active_digest, first.desired_digest);
+    assert_ne!(
+        first.active_digest,
+        service.active_system_snapshot().unwrap().effective_digest
+    );
+
+    let later = service
+        .set_subject_override(
+            OperationId::new(),
+            subject,
+            EPSILON.path(),
+            json!(0.09),
+            ConfigActorTier::AdvancedUser,
+        )
+        .await
+        .expect("later subject override");
+    let replay = service
+        .set_subject_override(
+            first_id,
+            subject,
+            EPSILON.path(),
+            json!(0.08),
+            ConfigActorTier::AdvancedUser,
+        )
+        .await
+        .expect("replay original subject override");
+    assert_eq!(replay.revision, first.revision);
+    assert_eq!(replay.active_digest, first.active_digest);
+    assert_eq!(replay.desired_digest, first.desired_digest);
+    assert_ne!(later.active_digest, replay.active_digest);
+    assert!(matches!(
+        service
+            .set_subject_override(
+                first_id,
+                subject,
+                EPSILON.path(),
+                json!(0.1),
+                ConfigActorTier::AdvancedUser,
+            )
+            .await,
+        Err(nous_core::Error::Conflict(_))
+    ));
+}
