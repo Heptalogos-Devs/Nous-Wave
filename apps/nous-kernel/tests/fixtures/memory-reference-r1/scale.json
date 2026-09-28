@@ -1,0 +1,9 @@
+{
+  "version": "memory-reference-r1-scale-2026-09-29",
+  "current_memory_revisions": 10000,
+  "historical_memory_revisions": 3000,
+  "association_evidence": 30000,
+  "entity_references": 2000,
+  "tags": 1000,
+  "cognitive_schemas": 200
+}
