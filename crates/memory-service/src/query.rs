@@ -214,7 +214,7 @@ async fn temporal_lane(
     let mut next_rank = 1usize;
     for interval in valid {
         let rows = sqlx::query(
-            "SELECT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND r.valid_time_kind <> 'unknown' AND (COALESCE(r.valid_time_end,r.valid_time_start) IS NULL OR $2::timestamptz IS NULL OR COALESCE(r.valid_time_end,r.valid_time_start)>$2) AND (r.valid_time_start IS NULL OR $3::timestamptz IS NULL OR r.valid_time_start<$3) ORDER BY r.recorded_at DESC,r.memory_revision_id LIMIT $4",
+            "SELECT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ((r.valid_time_kind='instant' AND ($2::timestamptz IS NULL OR r.valid_time_start >= $2) AND ($3::timestamptz IS NULL OR r.valid_time_start < $3)) OR (r.valid_time_kind='interval' AND (r.valid_time_end IS NULL OR $2::timestamptz IS NULL OR r.valid_time_end>$2) AND (r.valid_time_start IS NULL OR $3::timestamptz IS NULL OR r.valid_time_start<$3))) ORDER BY r.recorded_at DESC,r.memory_revision_id LIMIT $4",
         )
         .bind(query.subject.0)
         .bind(interval.start)
@@ -236,7 +236,7 @@ async fn temporal_lane(
     }
     for interval in occurred {
         let rows = sqlx::query(
-            "SELECT DISTINCT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id JOIN memory_revision_evidence e USING(memory_revision_id) JOIN observation_occurrences oc USING(occurrence_id) WHERE o.subject_id=$1 AND oc.occurred_time_kind <> 'unknown' AND (COALESCE(oc.occurred_time_end,oc.occurred_time_start) IS NULL OR $2::timestamptz IS NULL OR COALESCE(oc.occurred_time_end,oc.occurred_time_start)>$2) AND (oc.occurred_time_start IS NULL OR $3::timestamptz IS NULL OR oc.occurred_time_start<$3) ORDER BY r.memory_revision_id LIMIT $4",
+            "SELECT DISTINCT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id JOIN memory_revision_evidence e USING(memory_revision_id) JOIN observation_occurrences oc USING(occurrence_id) WHERE o.subject_id=$1 AND ((oc.occurred_time_kind='instant' AND ($2::timestamptz IS NULL OR oc.occurred_time_start >= $2) AND ($3::timestamptz IS NULL OR oc.occurred_time_start < $3)) OR (oc.occurred_time_kind='interval' AND (oc.occurred_time_end IS NULL OR $2::timestamptz IS NULL OR oc.occurred_time_end>$2) AND (oc.occurred_time_start IS NULL OR $3::timestamptz IS NULL OR oc.occurred_time_start<$3))) ORDER BY r.memory_revision_id LIMIT $4",
         )
         .bind(query.subject.0)
         .bind(interval.start)
