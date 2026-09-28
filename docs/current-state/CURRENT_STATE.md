@@ -59,9 +59,10 @@
 
 - `corepack pnpm check`：PASS（Buf lint、TypeScript check、Vitest）。
 - `just verify`：PASS（本轮 configuration/social 扩展后的 fmt、source-shape、Self focused tests、workspace check、两组 Clippy、串行 Rust tests、deny、cargo-shear）。
-- `just nextest`：PASS（exit code 0，当前 57 个可发现测试，单测试线程；测试结束后 embedded PostgreSQL 进程和精确临时根均为 0）。
+- `just nextest`：PASS（exit code 0，单测试线程；测试结束后 embedded PostgreSQL 进程和精确临时根均为 0）。
 - `cargo test -p nous-kernel --test self_authority -- --test-threads=1`：PASS；Self facet/narrative create/revision fencing、historical exact binding、SelfDirect/lexical Serving、Self context、Self/Narrative UseEvent resident、lifecycle、dependency revalidation 和 purge projection refresh。
 - `cargo test -p nous-kernel --test query_correctness`：PASS；包含 stale lexical、tokenizer hit 与 derived producer association regression scenarios。
 - `cargo test -p nous-kernel --test reference_profile`：PASS；使用 embedded PostgreSQL 覆盖 migration、form idempotency/digest conflict、revision、UseEvent、lifecycle、purge 和共享 source retention。
 - `cargo deny` 的 advisory gate：PASS；lockfile 中 rustls 已升级到 0.23.45。剩余 duplicate dependency/license allowance 为 warning。
 - R2 focused evidence：`runtime_residency` 4/4、`configuration` 2/2、`social_cognition` 4/4、`memory_reference_closure` 1/1、`scale_fixture` 1/1、`nous-cognitive-retrieval` unit 8/8；这些是本轮实际运行边界，不替代最终 `just verify`/`nextest`。
+- 最终 R2 门禁：`corepack pnpm generate` PASS、`corepack pnpm check` PASS、`just verify` PASS、`just nextest` PASS；`just dupes` FAIL（32 exact groups，max 16），`just osv` FAIL（`osv-scanner` 不可用）。

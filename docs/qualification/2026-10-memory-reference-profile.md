@@ -6,7 +6,7 @@
 
 直接执行包：`Nous-Wave-Memory-Reference-Closure-Spec-R2`。包内 `MANIFEST.md` 列出的 11 个合同 Markdown 加 `README.md` 共 12 个文件；SHA-256 全部匹配（`SPEC_HASH_MISMATCHES=0`）。
 
-实现 HEAD：`214a31f`（本记录尚未提交时的当前实现基线）。
+实现证据范围：`ecc4435..00efe9c`（最终 docs-only 状态以本记录所在提交为准）。
 
 ## A. Documentation
 
@@ -88,13 +88,13 @@
 
 | 命令 | 状态 |
 | --- | --- |
-| `corepack pnpm generate` | NOT_RUN（本轮新增代码未改 Proto） |
-| `corepack pnpm check` | NOT_RUN |
-| `cargo nextest run --workspace --all-features` | NOT_RUN |
-| `just verify` | NOT_RUN |
+| `corepack pnpm generate` | PASS |
+| `corepack pnpm check` | PASS（Buf、tsc、Vitest 3 files/7 tests、Prettier、Oxlint、Knip、dependency-cruiser、jscpd、Sherif） |
+| `cargo nextest run --workspace --all-features` | PASS（`just nextest` exit 0，serial test threads） |
+| `just verify` | PASS（fmt/source-shape/check/clippy/workspace tests/deny/shear） |
 | `git diff --check` | PASS（每个 commit 前） |
-| `just dupes` | NOT_RUN（历史当前 gate 为 FAIL，未扩大 threshold） |
-| `just osv` | NOT_RUN（历史当前 gate 为 FAIL，未增加 ignore） |
+| `just dupes` | FAIL（32 exact groups，threshold 16；未扩大 threshold/exclude） |
+| `just osv` | FAIL（`osv-scanner` executable 未安装/不可识别；未增加 ignore） |
 
 ## I. Remaining status
 
