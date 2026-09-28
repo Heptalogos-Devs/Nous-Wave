@@ -7,6 +7,7 @@ use nous_core::{
 };
 use serde_json::Value;
 use sqlx::Row;
+use std::time::Instant;
 use test_support::{database, open_memory_only_runtime};
 use uuid::Uuid;
 
@@ -212,5 +213,52 @@ async fn memory_reference_scale_fixture_keeps_lane_structural_gates() {
         }),
         "temporal result diagnostics: {:?}",
         temporal_result
+    );
+
+    let mut query_samples_ms = Vec::with_capacity(20);
+    for _ in 0..20 {
+        let started = Instant::now();
+        let result = runtime
+            .query(CognitiveQuery {
+                api_version: nous_core::API_VERSION,
+                subject,
+                session: None,
+                situation: Default::default(),
+                targets: vec![QueryTarget::AnyRelevantCognition],
+                cues: vec![Cue::Entity(EntityCue {
+                    entity_ref: EntityRef::new("entity:scale:2000").unwrap(),
+                })],
+                constraints: Default::default(),
+                exploration: Default::default(),
+                resources: Default::default(),
+                result_need: Default::default(),
+                effort: Default::default(),
+                capabilities: Default::default(),
+                diagnostics: Default::default(),
+            })
+            .await
+            .expect("baseline query");
+        assert_eq!(result.results.len(), 1);
+        query_samples_ms.push(started.elapsed().as_secs_f64() * 1000.0);
+    }
+    query_samples_ms.sort_by(f64::total_cmp);
+    let serving_started = Instant::now();
+    runtime
+        .serving
+        .refresh(subject)
+        .await
+        .expect("scale serving build");
+    let serving_build_ms = serving_started.elapsed().as_secs_f64() * 1000.0;
+    println!(
+        "PERFORMANCE_BASELINE_JSON={}",
+        serde_json::json!({
+            "query_samples": query_samples_ms.len(),
+            "p50_ms": query_samples_ms[query_samples_ms.len() / 2],
+            "p95_ms": query_samples_ms[(query_samples_ms.len() * 95 / 100).min(query_samples_ms.len() - 1)],
+            "max_ms": query_samples_ms.last().copied().unwrap_or_default(),
+            "serving_build_ms": serving_build_ms,
+            "query_count": "NOT_INSTRUMENTED",
+            "peak_memory": "NOT_INSTRUMENTED"
+        })
     );
 }
