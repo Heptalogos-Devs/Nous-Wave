@@ -36,9 +36,7 @@ fn executable() -> String {
 
 fn config(root: &TempDir) -> std::path::PathBuf {
     let path = root.path().join("process-restart-kernel.toml");
-    let text = format!(
-        "[bootstrap.server]\nbind = \"127.0.0.1:0\"\nremote_access = false\n\n[bootstrap.database]\nmode = \"external\"\nurl = \"\"\nmax_connections = 4\nname = \"restart\"\ninstall_dir = \"postgres-install\"\ndata_dir = \"postgres-data\"\n\n[bootstrap.object_store]\nbackend = \"fs\"\nroot = \"process-objects\"\nmax_upload_bytes = 1048576\n\n[bootstrap.serving]\nroot = \"process-serving\"\n\n[settings.capabilities.process]\nmemory = true\nself_cognition = false\nsocial = false\n\n[settings.capabilities.subject_defaults]\nmemory = true\nself_cognition = false\nsocial = false\n",
-    );
+    let text = "[bootstrap.server]\nbind = \"127.0.0.1:0\"\nremote_access = false\n\n[bootstrap.database]\nmode = \"external\"\nurl = \"\"\nmax_connections = 4\nname = \"restart\"\ninstall_dir = \"postgres-install\"\ndata_dir = \"postgres-data\"\n\n[bootstrap.object_store]\nbackend = \"fs\"\nroot = \"process-objects\"\nmax_upload_bytes = 1048576\n\n[bootstrap.serving]\nroot = \"process-serving\"\n\n[settings.capabilities.process]\nmemory = true\nself_cognition = false\nsocial = false\n\n[settings.capabilities.subject_defaults]\nmemory = true\nself_cognition = false\nsocial = false\n".to_string();
     std::fs::write(&path, text).expect("write process restart config");
     path
 }
