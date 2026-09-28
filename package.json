@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "tsx apps/nous-core/src/main.ts",
+    "qualification:official-client": "tsx apps/nous-core/official_client_closure.ts",
     "format": "prettier \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"*.{json,js,cjs,mjs,yml,yaml}\" --write",
     "format:check": "prettier \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"*.{json,js,cjs,mjs,yml,yaml}\" --check",
     "typecheck": "tsc --noEmit",

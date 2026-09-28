@@ -6,7 +6,7 @@
 
 直接执行包：`Nous-Wave-Memory-Reference-Closure-Spec-R2`。包内 `MANIFEST.md` 列出的 11 个合同 Markdown 加 `README.md` 共 12 个文件；SHA-256 全部匹配（`SPEC_HASH_MISMATCHES=0`）。
 
-实现证据范围：`ecc4435..00efe9c`（最终 docs-only 状态以本记录所在提交为准）。
+实现证据范围：`ecc4435..ebb2a4c`（最终 docs-only 状态以本记录所在提交为准）。
 
 ## A. Documentation
 
@@ -58,7 +58,7 @@
 | Subject/Session/ResidentSet/current Memory/Use receipt restoration | PASS | closure scenario + existing `reference_profile` evidence。 |
 | serving generation reopen/rebuild | PASS | `reference_profile` corrupt artifact → reopen rebuild；generation identity changed and Authority content remained. |
 | stale generation cannot expose invalid cognition | PASS | existing `reference_profile`/`query_correctness` stale regression。 |
-| actual subprocess process restart | NOT_RUN | 当前证据是 composition restart；尚未运行独立 Kernel child-process restart。 |
+| actual subprocess process restart | PASS | `cargo test -p nous-kernel --test process_restart -- --test-threads=1`：Kernel child process 两次启动，Subject/Session/runtime checkpoint 跨进程恢复。 |
 
 ## F. Retrieval / Serving qualification
 
@@ -80,7 +80,7 @@
 | 项目 | 状态 | 证据 |
 | --- | --- | --- |
 | official TypeScript Client surface exists | PASS | `packages/client/src/index.ts` exposes subject/material/cognition/memory/query/use/lifecycle wrappers；generated protocol unchanged by this R2 slice。 |
-| closure scenario driven through official client/Core path | NOT_RUN | 本轮 integration evidence 仍由 Kernel semantic fixture 驱动；尚未启动 Core + Kernel process 并由 `@nous-wave/client` 驱动同一 durable scenario。 |
+| closure scenario driven through official client/Core path | PASS | `corepack pnpm exec tsx apps/nous-core/official_client_closure.ts`：真实 Core + Kernel + `@nous-wave/client` 驱动 Subject、Session、Observation、Memory form、ReportUse/retry 与 readback。 |
 
 ## H. Full verification / repository gates
 

@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": ["apps/nous-core/official_client_closure.ts"],
   "rules": {
     "files": "error",
     "dependencies": "error",

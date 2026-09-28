@@ -51,7 +51,7 @@
 ## 当前未完成或未运行
 
 - Social revise/lifecycle/suppression、LanguageConvention actor/root acceptance 和 Seed→Social created/unchanged/conflict 已有 focused evidence；purge retry/source retention、disabled deferred、restart/rebuild 和完整多来源矩阵仍为 `NOT_RUN`，不等同于 PASS。
-- Memory Reference Profile Closure R2 已有 deterministic multi-session closure scenario、versioned fixture/oracle、full-scale structural fixture 和 observed performance baseline；完整 lane/diagnostic oracle、official TypeScript Client 驱动的 Core+Kernel 场景、独立 Kernel subprocess restart 和最终 full verification 仍为 `NOT_RUN`。
+- Memory Reference Profile Closure R2 已有 deterministic multi-session closure scenario、versioned fixture/oracle、full-scale structural fixture、observed performance baseline、真实 Kernel subprocess restart 和 Core+Kernel+official TypeScript Client 场景；完整 lane/diagnostic oracle 与 Wave benchmark gate 仍为 `NOT_RUN`。
 - R2 scale fixture 当前记录 10,000 current Memory revisions、3,000 historical revisions、30,000 AssociationEvidence、2,000 entity refs、1,000 Tags、200 CognitiveSchemas；query count 与 RSS 尚未 instrument。
 - Motivation、Desired Condition、Episode/Journal、Heptalogos live integration、自动人格学习和新图算法仍不属于本轮。
 

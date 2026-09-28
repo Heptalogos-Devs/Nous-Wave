@@ -93,7 +93,8 @@ async function main() {
         }),
       }),
     );
-    if (created.subjectId !== subjectId) throw new Error("official client Subject mismatch");
+    if (created.subjectId !== subjectId)
+      throw new Error("official client Subject mismatch");
 
     const session = await client.cognition.openSession(
       create(SubjectRequestSchema, { subjectId }),
@@ -115,7 +116,8 @@ async function main() {
         },
       }),
     );
-    if (!observed.occurrenceId) throw new Error("official client Observation missing occurrence");
+    if (!observed.occurrenceId)
+      throw new Error("official client Observation missing occurrence");
 
     const formed = await client.memory.form(
       create(FormMemoryRequestSchema, {
@@ -147,7 +149,8 @@ async function main() {
         }),
       }),
     );
-    if (!formed.revisionId) throw new Error("official client Memory missing revision");
+    if (!formed.revisionId)
+      throw new Error("official client Memory missing revision");
 
     const useRequest = create(ReportUseRequestSchema, {
       subjectId,
@@ -169,7 +172,10 @@ async function main() {
     const duplicate = await client.cognition.reportUse(useRequest);
     if (accepted.acceptedCount !== 1 || duplicate.duplicateCount !== 1)
       throw new Error("official client UseEvent idempotency mismatch");
-    const readback = await client.memory.get({ subjectId, id: formed.memoryId });
+    const readback = await client.memory.get({
+      subjectId,
+      id: formed.memoryId,
+    });
     if (readback.revisionId !== formed.revisionId)
       throw new Error("official client Memory readback mismatch");
     const sessionAfter = await client.cognition.getSession({
@@ -189,6 +195,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+  console.error(
+    error instanceof Error ? (error.stack ?? error.message) : String(error),
+  );
   process.exitCode = 1;
 });
