@@ -1,9 +1,12 @@
 # Self Authority 实现规范
 
-状态：实施规范  
-目录：`docs/specs/active/self-authority/`
+STATUS: SUPERSEDED FOR CURRENT EXECUTION
+IMPLEMENTATION EXISTS; NO CURRENT EXPANSION AUTHORITY
 
-本文档集直接约束本次代码施工。
+状态：实施规范  
+目录：`docs/specs/superseded/self-authority/`
+
+本文档集记录已完成的历史代码施工，不再授权当前扩展。
 
 ## 阅读顺序
 

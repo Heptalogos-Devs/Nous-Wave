@@ -1,6 +1,9 @@
 # 配置基础服务与社会认知实现规范
 
-本目录直接约束当前代码施工。
+STATUS: SUPERSEDED FOR CURRENT EXECUTION
+Configuration foundation and the existing Social vertical slice are retained; this historical Spec set grants no current expansion authority.
+
+本目录记录已完成的历史代码施工，不再授权当前扩展。
 
 ## 阅读顺序
 

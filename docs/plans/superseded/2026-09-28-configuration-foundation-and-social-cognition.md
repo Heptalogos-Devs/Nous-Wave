@@ -1,7 +1,14 @@
 # 配置基础服务与社会认知开发计划
 
+STATUS: SUPERSEDED FOR CURRENT EXECUTION
+IMPLEMENTATION EXISTS; NO CURRENT EXPANSION AUTHORITY
+
 日期：2026-09-28
-状态：ACTIVE
+状态：SUPERSEDED FOR CURRENT EXECUTION
+
+Configuration foundation retained.
+Social vertical slice retained.
+No new Social semantics are authorized by this plan. Named correctness repairs are authorized only when the current Memory Reference Profile closure plan explicitly covers them.
 
 ## 目标
 
@@ -60,5 +67,4 @@
 - Motivation / Desired Condition；
 - 新图算法 benchmark；
 - 覆盖率目标或全仓 mutation testing。
-
 

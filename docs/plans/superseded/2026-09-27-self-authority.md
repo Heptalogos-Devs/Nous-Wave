@@ -1,10 +1,15 @@
 # Self Authority 开发计划
 
+STATUS: SUPERSEDED FOR CURRENT EXECUTION
+IMPLEMENTATION EXISTS; NO CURRENT EXPANSION AUTHORITY
+
 日期：2026-09-27
-状态：ACTIVE（Self Authority vertical slice 已落地；Seed parser/import 因 `SPEC_GAP` 暂停）
-目标路径：`docs/plans/active/2026-09-27-self-authority.md`
+状态：SUPERSEDED FOR CURRENT EXECUTION（Self Authority vertical slice 已落地；Seed parser/import 的历史 `SPEC_GAP` 记录保留）
+目标路径：`docs/plans/superseded/2026-09-27-self-authority.md`
 
 ## 1. 目标
+
+本计划的实现已保留在当前仓库。由于 Memory Reference Profile qualification 尚未闭合，本计划不再授权当前扩展；其原先关于“Memory spine 已稳定”的进入理由被后续 qualification 证明过早。待 Memory Reference Profile closure 后重新排期。
 
 实现独立 Self Authority，使主体可以保存、修订和查询：
 

@@ -2,7 +2,7 @@
 
 日期：2026-09-27
 
-范围：Self Authority active plan 与 `docs/specs/active/self-authority/`。
+范围：已 superseded 的 Self Authority plan 与 `docs/specs/superseded/self-authority/`；实现保留，当前不授权 Self 扩展。
 
 ## Semantic slices
 

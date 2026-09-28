@@ -2,7 +2,7 @@
 
 状态：PARTIAL / ACTIVE
 
-本记录只保存本轮实际运行的证据；长期语义见 Architecture-Vault，直接施工合同见 [active Spec set](../specs/active/configuration-foundation-and-social-cognition/README.md)。
+本记录只保存本轮实际运行的证据；长期语义见 Architecture-Vault，历史直接施工合同见 [superseded Spec set](../specs/superseded/configuration-foundation-and-social-cognition/README.md)。该实现保留，但当前不授权 Social 扩展。
 
 ## 已运行门禁
 

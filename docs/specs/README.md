@@ -53,5 +53,6 @@ Agent 不得自行决定：
 ## 4. 当前 Active Specs
 
 - `active/cognitive-retrieval/`
-- `active/self-authority/`
-- `active/configuration-foundation-and-social-cognition/`
+- `active/` 中的 Cognitive Retrieval 是当前直接实施合同；Memory Reference Profile Closure 的额外 P0/场景合同来自其当前 active plan 与外部 R2 Spec 包。
+
+Self Authority 与 Configuration Foundation/Social Cognition 的原始实施合同保留在 `superseded/`，不再授权当前扩展。
