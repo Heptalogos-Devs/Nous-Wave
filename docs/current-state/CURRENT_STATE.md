@@ -2,7 +2,7 @@
 
 ## 当前施工授权
 
-当前唯一新增代码施工线是 [Memory Reference Profile Closure R2](../plans/active/2026-09-28-memory-reference-profile-closure.md)。Self Authority 与 Configuration/Social 是已实现的 frozen early slices；其计划和 Specs 位于 `plans/superseded/` 与 `specs/superseded/`，不授权当前扩展。
+当前唯一新增代码施工线是 [Structural Rebase — Memory Reference Profile R1](../plans/active/2026-09-29-structural-rebase-memory-reference-profile.md)。Self Authority 与 Configuration/Social 是待移除的 pre-production executable slices；长期语义仍由 Architecture-Vault 维护。
 
 ## 当前组合
 

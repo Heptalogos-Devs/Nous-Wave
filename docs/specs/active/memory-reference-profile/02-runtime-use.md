@@ -1,0 +1,32 @@
+# Runtime & Use
+
+状态：IMPLEMENTATION-AUTHORIZING
+
+本 Spec 冻结 Session、ResidentSet、UseEvent、accessibility 和 restart-visible Runtime state。Runtime 不拥有 durable Memory Authority，也不依赖 concrete retrieval implementation。
+
+## Session isolation
+
+- 一个 Subject 可同时服务多个 Session 与 consumer；durable cognition 归 Subject 共享。
+- Session 的 focus、ResidentSet、runtime revision、activity 和 WorkContext state 按 Session 隔离。
+- Runtime candidates 只来自指定 Session 的 exact resident revisions 与当前 Situation refs；Subject membership 不能替代 residency。
+- Session 属于同一 Subject 且未 closed 才能参与带 Session 的 runtime operation；closed/foreign session 返回 `FAILED_PRECONDITION`。
+
+## UseEvent
+
+UseEvent identity 为 `(subject_id, consumer_ref, event_id)`，`event_id` 由 caller 提供。Canonical digest 覆盖 Session、exact cognition revision、use kind、occurred time 和 canonical metadata。
+
+ReportUse batch 先按 key 分组：同 key/same digest 的同批输入 coalesce；same key/different digest 使整批 conflict。数据库已有 event 或 purge receipt 且 digest 相同时是 duplicate，不重新验证已 purge target，也不产生 Runtime side effect。
+
+只有 newly accepted events 改变 Session/ResidentSet。`presented` 可写 durable event 并更新 activity，但不进入 ResidentSet；`referenced`、`acted_on`、`result_supported`、`result_refuted`、`corrected`、`pinned` 等 meaningful use 才刷新 exact resident ref 与 meaningful-use time。duplicate-only request 不改变 activity、resident 或 runtime revision；同一 batch 的多个新 event 只推进一次 runtime revision。
+
+UseEvent target 只接受 exact Memory/Schema revision，不接受 mutable Memory/Schema id。Context 仅保存受限 metadata，不保存 prompt、正文或 raw artifact。
+
+## Accessibility
+
+Accessibility 是 query-time policy，不是 Memory truth、lifecycle 或 purge。当前 reference 参数为 `epsilon=0.02`、`tau_days=30`、`decay=0.5`、`formation_weight=1.0`；typed use weight 和 Normal/Deep/Explicit threshold 由实现和 Qualification 共同核对。
+
+`auto`、`normal`、`deep`、`explicit` override 只决定当前普通 query 的可访问性。Exact explicit object/revision 与合法 provenance/management read 可绕过 auto level，但不得绕过 Subject ownership、suppression 或 purge。
+
+## Recovery
+
+Session、UseEvent receipt、ResidentSet 和 Authority sequence 必须在同一 data root 重启后可恢复；BoundQuery 不跨进程持久化。Runtime state 丢失时可从 Authority 重建，不能把缓存当作 durable cognition。
