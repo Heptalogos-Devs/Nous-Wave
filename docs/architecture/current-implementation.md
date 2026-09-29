@@ -4,7 +4,7 @@
 
 ## 进程边界
 
-TypeScript Core 负责公开 Connect/HTTP API、Focus/Projection/Managed Context、NousQL、模型编排和官方 Client 宿主。Rust Kernel 是 private loopback child process，负责 Subject、Runtime、Material、Memory、Persistence 和 Retrieval 的组合。Core 不直接访问 PostgreSQL。
+TypeScript Core 负责公开 Connect/HTTP API、WorkContext/Projection/Managed Context、NousQL、模型编排和官方 Client 宿主。Rust Kernel 是 private loopback child process，负责 Subject、Runtime、Material、Memory、Persistence 和 Retrieval 的组合。Core 不直接访问 PostgreSQL。
 
 ## Rust owners
 
@@ -16,8 +16,8 @@ TypeScript Core 负责公开 Connect/HTTP API、Focus/Projection/Managed Context
 | `crates/configuration` | typed registry、overrides、immutable snapshots、digest 和 capability provisioning |
 | `crates/subject` | Subject identity、Memory capability、Cognitive Seed version/adoption |
 | `crates/material` | Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation 和 materialization |
-| `crates/memory` | Memory/CognitiveSchema/Tag/AssociationEvidence Authority、lifecycle、query contributors |
-| `crates/runtime` | Session、ResidentSet、UseEvent、QueryPlan、lane/result contract 和 fixed fusion |
+| `crates/memory` | Memory/CognitiveSchema/Episode/Tag/AssociationEvidence Authority、lifecycle、query contributors |
+| `crates/runtime` | Session、ResidentSet、WorkContext、UseEvent、QueryPlan、lane/result contract 和 fixed fusion |
 | `crates/retrieval` | lexical/dense Serving、immutable generations、provider adapters 和 explicit experimental topology |
 
 ## 主要数据流
@@ -40,4 +40,4 @@ Runtime 持有 QueryPlan、lane budgets、object-revision aggregation、fixed RR
 
 ## 当前边界
 
-当前 executable scope 是 Memory-only Reference Profile。Self、Social、Motivation、Desired Condition、Episode/Journal、Offline Cognition 和 Heptalogos live integration 由 Vault 保留长期目标语义，但不在本 checkout 提供 owner、protocol 或 public capability claim。
+当前 executable scope 是 Memory-only Reference Profile、WorkContext continuity 和 Episode foundation。Self、Social、Motivation、Desired Condition、Journal、Offline Cognition 和 Heptalogos live integration 由 Vault 保留长期目标语义，但不在本 checkout 提供 owner、protocol 或 public capability claim。

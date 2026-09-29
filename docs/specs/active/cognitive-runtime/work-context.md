@@ -25,4 +25,4 @@ Typed public RPCs are `CreateWorkContext`、`GetWorkContext`、`ListWorkContexts
 
 ## Persistence and recovery
 
-No generic Focus/checkpoint route remains. WorkContext data is stored in the fresh canonical schema and is recovered from the same database root after process restart. Prompt, model hidden state, raw cache, and full chat history are not persisted.
+The Runtime stores typed WorkContext data in the fresh canonical schema and recovers it from the same database root after process restart. Prompt, model hidden state, raw cache, and full chat history are not persisted.

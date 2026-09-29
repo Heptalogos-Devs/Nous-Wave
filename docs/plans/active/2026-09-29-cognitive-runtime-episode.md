@@ -18,7 +18,7 @@
 
 ## Scope
 
-本轮闭合 configuration mutation serialization、ResidentSet transaction ownership、synthesized provenance independence、typed temporal axes、Retrieval topology ownership、Focus→WorkContext replacement、Active Cognition runtime view、Memory-owned Episode foundation、research baseline/Wave harness 和 repo-native evidence。
+本轮闭合 configuration mutation serialization、ResidentSet transaction ownership、synthesized provenance independence、typed temporal axes、Retrieval topology ownership、WorkContext runtime owner、Active Cognition runtime view、Memory-owned Episode foundation、research baseline/Wave harness 和 repo-native evidence。
 
 WorkContext 属于 Runtime，拥有 Subject 级稳定身份并可跨 Session 延续；Episode 属于 Memory，支持 exact revision、members、provenance、hierarchy、track 和显式 lineage。两者都不复制 Memory Authority。
 

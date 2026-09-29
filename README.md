@@ -1,12 +1,12 @@
 # Nous Wave
 
-Nous Wave 是一个 pre-production Subject cognition system。本仓库当前实现 Memory-only Reference Profile：TypeScript Core 提供 public host，Rust Kernel 持有认知 Authority、Runtime、Material、Memory 和可重建 Serving。
+Nous Wave 是一个 pre-production Subject cognition system。本仓库当前实现 Memory-only Reference Profile、WorkContext continuity 和 Memory-owned Episode foundation：TypeScript Core 提供 public host，Rust Kernel 持有认知 Authority、Runtime、Material、Memory 和可重建 Serving。
 
 长期目标语义、已接受决定和研究由 [Architecture-Vault](https://github.com/Heptalogos-Devs/Architecture-Vault) 持有；本仓库维护当前实现与实际验证证据。
 
 ## 当前可运行能力
 
-当前主线支持 Artifact/Observation → grounded Memory → public Query/Serving → meaningful UseEvent → restart/rebuild → suppression/restore/purge → provenance trace-back。Self、Social、Motivation、Episode/Journal、Offline Cognition 和 Heptalogos live integration 不属于当前 executable scope。
+当前主线支持 Artifact/Observation → grounded Memory → public Query/Serving → meaningful UseEvent → restart/rebuild → suppression/restore/purge → provenance trace-back，并支持 WorkContext 跨 Session 延续和 Episode exact revision foundation。Self、Social、Motivation、Journal、Offline Cognition 和 Heptalogos live integration 不属于当前 executable scope。
 
 ## 最短运行路径
 
@@ -25,6 +25,12 @@ corepack pnpm qualification:memory-reference
 ```
 
 它只经过 Core 与官方 TypeScript Client，验证 Memory-only Subject、双 Session、Query、UseEvent retry、restart、suppress/restore、purge 和 provenance trace-back。
+
+WorkContext 与 Episode public qualification：
+
+`text
+corepack pnpm qualification:cognitive-runtime-episode
+`
 
 ## 开发与验证
 
@@ -45,4 +51,5 @@ just verify
 - [当前状态](docs/current-state/CURRENT_STATE.md)
 - [当前计划](docs/plans/README.md)
 - [当前 Memory Reference Specs](docs/specs/active/memory-reference-profile/README.md)
+- [当前 Cognitive Runtime / Episode Specs](docs/specs/active/cognitive-runtime/work-context.md)
 - [Rust crate map](crates/INDEX.md)
