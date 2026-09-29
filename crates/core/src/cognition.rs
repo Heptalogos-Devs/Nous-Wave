@@ -230,10 +230,6 @@ pub fn validate_exact_supports(supports: &[RevisionSupport]) -> Result<()> {
                 value.target_revision,
                 CognitiveRef::MemoryRevision(_)
                     | CognitiveRef::CognitiveSchemaRevision(_)
-                    | CognitiveRef::SelfFacetRevision(_)
-                    | CognitiveRef::NarrativeIdentityRevision(_)
-                    | CognitiveRef::RelationshipRevision(_)
-                    | CognitiveRef::LanguageConventionRevision(_)
             )
         {
             return Err(Error::Invalid(

@@ -18,11 +18,6 @@ pub const RRF_LEXICAL_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weight
 pub const RRF_DENSE_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.dense");
 pub const RRF_TEMPORAL_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.temporal");
 pub const RRF_SCHEMA_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.schema_direct");
-pub const RRF_SELF_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.self_direct");
-pub const RRF_SOCIAL_RELATION_KEY: ConfigKey<f64> =
-    ConfigKey::new("retrieval.rrf.weights.social_relation_direct");
-pub const RRF_LANGUAGE_CONVENTION_KEY: ConfigKey<f64> =
-    ConfigKey::new("retrieval.rrf.weights.language_convention_direct");
 pub const RRF_TOPOLOGY_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.topology_wave");
 
 pub const QUERY_LIGHT_MULTIPLIER: ConfigKey<usize> =
@@ -67,9 +62,6 @@ impl RetrievalPolicy {
                 (EvidenceFamily::Dense, 1.5),
                 (EvidenceFamily::Temporal, 1.0),
                 (EvidenceFamily::SchemaDirect, 1.5),
-                (EvidenceFamily::SelfDirect, 2.0),
-                (EvidenceFamily::SocialRelationDirect, 2.0),
-                (EvidenceFamily::LanguageConventionDirect, 2.0),
                 (EvidenceFamily::TopologyWave, 1.0),
             ]),
             effort_multipliers: [2, 4, 8, 16],
@@ -158,17 +150,6 @@ pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()
     float!(RRF_DENSE_KEY, 1.5, "Dense lane RRF weight.");
     float!(RRF_TEMPORAL_KEY, 1.0, "Temporal lane RRF weight.");
     float!(RRF_SCHEMA_KEY, 1.5, "Schema lane RRF weight.");
-    float!(RRF_SELF_KEY, 2.0, "Self direct lane RRF weight.");
-    float!(
-        RRF_SOCIAL_RELATION_KEY,
-        2.0,
-        "Social relation direct lane RRF weight."
-    );
-    float!(
-        RRF_LANGUAGE_CONVENTION_KEY,
-        2.0,
-        "Language convention direct lane RRF weight."
-    );
     float!(RRF_TOPOLOGY_KEY, 1.0, "Topology lane RRF weight.");
     budget!(QUERY_LIGHT_MULTIPLIER, 2, "Light query effort multiplier.");
     budget!(
@@ -215,15 +196,6 @@ pub fn resolve_retrieval_policy(snapshot: &ConfigSnapshot) -> Result<RetrievalPo
             (EvidenceFamily::Dense, snapshot.get(RRF_DENSE_KEY)?),
             (EvidenceFamily::Temporal, snapshot.get(RRF_TEMPORAL_KEY)?),
             (EvidenceFamily::SchemaDirect, snapshot.get(RRF_SCHEMA_KEY)?),
-            (EvidenceFamily::SelfDirect, snapshot.get(RRF_SELF_KEY)?),
-            (
-                EvidenceFamily::SocialRelationDirect,
-                snapshot.get(RRF_SOCIAL_RELATION_KEY)?,
-            ),
-            (
-                EvidenceFamily::LanguageConventionDirect,
-                snapshot.get(RRF_LANGUAGE_CONVENTION_KEY)?,
-            ),
             (
                 EvidenceFamily::TopologyWave,
                 snapshot.get(RRF_TOPOLOGY_KEY)?,

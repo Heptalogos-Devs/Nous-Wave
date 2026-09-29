@@ -19,11 +19,7 @@ nous-core.workspace = true
 nous-material.workspace = true
 nous-memory-service.workspace = true
 nous-memory-domain.workspace = true
-nous-self-service.workspace = true
-nous-self-domain.workspace = true
 nous-configuration-service.workspace = true
-nous-social-service.workspace = true
-nous-social-domain.workspace = true
 tokio.workspace = true
 clap.workspace = true
 serde.workspace = true
@@ -50,7 +46,6 @@ tonic-prost.workspace = true
 tempfile.workspace = true
 postgresql_embedded.workspace = true
 sqlx.workspace = true
-nous-self-domain.workspace = true
 
 [lints]
 workspace = true

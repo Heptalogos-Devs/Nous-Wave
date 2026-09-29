@@ -20,10 +20,6 @@ root = "./data/serving"
 
 [settings.capabilities.process]
 memory = true
-self_cognition = false
-social = false
 
 [settings.capabilities.subject_defaults]
 memory = true
-self_cognition = false
-social = false

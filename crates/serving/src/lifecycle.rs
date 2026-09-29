@@ -21,7 +21,7 @@ impl ServingService {
         snapshot: &nous_configuration_service::ConfigSnapshot,
     ) -> Result<String> {
         let capabilities = self.projection_capabilities(subject).await?;
-        let mut config = serde_json::json!({"schema":1,"memory_enabled":capabilities.memory,"self_enabled":capabilities.self_cognition,"social_enabled":capabilities.social});
+        let mut config = serde_json::json!({"schema":1,"memory_enabled":capabilities.memory});
         if family == "topology" {
             config["propagation"] = serde_json::to_value(resolve_wave_config(snapshot)?)
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
@@ -73,9 +73,7 @@ impl ServingService {
         &self,
         subject: SubjectId,
     ) -> Result<ProjectionCapabilities> {
-        let row = sqlx::query(
-            "SELECT memory,self_cognition,social FROM subject_capabilities WHERE subject_id=$1",
-        )
+        let row = sqlx::query("SELECT memory FROM subject_capabilities WHERE subject_id=$1")
         .bind(subject.0)
         .fetch_optional(self.store.pool())
         .await
@@ -85,14 +83,6 @@ impl ServingService {
             memory: self.options.memory_enabled
                 && row
                     .try_get("memory")
-                    .map_err(nous_authority_store::database_error)?,
-            self_cognition: self.options.self_enabled
-                && row
-                    .try_get("self_cognition")
-                    .map_err(nous_authority_store::database_error)?,
-            social: self.options.social_enabled
-                && row
-                    .try_get("social")
                     .map_err(nous_authority_store::database_error)?,
         })
     }

@@ -8,8 +8,6 @@ import {
   SubjectService,
   CognitionService,
   MemoryService,
-  SelfService,
-  SocialService,
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import { IdentityService } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
@@ -67,8 +65,6 @@ export function createNousClient(transport: Transport) {
   const subjects = createClient(SubjectService, transport);
   const cognition = createClient(CognitionService, transport);
   const memory = createClient(MemoryService, transport);
-  const self = createClient(SelfService, transport);
-  const social = createClient(SocialService, transport);
   const material = createClient(MaterialService, transport);
   const identity = createClient(IdentityService, transport);
   const resources = createClient(ResourceService, transport);
@@ -170,23 +166,6 @@ export function createNousClient(transport: Transport) {
       reaccept: call(memory.reacceptMemory),
       purge: call(memory.purgeMemory),
       consolidate: call(memory.consolidateMemory),
-    },
-    self: {
-      createFacet: call(self.createSelfFacet),
-      getFacet: call(self.getSelfFacet),
-      reviseFacet: call(self.reviseSelfFacet),
-      mutateLifecycle: call(self.mutateSelfLifecycle),
-      createNarrative: call(self.createNarrativeIdentity),
-      getNarrative: call(self.getNarrativeIdentity),
-      reviseNarrative: call(self.reviseNarrativeIdentity),
-    },
-    social: {
-      registerRelationType: call(social.registerRelationType),
-      createRelationship: call(social.createRelationship),
-      reviseRelationship: call(social.reviseRelationship),
-      createLanguageConvention: call(social.createLanguageConvention),
-      reviseLanguageConvention: call(social.reviseLanguageConvention),
-      mutateLifecycle: call(social.mutateSocialLifecycle),
     },
     material: {
       getArtifact: call(material.getArtifact),

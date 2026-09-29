@@ -50,12 +50,7 @@ nous-authority-store = { path = "crates/authority-store" }
 nous-cognitive-retrieval = { path = "crates/cognitive-retrieval" }
 nous-serving = { path = "crates/serving" }
 nous-memory-service = { path = "crates/memory-service" }
-nous-self-domain = { path = "crates/self-domain" }
-nous-self-service = { path = "crates/self-service" }
 nous-configuration-service = { path = "crates/configuration-service" }
-nous-cognitive-seed = { path = "crates/cognitive-seed" }
-nous-social-domain = { path = "crates/social-domain" }
-nous-social-service = { path = "crates/social-service" }
 
 [profile.dev]
 debug = 0

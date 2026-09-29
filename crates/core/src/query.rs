@@ -5,9 +5,6 @@ use super::*;
 pub enum QueryTarget {
     AnyRelevantCognition,
     Memory,
-    #[serde(rename = "self")]
-    SelfCognition,
-    Social,
     Evidence,
     EntityNeighborhood {
         entity_ref: EntityRef,
@@ -57,27 +54,6 @@ pub struct SchemaCue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SelfFacetCue {
-    pub kind: Option<String>,
-    pub key: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SocialRelationCue {
-    pub relation_type_key: Option<String>,
-    pub from: Option<EntityRef>,
-    pub to: Option<EntityRef>,
-    #[serde(default)]
-    pub include_views: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LanguageConventionCue {
-    pub expression: String,
-    pub scope: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemporalCue {
     pub interval: TimeInterval,
 }
@@ -108,9 +84,6 @@ pub enum Cue {
     MediaRegion(MediaRegionCue),
     Tag(TagCue),
     Schema(SchemaCue),
-    SelfFacet(SelfFacetCue),
-    SocialRelation(SocialRelationCue),
-    LanguageConvention(LanguageConventionCue),
     Temporal(TemporalCue),
     Relation(RelationCue),
     Example(ExampleCue),
@@ -285,25 +258,6 @@ impl CognitiveQuery {
         if self.cues.len() > 256 || self.targets.len() > 128 {
             return Err(Error::Invalid("query cue/target bound exceeded".into()));
         }
-        for cue in &self.cues {
-            match cue {
-                Cue::SocialRelation(value)
-                    if value.relation_type_key.is_none()
-                        && value.from.is_none()
-                        && value.to.is_none() =>
-                {
-                    return Err(Error::Invalid(
-                        "SocialRelationCue needs a type or endpoint".into(),
-                    ));
-                }
-                Cue::LanguageConvention(value) if value.expression.trim().is_empty() => {
-                    return Err(Error::Invalid(
-                        "LanguageConventionCue expression is required".into(),
-                    ));
-                }
-                _ => {}
-            }
-        }
         if self.capabilities.text_embedding == RequirementStrength::Forbidden
             && self.capabilities.residual_sensing == RequirementStrength::Required
         {
@@ -358,9 +312,6 @@ pub enum EvidenceFamily {
     Dense,
     Temporal,
     SchemaDirect,
-    SelfDirect,
-    SocialRelationDirect,
-    LanguageConventionDirect,
     TopologyWave,
     Resource,
     LanguageRerank,

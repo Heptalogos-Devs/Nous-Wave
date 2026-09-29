@@ -62,45 +62,12 @@ fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
     for domain in modifiers.domains {
         match domain.as_str() {
             "memory" => query.targets.push(QueryTarget::Memory),
-            "self" => query.targets.push(QueryTarget::SelfCognition),
             "" => {}
             _ => return Err(Error::Invalid("unsupported cognitive query domain".into())),
         }
     }
     for cue in expression.cues {
         append_cue(&mut query, cue)?;
-    }
-    if let Some(cue) = expression.self_facet {
-        if cue.kind.is_none() && cue.key.is_none() {
-            return Err(Error::Invalid("self_facet cue needs kind or key".into()));
-        }
-        query.targets.push(QueryTarget::SelfCognition);
-        query.cues.push(Cue::SelfFacet(SelfFacetCue {
-            kind: cue.kind,
-            key: cue.key,
-        }));
-    }
-    if let Some(situation) = expression.social_situation {
-        query.situation.social = Some(SocialSituation {
-            participants: situation
-                .participants
-                .into_iter()
-                .map(EntityRef::new)
-                .collect::<Result<_>>()?,
-            groups: situation
-                .groups
-                .into_iter()
-                .map(EntityRef::new)
-                .collect::<Result<_>>()?,
-            communities: situation
-                .communities
-                .into_iter()
-                .map(EntityRef::new)
-                .collect::<Result<_>>()?,
-            channel: situation.channel.map(EntityRef::new).transpose()?,
-            context_tokens: situation.context_tokens,
-            topic_tokens: situation.topic_tokens,
-        });
     }
     if let Some(constraints) = modifiers.constraints {
         query.constraints = constraints_from_proto(constraints)?;
@@ -122,24 +89,6 @@ fn append_cue(query: &mut CognitiveQuery, cue: p::Cue) -> Result<()> {
         p::cue::Cue::Reference(value) => {
             let reference = from_ref(value)?;
             query.targets.push(QueryTarget::Exact { reference });
-        }
-        p::cue::Cue::SocialRelation(value) => {
-            query.targets.push(QueryTarget::Social);
-            query.cues.push(Cue::SocialRelation(SocialRelationCue {
-                relation_type_key: value.relation_type_key,
-                from: value.from.map(EntityRef::new).transpose()?,
-                to: value.to.map(EntityRef::new).transpose()?,
-                include_views: value.include_views,
-            }));
-        }
-        p::cue::Cue::LanguageConvention(value) => {
-            query.targets.push(QueryTarget::Social);
-            query
-                .cues
-                .push(Cue::LanguageConvention(LanguageConventionCue {
-                    expression: value.expression,
-                    scope: value.scope,
-                }));
         }
     }
     Ok(())

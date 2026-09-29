@@ -1935,15 +1935,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nous-cognitive-seed"
-version = "0.1.0"
-dependencies = [
- "nous-core",
- "serde",
- "toml",
-]
-
-[[package]]
 name = "nous-configuration-service"
 version = "0.1.0"
 dependencies = [
@@ -1988,11 +1979,7 @@ dependencies = [
  "nous-memory-service",
  "nous-object-store",
  "nous-protocol",
- "nous-self-domain",
- "nous-self-service",
  "nous-serving",
- "nous-social-domain",
- "nous-social-service",
  "nous-subject-core",
  "postgresql_embedded",
  "prost",
@@ -2095,33 +2082,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nous-self-domain"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "nous-core",
- "serde",
- "uuid",
-]
-
-[[package]]
-name = "nous-self-service"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "nous-authority-store",
- "nous-cognitive-runtime",
- "nous-cognitive-seed",
- "nous-core",
- "nous-self-domain",
- "serde",
- "serde_json",
- "sqlx",
- "uuid",
-]
-
-[[package]]
 name = "nous-serving"
 version = "0.1.0"
 dependencies = [
@@ -2142,47 +2102,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "nous-social-domain"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "nous-core",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
-name = "nous-social-service"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "nous-authority-store",
- "nous-cognitive-runtime",
- "nous-cognitive-seed",
- "nous-configuration-service",
- "nous-core",
- "nous-social-domain",
- "serde",
- "serde_json",
- "sqlx",
- "uuid",
-]
-
-[[package]]
 name = "nous-subject-core"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "nous-authority-store",
- "nous-cognitive-seed",
  "nous-configuration-service",
  "nous-core",
  "nous-object-store",
  "serde",
  "serde_json",
  "sqlx",
+ "toml",
  "uuid",
 ]
 

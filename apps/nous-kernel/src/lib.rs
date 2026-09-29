@@ -11,9 +11,7 @@ use nous_core::*;
 use nous_material_service::MaterialService;
 use nous_memory_service::MemoryService;
 use nous_object_store::ObjectStore;
-use nous_self_service::SelfService;
 use nous_serving::{ServingOptions, ServingService, TextEmbeddingProvider};
-use nous_social_service::SocialService;
 use nous_subject_core::SubjectCoreService;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -25,8 +23,6 @@ pub struct NousRuntime {
     pub subjects: SubjectCoreService,
     pub cognition: CognitiveRuntimeService,
     pub memory: Option<MemoryService>,
-    pub self_cognition: Option<SelfService>,
-    pub social: Option<SocialService>,
     pub process_capabilities: ProcessCapabilities,
     pub material: MaterialService,
     pub serving: ServingService,
@@ -68,7 +64,6 @@ impl NousRuntime {
         nous_cognitive_retrieval::register_configuration(&mut registry)?;
         nous_cognitive_retrieval::register_wave_configuration(&mut registry)?;
         nous_serving::register_configuration(&mut registry)?;
-        nous_social_service::register_configuration(&mut registry)?;
         let configuration = ConfigurationService::open(
             store.clone(),
             registry.finish()?,
@@ -91,8 +86,6 @@ impl NousRuntime {
         )?;
         let mut serving_options = options.serving_options;
         serving_options.memory_enabled = process_capabilities.memory;
-        serving_options.self_enabled = process_capabilities.self_cognition;
-        serving_options.social_enabled = process_capabilities.social;
         serving_options.lexical = system_snapshot.get(nous_serving::LEXICAL_ENABLED_KEY)?;
         serving_options.dense = system_snapshot.get(nous_serving::DENSE_ENABLED_KEY)?;
         serving_options.topology = system_snapshot.get(nous_serving::TOPOLOGY_ENABLED_KEY)?;
@@ -109,12 +102,6 @@ impl NousRuntime {
             },
             configuration.clone(),
         )?;
-        let self_cognition = process_capabilities
-            .self_cognition
-            .then(|| SelfService::new(store.clone()));
-        let social = process_capabilities
-            .social
-            .then(|| SocialService::new(store.clone(), configuration.clone()));
         let memory = process_capabilities.memory.then(|| {
             MemoryService::new(
                 store.clone(),
@@ -136,8 +123,6 @@ impl NousRuntime {
             subjects,
             cognition,
             memory,
-            self_cognition,
-            social,
             process_capabilities,
             material,
             serving,
@@ -177,22 +162,6 @@ impl NousRuntime {
                         .then(|| {
                             self.memory.as_ref().map(|memory| {
                                 memory as &dyn nous_cognitive_runtime::CognitiveContributor
-                            })
-                        })
-                        .flatten(),
-                    self_cognition: subject_capabilities
-                        .self_cognition
-                        .then(|| {
-                            self.self_cognition.as_ref().map(|service| {
-                                service as &dyn nous_cognitive_runtime::CognitiveContributor
-                            })
-                        })
-                        .flatten(),
-                    social: subject_capabilities
-                        .social
-                        .then(|| {
-                            self.social.as_ref().map(|service| {
-                                service as &dyn nous_cognitive_runtime::CognitiveContributor
                             })
                         })
                         .flatten(),
@@ -239,30 +208,6 @@ impl NousRuntime {
                     .is_none()
                     .then(|| "disabled in composition".into()),
             },
-            CapabilityStatus {
-                capability_id: "self_cognition".into(),
-                status: if self.self_cognition.is_some() {
-                    Readiness::Ready
-                } else {
-                    Readiness::Unavailable
-                },
-                reason: self
-                    .self_cognition
-                    .is_none()
-                    .then(|| "disabled in process composition".into()),
-            },
-            CapabilityStatus {
-                capability_id: "social".into(),
-                status: if self.social.is_some() {
-                    Readiness::Ready
-                } else {
-                    Readiness::Unavailable
-                },
-                reason: self
-                    .social
-                    .is_none()
-                    .then(|| "disabled in process composition".into()),
-            },
         ];
         if let Some(memory) = &self.memory {
             capabilities.extend(memory.status().await.capabilities);
@@ -274,9 +219,4 @@ impl NousRuntime {
         }
     }
 
-    pub fn require_self(&self) -> Result<&SelfService> {
-        self.self_cognition
-            .as_ref()
-            .ok_or_else(|| Error::Unavailable("Self Authority is disabled".into()))
-    }
 }

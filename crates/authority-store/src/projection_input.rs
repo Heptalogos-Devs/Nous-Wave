@@ -52,8 +52,6 @@ impl AuthorityStore {
         family: &str,
         space: &str,
         memory_enabled: bool,
-        self_enabled: bool,
-        social_enabled: bool,
     ) -> Result<TextProjectionInput> {
         let mut tx = self.begin().await?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -62,12 +60,6 @@ impl AuthorityStore {
             .map_err(db)?;
         let watermark = watermark(&mut tx, subject, family, space).await?;
         let mut sources = material_sources(&mut tx, subject).await?;
-        if self_enabled {
-            sources.extend(self_sources(&mut tx, subject).await?);
-        }
-        if social_enabled {
-            sources.extend(social_sources(&mut tx, subject).await?);
-        }
         if memory_enabled {
             sources.extend(memory_sources(&mut tx, subject).await?);
         }
@@ -151,138 +143,6 @@ pub(crate) async fn memory_sources(
                 schema_ids: Vec::new(),
             });
         }
-    }
-    Ok(sources)
-}
-
-pub(crate) async fn self_sources(
-    tx: &mut Transaction<'_, Postgres>,
-    subject: SubjectId,
-) -> Result<Vec<TextProjectionSource>> {
-    let mut sources = Vec::new();
-    let facets = sqlx::query("SELECT r.self_facet_revision_id,f.kind,f.key,r.statement FROM self_facets f JOIN self_facet_revisions r ON r.self_facet_revision_id=f.current_revision_id WHERE f.subject_id=$1 AND f.acceptance_state='accepted' AND f.integrity_state='valid' AND f.suppression_state='normal' AND f.purge_state='normal' ORDER BY CASE f.kind WHEN 'identity' THEN 0 WHEN 'role' THEN 1 WHEN 'limitation' THEN 2 WHEN 'capability' THEN 3 WHEN 'value' THEN 4 WHEN 'preference' THEN 5 WHEN 'tendency' THEN 6 ELSE 99 END,f.key,r.self_facet_revision_id")
-        .bind(subject.0)
-        .fetch_all(&mut **tx)
-        .await
-        .map_err(db)?;
-    for row in facets {
-        let revision = CognitiveRef::SelfFacetRevision(SelfFacetRevisionId(
-            row.try_get("self_facet_revision_id").map_err(db)?,
-        ));
-        sources.push(TextProjectionSource {
-            reference: revision.clone(),
-            revision: Some(revision),
-            text: Some(row.try_get("statement").map_err(db)?),
-            content_hash: None,
-            title: Some(row.try_get::<String, _>("key").map_err(db)?),
-            media_type: "text/plain".into(),
-            source_class: Some("self".into()),
-            source_region: None,
-            entity_refs: Vec::new(),
-            tag_ids: Vec::new(),
-            schema_ids: Vec::new(),
-        });
-    }
-    let narratives = sqlx::query("SELECT r.narrative_identity_revision_id,n.key,r.text FROM narrative_identities n JOIN narrative_identity_revisions r ON r.narrative_identity_revision_id=n.current_revision_id WHERE n.subject_id=$1 AND n.acceptance_state='accepted' AND n.integrity_state='valid' AND n.suppression_state='normal' AND n.purge_state='normal' ORDER BY n.key,r.narrative_identity_revision_id")
-        .bind(subject.0)
-        .fetch_all(&mut **tx)
-        .await
-        .map_err(db)?;
-    for row in narratives {
-        let revision = CognitiveRef::NarrativeIdentityRevision(NarrativeIdentityRevisionId(
-            row.try_get("narrative_identity_revision_id").map_err(db)?,
-        ));
-        sources.push(TextProjectionSource {
-            reference: revision.clone(),
-            revision: Some(revision),
-            text: Some(row.try_get("text").map_err(db)?),
-            content_hash: None,
-            title: Some(row.try_get::<String, _>("key").map_err(db)?),
-            media_type: "text/plain".into(),
-            source_class: Some("self:narrative".into()),
-            source_region: None,
-            entity_refs: Vec::new(),
-            tag_ids: Vec::new(),
-            schema_ids: Vec::new(),
-        });
-    }
-    Ok(sources)
-}
-
-pub(crate) async fn social_sources(
-    tx: &mut Transaction<'_, Postgres>,
-    subject: SubjectId,
-) -> Result<Vec<TextProjectionSource>> {
-    let mut sources = Vec::new();
-    let rows = sqlx::query("SELECT r.relationship_revision_id,t.key,a.from_kind,a.from_entity_ref,a.to_kind,a.to_entity_ref,r.degree_value FROM relationship_assertions a JOIN relation_type_definitions t USING(relation_type_id) JOIN relationship_revisions r ON r.relationship_revision_id=a.current_revision_id WHERE a.subject_id=$1 AND a.acceptance_state='accepted' AND a.integrity_state='valid' AND a.suppression_state='normal' AND a.purge_state='normal' ORDER BY r.relationship_revision_id")
-        .bind(subject.0)
-        .fetch_all(&mut **tx)
-        .await
-        .map_err(db)?;
-    for row in rows {
-        let revision = RelationshipRevisionId(row.try_get("relationship_revision_id").map_err(db)?);
-        let from_kind: String = row.try_get("from_kind").map_err(db)?;
-        let from_ref: Option<String> = row.try_get("from_entity_ref").map_err(db)?;
-        let to_kind: String = row.try_get("to_kind").map_err(db)?;
-        let to_ref: Option<String> = row.try_get("to_entity_ref").map_err(db)?;
-        let from = from_ref
-            .clone()
-            .map_or(from_kind.clone(), |value| format!("{from_kind}:{value}"));
-        let to = to_ref
-            .clone()
-            .map_or(to_kind.clone(), |value| format!("{to_kind}:{value}"));
-        let entity_refs = [from_ref, to_ref].into_iter().flatten().collect::<Vec<_>>();
-        sources.push(TextProjectionSource {
-            reference: CognitiveRef::RelationshipRevision(revision),
-            revision: Some(CognitiveRef::RelationshipRevision(revision)),
-            text: Some(format!(
-                "relationship\ntype={}\nfrom={from}\nto={to}\ndegree={}",
-                row.try_get::<String, _>("key").map_err(db)?,
-                row.try_get::<Option<serde_json::Value>, _>("degree_value")
-                    .map_err(db)?
-                    .map_or_else(|| "none".into(), |value| value.to_string())
-            )),
-            content_hash: None,
-            title: None,
-            media_type: "text/plain".into(),
-            source_class: Some("social:relationship".into()),
-            source_region: None,
-            entity_refs,
-            tag_ids: Vec::new(),
-            schema_ids: Vec::new(),
-        });
-    }
-    let rows = sqlx::query("SELECT r.convention_revision_id,c.expression,c.scope_kind,c.scope_refs,r.meaning,r.pragmatic_role FROM language_conventions c JOIN language_convention_revisions r ON r.convention_revision_id=c.current_revision_id WHERE c.subject_id=$1 AND c.acceptance_state='accepted' AND c.integrity_state='valid' AND c.suppression_state='normal' AND c.purge_state='normal' ORDER BY r.convention_revision_id")
-        .bind(subject.0)
-        .fetch_all(&mut **tx)
-        .await
-        .map_err(db)?;
-    for row in rows {
-        let revision =
-            LanguageConventionRevisionId(row.try_get("convention_revision_id").map_err(db)?);
-        let scope_refs: Vec<String> = row.try_get("scope_refs").map_err(db)?;
-        sources.push(TextProjectionSource {
-            reference: CognitiveRef::LanguageConventionRevision(revision),
-            revision: Some(CognitiveRef::LanguageConventionRevision(revision)),
-            text: Some(format!(
-                "language_convention\nexpression={}\nmeaning={}\nrole={}\nscope={}:{}",
-                row.try_get::<String, _>("expression").map_err(db)?,
-                row.try_get::<String, _>("meaning").map_err(db)?,
-                row.try_get::<Option<String>, _>("pragmatic_role")
-                    .map_err(db)?
-                    .unwrap_or_default(),
-                row.try_get::<String, _>("scope_kind").map_err(db)?,
-                scope_refs.join("|")
-            )),
-            content_hash: None,
-            title: None,
-            media_type: "text/plain".into(),
-            source_class: Some("social:language_convention".into()),
-            source_region: None,
-            entity_refs: Vec::new(),
-            tag_ids: Vec::new(),
-            schema_ids: Vec::new(),
-        });
     }
     Ok(sources)
 }

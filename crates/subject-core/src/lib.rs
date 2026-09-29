@@ -83,11 +83,9 @@ impl SubjectCoreService {
             .execute(&mut *tx)
             .await
             .map_err(nous_authority_store::database_error)?;
-        sqlx::query("INSERT INTO subject_capabilities(subject_id,memory,self_cognition,social) VALUES($1,$2,$3,$4)")
+        sqlx::query("INSERT INTO subject_capabilities(subject_id,memory) VALUES($1,$2)")
             .bind(subject.0)
             .bind(capabilities.memory)
-            .bind(capabilities.self_cognition)
-            .bind(capabilities.social)
             .execute(&mut *tx)
             .await
             .map_err(nous_authority_store::database_error)?;
@@ -109,7 +107,7 @@ impl SubjectCoreService {
     }
 
     pub async fn subject(&self, subject: SubjectId) -> Result<SubjectView> {
-        let row = sqlx::query("SELECT s.subject_id,s.created_at,s.authority_seq,s.status,s.metadata,c.memory,c.self_cognition,c.social FROM subjects s JOIN subject_capabilities c USING(subject_id) WHERE s.subject_id=$1")
+        let row = sqlx::query("SELECT s.subject_id,s.created_at,s.authority_seq,s.status,s.metadata,c.memory FROM subjects s JOIN subject_capabilities c USING(subject_id) WHERE s.subject_id=$1")
             .bind(subject.0).fetch_optional(self.store.pool()).await
             .map_err(nous_authority_store::database_error)?
             .ok_or_else(|| Error::NotFound("subject not found".into()))?;
@@ -130,12 +128,6 @@ impl SubjectCoreService {
             capabilities: SubjectCapabilities {
                 memory: row
                     .try_get("memory")
-                    .map_err(nous_authority_store::database_error)?,
-                self_cognition: row
-                    .try_get("self_cognition")
-                    .map_err(nous_authority_store::database_error)?,
-                social: row
-                    .try_get("social")
                     .map_err(nous_authority_store::database_error)?,
             },
         })

@@ -57,16 +57,12 @@ pub enum ConfigActorTier {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProcessCapabilities {
     pub memory: bool,
-    pub self_cognition: bool,
-    pub social: bool,
 }
 
 impl Default for ProcessCapabilities {
     fn default() -> Self {
         Self {
             memory: true,
-            self_cognition: false,
-            social: false,
         }
     }
 }
@@ -74,16 +70,12 @@ impl Default for ProcessCapabilities {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubjectCapabilities {
     pub memory: bool,
-    pub self_cognition: bool,
-    pub social: bool,
 }
 
 impl Default for SubjectCapabilities {
     fn default() -> Self {
         Self {
             memory: true,
-            self_cognition: false,
-            social: false,
         }
     }
 }
@@ -93,16 +85,6 @@ impl SubjectCapabilities {
         if self.memory && !process.memory {
             return Err(Error::Invalid(
                 "subject memory capability is unavailable in this process".into(),
-            ));
-        }
-        if self.self_cognition && !process.self_cognition {
-            return Err(Error::Invalid(
-                "subject Self capability is unavailable in this process".into(),
-            ));
-        }
-        if self.social && !process.social {
-            return Err(Error::Invalid(
-                "subject Social capability is unavailable in this process".into(),
             ));
         }
         Ok(self)
@@ -163,20 +145,12 @@ pub fn valid_key_path(value: &str) -> bool {
 }
 
 pub const PROCESS_MEMORY: ConfigKey<bool> = ConfigKey::new("capabilities.process.memory");
-pub const PROCESS_SELF: ConfigKey<bool> = ConfigKey::new("capabilities.process.self_cognition");
-pub const PROCESS_SOCIAL: ConfigKey<bool> = ConfigKey::new("capabilities.process.social");
 pub const SUBJECT_DEFAULT_MEMORY: ConfigKey<bool> =
     ConfigKey::new("capabilities.subject_defaults.memory");
-pub const SUBJECT_DEFAULT_SELF: ConfigKey<bool> =
-    ConfigKey::new("capabilities.subject_defaults.self_cognition");
-pub const SUBJECT_DEFAULT_SOCIAL: ConfigKey<bool> =
-    ConfigKey::new("capabilities.subject_defaults.social");
 
 pub fn process_capabilities(snapshot: &crate::ConfigSnapshot) -> Result<ProcessCapabilities> {
     Ok(ProcessCapabilities {
         memory: snapshot.get(PROCESS_MEMORY)?,
-        self_cognition: snapshot.get(PROCESS_SELF)?,
-        social: snapshot.get(PROCESS_SOCIAL)?,
     })
 }
 
@@ -185,7 +159,5 @@ pub fn subject_default_capabilities(
 ) -> Result<SubjectCapabilities> {
     Ok(SubjectCapabilities {
         memory: snapshot.get(SUBJECT_DEFAULT_MEMORY)?,
-        self_cognition: snapshot.get(SUBJECT_DEFAULT_SELF)?,
-        social: snapshot.get(SUBJECT_DEFAULT_SOCIAL)?,
     })
 }

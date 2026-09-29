@@ -131,8 +131,6 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
             dense: true,
             topology: true,
             memory_enabled: true,
-            self_enabled: false,
-            social_enabled: false,
         },
         embedding: None,
         stored_embedding: config.bootstrap.serving.stored_embedding,

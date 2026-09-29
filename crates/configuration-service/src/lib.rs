@@ -29,54 +29,10 @@ pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()
         bool_validator,
     )?;
     registry.register(
-        PROCESS_SELF,
-        "configuration-service",
-        "Whether the process provides Self cognition.",
-        false,
-        ConfigExposure::Developer,
-        ConfigScopePolicy::SystemOnly,
-        ConfigApplyMode::RestartProcess,
-        ConfigSemanticEffect::Operational,
-        bool_validator,
-    )?;
-    registry.register(
-        PROCESS_SOCIAL,
-        "configuration-service",
-        "Whether the process provides Social cognition.",
-        false,
-        ConfigExposure::Developer,
-        ConfigScopePolicy::SystemOnly,
-        ConfigApplyMode::RestartProcess,
-        ConfigSemanticEffect::Operational,
-        bool_validator,
-    )?;
-    registry.register(
         SUBJECT_DEFAULT_MEMORY,
         "configuration-service",
         "Default Memory capability for newly created Subjects.",
         true,
-        ConfigExposure::Developer,
-        ConfigScopePolicy::SystemOnly,
-        ConfigApplyMode::NewSubjectsOnly,
-        ConfigSemanticEffect::SubjectProvisioning,
-        bool_validator,
-    )?;
-    registry.register(
-        SUBJECT_DEFAULT_SELF,
-        "configuration-service",
-        "Default Self capability for newly created Subjects.",
-        false,
-        ConfigExposure::Developer,
-        ConfigScopePolicy::SystemOnly,
-        ConfigApplyMode::NewSubjectsOnly,
-        ConfigSemanticEffect::SubjectProvisioning,
-        bool_validator,
-    )?;
-    registry.register(
-        SUBJECT_DEFAULT_SOCIAL,
-        "configuration-service",
-        "Default Social capability for newly created Subjects.",
-        false,
         ConfigExposure::Developer,
         ConfigScopePolicy::SystemOnly,
         ConfigApplyMode::NewSubjectsOnly,

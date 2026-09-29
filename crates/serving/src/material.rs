@@ -115,8 +115,6 @@ impl ServingService {
                 "dense",
                 &config.space_hash,
                 capabilities.memory,
-                capabilities.self_cognition,
-                capabilities.social,
             )
             .await?;
         let mut needs = vec![];
@@ -170,8 +168,6 @@ impl ServingService {
                 "dense",
                 space,
                 input.memory,
-                input.self_cognition,
-                input.social,
             )
             .await?;
         let exists = self

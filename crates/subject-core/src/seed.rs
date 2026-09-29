@@ -36,9 +36,24 @@ impl CognitiveSeedInput {
                 self.format
             )));
         }
-        nous_cognitive_seed::parse(&self.text)?;
+        validate_seed_document(&self.text)?;
         Ok(())
     }
+}
+
+fn validate_seed_document(text: &str) -> Result<()> {
+    let value: toml::Value = toml::from_str(text)
+        .map_err(|error| Error::Invalid(format!("invalid Cognitive Seed TOML: {error}")))?;
+    let schema_version = value
+        .get("schema_version")
+        .and_then(toml::Value::as_integer)
+        .ok_or_else(|| Error::Invalid("Cognitive Seed schema_version is required".into()))?;
+    if schema_version != 1 {
+        return Err(Error::Invalid(format!(
+            "unsupported Cognitive Seed schema_version: {schema_version}"
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

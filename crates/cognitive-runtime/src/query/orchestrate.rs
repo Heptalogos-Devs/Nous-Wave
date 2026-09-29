@@ -32,8 +32,6 @@ pub trait SharedLaneProvider: Send + Sync {
 pub struct CognitiveContributors<'a> {
     pub shared: Option<&'a dyn SharedLaneProvider>,
     pub memory: Option<&'a dyn CognitiveContributor>,
-    pub self_cognition: Option<&'a dyn CognitiveContributor>,
-    pub social: Option<&'a dyn CognitiveContributor>,
 }
 
 impl CognitiveRuntimeService {
@@ -79,24 +77,6 @@ impl CognitiveRuntimeService {
             .any(|target| matches!(target, QueryTarget::Memory))
         {
             return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
-        }
-        if let Some(self_cognition) = contributors.self_cognition {
-            lane_outputs.extend(self_cognition.direct_lanes(&bound, &plan).await?);
-        } else if query
-            .targets
-            .iter()
-            .any(|target| matches!(target, QueryTarget::SelfCognition))
-        {
-            return Err(Error::Unavailable("Self Authority is disabled".into()));
-        }
-        if let Some(social) = contributors.social {
-            lane_outputs.extend(social.direct_lanes(&bound, &plan).await?);
-        } else if query
-            .targets
-            .iter()
-            .any(|target| matches!(target, QueryTarget::Social))
-        {
-            return Err(Error::Unavailable("Social Cognition is disabled".into()));
         }
         let mut exact_output = LaneOutput::empty(EvidenceFamily::Exact, LaneStatus::Ready);
         for binding in &bound.exact_bindings {
@@ -186,21 +166,13 @@ impl CognitiveRuntimeService {
                 )),
             });
         }
-        let mut by_owner = [Vec::<CognitiveRef>::new(), Vec::new(), Vec::new()];
+        let mut by_owner = Vec::<CognitiveRef>::new();
         let mut generic = Vec::new();
         for candidate in ranked.iter().take(validation_bound) {
             let memory_owner = contributors
                 .memory
                 .filter(|owner| owner.owns(&candidate.reference));
-            let self_owner = contributors
-                .self_cognition
-                .filter(|owner| owner.owns(&candidate.reference));
-            let social_owner = contributors
-                .social
-                .filter(|owner| owner.owns(&candidate.reference));
-            let owner_count = usize::from(memory_owner.is_some())
-                + usize::from(self_owner.is_some())
-                + usize::from(social_owner.is_some());
+            let owner_count = usize::from(memory_owner.is_some());
             if owner_count > 1 {
                 return Err(Error::Infrastructure(format!(
                     "multiple cognition owners claim {}",
@@ -208,11 +180,7 @@ impl CognitiveRuntimeService {
                 )));
             }
             if memory_owner.is_some() {
-                by_owner[0].push(candidate.reference.clone());
-            } else if self_owner.is_some() {
-                by_owner[1].push(candidate.reference.clone());
-            } else if social_owner.is_some() {
-                by_owner[2].push(candidate.reference.clone());
+                by_owner.push(candidate.reference.clone());
             } else if is_persistent_cognition(&candidate.reference) {
                 return Err(Error::Unavailable(format!(
                     "no cognition owner is available for {}",
@@ -233,25 +201,7 @@ impl CognitiveRuntimeService {
         }
         if let Some(owner) = contributors.memory {
             let (hits, drops) = owner
-                .validate_and_materialize(query.subject, &by_owner[0], &bound)
-                .await?;
-            for hit in hits {
-                materialized.insert(hit.reference.clone(), hit);
-            }
-            merge_counts(&mut validation_drops, drops);
-        }
-        if let Some(owner) = contributors.self_cognition {
-            let (hits, drops) = owner
-                .validate_and_materialize(query.subject, &by_owner[1], &bound)
-                .await?;
-            for hit in hits {
-                materialized.insert(hit.reference.clone(), hit);
-            }
-            merge_counts(&mut validation_drops, drops);
-        }
-        if let Some(owner) = contributors.social {
-            let (hits, drops) = owner
-                .validate_and_materialize(query.subject, &by_owner[2], &bound)
+                .validate_and_materialize(query.subject, &by_owner, &bound)
                 .await?;
             for hit in hits {
                 materialized.insert(hit.reference.clone(), hit);
@@ -262,13 +212,7 @@ impl CognitiveRuntimeService {
             if binding.mutable_object {
                 let owner_validates = contributors
                     .memory
-                    .is_some_and(|owner| owner.owns(&binding.bound_ref))
-                    || contributors
-                        .self_cognition
-                        .is_some_and(|owner| owner.owns(&binding.bound_ref))
-                    || contributors
-                        .social
-                        .is_some_and(|owner| owner.owns(&binding.bound_ref));
+                    .is_some_and(|owner| owner.owns(&binding.bound_ref));
                 if owner_validates {
                     continue;
                 }
@@ -359,14 +303,6 @@ fn is_persistent_cognition(reference: &CognitiveRef) -> bool {
             | CognitiveRef::MemoryRevision(_)
             | CognitiveRef::CognitiveSchema(_)
             | CognitiveRef::CognitiveSchemaRevision(_)
-            | CognitiveRef::SelfFacet(_)
-            | CognitiveRef::SelfFacetRevision(_)
-            | CognitiveRef::NarrativeIdentity(_)
-            | CognitiveRef::NarrativeIdentityRevision(_)
-            | CognitiveRef::RelationshipAssertion(_)
-            | CognitiveRef::RelationshipRevision(_)
-            | CognitiveRef::LanguageConvention(_)
-            | CognitiveRef::LanguageConventionRevision(_)
     )
 }
 
@@ -426,14 +362,7 @@ fn reference_hit(
         | CognitiveRef::CognitiveSchema(_)
         | CognitiveRef::CognitiveSchemaRevision(_)
         | CognitiveRef::CognitiveSeedVersion(_)
-        | CognitiveRef::SelfFacet(_)
-        | CognitiveRef::SelfFacetRevision(_)
-        | CognitiveRef::NarrativeIdentity(_)
-        | CognitiveRef::NarrativeIdentityRevision(_)
-        | CognitiveRef::RelationshipAssertion(_)
-        | CognitiveRef::RelationshipRevision(_)
-        | CognitiveRef::LanguageConvention(_)
-        | CognitiveRef::LanguageConventionRevision(_) => AuthorityClass::SubjectCognition,
+        => AuthorityClass::SubjectCognition,
         CognitiveRef::Resource(_) => AuthorityClass::ResourceDescriptor,
         CognitiveRef::DerivedRepresentation(_) | CognitiveRef::DerivedRegion(_) => {
             AuthorityClass::Interpretation

@@ -14,7 +14,6 @@ import {
   SubjectService,
   CognitionService,
   MemoryService,
-  SelfService,
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import {
@@ -353,19 +352,6 @@ export async function createCore(settings: CoreOptions) {
     reacceptMemory: (r, c) => kernel.authority.reacceptMemory(r, options(c)),
     purgeMemory: (r, c) => kernel.authority.purgeMemory(r, options(c)),
   };
-  const self: ServiceImpl<typeof SelfService> = {
-    createSelfFacet: (r, c) => kernel.authority.createSelfFacet(r, options(c)),
-    getSelfFacet: (r, c) => kernel.authority.getSelfFacet(r, options(c)),
-    reviseSelfFacet: (r, c) => kernel.authority.reviseSelfFacet(r, options(c)),
-    mutateSelfLifecycle: (r, c) =>
-      kernel.authority.mutateSelfLifecycle(r, options(c)),
-    createNarrativeIdentity: (r, c) =>
-      kernel.authority.createNarrativeIdentity(r, options(c)),
-    getNarrativeIdentity: (r, c) =>
-      kernel.authority.getNarrativeIdentity(r, options(c)),
-    reviseNarrativeIdentity: (r, c) =>
-      kernel.authority.reviseNarrativeIdentity(r, options(c)),
-  };
   const material: ServiceImpl<typeof MaterialService> = {
     getOccurrence: (r, c) => kernel.authority.getOccurrence(r, options(c)),
     getSourceRegion: (r, c) => kernel.authority.getSourceRegion(r, options(c)),
@@ -456,7 +442,6 @@ export async function createCore(settings: CoreOptions) {
       router.service(SubjectService, subjects);
       router.service(CognitionService, cognition);
       router.service(MemoryService, memories);
-      router.service(SelfService, self);
       router.service(MaterialService, material);
       router.service(IdentityService, identities);
       router.service(ResourceService, resources);

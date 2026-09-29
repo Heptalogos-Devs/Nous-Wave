@@ -76,8 +76,6 @@ impl ServingService {
                 family,
                 "",
                 capabilities.memory,
-                capabilities.self_cognition,
-                capabilities.social,
             )
             .await?;
         if family == "exact" {
@@ -164,8 +162,6 @@ impl ServingService {
             .topology_projection_input(
                 subject,
                 capabilities.memory,
-                capabilities.self_cognition,
-                capabilities.social,
             )
             .await?;
         let edges: Vec<_> = input
@@ -242,8 +238,6 @@ impl ServingService {
                 "dense",
                 space_key,
                 capabilities.memory,
-                capabilities.self_cognition,
-                capabilities.social,
             )
             .await?;
         let source_regions: std::collections::HashMap<_, _> = input

@@ -46,8 +46,6 @@ fn subject(input: SubjectView) -> p::Subject {
         metadata: to_object(input.metadata),
         capabilities: Some(p::SubjectCapabilities {
             memory: capabilities.memory,
-            self_cognition: capabilities.self_cognition,
-            social: capabilities.social,
         }),
     }
 }
@@ -71,35 +69,9 @@ impl KernelService {
                 metadata: object(input.metadata),
                 capabilities: input.capabilities.map(|value| SubjectCapabilities {
                     memory: value.memory,
-                    self_cognition: value.self_cognition,
-                    social: value.social,
                 }),
             })
             .await?;
-        if view.capabilities.self_cognition {
-            let seed = self
-                .0
-                .subjects
-                .latest_cognitive_seed(view.subject_id)
-                .await?;
-            self.0
-                .require_self()?
-                .import_seed(view.subject_id, seed.version.seed_version_id, &seed.text)
-                .await?;
-        }
-        if view.capabilities.social {
-            let seed = self
-                .0
-                .subjects
-                .latest_cognitive_seed(view.subject_id)
-                .await?;
-            self.0
-                .social
-                .as_ref()
-                .ok_or_else(|| Error::Unavailable("Social Cognition is disabled".into()))?
-                .import_seed(view.subject_id, seed.version.seed_version_id, &seed.text)
-                .await?;
-        }
         Ok(subject(view))
     }
     pub(super) async fn get_subject(&self, input: p::SubjectRequest) -> Result<p::Subject> {
