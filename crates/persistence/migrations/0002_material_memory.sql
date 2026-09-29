@@ -1,0 +1,199 @@
+CREATE TABLE memory_objects (
+    memory_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    cognitive_role text NOT NULL CHECK (cognitive_role IN ('experiential','declarative','procedural_experience')),
+    current_revision_id uuid NOT NULL,
+    object_epoch bigint NOT NULL DEFAULT 1 CHECK (object_epoch > 0),
+    acceptance_state text NOT NULL CHECK (acceptance_state IN ('accepted','withdrawn')),
+    integrity_state text NOT NULL CHECK (integrity_state IN ('valid','revalidation_required')),
+    suppression_state text NOT NULL CHECK (suppression_state IN ('normal','suppressed')),
+    purge_state text NOT NULL CHECK (purge_state IN ('normal','purging')),
+    accessibility_mode text NOT NULL DEFAULT 'auto' CHECK (accessibility_mode IN ('auto','normal','deep','explicit')),
+    created_at timestamptz NOT NULL
+);
+
+CREATE TABLE memory_revisions (
+    memory_revision_id uuid PRIMARY KEY,
+    memory_id uuid NOT NULL REFERENCES memory_objects(memory_id) ON DELETE CASCADE,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    revision_no integer NOT NULL CHECK (revision_no > 0),
+    parent_revision_id uuid NULL REFERENCES memory_revisions(memory_revision_id),
+    revision_intent text NULL CHECK (revision_intent IN ('correct','rephrase','reinterpret')),
+    formation_mode text NOT NULL CHECK (formation_mode IN ('grounded','synthesized')),
+    grounding_occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,
+    semantic_role text NOT NULL,
+    title text NULL,
+    representation_text text NOT NULL CHECK (length(trim(representation_text)) > 0 AND octet_length(representation_text) <= 1048576),
+    epistemic_class text NOT NULL,
+    valid_time_kind text NOT NULL DEFAULT 'unknown' CHECK (valid_time_kind IN ('unknown','instant','interval')),
+    valid_time_start timestamptz NULL,
+    valid_time_end timestamptz NULL,
+    formed_at timestamptz NOT NULL,
+    recorded_at timestamptz NOT NULL,
+    UNIQUE(memory_id, revision_no),
+    CHECK (valid_time_kind <> 'interval'
+        OR valid_time_start IS NULL
+        OR valid_time_end IS NULL
+        OR valid_time_start < valid_time_end),
+    CHECK ((formation_mode = 'grounded') = (grounding_occurrence_id IS NOT NULL))
+);
+ALTER TABLE memory_objects
+    ADD CONSTRAINT memory_objects_current_revision_fk
+    FOREIGN KEY (current_revision_id) REFERENCES memory_revisions(memory_revision_id)
+    DEFERRABLE INITIALLY DEFERRED;
+
+CREATE TABLE memory_revision_evidence (
+    memory_revision_id uuid NOT NULL REFERENCES memory_revisions(memory_revision_id) ON DELETE CASCADE,
+    occurrence_id uuid NOT NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,
+    evidence_no integer NOT NULL CHECK (evidence_no >= 0),
+    source_region_id uuid NULL REFERENCES source_regions(source_region_id) ON DELETE RESTRICT,
+    derived_representation_id uuid NULL REFERENCES derived_representations(derived_representation_id) ON DELETE RESTRICT,
+    derived_region_id uuid NULL REFERENCES derived_regions(derived_region_id) ON DELETE RESTRICT,
+    support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
+    PRIMARY KEY(memory_revision_id, evidence_no),
+    CHECK (num_nonnulls(source_region_id, derived_representation_id, derived_region_id) <= 1)
+);
+
+CREATE TABLE memory_revision_dependencies (
+    memory_revision_id uuid NOT NULL REFERENCES memory_revisions(memory_revision_id) ON DELETE CASCADE,
+    target_ref_kind text NOT NULL CHECK (target_ref_kind IN ('memory_revision','cognitive_schema_revision')),
+    target_ref text NOT NULL,
+    support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
+    PRIMARY KEY(memory_revision_id, target_ref_kind, target_ref, support_role)
+);
+
+CREATE TABLE memory_revision_aboutness (
+    memory_revision_id uuid NOT NULL REFERENCES memory_revisions(memory_revision_id) ON DELETE CASCADE,
+    entity_ref text NOT NULL,
+    PRIMARY KEY(memory_revision_id, entity_ref)
+);
+
+CREATE TABLE memory_revision_relations (
+    from_revision_id uuid NOT NULL REFERENCES memory_revisions(memory_revision_id) ON DELETE CASCADE,
+    to_revision_id uuid NOT NULL REFERENCES memory_revisions(memory_revision_id) ON DELETE CASCADE,
+    relation text NOT NULL CHECK (relation IN ('derived_from','contradicts','temporal_successor','replaces_basis','elaborates')),
+    created_at timestamptz NOT NULL,
+    PRIMARY KEY(from_revision_id, to_revision_id, relation)
+);
+
+CREATE TABLE tags (
+    tag_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    current_revision_id uuid NOT NULL,
+    created_at timestamptz NOT NULL,
+    status text NOT NULL CHECK (status IN ('active','withdrawn'))
+);
+CREATE TABLE tag_revisions (
+    tag_revision_id uuid PRIMARY KEY,
+    tag_id uuid NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    revision_no integer NOT NULL CHECK (revision_no > 0),
+    label text NOT NULL,
+    description text NULL,
+    kind_hint text NULL,
+    origin text NOT NULL,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
+    created_at timestamptz NOT NULL,
+    UNIQUE(tag_id, revision_no)
+);
+ALTER TABLE tags ADD CONSTRAINT tags_current_revision_fk
+    FOREIGN KEY (current_revision_id) REFERENCES tag_revisions(tag_revision_id)
+    DEFERRABLE INITIALLY DEFERRED;
+CREATE TABLE memory_revision_tags (
+    memory_revision_id uuid NOT NULL REFERENCES memory_revisions(memory_revision_id) ON DELETE CASCADE,
+    tag_id uuid NOT NULL REFERENCES tags(tag_id) ON DELETE RESTRICT,
+    PRIMARY KEY(memory_revision_id, tag_id)
+);
+
+CREATE TABLE cognitive_schemas (
+    schema_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    current_revision_id uuid NOT NULL,
+    object_epoch bigint NOT NULL DEFAULT 1 CHECK (object_epoch > 0),
+    acceptance_state text NOT NULL CHECK (acceptance_state IN ('accepted','withdrawn')),
+    integrity_state text NOT NULL CHECK (integrity_state IN ('valid','revalidation_required')),
+    suppression_state text NOT NULL CHECK (suppression_state IN ('normal','suppressed')),
+    purge_state text NOT NULL CHECK (purge_state IN ('normal','purging')),
+    created_at timestamptz NOT NULL
+);
+CREATE TABLE cognitive_schema_revisions (
+    schema_revision_id uuid PRIMARY KEY,
+    schema_id uuid NOT NULL REFERENCES cognitive_schemas(schema_id) ON DELETE CASCADE,
+    revision_no integer NOT NULL CHECK (revision_no > 0),
+    parent_revision_id uuid NULL REFERENCES cognitive_schema_revisions(schema_revision_id),
+    revision_intent text NULL CHECK (revision_intent IN ('correct','rephrase','reinterpret')),
+    formation_kind text NOT NULL DEFAULT 'explicit_import'
+        CHECK (formation_kind IN ('explicit_import','synthesized')),
+    title text NULL,
+    structural_claim text NOT NULL CHECK (octet_length(structural_claim) <= 16384),
+    applicability_description text NOT NULL CHECK (octet_length(applicability_description) <= 16384),
+    aboutness text[] NOT NULL DEFAULT '{}',
+    tags uuid[] NOT NULL DEFAULT '{}',
+    boundary_definition text NOT NULL CHECK (octet_length(boundary_definition) <= 16384),
+    valid_time_kind text NOT NULL DEFAULT 'unknown' CHECK (valid_time_kind IN ('unknown','instant','interval')),
+    valid_time_start timestamptz NULL,
+    valid_time_end timestamptz NULL,
+    formed_at timestamptz NOT NULL,
+    recorded_at timestamptz NOT NULL,
+    UNIQUE(schema_id, revision_no),
+    CHECK (valid_time_kind <> 'interval'
+        OR valid_time_start IS NULL
+        OR valid_time_end IS NULL
+        OR valid_time_start < valid_time_end)
+);
+ALTER TABLE cognitive_schemas
+    ADD CONSTRAINT cognitive_schemas_current_revision_fk
+    FOREIGN KEY (current_revision_id) REFERENCES cognitive_schema_revisions(schema_revision_id)
+    DEFERRABLE INITIALLY DEFERRED;
+CREATE TABLE cognitive_schema_evidence_links (
+    link_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    schema_revision_id uuid NOT NULL REFERENCES cognitive_schema_revisions(schema_revision_id) ON DELETE CASCADE,
+    role text NOT NULL CHECK (role IN ('support','counterexample','boundary_case')),
+    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision')),
+    support_ref text NOT NULL,
+    support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
+    occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,
+    source_region_id uuid NULL REFERENCES source_regions(source_region_id) ON DELETE RESTRICT,
+    derived_representation_id uuid NULL REFERENCES derived_representations(derived_representation_id) ON DELETE RESTRICT,
+    derived_region_id uuid NULL REFERENCES derived_regions(derived_region_id) ON DELETE RESTRICT,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
+    created_at timestamptz NOT NULL,
+    revoked_at timestamptz NULL
+);
+CREATE TABLE cognitive_schema_lineage (
+    from_revision_id uuid NOT NULL REFERENCES cognitive_schema_revisions(schema_revision_id) ON DELETE CASCADE,
+    to_revision_id uuid NOT NULL REFERENCES cognitive_schema_revisions(schema_revision_id) ON DELETE CASCADE,
+    relation text NOT NULL CHECK (relation IN ('schema_split_from','schema_merged_from')),
+    PRIMARY KEY(from_revision_id, to_revision_id, relation)
+);
+
+CREATE TABLE association_evidence (
+    association_evidence_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    from_ref_kind text NOT NULL,
+    from_ref text NOT NULL,
+    to_ref_kind text NOT NULL,
+    to_ref text NOT NULL,
+    relation_kind text NOT NULL CHECK (length(relation_kind) BETWEEN 1 AND 128 AND relation_kind ~ '^[a-z0-9_.:-]+$'),
+    polarity text NOT NULL CHECK (polarity IN ('positive','negative')),
+    support_class text NOT NULL CHECK (support_class IN ('host_explicit','source_evidence','cognitive_derivation','meaningful_use','derived_structure')),
+    valid_time_kind text NOT NULL DEFAULT 'unknown' CHECK (valid_time_kind IN ('unknown','instant','interval')),
+    valid_time_start timestamptz NULL,
+    valid_time_end timestamptz NULL,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
+    created_at timestamptz NOT NULL,
+    revoked_at timestamptz NULL
+);
+CREATE TABLE association_evidence_supports (
+    association_evidence_id uuid NOT NULL REFERENCES association_evidence(association_evidence_id) ON DELETE CASCADE,
+    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision','use_event')),
+    support_ref text NOT NULL,
+    support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
+    occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,
+    source_region_id uuid NULL REFERENCES source_regions(source_region_id) ON DELETE RESTRICT,
+    derived_representation_id uuid NULL REFERENCES derived_representations(derived_representation_id) ON DELETE RESTRICT,
+    derived_region_id uuid NULL REFERENCES derived_regions(derived_region_id) ON DELETE RESTRICT,
+    PRIMARY KEY(association_evidence_id, support_kind, support_ref, support_role),
+    CHECK (num_nonnulls(source_region_id, derived_representation_id, derived_region_id) <= 1)
+);
+
