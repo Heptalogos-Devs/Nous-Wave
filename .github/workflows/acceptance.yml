@@ -20,6 +20,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install Rust Buf plugins
+        run: |
+          cargo install protoc-gen-prost --version 0.5.0 --locked
+          cargo install protoc-gen-tonic --version 0.5.0 --locked
       - uses: taiki-e/install-action@v2
         with:
           tool: just,cargo-deny,cargo-shear
