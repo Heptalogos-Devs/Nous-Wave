@@ -1,7 +1,7 @@
 use crate::*;
 use database_error as db;
 use nous_core::*;
-use sqlx::Row;
+use sqlx::{Executor, Postgres, Row, Transaction};
 
 impl AuthorityStore {
     /// Resolve a query exact target once at binding time.  Mutable cognition
@@ -42,6 +42,40 @@ impl AuthorityStore {
                 .await
                 .map_err(db)?
                 .ok_or_else(|| Error::NotFound("memory revision exact target not found".into()))?;
+                (
+                    reference.clone(),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    false,
+                )
+            }
+            CognitiveRef::Episode(episode) => {
+                let row = sqlx::query(
+                    "SELECT current_revision_id,object_epoch FROM episode_objects WHERE subject_id=$1 AND episode_id=$2",
+                )
+                .bind(subject.0)
+                .bind(episode.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("episode exact target not found".into()))?;
+                (
+                    CognitiveRef::EpisodeRevision(EpisodeRevisionId(
+                        row.try_get("current_revision_id").map_err(db)?,
+                    )),
+                    Some(row.try_get("object_epoch").map_err(db)?),
+                    true,
+                )
+            }
+            CognitiveRef::EpisodeRevision(revision) => {
+                let row = sqlx::query(
+                    "SELECT o.object_epoch FROM episode_revisions r JOIN episode_objects o USING(episode_id) WHERE r.subject_id=$1 AND r.episode_revision_id=$2",
+                )
+                .bind(subject.0)
+                .bind(revision.0)
+                .fetch_optional(self.pool())
+                .await
+                .map_err(db)?
+                .ok_or_else(|| Error::NotFound("episode revision exact target not found".into()))?;
                 (
                     reference.clone(),
                     Some(row.try_get("object_epoch").map_err(db)?),
@@ -98,22 +132,42 @@ impl AuthorityStore {
         }
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "subject ownership checks are explicit per cognitive reference owner"
-    )]
     pub async fn reference_in_subject(
         &self,
         subject: SubjectId,
         reference: &CognitiveRef,
     ) -> Result<bool> {
+        Self::reference_in_subject_executor(self.pool(), subject, reference).await
+    }
+
+    pub async fn reference_in_subject_tx(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        subject: SubjectId,
+        reference: &CognitiveRef,
+    ) -> Result<bool> {
+        Self::reference_in_subject_executor(&mut **tx, subject, reference).await
+    }
+
+    #[expect(
+        clippy::too_many_lines,
+        reason = "subject ownership checks are explicit per cognitive reference owner"
+    )]
+    async fn reference_in_subject_executor<'e, E>(
+        executor: E,
+        subject: SubjectId,
+        reference: &CognitiveRef,
+    ) -> Result<bool>
+    where
+        E: Executor<'e, Database = Postgres>,
+    {
         let valid = match reference {
             CognitiveRef::Memory(id) => sqlx::query_scalar(
                 "SELECT EXISTS(SELECT 1 FROM memory_objects WHERE subject_id=$1 AND memory_id=$2)",
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::MemoryRevision(id) => sqlx::query_scalar(
@@ -121,7 +175,23 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
+            .await
+            .map_err(db)?,
+            CognitiveRef::Episode(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM episode_objects WHERE subject_id=$1 AND episode_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(executor)
+            .await
+            .map_err(db)?,
+            CognitiveRef::EpisodeRevision(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM episode_revisions r JOIN episode_objects o USING(episode_id) WHERE o.subject_id=$1 AND r.episode_revision_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::CognitiveSchema(id) => sqlx::query_scalar(
@@ -129,7 +199,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::CognitiveSchemaRevision(id) => sqlx::query_scalar(
@@ -137,7 +207,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::CognitiveSeedVersion(id) => sqlx::query_scalar(
@@ -145,7 +215,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::Artifact(id) => sqlx::query_scalar(
@@ -153,7 +223,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::SourceRegion(id) => sqlx::query_scalar(
@@ -161,7 +231,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::DerivedRepresentation(id) => sqlx::query_scalar(
@@ -169,7 +239,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::DerivedRegion(id) => sqlx::query_scalar(
@@ -177,7 +247,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::Tag(id) => sqlx::query_scalar(
@@ -185,7 +255,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::Resource(id) => sqlx::query_scalar(
@@ -193,7 +263,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.as_str())
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::ExternalObject(id) => sqlx::query_scalar(
@@ -201,7 +271,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.as_str())
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::Occurrence(id) => sqlx::query_scalar(
@@ -209,7 +279,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
             CognitiveRef::Entity(id) => {
@@ -219,7 +289,7 @@ impl AuthorityStore {
                 )
                 .bind(subject.0)
                 .bind(id.as_str())
-                .fetch_one(self.pool())
+                .fetch_one(executor)
                 .await
                 .map_err(db)?
             }
@@ -228,7 +298,7 @@ impl AuthorityStore {
             )
             .bind(subject.0)
             .bind(id.0)
-            .fetch_one(self.pool())
+            .fetch_one(executor)
             .await
             .map_err(db)?,
         };

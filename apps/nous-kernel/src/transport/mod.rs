@@ -1,6 +1,7 @@
 //! Private protocol adapters. Domain owners remain the semantic boundary.
 mod authority;
 mod convert;
+mod episode;
 mod evidence;
 mod identity;
 mod management;
@@ -8,10 +9,10 @@ mod material;
 mod memory;
 mod model;
 mod query;
-mod runtime;
 mod schema;
 mod subject;
 mod topology;
+mod work_context;
 
 use crate::NousRuntime;
 use convert::*;
@@ -34,11 +35,47 @@ impl KernelService {
         let subject = SubjectId(id(&input.subject_id)?);
         let session = SessionId(id(&input.session_id)?);
         let runtime = self.0.cognition.session(subject, session).await?;
+        let mut segments = self
+            .0
+            .cognition
+            .runtime_references(subject, session)
+            .await?
+            .into_iter()
+            .map(|(reference, source)| p::ContextSegment {
+                segment_id: uuid::Uuid::now_v7().to_string(),
+                text: String::new(),
+                semantic_role: source.into(),
+                source_refs: vec![to_ref(reference.clone())],
+                evidence: Vec::new(),
+                authority: "subject_cognition".into(),
+                stability: "checkpoint".into(),
+                source_revision: Some(reference.to_string()),
+            })
+            .collect::<Vec<_>>();
+        let situation_refs = input
+            .situation_refs
+            .into_iter()
+            .map(from_ref)
+            .collect::<nous_core::Result<Vec<_>>>()?;
+        segments.extend(
+            situation_refs
+                .into_iter()
+                .map(|reference| p::ContextSegment {
+                    segment_id: uuid::Uuid::now_v7().to_string(),
+                    text: String::new(),
+                    semantic_role: "request_situation".into(),
+                    source_refs: vec![to_ref(reference.clone())],
+                    evidence: Vec::new(),
+                    authority: "external_current_authority".into(),
+                    stability: "request".into(),
+                    source_revision: Some(reference.to_string()),
+                }),
+        );
         Ok(p::Projection {
             projection_id: uuid::Uuid::now_v7().to_string(),
             consumer_id: input.consumer_id,
             source_runtime_revision: runtime.runtime_revision,
-            segments: Vec::new(),
+            segments,
             degradation: Vec::new(),
         })
     }

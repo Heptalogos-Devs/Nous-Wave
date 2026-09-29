@@ -11,6 +11,7 @@ use std::{
     collections::BTreeMap,
     sync::{Arc, RwLock},
 };
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct ConfigChangeOutcome {
@@ -31,6 +32,7 @@ struct Inner {
     registry: ConfigRegistry,
     deployment: BTreeMap<String, Value>,
     state: RwLock<ConfigurationState>,
+    mutation: Mutex<()>,
 }
 
 #[derive(Clone)]
@@ -99,6 +101,7 @@ impl ConfigurationService {
                     active_subject: subjects.clone(),
                     desired_subject: subjects,
                 }),
+                mutation: Mutex::const_new(()),
             }),
         })
     }
@@ -249,6 +252,7 @@ impl ConfigurationService {
         value: Option<Value>,
         actor: ConfigActorTier,
     ) -> Result<ConfigChangeOutcome> {
+        let _mutation = self.inner.mutation.lock().await;
         if operation_id.0.is_nil() {
             return Err(Error::Invalid(
                 "configuration operation_id is required".into(),

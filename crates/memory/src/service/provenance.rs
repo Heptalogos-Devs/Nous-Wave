@@ -195,6 +195,16 @@ impl MemoryService {
                 "synthesized formation needs at least two normalized inputs".into(),
             ));
         }
+        let independent_roots = summary
+            .roots
+            .iter()
+            .filter(|root| matches!(root.certainty, EvidenceRootCertainty::Known))
+            .count();
+        if independent_roots < 2 {
+            return Err(Error::Invalid(
+                "synthesized formation needs two known independent provenance roots".into(),
+            ));
+        }
         Ok(())
     }
 

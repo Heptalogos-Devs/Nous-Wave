@@ -2,7 +2,6 @@ use super::lane::{LaneCandidate, LaneOutput, LaneStatus};
 use super::query_materialization::*;
 use super::query_support::resolve_memory_references;
 use super::schema_lane::{materialize_schema_revisions, schema_direct_lane};
-use super::topology_lane::topology_lane;
 use super::*;
 use async_trait::async_trait;
 use nous_runtime::{BoundQuery, CognitiveContributor, QueryPlan};
@@ -29,6 +28,8 @@ impl CognitiveContributor for MemoryService {
             reference,
             CognitiveRef::Memory(_)
                 | CognitiveRef::MemoryRevision(_)
+                | CognitiveRef::Episode(_)
+                | CognitiveRef::EpisodeRevision(_)
                 | CognitiveRef::CognitiveSchema(_)
                 | CognitiveRef::CognitiveSchemaRevision(_)
         )
@@ -44,16 +45,6 @@ impl CognitiveContributor for MemoryService {
         }
         if bound.lane_enabled(EvidenceFamily::SchemaDirect) {
             outputs.push(schema_direct_lane(self, bound, plan).await?);
-        }
-        if bound.lane_enabled(EvidenceFamily::TopologyWave) {
-            outputs.push(topology_lane(
-                &self
-                    .serving
-                    .publisher
-                    .snapshot_for(bound.source_query.subject),
-                bound,
-                plan,
-            ));
         }
         Ok(outputs)
     }
@@ -72,6 +63,16 @@ impl CognitiveContributor for MemoryService {
                 matches!(
                     reference,
                     CognitiveRef::Memory(_) | CognitiveRef::MemoryRevision(_)
+                )
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let episode_references = references
+            .iter()
+            .filter(|reference| {
+                matches!(
+                    reference,
+                    CognitiveRef::Episode(_) | CognitiveRef::EpisodeRevision(_)
                 )
             })
             .cloned()
@@ -126,6 +127,23 @@ impl CognitiveContributor for MemoryService {
             }
             let hit_reference = CognitiveRef::MemoryRevision(revision);
             hits.push(to_hit(&bound.source_query, &candidate, hit_reference));
+        }
+        for reference in episode_references {
+            let episode = match reference {
+                CognitiveRef::Episode(id) => self.episode(subject, id, None).await?,
+                CognitiveRef::EpisodeRevision(id) => self.episode_revision(subject, id).await?,
+                _ => continue,
+            };
+            if !matches!(episode.object.purge_state, PurgeState::Normal)
+                || (!matches!(episode.object.acceptance_state, AcceptanceState::Accepted)
+                    || !matches!(episode.object.integrity_state, IntegrityState::Valid)
+                    || !matches!(episode.object.suppression_state, SuppressionState::Normal))
+            {
+                increment_drop(&mut drops, "episode_unavailable");
+                continue;
+            }
+            let hit_reference = CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id);
+            hits.push(episode_to_hit(&bound.source_query, &episode, hit_reference));
         }
         let (schema_hits, schema_drops) =
             materialize_schema_revisions(self, bound, references).await?;
@@ -189,28 +207,21 @@ async fn entity_lane(
     Ok(output)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "Typed temporal axes share one bounded lane and final deterministic ordering"
+)]
 async fn temporal_lane(
     service: &MemoryService,
     bound: &BoundQuery,
     plan: &QueryPlan,
 ) -> Result<LaneOutput> {
     let query = &bound.source_query;
-    let cue_intervals = query
-        .cues
-        .iter()
-        .filter_map(|cue| match cue {
-            Cue::Temporal(value) => Some(value.interval),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    let valid = query
-        .constraints
-        .valid
-        .into_iter()
-        .chain(cue_intervals.iter().copied())
-        .collect::<Vec<_>>();
+    let valid = query.constraints.valid.into_iter().collect::<Vec<_>>();
     let occurred = query.constraints.occurred.into_iter().collect::<Vec<_>>();
     let observed = query.constraints.observed.into_iter().collect::<Vec<_>>();
+    let formed = query.constraints.formed.into_iter().collect::<Vec<_>>();
+    let recorded = query.constraints.recorded.into_iter().collect::<Vec<_>>();
     let mut matches = HashMap::<Uuid, (Uuid, usize)>::new();
     let mut next_rank = 1usize;
     for interval in valid {
@@ -257,13 +268,53 @@ async fn temporal_lane(
             next_rank += 1;
         }
     }
-    for interval in observed
-        .iter()
-        .copied()
-        .chain(cue_intervals.iter().copied())
-    {
+    for interval in observed {
         let rows = sqlx::query(
             "SELECT DISTINCT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id JOIN memory_revision_evidence e USING(memory_revision_id) JOIN observation_occurrences oc USING(occurrence_id) WHERE o.subject_id=$1 AND oc.observed_at IS NOT NULL AND ($2::timestamptz IS NULL OR oc.observed_at>=$2) AND ($3::timestamptz IS NULL OR oc.observed_at<$3) ORDER BY r.memory_revision_id LIMIT $4",
+        )
+        .bind(query.subject.0)
+        .bind(interval.start)
+        .bind(interval.end)
+        .bind(plan.lane_budget(EvidenceFamily::Temporal) as i64)
+        .fetch_all(service.store.pool())
+        .await
+        .map_err(nous_persistence::database_error)?;
+        for row in rows {
+            let revision: Uuid = row
+                .try_get("memory_revision_id")
+                .map_err(nous_persistence::database_error)?;
+            let memory: Uuid = row
+                .try_get("memory_id")
+                .map_err(nous_persistence::database_error)?;
+            matches.entry(revision).or_insert((memory, next_rank));
+            next_rank += 1;
+        }
+    }
+    for interval in formed {
+        let rows = sqlx::query(
+            "SELECT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ($2::timestamptz IS NULL OR r.formed_at >= $2) AND ($3::timestamptz IS NULL OR r.formed_at < $3) ORDER BY r.formed_at DESC,r.memory_revision_id LIMIT $4",
+        )
+        .bind(query.subject.0)
+        .bind(interval.start)
+        .bind(interval.end)
+        .bind(plan.lane_budget(EvidenceFamily::Temporal) as i64)
+        .fetch_all(service.store.pool())
+        .await
+        .map_err(nous_persistence::database_error)?;
+        for row in rows {
+            let revision: Uuid = row
+                .try_get("memory_revision_id")
+                .map_err(nous_persistence::database_error)?;
+            let memory: Uuid = row
+                .try_get("memory_id")
+                .map_err(nous_persistence::database_error)?;
+            matches.entry(revision).or_insert((memory, next_rank));
+            next_rank += 1;
+        }
+    }
+    for interval in recorded {
+        let rows = sqlx::query(
+            "SELECT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ($2::timestamptz IS NULL OR r.recorded_at >= $2) AND ($3::timestamptz IS NULL OR r.recorded_at < $3) ORDER BY r.recorded_at DESC,r.memory_revision_id LIMIT $4",
         )
         .bind(query.subject.0)
         .bind(interval.start)
@@ -298,4 +349,63 @@ async fn temporal_lane(
         });
     }
     Ok(output)
+}
+
+fn episode_to_hit(
+    query: &CognitiveQuery,
+    episode: &EpisodeView,
+    reference: CognitiveRef,
+) -> CognitiveHit {
+    CognitiveHit {
+        reference,
+        revision: Some(CognitiveRef::EpisodeRevision(
+            episode.revision.episode_revision_id,
+        )),
+        semantic_role: Some("episode".into()),
+        cognitive_role: None,
+        formation_mode: None,
+        representation: Some(
+            episode
+                .revision
+                .title
+                .clone()
+                .unwrap_or_else(|| episode.revision.boundary_explanation.clone()),
+        ),
+        authority: AuthorityClass::SubjectCognition,
+        freshness: FreshnessDescriptor {
+            observed_at: None,
+            valid_time: TemporalExtent::Unknown,
+            formed_at: Some(episode.revision.formed_at),
+            recorded_at: Some(episode.revision.recorded_at),
+        },
+        entity_refs: Vec::new(),
+        evidence: if query.result_need.need_evidence {
+            episode
+                .supports
+                .iter()
+                .map(|support| EvidenceHandle {
+                    reference: match support {
+                        RevisionSupport::Evidence(value) => value.cognitive_ref(),
+                        RevisionSupport::CognitionDependency(value) => {
+                            value.target_revision.clone()
+                        }
+                        RevisionSupport::Seed(value) => {
+                            CognitiveRef::CognitiveSeedVersion(value.seed_version_id)
+                        }
+                    },
+                    support_role: match support {
+                        RevisionSupport::Evidence(value) => value.support_role.as_str().into(),
+                        RevisionSupport::CognitionDependency(value) => {
+                            value.support_role.as_str().into()
+                        }
+                        RevisionSupport::Seed(_) => "seed".into(),
+                    },
+                })
+                .collect()
+        } else {
+            Vec::new()
+        },
+        match_evidence: MatchEvidence::default(),
+        materialization: Vec::new(),
+    }
 }

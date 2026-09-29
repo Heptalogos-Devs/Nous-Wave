@@ -197,3 +197,72 @@ CREATE TABLE association_evidence_supports (
     CHECK (num_nonnulls(source_region_id, derived_representation_id, derived_region_id) <= 1)
 );
 
+CREATE TABLE episode_objects (
+    episode_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    track_key text NOT NULL CHECK (octet_length(track_key) BETWEEN 1 AND 128),
+    current_revision_id uuid NOT NULL,
+    object_epoch bigint NOT NULL DEFAULT 1 CHECK (object_epoch > 0),
+    acceptance_state text NOT NULL CHECK (acceptance_state IN ('accepted','withdrawn')),
+    integrity_state text NOT NULL CHECK (integrity_state IN ('valid','revalidation_required')),
+    suppression_state text NOT NULL CHECK (suppression_state IN ('normal','suppressed')),
+    purge_state text NOT NULL CHECK (purge_state IN ('normal','purging')),
+    created_at timestamptz NOT NULL,
+    UNIQUE(subject_id, episode_id)
+);
+CREATE TABLE episode_revisions (
+    episode_revision_id uuid PRIMARY KEY,
+    episode_id uuid NOT NULL REFERENCES episode_objects(episode_id) ON DELETE CASCADE,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    revision_no integer NOT NULL CHECK (revision_no > 0),
+    parent_revision_id uuid NULL REFERENCES episode_revisions(episode_revision_id),
+    revision_intent text NULL CHECK (revision_intent IN ('resegment','reinterpret')),
+    title text NULL CHECK (title IS NULL OR octet_length(title) <= 8192),
+    parent_episode_revision_id uuid NULL REFERENCES episode_revisions(episode_revision_id),
+    experience_time_kind text NOT NULL DEFAULT 'unknown' CHECK (experience_time_kind IN ('unknown','instant','interval')),
+    experience_time_start timestamptz NULL,
+    experience_time_end timestamptz NULL,
+    boundary_explanation text NOT NULL CHECK (octet_length(boundary_explanation) BETWEEN 1 AND 16384),
+    formed_at timestamptz NOT NULL,
+    recorded_at timestamptz NOT NULL,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
+    UNIQUE(episode_id, revision_no),
+    CHECK (experience_time_kind <> 'interval'
+        OR experience_time_start IS NULL
+        OR experience_time_end IS NULL
+        OR experience_time_start < experience_time_end)
+);
+ALTER TABLE episode_objects
+    ADD CONSTRAINT episode_objects_current_revision_fk
+    FOREIGN KEY (current_revision_id) REFERENCES episode_revisions(episode_revision_id)
+    DEFERRABLE INITIALLY DEFERRED;
+CREATE TABLE episode_revision_members (
+    episode_revision_id uuid NOT NULL REFERENCES episode_revisions(episode_revision_id) ON DELETE CASCADE,
+    ordinal integer NOT NULL CHECK (ordinal >= 0),
+    ref_kind text NOT NULL CHECK (ref_kind ~ '^[a-z][a-z0-9_]{0,63}$'),
+    ref_value text NOT NULL,
+    role text NOT NULL CHECK (octet_length(role) BETWEEN 1 AND 128),
+    PRIMARY KEY(episode_revision_id, ordinal),
+    UNIQUE(episode_revision_id, ref_kind, ref_value)
+);
+CREATE TABLE episode_revision_supports (
+    episode_revision_id uuid NOT NULL REFERENCES episode_revisions(episode_revision_id) ON DELETE CASCADE,
+    support_no integer NOT NULL CHECK (support_no >= 0),
+    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision','episode_revision')),
+    support_ref text NOT NULL,
+    support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
+    occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,
+    source_region_id uuid NULL REFERENCES source_regions(source_region_id) ON DELETE RESTRICT,
+    derived_representation_id uuid NULL REFERENCES derived_representations(derived_representation_id) ON DELETE RESTRICT,
+    derived_region_id uuid NULL REFERENCES derived_regions(derived_region_id) ON DELETE RESTRICT,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
+    PRIMARY KEY(episode_revision_id, support_no),
+    CHECK (num_nonnulls(source_region_id, derived_representation_id, derived_region_id) <= 1)
+);
+CREATE TABLE episode_revision_relations (
+    from_revision_id uuid NOT NULL REFERENCES episode_revisions(episode_revision_id) ON DELETE CASCADE,
+    to_revision_id uuid NOT NULL REFERENCES episode_revisions(episode_revision_id) ON DELETE CASCADE,
+    relation text NOT NULL CHECK (relation IN ('split_from','merged_from','temporal_successor','derived_from')),
+    created_at timestamptz NOT NULL,
+    PRIMARY KEY(from_revision_id, to_revision_id, relation)
+);

@@ -9,7 +9,7 @@ use nous_core::{
 use serde_json::Value;
 use test_support::{database, form_input, observation, open_runtime, open_runtime_with_serving};
 
-const ORACLE: &str = include_str!("fixtures/memory-reference-r1/oracle.json");
+const ORACLE: &str = include_str!("fixtures/memory-integrity/oracle.json");
 
 async fn subject(runtime: &nous_kernel::NousRuntime) -> nous_core::SubjectId {
     runtime

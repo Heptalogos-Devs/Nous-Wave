@@ -5,7 +5,6 @@ use nous_protocol::kernel::{
     artifact_stream_service_server::ArtifactStreamServiceServer,
     authority_service_server::AuthorityServiceServer,
     model_material_service_server::ModelMaterialServiceServer,
-    runtime_store_service_server::RuntimeStoreServiceServer,
 };
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
@@ -81,10 +80,6 @@ async fn run() -> Result<()> {
         .await;
     let server = tonic::transport::Server::builder()
         .add_service(AuthorityServiceServer::with_interceptor(
-            service.clone(),
-            auth.clone(),
-        ))
-        .add_service(RuntimeStoreServiceServer::with_interceptor(
             service.clone(),
             auth.clone(),
         ))

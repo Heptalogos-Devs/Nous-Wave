@@ -245,7 +245,7 @@ fn stable_vector_key(vector: &[f64]) -> String {
 pub struct EpaObservation {
     pub axis_energy: Vec<f64>,
     pub entropy: f64,
-    pub focus: f64,
+    pub cue_clarity: f64,
     pub dominant_axes: Vec<usize>,
     pub resonances: Vec<(usize, usize, f64)>,
 }
@@ -269,7 +269,7 @@ pub fn observe_epa(basis: &EpaBasis, query: &[f64]) -> Option<EpaObservation> {
         return Some(EpaObservation {
             axis_energy: vec![0.0; projections.len()],
             entropy: 0.0,
-            focus: 1.0,
+            cue_clarity: 1.0,
             dominant_axes: Vec::new(),
             resonances: Vec::new(),
         });
@@ -304,7 +304,7 @@ pub fn observe_epa(basis: &EpaBasis, query: &[f64]) -> Option<EpaObservation> {
     Some(EpaObservation {
         axis_energy: energy,
         entropy,
-        focus: (1.0 - entropy).clamp(0.0, 1.0),
+        cue_clarity: (1.0 - entropy).clamp(0.0, 1.0),
         dominant_axes,
         resonances,
     })

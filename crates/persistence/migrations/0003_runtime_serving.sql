@@ -25,6 +25,35 @@ CREATE TABLE cognition_dependency_invalidations (
     PRIMARY KEY(dependent_kind, dependent_ref, invalidated_by_kind, invalidated_by_ref)
 );
 
+CREATE TABLE work_contexts (
+    work_context_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    state text NOT NULL CHECK (state IN ('open','paused','ended')),
+    purpose text NOT NULL CHECK (octet_length(purpose) BETWEEN 1 AND 8192),
+    unresolved_questions text[] NOT NULL DEFAULT '{}',
+    constraints jsonb NOT NULL DEFAULT '{}',
+    resume_conditions text[] NOT NULL DEFAULT '{}',
+    budget_summary jsonb NOT NULL DEFAULT '{}',
+    revision bigint NOT NULL DEFAULT 1 CHECK (revision > 0),
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    ended_at timestamptz NULL,
+    UNIQUE(subject_id, work_context_id),
+    CHECK (cardinality(unresolved_questions) <= 64),
+    CHECK (cardinality(resume_conditions) <= 64),
+    CHECK (octet_length(constraints::text) <= 65536),
+    CHECK (octet_length(budget_summary::text) <= 16384),
+    CHECK ((state = 'ended') = (ended_at IS NOT NULL))
+);
+CREATE TABLE work_context_refs (
+    work_context_id uuid NOT NULL REFERENCES work_contexts(work_context_id) ON DELETE CASCADE,
+    ordinal integer NOT NULL CHECK (ordinal >= 0),
+    ref_kind text NOT NULL CHECK (ref_kind ~ '^[a-z][a-z0-9_]{0,63}$'),
+    ref_value text NOT NULL,
+    PRIMARY KEY(work_context_id, ordinal),
+    UNIQUE(work_context_id, ref_kind, ref_value)
+);
+
 CREATE TABLE cognitive_sessions (
     session_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
@@ -33,7 +62,9 @@ CREATE TABLE cognitive_sessions (
     last_meaningful_use_at timestamptz NULL,
     closed_at timestamptz NULL,
     runtime_revision bigint NOT NULL DEFAULT 0,
-    active_focus_key text NULL,
+    active_work_context_id uuid NULL,
+    FOREIGN KEY(subject_id, active_work_context_id)
+        REFERENCES work_contexts(subject_id, work_context_id),
     metadata jsonb NOT NULL DEFAULT '{}'
 );
 
@@ -101,18 +132,6 @@ CREATE TABLE projection_watermarks (
     space_signature text NOT NULL DEFAULT '',
     desired_authority_seq bigint NOT NULL,
     PRIMARY KEY(subject_id, family, space_signature)
-);
-
-CREATE TABLE runtime_checkpoints (
-    subject_id uuid NOT NULL REFERENCES subjects(subject_id),
-    session_id uuid NOT NULL REFERENCES cognitive_sessions(session_id),
-    owner_kind text NOT NULL CHECK (owner_kind IN ('focus', 'context', 'steward')),
-    owner_key text NOT NULL CHECK (length(owner_key) BETWEEN 1 AND 256),
-    schema_version integer NOT NULL CHECK (schema_version > 0),
-    revision bigint NOT NULL CHECK (revision > 0),
-    payload bytea NOT NULL CHECK (octet_length(payload) <= 1048576),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (session_id, owner_kind, owner_key)
 );
 
 CREATE TABLE observation_request_bindings (

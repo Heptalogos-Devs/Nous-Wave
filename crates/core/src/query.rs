@@ -48,11 +48,6 @@ pub struct SchemaCue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TemporalCue {
-    pub interval: TimeInterval,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelationCue {
     pub from: CognitiveRef,
     pub to: CognitiveRef,
@@ -78,7 +73,6 @@ pub enum Cue {
     MediaRegion(MediaRegionCue),
     Tag(TagCue),
     Schema(SchemaCue),
-    Temporal(TemporalCue),
     Relation(RelationCue),
     Example(ExampleCue),
     Resource(ResourceCue),
@@ -99,6 +93,8 @@ pub struct QueryConstraints {
     pub occurred: Option<TimeInterval>,
     pub observed: Option<TimeInterval>,
     pub valid: Option<TimeInterval>,
+    pub formed: Option<TimeInterval>,
+    pub recorded: Option<TimeInterval>,
     #[serde(default)]
     pub include_suppressed: bool,
     pub authority: Option<AuthorityClass>,
@@ -266,6 +262,12 @@ impl CognitiveQuery {
             interval.validate()?;
         }
         if let Some(interval) = self.constraints.valid {
+            interval.validate()?;
+        }
+        if let Some(interval) = self.constraints.formed {
+            interval.validate()?;
+        }
+        if let Some(interval) = self.constraints.recorded {
             interval.validate()?;
         }
         Ok(())

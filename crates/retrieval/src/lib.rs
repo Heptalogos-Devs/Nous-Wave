@@ -7,6 +7,7 @@ mod lifecycle;
 mod material;
 mod provider;
 mod query;
+mod topology_lane;
 pub use material::*;
 
 use nous_core::*;

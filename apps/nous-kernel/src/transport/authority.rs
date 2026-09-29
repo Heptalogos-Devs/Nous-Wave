@@ -2,6 +2,186 @@ use super::*;
 
 #[tonic::async_trait]
 impl k::authority_service_server::AuthorityService for KernelService {
+    async fn create_work_context(
+        &self,
+        request: Request<p::CreateWorkContextRequest>,
+    ) -> std::result::Result<Response<p::WorkContextResponse>, Status> {
+        KernelService::create_work_context(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn get_work_context(
+        &self,
+        request: Request<p::GetWorkContextRequest>,
+    ) -> std::result::Result<Response<p::WorkContextResponse>, Status> {
+        KernelService::get_work_context(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn list_work_contexts(
+        &self,
+        request: Request<p::ListWorkContextsRequest>,
+    ) -> std::result::Result<Response<p::ListWorkContextsResponse>, Status> {
+        KernelService::list_work_contexts(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn update_work_context(
+        &self,
+        request: Request<p::UpdateWorkContextRequest>,
+    ) -> std::result::Result<Response<p::WorkContextResponse>, Status> {
+        KernelService::update_work_context(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn pause_work_context(
+        &self,
+        request: Request<p::WorkContextMutationRequest>,
+    ) -> std::result::Result<Response<p::WorkContextResponse>, Status> {
+        KernelService::pause_work_context(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn resume_work_context(
+        &self,
+        request: Request<p::WorkContextMutationRequest>,
+    ) -> std::result::Result<Response<p::WorkContextResponse>, Status> {
+        KernelService::resume_work_context(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn end_work_context(
+        &self,
+        request: Request<p::WorkContextMutationRequest>,
+    ) -> std::result::Result<Response<p::WorkContextResponse>, Status> {
+        KernelService::end_work_context(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn set_active_work_context(
+        &self,
+        request: Request<p::SetActiveWorkContextRequest>,
+    ) -> std::result::Result<Response<p::Session>, Status> {
+        KernelService::set_active_work_context(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn create_episode(
+        &self,
+        request: Request<p::CreateEpisodeRequest>,
+    ) -> std::result::Result<Response<p::EpisodeResponse>, Status> {
+        KernelService::create_episode(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn get_episode(
+        &self,
+        request: Request<p::ObjectRequest>,
+    ) -> std::result::Result<Response<p::EpisodeResponse>, Status> {
+        KernelService::get_episode(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn get_episode_revision(
+        &self,
+        request: Request<p::ObjectRequest>,
+    ) -> std::result::Result<Response<p::EpisodeRevision>, Status> {
+        KernelService::get_episode_revision(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn list_episodes(
+        &self,
+        request: Request<p::ListRequest>,
+    ) -> std::result::Result<Response<p::ListEpisodesResponse>, Status> {
+        KernelService::list_episodes(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn list_episode_revisions(
+        &self,
+        request: Request<p::ListEpisodeRevisionsRequest>,
+    ) -> std::result::Result<Response<p::ListEpisodeRevisionsResponse>, Status> {
+        KernelService::list_episode_revisions(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn revise_episode(
+        &self,
+        request: Request<p::ReviseEpisodeRequest>,
+    ) -> std::result::Result<Response<p::EpisodeResponse>, Status> {
+        KernelService::revise_episode(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn link_episode_revisions(
+        &self,
+        request: Request<p::LinkEpisodeRevisionsRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        KernelService::link_episode_revisions(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn suppress_episode(
+        &self,
+        request: Request<p::EpisodeMutationRequest>,
+    ) -> std::result::Result<Response<p::EpisodeResponse>, Status> {
+        KernelService::suppress_episode(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn restore_episode(
+        &self,
+        request: Request<p::EpisodeMutationRequest>,
+    ) -> std::result::Result<Response<p::EpisodeResponse>, Status> {
+        KernelService::restore_episode(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn withdraw_episode(
+        &self,
+        request: Request<p::EpisodeMutationRequest>,
+    ) -> std::result::Result<Response<p::EpisodeResponse>, Status> {
+        KernelService::withdraw_episode(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn reaccept_episode(
+        &self,
+        request: Request<p::EpisodeMutationRequest>,
+    ) -> std::result::Result<Response<p::EpisodeResponse>, Status> {
+        KernelService::reaccept_episode(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+    async fn purge_episode(
+        &self,
+        request: Request<p::EpisodeMutationRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        KernelService::purge_episode(self, request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
     async fn set_accessibility(
         &self,
         request: Request<p::SetAccessibilityRequest>,

@@ -18,7 +18,7 @@ export class ContextCompiler {
     key: {
       subjectId: string;
       sessionId: string;
-      focusId?: string;
+      workContextId?: string;
       consumerId: string;
     },
     profile: string,
@@ -28,7 +28,7 @@ export class ContextCompiler {
     const trackId = digest([
       key.subjectId,
       key.sessionId,
-      key.focusId ?? "",
+      key.workContextId ?? "",
       key.consumerId,
     ]);
     const previous = this.tracks.get(trackId);

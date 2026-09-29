@@ -27,7 +27,6 @@ import {
 } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { compileNousQL } from "./nousql/compiler.js";
 import {
-  FocusSchema,
   ProjectionRequestSchema,
   ProjectionSchema,
   ManagedContextResponseSchema,
@@ -35,7 +34,6 @@ import {
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "./kernel-client.js";
 import type { ConsumerPolicy } from "./domain.js";
-import { FocusRuntime } from "./cognition/focus.js";
 import { ProjectionPlanner } from "./cognition/projection.js";
 import { ContextCompiler } from "./cognition/context.js";
 import { ModelRuntime } from "./model/runtime.js";
@@ -59,7 +57,6 @@ export async function createCore(settings: CoreOptions) {
     throw new Error("Core credential must contain at least 32 characters");
   const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
   const kernel = settings.kernel;
-  const focuses = new FocusRuntime(kernel);
   const planner = new ProjectionPlanner(
     new Map(settings.consumers.map((p) => [p.consumerId, p])),
     settings.models,
@@ -91,29 +88,19 @@ export async function createCore(settings: CoreOptions) {
   ) {
     const policy = planner.policy(input.consumerId ?? "");
     const request = create(ProjectionRequestSchema, input);
-    const snapshot = await kernel.read(
-      request.subjectId,
-      request.sessionId,
-      context.signal,
+    const snapshot = await kernel.authority.getSession(
+      { subjectId: request.subjectId, id: request.sessionId },
+      { signal: context.signal },
     );
-    if (request.focusId && request.focusId !== snapshot.session.activeFocusId)
+    if (
+      request.activeWorkContextId &&
+      request.activeWorkContextId !== snapshot.activeWorkContextId
+    )
       throw new ConnectError(
-        "Projection Focus is not active",
+        "Projection WorkContext is not active",
         Code.FailedPrecondition,
       );
-    request.focusId ??= snapshot.session.activeFocusId;
-    const active = snapshot.focuses.find((f) => f.focusId === request.focusId);
-    const activeRefs = await kernel.validateRefs(
-      request.subjectId,
-      active?.references ?? [],
-      context.signal,
-    );
-    request.situationRefs.push(
-      ...activeRefs.map((r) => ({
-        ...r,
-        $typeName: "nous.wave.v1alpha1.CognitiveRef" as const,
-      })),
-    );
+    request.activeWorkContextId ??= snapshot.activeWorkContextId;
     request.maxItems = Math.min(
       request.maxItems || policy.maxItems,
       policy.maxItems,
@@ -143,12 +130,6 @@ export async function createCore(settings: CoreOptions) {
       options(context),
     );
     batch.degradation.push(...queryDegradation);
-    if (activeRefs.length !== (active?.references.length ?? 0))
-      batch.degradation.push({
-        $typeName: "nous.wave.v1alpha1.Degradation",
-        code: "focus_sources_unavailable",
-        detail: "Some Focus sources are no longer available",
-      });
     const projection = await planner.build(
       {
         projectionId: batch.projectionId,
@@ -180,12 +161,11 @@ export async function createCore(settings: CoreOptions) {
       request,
       context.signal,
     );
-    const after = await kernel.read(
-      request.subjectId,
-      request.sessionId,
-      context.signal,
+    const after = await kernel.authority.getSession(
+      { subjectId: request.subjectId, id: request.sessionId },
+      { signal: context.signal },
     );
-    if (after.session.runtimeRevision !== snapshot.session.runtimeRevision)
+    if (after.runtimeRevision !== snapshot.runtimeRevision)
       throw new ConnectError("Session changed during projection", Code.Aborted);
     return projection;
   }
@@ -249,45 +229,20 @@ export async function createCore(settings: CoreOptions) {
       return result;
     },
     reportUse: (r, c) => kernel.authority.reportUse(r, options(c)),
-    mutateFocus: async (r, c) => {
-      if (!r.focus)
-        throw new ConnectError("Focus input required", Code.InvalidArgument);
-      const result = await focuses.mutate(
-        {
-          subjectId: r.subjectId,
-          sessionId: r.sessionId,
-          expected: r.expectedRuntimeRevision,
-          operation: r.operation,
-          focus: {
-            focusId: r.focus.focusId,
-            descriptor: r.focus.descriptor,
-            references: r.focus.references,
-          },
-        },
-        c.signal,
-      );
-      return {
-        focus: create(FocusSchema, result.focus),
-        runtimeRevision: result.runtimeRevision,
-        degradation: result.degradation,
-      };
-    },
-    getFocus: async (r, c) => {
-      const result = await focuses.get(
-        r.subjectId,
-        r.sessionId,
-        r.focusId,
-        c.signal,
-      );
-      return { ...result, focus: create(FocusSchema, result.focus) };
-    },
-    listFocuses: async (r, c) => {
-      const result = await focuses.list(r.subjectId, r.sessionId, c.signal);
-      return {
-        ...result,
-        items: result.items.map((f) => create(FocusSchema, f)),
-      };
-    },
+    createWorkContext: (r, c) =>
+      kernel.authority.createWorkContext(r, options(c)),
+    getWorkContext: (r, c) => kernel.authority.getWorkContext(r, options(c)),
+    listWorkContexts: (r, c) =>
+      kernel.authority.listWorkContexts(r, options(c)),
+    updateWorkContext: (r, c) =>
+      kernel.authority.updateWorkContext(r, options(c)),
+    pauseWorkContext: (r, c) =>
+      kernel.authority.pauseWorkContext(r, options(c)),
+    resumeWorkContext: (r, c) =>
+      kernel.authority.resumeWorkContext(r, options(c)),
+    endWorkContext: (r, c) => kernel.authority.endWorkContext(r, options(c)),
+    setActiveWorkContext: (r, c) =>
+      kernel.authority.setActiveWorkContext(r, options(c)),
     buildProjection: async (r, c) =>
       create(ProjectionSchema, await project(r, c)),
     buildManagedContext: async (r, c) => {
@@ -314,7 +269,8 @@ export async function createCore(settings: CoreOptions) {
             subjectId: r.projection.subjectId,
             sessionId: r.projection.sessionId,
             consumerId: r.projection.consumerId,
-            focusId: r.projection.focusId ?? session.activeFocusId,
+            workContextId:
+              r.projection.activeWorkContextId ?? session.activeWorkContextId,
           },
           `${policy.revision}:${r.projection.maxItems}:${r.projection.maxTextBytes}`,
           projection,
@@ -351,6 +307,21 @@ export async function createCore(settings: CoreOptions) {
     withdrawMemory: (r, c) => kernel.authority.withdrawMemory(r, options(c)),
     reacceptMemory: (r, c) => kernel.authority.reacceptMemory(r, options(c)),
     purgeMemory: (r, c) => kernel.authority.purgeMemory(r, options(c)),
+    createEpisode: (r, c) => kernel.authority.createEpisode(r, options(c)),
+    getEpisode: (r, c) => kernel.authority.getEpisode(r, options(c)),
+    getEpisodeRevision: (r, c) =>
+      kernel.authority.getEpisodeRevision(r, options(c)),
+    listEpisodes: (r, c) => kernel.authority.listEpisodes(r, options(c)),
+    listEpisodeRevisions: (r, c) =>
+      kernel.authority.listEpisodeRevisions(r, options(c)),
+    reviseEpisode: (r, c) => kernel.authority.reviseEpisode(r, options(c)),
+    linkEpisodeRevisions: (r, c) =>
+      kernel.authority.linkEpisodeRevisions(r, options(c)),
+    suppressEpisode: (r, c) => kernel.authority.suppressEpisode(r, options(c)),
+    restoreEpisode: (r, c) => kernel.authority.restoreEpisode(r, options(c)),
+    withdrawEpisode: (r, c) => kernel.authority.withdrawEpisode(r, options(c)),
+    reacceptEpisode: (r, c) => kernel.authority.reacceptEpisode(r, options(c)),
+    purgeEpisode: (r, c) => kernel.authority.purgeEpisode(r, options(c)),
   };
   const material: ServiceImpl<typeof MaterialService> = {
     getOccurrence: (r, c) => kernel.authority.getOccurrence(r, options(c)),
