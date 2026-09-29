@@ -1,10 +1,10 @@
 # Memory Reference Profile Qualification
 
-状态：IN PROGRESS
+状态：QUALIFIED（Windows scope）
 计划：[Structural Rebase — Memory Reference Profile R1](../plans/active/2026-09-29-structural-rebase-memory-reference-profile.md)
 Spec：[Memory Reference Qualification](../specs/active/memory-reference-profile/04-qualification.md)
 
-本记录只保留当前 checkout 实际运行的证据。平台：Windows；commit 以最终闭合时重新记录。
+本记录只保留当前 checkout 实际运行的证据。平台：Windows。结构性 rebase closure commit：`02a2adb396ceaba305c06adc2c539feb5cbbd68f`。
 
 | Capability / gate | Result | Evidence |
 | --- | --- | --- |

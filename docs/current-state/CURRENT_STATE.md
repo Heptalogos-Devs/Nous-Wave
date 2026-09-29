@@ -27,6 +27,7 @@
 - `cargo check --workspace --lib` — PASS.
 - `cargo test -p nous-kernel --test purge_shared --all-features -- --test-threads=1` — PASS.
 - `cargo test -p nous-kernel --test runtime_residency --all-features -- --test-threads=1` — PASS.
-- Full `just verify` after the current test/verification rebase — NOT_RUN.
+- `corepack pnpm check` — PASS.
+- `just verify` — PASS.
 
 精确命令、commit、平台和失败/未运行项由 [Memory Reference Qualification](../qualification/2026-10-memory-reference-profile.md) 维护；本文只保留 capability summary。
