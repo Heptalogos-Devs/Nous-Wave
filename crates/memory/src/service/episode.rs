@@ -890,14 +890,21 @@ async fn ensure_no_parent_cycle(
                 "Episode parent hierarchy contains a cycle".into(),
             ));
         }
-        let next: Option<Uuid> = sqlx::query_scalar(
-            "SELECT parent_episode_revision_id FROM episode_revisions WHERE episode_revision_id=$1",
+        let row = sqlx::query(
+            "SELECT episode_id,parent_episode_revision_id FROM episode_revisions WHERE episode_revision_id=$1",
         )
         .bind(parent)
         .fetch_optional(&mut **tx)
         .await
         .map_err(db)?
-        .flatten();
+        .ok_or_else(|| Error::Invalid("Episode parent revision does not exist".into()))?;
+        let parent_episode: Uuid = row.try_get("episode_id").map_err(db)?;
+        if parent_episode == episode {
+            return Err(Error::Conflict(
+                "Episode parent hierarchy contains a cycle".into(),
+            ));
+        }
+        let next: Option<Uuid> = row.try_get("parent_episode_revision_id").map_err(db)?;
         let Some(next) = next else {
             return Ok(());
         };
