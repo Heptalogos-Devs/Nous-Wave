@@ -7,7 +7,7 @@
 ## Session isolation
 
 - 一个 Subject 可同时服务多个 Session 与 consumer；durable cognition 归 Subject 共享。
-- Session 的 focus、ResidentSet、runtime revision、activity 和 WorkContext state 按 Session 隔离。
+- Session 的 foreground WorkContext binding、ResidentSet、runtime revision 和 activity 按 Session 隔离；WorkContext identity 属于 Subject，可以跨 Session 延续。
 - Runtime candidates 只来自指定 Session 的 exact resident revisions 与当前 Situation refs；Subject membership 不能替代 residency。
 - Session 属于同一 Subject 且未 closed 才能参与带 Session 的 runtime operation；closed/foreign session 返回 `FAILED_PRECONDITION`。
 
@@ -29,4 +29,4 @@ Accessibility 是 query-time policy，不是 Memory truth、lifecycle 或 purge�
 
 ## Recovery
 
-Session、UseEvent receipt、ResidentSet 和 Authority sequence 必须在同一 data root 重启后可恢复；BoundQuery 不跨进程持久化。Runtime state 丢失时可从 Authority 重建，不能把缓存当作 durable cognition。
+Session、UseEvent receipt、ResidentSet 和 Authority sequence 必须在同一 data root 重启后可恢复；BoundQuery 不跨进程持久化。Runtime state 丢失时可从 Authority 重建，不能把缓存当作 durable cognition。WorkContext 只保存 bounded purpose/questions/constraints/resume conditions/budget 与 exact refs；prompt、raw cache、model hidden state 和 copied Memory 不持久化。

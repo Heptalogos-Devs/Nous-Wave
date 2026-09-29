@@ -14,7 +14,7 @@ Query 在 candidate generation 前绑定 Subject、exact object/revision、Curre
 
 当前 baseline lanes 为 exact、entity、lexical、dense、temporal、runtime，以及适用时的 SchemaDirect。每个 lane 返回 exact revision candidate、deterministic rank、generation/watermark 和 diagnostics；lane provider 不能产生 global score。
 
-- Entity/Temporal/Runtime 必须从 Authority/Runtime typed structure 生成 bounded candidates，不得 application-side arbitrary first-N。
+- Entity/Temporal/Runtime 必须从 Authority/Runtime typed structure 生成 bounded candidates，不得 application-side arbitrary first-N。Temporal lane 只接受 occurred、observed、valid、formed、recorded typed axes；unknown 不匹配已知时间约束，多轴是 hard intersection。
 - Lexical relevance 只来自 Lexical Serving hit；不得以 DB substring admission 或 fallback rank 补造 hit。
 - Dense 绑定单一 `EmbeddingSpaceSignature`，不同 space 不混合分数。
 - Hard constraint 未定义时在 binding 阶段明确拒绝；不得 silent ignore。
