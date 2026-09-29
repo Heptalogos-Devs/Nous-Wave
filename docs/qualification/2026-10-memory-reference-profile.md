@@ -4,7 +4,7 @@
 计划：[Cognitive Runtime and Episode](../plans/active/2026-09-29-cognitive-runtime-episode.md)
 Spec：[Memory Reference Qualification](../specs/active/memory-reference-profile/04-qualification.md)
 
-本记录只保留当前 checkout 实际运行的证据。平台：Windows。本轮 tested commit 由最终 qualification 运行时记录；该记录不自引用其自身 commit。
+本记录只保留当前 checkout 实际运行的证据。平台：Windows。tested commit：`4257360`；该记录不自引用其自身 commit。
 
 | Capability / gate | Result | Evidence |
 | --- | --- | --- |
@@ -18,6 +18,8 @@ Spec：[Memory Reference Qualification](../specs/active/memory-reference-profile
 | Remaining focused Rust portfolio | PASS | `just verify` — workspace compile, Clippy, serial workspace tests, deny, shear |
 | `corepack pnpm check` | PASS | Buf lint, TypeScript, Vitest, Prettier, Oxlint, Knip, dependency-cruiser, Sherif |
 | `just verify` | PASS | final run after governance/test/schema rebase |
+| `cargo build -p nous-kernel` | PASS | tested commit `4257360` |
+| `corepack pnpm qualification:official-client` | PASS | official Client closure on tested commit |
 | Cross-platform qualification | NOT_RUN | current evidence is Windows only |
 | Linux Ready-for-review acceptance workflow | NOT_RUN | PR has not yet reached the required Ready-for-review CI event |
 | External LongMemEval/Memora mapping | NOT_RUN | no external dataset run in this acceptance slice |
