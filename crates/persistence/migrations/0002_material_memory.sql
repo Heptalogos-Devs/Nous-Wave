@@ -218,7 +218,7 @@ CREATE TABLE episode_revisions (
     parent_revision_id uuid NULL REFERENCES episode_revisions(episode_revision_id),
     revision_intent text NULL CHECK (revision_intent IN ('resegment','reinterpret')),
     title text NULL CHECK (title IS NULL OR octet_length(title) <= 8192),
-    parent_episode_revision_id uuid NULL REFERENCES episode_revisions(episode_revision_id),
+    parent_episode_revision_id uuid NULL REFERENCES episode_revisions(episode_revision_id) ON DELETE SET NULL,
     experience_time_kind text NOT NULL DEFAULT 'unknown' CHECK (experience_time_kind IN ('unknown','instant','interval')),
     experience_time_start timestamptz NULL,
     experience_time_end timestamptz NULL,

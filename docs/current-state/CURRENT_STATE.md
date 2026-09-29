@@ -17,7 +17,7 @@
 | Purge and shared source retention | PASS | public qualification path; `purge_shared` focused test |
 | Provenance trace-back | PASS | public qualification path |
 | WorkContext create/pause/resume/end and cross-session continuation | PASS | corepack pnpm qualification:cognitive-runtime-episode |
-| Episode identity/revision/history and exact public path | PASS | corepack pnpm qualification:cognitive-runtime-episode |
+| Episode identity/revision/history, overlap/hierarchy, lifecycle and purge | PASS | corepack pnpm qualification:cognitive-runtime-episode |
 | Self/Social/Motivation executable slices | NOT_RUN | outside current checkout; long-term semantics remain in Architecture-Vault |
 | Cross-platform qualification | NOT_RUN | current evidence is this Windows workstation only |
 
@@ -31,7 +31,7 @@
 - `cargo test -p nous-kernel --test runtime_residency --all-features -- --test-threads=1` — PASS.
 - `corepack pnpm check` — PASS.
 - `just verify` — PASS.
-- `corepack pnpm qualification:cognitive-runtime-episode` — PASS; output included restart, cross-session continuation and Episode revision evidence.
+- `corepack pnpm qualification:cognitive-runtime-episode` — PASS; output included restart, cross-session continuation, Episode revision, overlap, hierarchy, lifecycle and purge evidence.
 - `corepack pnpm research:retrieval` — PASS; bundled deterministic baseline/Wave result written under ignored `data/research/`.
 
 精确命令、commit、平台和失败/未运行项由 [Memory Reference Qualification](../qualification/2026-10-memory-reference-profile.md) 维护；本文只保留 capability summary。

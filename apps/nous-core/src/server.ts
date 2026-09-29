@@ -217,7 +217,17 @@ export async function createCore(settings: CoreOptions) {
       }
       const result = await models.query(r, options(c));
       for (const hit of result.hits) {
-        if (hit.reference && hit.reference.kind !== "external_object") {
+        if (
+          hit.reference &&
+          [
+            "memory",
+            "memory_revision",
+            "cognitive_schema",
+            "cognitive_schema_revision",
+            "tag",
+            "resource",
+          ].includes(hit.reference.kind)
+        ) {
           const binding = await kernel.authority.bindIdentity(
             { subjectId: r.subjectId, canonical: hit.reference },
             options(c),

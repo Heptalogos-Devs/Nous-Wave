@@ -13,6 +13,7 @@ import {
   CreateEpisodeRequestSchema,
   CreateSubjectRequestSchema,
   CreateWorkContextRequestSchema,
+  EpisodeMutationRequestSchema,
   EpisodeMemberSchema,
   EvidenceRefSchema,
   FormMemoryRequestSchema,
@@ -25,7 +26,9 @@ import {
   SetActiveWorkContextRequestSchema,
   SubjectCapabilitiesSchema,
   SubjectRequestSchema,
+  TimeIntervalSchema,
   TemporalExtentSchema,
+  UpdateWorkContextRequestSchema,
   WorkContextMutationRequestSchema,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import { ModelRuntime } from "./src/model/runtime.js";
@@ -117,6 +120,35 @@ function evidence(occurrenceId: string) {
         occurrenceId,
         locator: { case: "wholeOccurrence", value: true },
         supportRole: "direct",
+      }),
+    },
+  });
+}
+
+function occurrenceMember(occurrenceId: string) {
+  return create(EpisodeMemberSchema, {
+    reference: create(CognitiveRefSchema, {
+      kind: "occurrence",
+      value: occurrenceId,
+    }),
+    role: "member",
+  });
+}
+
+function at(offsetSeconds: number) {
+  return create(TimestampSchema, {
+    seconds: instant.seconds + BigInt(offsetSeconds),
+    nanos: 0,
+  });
+}
+
+function span(startSeconds: number, endSeconds: number) {
+  return create(TemporalExtentSchema, {
+    value: {
+      case: "interval",
+      value: create(TimeIntervalSchema, {
+        start: at(startSeconds),
+        end: at(endSeconds),
       }),
     },
   });
@@ -324,6 +356,205 @@ async function main() {
     });
     if (exact.episodeId !== episodeId)
       throw new Error("historical Episode revision read mismatch");
+    const currentRevision = revised.episode?.currentRevisionId;
+    const revisedEpisode = revised.episode;
+    if (!revisedEpisode || !currentRevision)
+      throw new Error("current Episode revision missing");
+
+    context = await current.client.cognition.updateWorkContext(
+      create(UpdateWorkContextRequestSchema, {
+        operationId: "00000000-0000-0000-0000-000000009912",
+        subjectId,
+        workContextId: contextId,
+        expectedRevision: context.workContext?.revision,
+        purpose: "continue the runtime task with an Episode",
+        references: [
+          create(CognitiveRefSchema, {
+            kind: "memory_revision",
+            value: memory.revisionId,
+          }),
+          create(CognitiveRefSchema, {
+            kind: "episode_revision",
+            value: currentRevision,
+          }),
+        ],
+      }),
+    );
+    const episodeRuntimeQuery = await current.client.cognition.query(
+      emptyQuery(sessionB.sessionId),
+    );
+    if (
+      !episodeRuntimeQuery.hits.some(
+        (hit) => hit.reference?.value === currentRevision,
+      )
+    )
+      throw new Error("WorkContext did not surface exact EpisodeRevision");
+
+    const boundedEpisode = await current.client.memory.createEpisode(
+      create(CreateEpisodeRequestSchema, {
+        operationId: "00000000-0000-0000-0000-000000009913",
+        subjectId,
+        trackKey: "segmentation",
+        boundaryExplanation: "bounded parent segment",
+        experienceTime: span(100, 110),
+        formedAt: instant,
+        members: [occurrenceMember(observed.occurrenceId)],
+        supports: [evidence(observed.occurrenceId)],
+      }),
+    );
+    if (!boundedEpisode.episode) throw new Error("bounded Episode missing");
+    let overlapRejected = false;
+    try {
+      await current.client.memory.createEpisode(
+        create(CreateEpisodeRequestSchema, {
+          operationId: "00000000-0000-0000-0000-000000009914",
+          subjectId,
+          trackKey: "segmentation",
+          boundaryExplanation: "overlapping sibling",
+          experienceTime: span(105, 115),
+          formedAt: instant,
+          members: [occurrenceMember(observed.occurrenceId)],
+          supports: [evidence(observed.occurrenceId)],
+        }),
+      );
+    } catch {
+      overlapRejected = true;
+    }
+    if (!overlapRejected)
+      throw new Error("same-track overlapping Episode was accepted");
+    const parallelEpisode = await current.client.memory.createEpisode(
+      create(CreateEpisodeRequestSchema, {
+        operationId: "00000000-0000-0000-0000-000000009915",
+        subjectId,
+        trackKey: "parallel",
+        boundaryExplanation: "overlap on a separate track",
+        experienceTime: span(105, 115),
+        formedAt: instant,
+        members: [occurrenceMember(observed.occurrenceId)],
+        supports: [evidence(observed.occurrenceId)],
+      }),
+    );
+    if (!parallelEpisode.episode)
+      throw new Error("different-track overlapping Episode was rejected");
+
+    const child = await current.client.memory.createEpisode(
+      create(CreateEpisodeRequestSchema, {
+        operationId: "00000000-0000-0000-0000-000000009916",
+        subjectId,
+        trackKey: "child",
+        parentEpisodeRevisionId: currentRevision,
+        boundaryExplanation: "child Episode",
+        experienceTime: create(TemporalExtentSchema, {}),
+        formedAt: instant,
+        members: [occurrenceMember(observed.occurrenceId)],
+        supports: [evidence(observed.occurrenceId)],
+      }),
+    );
+    const childValue = child.episode;
+    if (!childValue) throw new Error("child Episode missing");
+    let hierarchyRejected = false;
+    try {
+      await current.client.memory.reviseEpisode({
+        operationId: "00000000-0000-0000-0000-000000009917",
+        subjectId,
+        episodeId: childValue.episodeId,
+        expectedObjectEpoch: childValue.objectEpoch,
+        intent: "resegment",
+        parentEpisodeRevisionId: childValue.currentRevisionId,
+        boundaryExplanation: "cyclic child",
+        experienceTime: create(TemporalExtentSchema, {}),
+        formedAt: instant,
+        members: [occurrenceMember(observed.occurrenceId)],
+        supports: [evidence(observed.occurrenceId)],
+      });
+    } catch {
+      hierarchyRejected = true;
+    }
+    if (!hierarchyRejected)
+      throw new Error("Episode hierarchy cycle was accepted");
+
+    await stop(current);
+    current = await boot(configPath);
+    const restartedEpisode = await current.client.memory.getEpisode({
+      subjectId,
+      id: episodeId,
+    });
+    if (restartedEpisode.episode?.currentRevisionId !== currentRevision)
+      throw new Error("restart changed the current Episode revision");
+    const restartedQuery = await current.client.cognition.query(
+      emptyQuery(sessionB.sessionId),
+    );
+    if (
+      !restartedQuery.hits.some(
+        (hit) => hit.reference?.value === currentRevision,
+      )
+    )
+      throw new Error("restart lost WorkContext EpisodeRevision recall");
+
+    const ended = await current.client.cognition.endWorkContext(
+      create(WorkContextMutationRequestSchema, {
+        operationId: "00000000-0000-0000-0000-000000009918",
+        subjectId,
+        workContextId: contextId,
+        expectedRevision: context.workContext?.revision,
+      }),
+    );
+    const endedSession = await current.client.cognition.getSession({
+      subjectId,
+      id: sessionB.sessionId,
+    });
+    if (endedSession.activeWorkContextId)
+      throw new Error("end did not clear foreground binding");
+    let endedResumeRejected = false;
+    try {
+      await current.client.cognition.resumeWorkContext(
+        create(WorkContextMutationRequestSchema, {
+          operationId: "00000000-0000-0000-0000-000000009919",
+          subjectId,
+          workContextId: contextId,
+          expectedRevision: ended.workContext?.revision,
+        }),
+      );
+    } catch {
+      endedResumeRejected = true;
+    }
+    if (!endedResumeRejected) throw new Error("ended WorkContext resumed");
+
+    const suppressedEpisode = await current.client.memory.suppressEpisode(
+      create(EpisodeMutationRequestSchema, {
+        operationId: "00000000-0000-0000-0000-000000009920",
+        subjectId,
+        episodeId,
+        expectedObjectEpoch: restartedEpisode.episode?.objectEpoch,
+      }),
+    );
+    const restoredEpisode = await current.client.memory.restoreEpisode(
+      create(EpisodeMutationRequestSchema, {
+        operationId: "00000000-0000-0000-0000-000000009921",
+        subjectId,
+        episodeId,
+        expectedObjectEpoch: suppressedEpisode.episode?.objectEpoch,
+      }),
+    );
+    if (restoredEpisode.episode?.currentRevisionId !== currentRevision)
+      throw new Error("Episode restore created a content revision");
+    await current.client.memory.purgeEpisode(
+      create(EpisodeMutationRequestSchema, {
+        operationId: "00000000-0000-0000-0000-000000009922",
+        subjectId,
+        episodeId,
+        expectedObjectEpoch: restoredEpisode.episode?.objectEpoch,
+      }),
+    );
+    let purgeReadRejected = false;
+    try {
+      await current.client.memory.getEpisode({ subjectId, id: episodeId });
+    } catch {
+      purgeReadRejected = true;
+    }
+    if (!purgeReadRejected)
+      throw new Error("purged Episode remained ordinarily readable");
+
     process.stdout.write(
       "COGNITIVE_RUNTIME_EPISODE_PASS subject=" +
         subjectId +
@@ -335,7 +566,7 @@ async function main() {
         episodeId +
         " historical_revision=" +
         firstRevision +
-        " restart=true cross_session=true episode_revision=true\n",
+        " restart=true cross_session=true episode_revision=true overlap=true hierarchy=true lifecycle=true purge=true\n",
     );
   } finally {
     await stop(current);
