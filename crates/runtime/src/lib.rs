@@ -1,17 +1,17 @@
 //! Model-independent Session continuity, consumer context and query orchestration.
 
-mod checkpoints;
 mod query;
-pub use checkpoints::*;
 mod resources;
 mod sessions;
 mod types;
 mod use_feedback;
+mod work_contexts;
 mod working_set;
 pub use query::{
     BoundQuery, CognitiveContributor, CognitiveContributors, LaneCandidate, LaneOutput, LaneStatus,
     QueryPlan, SharedLaneProvider, WorkCycle, register_retrieval_configuration,
 };
+pub use work_contexts::*;
 pub use working_set::*;
 
 pub use resources::*;

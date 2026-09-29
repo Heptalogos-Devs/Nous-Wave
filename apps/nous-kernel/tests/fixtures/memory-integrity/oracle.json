@@ -1,0 +1,55 @@
+{
+  "version": "memory-integrity-2026-09-29",
+  "queries": {
+    "entity-alice": {
+      "MUST_RETURN": [
+        "memory-corrected",
+        "memory-synthesized",
+        "memory-successor"
+      ],
+      "MUST_NOT_RETURN": ["memory-initial", "foreign-memory"],
+      "MAY_RETURN": []
+    },
+    "entity-bob-mention-only": {
+      "MUST_RETURN": [],
+      "MUST_NOT_RETURN": [
+        "memory-corrected",
+        "memory-synthesized",
+        "memory-successor"
+      ]
+    },
+    "exact-historical-initial": {
+      "MUST_RETURN": ["memory-initial"],
+      "MUST_NOT_RETURN": ["memory-corrected"]
+    },
+    "runtime-session-a": {
+      "MUST_RETURN": ["memory-corrected"],
+      "MUST_NOT_RETURN": ["memory-successor"]
+    },
+    "runtime-session-b": {
+      "MUST_RETURN": ["memory-successor"],
+      "MUST_NOT_RETURN": ["memory-corrected"]
+    },
+    "post-restore-m1": {
+      "MUST_RETURN": ["memory-corrected"],
+      "MUST_NOT_RETURN": []
+    },
+    "post-purge-m1": {
+      "MUST_RETURN": [],
+      "MUST_NOT_RETURN": ["memory-initial", "memory-corrected"]
+    }
+  },
+  "diagnostics": {
+    "provider_unavailable_is_not_unknown": true,
+    "purged_is_not_subject_unknown": true,
+    "dense-provider-unavailable": {
+      "status": "DEGRADED",
+      "code": "dense_lane_unavailable"
+    },
+    "validation-budget": {
+      "status": "PARTIAL",
+      "drop": "validation_budget_exhausted"
+    },
+    "suppressed-exact": { "drop": "suppressed" }
+  }
+}

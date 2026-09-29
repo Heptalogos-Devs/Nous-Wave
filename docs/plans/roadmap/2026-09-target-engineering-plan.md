@@ -45,7 +45,7 @@
 
 - `apps/nous-core`
   - public API；
-  - Focus / Projection / Managed Context；
+  - WorkContext / Projection / Managed Context；
   - NousQL；
   - model orchestration。
 - `apps/nous-kernel`
@@ -320,7 +320,7 @@ Memory revision 持有 typed evidence 与 provenance references。
 ## 主要代码面
 
 - `crates/runtime`
-- Core Focus / Projection / Context
+- Core WorkContext / Projection / Context
 - protocol/client
 - authority-store use-event persistence
 

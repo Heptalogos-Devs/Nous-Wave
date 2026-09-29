@@ -12,7 +12,7 @@
 
 输出应包含紧凑的 stage summary、Subject/Memory/revision identity 和 restart/lifecycle/trace-back 结果；失败输出 stage 与可行动错误。
 
-## Focused semantic proof
+## Semantic proof
 
 保留能保护独特 current risk 的 unit/integration tests，至少覆盖：identity/revision fencing、same-root provenance independence、aboutness isolation、Schema independent-root gate、exact Association endpoint/producer contract、query hard constraints/no first-N、stale current-head validation、lane/fusion determinism、Session isolation、UseEvent batch idempotency、suppression/restore/purge、watermark rebuild/restart。
 

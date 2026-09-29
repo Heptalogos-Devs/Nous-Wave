@@ -98,16 +98,16 @@ impl CognitiveRuntimeService {
                 )
             });
         if runtime_allowed && let Some(session) = query.session {
-            for resident in self.session(query.subject, session).await?.resident {
+            for (reference, source) in self.runtime_references(query.subject, session).await? {
                 lane_outputs.push(LaneOutput {
                     family: EvidenceFamily::Runtime,
                     status: LaneStatus::Ready,
                     generation_ref: None,
                     authority_watermark: None,
                     candidates: vec![LaneCandidate {
-                        reference: resident.reference,
+                        reference,
                         rank: 1,
-                        variants: vec!["runtime:resident_ref".into()],
+                        variants: vec![source.into()],
                         provider_metadata: serde_json::Value::Null,
                     }],
                     diagnostics: Vec::new(),
@@ -301,6 +301,8 @@ fn is_persistent_cognition(reference: &CognitiveRef) -> bool {
         reference,
         CognitiveRef::Memory(_)
             | CognitiveRef::MemoryRevision(_)
+            | CognitiveRef::Episode(_)
+            | CognitiveRef::EpisodeRevision(_)
             | CognitiveRef::CognitiveSchema(_)
             | CognitiveRef::CognitiveSchemaRevision(_)
     )
@@ -358,6 +360,8 @@ fn reference_hit(
     let authority = match reference {
         CognitiveRef::Memory(_)
         | CognitiveRef::MemoryRevision(_)
+        | CognitiveRef::Episode(_)
+        | CognitiveRef::EpisodeRevision(_)
         | CognitiveRef::Tag(_)
         | CognitiveRef::CognitiveSchema(_)
         | CognitiveRef::CognitiveSchemaRevision(_)

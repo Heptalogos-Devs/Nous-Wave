@@ -1,0 +1,76 @@
+{
+  "version": "retrieval-research-2026-09-29",
+  "query_plan": {
+    "identity": "memory-reference-baseline",
+    "hard_constraints": ["subject", "current_authority", "provenance"],
+    "candidate_budget": 5,
+    "fusion": "fixed_rrf"
+  },
+  "embedding_space": {
+    "space_hash": "fixture-space-memory-reference",
+    "model_identity": "fixture-embedding",
+    "dimension": 3
+  },
+  "queries": [
+    {
+      "id": "correction",
+      "relevant": ["memory-corrected"],
+      "candidates": {
+        "baseline": ["memory-corrected", "memory-context"],
+        "baseline_plus_wave": ["memory-context", "memory-corrected"]
+      },
+      "support_precision": {
+        "baseline": 1.0,
+        "baseline_plus_wave": 0.5
+      },
+      "entity_error": {
+        "baseline": 0,
+        "baseline_plus_wave": 1
+      },
+      "latency_ms": {
+        "baseline": 4,
+        "baseline_plus_wave": 7
+      },
+      "work_units": {
+        "candidate_count": {
+          "baseline": 2,
+          "baseline_plus_wave": 2
+        },
+        "topology_visited": {
+          "baseline": 0,
+          "baseline_plus_wave": 6
+        }
+      }
+    },
+    {
+      "id": "procedural",
+      "relevant": ["memory-procedure"],
+      "candidates": {
+        "baseline": ["memory-procedure", "memory-context"],
+        "baseline_plus_wave": ["memory-procedure", "memory-context"]
+      },
+      "support_precision": {
+        "baseline": 1.0,
+        "baseline_plus_wave": 1.0
+      },
+      "entity_error": {
+        "baseline": 0,
+        "baseline_plus_wave": 0
+      },
+      "latency_ms": {
+        "baseline": 5,
+        "baseline_plus_wave": 8
+      },
+      "work_units": {
+        "candidate_count": {
+          "baseline": 2,
+          "baseline_plus_wave": 2
+        },
+        "topology_visited": {
+          "baseline": 0,
+          "baseline_plus_wave": 7
+        }
+      }
+    }
+  ]
+}

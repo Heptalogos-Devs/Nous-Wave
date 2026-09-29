@@ -32,7 +32,7 @@ impl CognitiveRuntimeService {
     }
 
     pub async fn session(&self, subject: SubjectId, session: SessionId) -> Result<SessionView> {
-        let row = sqlx::query("SELECT session_id,subject_id,opened_at,last_activity_at,last_meaningful_use_at,closed_at,runtime_revision FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2")
+        let row = sqlx::query("SELECT session_id,subject_id,opened_at,last_activity_at,last_meaningful_use_at,closed_at,runtime_revision,active_work_context_id FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2")
             .bind(subject.0).bind(session.0).fetch_optional(self.store.pool()).await.map_err(db)?
             .ok_or_else(|| Error::NotFound("session not found".into()))?;
         let refs = sqlx::query("SELECT ref_kind,ref_value,entry_reason,state,entered_at,last_meaningful_use_at,hold_until FROM resident_refs WHERE session_id=$1 AND state <> 'evicted' ORDER BY entered_at")
@@ -58,6 +58,7 @@ impl CognitiveRuntimeService {
             last_meaningful_use_at: row.try_get("last_meaningful_use_at").map_err(db)?,
             closed_at: row.try_get("closed_at").map_err(db)?,
             runtime_revision: row.try_get("runtime_revision").map_err(db)?,
+            active_work_context_id: row.try_get("active_work_context_id").map_err(db)?,
             resident,
         })
     }
@@ -105,7 +106,7 @@ impl CognitiveRuntimeService {
         for admission in &merged {
             if !self
                 .store
-                .reference_in_subject(subject, &admission.reference)
+                .reference_in_subject_tx(&mut tx, subject, &admission.reference)
                 .await?
             {
                 return Err(Error::FailedPrecondition(
@@ -197,23 +198,6 @@ impl CognitiveRuntimeService {
             admitted_count,
             evicted_count,
         })
-    }
-
-    pub async fn evict_if_needed(&self, session: SessionId) -> Result<()> {
-        let count: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM resident_refs WHERE session_id=$1 AND state IN ('resident','provisional')",
-        )
-        .bind(session.0)
-        .fetch_one(self.store.pool())
-        .await
-        .map_err(db)?;
-        if count as usize <= self.resident_limit {
-            return Ok(());
-        }
-        let excess = count as usize - self.resident_limit;
-        sqlx::query("WITH victims AS (SELECT session_id,ref_kind,ref_value FROM resident_refs WHERE session_id=$1 AND state IN ('resident','provisional') AND (hold_until IS NULL OR hold_until < now()) ORDER BY (state='provisional') DESC,(last_meaningful_use_at IS NOT NULL) ASC,last_meaningful_use_at ASC NULLS FIRST,entered_at ASC LIMIT $2) UPDATE resident_refs r SET state='evicted' FROM victims v WHERE r.session_id=v.session_id AND r.ref_kind=v.ref_kind AND r.ref_value=v.ref_value")
-            .bind(session.0).bind(excess as i64).execute(self.store.pool()).await.map_err(db)?;
-        Ok(())
     }
 
     pub async fn resident_reference_strings(&self, session: SessionId) -> Result<HashSet<String>> {

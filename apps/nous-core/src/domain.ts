@@ -6,49 +6,6 @@ interface Evidence {
   reference?: Ref;
   supportRole: string;
 }
-export interface Focus {
-  focusId: string;
-  descriptor: string;
-  state: "ACTIVE" | "SUSPENDED" | "CLOSED";
-  references: Ref[];
-  summary?: string;
-  revision: bigint;
-}
-interface Session {
-  sessionId: string;
-  subjectId: string;
-  runtimeRevision: bigint;
-  closed: boolean;
-  activeFocusId?: string;
-}
-export interface RuntimeSnapshot {
-  session: Session;
-  focuses: Focus[];
-}
-export interface FocusChange {
-  focus: Focus;
-  expectedRevision: bigint;
-}
-export interface RuntimePort {
-  read(
-    subjectId: string,
-    sessionId: string,
-    signal?: AbortSignal,
-  ): Promise<RuntimeSnapshot>;
-  write(
-    subjectId: string,
-    sessionId: string,
-    expected: bigint,
-    changes: FocusChange[],
-    foreground: string | undefined,
-    signal?: AbortSignal,
-  ): Promise<bigint>;
-  validateRefs(
-    subjectId: string,
-    refs: Ref[],
-    signal?: AbortSignal,
-  ): Promise<Ref[]>;
-}
 type Requirement = "REQUIRED" | "PREFERRED" | "OPTIONAL" | "FORBIDDEN";
 export interface ConsumerPolicy {
   consumerId: string;
@@ -92,5 +49,5 @@ export interface ContextPatch {
   projection: Projection;
 }
 export function refKey(ref: Ref): string {
-  return `${ref.kind}\0${ref.value}`;
+  return ref.kind + "\0" + ref.value;
 }

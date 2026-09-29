@@ -6,7 +6,7 @@
     "cue": "entity:person:bob"
   },
   {
-    "id": "exact-historical-m1-r1",
+    "id": "exact-historical-initial",
     "kind": "exact_historical",
     "target": "m1"
   },

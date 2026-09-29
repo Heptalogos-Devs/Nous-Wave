@@ -1,11 +1,10 @@
-use super::lane::{LaneCandidate, LaneOutput, LaneStatus};
-use super::*;
-use nous_retrieval::{SourceSeed, propagate_with_budget};
-use nous_runtime::{BoundQuery, QueryPlan};
+use crate::{ServingSnapshot, SourceSeed, propagate_with_budget};
+use nous_core::{CognitiveRef, Cue, EvidenceFamily};
+use nous_runtime::{BoundQuery, LaneCandidate, LaneOutput, LaneStatus, QueryPlan};
 use std::collections::HashMap;
 
-pub(super) fn topology_lane(
-    snapshot: &nous_retrieval::ServingSnapshot,
+pub(crate) fn topology_lane(
+    snapshot: &ServingSnapshot,
     bound: &BoundQuery,
     plan: &QueryPlan,
 ) -> LaneOutput {

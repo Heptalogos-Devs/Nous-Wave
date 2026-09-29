@@ -2,6 +2,8 @@
 
 Nous Wave is PRE_PRODUCTION. Architecture-Vault owns long-term cognition semantics; this repository owns current executable implementation truth, active Plans/Specs, and verification evidence.
 
+Before non-trivial work, read the repository-root `COST.en.md` and the active Plan and Specs named by that Plan.
+
 ## Current authority
 
 - Implement only the active Plan and the current executable Specs it names.
@@ -31,6 +33,14 @@ The current executable profile is Memory-only. Do not reintroduce Self, Social, 
 - Fresh schema lives in `crates/persistence/migrations/0001_foundation.sql` through `0004_indexes.sql`. Project-owned dev/test databases may be reset when a schema rebase requires it.
 - Keep Cargo `target/` for incremental compilation. Do not traverse or clean `node_modules/`.
 - Do not push, merge, deploy, or mutate external production state without explicit authorization.
+
+## Git integration
+
+Default branches are integration-only.
+Start non-trivial work from an up-to-date semantic branch.
+Integrate through a pull request using squash merge, then delete the branch.
+Never use direct default-branch push as a fallback for tooling, permission, CI, or PR problems.
+If the required PR path is unavailable, stop integration and report the blocker.
 
 ## Governance economy
 

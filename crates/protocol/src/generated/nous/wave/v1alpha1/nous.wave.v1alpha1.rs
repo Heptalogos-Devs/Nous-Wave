@@ -138,7 +138,7 @@ pub struct Session {
     #[prost(message, repeated, tag="5")]
     pub resident_refs: ::prost::alloc::vec::Vec<CognitiveRef>,
     #[prost(string, optional, tag="6")]
-    pub active_focus_id: ::core::option::Option<::prost::alloc::string::String>,
+    pub active_work_context_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListSessionsResponse {
@@ -263,13 +263,17 @@ pub struct QueryConstraints {
     pub observed: ::core::option::Option<TimeInterval>,
     #[prost(message, optional, tag="8")]
     pub valid: ::core::option::Option<TimeInterval>,
-    #[prost(bool, tag="9")]
+    #[prost(message, optional, tag="9")]
+    pub formed: ::core::option::Option<TimeInterval>,
+    #[prost(message, optional, tag="10")]
+    pub recorded: ::core::option::Option<TimeInterval>,
+    #[prost(bool, tag="11")]
     pub include_suppressed: bool,
-    #[prost(string, optional, tag="10")]
+    #[prost(string, optional, tag="12")]
     pub authority: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, repeated, tag="11")]
+    #[prost(string, repeated, tag="13")]
     pub modalities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(string, repeated, tag="12")]
+    #[prost(string, repeated, tag="14")]
     pub evidence_classes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -728,57 +732,127 @@ pub struct MaterializedEvidence {
     pub partial: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Focus {
+pub struct WorkContext {
     #[prost(string, tag="1")]
-    pub focus_id: ::prost::alloc::string::String,
+    pub work_context_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
-    pub descriptor: ::prost::alloc::string::String,
+    pub subject_id: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
     pub state: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag="4")]
-    pub references: ::prost::alloc::vec::Vec<CognitiveRef>,
-    #[prost(string, optional, tag="5")]
-    pub summary: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(int64, tag="6")]
+    #[prost(string, tag="4")]
+    pub purpose: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="5")]
+    pub unresolved_questions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="6")]
+    pub constraints: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, repeated, tag="7")]
+    pub resume_conditions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="8")]
+    pub budget_summary: ::core::option::Option<::prost_types::Struct>,
+    #[prost(int64, tag="9")]
     pub revision: i64,
+    #[prost(message, optional, tag="10")]
+    pub created_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="11")]
+    pub updated_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="12")]
+    pub ended_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, repeated, tag="13")]
+    pub references: ::prost::alloc::vec::Vec<CognitiveRef>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateWorkContextRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub purpose: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="4")]
+    pub unresolved_questions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="5")]
+    pub constraints: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, repeated, tag="6")]
+    pub resume_conditions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="7")]
+    pub budget_summary: ::core::option::Option<::prost_types::Struct>,
+    #[prost(message, repeated, tag="8")]
+    pub references: ::prost::alloc::vec::Vec<CognitiveRef>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct FocusRequest {
+pub struct GetWorkContextRequest {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
-    pub session_id: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
-    pub focus_id: ::prost::alloc::string::String,
+    pub work_context_id: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct MutateFocusRequest {
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListWorkContextsRequest {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub session_id: ::prost::alloc::string::String,
-    #[prost(int64, tag="3")]
-    pub expected_runtime_revision: i64,
-    #[prost(string, tag="4")]
-    pub operation: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="5")]
-    pub focus: ::core::option::Option<Focus>,
+    #[prost(message, optional, tag="2")]
+    pub page: ::core::option::Option<Page>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FocusResponse {
+pub struct ListWorkContextsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<WorkContext>,
+    #[prost(string, tag="2")]
+    pub next_page_token: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WorkContextResponse {
     #[prost(message, optional, tag="1")]
-    pub focus: ::core::option::Option<Focus>,
-    #[prost(int64, tag="2")]
-    pub runtime_revision: i64,
-    #[prost(message, repeated, tag="3")]
+    pub work_context: ::core::option::Option<WorkContext>,
+    #[prost(message, repeated, tag="2")]
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ListFocusesResponse {
-    #[prost(message, repeated, tag="1")]
-    pub items: ::prost::alloc::vec::Vec<Focus>,
-    #[prost(int64, tag="2")]
-    pub runtime_revision: i64,
+pub struct UpdateWorkContextRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub work_context_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_revision: i64,
+    #[prost(string, tag="5")]
+    pub purpose: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="6")]
+    pub unresolved_questions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="7")]
+    pub constraints: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, repeated, tag="8")]
+    pub resume_conditions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="9")]
+    pub budget_summary: ::core::option::Option<::prost_types::Struct>,
+    #[prost(message, repeated, tag="10")]
+    pub references: ::prost::alloc::vec::Vec<CognitiveRef>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WorkContextMutationRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub work_context_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_revision: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SetActiveWorkContextRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_runtime_revision: i64,
+    #[prost(string, optional, tag="5")]
+    pub work_context_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ProjectionRequest {
@@ -787,7 +861,7 @@ pub struct ProjectionRequest {
     #[prost(string, tag="2")]
     pub session_id: ::prost::alloc::string::String,
     #[prost(string, optional, tag="3")]
-    pub focus_id: ::core::option::Option<::prost::alloc::string::String>,
+    pub active_work_context_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="4")]
     pub consumer_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="5")]
@@ -856,18 +930,180 @@ pub struct ManagedContextResponse {
     #[prost(message, optional, tag="3")]
     pub projection: ::core::option::Option<Projection>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CheckpointPayload {
-    #[prost(oneof="checkpoint_payload::Payload", tags="1")]
-    pub payload: ::core::option::Option<checkpoint_payload::Payload>,
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EpisodeMember {
+    #[prost(int32, tag="1")]
+    pub ordinal: i32,
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<CognitiveRef>,
+    #[prost(string, tag="3")]
+    pub role: ::prost::alloc::string::String,
 }
-/// Nested message and enum types in `CheckpointPayload`.
-pub mod checkpoint_payload {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Payload {
-        #[prost(message, tag="1")]
-        Focus(super::Focus),
-    }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EpisodeRevision {
+    #[prost(string, tag="1")]
+    pub episode_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub episode_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(int32, tag="4")]
+    pub revision_no: i32,
+    #[prost(string, optional, tag="5")]
+    pub parent_revision_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub revision_intent: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="8")]
+    pub parent_episode_revision_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="9")]
+    pub experience_time: ::core::option::Option<TemporalExtent>,
+    #[prost(string, tag="10")]
+    pub boundary_explanation: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="11")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="12")]
+    pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, optional, tag="13")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="14")]
+    pub members: ::prost::alloc::vec::Vec<EpisodeMember>,
+    #[prost(message, repeated, tag="15")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Episode {
+    #[prost(string, tag="1")]
+    pub episode_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub track_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub current_revision_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="5")]
+    pub object_epoch: i64,
+    #[prost(string, tag="6")]
+    pub acceptance_state: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub integrity_state: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub suppression_state: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub purge_state: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="10")]
+    pub created_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="11")]
+    pub current_revision: ::core::option::Option<EpisodeRevision>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateEpisodeRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub track_key: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="4")]
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="5")]
+    pub parent_episode_revision_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="6")]
+    pub experience_time: ::core::option::Option<TemporalExtent>,
+    #[prost(string, tag="7")]
+    pub boundary_explanation: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="8")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, optional, tag="9")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="10")]
+    pub members: ::prost::alloc::vec::Vec<EpisodeMember>,
+    #[prost(message, repeated, tag="11")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReviseEpisodeRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub episode_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+    #[prost(string, tag="5")]
+    pub intent: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="6")]
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub parent_episode_revision_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="8")]
+    pub experience_time: ::core::option::Option<TemporalExtent>,
+    #[prost(string, tag="9")]
+    pub boundary_explanation: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="10")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, optional, tag="11")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="12")]
+    pub members: ::prost::alloc::vec::Vec<EpisodeMember>,
+    #[prost(message, repeated, tag="13")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LinkEpisodeRevisionsRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub from_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub to_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub relation: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EpisodeMutationRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub episode_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListEpisodeRevisionsRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub episode_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub page: ::core::option::Option<Page>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EpisodeResponse {
+    #[prost(message, optional, tag="1")]
+    pub episode: ::core::option::Option<Episode>,
+    #[prost(message, repeated, tag="2")]
+    pub degradation: ::prost::alloc::vec::Vec<Degradation>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListEpisodesResponse {
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<Episode>,
+    #[prost(string, tag="2")]
+    pub next_page_token: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListEpisodeRevisionsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<EpisodeRevision>,
+    #[prost(string, tag="2")]
+    pub next_page_token: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct IdentityBinding {

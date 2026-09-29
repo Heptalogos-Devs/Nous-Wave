@@ -9,8 +9,8 @@
 | `configuration` | Typed registry, snapshots, overrides and configuration receipts | `crates/configuration/src/lib.rs` | persistence, core | Changing configuration resolution |
 | `subject` | Subject identity, capability and Cognitive Seed adoption | `crates/subject/src/lib.rs` | persistence, configuration, object-store | Changing Subject lifecycle or seed source |
 | `material` | Artifact/Observation/DerivedRepresentation semantics and operations | `crates/material/src/lib.rs` | persistence, runtime, object-store | Changing evidence admission or materialization |
-| `memory` | Memory, CognitiveSchema, Tag, AssociationEvidence and Authority/query operations | `crates/memory/src/lib.rs` | persistence, runtime, retrieval | Changing cognitive Authority or Memory query |
-| `runtime` | Session, ResidentSet, UseEvent, QueryPlan, lane contract and fixed fusion | `crates/runtime/src/lib.rs` | persistence, configuration, core | Changing Runtime or query semantics |
+| `memory` | Memory, CognitiveSchema, Episode, Tag, AssociationEvidence and Authority/query operations | `crates/memory/src/lib.rs` | persistence, runtime | Changing cognitive Authority, Episode or Memory query |
+| `runtime` | Session, ResidentSet, WorkContext, UseEvent, QueryPlan, lane contract and fixed fusion | `crates/runtime/src/lib.rs` | persistence, configuration, core | Changing Runtime or query semantics |
 | `retrieval` | Lexical/dense/topology projections, generations and providers | `crates/retrieval/src/lib.rs` | runtime, persistence, object-store | Changing Serving mechanics or experimental lanes |
 
 `crates/protocol/src/generated/` is derived output. Change canonical `.proto` sources and regenerate.

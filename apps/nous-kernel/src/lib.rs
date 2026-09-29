@@ -106,7 +106,6 @@ impl NousRuntime {
                 store.clone(),
                 objects.clone(),
                 cognition.clone(),
-                serving.clone(),
                 configuration.clone(),
             )
         });

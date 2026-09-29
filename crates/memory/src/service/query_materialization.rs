@@ -150,6 +150,14 @@ pub(super) fn temporal_match(query: &CognitiveQuery, view: &MemoryView) -> bool 
                 .observed_at
                 .is_some_and(|value| interval.contains(value))
         })
+        && query
+            .constraints
+            .formed
+            .is_none_or(|interval| interval.contains(view.revision.formed_at))
+        && query
+            .constraints
+            .recorded
+            .is_none_or(|interval| interval.contains(view.revision.recorded_at))
 }
 
 pub(super) fn increment_drop(counts: &mut BTreeMap<String, usize>, reason: &str) {

@@ -127,6 +127,8 @@ fn constraints_from_proto(value: p::QueryConstraints) -> Result<QueryConstraints
         occurred: interval(value.occurred)?,
         observed: interval(value.observed)?,
         valid: interval(value.valid)?,
+        formed: interval(value.formed)?,
+        recorded: interval(value.recorded)?,
         include_suppressed: value.include_suppressed,
         authority: value.authority.map(|v| enum_value(&v)).transpose()?,
         modalities: value

@@ -1,3 +1,4 @@
+use crate::topology_lane::topology_lane;
 use crate::*;
 use nous_core::{CognitiveRef, Cue, EvidenceFamily, RequirementStrength, Result};
 use nous_runtime::{
@@ -134,6 +135,10 @@ impl SharedLaneProvider for ServingService {
                     .push("text embedding provider is unavailable".into());
             }
             outputs.push(output);
+        }
+
+        if bound.lane_enabled(EvidenceFamily::TopologyWave) {
+            outputs.push(topology_lane(&snapshot, bound, plan));
         }
 
         Ok(outputs)

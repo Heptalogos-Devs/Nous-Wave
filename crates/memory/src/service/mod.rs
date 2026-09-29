@@ -2,6 +2,7 @@
 
 mod accessibility;
 mod batch;
+mod episode;
 mod lane;
 mod lifecycle;
 mod provenance;
@@ -13,7 +14,6 @@ pub mod schema;
 mod schema_lane;
 mod source_classes;
 mod topology;
-mod topology_lane;
 
 use crate::*;
 use chrono::{DateTime, Utc};
@@ -31,6 +31,7 @@ pub use accessibility::{
     AccessibilityPolicy, eligible as accessibility_eligible, register_configuration,
     resolve_accessibility_policy,
 };
+pub use episode::*;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
 
 #[derive(Clone)]
@@ -38,7 +39,6 @@ pub struct MemoryService {
     pub configuration: nous_configuration::ConfigurationService,
     pub store: AuthorityStore,
     pub objects: ObjectStore,
-    pub serving: nous_retrieval::ServingService,
     pub cognition: nous_runtime::CognitiveRuntimeService,
     capabilities: Arc<Vec<CapabilityDescriptor>>,
 }
@@ -49,7 +49,6 @@ pub struct RuntimeStatus {
     pub ready: bool,
     pub authority: String,
     pub capabilities: Vec<CapabilityStatus>,
-    pub serving_generation: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -248,7 +247,6 @@ impl MemoryService {
         store: AuthorityStore,
         objects: ObjectStore,
         cognition: nous_runtime::CognitiveRuntimeService,
-        serving: nous_retrieval::ServingService,
         configuration: nous_configuration::ConfigurationService,
     ) -> Self {
         Self {
@@ -256,7 +254,6 @@ impl MemoryService {
             store,
             objects,
             cognition,
-            serving,
             capabilities: Arc::new(Vec::new()),
         }
     }
@@ -284,7 +281,6 @@ impl MemoryService {
                     reason: None,
                 })
                 .collect(),
-            serving_generation: self.serving.publisher.snapshot().generation,
         }
     }
 

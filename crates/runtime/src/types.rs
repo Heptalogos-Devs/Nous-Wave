@@ -54,6 +54,7 @@ pub struct CognitiveSession {
     pub last_meaningful_use_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
     pub runtime_revision: i64,
+    pub active_work_context_id: Option<uuid::Uuid>,
     pub metadata: serde_json::Value,
 }
 
@@ -112,6 +113,7 @@ pub struct SessionView {
     pub last_meaningful_use_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
     pub runtime_revision: i64,
+    pub active_work_context_id: Option<uuid::Uuid>,
     pub resident: Vec<ResidentView>,
 }
 

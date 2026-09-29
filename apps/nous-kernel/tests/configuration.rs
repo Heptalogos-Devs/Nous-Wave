@@ -8,6 +8,7 @@ use serde_json::json;
 use test_support::{database, open_runtime};
 
 const EPSILON: ConfigKey<f64> = ConfigKey::new("memory.accessibility.epsilon");
+const TAU_DAYS: ConfigKey<f64> = ConfigKey::new("memory.accessibility.tau_days");
 
 #[tokio::test]
 async fn configuration_precedence_permissions_and_restart_state_are_explicit() {
@@ -199,4 +200,43 @@ async fn configuration_receipts_freeze_subject_scope_and_replay_outcomes() {
             .await,
         Err(nous_core::Error::Conflict(_))
     ));
+}
+
+#[tokio::test]
+async fn concurrent_configuration_mutations_publish_one_complete_snapshot() {
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let service = runtime.configuration.clone();
+    let first_id = OperationId::new();
+    let second_id = OperationId::new();
+    let (first, second) = tokio::join!(
+        service.set_system_override(
+            first_id,
+            EPSILON.path(),
+            json!(0.11),
+            ConfigActorTier::Developer,
+        ),
+        service.set_system_override(
+            second_id,
+            TAU_DAYS.path(),
+            json!(42.0),
+            ConfigActorTier::Developer,
+        )
+    );
+    first.expect("epsilon mutation");
+    second.expect("tau mutation");
+    let snapshot = service.active_system_snapshot().expect("active snapshot");
+    assert_eq!(snapshot.get(EPSILON).expect("epsilon"), 0.11);
+    assert_eq!(snapshot.get(TAU_DAYS).expect("tau"), 42.0);
+    assert!(
+        service
+            .set_system_override(
+                first_id,
+                EPSILON.path(),
+                json!(0.12),
+                ConfigActorTier::Developer,
+            )
+            .await
+            .is_err()
+    );
 }

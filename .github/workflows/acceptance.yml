@@ -1,0 +1,47 @@
+name: Acceptance
+
+on:
+  pull_request:
+    types: [ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install Rust Buf plugins
+        run: |
+          cargo install protoc-gen-prost --version 0.5.0 --locked
+          cargo install protoc-gen-tonic --version 0.5.0 --locked
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-deny,cargo-shear
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Generate protocol bindings
+        run: corepack pnpm generate
+      - name: Verify generated bindings
+        run: git diff --exit-code
+      - name: TypeScript and repository checks
+        run: corepack pnpm check
+      - name: Rust verification
+        run: just verify
+      - name: Build Kernel
+        run: cargo build -p nous-kernel
+      - name: Memory Reference qualification
+        run: corepack pnpm qualification:memory-reference
+      - name: Cognitive Runtime and Episode qualification
+        run: corepack pnpm qualification:cognitive-runtime-episode

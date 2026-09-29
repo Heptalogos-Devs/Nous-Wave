@@ -1,7 +1,7 @@
 #[path = "test_support/mod.rs"]
 mod test_support;
 
-use nous_protocol::{kernel, public as p};
+use nous_protocol::public as p;
 use std::{env, path::Path, process::Stdio};
 use tempfile::TempDir;
 use test_support::database;
@@ -11,9 +11,10 @@ use tokio::{
 };
 use tonic::{
     Request,
+    client::Grpc,
+    codegen::http::uri::PathAndQuery,
     transport::{Channel, Endpoint},
 };
-use tonic::{client::Grpc, codegen::http::uri::PathAndQuery};
 use tonic_prost::ProstCodec;
 use uuid::Uuid;
 
@@ -36,7 +37,29 @@ fn executable() -> String {
 
 fn config(root: &TempDir) -> std::path::PathBuf {
     let path = root.path().join("process-restart-kernel.toml");
-    let text = "\n\n[bootstrap.database]\nmode = \"external\"\nurl = \"\"\nmax_connections = 4\nname = \"restart\"\ninstall_dir = \"postgres-install\"\ndata_dir = \"postgres-data\"\n\n[bootstrap.object_store]\nbackend = \"fs\"\nroot = \"process-objects\"\nmax_upload_bytes = 1048576\n\n[bootstrap.serving]\nroot = \"process-serving\"\n\n[settings.capabilities.process]\nmemory = true\n\n[settings.capabilities.subject_defaults]\nmemory = true\n".to_string();
+    let text = r#"
+[bootstrap.database]
+mode = "external"
+url = ""
+max_connections = 4
+name = "restart"
+install_dir = "postgres-install"
+data_dir = "postgres-data"
+
+[bootstrap.object_store]
+backend = "fs"
+root = "process-objects"
+max_upload_bytes = 1048576
+
+[bootstrap.serving]
+root = "process-serving"
+
+[settings.capabilities.process]
+memory = true
+
+[settings.capabilities.subject_defaults]
+memory = true
+"#;
     std::fs::write(&path, text).expect("write process restart config");
     path
 }
@@ -101,8 +124,8 @@ async fn start_kernel(config: &Path, postgres_url: &str) -> (Child, String, Chan
         .expect("Kernel startup timeout")
         .expect("Kernel startup result")
         .expect("Kernel discovery line");
-    let endpoint: String = serde_json::from_str::<serde_json::Value>(&line)
-        .expect("Kernel discovery JSON")["endpoint"]
+    let endpoint = serde_json::from_str::<serde_json::Value>(&line).expect("Kernel discovery JSON")
+        ["endpoint"]
         .as_str()
         .expect("Kernel discovery endpoint")
         .to_owned();
@@ -122,11 +145,10 @@ async fn stop_kernel(mut child: Child) {
 }
 
 #[tokio::test]
-async fn kernel_process_restart_restores_subject_session_and_runtime_checkpoint() {
+async fn kernel_process_restart_restores_subject_session_and_work_context() {
     let (root, postgres_url, _postgres) = database().await;
     let kernel_config = config(&root);
     let subject_id = Uuid::from_u128(8801).to_string();
-    let operation_id = Uuid::from_u128(8802).to_string();
 
     let (child, token, channel) = start_kernel(&kernel_config, &postgres_url).await;
     let subject: p::Subject = unary(
@@ -141,12 +163,12 @@ async fn kernel_process_restart_restores_subject_session_and_runtime_checkpoint(
                 provenance: None,
             }),
             metadata: None,
-            operation_id,
+            operation_id: Uuid::from_u128(8804).to_string(),
             capabilities: Some(p::SubjectCapabilities { memory: true }),
         },
     )
     .await
-    .expect("create Subject through Kernel RPC");
+    .expect("create Subject");
     assert_eq!(subject.subject_id, subject_id);
     let session: p::Session = unary(
         channel.clone(),
@@ -157,74 +179,72 @@ async fn kernel_process_restart_restores_subject_session_and_runtime_checkpoint(
         },
     )
     .await
-    .expect("open Session through Kernel RPC");
-    let session_id = session.session_id.clone();
-    let mutation: kernel::MutateRuntimeResponse = unary(
-        channel,
+    .expect("open Session");
+    let context: p::WorkContextResponse = unary(
+        channel.clone(),
         &token,
-        "/nous.wave.kernel.v1alpha1.RuntimeStoreService/MutateRuntime",
-        kernel::MutateRuntimeRequest {
+        "/nous.wave.kernel.v1alpha1.AuthorityService/CreateWorkContext",
+        p::CreateWorkContextRequest {
+            operation_id: Uuid::from_u128(8802).to_string(),
             subject_id: subject_id.clone(),
-            session_id: session_id.clone(),
-            expected_runtime_revision: 0,
-            checkpoints: vec![kernel::Checkpoint {
-                owner_kind: "focus".into(),
-                owner_key: "process-focus".into(),
-                schema_version: 1,
-                revision: 0,
-                payload: vec![8, 8, 0, 1],
-            }],
-            change_foreground: true,
-            foreground_key: Some("process-focus".into()),
+            purpose: "restart continuity".into(),
+            unresolved_questions: vec!["resume".into()],
+            constraints: None,
+            resume_conditions: vec!["same subject".into()],
+            budget_summary: None,
+            references: Vec::new(),
         },
     )
     .await
-    .expect("persist runtime checkpoint");
-    assert_eq!(mutation.runtime_revision, 1);
+    .expect("create WorkContext");
+    let context = context.work_context.expect("WorkContext payload");
+    let bound: p::Session = unary(
+        channel,
+        &token,
+        "/nous.wave.kernel.v1alpha1.AuthorityService/SetActiveWorkContext",
+        p::SetActiveWorkContextRequest {
+            operation_id: Uuid::from_u128(8803).to_string(),
+            subject_id: subject_id.clone(),
+            session_id: session.session_id.clone(),
+            expected_runtime_revision: session.runtime_revision,
+            work_context_id: Some(context.work_context_id.clone()),
+        },
+    )
+    .await
+    .expect("foreground WorkContext");
+    assert_eq!(
+        bound.active_work_context_id.as_deref(),
+        Some(context.work_context_id.as_str())
+    );
     stop_kernel(child).await;
 
     let (child, token, channel) = start_kernel(&kernel_config, &postgres_url).await;
-    let restored_subject: p::Subject = unary(
-        channel.clone(),
-        &token,
-        "/nous.wave.kernel.v1alpha1.AuthorityService/GetSubject",
-        p::SubjectRequest {
-            subject_id: subject_id.clone(),
-        },
-    )
-    .await
-    .expect("restore Subject through second Kernel process");
-    assert_eq!(restored_subject.subject_id, subject_id);
-    let restored_session: p::Session = unary(
+    let restored: p::Session = unary(
         channel.clone(),
         &token,
         "/nous.wave.kernel.v1alpha1.AuthorityService/GetSession",
         p::ObjectRequest {
             subject_id: subject_id.clone(),
-            id: session_id.clone(),
+            id: session.session_id,
         },
     )
     .await
-    .expect("restore Session through second Kernel process");
-    assert_eq!(restored_session.runtime_revision, 1);
+    .expect("restore Session");
     assert_eq!(
-        restored_session.active_focus_id.as_deref(),
-        Some("process-focus")
+        restored.active_work_context_id.as_deref(),
+        Some(context.work_context_id.as_str())
     );
-    let snapshot: kernel::ReadRuntimeResponse = unary(
+    let restored_context: p::WorkContextResponse = unary(
         channel,
         &token,
-        "/nous.wave.kernel.v1alpha1.RuntimeStoreService/ReadRuntime",
-        kernel::ReadRuntimeRequest {
+        "/nous.wave.kernel.v1alpha1.AuthorityService/GetWorkContext",
+        p::GetWorkContextRequest {
             subject_id,
-            session_id,
-            owner_kind: "focus".into(),
+            work_context_id: context.work_context_id,
         },
     )
     .await
-    .expect("restore runtime checkpoint");
-    assert_eq!(snapshot.checkpoints.len(), 1);
-    assert_eq!(snapshot.checkpoints[0].owner_key, "process-focus");
-    assert_eq!(snapshot.checkpoints[0].payload, vec![8, 8, 0, 1]);
+    .expect("restore WorkContext");
+    assert_eq!(restored_context.work_context.expect("payload").revision, 1);
     stop_kernel(child).await;
 }

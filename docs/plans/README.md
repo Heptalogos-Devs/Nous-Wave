@@ -15,7 +15,7 @@ Target Design → Target Engineering Plan → Active Milestone Plan → Executab
 ## 当前里程碑
 
 - [2026-10-27 Memory Reference Profile](active/2026-10-27-memory-reference-profile.md)：Target Engineering Plan 的阶段投影，定义中期范围、Must-have 语义和 Qualification 方向。
-- [Structural Rebase — Memory Reference Profile R1](active/2026-09-29-structural-rebase-memory-reference-profile.md)：当前唯一新增代码施工授权，负责 current truth、crate/schema/test/governance rebase 和 public acceptance closure。
+- [Cognitive Runtime and Episode](active/2026-09-29-cognitive-runtime-episode.md)：当前唯一新增代码施工授权，负责 shared correctness、WorkContext、Episode、research 和 public acceptance closure。
 
 ## 当前 Executable Specs
 

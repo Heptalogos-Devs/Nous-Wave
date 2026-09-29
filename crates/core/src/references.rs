@@ -4,6 +4,8 @@ pub fn reference_parts(reference: &CognitiveRef) -> (String, String) {
     match reference {
         CognitiveRef::Memory(id) => ("memory".into(), id.0.to_string()),
         CognitiveRef::MemoryRevision(id) => ("memory_revision".into(), id.0.to_string()),
+        CognitiveRef::Episode(id) => ("episode".into(), id.0.to_string()),
+        CognitiveRef::EpisodeRevision(id) => ("episode_revision".into(), id.0.to_string()),
         CognitiveRef::CognitiveSchema(id) => ("cognitive_schema".into(), id.0.to_string()),
         CognitiveRef::CognitiveSchemaRevision(id) => {
             ("cognitive_schema_revision".into(), id.0.to_string())
@@ -37,6 +39,16 @@ pub fn parse_reference(kind: &str, value: &str) -> Result<CognitiveRef> {
             value
                 .parse()
                 .map_err(|_| Error::Invalid("invalid memory revision ref".into()))?,
+        )),
+        "episode" => CognitiveRef::Episode(EpisodeId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid episode ref".into()))?,
+        )),
+        "episode_revision" => CognitiveRef::EpisodeRevision(EpisodeRevisionId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid episode revision ref".into()))?,
         )),
         "cognitive_schema" => CognitiveRef::CognitiveSchema(CognitiveSchemaId(
             value

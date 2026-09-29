@@ -2,7 +2,7 @@
 
 状态：IMPLEMENTATION-AUTHORIZING
 
-本目录是当前唯一的 Memory Reference executable Spec set。它服从 root `AGENTS.md`、当前 structural-rebase Plan、10/27 milestone，以及 Architecture-Vault Target Design/Decisions。
+本目录是当前 Memory Reference executable Spec set。它服从 root `AGENTS.md`、当前 Cognitive Runtime and Episode Plan、10/27 milestone，以及 Architecture-Vault Target Design/Decisions。
 
 ## 阅读顺序
 

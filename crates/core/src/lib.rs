@@ -48,6 +48,8 @@ macro_rules! uuid_id {
 uuid_id!(SubjectId);
 uuid_id!(MemoryId);
 uuid_id!(MemoryRevisionId);
+uuid_id!(EpisodeId);
+uuid_id!(EpisodeRevisionId);
 uuid_id!(CognitiveSchemaId);
 uuid_id!(CognitiveSchemaRevisionId);
 uuid_id!(SchemaEvidenceLinkId);
@@ -163,6 +165,8 @@ fn validate_opaque_ref(value: &str, expected_prefix: &str) -> Result<()> {
 pub enum CognitiveRef {
     Memory(MemoryId),
     MemoryRevision(MemoryRevisionId),
+    Episode(EpisodeId),
+    EpisodeRevision(EpisodeRevisionId),
     CognitiveSchema(CognitiveSchemaId),
     CognitiveSchemaRevision(CognitiveSchemaRevisionId),
     CognitiveSeedVersion(CognitiveSeedVersionId),
@@ -551,6 +555,8 @@ impl fmt::Display for CognitiveRef {
         match self {
             Self::Memory(id) => write!(f, "memory:{}", id.0),
             Self::MemoryRevision(id) => write!(f, "memory_revision:{}", id.0),
+            Self::Episode(id) => write!(f, "episode:{}", id.0),
+            Self::EpisodeRevision(id) => write!(f, "episode_revision:{}", id.0),
             Self::CognitiveSchema(id) => write!(f, "cognitive_schema:{}", id.0),
             Self::CognitiveSchemaRevision(id) => {
                 write!(f, "cognitive_schema_revision:{}", id.0)

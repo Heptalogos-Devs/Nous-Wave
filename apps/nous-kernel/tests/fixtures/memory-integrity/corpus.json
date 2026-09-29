@@ -1,5 +1,5 @@
 {
-  "version": "memory-reference-r1-2026-09-29",
+  "version": "memory-integrity-2026-09-29",
   "subjects": ["subject-s", "subject-t"],
   "sessions": [
     { "label": "session-a", "consumer": "consumer:alpha:reference" },
@@ -18,11 +18,11 @@
     }
   ],
   "cognition": {
-    "grounded": "m1",
-    "synthesized": "m2",
-    "correction_revision": "m1-r2",
-    "temporal_successor": "m3",
-    "foreign_subject_memory": "foreign-m1"
+    "grounded": "memory-initial",
+    "synthesized": "memory-synthesized",
+    "correction_revision": "memory-corrected",
+    "temporal_successor": "memory-successor",
+    "foreign_subject_memory": "foreign-memory"
   },
   "invariants": [
     "same-subject-durable-memory",

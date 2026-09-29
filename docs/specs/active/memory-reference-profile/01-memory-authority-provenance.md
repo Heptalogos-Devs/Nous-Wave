@@ -25,6 +25,7 @@
 
 - CognitiveSchema 属于 Memory owner，具有独立 object/revision、applicability、support、counterexample/boundary evidence 和 lifecycle。
 - `explicit_import` 至少有一条有效 evidence；`synthesized` 需要至少两个 normalized inputs、至少两个 known independent provenance roots 和无 cycle；UnknownDependency 不增加独立 root。
+- synthesized Memory 与 CognitiveSchema 共用同一 provenance root traversal；同一 Artifact 的派生表示、同源重述、部分共享根和未知依赖均不能凑成两个独立根。
 - 增补/撤回 Schema evidence 改变 object epoch 和 projection invalidation，不伪造 content revision。
 - Tag identity 与显示名称分离；字符串相同不能单独证明 identity 相同。
 - Association cognition endpoint 只接受 exact `MemoryRevision` 或 `CognitiveSchemaRevision`；Entity、Tag、Resource 可以是 stable structural endpoint。UseEvent support 必须可由 durable event 或 purge receipt 核验。
@@ -37,4 +38,4 @@
 
 同一 operation/event identity 携带相同 canonical digest 时返回相同语义结果；相同 identity 携带不同 digest 时返回 conflict。Purge 后保留不含认知正文的幂等 receipt，不能用 receipt 恢复被清内容。
 
-Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime serving 均可重建，不拥有 cognition truth。
+Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime serving 均可重建，不拥有 cognition truth。Memory owner 不持有 concrete Retrieval/Serving；topology candidate generation 属于 Retrieval shared contributor。

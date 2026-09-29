@@ -38,7 +38,8 @@ pub fn planned_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     if query.constraints.valid.is_some()
         || query.constraints.occurred.is_some()
         || query.constraints.observed.is_some()
-        || query.cues.iter().any(|cue| matches!(cue, Cue::Temporal(_)))
+        || query.constraints.formed.is_some()
+        || query.constraints.recorded.is_some()
     {
         lanes.push(EvidenceFamily::Temporal);
     }

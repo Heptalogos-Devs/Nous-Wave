@@ -7,7 +7,7 @@
 | 人类文档 | [docs/INDEX.md](docs/INDEX.md) | 当前架构、状态、计划、参考和 Qualification 目录 |
 | Applications | [apps/README.md](apps/README.md) | Public Core host 与 private Kernel process composition |
 | 长期目标设计 | [Architecture-Vault TARGET_DESIGN.md](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md) | 长期语义、决定、理由和研究 |
-| TypeScript Core | [apps/nous-core/README.md](apps/nous-core/README.md) | 公共 Core、Focus/Projection/Context、NousQL 和模型编排 |
+| TypeScript Core | [apps/nous-core/README.md](apps/nous-core/README.md) | 公共 Core、WorkContext/Projection/Context、NousQL 和模型编排 |
 | Rust Kernel | [apps/nous-kernel/README.md](apps/nous-kernel/README.md) | 私有 Kernel 进程和 Rust owners 的组合 |
 | Rust owners | [crates/README.md](crates/README.md) / [crates/INDEX.md](crates/INDEX.md) | Subject、Runtime、Material、Memory、Persistence 和 Retrieval |
 | Protobuf source | [proto/README.md](proto/README.md) | 唯一的跨语言 wire-contract source |
