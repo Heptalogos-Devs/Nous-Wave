@@ -29,7 +29,7 @@ struct ServingBootstrapConfig {
     #[serde(default = "default_serving_root")]
     root: String,
     #[serde(default)]
-    stored_embedding: Option<nous_serving::StoredEmbeddingConfig>,
+    stored_embedding: Option<nous_retrieval::StoredEmbeddingConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -125,7 +125,7 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
             .to_string_lossy()
             .into_owned(),
         max_upload_bytes: config.bootstrap.object_store.max_upload_bytes,
-        serving_options: nous_serving::ServingOptions {
+        serving_options: nous_retrieval::ServingOptions {
             root: resolve_path(root, &config.bootstrap.serving.root),
             lexical: true,
             dense: true,

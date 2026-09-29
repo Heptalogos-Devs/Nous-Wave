@@ -1,8 +1,8 @@
 use super::*;
-use nous_authority_store::database_error as db;
+use nous_persistence::database_error as db;
 use nous_core::{EntityRef, OperationId, Result, SubjectId};
-use nous_memory_domain::ExplicitMemoryInput;
-use nous_memory_service::{MemoryView, ReviseMemoryInput};
+use nous_memory::ExplicitMemoryInput;
+use nous_memory::{MemoryView, ReviseMemoryInput};
 
 pub(super) fn view(input: MemoryView) -> p::Memory {
     let object = input.object;
@@ -138,7 +138,7 @@ impl KernelService {
             .require_memory()?
             .consolidate(
                 subject,
-                nous_memory_domain::ConsolidationRequest {
+                nous_memory::ConsolidationRequest {
                     operation_id: OperationId(id(&input.operation_id)?),
                     subject,
                     source_memories: input
@@ -335,7 +335,7 @@ impl KernelService {
 fn view_from_revision(
     subject: SubjectId,
     memory: nous_core::MemoryId,
-    revision: nous_memory_domain::MemoryRevision,
+    revision: nous_memory::MemoryRevision,
 ) -> p::Memory {
     p::Memory {
         memory_id: memory.0.to_string(),

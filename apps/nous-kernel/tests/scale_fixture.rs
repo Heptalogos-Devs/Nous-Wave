@@ -25,16 +25,16 @@ async fn create_subject(
 ) -> nous_core::SubjectId {
     runtime
         .subjects
-        .create_subject(nous_subject_core::CreateSubject {
+        .create_subject(nous_subject::CreateSubject {
             subject_id: Some(subject),
             operation_id: nous_core::OperationId(Uuid::from_u128(9001)),
-            cognitive_seed: nous_subject_core::CognitiveSeedInput {
+            cognitive_seed: nous_subject::CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({"fixture":"scale"}),
             },
             metadata: serde_json::json!({"fixture":"scale"}),
-            capabilities: Some(nous_subject_core::SubjectCapabilities {
+            capabilities: Some(nous_subject::SubjectCapabilities {
                 memory: true,
                 self_cognition: false,
                 social: false,

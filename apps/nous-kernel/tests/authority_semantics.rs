@@ -1,6 +1,6 @@
 use chrono::Utc;
 use nous_core::{EpistemicClass, OccurrenceId, OperationId, SubjectId, TemporalExtent};
-use nous_memory_domain::{
+use nous_memory::{
     CognitiveRole, EvidenceLocator, EvidenceRef, ExplicitMemoryInput, FormationMode,
     RevisionSupport, SupportRole,
 };

@@ -1,8 +1,8 @@
 use super::*;
-use nous_authority_store::database_error as db;
+use nous_persistence::database_error as db;
 use nous_core::{OperationId, Result, SubjectId};
-use nous_memory_domain::{AssociationSupport, UseEventRef};
-use nous_memory_service::{CreateAssociationRequest, CreateTagRequest};
+use nous_memory::{AssociationSupport, UseEventRef};
+use nous_memory::{CreateAssociationRequest, CreateTagRequest};
 use sqlx::Row;
 
 impl KernelService {

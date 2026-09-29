@@ -1,6 +1,6 @@
 use super::*;
 use nous_core::{Result, SubjectId};
-use nous_serving::{QueryEmbedding, TextEmbeddingOutput};
+use nous_retrieval::{QueryEmbedding, TextEmbeddingOutput};
 
 impl KernelService {
     fn embedding_config(&self) -> Result<k::EmbeddingConfig> {
@@ -54,7 +54,7 @@ impl KernelService {
                 },
             });
         }
-        nous_serving::with_query_material(materials, self.query(required(input.query, "query")?))
+        nous_retrieval::with_query_material(materials, self.query(required(input.query, "query")?))
             .await
     }
 }
@@ -78,7 +78,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
             let mut producer=nous_core::ProducerSignature{signature_hash:String::new(),provider_class:"host-model".into(),operation,implementation:input.implementation,model_identity:Some(input.model),model_revision:Some(input.model_revision),preprocessing_identity:"bounded-source".into(),preprocessing_revision:"1".into(),config_digest:"host-interpretation-v1".into()};
             producer.signature_hash=blake3::hash(&serde_json::to_vec(&producer).map_err(|e|Error::Invalid(e.to_string()))?).to_hex().to_string();
             let revision:i32=sqlx::query_scalar("SELECT COALESCE(max(d.revision),0)+1 FROM derived_representations d JOIN producer_signatures p ON p.producer_signature_id=d.producer_signature_id WHERE d.subject_id=$1 AND d.source_region_id=$2 AND d.representation_kind=$3 AND p.signature_hash=$4")
-                .bind(subject.0).bind(source.0).bind(kind.as_str()).bind(&producer.signature_hash).fetch_one(self.0.store.pool()).await.map_err(nous_authority_store::database_error)?;
+                .bind(subject.0).bind(source.0).bind(kind.as_str()).bind(&producer.signature_hash).fetch_one(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
             let representation=self.0.material.persist_derived_representation(nous_material::DerivedRepresentation{derived_representation_id:nous_core::DerivedRepresentationId::new(),subject_id:subject,source_region_id:source,representation_kind:kind,producer,revision,payload_text:Some(input.text),payload_artifact_id:None,quality:serde_json::json!({"status":"model_interpretation"}),created_at:chrono::Utc::now(),supersedes:None}).await?;
             self.get_derived_representation(p::ObjectRequest{subject_id:subject.0.to_string(),id:representation.derived_representation_id.0.to_string()}).await
         }.await;

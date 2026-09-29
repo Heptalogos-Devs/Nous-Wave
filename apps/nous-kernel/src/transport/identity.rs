@@ -1,6 +1,6 @@
 use super::*;
 use nous_core::{Result, SubjectId};
-fn binding(b: nous_authority_store::IdentityBinding) -> p::IdentityBinding {
+fn binding(b: nous_persistence::IdentityBinding) -> p::IdentityBinding {
     p::IdentityBinding {
         lexical_ref: b.lexical_ref,
         canonical: Some(to_ref(b.canonical)),

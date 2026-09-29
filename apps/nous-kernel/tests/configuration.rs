@@ -1,9 +1,9 @@
 #[path = "test_support/mod.rs"]
 mod test_support;
 
-use nous_configuration_service::{ConfigActorTier, ConfigKey, SUBJECT_DEFAULT_MEMORY};
+use nous_configuration::{ConfigActorTier, ConfigKey, SUBJECT_DEFAULT_MEMORY};
 use nous_core::OperationId;
-use nous_subject_core::{CognitiveSeedInput, CreateSubject};
+use nous_subject::{CognitiveSeedInput, CreateSubject};
 use serde_json::json;
 use test_support::{database, open_runtime};
 
@@ -20,7 +20,7 @@ async fn configuration_precedence_permissions_and_restart_state_are_explicit() {
             operation_id: OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: json!({}),
             },
             metadata: json!({}),
@@ -129,7 +129,7 @@ async fn configuration_receipts_freeze_subject_scope_and_replay_outcomes() {
             operation_id: OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: json!({}),
             },
             metadata: json!({}),

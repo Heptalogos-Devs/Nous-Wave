@@ -1,5 +1,5 @@
 use super::*;
-use nous_cognitive_runtime::{CheckpointWrite, RuntimeMutation, UseFeedback, UseFeedbackEvent};
+use nous_runtime::{CheckpointWrite, RuntimeMutation, UseFeedback, UseFeedbackEvent};
 use nous_core::{Result, SessionId, SubjectId};
 
 #[tonic::async_trait]

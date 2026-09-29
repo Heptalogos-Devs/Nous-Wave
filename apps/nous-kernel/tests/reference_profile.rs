@@ -1,11 +1,11 @@
 mod test_support;
 
 use chrono::Utc;
-use nous_authority_store::{ProjectionInvalidation, ServingRecord};
-use nous_cognitive_runtime::{UseFeedback, UseFeedbackEvent, UseKind};
+use nous_persistence::{ProjectionInvalidation, ServingRecord};
+use nous_runtime::{UseFeedback, UseFeedbackEvent, UseKind};
 use nous_core::{CognitiveRef, EpistemicClass, OperationId, ServingGenerationId, TemporalExtent};
-use nous_memory_domain::*;
-use nous_subject_core::{CognitiveSeedInput, CreateSubject};
+use nous_memory::*;
+use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::{
     database, external_observation, form_input, observation, occurrence_only_observation,
     open_runtime,
@@ -26,7 +26,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
             operation_id: OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             metadata: serde_json::json!({}),
@@ -174,11 +174,11 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
     assert_eq!(external_a_summary.roots.len(), 1);
     assert_eq!(external_a_summary.roots, external_a_repeat_summary.roots);
     assert_eq!(
-        nous_memory_domain::dependency_relation(
+        nous_memory::dependency_relation(
             &external_a_summary.roots.iter().cloned().collect::<Vec<_>>(),
             &external_b_summary.roots.iter().cloned().collect::<Vec<_>>(),
         ),
-        nous_memory_domain::DependencyRelation::Independent
+        nous_memory::DependencyRelation::Independent
     );
     let occurrence_only_a = occurrence_only_observation(&runtime, subject).await;
     let occurrence_only_b = occurrence_only_observation(&runtime, subject).await;
@@ -209,7 +209,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
         .await
         .expect("occurrence-only root");
     assert_eq!(
-        nous_memory_domain::dependency_relation(
+        nous_memory::dependency_relation(
             &occurrence_only_a_summary
                 .roots
                 .iter()
@@ -221,7 +221,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
                 .cloned()
                 .collect::<Vec<_>>(),
         ),
-        nous_memory_domain::DependencyRelation::UnknownDependency
+        nous_memory::DependencyRelation::UnknownDependency
     );
     let mut duplicate_source = form_input(
         subject,
@@ -283,12 +283,12 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
         .await
         .expect("second memory");
     let concurrent_revision =
-        |operation_id: OperationId, text: &str| nous_memory_service::ReviseMemoryInput {
+        |operation_id: OperationId, text: &str| nous_memory::ReviseMemoryInput {
             operation_id,
             subject,
             memory_id: second.object.memory_id,
             expected_object_epoch: second.object.object_epoch,
-            intent: nous_memory_domain::RevisionIntent::Correct,
+            intent: nous_memory::RevisionIntent::Correct,
             formation_mode: FormationMode::Grounded,
             grounding_occurrence_id: Some(second_observation.occurrence.occurrence_id),
             semantic_role: "fact".into(),
@@ -323,19 +323,19 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
     let revision = runtime
         .require_memory()
         .unwrap()
-        .revise_memory(nous_memory_service::ReviseMemoryInput {
+        .revise_memory(nous_memory::ReviseMemoryInput {
             operation_id: OperationId::new(),
             subject,
             memory_id: first.object.memory_id,
             expected_object_epoch: first.object.object_epoch,
-            intent: nous_memory_domain::RevisionIntent::Correct,
+            intent: nous_memory::RevisionIntent::Correct,
             formation_mode: FormationMode::Synthesized,
             grounding_occurrence_id: None,
             semantic_role: "fact".into(),
             representation_text: "Alice lives in Lyon".into(),
             title: None,
             supports: vec![
-                RevisionSupport::CognitionDependency(nous_memory_domain::CognitionDependency {
+                RevisionSupport::CognitionDependency(nous_memory::CognitionDependency {
                     target_revision: CognitiveRef::MemoryRevision(
                         second.revision.memory_revision_id,
                     ),
@@ -397,14 +397,14 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
         .require_memory()
         .unwrap()
         .create_association(
-            nous_memory_service::CreateAssociationRequest {
+            nous_memory::CreateAssociationRequest {
                 operation_id: OperationId::new(),
                 from: CognitiveRef::MemoryRevision(first.revision.memory_revision_id),
                 to: CognitiveRef::MemoryRevision(second.revision.memory_revision_id),
                 relation_kind: "custom.unknown_relation".into(),
-                polarity: nous_memory_domain::AssociationPolarity::Positive,
-                support_class: nous_memory_domain::AssociationSupportClass::HostExplicit,
-                supports: vec![nous_memory_domain::AssociationSupport::Revision(
+                polarity: nous_memory::AssociationPolarity::Positive,
+                support_class: nous_memory::AssociationSupportClass::HostExplicit,
+                supports: vec![nous_memory::AssociationSupport::Revision(
                     RevisionSupport::Evidence(EvidenceRef {
                         occurrence_id: first_observation.occurrence.occurrence_id,
                         locator: EvidenceLocator::WholeOccurrence,
@@ -448,19 +448,19 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
     let cycle_attempt = runtime
         .require_memory()
         .unwrap()
-        .revise_memory(nous_memory_service::ReviseMemoryInput {
+        .revise_memory(nous_memory::ReviseMemoryInput {
             operation_id: OperationId::new(),
             subject,
             memory_id: second.object.memory_id,
             expected_object_epoch: second_current.object.object_epoch,
-            intent: nous_memory_domain::RevisionIntent::Correct,
+            intent: nous_memory::RevisionIntent::Correct,
             formation_mode: FormationMode::Synthesized,
             grounding_occurrence_id: None,
             semantic_role: "fact".into(),
             representation_text: "cycle attempt".into(),
             title: None,
             supports: vec![
-                RevisionSupport::CognitionDependency(nous_memory_domain::CognitionDependency {
+                RevisionSupport::CognitionDependency(nous_memory::CognitionDependency {
                     target_revision: CognitiveRef::MemoryRevision(
                         revision.revision.memory_revision_id,
                     ),
@@ -495,13 +495,13 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
             representation_text: "Alice's location was corrected by a later source".into(),
             title: None,
             supports: vec![
-                RevisionSupport::CognitionDependency(nous_memory_domain::CognitionDependency {
+                RevisionSupport::CognitionDependency(nous_memory::CognitionDependency {
                     target_revision: CognitiveRef::MemoryRevision(
                         revision.revision.memory_revision_id,
                     ),
                     support_role: SupportRole::Interpretation,
                 }),
-                RevisionSupport::CognitionDependency(nous_memory_domain::CognitionDependency {
+                RevisionSupport::CognitionDependency(nous_memory::CognitionDependency {
                     target_revision: CognitiveRef::MemoryRevision(
                         second_current.revision.memory_revision_id,
                     ),
@@ -658,12 +658,12 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
     let revised_schema = runtime
         .require_memory()
         .unwrap()
-        .revise_schema(nous_memory_domain::ReviseSchemaInput {
+        .revise_schema(nous_memory::ReviseSchemaInput {
             operation_id: OperationId::new(),
             subject,
             schema_id: schema.schema.schema_id,
             expected_object_epoch: updated_schema.schema.object_epoch,
-            intent: nous_memory_domain::RevisionIntent::Rephrase,
+            intent: nous_memory::RevisionIntent::Rephrase,
             title: Some("learning schema revised".into()),
             structural_claim: "Repeated deliberate practice improves recall".into(),
             applicability_scope: SchemaScope {
@@ -706,7 +706,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
     assert_eq!(children.len(), 2);
     assert!(children.iter().all(|child| matches!(
         child.schema.acceptance_state,
-        nous_memory_domain::AcceptanceState::Accepted
+        nous_memory::AcceptanceState::Accepted
     )));
     let merged_schema = runtime
         .require_memory()
@@ -737,7 +737,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
                 .expect("merged source")
                 .schema
                 .acceptance_state,
-            nous_memory_domain::AcceptanceState::Withdrawn
+            nous_memory::AcceptanceState::Withdrawn
         ));
     }
     let dependent_schema = runtime
@@ -761,7 +761,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
                 SchemaEvidenceLinkInput {
                     role: SchemaEvidenceRole::Support,
                     support: RevisionSupport::CognitionDependency(
-                        nous_memory_domain::CognitionDependency {
+                        nous_memory::CognitionDependency {
                             target_revision: CognitiveRef::MemoryRevision(
                                 revision.revision.memory_revision_id,
                             ),
@@ -772,7 +772,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
                 SchemaEvidenceLinkInput {
                     role: SchemaEvidenceRole::BoundaryCase,
                     support: RevisionSupport::CognitionDependency(
-                        nous_memory_domain::CognitionDependency {
+                        nous_memory::CognitionDependency {
                             target_revision: CognitiveRef::MemoryRevision(
                                 second_current.revision.memory_revision_id,
                             ),
@@ -844,7 +844,7 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
         .expect("dependent after purge");
     assert!(matches!(
         dependent_after_purge.object.integrity_state,
-        nous_memory_domain::IntegrityState::RevalidationRequired
+        nous_memory::IntegrityState::RevalidationRequired
     ));
     let dependent_schema_after_purge = runtime
         .require_memory()
@@ -854,12 +854,12 @@ async fn reference_profile_authority_runtime_and_purge_contracts() {
         .expect("dependent schema after purge");
     assert!(matches!(
         dependent_schema_after_purge.schema.integrity_state,
-        nous_memory_domain::IntegrityState::RevalidationRequired
+        nous_memory::IntegrityState::RevalidationRequired
     ));
     assert_eq!(dependent_schema_after_purge.evidence_links.len(), 1);
     assert!(matches!(
         dependent_schema_after_purge.evidence_links[0].support,
-        RevisionSupport::CognitionDependency(nous_memory_domain::CognitionDependency {
+        RevisionSupport::CognitionDependency(nous_memory::CognitionDependency {
             target_revision: CognitiveRef::MemoryRevision(id),
             ..
         }) if id == second_current.revision.memory_revision_id

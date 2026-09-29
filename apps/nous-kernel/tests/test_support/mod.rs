@@ -6,11 +6,11 @@ use nous_kernel::{NousRuntime, RuntimeOptions};
 use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, RuntimeDirective,
 };
-use nous_memory_domain::{
+use nous_memory::{
     CognitiveRole, EvidenceLocator, EvidenceRef, ExplicitMemoryInput, FormationMode,
     RevisionSupport, SupportRole,
 };
-use nous_serving::ServingOptions;
+use nous_retrieval::ServingOptions;
 use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};
 use std::time::Duration;
 use tempfile::TempDir;

@@ -23,7 +23,7 @@ use tonic::{Request, Response, Status};
 pub struct KernelService(pub NousRuntime);
 
 impl KernelService {
-    pub fn require_memory(&self) -> nous_core::Result<&nous_memory_service::MemoryService> {
+    pub fn require_memory(&self) -> nous_core::Result<&nous_memory::MemoryService> {
         self.0.require_memory()
     }
 

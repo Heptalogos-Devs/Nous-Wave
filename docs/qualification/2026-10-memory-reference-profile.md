@@ -26,7 +26,7 @@
 | Observation → ResidentSet schema / batch / rollback / retry | PASS | `ecc4435`；`runtime_residency` 4/4。包含 subject ownership、atomic batch、no-op revision、eviction 单次推进、坏 persisted ref 显式错误。 |
 | Configuration frozen scoped outcome | PASS | `08c27ae`；`configuration` 2/2。receipt 保存 subject/system resolved `active_digest` 与 `desired_digest`，replay 不随后续 mutation 漂移。 |
 | Social provenance read model | PASS | `c0fdc60`；`social_cognition` 4/4。Relationship/Convention supports 与 formation evidence 稳定 round-trip。 |
-| EPA weighted PCA geometry | PASS | `0619066`；`cargo test -p nous-cognitive-retrieval --lib` 8/8，240/40/20 compressed-vs-expanded regression。 |
+| EPA weighted PCA geometry | PASS | `0619066`；`cargo test -p nous-retrieval --lib` 8/8，240/40/20 compressed-vs-expanded regression。 |
 
 ## C. Memory semantic closure
 

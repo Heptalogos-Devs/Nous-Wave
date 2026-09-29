@@ -2,17 +2,17 @@
 mod context;
 pub mod transport;
 
-use nous_authority_store::AuthorityStore;
-use nous_cognitive_runtime::CognitiveRuntimeService;
-use nous_configuration_service::{
+use nous_persistence::AuthorityStore;
+use nous_runtime::CognitiveRuntimeService;
+use nous_configuration::{
     ConfigRegistryBuilder, ConfigurationService, ProcessCapabilities, process_capabilities,
 };
 use nous_core::*;
-use nous_material_service::MaterialService;
-use nous_memory_service::MemoryService;
+use nous_material::MaterialService;
+use nous_memory::MemoryService;
 use nous_object_store::ObjectStore;
-use nous_serving::{ServingOptions, ServingService, TextEmbeddingProvider};
-use nous_subject_core::SubjectCoreService;
+use nous_retrieval::{ServingOptions, ServingService, TextEmbeddingProvider};
+use nous_subject::SubjectCoreService;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -35,7 +35,7 @@ pub struct RuntimeOptions {
     pub max_upload_bytes: u64,
     pub serving_options: ServingOptions,
     pub embedding: Option<Arc<dyn TextEmbeddingProvider>>,
-    pub stored_embedding: Option<nous_serving::StoredEmbeddingConfig>,
+    pub stored_embedding: Option<nous_retrieval::StoredEmbeddingConfig>,
     pub deployment_settings: serde_json::Value,
 }
 
@@ -50,20 +50,19 @@ impl NousRuntime {
     pub async fn materialize(
         &self,
         subject: SubjectId,
-        request: nous_material_service::MaterializeRequest,
-    ) -> Result<nous_material_service::MaterializedEvidence> {
+        request: nous_material::MaterializeRequest,
+    ) -> Result<nous_material::MaterializedEvidence> {
         self.material.materialize(subject, request).await
     }
     pub async fn open(options: RuntimeOptions) -> Result<Self> {
         let store = AuthorityStore::connect(&options.postgres_url, options.max_connections).await?;
         store.migrate().await?;
         let mut registry = ConfigRegistryBuilder::new();
-        nous_configuration_service::register_configuration(&mut registry)?;
-        nous_cognitive_runtime::register_configuration(&mut registry)?;
-        nous_memory_service::register_configuration(&mut registry)?;
-        nous_cognitive_retrieval::register_configuration(&mut registry)?;
-        nous_cognitive_retrieval::register_wave_configuration(&mut registry)?;
-        nous_serving::register_configuration(&mut registry)?;
+        nous_configuration::register_configuration(&mut registry)?;
+        nous_runtime::register_configuration(&mut registry)?;
+        nous_memory::register_configuration(&mut registry)?;
+        nous_retrieval::register_configuration(&mut registry)?;
+        nous_retrieval::register_wave_configuration(&mut registry)?;
         let configuration = ConfigurationService::open(
             store.clone(),
             registry.finish()?,
@@ -72,7 +71,7 @@ impl NousRuntime {
         .await?;
         let system_snapshot = configuration.active_system_snapshot()?;
         let process_capabilities = process_capabilities(&system_snapshot)?;
-        let resident_limit = system_snapshot.get(nous_cognitive_runtime::RESIDENT_LIMIT_KEY)?;
+        let resident_limit = system_snapshot.get(nous_runtime::RESIDENT_LIMIT_KEY)?;
         let objects = ObjectStore::open(&options.object_root).await?;
         let subjects =
             SubjectCoreService::new(store.clone(), objects.clone(), configuration.clone());
@@ -86,15 +85,15 @@ impl NousRuntime {
         )?;
         let mut serving_options = options.serving_options;
         serving_options.memory_enabled = process_capabilities.memory;
-        serving_options.lexical = system_snapshot.get(nous_serving::LEXICAL_ENABLED_KEY)?;
-        serving_options.dense = system_snapshot.get(nous_serving::DENSE_ENABLED_KEY)?;
-        serving_options.topology = system_snapshot.get(nous_serving::TOPOLOGY_ENABLED_KEY)?;
+        serving_options.lexical = system_snapshot.get(nous_retrieval::LEXICAL_ENABLED_KEY)?;
+        serving_options.dense = system_snapshot.get(nous_retrieval::DENSE_ENABLED_KEY)?;
+        serving_options.topology = system_snapshot.get(nous_retrieval::TOPOLOGY_ENABLED_KEY)?;
         let serving = ServingService::new(
             store.clone(),
             objects.clone(),
             serving_options,
             match options.stored_embedding {
-                Some(config) => Some(Arc::new(nous_serving::StoredEmbeddingProvider::new(
+                Some(config) => Some(Arc::new(nous_retrieval::StoredEmbeddingProvider::new(
                     store.clone(),
                     config,
                 )?)),
@@ -137,7 +136,7 @@ impl NousRuntime {
 
     pub async fn query(&self, query: CognitiveQuery) -> Result<CognitiveQueryResult> {
         let bound = self.cognition.bind_query(query).await?;
-        let plan = nous_cognitive_runtime::QueryPlan::for_bound_query(&bound);
+        let plan = nous_runtime::QueryPlan::for_bound_query(&bound);
         let subject_capabilities = self
             .subjects
             .subject(bound.source_query.subject)
@@ -155,13 +154,13 @@ impl NousRuntime {
             .cognition
             .query_with_plan(
                 bound,
-                nous_cognitive_runtime::CognitiveContributors {
+                nous_runtime::CognitiveContributors {
                     shared: Some(&self.serving),
                     memory: subject_capabilities
                         .memory
                         .then(|| {
                             self.memory.as_ref().map(|memory| {
-                                memory as &dyn nous_cognitive_runtime::CognitiveContributor
+                                memory as &dyn nous_runtime::CognitiveContributor
                             })
                         })
                         .flatten(),

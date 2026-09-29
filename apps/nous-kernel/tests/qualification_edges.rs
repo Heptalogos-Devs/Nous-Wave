@@ -7,11 +7,11 @@ use nous_core::{
     TimeInterval,
 };
 use nous_material::{ObservationInput, ObservationMaterial, OccurrenceDescriptor};
-use nous_memory_domain::{
+use nous_memory::{
     AcceptanceState, AccessibilityMode, CognitiveRole, EvidenceLocator, EvidenceRef,
     ExplicitMemoryInput, FormationMode, SupportRole, SuppressionState,
 };
-use nous_subject_core::{CognitiveSeedInput, CreateSubject};
+use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::{database, open_runtime};
 
 #[tokio::test]
@@ -29,7 +29,7 @@ async fn temporal_formation_and_lifecycle_contracts() {
             operation_id: nous_core::OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             metadata: serde_json::json!({}),
@@ -79,7 +79,7 @@ async fn temporal_formation_and_lifecycle_contracts() {
             semantic_role: "fact".into(),
             representation_text: "interval fact".into(),
             title: None,
-            supports: vec![nous_memory_domain::RevisionSupport::Evidence(EvidenceRef {
+            supports: vec![nous_memory::RevisionSupport::Evidence(EvidenceRef {
                 occurrence_id: occurrence.occurrence.occurrence_id,
                 locator: EvidenceLocator::WholeOccurrence,
                 support_role: SupportRole::Direct,

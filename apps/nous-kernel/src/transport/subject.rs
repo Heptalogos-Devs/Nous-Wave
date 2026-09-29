@@ -1,8 +1,8 @@
 use super::*;
-use nous_authority_store::database_error as db;
-use nous_configuration_service::SubjectCapabilities;
+use nous_persistence::database_error as db;
+use nous_configuration::SubjectCapabilities;
 use nous_core::{OperationId, Result, SessionId, SubjectId};
-use nous_subject_core::{
+use nous_subject::{
     CognitiveSeedInput, CognitiveSeedView, CreateSubject, SeedAdoptionKind, SubjectView,
 };
 use uuid::Uuid;
@@ -11,7 +11,7 @@ fn seed(input: p::CognitiveSeed) -> CognitiveSeedInput {
     CognitiveSeedInput {
         text: input.text,
         format: if input.format.is_empty() {
-            nous_subject_core::COGNITIVE_SEED_FORMAT.into()
+            nous_subject::COGNITIVE_SEED_FORMAT.into()
         } else {
             input.format
         },

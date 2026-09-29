@@ -1,7 +1,7 @@
 #[path = "test_support/mod.rs"]
 mod test_support;
 
-use nous_subject_core::{CognitiveSeedInput, CreateSubject};
+use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::{database, form_input, observation, open_runtime};
 
 #[tokio::test]
@@ -15,7 +15,7 @@ async fn purge_keeps_shared_observation_authority() {
             operation_id: nous_core::OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             metadata: serde_json::json!({}),

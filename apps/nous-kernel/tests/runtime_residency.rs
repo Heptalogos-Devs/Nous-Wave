@@ -2,13 +2,13 @@
 mod test_support;
 
 use chrono::{Duration, Utc};
-use nous_cognitive_runtime::{ResidentAdmission, ResidentState};
+use nous_runtime::{ResidentAdmission, ResidentState};
 use nous_core::{CognitiveRef, EntityRef, OperationId};
 use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, ResolvedEntityMention,
     RuntimeDirective,
 };
-use nous_subject_core::{CognitiveSeedInput, CreateSubject};
+use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::{database, observation, open_runtime};
 use uuid::Uuid;
 
@@ -20,7 +20,7 @@ async fn subject(runtime: &nous_kernel::NousRuntime) -> nous_core::SubjectId {
             operation_id: OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             metadata: serde_json::json!({}),

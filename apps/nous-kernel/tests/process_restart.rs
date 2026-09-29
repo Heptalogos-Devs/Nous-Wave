@@ -137,7 +137,7 @@ async fn kernel_process_restart_restores_subject_session_and_runtime_checkpoint(
             subject_id: Some(subject_id.clone()),
             cognitive_seed: Some(p::CognitiveSeed {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: None,
             }),
             metadata: None,

@@ -1,7 +1,7 @@
 use crate::NousRuntime;
-use nous_cognitive_runtime::{ContextResolver, ContextSource, bounded_text, modality};
+use nous_runtime::{ContextResolver, ContextSource, bounded_text, modality};
 use nous_core::*;
-use nous_material_service::MaterializeRequest;
+use nous_material::MaterializeRequest;
 
 #[async_trait::async_trait]
 impl ContextResolver for NousRuntime {
@@ -32,16 +32,16 @@ impl ContextResolver for NousRuntime {
         if let Some(memory) = memory {
             if !matches!(
                 memory.object.acceptance_state,
-                nous_memory_domain::AcceptanceState::Accepted
+                nous_memory::AcceptanceState::Accepted
             ) || !matches!(
                 memory.object.integrity_state,
-                nous_memory_domain::IntegrityState::Valid
+                nous_memory::IntegrityState::Valid
             ) || !matches!(
                 memory.object.suppression_state,
-                nous_memory_domain::SuppressionState::Normal
+                nous_memory::SuppressionState::Normal
             ) || !matches!(
                 memory.object.purge_state,
-                nous_memory_domain::PurgeState::Normal
+                nous_memory::PurgeState::Normal
             ) {
                 return Err(Error::Unavailable("Memory is suppressed".into()));
             }
@@ -49,7 +49,7 @@ impl ContextResolver for NousRuntime {
                 .require_memory()?
                 .accessibility_level(subject, memory.object.memory_id, chrono::Utc::now())
                 .await?;
-            if !nous_memory_service::accessibility_eligible(
+            if !nous_memory::accessibility_eligible(
                 level,
                 CognitiveEffort::Normal,
                 explicit,
@@ -63,17 +63,17 @@ impl ContextResolver for NousRuntime {
                 .supports
                 .iter()
                 .filter_map(|item| match item {
-                    nous_memory_domain::RevisionSupport::Evidence(value) => Some(EvidenceHandle {
+                    nous_memory::RevisionSupport::Evidence(value) => Some(EvidenceHandle {
                         reference: value.cognitive_ref(),
                         support_role: value.support_role.as_str().into(),
                     }),
-                    nous_memory_domain::RevisionSupport::CognitionDependency(value) => {
+                    nous_memory::RevisionSupport::CognitionDependency(value) => {
                         Some(EvidenceHandle {
                             reference: value.target_revision.clone(),
                             support_role: value.support_role.as_str().into(),
                         })
                     }
-                    nous_memory_domain::RevisionSupport::Seed(value) => Some(EvidenceHandle {
+                    nous_memory::RevisionSupport::Seed(value) => Some(EvidenceHandle {
                         reference: CognitiveRef::CognitiveSeedVersion(value.seed_version_id),
                         support_role: "seed".into(),
                     }),
@@ -140,7 +140,7 @@ impl ContextResolver for NousRuntime {
 }
 
 fn material_context(
-    material: nous_material_service::MaterializedEvidence,
+    material: nous_material::MaterializedEvidence,
     max_bytes: usize,
 ) -> Result<ContextSource> {
     let text = if max_bytes > 0

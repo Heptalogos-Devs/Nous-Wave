@@ -2,18 +2,18 @@ mod test_support;
 
 use chrono::Duration;
 use chrono::Utc;
-use nous_cognitive_runtime::{QueryPlan, UseFeedback, UseFeedbackEvent, UseKind};
+use nous_runtime::{QueryPlan, UseFeedback, UseFeedbackEvent, UseKind};
 use nous_core::{
     CognitiveQuery, CognitiveRef, Cue, EntityRef, EpistemicClass, OperationId, QueryConstraints,
     QueryTarget, ResultNeed, TemporalExtent, TextCue, UseEventId,
 };
-use nous_memory_domain::{
+use nous_memory::{
     AssociationPolarity, AssociationSupport, AssociationSupportClass, CognitiveRole,
     CreateSchemaInput, EvidenceLocator, EvidenceRef, FormationMode, RevisionSupport,
     SchemaEvidenceLinkInput, SchemaEvidenceRole, SchemaFormationKind, SchemaScope, SupportRole,
     UseEventRef,
 };
-use nous_subject_core::{CognitiveSeedInput, CreateSubject};
+use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::{database, form_input, observation, open_runtime, open_runtime_with_serving};
 use uuid::Uuid;
 
@@ -46,7 +46,7 @@ async fn subject(runtime: &nous_kernel::NousRuntime) -> nous_core::SubjectId {
             operation_id: nous_core::OperationId::new(),
             cognitive_seed: CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             metadata: serde_json::json!({}),
@@ -269,12 +269,12 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     }];
     let bound = runtime.cognition.bind_query(request).await.expect("bind");
     let plan = QueryPlan::for_bound_query(&bound);
-    let revision = nous_memory_service::ReviseMemoryInput {
+    let revision = nous_memory::ReviseMemoryInput {
         operation_id: OperationId::new(),
         subject,
         memory_id: memory.object.memory_id,
         expected_object_epoch: memory.object.object_epoch,
-        intent: nous_memory_domain::RevisionIntent::Correct,
+        intent: nous_memory::RevisionIntent::Correct,
         formation_mode: FormationMode::Grounded,
         grounding_occurrence_id: Some(observation.occurrence.occurrence_id),
         semantic_role: "fact".into(),
@@ -301,9 +301,9 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         .cognition
         .query_with_plan(
             bound,
-            nous_cognitive_runtime::CognitiveContributors {
+            nous_runtime::CognitiveContributors {
                 shared: None,
-                memory: Some(memory_service as &dyn nous_cognitive_runtime::CognitiveContributor),
+                memory: Some(memory_service as &dyn nous_runtime::CognitiveContributor),
                 self_cognition: None,
                 social: None,
             },
@@ -490,12 +490,12 @@ async fn stale_lexical_generation_cannot_return_old_revision() {
     runtime
         .require_memory()
         .unwrap()
-        .revise_memory(nous_memory_service::ReviseMemoryInput {
+        .revise_memory(nous_memory::ReviseMemoryInput {
             operation_id: OperationId::new(),
             subject,
             memory_id: first.object.memory_id,
             expected_object_epoch: first.object.object_epoch,
-            intent: nous_memory_domain::RevisionIntent::Correct,
+            intent: nous_memory::RevisionIntent::Correct,
             formation_mode: FormationMode::Grounded,
             grounding_occurrence_id: Some(observation.occurrence.occurrence_id),
             semantic_role: "fact".into(),
@@ -621,12 +621,12 @@ async fn memory_revision_identity_guard_rejects_disjoint_aboutness() {
     let rejected = runtime
         .require_memory()
         .unwrap()
-        .revise_memory(nous_memory_service::ReviseMemoryInput {
+        .revise_memory(nous_memory::ReviseMemoryInput {
             operation_id: revision.operation_id,
             subject,
             memory_id: memory.object.memory_id,
             expected_object_epoch: memory.object.object_epoch,
-            intent: nous_memory_domain::RevisionIntent::Correct,
+            intent: nous_memory::RevisionIntent::Correct,
             formation_mode: revision.formation_mode,
             grounding_occurrence_id: revision.grounding_occurrence_id,
             semantic_role: revision.semantic_role,
@@ -673,7 +673,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .require_memory()
         .unwrap()
         .create_association(
-            nous_memory_service::CreateAssociationRequest {
+            nous_memory::CreateAssociationRequest {
                 operation_id: OperationId::new(),
                 from: CognitiveRef::Memory(memory.object.memory_id),
                 to: CognitiveRef::Entity(entity.clone()),
@@ -715,7 +715,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .require_memory()
         .unwrap()
         .create_association(
-            nous_memory_service::CreateAssociationRequest {
+            nous_memory::CreateAssociationRequest {
                 operation_id: OperationId::new(),
                 from: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 to: CognitiveRef::Entity(entity.clone()),
@@ -754,7 +754,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .require_memory()
         .unwrap()
         .create_association(
-            nous_memory_service::CreateAssociationRequest {
+            nous_memory::CreateAssociationRequest {
                 operation_id: OperationId::new(),
                 from: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 to: CognitiveRef::Entity(entity),
@@ -762,7 +762,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
                 polarity: AssociationPolarity::Positive,
                 support_class: AssociationSupportClass::DerivedStructure,
                 supports: vec![AssociationSupport::Revision(
-                    RevisionSupport::CognitionDependency(nous_memory_domain::CognitionDependency {
+                    RevisionSupport::CognitionDependency(nous_memory::CognitionDependency {
                         target_revision: CognitiveRef::MemoryRevision(
                             memory.revision.memory_revision_id,
                         ),

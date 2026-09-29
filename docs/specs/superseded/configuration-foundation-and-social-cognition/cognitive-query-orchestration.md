@@ -14,7 +14,7 @@ Cognitive Runtime
         ↓
 shared/domain lane candidates
         ↓
-nous-cognitive-retrieval
+nous-retrieval
     唯一 RRF / aggregation
         ↓
 Cognitive Runtime

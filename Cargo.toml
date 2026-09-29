@@ -40,17 +40,14 @@ tonic-health = "=0.14.6"
 tokio-stream = { version = "0.1", features = ["net"] }
 nous-protocol = { path = "crates/protocol" }
 nous-core = { path = "crates/core" }
-nous-subject-core = { path = "crates/subject-core" }
-nous-cognitive-runtime = { path = "crates/cognitive-runtime" }
+nous-subject = { path = "crates/subject" }
+nous-runtime = { path = "crates/runtime" }
 nous-material = { path = "crates/material" }
-nous-material-service = { path = "crates/material-service" }
 nous-object-store = { path = "crates/object-store" }
-nous-memory-domain = { path = "crates/memory-domain" }
-nous-authority-store = { path = "crates/authority-store" }
-nous-cognitive-retrieval = { path = "crates/cognitive-retrieval" }
-nous-serving = { path = "crates/serving" }
-nous-memory-service = { path = "crates/memory-service" }
-nous-configuration-service = { path = "crates/configuration-service" }
+nous-memory = { path = "crates/memory" }
+nous-persistence = { path = "crates/persistence" }
+nous-retrieval = { path = "crates/retrieval" }
+nous-configuration = { path = "crates/configuration" }
 
 [profile.dev]
 debug = 0

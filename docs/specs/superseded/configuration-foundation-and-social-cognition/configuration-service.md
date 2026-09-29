@@ -6,13 +6,13 @@
 
 ```text
 crates/configuration-service
-package: nous-configuration-service
+package: nous-configuration
 ```
 
 它是基础服务，负责统一的配置注册与解析。它可以依赖：
 
 - `nous-core`；
-- `nous-authority-store`；
+- `nous-persistence`；
 - `serde` / `serde_json` / `toml` / `blake3` / `arc-swap`；
 - `tokio`（持久覆盖操作）。
 

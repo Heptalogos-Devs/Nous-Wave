@@ -24,7 +24,7 @@ No new Social semantics are authorized by this plan. Named correctness repairs a
 ### 配置基础
 
 - 合并 Architecture-Vault 目标设计和设计决定；
-- 新增 `nous-configuration-service`；
+- 新增 `nous-configuration`；
 - 建立 registry、typed key、描述元数据、解析、snapshot、persisted overrides；
 - 改造 bootstrap，使数据库/对象存储保留最小 bootstrap config，算法/策略进入 Configuration Service；
 - 把 Memory accessibility、Cognitive Retrieval、Serving/Topology 当前 reference 参数迁入注册 key；

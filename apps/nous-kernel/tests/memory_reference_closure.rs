@@ -2,8 +2,8 @@
 mod test_support;
 
 use chrono::{DateTime, Utc};
-use nous_authority_store::ServingRecord;
-use nous_cognitive_runtime::{
+use nous_persistence::ServingRecord;
+use nous_runtime::{
     CheckpointWrite, ConsumerProfile, ContextBudget, MaterializationPolicy, RuntimeMutation,
     UseFeedback, UseFeedbackEvent, UseKind, WorkingSetRequest,
 };
@@ -15,12 +15,12 @@ use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, ResolvedEntityMention,
     RuntimeDirective,
 };
-use nous_material_service::MaterializeRequest;
-use nous_memory_domain::{
+use nous_material::MaterializeRequest;
+use nous_memory::{
     CognitiveRole, EvidenceLocator, EvidenceRef, ExplicitMemoryInput, FormationMode,
     RevisionIntent, RevisionSupport, SupportRole,
 };
-use nous_subject_core::{CognitiveSeedInput, CreateSubject, SubjectCapabilities};
+use nous_subject::{CognitiveSeedInput, CreateSubject, SubjectCapabilities};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use test_support::{database, open_memory_only_runtime};
@@ -54,7 +54,7 @@ async fn create_subject(
             operation_id: operation(subject.0.as_u128() + 100),
             cognitive_seed: CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({"fixture":"memory-reference-r1"}),
             },
             metadata: serde_json::json!({"fixture":"memory-reference-r1"}),
@@ -336,7 +336,7 @@ async fn memory_reference_profile_closure_is_multi_session_and_recoverable() {
         .await
         .expect("synthesized M2");
     let m1_r2 = memory
-        .revise_memory(nous_memory_service::ReviseMemoryInput {
+        .revise_memory(nous_memory::ReviseMemoryInput {
             operation_id: operation(23),
             subject,
             memory_id: m1.object.memory_id,

@@ -1,7 +1,7 @@
 use super::*;
 use chrono::{DateTime, Utc};
 use nous_core::{CognitiveRef, Result, TemporalExtent};
-use nous_memory_domain::{CognitionDependency, EvidenceLocator, EvidenceRef, RevisionSupport};
+use nous_memory::{CognitionDependency, EvidenceLocator, EvidenceRef, RevisionSupport};
 use prost_types::{Struct, Timestamp, Value, value::Kind};
 use serde::{Serialize, de::DeserializeOwned};
 use std::collections::BTreeMap;

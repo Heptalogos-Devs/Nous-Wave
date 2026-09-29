@@ -1890,58 +1890,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "nous-authority-store"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "getrandom 0.3.4",
- "nous-core",
- "serde",
- "serde_json",
- "sqlx",
- "uuid",
-]
-
-[[package]]
-name = "nous-cognitive-retrieval"
-version = "0.1.0"
-dependencies = [
- "arc-swap",
- "blake3",
- "nalgebra",
- "nous-configuration-service",
- "nous-core",
- "roaring",
- "serde",
- "serde_json",
- "tantivy",
- "usearch",
-]
-
-[[package]]
-name = "nous-cognitive-runtime"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "nous-authority-store",
- "nous-cognitive-retrieval",
- "nous-configuration-service",
- "nous-core",
- "serde",
- "serde_json",
- "sqlx",
- "uuid",
-]
-
-[[package]]
-name = "nous-configuration-service"
+name = "nous-configuration"
 version = "0.1.0"
 dependencies = [
  "blake3",
  "chrono",
- "nous-authority-store",
  "nous-core",
+ "nous-persistence",
  "serde",
  "serde_json",
  "sqlx",
@@ -1968,19 +1923,16 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
- "nous-authority-store",
- "nous-cognitive-retrieval",
- "nous-cognitive-runtime",
- "nous-configuration-service",
+ "nous-configuration",
  "nous-core",
  "nous-material",
- "nous-material-service",
- "nous-memory-domain",
- "nous-memory-service",
+ "nous-memory",
  "nous-object-store",
+ "nous-persistence",
  "nous-protocol",
- "nous-serving",
- "nous-subject-core",
+ "nous-retrieval",
+ "nous-runtime",
+ "nous-subject",
  "postgresql_embedded",
  "prost",
  "prost-types",
@@ -2003,26 +1955,14 @@ dependencies = [
 name = "nous-material"
 version = "0.1.0"
 dependencies = [
- "chrono",
- "nous-core",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
-name = "nous-material-service"
-version = "0.1.0"
-dependencies = [
  "async-trait",
  "blake3",
  "chrono",
  "futures",
- "nous-authority-store",
- "nous-cognitive-runtime",
  "nous-core",
- "nous-material",
  "nous-object-store",
+ "nous-persistence",
+ "nous-runtime",
  "serde",
  "serde_json",
  "sqlx",
@@ -2030,29 +1970,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "nous-memory-domain"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "nous-core",
- "serde",
- "uuid",
-]
-
-[[package]]
-name = "nous-memory-service"
+name = "nous-memory"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "nous-authority-store",
- "nous-cognitive-retrieval",
- "nous-cognitive-runtime",
- "nous-configuration-service",
+ "nous-configuration",
  "nous-core",
- "nous-memory-domain",
  "nous-object-store",
- "nous-serving",
+ "nous-persistence",
+ "nous-retrieval",
+ "nous-runtime",
  "serde",
  "serde_json",
  "sqlx",
@@ -2072,6 +2000,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "nous-persistence"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "getrandom 0.3.4",
+ "nous-core",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
 name = "nous-protocol"
 version = "0.1.0"
 dependencies = [
@@ -2082,34 +2023,53 @@ dependencies = [
 ]
 
 [[package]]
-name = "nous-serving"
+name = "nous-retrieval"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "async-trait",
  "blake3",
  "chrono",
- "nous-authority-store",
- "nous-cognitive-retrieval",
- "nous-cognitive-runtime",
- "nous-configuration-service",
+ "nalgebra",
+ "nous-configuration",
  "nous-core",
  "nous-object-store",
+ "nous-persistence",
+ "nous-runtime",
+ "roaring",
  "serde",
  "serde_json",
  "sqlx",
+ "tantivy",
  "tempfile",
  "tokio",
+ "usearch",
 ]
 
 [[package]]
-name = "nous-subject-core"
+name = "nous-runtime"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "nous-configuration",
+ "nous-core",
+ "nous-persistence",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
+name = "nous-subject"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "nous-authority-store",
- "nous-configuration-service",
+ "nous-configuration",
  "nous-core",
  "nous-object-store",
+ "nous-persistence",
  "serde",
  "serde_json",
  "sqlx",

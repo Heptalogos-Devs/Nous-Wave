@@ -1,6 +1,6 @@
 use super::*;
-use nous_authority_store::database_error as db;
-use nous_cognitive_runtime::{ResourceDescriptor, ResourceUpsert};
+use nous_persistence::database_error as db;
+use nous_runtime::{ResourceDescriptor, ResourceUpsert};
 use nous_core::{ResourceRef, Result, SubjectId};
 use sqlx::Row;
 

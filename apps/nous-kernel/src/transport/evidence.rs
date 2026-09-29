@@ -1,5 +1,5 @@
 use super::*;
-use nous_authority_store::database_error as db;
+use nous_persistence::database_error as db;
 use nous_core::Result;
 use sqlx::Row;
 use uuid::Uuid;

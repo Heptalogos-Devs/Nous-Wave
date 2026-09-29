@@ -1,9 +1,9 @@
 use super::*;
 use nous_core::{CognitiveSchemaId, EntityRef, OperationId, Result, SubjectId, TagId};
-use nous_memory_domain::{
+use nous_memory::{
     CreateSchemaInput, ReviseSchemaInput, SchemaEvidenceLinkInput, SchemaFormationKind, SchemaScope,
 };
-use nous_memory_service::schema::SchemaView;
+use nous_memory::schema::SchemaView;
 
 fn schema_input(
     subject: SubjectId,

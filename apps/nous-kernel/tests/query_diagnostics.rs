@@ -14,12 +14,12 @@ const ORACLE: &str = include_str!("fixtures/memory-reference-r1/oracle.json");
 async fn subject(runtime: &nous_kernel::NousRuntime) -> nous_core::SubjectId {
     runtime
         .subjects
-        .create_subject(nous_subject_core::CreateSubject {
+        .create_subject(nous_subject::CreateSubject {
             subject_id: None,
             operation_id: nous_core::OperationId::new(),
-            cognitive_seed: nous_subject_core::CognitiveSeedInput {
+            cognitive_seed: nous_subject::CognitiveSeedInput {
                 text: "schema_version = 1".into(),
-                format: nous_subject_core::COGNITIVE_SEED_FORMAT.into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
                 provenance: serde_json::json!({}),
             },
             metadata: serde_json::json!({}),
