@@ -1,4 +1,4 @@
-kernel_executable = "./target/debug/nous-kernel.exe"
+kernel_executable = "./target/debug/nous-kernel"
 kernel_config = "./config.example.toml"
 data_root = "./data/core"
 port = 9470

@@ -1,32 +1,45 @@
-# Execution Contract
+# Nous Wave Repository Execution Contract
 
-## Authority
+Nous Wave is PRE_PRODUCTION. Architecture-Vault owns long-term cognition semantics; this repository owns current executable implementation truth, active Plans/Specs, and verification evidence.
 
-- Architecture-Vault owns long-term target semantics, accepted design decisions, rationale, and long-term research.
-- This repository owns current implementation behavior, code-level contracts, implementation plans, and verification evidence.
-- Current source, Protobuf definitions, manifests, and tests establish what this checkout implements. Do not infer implementation from target design or earlier documentation.
-- `docs/plans/active/` contains current implementation authorization. Do not start code work from a completed, superseded, or research-only document.
+## Current authority
 
-## Documentation roles
+- Implement only the active Plan and the current executable Specs it names.
+- The 2026-10-27 Memory Reference Profile remains the milestone until explicitly replaced.
+- When code, tests, or old documents disagree with the active contract, treat them as migration inputs. Do not preserve them as authority.
+- Report unresolved changes to Authority, identity/revision, lifecycle, transaction/concurrency, idempotency, purge, public protocol, Serving consistency, security, or algorithm defaults as `SPEC_GAP` or `SPEC_CONFLICT` and stop that local slice.
 
-- `README.md` is the human entry point and shortest verified path; `INDEX.md` is the repository map; `AGENTS.md` is AI operational context. Keep these roles separate.
-- `docs/README.md` explains the documentation system; `docs/INDEX.md` is the maintained documentation catalog. Do not create competing catalogs or copy complete topic documents into entry points.
-- When an important boundary or path changes, update the affected README and both repository/documentation indexes. Keep detailed current behavior in its canonical reference or machine-readable contract.
+## PRE_PRODUCTION replacement default
 
-## Architecture boundaries
+Development history creates no compatibility obligation. When replacing a current internal API, schema, protocol, crate path, fixture, or durable shape, update current producers and consumers together and delete the old route in the same change.
 
-- Keep Subject Core, Cognitive Runtime, Memory, material/evidence, Authority Store, retrieval, and Serving behind their current owners.
-- Memory is optional to the runtime composition. Do not move Subject Core or generic Cognitive Runtime ownership into Memory.
-- Long-term target semantics for Memory classes, CognitiveSchema, Self, Social Cognition, Motivation, and cross-system behavior are owned by Architecture-Vault. This codebase does not maintain a second target ontology.
-- Current code implements TypeScript Core + Rust Kernel. Do not claim Self/Social/Motivation, Desired Condition, Pursuit, or Heptalogos live cognition integration is implemented without current code, protocol, and test evidence.
-- Current code contains EPA/Residual and bounded Wave implementations. They are not permanent design authority or production-default claims. VCP is research lineage; its source code is not copied.
+Do not add aliases, dual readers, dual writers, fallback parsers, compatibility migrations, or permanent adapters unless a real current external obligation is documented in the active Plan.
 
-## Implementation and verification
+## Structural responsibility
 
-- Use the dependency and tool routes selected in workspace manifests and lockfiles. Prefer suitable mature libraries for generic mechanics, behind Nous-owned interfaces.
-- Compatibility is required only for an explicit current obligation. TDD is optional; tests protect current contracts, observed risks, or meaningful uncertainty.
-- During iteration, use the narrowest useful check. At an authorized acceptance boundary use `corepack pnpm check` and `just verify` as required by the active Plan.
-- Do not hand-edit generated protocol output. Change `proto/` and generation inputs, then regenerate and verify the Rust/TypeScript consumers.
-- Do not traverse or clean `node_modules/`. Keep Cargo `target/` for incremental compilation; `just clean-build` is an explicit space-recovery operation, not a routine verification step. Use `just clean-test-temp` only for its exact embedded PostgreSQL temporary-directory scope.
-- Do not add speculative fallback paths, schedulers, validators, recovery layers, or verification processes for hypothetical future work.
-- Report evidence as `PASS`, `FAIL`, `NOT_RUN`, or `BLOCKED` and keep each claim within what actually ran.
+Reconsider topology when work repeatedly crosses the same owners, an internal adapter is required, or a third similar owner/flow would be added. Merge, rename, or delete directly when that lowers continuing cost. Domain nouns do not imply crates, services, processes, or tables.
+
+Keep `runtime` independent of concrete retrieval/provider implementation. `persistence` supplies database mechanics; `retrieval` supplies rebuildable Serving mechanics; semantic owners retain mutation and lifecycle meaning.
+
+## Product boundary
+
+The current executable profile is Memory-only. Do not reintroduce Self, Social, Motivation, Episode, Journal, Offline Cognition, or Heptalogos behavior authority through code, protocol, configuration, tests, or docs. Their long-term semantics remain in Architecture-Vault.
+
+## Generated and durable state
+
+- Edit canonical `.proto` files and run `corepack pnpm generate`; never hand-edit generated bindings.
+- Fresh schema lives in `crates/persistence/migrations/0001_foundation.sql` through `0004_indexes.sql`. Project-owned dev/test databases may be reset when a schema rebase requires it.
+- Keep Cargo `target/` for incremental compilation. Do not traverse or clean `node_modules/`.
+- Do not push, merge, deploy, or mutate external production state without explicit authorization.
+
+## Governance economy
+
+Persistent governance records recurring, project-specific executor failures. Do not add AGENTS rules, Skills, tests, validators, checklists, or gates for ordinary coding competence or one-time incidents. Keep README for purpose/shortest path, INDEX for navigation, AGENTS for agent behavior, active Plans for authorization, Specs for current contracts, and Qualification for executed evidence.
+
+## Verification and claims
+
+Use the narrowest useful check during iteration. At acceptance, run the active Plan's gates, including `corepack pnpm check`, `just verify`, and `corepack pnpm qualification:memory-reference` when the public Memory capability is in scope.
+
+Use only `PASS`, `FAIL`, `NOT_RUN`, and `BLOCKED`. Internal tests do not prove a public capability; a capability claim requires the supported public entrypoint and official Client path. Do not turn one-platform evidence into cross-platform claims.
+
+When an important boundary changes, update the relevant README/INDEX and current architecture/state documents. Keep AI-facing instructions concise technical English.

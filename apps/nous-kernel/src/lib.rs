@@ -2,8 +2,6 @@
 mod context;
 pub mod transport;
 
-use nous_persistence::AuthorityStore;
-use nous_runtime::CognitiveRuntimeService;
 use nous_configuration::{
     ConfigRegistryBuilder, ConfigurationService, ProcessCapabilities, process_capabilities,
 };
@@ -11,7 +9,9 @@ use nous_core::*;
 use nous_material::MaterialService;
 use nous_memory::MemoryService;
 use nous_object_store::ObjectStore;
+use nous_persistence::AuthorityStore;
 use nous_retrieval::{ServingOptions, ServingService, TextEmbeddingProvider};
+use nous_runtime::CognitiveRuntimeService;
 use nous_subject::SubjectCoreService;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -159,9 +159,9 @@ impl NousRuntime {
                     memory: subject_capabilities
                         .memory
                         .then(|| {
-                            self.memory.as_ref().map(|memory| {
-                                memory as &dyn nous_runtime::CognitiveContributor
-                            })
+                            self.memory
+                                .as_ref()
+                                .map(|memory| memory as &dyn nous_runtime::CognitiveContributor)
                         })
                         .flatten(),
                 },
@@ -217,5 +217,4 @@ impl NousRuntime {
             capabilities,
         }
     }
-
 }

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use nous_runtime::{BoundQuery, QueryPlan};
 use nous_core::{EvidenceFamily, Result};
+use nous_runtime::{BoundQuery, QueryPlan};
 
 pub(crate) use nous_runtime::{LaneCandidate, LaneOutput, LaneStatus};
 

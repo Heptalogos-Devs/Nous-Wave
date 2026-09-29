@@ -71,12 +71,7 @@ impl ServingService {
     ) -> Result<i64> {
         let input = self
             .store
-            .text_projection_input(
-                subject,
-                family,
-                "",
-                capabilities.memory,
-            )
+            .text_projection_input(subject, family, "", capabilities.memory)
             .await?;
         if family == "exact" {
             let mut postings = ExactPostings::default();
@@ -159,10 +154,7 @@ impl ServingService {
     ) -> Result<i64> {
         let input = self
             .store
-            .topology_projection_input(
-                subject,
-                capabilities.memory,
-            )
+            .topology_projection_input(subject, capabilities.memory)
             .await?;
         let edges: Vec<_> = input
             .edges
@@ -233,12 +225,7 @@ impl ServingService {
         }
         let input = self
             .store
-            .text_projection_input(
-                subject,
-                "dense",
-                space_key,
-                capabilities.memory,
-            )
+            .text_projection_input(subject, "dense", space_key, capabilities.memory)
             .await?;
         let source_regions: std::collections::HashMap<_, _> = input
             .sources

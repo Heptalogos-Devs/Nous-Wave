@@ -1,35 +1,43 @@
 # Nous Wave 当前实现架构
 
-长期目标语义与跨系统合同由 Architecture-Vault 持有；本页只描述当前 checkout 的代码 owner 和运行边界。
+长期目标语义与跨系统合同由 Architecture-Vault 持有；本文只描述当前 checkout 的 owner、进程边界和依赖方向。
 
 ## 进程边界
 
-TypeScript Core 负责公开 API、Focus、Projection、Managed Context、NousQL、模型/资源编排和官方 Client 的宿主边界。Rust Kernel 负责私有 Connect/gRPC、Subject、Cognitive Runtime、Material、Memory、Authority Store 和 Serving owner 的组合。Core 不直接访问 Kernel PostgreSQL。
+TypeScript Core 负责公开 Connect/HTTP API、Focus/Projection/Managed Context、NousQL、模型编排和官方 Client 宿主。Rust Kernel 是 private loopback child process，负责 Subject、Runtime、Material、Memory、Persistence 和 Retrieval 的组合。Core 不直接访问 PostgreSQL。
 
 ## Rust owners
 
-| Owner                                     | 当前责任                                                                                                                                     |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `crates/core`                             | typed IDs、exact references、时间范围、Query contracts、错误和 operation digest 基础。                                                       |
-| `crates/subject-core`                     | Subject identity、immutable Cognitive Seed version/adoption 和 Subject authority sequence 读取。                                            |
-| `crates/configuration-service`             | owner registry、typed descriptors、deployment/system/subject overrides、immutable snapshots、权限和 subset digest。                       |
-| `crates/cognitive-seed`                    | Cognitive Seed v1 TOML parser、deny-unknown-fields validation 和 semantic paths。                                                          |
-| `crates/material` / `material-service`    | Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation、材料化和上传 admission。                                               |
-| `crates/memory-domain` / `memory-service` | Memory/Revision、EvidenceRef、CognitionDependency、CognitiveSchema、AssociationEvidence、lifecycle、Accessibility 和 R1 query contribution。 |
-| `crates/self-domain` / `self-service`    | SelfFacet、NarrativeIdentity、Cognitive Seed adoption、Self lifecycle/provenance、SelfDirect query contribution。                              |
-| `crates/social-domain` / `social-service` | Relation Type、directed Relationship、LanguageConvention、Social evidence acceptance、Social query/Serving source 和 lifecycle Authority。 |
-| `crates/cognitive-runtime`                | Session、ResidentSet、QueryPlan、UseEvent scoped idempotency、runtime checkpoint 和 workset。                                                |
-| `crates/authority-store`                  | PostgreSQL migrations、mutation receipts、authority sequence、projection watermarks、reference validation 和 serving records。               |
-| `crates/cognitive-retrieval` / `serving`  | lexical/dense/topology artifacts、registry-driven RRF/Wave policy、bounded propagation 和 immutable rebuildable generations。              |
+| Owner | 当前责任 |
+| --- | --- |
+| `crates/core` | typed IDs、exact references、query DTO、时间和共享语义错误 |
+| `crates/protocol` | 从 `proto/` 生成的 Rust wire bindings |
+| `crates/persistence` | PostgreSQL pool/transaction、fresh schema、receipts、projection watermarks 和 Authority-side queries |
+| `crates/configuration` | typed registry、overrides、immutable snapshots、digest 和 capability provisioning |
+| `crates/subject` | Subject identity、Memory capability、Cognitive Seed version/adoption |
+| `crates/material` | Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation 和 materialization |
+| `crates/memory` | Memory/CognitiveSchema/Tag/AssociationEvidence Authority、lifecycle、query contributors |
+| `crates/runtime` | Session、ResidentSet、UseEvent、QueryPlan、lane/result contract 和 fixed fusion |
+| `crates/retrieval` | lexical/dense Serving、immutable generations、provider adapters 和 explicit experimental topology |
 
-## 主要流程
+## 主要数据流
 
-Observation 先写 Material Authority，再由 Memory owner 以 occurrence-bound EvidenceRef 形成 immutable Memory revision。Memory mutation 在 receipt、object epoch、authority sequence 和 projection watermark 的同一 Authority transaction 中提交；外部模型、embedding、reranker 和大对象读取位于 transaction 外。
+```text
+Official Client / Host
+        ↓
+TypeScript Core
+        ↓ private authenticated loopback RPC
+Rust Kernel
+  ├─ Subject / Material / Memory Authority
+  ├─ Runtime query and use state
+  ├─ Persistence
+  └─ rebuildable Retrieval generations
+```
 
-Query bind 开始时固定一个 Subject `ConfigSnapshot` 和 `QueryPlan`。Memory/Self/Social 只产生 lane candidates；Runtime 先按 exact revision 聚合多 lane，再由 `cognitive-retrieval` 唯一执行一次 registry-driven RRF，最后按 owner 批量 validation/materialization 并恢复 fused order。Serving generation 只提供可重建候选来源，不拥有认知真值。
+Observation 先写 Material Authority，再由 Memory owner 以 occurrence-bound EvidenceRef 形成 immutable revision。Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime state 不成为认知真值。
 
-Context/Projection 仍属于 Core/Runtime；进入调用方上下文的呈现和后续 referenced/acted_on/result use 通过 UseEvent 独立记录。Purge 是 cognition-scope 的可恢复两阶段操作，不删除共享 source Authority。
+Runtime 持有 QueryPlan、lane budgets、object-revision aggregation、fixed RRF 和 final result ordering。Retrieval 通过 Runtime-owned contract 提供 serving candidates，不被 Runtime 作为具体实现依赖。
 
 ## 当前边界
 
-当前 checkout 已有 Self 与首批 Social Cognition owner；Motivation、Desired Condition、Episode/Journal 和 Heptalogos live integration 仍没有实现 owner。它们的目标语义不由本仓库的代码状态推断。
+当前 executable scope 是 Memory-only Reference Profile。Self、Social、Motivation、Desired Condition、Episode/Journal、Offline Cognition 和 Heptalogos live integration 由 Vault 保留长期目标语义，但不在本 checkout 提供 owner、protocol 或 public capability claim。

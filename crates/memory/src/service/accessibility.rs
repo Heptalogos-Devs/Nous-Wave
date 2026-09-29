@@ -1,9 +1,9 @@
 use super::*;
-use nous_persistence::database_error as db;
 use nous_configuration::{
     ConfigApplyMode, ConfigExposure, ConfigKey, ConfigRegistryBuilder, ConfigScopePolicy,
     ConfigSemanticEffect, ConfigSnapshot,
 };
+use nous_persistence::database_error as db;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

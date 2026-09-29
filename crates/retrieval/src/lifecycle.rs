@@ -74,11 +74,11 @@ impl ServingService {
         subject: SubjectId,
     ) -> Result<ProjectionCapabilities> {
         let row = sqlx::query("SELECT memory FROM subject_capabilities WHERE subject_id=$1")
-        .bind(subject.0)
-        .fetch_optional(self.store.pool())
-        .await
-        .map_err(nous_persistence::database_error)?
-        .ok_or_else(|| Error::NotFound("subject capabilities not found".into()))?;
+            .bind(subject.0)
+            .fetch_optional(self.store.pool())
+            .await
+            .map_err(nous_persistence::database_error)?
+            .ok_or_else(|| Error::NotFound("subject capabilities not found".into()))?;
         Ok(ProjectionCapabilities {
             memory: self.options.memory_enabled
                 && row

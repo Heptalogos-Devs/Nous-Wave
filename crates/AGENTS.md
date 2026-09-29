@@ -1,8 +1,7 @@
-# Rust Crate Instructions
+# Rust Crate Topology Instructions
 
-Crates are the Rust semantic/mechanism owners composed by Nous Kernel.
+A crate boundary must pay for itself through a stable semantic lifecycle, reusable mechanism, process/wire boundary, or meaningful dependency isolation. Ontology nouns and `Domain`/`Service` naming alone do not justify separate crates.
 
-- Keep domain state and canonical mutations in their existing owners; mechanism crates do not acquire Memory or Subject semantics.
-- `memory-domain` owns Memory types; `memory-service` owns Memory operations; `authority-store` owns SQL mechanics; `serving` owns rebuildable projections.
-- Use the workspace dependency declarations in the root `Cargo.toml`; do not pin shared dependency versions independently in crate manifests.
-- Add tests for current owner contracts and observed risks, not for speculative future behavior.
+Current owners and dependencies are documented in [`INDEX.md`](INDEX.md). Keep `persistence` as database mechanics, `runtime` as query/Runtime semantics, and `retrieval` as rebuildable Serving mechanics. Runtime MUST NOT depend on concrete retrieval implementation merely to share contracts.
+
+When a change repeatedly crosses crates, inspect the dependency graph before adding another interface. Merge, rename, or delete directly in PRE_PRODUCTION; remove old paths and re-export shims.

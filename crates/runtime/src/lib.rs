@@ -18,8 +18,8 @@ pub use resources::*;
 pub use types::*;
 
 use chrono::{DateTime, Utc};
-use nous_persistence::AuthorityStore;
 use nous_core::*;
+use nous_persistence::AuthorityStore;
 use std::collections::HashSet;
 
 pub const RESIDENT_LIMIT_KEY: nous_configuration::ConfigKey<usize> =

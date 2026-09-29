@@ -1,7 +1,7 @@
-use crate::{BoundQuery, CognitiveRuntimeService, QueryPlan};
 use super::{
     CandidateRankInput, LaneCandidate, LaneOutput, LaneStatus, rank_candidates_with_policy,
 };
+use crate::{BoundQuery, CognitiveRuntimeService, QueryPlan};
 use nous_core::*;
 use std::collections::{BTreeMap, HashMap};
 
@@ -361,8 +361,7 @@ fn reference_hit(
         | CognitiveRef::Tag(_)
         | CognitiveRef::CognitiveSchema(_)
         | CognitiveRef::CognitiveSchemaRevision(_)
-        | CognitiveRef::CognitiveSeedVersion(_)
-        => AuthorityClass::SubjectCognition,
+        | CognitiveRef::CognitiveSeedVersion(_) => AuthorityClass::SubjectCognition,
         CognitiveRef::Resource(_) => AuthorityClass::ResourceDescriptor,
         CognitiveRef::DerivedRepresentation(_) | CognitiveRef::DerivedRegion(_) => {
             AuthorityClass::Interpretation

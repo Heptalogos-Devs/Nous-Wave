@@ -1,9 +1,5 @@
 # Repository Script Instructions
 
-This scope owns repository checks and bounded maintenance scripts.
+Scripts under this scope are maintenance or development entrypoints. Keep destructive cleanup narrowly scoped to named project-owned artifacts, provide a preview path when deletion is possible, and never traverse `node_modules/`, delete Cargo `target/` by default, or touch repository data outside the command's explicit scope.
 
-- Keep deterministic checks under `check/`; keep policy values under `check/config/`; keep narrowly scoped cleanup under `maintenance/`.
-- Do not make scripts traverse `node_modules/`, delete Cargo `target/` by default, or touch repository data and `.codegraph` unless an explicit command scope says so.
-- Cleanup scripts MUST identify exact artifact markers, support a preview mode when deletion is possible, and skip recent or active artifacts rather than using broad wildcard deletion.
-- Keep verification ordering and public command names in the root `justfile`; update `scripts/README.md` when the script contract changes.
-- Run the narrow script check after editing a checker and report any unrun broader gate explicitly.
+The canonical development entrypoint is `scripts/dev.ts`, exposed as `corepack pnpm dev`. Keep platform detection and child-process shutdown in that owner; do not duplicate it in README examples or alternate scripts.

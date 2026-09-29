@@ -3,8 +3,8 @@ use crate::{
     ConfigSnapshot, ConfigSource, flatten_settings,
 };
 use chrono::Utc;
-use nous_persistence::{AuthorityStore, database_error as db};
 use nous_core::{Error, OperationId, Result, SubjectId};
+use nous_persistence::{AuthorityStore, database_error as db};
 use serde_json::Value;
 use sqlx::Row;
 use std::{

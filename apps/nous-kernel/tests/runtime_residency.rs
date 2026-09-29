@@ -2,12 +2,12 @@
 mod test_support;
 
 use chrono::{Duration, Utc};
-use nous_runtime::{ResidentAdmission, ResidentState};
 use nous_core::{CognitiveRef, EntityRef, OperationId};
 use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, ResolvedEntityMention,
     RuntimeDirective,
 };
+use nous_runtime::{ResidentAdmission, ResidentState};
 use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::{database, observation, open_runtime};
 use uuid::Uuid;

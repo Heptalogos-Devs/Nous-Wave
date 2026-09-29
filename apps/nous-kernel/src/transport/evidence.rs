@@ -1,6 +1,6 @@
 use super::*;
-use nous_persistence::database_error as db;
 use nous_core::Result;
+use nous_persistence::database_error as db;
 use sqlx::Row;
 use uuid::Uuid;
 impl KernelService {

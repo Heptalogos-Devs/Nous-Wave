@@ -45,12 +45,7 @@ impl QueryPlan {
             .saturating_mul(multiplier)
             .clamp(16, per_lane_max);
         let budgets = lanes.iter().copied().map(|lane| (lane, budget)).collect();
-        Self::from_parts(
-            query,
-            lanes,
-            budgets,
-            &super::RetrievalPolicy::reference(),
-        )
+        Self::from_parts(query, lanes, budgets, &super::RetrievalPolicy::reference())
     }
 
     fn from_parts(

@@ -110,12 +110,7 @@ impl ServingService {
         let capabilities = self.projection_capabilities(subject).await?;
         let input = self
             .store
-            .text_projection_input(
-                subject,
-                "dense",
-                &config.space_hash,
-                capabilities.memory,
-            )
+            .text_projection_input(subject, "dense", &config.space_hash, capabilities.memory)
             .await?;
         let mut needs = vec![];
         for doc in self.documents(input.sources).await? {
@@ -163,12 +158,7 @@ impl ServingService {
         let input = self.projection_capabilities(subject).await?;
         let input = self
             .store
-            .text_projection_input(
-                subject,
-                "dense",
-                space,
-                input.memory,
-            )
+            .text_projection_input(subject, "dense", space, input.memory)
             .await?;
         let exists = self
             .documents(input.sources)

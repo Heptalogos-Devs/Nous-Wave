@@ -15,23 +15,23 @@ mod source_classes;
 mod topology;
 mod topology_lane;
 
+use crate::*;
 use chrono::{DateTime, Utc};
+use nous_core::*;
+use nous_object_store::ObjectStore;
 use nous_persistence::{AuthorityStore, ProjectionInvalidation, database_error as db};
 pub use nous_runtime::{ResidentView, ResourceUpsert, ResourceView, SessionView};
-use nous_core::*;
-use crate::*;
-use nous_object_store::ObjectStore;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sqlx::Row;
 use std::sync::Arc;
 use uuid::Uuid;
 
+pub use crate::{CognitiveRole, FormationMode};
 pub use accessibility::{
     AccessibilityPolicy, eligible as accessibility_eligible, register_configuration,
     resolve_accessibility_policy,
 };
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
-pub use crate::{CognitiveRole, FormationMode};
 
 #[derive(Clone)]
 pub struct MemoryService {

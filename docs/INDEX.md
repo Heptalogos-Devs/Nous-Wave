@@ -4,7 +4,7 @@
 
 ## 了解当前系统
 
-- [当前实现架构](architecture/current-implementation.md)：Core、Kernel、协议、Runtime、Memory、Retrieval 和 Serving 的代码 owner 与边界。
+- [当前实现架构](architecture/current-implementation.md)：Core、Kernel、协议、Runtime、Memory、Persistence 和 Retrieval 的代码 owner 与边界。
 - [当前状态](current-state/CURRENT_STATE.md)：当前能力、验证证据和未完成 gap。
 
 ## 施工与验证

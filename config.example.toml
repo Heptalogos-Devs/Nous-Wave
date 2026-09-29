@@ -1,12 +1,8 @@
-[bootstrap.server]
-bind = "127.0.0.1:9470"
-remote_access = false
-
 [bootstrap.database]
 mode = "managed"
 url = ""
 max_connections = 8
-name = "nous_wave_20260928"
+name = "nous_wave_dev"
 install_dir = "./data/postgres-install"
 data_dir = "./data/postgres"
 

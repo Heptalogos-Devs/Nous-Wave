@@ -6,16 +6,10 @@ pub enum QueryTarget {
     AnyRelevantCognition,
     Memory,
     Evidence,
-    EntityNeighborhood {
-        entity_ref: EntityRef,
-    },
-    SchemaNeighborhood {
-        schema: CognitiveSchemaId,
-    },
+    EntityNeighborhood { entity_ref: EntityRef },
+    SchemaNeighborhood { schema: CognitiveSchemaId },
     Resource,
-    Exact {
-        reference: CognitiveRef,
-    },
+    Exact { reference: CognitiveRef },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

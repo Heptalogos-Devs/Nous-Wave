@@ -10,5 +10,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["apps/nous-core/**/*.ts", "packages/**/*.ts"]
+  "include": ["apps/nous-core/**/*.ts", "packages/**/*.ts", "scripts/**/*.ts"]
 }

@@ -1,8 +1,8 @@
 use crate::*;
+use nous_core::{CognitiveRef, Cue, EvidenceFamily, RequirementStrength, Result};
 use nous_runtime::{
     BoundQuery, LaneCandidate, LaneOutput, LaneStatus, QueryPlan, SharedLaneProvider,
 };
-use nous_core::{CognitiveRef, Cue, EvidenceFamily, RequirementStrength, Result};
 use std::collections::HashMap;
 
 fn text_query(query: &nous_core::CognitiveQuery) -> String {

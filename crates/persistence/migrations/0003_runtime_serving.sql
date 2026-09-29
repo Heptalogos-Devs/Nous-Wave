@@ -39,7 +39,7 @@ CREATE TABLE cognitive_sessions (
 
 CREATE TABLE resident_refs (
     session_id uuid NOT NULL REFERENCES cognitive_sessions(session_id) ON DELETE CASCADE,
-    ref_kind text NOT NULL CHECK (ref_kind IN ('memory_revision','cognitive_schema_revision')),
+    ref_kind text NOT NULL CHECK (ref_kind ~ '^[a-z][a-z0-9_]{0,63}$'),
     ref_value text NOT NULL,
     entered_at timestamptz NOT NULL,
     entry_reason text NOT NULL,

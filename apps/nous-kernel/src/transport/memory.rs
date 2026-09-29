@@ -1,8 +1,8 @@
 use super::*;
-use nous_persistence::database_error as db;
 use nous_core::{EntityRef, OperationId, Result, SubjectId};
 use nous_memory::ExplicitMemoryInput;
 use nous_memory::{MemoryView, ReviseMemoryInput};
+use nous_persistence::database_error as db;
 
 pub(super) fn view(input: MemoryView) -> p::Memory {
     let object = input.object;

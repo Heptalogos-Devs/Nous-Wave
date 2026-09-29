@@ -1,12 +1,12 @@
 use super::*;
 use futures::{Stream, StreamExt};
-use nous_persistence::database_error as db;
 use nous_core::{ArtifactId, EntityRef, ObjectRef, ResourceRef, Result, SessionId, SubjectId};
+use nous_material::{ByteRange, MaterializeRequest, UploadMetadata};
 use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, ResolvedEntityMention,
     RuntimeDirective,
 };
-use nous_material::{ByteRange, MaterializeRequest, UploadMetadata};
+use nous_persistence::database_error as db;
 use std::pin::Pin;
 use uuid::Uuid;
 

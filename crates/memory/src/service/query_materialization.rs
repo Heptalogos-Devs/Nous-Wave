@@ -1,5 +1,5 @@
-use super::*;
 use super::query::{Candidate, FinalMemoryState};
+use super::*;
 use std::collections::BTreeMap;
 
 pub(super) fn final_state_filter(

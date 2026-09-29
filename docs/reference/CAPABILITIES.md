@@ -1,19 +1,7 @@
 # Capability Composition 当前参考
 
-Kernel 当前组合持有 `ConfigurationService`，并按 Process Capability 构造 optional owner：`memory: Option<MemoryService>`、`self_cognition: Option<SelfService>`、`social: Option<SocialService>`。
+当前 process/subject capability 只声明 Memory。Subject 创建时保存展开后的 typed capability set；默认配置变化不改写既有 Subject。
 
-默认 process/新 Subject capability 为：
+Memory-only Subject 可以形成 Memory、Query、Serving、UseEvent、restart/rebuild、suppression/restore 和 purge。未实现的长期认知领域不通过空表、占位对象或 disabled owner 模拟存在。
 
-```text
-Memory=true
-Self=false
-Social=false
-```
-
-`CreateSubject` 的运行策略入口已收敛为 `metadata` 加 typed `SubjectCapabilities`；metadata 不承载 configuration settings。Subject capabilities 必须是 process capabilities 的子集，并写入 `subject_capabilities`。
-
-Memory-only Subject 可以形成 Memory、Query、Serving 和恢复；未启用的 Self/Social 不产生 placeholder cognition，也不使 Memory query/Serving degraded。显式查询 disabled domain 返回 `Unavailable`。
-
-Serving text/topology projection 的 source composition 同时检查 process 与 Subject capability；query 使用同一 bound `ConfigSnapshot`，shared lexical/dense lane 只执行一次，再按 owner 批量 validation/materialization。
-
-当前公共 wire contract 在 `proto/nous/wave/v1alpha1/types.proto` 中声明 `SubjectCapabilities`、`CreateSubject.metadata` 和 `Subject.metadata`；Rust/TypeScript bindings 由 Buf 生成。
+当前 wire contract 在 `proto/nous/wave/v1alpha1/types.proto` 的 `SubjectCapabilities` 中声明 `memory`；Rust/TypeScript bindings 由 Buf 生成。长期 Self/Social/Motivation 语义见 Architecture-Vault，不属于当前 executable capability。

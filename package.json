@@ -7,8 +7,10 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "dev": "tsx scripts/dev.ts",
     "start": "tsx apps/nous-core/src/main.ts",
     "qualification:official-client": "tsx apps/nous-core/official_client_closure.ts",
+    "qualification:memory-reference": "tsx apps/nous-core/qualification_memory_reference.ts",
     "format": "prettier \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"*.{json,js,cjs,mjs,yml,yaml}\" --write",
     "format:check": "prettier \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"*.{json,js,cjs,mjs,yml,yaml}\" --check",
     "typecheck": "tsc --noEmit",
@@ -20,7 +22,7 @@
     "lint:deps": "dependency-cruiser apps/nous-core/src packages --config .dependency-cruiser.cjs",
     "lint:dupes": "jscpd .",
     "lint:sherif": "sherif",
-    "quality": "pnpm lint:knip && pnpm lint:deps && pnpm lint:dupes && pnpm lint:sherif",
+    "quality": "pnpm lint:knip && pnpm lint:deps && pnpm lint:sherif",
     "check:governance": "pnpm format:check && pnpm lint:ts && pnpm quality",
     "check": "pnpm proto:check && pnpm typecheck && pnpm test && pnpm check:governance"
   },

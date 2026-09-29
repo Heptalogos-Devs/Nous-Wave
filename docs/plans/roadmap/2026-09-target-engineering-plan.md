@@ -50,19 +50,19 @@
   - model orchestration。
 - `apps/nous-kernel`
   - private Rust Kernel composition。
-- `crates/subject-core`
+- `crates/subject`
   - Subject identity / Character Seed lineage。
 - `crates/material` + `material-service`
   - Artifact / ObservationOccurrence / DerivedRepresentation。
-- `crates/memory-domain` + `memory-service`
+- `crates/memory`
   - current Memory ontology and operations。
-- `crates/cognitive-runtime`
+- `crates/runtime`
   - Session / ResidentSet / use feedback / QueryPlan-related runtime。
-- `crates/authority-store`
+- `crates/persistence`
   - PostgreSQL Authority persistence。
-- `crates/cognitive-retrieval`
+- `crates/retrieval`
   - candidate lanes / ranking。
-- `crates/serving`
+- `crates/retrieval`
   - rebuildable serving generation and artifacts。
 - `proto/nous/wave/v1alpha1`
   - cross-language contracts。
@@ -165,8 +165,8 @@ Nous-Wave repo：
 
 - `crates/core`
 - `crates/material`
-- `crates/material-service`
-- `crates/authority-store`
+- `crates/material`
+- `crates/persistence`
 - protocol / client
 
 ## 计划语义
@@ -205,9 +205,8 @@ Nous-Wave repo：
 
 ## 主要代码面
 
-- `crates/memory-domain`
-- `crates/memory-service`
-- `crates/authority-store`
+- `crates/memory`
+- `crates/persistence`
 - `proto/nous/wave/v1alpha1`
 - protocol-ts/client
 - Core routes
@@ -270,8 +269,8 @@ Memory revision 持有 typed evidence 与 provenance references。
 
 ## 主要代码面
 
-- `crates/authority-store/migrations`
-- `crates/authority-store/src`
+- `crates/persistence/migrations`
+- `crates/persistence/src`
 - Proto
 - generated TypeScript bindings
 - official Client
@@ -320,7 +319,7 @@ Memory revision 持有 typed evidence 与 provenance references。
 
 ## 主要代码面
 
-- `crates/cognitive-runtime`
+- `crates/runtime`
 - Core Focus / Projection / Context
 - protocol/client
 - authority-store use-event persistence
@@ -363,9 +362,9 @@ Memory revision 持有 typed evidence 与 provenance references。
 
 ## 主要代码面
 
-- `crates/cognitive-retrieval`
-- `crates/serving`
-- `crates/cognitive-runtime`
+- `crates/retrieval`
+- `crates/retrieval`
+- `crates/runtime`
 - NousQL compiler
 - protocol/client
 - model embedding / rerank adapters

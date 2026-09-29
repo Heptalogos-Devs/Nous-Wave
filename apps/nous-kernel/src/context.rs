@@ -1,17 +1,13 @@
 use crate::NousRuntime;
-use nous_runtime::{ContextResolver, ContextSource, bounded_text, modality};
 use nous_core::*;
 use nous_material::MaterializeRequest;
+use nous_runtime::{ContextResolver, ContextSource, bounded_text, modality};
 
 #[async_trait::async_trait]
 impl ContextResolver for NousRuntime {
     #[expect(
         clippy::unnecessary_filter_map,
         reason = "context evidence selection preserves owner-specific support variants"
-    )]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "context resolution keeps Memory, Resource, Self, and material ownership branches explicit"
     )]
     async fn context_source(
         &self,
@@ -39,21 +35,15 @@ impl ContextResolver for NousRuntime {
             ) || !matches!(
                 memory.object.suppression_state,
                 nous_memory::SuppressionState::Normal
-            ) || !matches!(
-                memory.object.purge_state,
-                nous_memory::PurgeState::Normal
-            ) {
+            ) || !matches!(memory.object.purge_state, nous_memory::PurgeState::Normal)
+            {
                 return Err(Error::Unavailable("Memory is suppressed".into()));
             }
             let level = self
                 .require_memory()?
                 .accessibility_level(subject, memory.object.memory_id, chrono::Utc::now())
                 .await?;
-            if !nous_memory::accessibility_eligible(
-                level,
-                CognitiveEffort::Normal,
-                explicit,
-            ) {
+            if !nous_memory::accessibility_eligible(level, CognitiveEffort::Normal, explicit) {
                 return Err(Error::Unavailable(
                     "Memory accessibility requires deeper or explicit recall".into(),
                 ));

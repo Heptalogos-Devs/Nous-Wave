@@ -1,8 +1,8 @@
+use super::resolve_retrieval_policy;
 use super::types::{
     AccessibilityQueryPolicy, BoundQuery, ExactBinding, RerankPolicy, RevisionPolicy,
 };
 use crate::CognitiveRuntimeService;
-use super::resolve_retrieval_policy;
 use nous_core::*;
 use std::collections::{BTreeMap, HashSet};
 use uuid::Uuid;
@@ -131,10 +131,6 @@ fn budget_values(
 }
 
 impl CognitiveRuntimeService {
-    #[expect(
-        clippy::too_many_lines,
-        reason = "query binding freezes identity, capabilities, config snapshot, lanes, and revision fences together"
-    )]
     pub async fn bind_query(&self, query: CognitiveQuery) -> Result<BoundQuery> {
         query.validate()?;
         validate_hard_constraints(&query)?;
@@ -158,8 +154,7 @@ impl CognitiveRuntimeService {
             if !mutable_object
                 && matches!(
                     reference,
-                    CognitiveRef::MemoryRevision(_)
-                        | CognitiveRef::CognitiveSchemaRevision(_)
+                    CognitiveRef::MemoryRevision(_) | CognitiveRef::CognitiveSchemaRevision(_)
                 )
             {
                 allowed_revision_refs.insert(bound_ref.clone());

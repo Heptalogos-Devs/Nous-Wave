@@ -3,12 +3,12 @@
 mod seed;
 
 use chrono::{DateTime, Utc};
-use nous_persistence::AuthorityStore;
 use nous_configuration::{
     ConfigurationService, process_capabilities, subject_default_capabilities,
 };
 use nous_core::{Error, OperationId, Result, SubjectId};
 use nous_object_store::ObjectStore;
+use nous_persistence::AuthorityStore;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 

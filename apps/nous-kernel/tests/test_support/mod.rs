@@ -59,16 +59,14 @@ pub(crate) async fn open_memory_only_runtime(url: &str, root: &TempDir) -> NousR
             dense: false,
             topology: false,
             memory_enabled: true,
-            self_enabled: false,
-            social_enabled: false,
         },
         embedding: None,
         stored_embedding: None,
         deployment_settings: serde_json::json!({
             "settings": {
                 "capabilities": {
-                    "process": { "memory": true, "self_cognition": false, "social": false },
-                    "subject_defaults": { "memory": true, "self_cognition": false, "social": false }
+                    "process": { "memory": true },
+                    "subject_defaults": { "memory": true }
                 },
                 "serving": {
                     "lexical": { "enabled": false },
@@ -80,91 +78,6 @@ pub(crate) async fn open_memory_only_runtime(url: &str, root: &TempDir) -> NousR
     })
     .await
     .expect("open memory-only runtime")
-}
-
-pub(crate) async fn initial_seed_version(
-    runtime: &NousRuntime,
-    subject: nous_core::SubjectId,
-) -> nous_core::CognitiveSeedVersionId {
-    nous_core::CognitiveSeedVersionId(
-        sqlx::query_scalar(
-            "SELECT seed_version_id FROM cognitive_seed_versions WHERE subject_id=$1 ORDER BY created_at LIMIT 1",
-        )
-        .bind(subject.0)
-        .fetch_one(runtime.store.pool())
-        .await
-        .expect("initial seed version"),
-    )
-}
-
-pub(crate) async fn open_runtime_with_social(url: &str, root: &TempDir) -> NousRuntime {
-    NousRuntime::open(RuntimeOptions {
-        postgres_url: url.into(),
-        max_connections: 4,
-        object_root: root.path().join("objects").to_string_lossy().into_owned(),
-        max_upload_bytes: 1024 * 1024,
-        serving_options: ServingOptions {
-            root: root.path().join("serving"),
-            lexical: false,
-            dense: false,
-            topology: false,
-            memory_enabled: true,
-            self_enabled: false,
-            social_enabled: true,
-        },
-        embedding: None,
-        stored_embedding: None,
-        deployment_settings: serde_json::json!({
-            "settings": {
-                "capabilities": {
-                    "process": { "memory": true, "self_cognition": false, "social": true },
-                    "subject_defaults": { "memory": true, "self_cognition": false, "social": false }
-                },
-                "serving": {
-                    "lexical": { "enabled": false },
-                    "dense": { "enabled": false },
-                    "topology": { "enabled": false }
-                }
-            }
-        }),
-    })
-    .await
-    .expect("open social runtime")
-}
-
-pub(crate) async fn open_runtime_with_all_domains(url: &str, root: &TempDir) -> NousRuntime {
-    NousRuntime::open(RuntimeOptions {
-        postgres_url: url.into(),
-        max_connections: 4,
-        object_root: root.path().join("objects").to_string_lossy().into_owned(),
-        max_upload_bytes: 1024 * 1024,
-        serving_options: ServingOptions {
-            root: root.path().join("serving"),
-            lexical: true,
-            dense: false,
-            topology: false,
-            memory_enabled: true,
-            self_enabled: true,
-            social_enabled: true,
-        },
-        embedding: None,
-        stored_embedding: None,
-        deployment_settings: serde_json::json!({
-            "settings": {
-                "capabilities": {
-                    "process": { "memory": true, "self_cognition": true, "social": true },
-                    "subject_defaults": { "memory": true, "self_cognition": true, "social": true }
-                },
-                "serving": {
-                    "lexical": { "enabled": true },
-                    "dense": { "enabled": false },
-                    "topology": { "enabled": false }
-                }
-            }
-        }),
-    })
-    .await
-    .expect("open all-domain runtime")
 }
 
 pub(crate) async fn open_runtime_with_serving(
@@ -185,16 +98,14 @@ pub(crate) async fn open_runtime_with_serving(
             dense,
             topology,
             memory_enabled: true,
-            self_enabled: true,
-            social_enabled: false,
         },
         embedding: None,
         stored_embedding: None,
         deployment_settings: serde_json::json!({
             "settings": {
                 "capabilities": {
-                    "process": { "memory": true, "self_cognition": true, "social": false },
-                    "subject_defaults": { "memory": true, "self_cognition": true, "social": false }
+                    "process": { "memory": true },
+                    "subject_defaults": { "memory": true }
                 },
                 "serving": {
                     "lexical": { "enabled": lexical },

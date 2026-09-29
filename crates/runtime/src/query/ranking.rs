@@ -228,10 +228,6 @@ pub struct FusionLaneSpec {
     pub weight: f64,
 }
 
-pub fn default_rrf_plan(enabled: &[EvidenceFamily]) -> Vec<FusionLaneSpec> {
-    default_rrf_plan_with_policy(enabled, &RetrievalPolicy::reference())
-}
-
 pub fn default_rrf_plan_with_policy(
     enabled: &[EvidenceFamily],
     policy: &RetrievalPolicy,
@@ -268,7 +264,8 @@ pub struct RankedCandidate {
     pub variants: Vec<String>,
 }
 
-pub fn rank_candidates(
+#[cfg(test)]
+fn rank_candidates(
     candidates: &[CandidateRankInput],
     enabled_lanes: &[EvidenceFamily],
 ) -> Vec<RankedCandidate> {

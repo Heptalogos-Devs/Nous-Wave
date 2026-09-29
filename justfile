@@ -24,10 +24,6 @@ lint:
 test:
     cargo test --workspace --all-features -- --test-threads=1
 
-test-fast:
-    cargo test -p nous-self-domain --lib --all-features
-    cargo test -p nous-kernel --test self_authority --no-fail-fast -- --test-threads=1
-
 nextest:
     cargo nextest run --workspace --all-features --test-threads 1
 
@@ -61,8 +57,5 @@ deny:
 deps:
     cargo shear --deny-warnings
 
-structure:
-    python scripts/check/source_shape.py
-
-verify: fmt-check structure test-fast check lint lint-maintainability test deny deps
+verify: fmt-check check lint lint-maintainability test deny deps
     @echo "Nous Wave verification passed."

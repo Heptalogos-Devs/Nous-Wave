@@ -1,7 +1,7 @@
 use super::*;
-use nous_persistence::database_error as db;
 use nous_configuration::SubjectCapabilities;
 use nous_core::{OperationId, Result, SessionId, SubjectId};
+use nous_persistence::database_error as db;
 use nous_subject::{
     CognitiveSeedInput, CognitiveSeedView, CreateSubject, SeedAdoptionKind, SubjectView,
 };

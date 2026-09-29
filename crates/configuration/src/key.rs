@@ -61,9 +61,7 @@ pub struct ProcessCapabilities {
 
 impl Default for ProcessCapabilities {
     fn default() -> Self {
-        Self {
-            memory: true,
-        }
+        Self { memory: true }
     }
 }
 
@@ -74,9 +72,7 @@ pub struct SubjectCapabilities {
 
 impl Default for SubjectCapabilities {
     fn default() -> Self {
-        Self {
-            memory: true,
-        }
+        Self { memory: true }
     }
 }
 

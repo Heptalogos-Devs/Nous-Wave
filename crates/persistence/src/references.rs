@@ -8,10 +8,6 @@ impl AuthorityStore {
     /// object refs are deliberately converted to their current exact revision;
     /// callers retain the returned epoch and must reject a changed head rather
     /// than silently rebinding during execution.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "exact reference binding keeps all owner-specific fencing branches together"
-    )]
     pub async fn bind_exact_reference(
         &self,
         subject: SubjectId,

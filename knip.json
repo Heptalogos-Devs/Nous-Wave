@@ -1,6 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": ["apps/nous-core/official_client_closure.ts"],
+  "entry": [
+    "apps/nous-core/qualification_memory_reference.ts",
+    "scripts/dev.ts"
+  ],
+  "ignore": [
+    "apps/nous-core/official_client_closure.ts",
+    "apps/nous-core/qualification_memory_reference.ts"
+  ],
   "rules": {
     "files": "error",
     "dependencies": "error",

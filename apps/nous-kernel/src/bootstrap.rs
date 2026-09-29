@@ -2,10 +2,7 @@ use nous_core::{Error, Result};
 use nous_kernel::{NousRuntime, RuntimeOptions};
 use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};
 use serde::Deserialize;
-use std::{
-    net::SocketAddr,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Config {
@@ -17,7 +14,6 @@ struct Config {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BootstrapConfig {
-    server: ServerConfig,
     database: DatabaseConfig,
     object_store: ObjectStoreConfig,
     serving: ServingBootstrapConfig,
@@ -30,14 +26,6 @@ struct ServingBootstrapConfig {
     root: String,
     #[serde(default)]
     stored_embedding: Option<nous_retrieval::StoredEmbeddingConfig>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ServerConfig {
-    bind: SocketAddr,
-    #[serde(default)]
-    remote_access: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -107,9 +95,6 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
         config.bootstrap.database.mode = "external".into();
         config.bootstrap.database.url = url;
     }
-    if config.bootstrap.server.remote_access || !config.bootstrap.server.bind.ip().is_loopback() {
-        return Err(Error::Invalid("loopback binding required".into()));
-    }
     if config.bootstrap.object_store.backend != "fs" {
         return Err(Error::Invalid("object store backend must be fs".into()));
     }
@@ -129,7 +114,7 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
             root: resolve_path(root, &config.bootstrap.serving.root),
             lexical: true,
             dense: true,
-            topology: true,
+            topology: false,
             memory_enabled: true,
         },
         embedding: None,

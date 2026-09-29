@@ -1,7 +1,7 @@
 use super::*;
+use nous_core::{ResourceRef, Result, SubjectId};
 use nous_persistence::database_error as db;
 use nous_runtime::{ResourceDescriptor, ResourceUpsert};
-use nous_core::{ResourceRef, Result, SubjectId};
 use sqlx::Row;
 
 fn resource(r: ResourceDescriptor) -> p::ResourceDescriptor {

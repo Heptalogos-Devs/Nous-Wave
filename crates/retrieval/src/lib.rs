@@ -9,12 +9,16 @@ mod provider;
 mod query;
 pub use material::*;
 
-use nous_persistence::{AuthorityStore, ServingRecord};
 use nous_core::*;
 use nous_object_store::ObjectStore;
+use nous_persistence::{AuthorityStore, ServingRecord};
 pub use provider::*;
 use serde::{Deserialize, Serialize};
-use std::{collections::{BTreeMap, HashMap}, path::PathBuf, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+    sync::Arc,
+};
 
 pub const LEXICAL_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
     nous_configuration::ConfigKey::new("serving.lexical.enabled");
@@ -26,16 +30,24 @@ pub const TOPOLOGY_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
 pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
-    for (key, description) in [
-        (LEXICAL_ENABLED_KEY, "Whether lexical Serving is enabled."),
-        (DENSE_ENABLED_KEY, "Whether dense Serving is enabled."),
-        (TOPOLOGY_ENABLED_KEY, "Whether topology Serving is enabled."),
+    for (key, description, default) in [
+        (
+            LEXICAL_ENABLED_KEY,
+            "Whether lexical Serving is enabled.",
+            true,
+        ),
+        (DENSE_ENABLED_KEY, "Whether dense Serving is enabled.", true),
+        (
+            TOPOLOGY_ENABLED_KEY,
+            "Whether experimental topology Serving is enabled.",
+            false,
+        ),
     ] {
         registry.register(
             key,
             "serving",
             description,
-            true,
+            default,
             nous_configuration::ConfigExposure::Developer,
             nous_configuration::ConfigScopePolicy::SystemOnly,
             nous_configuration::ConfigApplyMode::RestartProcess,

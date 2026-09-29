@@ -228,8 +228,7 @@ pub fn validate_exact_supports(supports: &[RevisionSupport]) -> Result<()> {
         if let RevisionSupport::CognitionDependency(value) = support
             && !matches!(
                 value.target_revision,
-                CognitiveRef::MemoryRevision(_)
-                    | CognitiveRef::CognitiveSchemaRevision(_)
+                CognitiveRef::MemoryRevision(_) | CognitiveRef::CognitiveSchemaRevision(_)
             )
         {
             return Err(Error::Invalid(

@@ -22,4 +22,4 @@ Target Design → Target Engineering Plan → Active Milestone Plan → Executab
 - [Executable Specs 索引](../specs/README.md)：实施合同的职责、Authority 顺序与生命周期。
 - [Memory Reference Profile active spec set](../specs/active/memory-reference-profile/README.md)：Memory Authority、Runtime/Use、Query/Serving 与 Qualification 合同。
 
-Self Authority 与 Configuration Foundation/Social Cognition 的实现计划和 Specs 已移至 `superseded/`；实现保留，但当前不授权扩展。
+旧 Self/Social implementation plans and Specs 不再属于 current truth；长期语义由 Architecture-Vault 保留，Git history 保存已删除的 early slices。

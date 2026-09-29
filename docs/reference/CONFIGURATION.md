@@ -1,6 +1,6 @@
 # Configuration Service 当前参考
 
-当前配置基础服务位于 `crates/configuration-service`，由 Kernel 在数据库 migration 完成后打开。它只负责 registry、解析、覆盖、快照、权限、幂等 receipt 和 BLAKE3 digest，不拥有 Memory、Self 或 Social 的领域语义。
+当前配置基础服务位于 `crates/configuration`，由 Kernel 在数据库 migration 完成后打开。它只负责 registry、解析、覆盖、快照、权限、幂等 receipt 和 BLAKE3 digest，不拥有 Memory 的领域语义。
 
 ## 解析与能力
 
@@ -14,7 +14,7 @@
 
 - `capabilities.process.*` 与 `capabilities.subject_defaults.*`；
 - `runtime.resident_limit`；
-- `serving.lexical.enabled`、`serving.dense.enabled`、`serving.topology.enabled`；
+- `serving.lexical.enabled`、`serving.dense.enabled`、`serving.topology.enabled`；topology 是显式 experimental lane，默认关闭。
 - `memory.accessibility.*`；
 - `retrieval.rrf.*` 与 `retrieval.query.*`；
 - `topology.wave.*`，包括 edge quality 和 seed weights；

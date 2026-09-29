@@ -2,7 +2,6 @@ mod test_support;
 
 use chrono::Duration;
 use chrono::Utc;
-use nous_runtime::{QueryPlan, UseFeedback, UseFeedbackEvent, UseKind};
 use nous_core::{
     CognitiveQuery, CognitiveRef, Cue, EntityRef, EpistemicClass, OperationId, QueryConstraints,
     QueryTarget, ResultNeed, TemporalExtent, TextCue, UseEventId,
@@ -13,6 +12,7 @@ use nous_memory::{
     SchemaEvidenceLinkInput, SchemaEvidenceRole, SchemaFormationKind, SchemaScope, SupportRole,
     UseEventRef,
 };
+use nous_runtime::{QueryPlan, UseFeedback, UseFeedbackEvent, UseKind};
 use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::{database, form_input, observation, open_runtime, open_runtime_with_serving};
 use uuid::Uuid;
@@ -304,8 +304,6 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
             nous_runtime::CognitiveContributors {
                 shared: None,
                 memory: Some(memory_service as &dyn nous_runtime::CognitiveContributor),
-                self_cognition: None,
-                social: None,
             },
             plan,
         )
@@ -737,7 +735,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     assert_eq!(association.supports.len(), 1);
     let topology = runtime
         .store
-        .topology_projection_input(subject, true, true, false)
+        .topology_projection_input(subject, true)
         .await
         .expect("topology input");
     assert!(topology.edges.iter().any(|edge| {

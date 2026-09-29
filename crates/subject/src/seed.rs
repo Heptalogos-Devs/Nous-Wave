@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
-use nous_persistence::database_error as db;
 use nous_core::{
     ArtifactId, CognitiveSeedVersionId, Error, OperationId, Result, SubjectId,
     canonical_request_digest,
 };
+use nous_persistence::database_error as db;
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
