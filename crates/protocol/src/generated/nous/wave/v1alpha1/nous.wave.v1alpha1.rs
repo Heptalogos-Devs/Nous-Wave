@@ -695,6 +695,36 @@ pub struct MaterialLimits {
     #[prost(uint64, tag="1")]
     pub max_upload_bytes: u64,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ProducerSignature {
+    #[prost(string, tag="1")]
+    pub signature_hash: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub provider_class: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub implementation: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub model_identity: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub model_revision: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="7")]
+    pub preprocessing_identity: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub preprocessing_revision: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub config_digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DerivationInput {
+    #[prost(uint32, tag="1")]
+    pub ordinal: u32,
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<CognitiveRef>,
+    #[prost(string, tag="3")]
+    pub role: ::prost::alloc::string::String,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListArtifactsResponse {
     #[prost(message, repeated, tag="1")]
@@ -1539,14 +1569,14 @@ pub struct SourceRegion {
     #[prost(string, optional, tag="6")]
     pub parent_source_region_id: ::core::option::Option<::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DerivedRepresentation {
     #[prost(string, tag="1")]
     pub representation_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="3")]
-    pub source_region_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="3")]
+    pub inputs: ::prost::alloc::vec::Vec<DerivationInput>,
     #[prost(string, tag="4")]
     pub kind: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
@@ -1557,6 +1587,14 @@ pub struct DerivedRepresentation {
     pub text: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="8")]
     pub artifact_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="9")]
+    pub producer: ::core::option::Option<ProducerSignature>,
+    #[prost(message, optional, tag="10")]
+    pub quality: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, optional, tag="11")]
+    pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="12")]
+    pub strategy: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ComponentStatus {

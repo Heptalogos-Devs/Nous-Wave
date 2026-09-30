@@ -16,7 +16,6 @@ use nous_persistence::{AuthorityStore, ProjectionInvalidation};
 use nous_runtime::{CognitiveRuntimeService, ResidentAdmission, ResidentState};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
-use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Clone)]

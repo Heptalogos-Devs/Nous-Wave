@@ -1,25 +1,134 @@
 use super::*;
 use nous_persistence::database_error as db;
-
 impl MaterialService {
     pub async fn persist_derived_representation(
         &self,
-        representation: DerivedRepresentation,
+        mut representation: DerivedRepresentation,
     ) -> Result<DerivedRepresentation> {
         representation.validate()?;
-        let region_subject: Option<Uuid> =
-            sqlx::query_scalar("SELECT subject_id FROM source_regions WHERE source_region_id=$1")
-                .bind(representation.source_region_id.0)
-                .fetch_optional(self.store.pool())
+        representation.producer.signature_hash.clear();
+        representation.producer.signature_hash = blake3::hash(
+            &serde_json::to_vec(&representation.producer)
+                .map_err(|e| Error::Invalid(e.to_string()))?,
+        )
+        .to_hex()
+        .to_string();
+        let input_digest = blake3::hash(
+            &serde_json::to_vec(&representation.inputs)
+                .map_err(|e| Error::Invalid(e.to_string()))?,
+        )
+        .to_hex()
+        .to_string();
+        let key = blake3::hash(
+            &serde_json::to_vec(&(
+                representation.subject_id,
+                &input_digest,
+                representation.representation_kind,
+                &representation.producer.signature_hash,
+                &representation.strategy,
+                representation.supersedes,
+            ))
+            .map_err(|e| Error::Invalid(e.to_string()))?,
+        )
+        .to_hex()
+        .to_string();
+        let mut tx = self.store.begin().await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+            .bind(&key)
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        // All inputs must already exist. Together with immutable edges and a new
+        // representation identity, this admits no backwards edge or DAG cycle.
+        for input in &representation.inputs {
+            let (query, id) = match input.reference {
+                CognitiveRef::SourceRegion(id) => (
+                    "SELECT subject_id FROM source_regions WHERE source_region_id=$1 FOR SHARE",
+                    id.0,
+                ),
+                CognitiveRef::DerivedRepresentation(id) => (
+                    "SELECT subject_id FROM derived_representations WHERE derived_representation_id=$1 FOR SHARE",
+                    id.0,
+                ),
+                CognitiveRef::DerivedRegion(id) => (
+                    "SELECT subject_id FROM derived_regions WHERE derived_region_id=$1 FOR SHARE",
+                    id.0,
+                ),
+                _ => return Err(Error::Invalid("invalid derivation input kind".into())),
+            };
+            let owner: Option<Uuid> = sqlx::query_scalar(query)
+                .bind(id)
+                .fetch_optional(&mut *tx)
                 .await
                 .map_err(db)?;
-        if region_subject != Some(representation.subject_id.0) {
-            return Err(Error::Invalid("source region is outside Subject".into()));
+            if owner != Some(representation.subject_id.0) {
+                return Err(Error::Invalid(
+                    "derivation input is missing or outside Subject".into(),
+                ));
+            }
         }
-        let mut tx = self.store.begin().await?;
-        self.insert_derived_representation_in_tx(&mut tx, &representation, None)
-            .await?;
-        nous_persistence::AuthorityStore::invalidate_in(
+        if let Some(artifact) = representation.payload_artifact_id {
+            let owner: Option<Uuid> = sqlx::query_scalar(
+                "SELECT subject_id FROM artifacts WHERE artifact_id=$1 FOR SHARE",
+            )
+            .bind(artifact.0)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(db)?;
+            if owner != Some(representation.subject_id.0) {
+                return Err(Error::Invalid(
+                    "derived payload artifact is outside Subject".into(),
+                ));
+            }
+        }
+        representation.revision = if let Some(previous) = representation.supersedes {
+            let revision: Option<i32> = sqlx::query_scalar("SELECT revision FROM derived_representations WHERE subject_id=$1 AND derived_representation_id=$2 FOR SHARE").bind(representation.subject_id.0).bind(previous.0).fetch_optional(&mut *tx).await.map_err(db)?;
+            revision
+                .ok_or_else(|| {
+                    Error::Invalid("superseded representation is outside Subject".into())
+                })?
+                .checked_add(1)
+                .ok_or_else(|| Error::Invalid("representation revision overflow".into()))?
+        } else {
+            1
+        };
+        if let Some(row) =
+            sqlx::query("SELECT * FROM derived_representations WHERE derivation_key=$1")
+                .bind(&key)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(db)?
+        {
+            representation.derived_representation_id =
+                DerivedRepresentationId(row.try_get("derived_representation_id").map_err(db)?);
+            representation.payload_text = row.try_get("payload_text").map_err(db)?;
+            representation.payload_artifact_id = row
+                .try_get::<Option<Uuid>, _>("payload_artifact_id")
+                .map_err(db)?
+                .map(ArtifactId);
+            representation.quality = row.try_get("quality").map_err(db)?;
+            representation.created_at = row.try_get("created_at").map_err(db)?;
+            representation.revision = row.try_get("revision").map_err(db)?;
+            tx.commit().await.map_err(db)?;
+            return Ok(representation);
+        }
+        let producer = &representation.producer;
+        let producer_id: Uuid = sqlx::query_scalar("INSERT INTO producer_signatures(producer_signature_id,signature_hash,provider_class,operation,implementation,model_identity,model_revision,preprocessing_identity,preprocessing_revision,config_digest,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(signature_hash) DO UPDATE SET signature_hash=excluded.signature_hash RETURNING producer_signature_id")
+            .bind(Uuid::now_v7()).bind(&producer.signature_hash).bind(&producer.provider_class).bind(producer.operation.as_str()).bind(&producer.implementation).bind(&producer.model_identity).bind(&producer.model_revision).bind(&producer.preprocessing_identity).bind(&producer.preprocessing_revision).bind(&producer.config_digest).bind(representation.created_at).fetch_one(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO derived_representations(derived_representation_id,subject_id,input_digest,strategy,derivation_key,representation_kind,producer_signature_id,revision,payload_text,payload_artifact_id,quality,created_at,supersedes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
+            .bind(representation.derived_representation_id.0).bind(representation.subject_id.0).bind(input_digest).bind(&representation.strategy).bind(key).bind(representation.representation_kind.as_str()).bind(producer_id).bind(representation.revision).bind(&representation.payload_text).bind(representation.payload_artifact_id.map(|id| id.0)).bind(&representation.quality).bind(representation.created_at).bind(representation.supersedes.map(|id| id.0)).execute(&mut *tx).await.map_err(db)?;
+        for input in &representation.inputs {
+            let (source, derived, region) = match input.reference {
+                CognitiveRef::SourceRegion(id) => (Some(id.0), None, None),
+                CognitiveRef::DerivedRepresentation(id) => (None, Some(id.0), None),
+                CognitiveRef::DerivedRegion(id) => (None, None, Some(id.0)),
+                _ => return Err(Error::Invalid("invalid derivation input".into())),
+            };
+            sqlx::query("INSERT INTO derived_representation_inputs(derived_representation_id,ordinal,role,source_region_id,input_representation_id,derived_region_id) VALUES($1,$2,$3,$4,$5,$6)").bind(representation.derived_representation_id.0).bind(input.ordinal as i32).bind(&input.role).bind(source).bind(derived).bind(region).execute(&mut *tx).await.map_err(db)?;
+        }
+        sqlx::query("UPDATE coverage_needs SET state='ready',current_representation_id=$2,updated_at=$3 WHERE subject_id=$1 AND source_region_id IN (SELECT source_region_id FROM representation_source_regions($1,$2)) AND representation_kind=$4")
+            .bind(representation.subject_id.0).bind(representation.derived_representation_id.0).bind(representation.created_at).bind(representation.representation_kind.as_str()).execute(&mut *tx).await.map_err(db)?;
+        AuthorityStore::invalidate_in(
             &mut tx,
             representation.subject_id,
             ProjectionInvalidation::text(),
@@ -28,180 +137,6 @@ impl MaterialService {
         tx.commit().await.map_err(db)?;
         Ok(representation)
     }
-
-    async fn insert_derived_representation_in_tx(
-        &self,
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-        representation: &DerivedRepresentation,
-        derivation_id: Option<DerivationId>,
-    ) -> Result<()> {
-        let producer_id: Uuid = sqlx::query_scalar("INSERT INTO producer_signatures(producer_signature_id,signature_hash,provider_class,operation,implementation,model_identity,model_revision,preprocessing_identity,preprocessing_revision,config_digest,created_at,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(signature_hash) DO UPDATE SET signature_hash=excluded.signature_hash RETURNING producer_signature_id")
-            .bind(Uuid::now_v7())
-            .bind(&representation.producer.signature_hash)
-            .bind(&representation.producer.provider_class)
-            .bind(representation.producer.operation.as_str())
-            .bind(&representation.producer.implementation)
-            .bind(&representation.producer.model_identity)
-            .bind(&representation.producer.model_revision)
-            .bind(&representation.producer.preprocessing_identity)
-            .bind(&representation.producer.preprocessing_revision)
-            .bind(&representation.producer.config_digest)
-            .bind(representation.created_at)
-            .bind(serde_json::json!({}))
-            .fetch_one(&mut **tx)
-            .await
-            .map_err(db)?;
-        sqlx::query("INSERT INTO derived_representations(derived_representation_id,subject_id,source_region_id,representation_kind,producer_signature_id,revision,payload_text,payload_artifact_id,quality,created_at,supersedes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
-            .bind(representation.derived_representation_id.0)
-            .bind(representation.subject_id.0)
-            .bind(representation.source_region_id.0)
-            .bind(representation.representation_kind.as_str())
-            .bind(producer_id)
-            .bind(representation.revision)
-            .bind(&representation.payload_text)
-            .bind(representation.payload_artifact_id.map(|id| id.0))
-            .bind(&representation.quality)
-            .bind(representation.created_at)
-            .bind(representation.supersedes.map(|id| id.0))
-            .execute(&mut **tx)
-            .await
-            .map_err(db)?;
-        if let Some(derivation_id) = derivation_id {
-            let changed = sqlx::query("UPDATE derivations SET state='succeeded',successful_representation_id=$2,updated_at=$3 WHERE derivation_id=$1 AND subject_id=$4 AND source_region_id=$5 AND representation_kind=$6 AND producer_signature_id=$7")
-                .bind(derivation_id.0)
-                .bind(representation.derived_representation_id.0)
-                .bind(Utc::now())
-                .bind(representation.subject_id.0)
-                .bind(representation.source_region_id.0)
-                .bind(representation.representation_kind.as_str())
-                .bind(producer_id)
-                .execute(&mut **tx)
-                .await
-                .map_err(db)?;
-            if changed.rows_affected() != 1 {
-                return Err(Error::Conflict(
-                    "claimed derivation could not be marked succeeded".into(),
-                ));
-            }
-        } else {
-            sqlx::query("UPDATE derivations SET state='succeeded',successful_representation_id=$4,updated_at=$5 WHERE subject_id=$1 AND source_region_id=$2 AND representation_kind=$3 AND producer_signature_id=$6")
-                .bind(representation.subject_id.0)
-                .bind(representation.source_region_id.0)
-                .bind(representation.representation_kind.as_str())
-                .bind(representation.derived_representation_id.0)
-                .bind(Utc::now())
-                .bind(producer_id)
-                .execute(&mut **tx)
-                .await
-                .map_err(db)?;
-        }
-        sqlx::query("UPDATE coverage_needs SET state='ready',current_representation_id=$4,updated_at=$5 WHERE subject_id=$1 AND source_region_id=$2 AND representation_kind=$3 AND capability_operation=$6")
-            .bind(representation.subject_id.0)
-            .bind(representation.source_region_id.0)
-            .bind(representation.representation_kind.as_str())
-            .bind(representation.derived_representation_id.0)
-            .bind(Utc::now())
-            .bind(representation.producer.operation.as_str())
-            .execute(&mut **tx)
-            .await
-            .map_err(db)?;
-        Ok(())
-    }
-
-    /// Create one explicit derivation obligation.  This records work already
-    /// requested by a Host/configuration; it does not schedule cognition.
-    pub async fn schedule_derivation(
-        &self,
-        subject: SubjectId,
-        source_region: SourceRegionId,
-        representation_kind: RepresentationKind,
-        operation: CapabilityOperation,
-        producer: ProducerSignature,
-        requirement: &str,
-    ) -> Result<DerivationId> {
-        self.store.require_subject(subject).await?;
-        if !matches!(requirement, "required" | "preferred" | "opportunistic") {
-            return Err(Error::Invalid("invalid derivation requirement".into()));
-        }
-        if producer.operation != operation {
-            return Err(Error::Invalid(
-                "producer operation does not match derivation capability".into(),
-            ));
-        }
-        let source = sqlx::query(
-            "SELECT subject_id,artifact_id FROM source_regions WHERE source_region_id=$1",
-        )
-        .bind(source_region.0)
-        .fetch_optional(self.store.pool())
-        .await
-        .map_err(db)?
-        .ok_or_else(|| Error::NotFound("source region not found".into()))?;
-        let source_subject: Uuid = source.try_get("subject_id").map_err(db)?;
-        if source_subject != subject.0 {
-            return Err(Error::Invalid("source region is outside Subject".into()));
-        }
-        let artifact_id: Uuid = source.try_get("artifact_id").map_err(db)?;
-        let artifact_hash: String = sqlx::query_scalar(
-            "SELECT content_hash FROM artifacts WHERE artifact_id=$1 AND subject_id=$2",
-        )
-        .bind(artifact_id)
-        .bind(subject.0)
-        .fetch_one(self.store.pool())
-        .await
-        .map_err(db)?;
-        let producer_id: Uuid = sqlx::query_scalar("INSERT INTO producer_signatures(producer_signature_id,signature_hash,provider_class,operation,implementation,model_identity,model_revision,preprocessing_identity,preprocessing_revision,config_digest,created_at,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'{}') ON CONFLICT(signature_hash) DO UPDATE SET signature_hash=excluded.signature_hash RETURNING producer_signature_id")
-            .bind(Uuid::now_v7())
-            .bind(&producer.signature_hash)
-            .bind(&producer.provider_class)
-            .bind(producer.operation.as_str())
-            .bind(&producer.implementation)
-            .bind(&producer.model_identity)
-            .bind(&producer.model_revision)
-            .bind(&producer.preprocessing_identity)
-            .bind(&producer.preprocessing_revision)
-            .bind(&producer.config_digest)
-            .bind(Utc::now())
-            .fetch_one(self.store.pool())
-            .await
-            .map_err(db)?;
-        let derivation_key = blake3::hash(
-            format!(
-                "nous-wave-derivation-v1\0{}\0{}\0{}\0{}\0{}",
-                source_region.0,
-                artifact_hash,
-                representation_kind.as_str(),
-                producer.signature_hash,
-                operation.as_str()
-            )
-            .as_bytes(),
-        )
-        .to_hex()
-        .to_string();
-        let derivation_id: Uuid = sqlx::query_scalar("INSERT INTO derivations(derivation_id,derivation_key,subject_id,source_region_id,representation_kind,producer_signature_id,state,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,'pending',$7,$7) ON CONFLICT(derivation_key) DO UPDATE SET updated_at=excluded.updated_at RETURNING derivation_id")
-            .bind(Uuid::now_v7())
-            .bind(derivation_key)
-            .bind(subject.0)
-            .bind(source_region.0)
-            .bind(representation_kind.as_str())
-            .bind(producer_id)
-            .bind(Utc::now())
-            .fetch_one(self.store.pool())
-            .await
-            .map_err(db)?;
-        sqlx::query("INSERT INTO coverage_needs(coverage_need_id,subject_id,source_region_id,representation_kind,capability_operation,requirement,state,updated_at) VALUES($1,$2,$3,$4,$5,$6,'scheduled',$7) ON CONFLICT(subject_id,source_region_id,representation_kind,capability_operation) DO UPDATE SET requirement=excluded.requirement,state=CASE WHEN coverage_needs.state='ready' THEN 'ready' ELSE 'scheduled' END,updated_at=excluded.updated_at")
-            .bind(Uuid::now_v7())
-            .bind(subject.0)
-            .bind(source_region.0)
-            .bind(representation_kind.as_str())
-            .bind(operation.as_str())
-            .bind(requirement)
-            .bind(Utc::now())
-            .execute(self.store.pool())
-            .await
-            .map_err(db)?;
-        Ok(DerivationId(derivation_id))
-    }
-
     pub async fn persist_derived_region(&self, region: DerivedRegion) -> Result<DerivedRegion> {
         region.validate()?;
         let mut tx = self.store.begin().await?;
@@ -263,278 +198,6 @@ impl MaterialService {
             .execute(&mut **tx)
             .await
             .map_err(db)?;
-        Ok(())
-    }
-
-    /// Commit provider output only when the claimed lease is still active.
-    ///
-    /// Provider execution happens outside this transaction.  The fence is
-    /// verified before any Authority row is written, so a stale worker cannot
-    /// publish a DerivedRepresentation or mark coverage/derivation complete.
-    pub async fn commit_derivation_claim(
-        &self,
-        claim: &DerivationClaim,
-        representation: DerivedRepresentation,
-        regions: Vec<DerivedRegion>,
-    ) -> Result<()> {
-        representation.validate()?;
-        if representation.subject_id != claim.subject_id
-            || representation.source_region_id != claim.source_region_id
-            || representation.representation_kind.as_str() != claim.representation_kind
-        {
-            return Err(Error::Conflict(
-                "derivation output does not match the claimed derivation".into(),
-            ));
-        }
-        let mut tx = self.store.begin().await?;
-        let row = sqlx::query(
-            "SELECT a.state,a.attempt_no,a.lease_owner,a.lease_until,a.derivation_id,d.state AS derivation_state,d.producer_signature_id,p.signature_hash FROM derivation_attempts a JOIN derivations d ON d.derivation_id=a.derivation_id JOIN producer_signatures p ON p.producer_signature_id=d.producer_signature_id WHERE a.attempt_id=$1 FOR UPDATE OF a,d",
-        )
-        .bind(claim.attempt_id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(db)?;
-        let Some(row) = row else {
-            tx.rollback().await.map_err(db)?;
-            return Err(Error::Conflict(
-                "derivation attempt is no longer active".into(),
-            ));
-        };
-        let attempt_state: String = row.try_get("state").map_err(db)?;
-        let attempt_no: i32 = row.try_get("attempt_no").map_err(db)?;
-        let lease_owner: String = row.try_get("lease_owner").map_err(db)?;
-        let lease_until: DateTime<Utc> = row.try_get("lease_until").map_err(db)?;
-        let attempt_derivation: Uuid = row.try_get("derivation_id").map_err(db)?;
-        let derivation_state: String = row.try_get("derivation_state").map_err(db)?;
-        let producer_signature_id: Uuid = row.try_get("producer_signature_id").map_err(db)?;
-        let producer_signature: String = row.try_get("signature_hash").map_err(db)?;
-        if attempt_state != "running"
-            || attempt_no != claim.attempt_no
-            || lease_owner != claim.lease_owner
-            || lease_until <= Utc::now()
-            || attempt_derivation != claim.derivation_id.0
-            || producer_signature_id != claim.producer_signature_id
-            || producer_signature != representation.producer.signature_hash
-            || derivation_state != "running"
-        {
-            tx.rollback().await.map_err(db)?;
-            return Err(Error::Conflict(
-                "derivation lease is stale; semantic rows were not written".into(),
-            ));
-        }
-        self.insert_derived_representation_in_tx(
-            &mut tx,
-            &representation,
-            Some(claim.derivation_id),
-        )
-        .await?;
-        for mut region in regions {
-            region.derived_representation_id = representation.derived_representation_id;
-            region.subject_id = representation.subject_id;
-            self.insert_derived_region_in_tx(&mut tx, &region).await?;
-        }
-        sqlx::query(
-            "UPDATE derivation_attempts SET state='succeeded',finished_at=$2 WHERE attempt_id=$1",
-        )
-        .bind(claim.attempt_id)
-        .bind(Utc::now())
-        .execute(&mut *tx)
-        .await
-        .map_err(db)?;
-        nous_persistence::AuthorityStore::invalidate_in(
-            &mut tx,
-            representation.subject_id,
-            ProjectionInvalidation::text(),
-        )
-        .await?;
-        tx.commit().await.map_err(db)?;
-        Ok(())
-    }
-
-    pub async fn claim_derivations(
-        &self,
-        limit: usize,
-        lease_owner: &str,
-        lease_for: std::time::Duration,
-    ) -> Result<Vec<DerivationClaim>> {
-        if limit == 0 || limit > 1024 || lease_owner.trim().is_empty() {
-            return Err(Error::Invalid("derivation claim bounds are invalid".into()));
-        }
-        let lease_until = Utc::now()
-            + chrono::Duration::from_std(lease_for)
-                .map_err(|error| Error::Invalid(error.to_string()))?;
-        let mut tx = self.store.begin().await?;
-        let rows = sqlx::query("SELECT d.derivation_id,d.subject_id,d.source_region_id,d.representation_kind,d.producer_signature_id FROM derivations d WHERE d.state='pending' OR (d.state='running' AND NOT EXISTS (SELECT 1 FROM derivation_attempts a WHERE a.derivation_id=d.derivation_id AND a.state='running' AND a.lease_until > now())) ORDER BY d.created_at FOR UPDATE OF d SKIP LOCKED LIMIT $1")
-            .bind(limit as i64)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(db)?;
-        let mut claims = Vec::new();
-        for row in rows {
-            let derivation_id = DerivationId(row.try_get("derivation_id").map_err(db)?);
-            let attempt_no: i32 = sqlx::query_scalar("SELECT COALESCE(max(attempt_no),0)+1 FROM derivation_attempts WHERE derivation_id=$1")
-                .bind(derivation_id.0)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(db)?;
-            let attempt_id = Uuid::now_v7();
-            let now = Utc::now();
-            sqlx::query("INSERT INTO derivation_attempts(attempt_id,derivation_id,attempt_no,state,lease_owner,lease_until,started_at) VALUES($1,$2,$3,'running',$4,$5,$6)")
-                .bind(attempt_id).bind(derivation_id.0).bind(attempt_no).bind(lease_owner).bind(lease_until).bind(now).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query(
-                "UPDATE derivations SET state='running',updated_at=$2 WHERE derivation_id=$1",
-            )
-            .bind(derivation_id.0)
-            .bind(now)
-            .execute(&mut *tx)
-            .await
-            .map_err(db)?;
-            sqlx::query("UPDATE coverage_needs SET state='scheduled',updated_at=$3 WHERE subject_id=$1 AND source_region_id=$2 AND representation_kind=$4")
-                .bind(row.try_get::<Uuid, _>("subject_id").map_err(db)?)
-                .bind(row.try_get::<Uuid, _>("source_region_id").map_err(db)?)
-                .bind(now)
-                .bind(row.try_get::<String, _>("representation_kind").map_err(db)?)
-                .execute(&mut *tx)
-                .await
-                .map_err(db)?;
-            claims.push(DerivationClaim {
-                derivation_id,
-                subject_id: SubjectId(row.try_get("subject_id").map_err(db)?),
-                source_region_id: SourceRegionId(row.try_get("source_region_id").map_err(db)?),
-                representation_kind: row.try_get("representation_kind").map_err(db)?,
-                producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
-                attempt_id,
-                attempt_no,
-                lease_owner: lease_owner.to_owned(),
-                lease_until,
-            });
-        }
-        tx.commit().await.map_err(db)?;
-        Ok(claims)
-    }
-
-    /// Execute already-created document derivations with the supplied narrow
-    /// provider. The provider call is outside the database transaction; only
-    /// the lease/commit records are transactional.
-    pub async fn run_pending_derivations(
-        &self,
-        limit: usize,
-        lease_owner: &str,
-        provider: Arc<dyn DocumentExtractionProvider>,
-    ) -> Result<DerivationRunResult> {
-        let claims = self
-            .claim_derivations(limit, lease_owner, std::time::Duration::from_secs(60))
-            .await?;
-        let mut result = DerivationRunResult {
-            claimed: claims.len(),
-            succeeded: 0,
-            failed: 0,
-        };
-        for claim in claims {
-            let outcome = async {
-                let source = sqlx::query(
-                    "SELECT a.media_type,a.content_hash FROM source_regions r JOIN artifacts a ON a.artifact_id=r.artifact_id WHERE r.subject_id=$1 AND r.source_region_id=$2",
-                )
-                .bind(claim.subject_id.0)
-                .bind(claim.source_region_id.0)
-                .fetch_optional(self.store.pool())
-                .await
-                .map_err(db)?
-                .ok_or_else(|| Error::NotFound("derivation source artifact not found".into()))?;
-                let media_type: String = source.try_get("media_type").map_err(db)?;
-                let hash: String = source.try_get("content_hash").map_err(db)?;
-                let input = self.objects.get(&hash).await?;
-                let output = provider
-                    .extract(DocumentExtractionRequest {
-                        subject: claim.subject_id,
-                        source_region: claim.source_region_id,
-                        media_type,
-                        input,
-                    })
-                    .await?;
-                if output.text.trim().is_empty() {
-                    return Err(Error::Invalid("document provider returned empty text".into()));
-                }
-                let expected_hash: String = sqlx::query_scalar(
-                    "SELECT signature_hash FROM producer_signatures WHERE producer_signature_id=$1",
-                )
-                .bind(claim.producer_signature_id)
-                .fetch_one(self.store.pool())
-                .await
-                .map_err(db)?;
-                if expected_hash != output.producer.signature_hash {
-                    return Err(Error::Conflict(
-                        "derivation provider signature does not match claimed producer".into(),
-                    ));
-                }
-                let kind = output.representation_kind;
-                if kind.as_str() != claim.representation_kind {
-                    return Err(Error::Conflict(
-                        "derivation provider representation kind does not match claim".into(),
-                    ));
-                }
-                let revision: i32 = sqlx::query_scalar("SELECT COALESCE(max(revision),0)+1 FROM derived_representations WHERE subject_id=$1 AND source_region_id=$2 AND representation_kind=$3")
-                    .bind(claim.subject_id.0)
-                    .bind(claim.source_region_id.0)
-                    .bind(kind.as_str())
-                    .fetch_one(self.store.pool())
-                    .await
-                    .map_err(db)?;
-                let representation = DerivedRepresentation {
-                    derived_representation_id: DerivedRepresentationId::new(),
-                    subject_id: claim.subject_id,
-                    source_region_id: claim.source_region_id,
-                    representation_kind: kind,
-                    producer: output.producer,
-                    revision,
-                    payload_text: Some(output.text),
-                    payload_artifact_id: None,
-                    quality: output.coverage,
-                    created_at: Utc::now(),
-                    supersedes: None,
-                };
-                let representation_id = representation.derived_representation_id;
-                self.commit_derivation_claim(&claim, representation, output.derived_regions)
-                    .await?;
-                Ok::<DerivedRepresentationId, Error>(representation_id)
-            }
-            .await;
-            match outcome {
-                Ok(_) => {
-                    result.succeeded += 1;
-                }
-                Err(error) => {
-                    let changed = sqlx::query("UPDATE derivation_attempts SET state='transient_failed',finished_at=$2,problem_code='provider_error',problem_detail=$3 WHERE attempt_id=$1 AND state='running' AND lease_until>now()")
-                        .bind(claim.attempt_id)
-                        .bind(Utc::now())
-                        .bind(serde_json::json!({"detail": error.to_string()}))
-                        .execute(self.store.pool())
-                        .await
-                        .map_err(db)?;
-                    if changed.rows_affected() == 1 {
-                        sqlx::query("UPDATE derivations SET state='failed',updated_at=$2 WHERE derivation_id=$1")
-                            .bind(claim.derivation_id.0).bind(Utc::now()).execute(self.store.pool()).await.map_err(db)?;
-                        sqlx::query("UPDATE coverage_needs SET state='failed',updated_at=$3 WHERE subject_id=$1 AND source_region_id=$2 AND representation_kind=$4")
-                            .bind(claim.subject_id.0).bind(claim.source_region_id.0).bind(Utc::now()).bind(&claim.representation_kind)
-                            .execute(self.store.pool()).await.map_err(db)?;
-                        result.failed += 1;
-                    }
-                }
-            }
-        }
-        Ok(result)
-    }
-
-    pub async fn retry_derivation(&self, derivation: DerivationId) -> Result<()> {
-        let changed = sqlx::query("UPDATE derivations SET state='pending',updated_at=$2 WHERE derivation_id=$1 AND state IN ('failed','unavailable')")
-            .bind(derivation.0)
-            .bind(Utc::now())
-            .execute(self.store.pool())
-            .await
-            .map_err(db)?;
-        if changed.rows_affected() == 0 {
-            return Err(Error::NotFound("retryable derivation not found".into()));
-        }
         Ok(())
     }
 }

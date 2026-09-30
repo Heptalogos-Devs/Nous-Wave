@@ -62,6 +62,8 @@ strategy
 
 同输入/同producer/同strategy可稳定识别已成功derivation。
 
+当前实现将成功 key 直接保存在 immutable DerivedRepresentation，不另建 scheduler/attempt 状态源。key 包含 Subject、ordered input digest、kind、producer signature、strategy；显式 `supersedes` lineage 作为 refinement discriminator，使同一 lineage request 重试复用成功结果，继续细化时引用上一个实际表示。无 current consumer 的旧 scheduler 删除。
+
 旧singular-only derivation path删除。
 
 ## Text

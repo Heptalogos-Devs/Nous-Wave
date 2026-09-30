@@ -88,7 +88,10 @@ export class ModelRuntime {
       undefined,
       signal,
     );
-    return interpretationSchema.parse({ text: result.value }).text;
+    return {
+      text: interpretationSchema.parse({ text: result.value }).text,
+      evidence: result.evidence,
+    };
   }
   async embedding(
     text: string,

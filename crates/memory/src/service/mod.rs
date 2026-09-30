@@ -706,16 +706,16 @@ impl MemoryService {
                 }
             }
             EvidenceLocator::DerivedRepresentation(id) => {
-                let artifact: Option<Uuid> = sqlx::query_scalar("SELECT sr.artifact_id FROM derived_representations d JOIN source_regions sr USING(source_region_id) WHERE d.subject_id=$1 AND d.derived_representation_id=$2").bind(subject.0).bind(id.0).fetch_one(self.store.pool()).await.map_err(db)?;
-                if artifact != occurrence_artifact {
+                let artifact: Option<Uuid> = sqlx::query_scalar("SELECT sr.artifact_id FROM representation_source_regions($1,$2) roots JOIN source_regions sr USING(source_region_id) WHERE sr.artifact_id=(SELECT artifact_id FROM observation_occurrences WHERE subject_id=$1 AND occurrence_id=$3)").bind(subject.0).bind(id.0).bind(evidence.occurrence_id.0).fetch_optional(self.store.pool()).await.map_err(db)?.flatten();
+                if artifact.is_none() || artifact != occurrence_artifact {
                     return Err(Error::Invalid(
                         "derived representation source does not match occurrence".into(),
                     ));
                 }
             }
             EvidenceLocator::DerivedRegion(id) => {
-                let artifact: Option<Uuid> = sqlx::query_scalar("SELECT sr.artifact_id FROM derived_regions dr JOIN derived_representations d USING(derived_representation_id) JOIN source_regions sr USING(source_region_id) WHERE dr.subject_id=$1 AND dr.derived_region_id=$2").bind(subject.0).bind(id.0).fetch_one(self.store.pool()).await.map_err(db)?;
-                if artifact != occurrence_artifact {
+                let artifact: Option<Uuid> = sqlx::query_scalar("SELECT sr.artifact_id FROM derived_regions dr JOIN LATERAL representation_source_regions($1,dr.derived_representation_id) roots ON true JOIN source_regions sr USING(source_region_id) WHERE dr.subject_id=$1 AND dr.derived_region_id=$2 AND sr.artifact_id=(SELECT artifact_id FROM observation_occurrences WHERE subject_id=$1 AND occurrence_id=$3)").bind(subject.0).bind(id.0).bind(evidence.occurrence_id.0).fetch_optional(self.store.pool()).await.map_err(db)?.flatten();
+                if artifact.is_none() || artifact != occurrence_artifact {
                     return Err(Error::Invalid(
                         "derived region source does not match occurrence".into(),
                     ));

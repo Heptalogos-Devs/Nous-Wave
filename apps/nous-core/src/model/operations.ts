@@ -147,12 +147,31 @@ export function modelOperations(
       const representation = await kernel.modelMaterial.commitInterpretation(
         {
           subjectId: r.subjectId,
-          sourceRegionId: r.sourceId,
-          text,
-          model: models.invocations.profile("material_description")!.model,
-          modelRevision: "configured",
-          implementation: "ai-sdk-7",
+          text: text.text,
           kind,
+          strategy: "description_only",
+          inputs: [
+            {
+              ordinal: 0,
+              reference: { kind: "source_region", value: r.sourceId },
+              role: "source",
+            },
+          ],
+          producer: {
+            providerClass: text.evidence.protocol,
+            operation:
+              kind === "image_description"
+                ? "image_interpretation"
+                : kind === "transcript"
+                  ? "speech_transcription"
+                  : "document_extraction",
+            implementation: "ai-sdk@7.0.102/openai@4.0.67",
+            modelIdentity: text.evidence.model,
+            modelRevision: text.evidence.modelRevision,
+            preprocessingIdentity: text.evidence.promptId ?? "description_only",
+            preprocessingRevision: text.evidence.promptDigest ?? "1",
+            configDigest: text.evidence.configDigest,
+          },
         },
         opts,
       );

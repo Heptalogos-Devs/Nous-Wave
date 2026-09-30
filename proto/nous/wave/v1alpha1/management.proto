@@ -40,7 +40,7 @@ message ConsolidationResponse { Memory memory = 1; uint32 topology_changes = 2; 
 
 message Occurrence { string occurrence_id = 1; string subject_id = 2; optional string artifact_id = 3; string source_class = 4; optional string external_object_ref = 5; TemporalExtent occurred_time = 6; google.protobuf.Timestamp observed_at = 7; optional string conversation_ref = 8; optional string actor_entity_ref = 9; google.protobuf.Struct context = 10; }
 message SourceRegion { string source_region_id = 1; string artifact_id = 2; string coordinate_kind = 3; google.protobuf.Struct coordinate = 4; string coordinate_hash = 5; optional string parent_source_region_id = 6; }
-message DerivedRepresentation { string representation_id = 1; string subject_id = 2; optional string source_region_id = 3; string kind = 4; string producer_signature = 5; int32 revision = 6; optional string text = 7; optional string artifact_id = 8; }
+message DerivedRepresentation { string representation_id = 1; string subject_id = 2; repeated DerivationInput inputs = 3; string kind = 4; string producer_signature = 5; int32 revision = 6; optional string text = 7; optional string artifact_id = 8; ProducerSignature producer = 9; google.protobuf.Struct quality = 10; optional string supersedes = 11; string strategy = 12; }
 message ComponentStatus { string name = 1; string state = 2; optional string detail = 3; }
 message SystemStatus { repeated ComponentStatus components = 1; }
 message EffectiveConfigEntry { string key = 1; string value = 2; string source = 3; string owner = 4; bool restart_required = 5; bool editable = 6; }

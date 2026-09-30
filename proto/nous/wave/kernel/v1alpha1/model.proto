@@ -17,12 +17,11 @@ message EmbeddingNeedsResponse { EmbeddingConfig config = 1; repeated EmbeddingN
 message CommitEmbeddingRequest { string subject_id = 1; nous.wave.v1alpha1.CognitiveRef reference = 2; QueryEmbedding material = 3; }
 message CommitInterpretationRequest {
   string subject_id = 1;
-  string source_region_id = 2;
+  repeated nous.wave.v1alpha1.DerivationInput inputs = 2;
   string text = 3;
-  string model = 4;
-  string model_revision = 5;
-  string implementation = 6;
   string kind = 7;
+  nous.wave.v1alpha1.ProducerSignature producer = 8;
+  string strategy = 10;
 }
 service ModelMaterialService {
   rpc GetEmbeddingConfig(google.protobuf.Empty) returns (EmbeddingConfig);

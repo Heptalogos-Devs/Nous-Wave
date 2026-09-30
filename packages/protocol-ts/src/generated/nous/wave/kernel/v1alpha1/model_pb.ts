@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { CognitiveRef, QueryRequest } from "../../v1alpha1/types_pb.js";
+import type { CognitiveRef, DerivationInput, ProducerSignature, QueryRequest } from "../../v1alpha1/types_pb.js";
 import { file_nous_wave_v1alpha1_types } from "../../v1alpha1/types_pb.js";
 import type { DerivedRepresentationSchema } from "../../v1alpha1/management_pb.js";
 import { file_nous_wave_v1alpha1_management } from "../../v1alpha1/management_pb.js";
@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nous/wave/kernel/v1alpha1/model.proto.
  */
 export const file_nous_wave_kernel_v1alpha1_model: GenFile = /*@__PURE__*/
-  fileDesc("CiVub3VzL3dhdmUva2VybmVsL3YxYWxwaGExL21vZGVsLnByb3RvEhlub3VzLndhdmUua2VybmVsLnYxYWxwaGExIl4KD0VtYmVkZGluZ0NvbmZpZxISCgpzcGFjZV9oYXNoGAEgASgJEhUKDXByb2R1Y2VyX2hhc2gYAiABKAkSDQoFbW9kZWwYAyABKAkSEQoJZGltZW5zaW9uGAQgASgNIlkKDlF1ZXJ5RW1iZWRkaW5nEgwKBHRleHQYASABKAkSEgoKc3BhY2VfaGFzaBgCIAEoCRIVCg1wcm9kdWNlcl9oYXNoGAMgASgJEg4KBnZlY3RvchgEIAMoAiKEAQoSS2VybmVsUXVlcnlSZXF1ZXN0Ei8KBXF1ZXJ5GAEgASgLMiAubm91cy53YXZlLnYxYWxwaGExLlF1ZXJ5UmVxdWVzdBI9CgplbWJlZGRpbmdzGAIgAygLMikubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5RdWVyeUVtYmVkZGluZyI6ChVFbWJlZGRpbmdOZWVkc1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRINCgVsaW1pdBgCIAEoDSJiCg1FbWJlZGRpbmdOZWVkEjMKCXJlZmVyZW5jZRgBIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYSDAoEdGV4dBgCIAEoCRIOCgZkaWdlc3QYAyABKAkijQEKFkVtYmVkZGluZ05lZWRzUmVzcG9uc2USOgoGY29uZmlnGAEgASgLMioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdDb25maWcSNwoFbmVlZHMYAiADKAsyKC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkVtYmVkZGluZ05lZWQingEKFkNvbW1pdEVtYmVkZGluZ1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRIzCglyZWZlcmVuY2UYAiABKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlUmVmEjsKCG1hdGVyaWFsGAMgASgLMikubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5RdWVyeUVtYmVkZGluZyKmAQobQ29tbWl0SW50ZXJwcmV0YXRpb25SZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSGAoQc291cmNlX3JlZ2lvbl9pZBgCIAEoCRIMCgR0ZXh0GAMgASgJEg0KBW1vZGVsGAQgASgJEhYKDm1vZGVsX3JldmlzaW9uGAUgASgJEhYKDmltcGxlbWVudGF0aW9uGAYgASgJEgwKBGtpbmQYByABKAkyxAMKFE1vZGVsTWF0ZXJpYWxTZXJ2aWNlElgKEkdldEVtYmVkZGluZ0NvbmZpZxIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRoqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRW1iZWRkaW5nQ29uZmlnEnkKEkxpc3RFbWJlZGRpbmdOZWVkcxIwLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRW1iZWRkaW5nTmVlZHNSZXF1ZXN0GjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdOZWVkc1Jlc3BvbnNlElwKD0NvbW1pdEVtYmVkZGluZxIxLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuQ29tbWl0RW1iZWRkaW5nUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJ5ChRDb21taXRJbnRlcnByZXRhdGlvbhI2Lm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuQ29tbWl0SW50ZXJwcmV0YXRpb25SZXF1ZXN0Gikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZWRSZXByZXNlbnRhdGlvbmIGcHJvdG8z", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management, file_google_protobuf_empty]);
+  fileDesc("CiVub3VzL3dhdmUva2VybmVsL3YxYWxwaGExL21vZGVsLnByb3RvEhlub3VzLndhdmUua2VybmVsLnYxYWxwaGExIl4KD0VtYmVkZGluZ0NvbmZpZxISCgpzcGFjZV9oYXNoGAEgASgJEhUKDXByb2R1Y2VyX2hhc2gYAiABKAkSDQoFbW9kZWwYAyABKAkSEQoJZGltZW5zaW9uGAQgASgNIlkKDlF1ZXJ5RW1iZWRkaW5nEgwKBHRleHQYASABKAkSEgoKc3BhY2VfaGFzaBgCIAEoCRIVCg1wcm9kdWNlcl9oYXNoGAMgASgJEg4KBnZlY3RvchgEIAMoAiKEAQoSS2VybmVsUXVlcnlSZXF1ZXN0Ei8KBXF1ZXJ5GAEgASgLMiAubm91cy53YXZlLnYxYWxwaGExLlF1ZXJ5UmVxdWVzdBI9CgplbWJlZGRpbmdzGAIgAygLMikubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5RdWVyeUVtYmVkZGluZyI6ChVFbWJlZGRpbmdOZWVkc1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRINCgVsaW1pdBgCIAEoDSJiCg1FbWJlZGRpbmdOZWVkEjMKCXJlZmVyZW5jZRgBIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYSDAoEdGV4dBgCIAEoCRIOCgZkaWdlc3QYAyABKAkijQEKFkVtYmVkZGluZ05lZWRzUmVzcG9uc2USOgoGY29uZmlnGAEgASgLMioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdDb25maWcSNwoFbmVlZHMYAiADKAsyKC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkVtYmVkZGluZ05lZWQingEKFkNvbW1pdEVtYmVkZGluZ1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRIzCglyZWZlcmVuY2UYAiABKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlUmVmEjsKCG1hdGVyaWFsGAMgASgLMikubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5RdWVyeUVtYmVkZGluZyLNAQobQ29tbWl0SW50ZXJwcmV0YXRpb25SZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSMwoGaW5wdXRzGAIgAygLMiMubm91cy53YXZlLnYxYWxwaGExLkRlcml2YXRpb25JbnB1dBIMCgR0ZXh0GAMgASgJEgwKBGtpbmQYByABKAkSNwoIcHJvZHVjZXIYCCABKAsyJS5ub3VzLndhdmUudjFhbHBoYTEuUHJvZHVjZXJTaWduYXR1cmUSEAoIc3RyYXRlZ3kYCiABKAkyxAMKFE1vZGVsTWF0ZXJpYWxTZXJ2aWNlElgKEkdldEVtYmVkZGluZ0NvbmZpZxIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRoqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRW1iZWRkaW5nQ29uZmlnEnkKEkxpc3RFbWJlZGRpbmdOZWVkcxIwLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRW1iZWRkaW5nTmVlZHNSZXF1ZXN0GjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdOZWVkc1Jlc3BvbnNlElwKD0NvbW1pdEVtYmVkZGluZxIxLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuQ29tbWl0RW1iZWRkaW5nUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJ5ChRDb21taXRJbnRlcnByZXRhdGlvbhI2Lm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuQ29tbWl0SW50ZXJwcmV0YXRpb25SZXF1ZXN0Gikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZWRSZXByZXNlbnRhdGlvbmIGcHJvdG8z", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management, file_google_protobuf_empty]);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.EmbeddingConfig
@@ -212,9 +212,9 @@ export type CommitInterpretationRequest = Message<"nous.wave.kernel.v1alpha1.Com
   subjectId: string;
 
   /**
-   * @generated from field: string source_region_id = 2;
+   * @generated from field: repeated nous.wave.v1alpha1.DerivationInput inputs = 2;
    */
-  sourceRegionId: string;
+  inputs: DerivationInput[];
 
   /**
    * @generated from field: string text = 3;
@@ -222,24 +222,19 @@ export type CommitInterpretationRequest = Message<"nous.wave.kernel.v1alpha1.Com
   text: string;
 
   /**
-   * @generated from field: string model = 4;
-   */
-  model: string;
-
-  /**
-   * @generated from field: string model_revision = 5;
-   */
-  modelRevision: string;
-
-  /**
-   * @generated from field: string implementation = 6;
-   */
-  implementation: string;
-
-  /**
    * @generated from field: string kind = 7;
    */
   kind: string;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.ProducerSignature producer = 8;
+   */
+  producer?: ProducerSignature | undefined;
+
+  /**
+   * @generated from field: string strategy = 10;
+   */
+  strategy: string;
 };
 
 /**

@@ -61,22 +61,20 @@ pub struct CommitEmbeddingRequest {
     #[prost(message, optional, tag="3")]
     pub material: ::core::option::Option<QueryEmbedding>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CommitInterpretationRequest {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub source_region_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub inputs: ::prost::alloc::vec::Vec<super::super::v1alpha1::DerivationInput>,
     #[prost(string, tag="3")]
     pub text: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
-    pub model: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
-    pub model_revision: ::prost::alloc::string::String,
-    #[prost(string, tag="6")]
-    pub implementation: ::prost::alloc::string::String,
     #[prost(string, tag="7")]
     pub kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="8")]
+    pub producer: ::core::option::Option<super::super::v1alpha1::ProducerSignature>,
+    #[prost(string, tag="10")]
+    pub strategy: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UploadHeader {

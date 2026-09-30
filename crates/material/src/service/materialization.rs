@@ -175,11 +175,25 @@ impl MaterialService {
         mut provenance: Vec<CognitiveRef>,
         selection: Option<serde_json::Value>,
     ) -> Result<Payload> {
-        let row=sqlx::query("SELECT d.payload_text,d.payload_artifact_id,d.source_region_id,to_jsonb(p) AS producer FROM derived_representations d JOIN producer_signatures p USING(producer_signature_id) WHERE d.subject_id=$1 AND d.derived_representation_id=$2")
+        let row=sqlx::query("SELECT d.payload_text,d.payload_artifact_id,to_jsonb(p) AS producer FROM derived_representations d JOIN producer_signatures p USING(producer_signature_id) WHERE d.subject_id=$1 AND d.derived_representation_id=$2")
             .bind(subject.0).bind(id.0).fetch_one(self.store.pool()).await.map_err(db)?;
-        provenance.push(CognitiveRef::SourceRegion(SourceRegionId(
-            row.try_get("source_region_id").map_err(db)?,
-        )));
+        let roots: Vec<Uuid> =
+            sqlx::query_scalar("SELECT source_region_id FROM representation_source_regions($1,$2)")
+                .bind(subject.0)
+                .bind(id.0)
+                .fetch_all(self.store.pool())
+                .await
+                .map_err(db)?;
+        if roots.is_empty() {
+            return Err(Error::Invalid(
+                "derived representation has no source roots".into(),
+            ));
+        }
+        provenance.extend(
+            roots
+                .into_iter()
+                .map(|id| CognitiveRef::SourceRegion(SourceRegionId(id))),
+        );
         let text: Option<String> = row.try_get("payload_text").map_err(db)?;
         let (hash, media_type, length) = if let Some(text) = &text {
             (None, "text/plain; charset=utf-8".into(), text.len() as u64)

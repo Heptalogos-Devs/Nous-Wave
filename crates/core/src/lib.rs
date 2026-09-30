@@ -299,7 +299,7 @@ pub enum RepresentationKind {
     ImageDescription,
     SceneDescription,
     Summary,
-    Embedding,
+    StructuredInterpretation,
     ResourceSynopsis,
     Other,
 }
@@ -313,7 +313,7 @@ impl RepresentationKind {
             Self::ImageDescription => "image_description",
             Self::SceneDescription => "scene_description",
             Self::Summary => "summary",
-            Self::Embedding => "embedding",
+            Self::StructuredInterpretation => "structured_interpretation",
             Self::ResourceSynopsis => "resource_synopsis",
             Self::Other => "other",
         }

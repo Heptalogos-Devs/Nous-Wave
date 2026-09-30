@@ -65,23 +65,62 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
         request: Request<k::CommitInterpretationRequest>,
     ) -> std::result::Result<Response<p::DerivedRepresentation>, Status> {
         let input = request.into_inner();
-        let result:Result<_>=async{
-            if input.model.is_empty()||input.implementation.is_empty()||input.text.trim().is_empty()||input.text.len()>1_048_576{return Err(Error::Invalid("invalid interpretation proposal bounds".into()));}
-            let subject=SubjectId(id(&input.subject_id)?);
-            let source=nous_core::SourceRegionId(id(&input.source_region_id)?);
-            let kind:nous_core::RepresentationKind=enum_value(&input.kind)?;
-            let operation=match kind {
-                nous_core::RepresentationKind::ImageDescription=>nous_core::CapabilityOperation::ImageInterpretation,
-                nous_core::RepresentationKind::Transcript=>nous_core::CapabilityOperation::SpeechTranscription,
-                _=>nous_core::CapabilityOperation::DocumentExtraction,
+        let result: Result<_> = async {
+            if input.text.trim().is_empty() || input.text.len() > 1_048_576 {
+                return Err(Error::Invalid(
+                    "invalid interpretation proposal bounds".into(),
+                ));
+            }
+            let subject = SubjectId(id(&input.subject_id)?);
+            let kind: nous_core::RepresentationKind = enum_value(&input.kind)?;
+            let producer = required(input.producer, "producer")?;
+            let producer = nous_core::ProducerSignature {
+                signature_hash: String::new(),
+                provider_class: producer.provider_class,
+                operation: enum_value(&producer.operation)?,
+                implementation: producer.implementation,
+                model_identity: producer.model_identity,
+                model_revision: producer.model_revision,
+                preprocessing_identity: producer.preprocessing_identity,
+                preprocessing_revision: producer.preprocessing_revision,
+                config_digest: producer.config_digest,
             };
-            let mut producer=nous_core::ProducerSignature{signature_hash:String::new(),provider_class:"host-model".into(),operation,implementation:input.implementation,model_identity:Some(input.model),model_revision:Some(input.model_revision),preprocessing_identity:"bounded-source".into(),preprocessing_revision:"1".into(),config_digest:"host-interpretation-v1".into()};
-            producer.signature_hash=blake3::hash(&serde_json::to_vec(&producer).map_err(|e|Error::Invalid(e.to_string()))?).to_hex().to_string();
-            let revision:i32=sqlx::query_scalar("SELECT COALESCE(max(d.revision),0)+1 FROM derived_representations d JOIN producer_signatures p ON p.producer_signature_id=d.producer_signature_id WHERE d.subject_id=$1 AND d.source_region_id=$2 AND d.representation_kind=$3 AND p.signature_hash=$4")
-                .bind(subject.0).bind(source.0).bind(kind.as_str()).bind(&producer.signature_hash).fetch_one(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
-            let representation=self.0.material.persist_derived_representation(nous_material::DerivedRepresentation{derived_representation_id:nous_core::DerivedRepresentationId::new(),subject_id:subject,source_region_id:source,representation_kind:kind,producer,revision,payload_text:Some(input.text),payload_artifact_id:None,quality:serde_json::json!({"status":"model_interpretation"}),created_at:chrono::Utc::now(),supersedes:None}).await?;
-            self.get_derived_representation(p::ObjectRequest{subject_id:subject.0.to_string(),id:representation.derived_representation_id.0.to_string()}).await
-        }.await;
+            let inputs = input
+                .inputs
+                .into_iter()
+                .map(|item| {
+                    Ok(nous_material::DerivationInput {
+                        ordinal: item.ordinal,
+                        reference: from_ref(required(item.reference, "input reference")?)?,
+                        role: item.role,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let representation = self
+                .0
+                .material
+                .persist_derived_representation(nous_material::DerivedRepresentation {
+                    derived_representation_id: nous_core::DerivedRepresentationId::new(),
+                    subject_id: subject,
+                    inputs,
+                    strategy: input.strategy,
+                    representation_kind: kind,
+                    producer,
+                    revision: 1,
+                    payload_text: Some(input.text),
+                    payload_artifact_id: None,
+                    quality: serde_json::json!({"status":"model_interpretation"}),
+                    created_at: chrono::Utc::now(),
+                    supersedes: None,
+                })
+                .await?;
+            self.get_derived_representation(p::ObjectRequest {
+                subject_id: subject.0.to_string(),
+                id: representation.derived_representation_id.0.to_string(),
+            })
+            .await
+        }
+        .await;
         result.map(Response::new).map_err(status)
     }
     async fn get_embedding_config(
