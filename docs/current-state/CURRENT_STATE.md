@@ -1,6 +1,6 @@
 # Nous Wave 当前状态
 
-当前唯一新增代码施工授权是 [Cognitive Runtime and Episode](../plans/active/2026-09-29-cognitive-runtime-episode.md)。10/27 milestone 仍是阶段目标；当前实现以 Memory Reference、Cognitive Runtime 和 Episode Specs 为直接合同。
+当前唯一新增代码施工授权是 [Real Usage and Retrieval](../plans/active/2026-09-30-real-usage-retrieval.md)。10/27 milestone 仍是阶段目标；当前实现以 Memory Reference、Cognitive Runtime 和 Episode Specs 为直接合同。
 
 ## Capability matrix
 
@@ -19,7 +19,8 @@
 | WorkContext create/pause/resume/end and cross-session continuation | PASS | corepack pnpm qualification:cognitive-runtime-episode |
 | Episode identity/revision/history, overlap/hierarchy, lifecycle and purge | PASS | corepack pnpm qualification:cognitive-runtime-episode |
 | Self/Social/Motivation executable slices | NOT_RUN | outside current checkout; long-term semantics remain in Architecture-Vault |
-| Cross-platform qualification | NOT_RUN | current evidence is this Windows workstation only |
+| Linux Ubuntu Ready CI | PASS | previous acceptance run 36573357286; exact commit/platform recorded in Qualification |
+| macOS / broader platform qualification | NOT_RUN | no executed evidence |
 
 ## Current verification evidence
 
@@ -32,6 +33,8 @@
 - `corepack pnpm check` — PASS.
 - `just verify` — PASS.
 - `corepack pnpm qualification:cognitive-runtime-episode` — PASS; output included restart, cross-session continuation, Episode revision, overlap, hierarchy, lifecycle and purge evidence.
-- `corepack pnpm research:retrieval` — PASS; bundled deterministic baseline/Wave result written under ignored `data/research/`.
+- `corepack pnpm research:retrieval` — NOT_RUN for actual retrieval: the previous runner aggregated pre-filled fixture candidates and latency; it provides no real algorithm or semantic recall evidence.
+
+本轮 gateway、reference consumer、Material derivation 和真实检索仍在实现中。当前没有 live model 或真实 corpus recall 的 PASS 证据；见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
 
 精确命令、commit、平台和失败/未运行项由 [Memory Reference Qualification](../qualification/2026-10-memory-reference-profile.md) 维护；本文只保留 capability summary。

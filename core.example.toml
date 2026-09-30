@@ -4,9 +4,12 @@ data_root = "./data/core"
 port = 9470
 max_upload_bytes = 8589934592
 
-# Model roles are optional. Model IDs are explicit deployment configuration.
-# AI SDK uses its configured provider credentials; no model is invoked by default.
-[models]
+# Model roles are optional; no model is invoked by default.
+# Configure standard gateway profiles and reference credentials by env name only.
+# See docs/specs/active/model-runtime/gateway-model-and-prompts.md.
+[gateway_profiles]
+[model_profiles]
+[roles]
 
 [[consumers]]
 consumer_id = "default"

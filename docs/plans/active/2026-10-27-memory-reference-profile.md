@@ -27,14 +27,14 @@ Memory acceptance 不依赖 WorkContext 或 Episode。
 
 ## Runtime、Episode 与研究
 
-当前 continuation 工作由 [Cognitive Runtime and Episode plan](2026-09-29-cognitive-runtime-episode.md) 授权：
+当前 continuation 工作由 [Real Usage and Retrieval plan](2026-09-30-real-usage-retrieval.md) 授权：
 
 - WorkContext 是 Runtime-owned、Subject-level、可跨 Session 延续的 durable checkpoint；
 - Active Cognition 是 ResidentSet、active WorkContext exact refs 与 request situation refs 的 Runtime view；
 - Episode 是 Memory-owned representational foundation，支持 exact identity/revision、members、provenance、hierarchy、track、lineage 和 lifecycle；
 - 不实现 automatic boundary detector、automatic split/merge、Journal、Dream、ranked Episode retrieval 或新的 product topology。
 
-Bundled retrieval research 固定 corpus、QueryPlan、budget、embedding space、hard constraints 和 final validator，对比 baseline 与 experimental Wave lane。Wave 结果不自动改变默认路径。
+真实 retrieval research 固定 imported Authority corpus、QueryPlan、budget、embedding space、hard constraints 和 final validator，对比 baseline、model rerank、Wave 和 combined。旧 bundled runner 聚合预填 fixture candidates/latency，不构成算法实验。Wave 结果不自动改变默认路径。
 
 ## 外部 benchmark 与官方输入
 

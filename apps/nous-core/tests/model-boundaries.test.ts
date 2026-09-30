@@ -1,0 +1,237 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer } from "node:http";
+import { z } from "zod";
+import {
+  gatewaySchema,
+  modelConfigurationSchema,
+} from "../src/model/configuration.js";
+import {
+  ModelInvocations,
+  parseRerankResponse,
+} from "../src/model/invocations.js";
+import { PromptRegistry } from "../src/model/prompts.js";
+
+const temporary: string[] = [];
+afterEach(async () => {
+  await Promise.all(
+    temporary.splice(0).map((p) => rm(p, { recursive: true, force: true })),
+  );
+});
+describe("model protocol and provenance boundaries", () => {
+  it("rejects unsafe destinations and misbound protocols before client creation", () => {
+    for (const base_url of [
+      "http://gateway.example/v1",
+      "https://user:secret@gateway.example/v1",
+      "https://gateway.example/v1?token=secret",
+      "http://localhost/v1",
+    ])
+      expect(
+        gatewaySchema.safeParse({ base_url, credential_env: "TOKEN" }).success,
+      ).toBe(false);
+    expect(
+      gatewaySchema.parse({
+        base_url: "http://127.0.0.1:9000/v1/",
+        credential_env: "TOKEN",
+      }).base_url,
+    ).toBe("http://127.0.0.1:9000/v1");
+    expect(
+      modelConfigurationSchema.safeParse({
+        gateway_profiles: {
+          local: {
+            base_url: "https://example.com/v1",
+            credential_env: "TOKEN",
+          },
+        },
+        model_profiles: {
+          chat: {
+            gateway: "local",
+            protocol: "openai-chat",
+            model: "chat",
+            capabilities: ["text"],
+          },
+        },
+        roles: { query_embedding: { model: "chat" } },
+      }).success,
+    ).toBe(false);
+  });
+  it("bounds prompt decoding and canonical path while tracking changed content", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "nous-prompts-"));
+    temporary.push(dir);
+    const root = join(dir, "prompts");
+    await mkdir(root);
+    await writeFile(join(root, "p.md"), "first");
+    await writeFile(join(dir, "outside.md"), "outside");
+    const registry = new PromptRegistry(root);
+    const first = await registry.load("memory_formation", "p.md");
+    await writeFile(join(root, "p.md"), "second");
+    expect(
+      (await registry.load("memory_formation", "prompts/p.md"))?.digest,
+    ).not.toBe(first?.digest);
+    await expect(
+      registry.load("memory_formation", "../outside.md"),
+    ).rejects.toThrow("allowed root");
+    await writeFile(join(root, "p.md"), Buffer.alloc(128 * 1024 + 1));
+    await expect(registry.load("memory_formation", "p.md")).rejects.toThrow(
+      "128 KiB",
+    );
+    await writeFile(join(root, "p.md"), Buffer.from([0xff]));
+    await expect(registry.load("memory_formation", "p.md")).rejects.toThrow();
+  });
+  it("rejects duplicate, out-of-range and nonfinite rerank scores", () => {
+    for (const results of [
+      [
+        { index: 0, relevance_score: 1 },
+        { index: 0, relevance_score: 0 },
+      ],
+      [{ index: 2, relevance_score: 1 }],
+      [{ index: 0, relevance_score: NaN }],
+    ])
+      expect(() => parseRerankResponse({ results }, 2)).toThrow();
+    expect(
+      parseRerankResponse({ results: [{ index: 1, relevance_score: 0.7 }] }, 2)
+        .results[0]?.index,
+    ).toBe(1);
+  });
+  it("uses explicit chat/embedding/rerank endpoints and redacts provider errors", async () => {
+    const requests: { path: string; body: Record<string, unknown> }[] = [];
+    const server = createServer((req, res) => {
+      void (async () => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          const data: unknown = chunk;
+          if (!(data instanceof Uint8Array))
+            throw new Error("Unexpected request chunk");
+          chunks.push(Buffer.from(data));
+        }
+        const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<
+          string,
+          unknown
+        >;
+        requests.push({ path: req.url!, body });
+        res.setHeader("Content-Type", "application/json");
+        if (req.url === "/v1/chat/completions")
+          res.end(
+            JSON.stringify({
+              id: "fixture",
+              created: 1,
+              model: "chat-id",
+              choices: [
+                {
+                  index: 0,
+                  message: {
+                    role: "assistant",
+                    content: '{"value":"faithful"}',
+                  },
+                  finish_reason: "stop",
+                },
+              ],
+              usage: {
+                prompt_tokens: 1,
+                completion_tokens: 2,
+                total_tokens: 3,
+              },
+            }),
+          );
+        else if (req.url === "/v1/embeddings")
+          res.end(
+            JSON.stringify({
+              data: [{ object: "embedding", index: 0, embedding: [0.2, 0.3] }],
+              model: "embedding-id",
+              usage: { prompt_tokens: 1, total_tokens: 1 },
+            }),
+          );
+        else if (body.model === "bad-rerank") {
+          res.statusCode = 401;
+          res.end('{"error":"fixture-secret echoed by provider"}');
+        } else
+          res.end(
+            JSON.stringify({ results: [{ index: 1, relevance_score: 0.8 }] }),
+          );
+      })().catch(() => {
+        res.destroy();
+      });
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    const address = server.address();
+    if (!address || typeof address === "string")
+      throw new Error("Missing fixture port");
+    process.env.NOUS_TEST_GATEWAY = "fixture-secret";
+    try {
+      const config = modelConfigurationSchema.parse({
+        gateway_profiles: {
+          fixture: {
+            base_url: `http://127.0.0.1:${address.port}/v1`,
+            credential_env: "NOUS_TEST_GATEWAY",
+          },
+        },
+        model_profiles: {
+          chat: {
+            gateway: "fixture",
+            protocol: "openai-chat",
+            model: "chat-id",
+            capabilities: ["text", "structured_output"],
+          },
+          embedding: {
+            gateway: "fixture",
+            protocol: "openai-embeddings",
+            model: "embedding-id",
+            capabilities: ["embedding"],
+            embedding: {
+              dimension: 2,
+              weights_revision: "1",
+              task: "retrieval",
+              input_representation: "text",
+              preprocessing_identity: "utf8",
+              preprocessing_revision: "1",
+              normalization: "none",
+              output_semantics: "dense",
+            },
+          },
+          rerank: {
+            gateway: "fixture",
+            protocol: "rerank-v1",
+            model: "rank-id",
+            capabilities: ["rerank"],
+          },
+        },
+        roles: {
+          memory_formation: { model: "chat" },
+          query_embedding: { model: "embedding" },
+          query_rerank: { model: "rerank" },
+        },
+      });
+      const runtime = await ModelInvocations.create(config);
+      const formation = await runtime.generate(
+        "memory_formation",
+        "evidence",
+        z.object({ value: z.string() }),
+      );
+      expect(formation.value).toEqual({ value: "faithful" });
+      expect(formation.evidence.promptDigest).toHaveLength(64);
+      expect(
+        (await runtime.embedding("evidence", "embedding-id")).value,
+      ).toEqual([0.2, 0.3]);
+      expect(
+        (await runtime.rerank("intent", ["a", "b"], 2)).value[0]?.index,
+      ).toBe(1);
+      expect(requests.map((r) => r.path)).toEqual([
+        "/v1/chat/completions",
+        "/v1/embeddings",
+        "/v1/rerank",
+      ]);
+      config.model_profiles.rerank!.model = "bad-rerank";
+      await expect(
+        (await ModelInvocations.create(config)).rerank("intent", ["a", "b"], 2),
+      ).rejects.toThrow("Rerank invocation failed");
+      expect(JSON.stringify(formation.evidence)).not.toContain(
+        "fixture-secret",
+      );
+    } finally {
+      delete process.env.NOUS_TEST_GATEWAY;
+      await new Promise<void>((done) => server.close(() => done()));
+    }
+  });
+});

@@ -149,7 +149,7 @@ export function modelOperations(
           subjectId: r.subjectId,
           sourceRegionId: r.sourceId,
           text,
-          model: models.roles.interpretation!,
+          model: models.invocations.profile("material_description")!.model,
           modelRevision: "configured",
           implementation: "ai-sdk-7",
           kind,

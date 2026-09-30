@@ -398,10 +398,7 @@ export async function createCore(settings: CoreOptions) {
       return {
         components: [
           ...status.components,
-          {
-            name: "model.steward",
-            state: settings.models?.readiness ?? "NOT_CONFIGURED",
-          },
+          ...(settings.models ?? new ModelRuntime()).invocations.capabilities,
         ],
       };
     },

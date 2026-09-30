@@ -1,0 +1,69 @@
+import { open, realpath } from "node:fs/promises";
+import { isAbsolute, relative, resolve, sep } from "node:path";
+import { createHash } from "node:crypto";
+import type { ModelRole } from "./configuration.js";
+
+const defaults: Partial<Record<ModelRole, string>> = {
+  projection_steward: "projection/steward.md",
+  memory_formation: "memory/formation.md",
+  material_description: "material/description.md",
+  material_structuring: "material/structure.md",
+};
+export function digest(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+export function canonicalDigest(value: unknown): string {
+  const canonical = (item: unknown): unknown => {
+    if (Array.isArray(item)) return item.map(canonical);
+    if (item !== null && typeof item === "object")
+      return Object.fromEntries(
+        Object.entries(item)
+          .sort(([a], [b]) => a.localeCompare(b, "en"))
+          .map(([key, entry]) => [key, canonical(entry)]),
+      );
+    return item;
+  };
+  return digest(JSON.stringify(canonical(value)));
+}
+export type PromptAsset = { id: string; digest: string; text: string };
+export class PromptRegistry {
+  constructor(private readonly root: string) {}
+  async load(
+    role: ModelRole,
+    path = defaults[role],
+  ): Promise<PromptAsset | undefined> {
+    if (!path) return undefined;
+    const root = await realpath(this.root);
+    // Config paths use the documented repository-relative prompts/ prefix.
+    const local = path.replace(/^prompts[\\/]/, "");
+    const target = await realpath(resolve(root, local));
+    const rel = relative(root, target);
+    if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${sep}`) || !rel)
+      throw new Error("Prompt path is outside the allowed root");
+    const handle = await open(target, "r");
+    try {
+      const stat = await handle.stat();
+      if (!stat.isFile() || stat.size > 128 * 1024)
+        throw new Error("Prompt exceeds 128 KiB or is not a file");
+      const buffer = Buffer.alloc(128 * 1024 + 1);
+      let size = 0;
+      while (size < buffer.length) {
+        const { bytesRead } = await handle.read(
+          buffer,
+          size,
+          buffer.length - size,
+          null,
+        );
+        if (!bytesRead) break;
+        size += bytesRead;
+      }
+      if (size > 128 * 1024) throw new Error("Prompt exceeds 128 KiB");
+      const bytes = buffer.subarray(0, size);
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      if (!text.trim()) throw new Error("Empty prompt asset");
+      return { id: rel.split(sep).join("/"), digest: digest(text), text };
+    } finally {
+      await handle.close();
+    }
+  }
+}

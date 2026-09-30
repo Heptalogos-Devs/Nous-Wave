@@ -7,6 +7,7 @@
     "qualification:official-client": "tsx official_client_closure.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "4.0.67",
     "@bufbuild/protobuf": "2.15.0",
     "@connectrpc/connect": "2.2.0",
     "@connectrpc/connect-fastify": "2.2.0",

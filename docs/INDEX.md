@@ -12,11 +12,16 @@
 - [计划目录](plans/README.md)：Target Engineering Plan、active milestone 和当前施工计划。
 - [Target Engineering Plan](plans/roadmap/2026-09-target-engineering-plan.md)：长期目标到 code owners 与验证闭环的工程轨迹。
 - [2026-10-27 Memory Reference Profile](plans/active/2026-10-27-memory-reference-profile.md)：当前中期 milestone plan。
-- [Cognitive Runtime and Episode](plans/active/2026-09-29-cognitive-runtime-episode.md)：当前唯一新增代码施工授权。
+- [Real Usage and Retrieval](plans/active/2026-09-30-real-usage-retrieval.md)：当前唯一新增代码施工授权。
 - [Executable Specs 目录](specs/README.md)：直接实施合同的职责、层次与生命周期。
 - [Memory Reference active Specs](specs/active/memory-reference-profile/README.md)：当前唯一的 Memory Authority、Runtime/Use、Query/Serving 和 Qualification contracts。
 - [WorkContext / Active Cognition Specs](specs/active/cognitive-runtime/work-context.md)：Runtime-owned checkpoint 与 Active Cognition view。
 - [Episode Specs](specs/active/episode/episode-authority.md)：Memory-owned Episode authority 与 Runtime integration。
+- [Gateway/model/Prompt Specs](specs/active/model-runtime/gateway-model-and-prompts.md)：标准模型协议、角色配置与 producer provenance。
+- [Material derivation Spec](specs/active/model-runtime/material-derivation.md)：exact input graph 与多媒体策略。
+- [Reference consumer Spec](specs/active/model-runtime/reference-consumer.md)：official Client CLI 的完整使用路径。
+- [Rerank 与真实实验 Spec](specs/active/retrieval/rerank-and-live-evaluation.md)：valid pool、真实 corpus、oracle 与指标。
+- [真实使用与检索 Qualification](qualification/2026-09-30-real-usage-retrieval.md)：本轮实际证据和阻塞。
 - [Memory Reference Qualification](qualification/2026-10-memory-reference-profile.md)：当前 qualification record；同时记录 WorkContext/Episode continuation evidence。
 
 ## 当前接口参考

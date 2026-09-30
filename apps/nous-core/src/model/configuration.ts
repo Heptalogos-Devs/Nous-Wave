@@ -1,0 +1,167 @@
+import { z } from "zod";
+
+export const roleNames = [
+  "projection_steward",
+  "memory_formation",
+  "material_description",
+  "material_structuring",
+  "query_embedding",
+  "query_rerank",
+  "speech_transcription",
+] as const;
+export type ModelRole = (typeof roleNames)[number];
+const nonempty = z.string().min(1).max(512);
+const boundedTimeout = z.number().int().min(1).max(300_000);
+export const gatewaySchema = z
+  .object({
+    base_url: z.string().transform((value, ctx) => {
+      let url: URL;
+      try {
+        url = new URL(value);
+      } catch {
+        ctx.addIssue({ code: "custom", message: "Invalid gateway URL" });
+        return z.NEVER;
+      }
+      const loopback = url.hostname === "127.0.0.1" || url.hostname === "[::1]";
+      if (
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        (url.protocol !== "https:" && !(url.protocol === "http:" && loopback))
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "Gateway requires credential-free HTTPS or literal loopback HTTP",
+        });
+        return z.NEVER;
+      }
+      return url.toString().replace(/\/$/, "");
+    }),
+    credential_env: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+    enabled: z.boolean().default(true),
+    request_timeout_ms: boundedTimeout.default(30_000),
+  })
+  .strict();
+const embeddingSchema = z
+  .object({
+    dimension: z.number().int().min(1).max(8192),
+    weights_revision: nonempty,
+    task: nonempty,
+    input_representation: nonempty,
+    preprocessing_identity: nonempty,
+    preprocessing_revision: nonempty,
+    normalization: nonempty,
+    output_semantics: nonempty,
+  })
+  .strict();
+export const modelSchema = z
+  .object({
+    gateway: nonempty,
+    protocol: z.enum([
+      "openai-chat",
+      "openai-responses",
+      "openai-embeddings",
+      "openai-audio-transcription",
+      "rerank-v1",
+    ]),
+    model: nonempty,
+    capabilities: z
+      .array(
+        z.enum([
+          "text",
+          "image_input",
+          "structured_output",
+          "embedding",
+          "speech_transcription",
+          "rerank",
+        ]),
+      )
+      .min(1),
+    model_revision: nonempty.optional(),
+    embedding: embeddingSchema.optional(),
+  })
+  .strict()
+  .superRefine((model, ctx) => {
+    if ((model.protocol === "openai-embeddings") !== Boolean(model.embedding))
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Embedding protocol requires an explicit space profile; other protocols cannot declare one",
+      });
+  });
+export const bindingSchema = z
+  .object({
+    model: nonempty,
+    prompt: nonempty.optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    top_p: z.number().min(0).max(1).optional(),
+    max_output_tokens: z.number().int().min(1).max(65_536).optional(),
+    timeout_ms: boundedTimeout.optional(),
+    requirement: z
+      .enum(["optional", "preferred", "required"])
+      .default("optional"),
+  })
+  .strict();
+export const modelConfigurationShape = {
+  gateway_profiles: z.record(z.string(), gatewaySchema).default({}),
+  model_profiles: z.record(z.string(), modelSchema).default({}),
+  roles: z.partialRecord(z.enum(roleNames), bindingSchema).default({}),
+};
+export const modelConfigurationSchema = z
+  .object(modelConfigurationShape)
+  .strict()
+  .superRefine((config, ctx) => {
+    for (const [id, model] of Object.entries(config.model_profiles)) {
+      if (!config.gateway_profiles[model.gateway])
+        ctx.addIssue({
+          code: "custom",
+          message: `Unknown gateway for model profile ${id}`,
+        });
+    }
+    for (const [role, binding] of Object.entries(config.roles)) {
+      const model = config.model_profiles[binding.model];
+      if (!model) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Unknown model profile for role ${role}`,
+        });
+        continue;
+      }
+      const protocol =
+        role === "query_embedding"
+          ? "openai-embeddings"
+          : role === "query_rerank"
+            ? "rerank-v1"
+            : role === "speech_transcription"
+              ? "openai-audio-transcription"
+              : undefined;
+      const capability =
+        role === "query_embedding"
+          ? "embedding"
+          : role === "query_rerank"
+            ? "rerank"
+            : role === "speech_transcription"
+              ? "speech_transcription"
+              : "text";
+      if (
+        (protocol
+          ? model.protocol !== protocol
+          : !["openai-chat", "openai-responses"].includes(model.protocol)) ||
+        !model.capabilities.includes(capability)
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: `Protocol/capability mismatch for role ${role}`,
+        });
+      if (protocol && binding.prompt)
+        ctx.addIssue({
+          code: "custom",
+          message: `Role ${role} does not consume a system prompt`,
+        });
+    }
+  });
+export type ModelConfiguration = z.infer<typeof modelConfigurationSchema>;
+export type ModelProfile = z.infer<typeof modelSchema>;
+export type RoleBinding = z.infer<typeof bindingSchema>;

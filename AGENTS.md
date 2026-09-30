@@ -25,7 +25,7 @@ Keep `runtime` independent of concrete retrieval/provider implementation. `persi
 
 ## Product boundary
 
-The current executable profile is Memory-only. Do not reintroduce Self, Social, Motivation, Episode, Journal, Offline Cognition, or Heptalogos behavior authority through code, protocol, configuration, tests, or docs. Their long-term semantics remain in Architecture-Vault.
+The current executable scope includes Subject/Configuration/Material foundations, Memory, Cognitive Runtime, WorkContext, Episode foundation, model operations, and Retrieval/Serving. Self, Social, Motivation, Journal, Offline Cognition/Dream, Heptalogos behavior Authority, and automatic Episode segmentation remain deferred in Architecture-Vault.
 
 ## Generated and durable state
 

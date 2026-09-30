@@ -2,6 +2,10 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parse } from "smol-toml";
 import { z } from "zod";
+import {
+  modelConfigurationShape,
+  modelConfigurationSchema,
+} from "./model/configuration.js";
 
 const requirement = z.enum(["REQUIRED", "PREFERRED", "OPTIONAL", "FORBIDDEN"]);
 const consumer = z
@@ -29,15 +33,7 @@ const schema = z
       .max(Number.MAX_SAFE_INTEGER)
       .default(8 * 1024 ** 3),
     consumers: z.array(consumer).min(1).max(64),
-    models: z
-      .object({
-        steward: z.string().min(1).optional(),
-        embedding: z.string().min(1).optional(),
-        formation: z.string().min(1).optional(),
-        interpretation: z.string().min(1).optional(),
-      })
-      .strict()
-      .default({}),
+    ...modelConfigurationShape,
   })
   .strict();
 export async function loadConfig(path: string) {
@@ -57,7 +53,11 @@ export async function loadConfig(path: string) {
     dataRoot: resolve(base, config.data_root),
     port: config.port,
     maxUploadBytes: config.max_upload_bytes,
-    models: config.models,
+    models: modelConfigurationSchema.parse({
+      gateway_profiles: config.gateway_profiles,
+      model_profiles: config.model_profiles,
+      roles: config.roles,
+    }),
     consumers: config.consumers.map((c) => ({
       consumerId: c.consumer_id,
       revision: c.revision,
