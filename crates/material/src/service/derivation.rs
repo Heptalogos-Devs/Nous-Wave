@@ -1,5 +1,26 @@
 use super::*;
 use nous_persistence::database_error as db;
+fn derivation_identity(representation: &DerivedRepresentation) -> Result<(String, String)> {
+    let input_digest = blake3::hash(
+        &serde_json::to_vec(&representation.inputs).map_err(|e| Error::Invalid(e.to_string()))?,
+    )
+    .to_hex()
+    .to_string();
+    let key = blake3::hash(
+        &serde_json::to_vec(&(
+            representation.subject_id,
+            &input_digest,
+            representation.representation_kind,
+            &representation.producer.signature_hash,
+            &representation.strategy,
+            representation.supersedes,
+        ))
+        .map_err(|e| Error::Invalid(e.to_string()))?,
+    )
+    .to_hex()
+    .to_string();
+    Ok((input_digest, key))
+}
 impl MaterialService {
     pub async fn persist_derived_representation(
         &self,
@@ -7,25 +28,7 @@ impl MaterialService {
     ) -> Result<DerivedRepresentation> {
         representation.validate()?;
         representation.producer = AuthorityStore::canonical_producer(&representation.producer)?;
-        let input_digest = blake3::hash(
-            &serde_json::to_vec(&representation.inputs)
-                .map_err(|e| Error::Invalid(e.to_string()))?,
-        )
-        .to_hex()
-        .to_string();
-        let key = blake3::hash(
-            &serde_json::to_vec(&(
-                representation.subject_id,
-                &input_digest,
-                representation.representation_kind,
-                &representation.producer.signature_hash,
-                &representation.strategy,
-                representation.supersedes,
-            ))
-            .map_err(|e| Error::Invalid(e.to_string()))?,
-        )
-        .to_hex()
-        .to_string();
+        let (input_digest, key) = derivation_identity(&representation)?;
         let mut tx = self.store.begin().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
             .bind(&key)

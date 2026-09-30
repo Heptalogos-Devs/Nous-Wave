@@ -10,6 +10,7 @@ import type {
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import { ModelRuntime } from "./runtime.js";
+import { invocationSummary } from "./summary.js";
 
 export class ModelMaterialPipeline {
   constructor(
@@ -63,7 +64,7 @@ export class ModelMaterialPipeline {
               text,
               spaceHash: config.spaceHash,
               producerHash: config.producerHash,
-              vector,
+              vector: vector.value,
             }),
           );
         }
@@ -98,6 +99,7 @@ export class ModelMaterialPipeline {
         Code.FailedPrecondition,
       );
     let committed = 0;
+    const invocations: ReturnType<typeof invocationSummary>[] = [];
     for (const need of needs.needs) {
       try {
         const vector = await this.models.embedding(
@@ -105,6 +107,7 @@ export class ModelMaterialPipeline {
           needs.config.model,
           options.signal ?? undefined,
         );
+        invocations.push(invocationSummary(vector.evidence));
         await this.kernel.modelMaterial.commitEmbedding(
           {
             subjectId,
@@ -113,7 +116,7 @@ export class ModelMaterialPipeline {
               text: need.text,
               spaceHash: needs.config.spaceHash,
               producerHash: needs.config.producerHash,
-              vector,
+              vector: vector.value,
             },
           },
           options,
@@ -123,6 +126,7 @@ export class ModelMaterialPipeline {
         if (options.signal?.aborted) throw error;
         return {
           committed,
+          invocations,
           degradation: [
             {
               code: "embedding_batch_incomplete",
@@ -135,6 +139,6 @@ export class ModelMaterialPipeline {
         };
       }
     }
-    return { committed, degradation: [] };
+    return { committed, degradation: [], invocations };
   }
 }

@@ -1,3 +1,4 @@
+import { qualificationConfig } from "./qualification-config.js";
 import { create } from "@bufbuild/protobuf";
 import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { createConnectTransport } from "@connectrpc/connect-node";
@@ -36,7 +37,7 @@ async function main() {
   const kernelConfig = join(root, "kernel.toml");
   await writeFile(
     kernelConfig,
-    `\n\n[bootstrap.database]\nmode = "managed"\nurl = ""\nmax_connections = 4\nname = "official_client_closure"\ninstall_dir = "postgres-install"\ndata_dir = "postgres-data"\n\n[bootstrap.object_store]\nbackend = "fs"\nroot = "objects"\nmax_upload_bytes = 1048576\n\n[bootstrap.serving]\nroot = "serving"\n\n[settings.capabilities.process]\nmemory = true\n\n[settings.capabilities.subject_defaults]\nmemory = true\n`,
+    qualificationConfig(root, "official_client_closure"),
   );
 
   const kernel = await startKernel(

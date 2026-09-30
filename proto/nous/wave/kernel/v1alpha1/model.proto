@@ -3,6 +3,7 @@ package nous.wave.kernel.v1alpha1;
 import "nous/wave/v1alpha1/types.proto";
 import "nous/wave/v1alpha1/management.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
 message EmbeddingConfig {
   string space_hash = 1;
   string producer_hash = 2;
@@ -23,6 +24,7 @@ message CommitInterpretationRequest {
   nous.wave.v1alpha1.ProducerSignature producer = 8;
   string strategy = 10;
   optional string supersedes = 11;
+  google.protobuf.Struct quality = 12;
 }
 service ModelMaterialService {
   rpc GetEmbeddingConfig(google.protobuf.Empty) returns (EmbeddingConfig);

@@ -4,6 +4,9 @@ import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
 import type { ModelInvocationEvidence } from "./invocations.js";
 import type { DerivedRepresentation } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
+import { sampleVideo } from "./video.js";
+import { canonicalDigest } from "./prompts.js";
+import { invocationSummary } from "./summary.js";
 
 export async function deriveMaterial(
   kernel: KernelClient,
@@ -30,14 +33,52 @@ export async function deriveMaterial(
     (request.target === "structured" && strategy === "description_only")
   )
     throw new Error("Derivation target conflicts with strategy");
-  const source = await kernel.authority.materializeEvidence(
-    {
-      subjectId: request.subjectId,
-      reference: { kind: "source_region", value: request.sourceRegionId },
-      maxBytes: 1048576n,
-    },
+  const region = await kernel.authority.getSourceRegion(
+    { subjectId: request.subjectId, id: request.sourceRegionId },
     options,
   );
+  const artifact = await kernel.authority.getArtifact(
+    { subjectId: request.subjectId, id: region.artifactId },
+    options,
+  );
+  const isVideo = artifact.mediaType.toLowerCase().startsWith("video/");
+  let source;
+  if (isVideo && region.coordinateKind === "whole_artifact") {
+    if (artifact.byteLength > BigInt(models.video.max_source_bytes))
+      return {
+        representations: [],
+        degradation: [
+          {
+            code: "video_source_too_large",
+            detail: "Video exceeds configured preprocessing byte bound",
+          },
+        ],
+      };
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    for await (const chunk of kernel.artifacts.downloadArtifact(
+      { subjectId: request.subjectId, artifactId: region.artifactId },
+      options,
+    )) {
+      length += chunk.content.length;
+      if (length > models.video.max_source_bytes)
+        throw new Error("Video stream exceeds configured byte bound");
+      chunks.push(chunk.content);
+    }
+    source = {
+      content: Buffer.concat(chunks),
+      mediaType: artifact.mediaType,
+      partial: false,
+    };
+  } else
+    source = await kernel.authority.materializeEvidence(
+      {
+        subjectId: request.subjectId,
+        reference: { kind: "source_region", value: request.sourceRegionId },
+        maxBytes: 1048576n,
+      },
+      options,
+    );
   if (source.partial)
     return {
       representations: [],
@@ -49,6 +90,7 @@ export async function deriveMaterial(
       ],
     };
   const representations: DerivedRepresentation[] = [];
+  const invocations: ReturnType<typeof invocationSummary>[] = [];
   const commit = async (
     text: string,
     kind: string,
@@ -58,7 +100,10 @@ export async function deriveMaterial(
       role: string;
     }[],
     evidence?: ModelInvocationEvidence,
+    quality: Record<string, unknown> = {},
+    preprocessingDigest?: string,
   ) => {
+    if (evidence) invocations.push(invocationSummary(evidence));
     const representation = await kernel.modelMaterial.commitInterpretation(
       {
         subjectId: request.subjectId,
@@ -66,12 +111,24 @@ export async function deriveMaterial(
         kind,
         inputs,
         strategy,
+        quality: JSON.parse(
+          JSON.stringify({
+            ...quality,
+            ...(evidence
+              ? {
+                  model_profile_digest: evidence.profileDigest,
+                  role_config_digest: evidence.configDigest,
+                  latency_ms: evidence.latencyMs,
+                }
+              : {}),
+          }),
+        ) as import("@bufbuild/protobuf").JsonObject,
         supersedes:
           representations.length === 0 ? request.supersedes : undefined,
         producer: {
           providerClass: evidence?.protocol ?? "deterministic",
           operation:
-            kind === "image_description"
+            kind === "image_description" || kind === "scene_description"
               ? "image_interpretation"
               : kind === "transcript"
                 ? "speech_transcription"
@@ -83,9 +140,14 @@ export async function deriveMaterial(
             : "verified-utf8-decoding-v1",
           modelIdentity: evidence?.model,
           modelRevision: evidence?.modelRevision,
-          preprocessingIdentity: `${evidence?.promptId ?? "verified-utf8"}/${strategy}`,
+          preprocessingIdentity: `${evidence ? (evidence.promptId ?? "standard-audio-transcription") : "verified-utf8"}/${strategy}`,
           preprocessingRevision: evidence?.promptDigest ?? "1",
-          configDigest: evidence?.configDigest ?? "utf8-fatal-v1",
+          configDigest: preprocessingDigest
+            ? canonicalDigest({
+                role: evidence?.configDigest,
+                preprocessing: preprocessingDigest,
+              })
+            : (evidence?.configDigest ?? "utf8-fatal-v1"),
         },
       },
       options,
@@ -103,17 +165,12 @@ export async function deriveMaterial(
   const mime = source.mediaType.split(";")[0]?.trim().toLowerCase() ?? "";
   const textual = mime.startsWith("text/") || mime === "application/json";
   const signal = options.signal ?? undefined;
-  if (mime.startsWith("video/"))
-    return {
-      representations: [],
-      degradation: [
-        {
-          code: "video_preprocessor_required",
-          detail: "Bounded FFmpeg preprocessing has not been configured",
-        },
-      ],
-    };
-  if (!textual && !mime.startsWith("image/") && !mime.startsWith("audio/"))
+  if (
+    !textual &&
+    !mime.startsWith("image/") &&
+    !mime.startsWith("audio/") &&
+    !mime.startsWith("video/")
+  )
     return {
       representations: [],
       degradation: [
@@ -134,6 +191,101 @@ export async function deriveMaterial(
       ],
     };
   try {
+    if (mime.startsWith("video/")) {
+      const samples = await sampleVideo(
+        source.content,
+        models.video,
+        models.credentialEnvironments,
+        Boolean(models.invocations.profile("speech_transcription")),
+        signal,
+      );
+      let transcript: string | undefined;
+      const sceneInputs = [...inputs];
+      const degradation: { code: string; detail: string }[] = [];
+      if (samples.audio) {
+        try {
+          const result = await models.invocations.transcription(
+            samples.audio,
+            signal,
+          );
+          const representation = await commit(
+            result.value,
+            "transcript",
+            inputs,
+            result.evidence,
+            samples.quality,
+            samples.preprocessingDigest,
+          );
+          transcript = representation.text;
+          sceneInputs.push({
+            ordinal: 1,
+            reference: {
+              kind: "derived_representation",
+              value: representation.representationId,
+            },
+            role: "transcript",
+          });
+        } catch {
+          if (signal?.aborted) throw signal.reason;
+          degradation.push({
+            code: "video_transcription_unavailable",
+            detail: "Scene description uses frames without a transcript",
+          });
+        }
+      } else if (samples.hasAudio)
+        degradation.push({
+          code: "video_audio_not_interpreted",
+          detail: "Audio is not included in the scene description",
+        });
+      const description = await models.describeScene(
+        samples.frames,
+        transcript,
+        strategy === "direct_structured",
+        signal,
+      );
+      const selected = await commit(
+        description.text,
+        strategy === "direct_structured"
+          ? "structured_interpretation"
+          : "scene_description",
+        sceneInputs,
+        description.evidence,
+        samples.quality,
+        samples.preprocessingDigest,
+      );
+      if (strategy === "describe_then_structure") {
+        try {
+          const result = await models.structure(selected.text!, signal);
+          await commit(
+            result.text,
+            "structured_interpretation",
+            [
+              {
+                ordinal: 0,
+                reference: {
+                  kind: "derived_representation",
+                  value: selected.representationId,
+                },
+                role: "description",
+              },
+            ],
+            result.evidence,
+          );
+        } catch {
+          if (signal?.aborted) throw signal.reason;
+          degradation.push({
+            code: "material_structuring_failed",
+            detail: "The committed scene description is retained",
+          });
+        }
+      }
+      return {
+        representations,
+        invocations,
+        selectedRepresentationId: selected.representationId,
+        degradation,
+      };
+    }
     if (strategy === "direct_structured") {
       const result = await models.structure(
         textual
@@ -149,6 +301,7 @@ export async function deriveMaterial(
       );
       return {
         representations,
+        invocations,
         selectedRepresentationId: structured.representationId,
         degradation: [],
       };
@@ -195,6 +348,7 @@ export async function deriveMaterial(
     }
     return {
       representations,
+      invocations,
       selectedRepresentationId: description.representationId,
       degradation: [],
     };
@@ -202,6 +356,7 @@ export async function deriveMaterial(
     if (signal?.aborted) throw error;
     return {
       representations,
+      invocations,
       selectedRepresentationId: representations[0]?.representationId,
       degradation: [
         {

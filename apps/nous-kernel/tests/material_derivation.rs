@@ -87,6 +87,52 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
             .await
             .unwrap();
     assert_eq!(roots, vec![source.0]);
+    let evidence = |representation| {
+        nous_core::RevisionSupport::Evidence(nous_core::EvidenceRef {
+            occurrence_id: observed.occurrence.occurrence_id,
+            locator: nous_core::EvidenceLocator::DerivedRepresentation(representation),
+            support_role: nous_core::SupportRole::Interpretation,
+        })
+    };
+    assert_eq!(
+        runtime
+            .memory
+            .as_ref()
+            .unwrap()
+            .provenance_summary(subject, &[evidence(structured.derived_representation_id)])
+            .await
+            .unwrap()
+            .roots
+            .len(),
+        1
+    );
+    let other = test_support::observation(&runtime, subject, "independent source facts").await;
+    let mut combined = make(
+        CognitiveRef::DerivedRepresentation(structured.derived_representation_id),
+        RepresentationKind::Summary,
+    );
+    combined.inputs.push(DerivationInput {
+        ordinal: 1,
+        reference: CognitiveRef::SourceRegion(other.source_region.unwrap().source_region_id),
+        role: "second source".into(),
+    });
+    let combined = runtime
+        .material
+        .persist_derived_representation(combined)
+        .await
+        .unwrap();
+    assert_eq!(
+        runtime
+            .memory
+            .as_ref()
+            .unwrap()
+            .provenance_summary(subject, &[evidence(combined.derived_representation_id)])
+            .await
+            .unwrap()
+            .roots
+            .len(),
+        2
+    );
     let mut retry = make(
         CognitiveRef::SourceRegion(source),
         RepresentationKind::Summary,

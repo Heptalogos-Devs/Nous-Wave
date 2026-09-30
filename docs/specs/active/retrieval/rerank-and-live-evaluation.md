@@ -2,6 +2,18 @@
 
 ## Principle
 
+### 2026-09-30 用户批准的QueryExpr合同
+
+atom为leaf candidate set；all为canonical identity交集；any为并集。父hard constraints被继承，子constraint只refine自身subtree，不能静默提升。整棵树固定一个QueryPlan与总work budget；subtree allocation在candidate generation前确定。
+
+effort/limit/diagnostics/explore/materialize只允许root，nested直接reject。entity/tag/schema/resource/external-object是typed semantic cues；只有@ref是exact cognition identity read。unknown modifier语义明确reject，不忽略。
+
+软偏好是bounded signed低权重ranking contribution，不生成candidate、不绕过hard constraints、不按观察到的candidate临时调权。初始系数/工作预算/贡献bound在正式run前冻结到当前typed QueryPlan并记录snapshot；正式测量固定参数。
+
+删除裸+recent/-recent。语法为+recent(axis)/-recent(axis)，axis只允许occurred/observed/valid/formed/recorded。未知该轴时间贡献neutral，不替换成其他轴。
+
+外部rerank后再沿原BoundQuery批量revalidate exact revision/head/epoch/lifecycle/source/hard constraints；不能rebind mutable target。变化候选drop，diagnostic为authority_changed_during_rerank，必要时partial；最后才user limit。公开baseline/preference/rerank/final score、rank和structured机制/validation诊断。
+
 Candidate generation、baseline fusion、rerank是不同局部机制。
 
 允许：

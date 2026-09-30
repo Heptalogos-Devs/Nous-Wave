@@ -12,6 +12,7 @@
 - [Gateway、模型、Prompt 与 provenance](../../specs/active/model-runtime/gateway-model-and-prompts.md)
 - [Material derivation graph](../../specs/active/model-runtime/material-derivation.md)
 - [Reference consumer](../../specs/active/model-runtime/reference-consumer.md)
+- [Runtime Bundle、逻辑路径与 runtime packs](../../specs/active/deployment/runtime-bundle.md)
 - [Rerank 与真实评估](../../specs/active/retrieval/rerank-and-live-evaluation.md)
 - [Memory Authority](../../specs/active/memory-reference-profile/01-memory-authority-provenance.md)、[Runtime/Use](../../specs/active/memory-reference-profile/02-runtime-use.md)、[Query/Serving](../../specs/active/memory-reference-profile/03-query-serving.md)、[Qualification](../../specs/active/memory-reference-profile/04-qualification.md)
 - [WorkContext](../../specs/active/cognitive-runtime/work-context.md)、[Active Cognition](../../specs/active/cognitive-runtime/active-cognition.md)、[Episode Authority](../../specs/active/episode/episode-authority.md)、[Episode integration](../../specs/active/episode/episode-runtime-integration.md)
@@ -25,6 +26,12 @@ PRE_PRODUCTION 直接替换 current producer/consumer 和 fresh schema，不留�
 全部开发、实验、文档和 acceptance 留在从 `37e75b8382592fe09ff536dac5a14a84dee47902` 建立的 `feat/real-usage-retrieval`。一个完整 PR；Ready CI PASS 后不再修改分支，squash merge 并删除分支。live slice 缺凭据时保持 BLOCKED，允许其余验收完成后按如实记录集成。
 
 ## 施工顺序
+
+2026-09-30 追加决定已经由用户批准：完整 QueryExpr/scoped constraints、bounded signed preferences、typed recent、caller-stable formation workflow、resolved-mention aboutness、独立 direct-structuring role、paid-call 前 derivation reservation、Core-only editable embedding profile，以及 source-less Windows x64 Runtime Bundle。下面的原任务继续执行，不建立第二轮计划。
+
+- [ ] 完成独立 RuntimeLocations、统一配置、RunRoot discovery 和私有 runtime 生命周期；普通启动不下载，显式 runtime install 才 acquisition。
+- [ ] 完成 whole-workflow replay、付费前 reserve/check、完整 DAG roots、独立 direct role 和 aboutness 三模式。
+- [ ] 完成 source-less application/client closure、Node/PostgreSQL/LGPL-only FFmpeg packs、license/checksum/SPDX manifest；在仓库外使用任意 CWD 和无开发 PATH 验证。
 
 - [x] 完整读取执行包、current 契约和 Vault；fetch 并检查基线变化；建立语义分支。
 - [x] 安装 current Plan/Specs，更新 scope 与已执行 Linux CI evidence，撤回 fake research claim。
@@ -42,6 +49,8 @@ PRE_PRODUCTION 直接替换 current producer/consumer 和 fresh schema，不留�
 本地：`corepack pnpm generate` 后确认 bindings 无漂移；`corepack pnpm check`、`just verify`、`cargo build -p nous-kernel`、`corepack pnpm qualification:memory-reference`、`corepack pnpm qualification:cognitive-runtime-episode`、新增 `corepack pnpm qualification:real-consumer-local`。验证 Markdown links 和 `git diff --check`。迭代只运行能证伪当前改动的窄检查，不要求机械 TDD 或扩张测试数量。
 
 live：`corepack pnpm qualification:live` 和 `corepack pnpm research:retrieval-live`，不进入付费 CI。真实 Recall@1/5/10、MRR、provenance precision、wrong-source/entity、stale leakage、empty rate、p50/p95、rerank/Wave 统计、formation coverage、conditional 与 end-to-end recall；latency/usage/cost 只记实际观测。
+
+全部真实模型调用的合计硬上限为 500 次，包括失败、warm-up 和复跑。使用实际 batch/reuse 降低重复开销；预算耗尽的 slice 明确 BLOCKED。最终产品 proof 必须使用仓库外的精确 Windows x64 ZIP：私有 Node/PostgreSQL/FFmpeg → official Client → real gateway/source → Memory/NousQL/trace/use → 完整停止及 restart。共置、分离 roots、安装位置搬移和缺包启动不联网均须验证。最终报告增加 bundle/runtime pack digest、路径 profile、license/SBOM 和 source-less evidence。
 
 结果仅用 PASS、FAIL、NOT_RUN、BLOCKED。报告各 base HEAD、分支、PR、Ready run、squash commit、branch deletion、协议/模型（不含 token）、source/unit/query/media 数量、各 live slice、真实指标、被删除 shape、limitations 和 SPEC_GAP/SPEC_CONFLICT。
 

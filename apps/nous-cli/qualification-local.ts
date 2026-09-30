@@ -1,7 +1,7 @@
 import { connectNousInstance } from "@nous-wave/client/node";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -17,14 +17,18 @@ const kernel =
     process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
   );
 const dataRoot = await mkdtemp(join(tmpdir(), "nous-real-consumer-"));
-const configPath = join(dataRoot, "core.toml");
+const configPath = join(dataRoot, "bootstrap.toml");
+await mkdir(join(dataRoot, "config"));
 await writeFile(
-  join(dataRoot, "kernel.toml"),
-  `[bootstrap.database]\nmode = "managed"\nurl = ""\nmax_connections = 4\nname = "real_consumer"\ninstall_dir = "postgres-install"\ndata_dir = "postgres-data"\n[bootstrap.object_store]\nbackend = "fs"\nroot = "objects"\nmax_upload_bytes = 1048576\n[bootstrap.serving]\nroot = "serving"\n[settings.capabilities.process]\nmemory = true\n[settings.capabilities.subject_defaults]\nmemory = true\n`,
+  join(dataRoot, "config", "nous.toml"),
+  `deployment = "development"\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n`,
 );
+const runtimeRoot = process.env.NOUS_WAVE_POSTGRES_RUNTIME
+  ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
+  : join(root, "data/dev/runtime");
 await writeFile(
   configPath,
-  `kernel_executable = ${JSON.stringify(kernel)}\nkernel_config = "kernel.toml"\ndata_root = ${JSON.stringify(dataRoot)}\nport = 0\n[[consumers]]\nconsumer_id = "default"\n`,
+  `[paths]\nprogram = ${JSON.stringify(root)}\nruntime = ${JSON.stringify(runtimeRoot)}\n`,
 );
 let core: ChildProcess | undefined;
 async function boot() {
@@ -33,7 +37,7 @@ async function boot() {
     [
       tsx,
       "apps/nous-core/src/main.ts",
-      "--config",
+      "--locator",
       configPath,
       "--stop-on-stdin-close",
     ],
@@ -99,8 +103,10 @@ async function cli(...args: string[]) {
     [
       tsx,
       "apps/nous-cli/src/main.ts",
-      "--data-root",
-      dataRoot,
+      "--run-root",
+      join(dataRoot, "run"),
+      "--instance-root",
+      join(dataRoot, "instance"),
       "--json",
       ...args,
     ],
@@ -133,7 +139,7 @@ try {
     "Local consumer wiring marker: protocol continuity.",
   );
   const occurrenceId = String(observation.occurrenceId);
-  const client = await connectNousInstance(dataRoot);
+  const client = await connectNousInstance({ runRoot: join(dataRoot, "run") });
   const extracted = await client.model.deriveMaterial({
     subjectId,
     sourceRegionId: String(observation.sourceRegionId),
@@ -232,7 +238,9 @@ try {
   );
   await stop();
   await boot();
-  const restarted = await connectNousInstance(dataRoot);
+  const restarted = await connectNousInstance({
+    runRoot: join(dataRoot, "run"),
+  });
   const recall = await restarted.cognition.recall(
     subjectId,
     '"protocol continuity" $memory $limit(5)',

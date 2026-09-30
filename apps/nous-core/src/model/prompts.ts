@@ -8,6 +8,7 @@ const defaults: Partial<Record<ModelRole, string>> = {
   memory_formation: "memory/formation.md",
   material_description: "material/description.md",
   material_structuring: "material/structure.md",
+  material_direct_structuring: "material/direct-structure.md",
 };
 function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -27,15 +28,24 @@ export function canonicalDigest(value: unknown): string {
 }
 export type PromptAsset = { id: string; digest: string; text: string };
 export class PromptRegistry {
-  constructor(private readonly root: string) {}
+  constructor(
+    private readonly root: string,
+    private readonly overrideRoot?: string,
+  ) {}
   async load(
     role: ModelRole,
     path = defaults[role],
   ): Promise<PromptAsset | undefined> {
     if (!path) return undefined;
-    const root = await realpath(this.root);
+    const custom = /^config-prompts[\\/]/.test(path);
+    if (custom && !this.overrideRoot)
+      throw new Error("Configuration Prompt root is unavailable");
+    const root = await realpath(custom ? this.overrideRoot! : this.root);
     // Config paths use the documented repository-relative prompts/ prefix.
-    const local = path.replace(/^prompts[\\/]/, "");
+    const local = path.replace(
+      custom ? /^config-prompts[\\/]/ : /^prompts[\\/]/,
+      "",
+    );
     const target = await realpath(resolve(root, local));
     const rel = relative(root, target);
     if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${sep}`) || !rel)
@@ -61,7 +71,11 @@ export class PromptRegistry {
       const bytes = buffer.subarray(0, size);
       const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
       if (!text.trim()) throw new Error("Empty prompt asset");
-      return { id: rel.split(sep).join("/"), digest: digest(text), text };
+      return {
+        id: `${custom ? "config" : "program"}/${rel.split(sep).join("/")}`,
+        digest: digest(text),
+        text,
+      };
     } finally {
       await handle.close();
     }

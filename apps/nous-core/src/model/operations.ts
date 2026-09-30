@@ -4,6 +4,7 @@ import type { KernelClient } from "../kernel-client.js";
 import { ModelRuntime } from "./runtime.js";
 import { ModelMaterialPipeline } from "./material.js";
 import { deriveMaterial } from "./derivation.js";
+import { invocationSummary } from "./summary.js";
 
 function failure(code: string, error: unknown) {
   return [
@@ -178,7 +179,11 @@ export function modelOperations(
         },
         opts,
       );
-      return { memory, degradation: [] };
+      return {
+        memory,
+        degradation: [],
+        invocations: [invocationSummary(proposal.evidence)],
+      };
     },
     deriveMaterial: (r, c) =>
       deriveMaterial(kernel, models, r, {

@@ -41,7 +41,7 @@ sqlx.workspace = true
 prost.workspace = true
 tonic-prost.workspace = true
 tempfile.workspace = true
-postgresql_embedded.workspace = true
+postgresql_embedded = { workspace = true, features = ["bundled"] }
 sqlx.workspace = true
 
 [lints]

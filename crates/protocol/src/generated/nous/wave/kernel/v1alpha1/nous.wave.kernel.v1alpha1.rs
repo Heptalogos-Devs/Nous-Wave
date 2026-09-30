@@ -77,6 +77,8 @@ pub struct CommitInterpretationRequest {
     pub strategy: ::prost::alloc::string::String,
     #[prost(string, optional, tag="11")]
     pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="12")]
+    pub quality: ::core::option::Option<::prost_types::Struct>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UploadHeader {

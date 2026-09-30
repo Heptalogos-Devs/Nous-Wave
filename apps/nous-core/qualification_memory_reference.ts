@@ -1,3 +1,4 @@
+import { qualificationConfig } from "./qualification-config.js";
 import { create } from "@bufbuild/protobuf";
 import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { createConnectTransport } from "@connectrpc/connect-node";
@@ -146,10 +147,7 @@ function hitMatches(
 async function main() {
   const root = await mkdtemp(join(tmpdir(), "nous-wave-memory-reference-"));
   const configPath = join(root, "kernel.toml");
-  await writeFile(
-    configPath,
-    `\n\n[bootstrap.database]\nmode = "managed"\nurl = ""\nmax_connections = 4\nname = "memory_reference"\ninstall_dir = "postgres-install"\ndata_dir = "postgres-data"\n\n[bootstrap.object_store]\nbackend = "fs"\nroot = "objects"\nmax_upload_bytes = 1048576\n\n[bootstrap.serving]\nroot = "serving"\n\n[settings.capabilities.process]\nmemory = true\n\n[settings.capabilities.subject_defaults]\nmemory = true\n`,
-  );
+  await writeFile(configPath, qualificationConfig(root, "memory_reference"));
 
   let booted: Boot | undefined;
   try {

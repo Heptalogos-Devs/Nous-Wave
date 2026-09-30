@@ -109,7 +109,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                     revision: 1,
                     payload_text: Some(input.text),
                     payload_artifact_id: None,
-                    quality: serde_json::json!({"status":"model_interpretation"}),
+                    quality: object(input.quality),
                     created_at: chrono::Utc::now(),
                     supersedes: input
                         .supersedes

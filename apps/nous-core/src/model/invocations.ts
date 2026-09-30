@@ -1,4 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import type { ModelBudget } from "./budget.js";
 import { embed, generateText, Output, transcribe, type UserContent } from "ai";
 import { z } from "zod";
 import { performance } from "node:perf_hooks";
@@ -18,6 +19,7 @@ import {
 } from "./prompts.js";
 
 export type ModelInvocationEvidence = {
+  role: ModelRole;
   protocol: string;
   model: string;
   modelRevision?: string;
@@ -26,9 +28,12 @@ export type ModelInvocationEvidence = {
   promptDigest?: string;
   configDigest: string;
   latencyMs: number;
-  usage?: unknown;
+  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
+  requestCount: number;
+  status: "success";
 };
 type ReadyRole = {
+  name: ModelRole;
   profile: ModelProfile;
   binding: RoleBinding;
   prompt?: PromptAsset;
@@ -61,6 +66,7 @@ function parseRerankResponse(input: unknown, count: number) {
   return result;
 }
 export class ModelInvocations {
+  private budget?: ModelBudget;
   private prompts?: PromptRegistry;
   private promptPaths: Partial<Record<ModelRole, string>> = {};
   private readonly active = new Map<ModelRole, ReadyRole>();
@@ -74,9 +80,12 @@ export class ModelInvocations {
       dirname(fileURLToPath(import.meta.url)),
       "../../../../prompts",
     ),
+    overridePromptRoot?: string,
+    budget?: ModelBudget,
   ) {
     const runtime = new ModelInvocations();
-    const prompts = new PromptRegistry(promptRoot);
+    runtime.budget = budget;
+    const prompts = new PromptRegistry(promptRoot, overridePromptRoot);
     runtime.prompts = prompts;
     for (const role of roleNames) {
       const path = config.roles[role]?.prompt;
@@ -92,6 +101,13 @@ export class ModelInvocations {
         continue;
       }
       const profile = config.model_profiles[binding.model]!;
+      if (!profile.model.trim()) {
+        runtime.states.set(role, {
+          state: "NOT_CONFIGURED",
+          detail: "Model identifier is unset",
+        });
+        continue;
+      }
       const gateway = config.gateway_profiles[profile.gateway]!;
       const credential = process.env[gateway.credential_env];
       if (!gateway.enabled || !credential) {
@@ -126,6 +142,7 @@ export class ModelInvocations {
           fetch: (input, init) => fetch(input, { ...init, redirect: "error" }),
         });
         runtime.active.set(role, {
+          name: role,
           profile,
           binding,
           prompt,
@@ -174,7 +191,33 @@ export class ModelInvocations {
     start: number,
     usage?: unknown,
   ): ModelInvocationEvidence {
+    const raw =
+      usage && typeof usage === "object"
+        ? (usage as Record<string, unknown>)
+        : {};
+    const number = (value: unknown): number | undefined => {
+      const item =
+        value && typeof value === "object" && "total" in value
+          ? (value as { total: unknown }).total
+          : value;
+      return typeof item === "number" && Number.isSafeInteger(item) && item >= 0
+        ? item
+        : undefined;
+    };
+    const tokens =
+      role.name === "query_rerank"
+        ? {
+            inputTokens: number(raw.prompt_tokens),
+            outputTokens: number(raw.completion_tokens),
+            totalTokens: number(raw.total_tokens),
+          }
+        : {
+            inputTokens: number(raw.inputTokens ?? raw.tokens),
+            outputTokens: number(raw.outputTokens),
+            totalTokens: number(raw.totalTokens ?? raw.tokens),
+          };
     return {
+      role: role.name,
       protocol: role.profile.protocol,
       model: role.profile.model,
       modelRevision: role.profile.model_revision,
@@ -183,7 +226,9 @@ export class ModelInvocations {
       promptDigest: role.prompt?.digest,
       configDigest: role.configDigest,
       latencyMs: performance.now() - start,
-      usage,
+      usage: tokens,
+      requestCount: 1,
+      status: "success",
     };
   }
   private signal(role: ReadyRole, signal?: AbortSignal) {
@@ -196,13 +241,17 @@ export class ModelInvocations {
     content: UserContent,
     schema?: z.ZodType<T>,
     signal?: AbortSignal,
-    promptRole?: ModelRole,
+    promptRole?: ModelRole | { role: ModelRole; path: string },
   ) {
     let role = this.require(name);
     if (promptRole) {
+      const selectedRole =
+        typeof promptRole === "string" ? promptRole : promptRole.role;
       const prompt = await this.prompts?.load(
-        promptRole,
-        this.promptPaths[promptRole],
+        selectedRole,
+        typeof promptRole === "string"
+          ? this.promptPaths[selectedRole]
+          : promptRole.path,
       );
       if (!prompt) throw new Error("Strategy prompt unavailable");
       role = {
@@ -222,6 +271,7 @@ export class ModelInvocations {
       throw new Error("Role is not a text generation protocol");
     const start = performance.now();
     try {
+      await this.budget?.reserve();
       const result = await generateText({
         model:
           role.profile.protocol === "openai-chat"
@@ -262,6 +312,7 @@ export class ModelInvocations {
       throw new Error("Embedding profile disagrees with Kernel space");
     const start = performance.now();
     try {
+      await this.budget?.reserve();
       const result = await embed({
         model: role.provider.embeddingModel(model),
         value: text,
@@ -296,6 +347,7 @@ export class ModelInvocations {
     const role = this.require("speech_transcription");
     const start = performance.now();
     try {
+      await this.budget?.reserve();
       const result = await transcribe({
         model: role.provider.transcription(role.profile.model),
         audio,
@@ -335,6 +387,7 @@ export class ModelInvocations {
       throw new Error("Rerank request exceeds bounds");
     const start = performance.now();
     try {
+      await this.budget?.reserve();
       const response = await fetch(`${role.baseURL}/rerank`, {
         method: "POST",
         redirect: "error",

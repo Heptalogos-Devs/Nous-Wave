@@ -63,11 +63,11 @@ pnpm nous -- ...
 
 或等价workspace command。
 
-默认读取local data-root discovery。
+launcher解析profile并传入RunRoot discovery；consumer不推测DataRoot或源码位置。
 
 ```text
 nous status
-nous --data-root <path> status
+nous --locator <bootstrap.toml> status
 ```
 
 CLI可以保存本地current subject/session/work-context选择，这些state不是Nous Authority。

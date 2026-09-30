@@ -25,9 +25,9 @@ export function connectNous(baseUrl: string, token: string) {
     ),
   };
 }
-export async function connectNousInstance(dataRoot: string) {
+export async function connectNousInstance(instance: { runRoot: string }) {
   const value = JSON.parse(
-    await readFile(join(dataRoot, "runtime", "core.json"), "utf8"),
+    await readFile(join(instance.runRoot, "core.json"), "utf8"),
   ) as { endpoint?: unknown; token?: unknown };
   if (typeof value.endpoint !== "string" || typeof value.token !== "string")
     throw new Error("Invalid Core discovery record");

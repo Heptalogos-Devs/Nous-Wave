@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
+import type { ModelBudget } from "./budget.js";
 import { z } from "zod";
 import type { Degradation, Segment } from "../domain.js";
 import { ModelInvocations } from "./invocations.js";
-import type { ModelConfiguration } from "./configuration.js";
+import {
+  modelConfigurationSchema,
+  type ModelConfiguration,
+} from "./configuration.js";
 
 const proposalSchema = z.strictObject({
   selectedIds: z.array(z.string()).max(64),
@@ -28,9 +32,21 @@ export class ModelRuntime {
     private readonly producer = "deterministic",
     readonly invocations = new ModelInvocations(),
     readonly materialStrategy: ModelConfiguration["material_strategy"] = "description_only",
+    readonly video = modelConfigurationSchema.parse({}).video,
+    readonly credentialEnvironments: readonly string[] = [],
   ) {}
-  static async fromConfig(config: ModelConfiguration) {
-    const invocations = await ModelInvocations.create(config);
+  static async fromConfig(
+    config: ModelConfiguration,
+    promptRoot?: string,
+    overridePromptRoot?: string,
+    budget?: ModelBudget,
+  ) {
+    const invocations = await ModelInvocations.create(
+      config,
+      promptRoot,
+      overridePromptRoot,
+      budget,
+    );
     const steward = invocations.profile("projection_steward");
     const generator: ProposalGenerator | undefined = steward
       ? async (segments, signal) => {
@@ -54,6 +70,10 @@ export class ModelRuntime {
       invocations.identity("projection_steward") ?? "deterministic",
       invocations,
       config.material_strategy,
+      config.video,
+      Object.values(config.gateway_profiles).map(
+        (gateway) => gateway.credential_env,
+      ),
     );
   }
   get embeddingModel() {
@@ -103,7 +123,7 @@ export class ModelRuntime {
     const role =
       typeof input === "string"
         ? "material_structuring"
-        : "material_description";
+        : "material_direct_structuring";
     if (
       typeof input !== "string" &&
       !this.invocations.profile(role)?.capabilities.includes("image_input")
@@ -124,21 +144,64 @@ export class ModelRuntime {
       content,
       schema,
       signal,
-      typeof input === "string" ? undefined : "material_structuring",
     );
     return {
       text: JSON.stringify(schema.parse(result.value)),
       evidence: result.evidence,
     };
   }
-  async embedding(
-    text: string,
-    model: string,
-    signal?: AbortSignal,
-  ): Promise<number[]> {
+  async embedding(text: string, model: string, signal?: AbortSignal) {
     if (!this.embeddingModel || model !== this.embeddingModel)
       throw new Error("Embedding model is not configured for the Kernel space");
-    return (await this.invocations.embedding(text, model, signal)).value;
+    return this.invocations.embedding(text, model, signal);
+  }
+  async describeScene(
+    frames: { bytes: Uint8Array; timestamp: number }[],
+    transcript: string | undefined,
+    structured: boolean,
+    signal?: AbortSignal,
+  ) {
+    if (
+      !this.invocations
+        .profile(
+          structured ? "material_direct_structuring" : "material_description",
+        )
+        ?.capabilities.includes("image_input")
+    )
+      throw new Error("Video frame model capability is unavailable");
+    const schema = z.strictObject({
+      text: z.string().min(1).max(65536),
+      facts: z.array(z.string().max(2048)).max(64),
+    });
+    const content = [
+      {
+        type: "text" as const,
+        text: JSON.stringify({
+          sampled_timestamps: frames.map((f) => f.timestamp),
+          transcript,
+        }),
+      },
+      ...frames.map((f) => ({
+        type: "image" as const,
+        image: f.bytes,
+        mediaType: "image/jpeg",
+      })),
+    ];
+    const result = await this.invocations.generate(
+      structured ? "material_direct_structuring" : "material_description",
+      content,
+      structured ? schema : undefined,
+      signal,
+      structured
+        ? undefined
+        : { role: "material_description", path: this.video.prompt },
+    );
+    return {
+      text: structured
+        ? JSON.stringify(schema.parse(result.value))
+        : interpretationSchema.parse({ text: result.value }).text,
+      evidence: result.evidence,
+    };
   }
 
   async refine(

@@ -13,9 +13,9 @@ Prompt 从仓库 `prompts/` 的 UTF-8 Markdown 加载；custom path 仍须落在
 `client.model.deriveMaterial({ subjectId, sourceRegionId, strategy, target, supersedes })` 返回实际 committed `representations[]`、selected representation 和 degradation。Core 的 `material_strategy` 默认 `description_only`，还接受 `direct_structured`、`describe_then_structure`。
 
 - Text-like source：验证 UTF-8 后提交 ExtractedText，不调用模型重写。
-- Image：`material_description` 生成 rich ImageDescription；direct structured 使用同一 vision model 与独立 structuring Prompt。两阶段使用 description 的 exact ref 作为 structuring input。
+- Image：`material_description` 生成 rich ImageDescription；direct structured 使用独立 `material_direct_structuring` model/Prompt/参数。两阶段使用 description 的 exact ref 作为 structuring input。
 - Audio：`speech_transcription` 生成 Transcript，之后可以用 `material_structuring` 形成结构化附加表示。Audio direct structured 没有标准直接输入路径，返回明确 degradation。
-- Video：FFmpeg adapter 仍在施工，当前返回 `video_preprocessor_required`；不报告视频 capability PASS。
+- Video：bounded FFmpeg frames、optional audio、SceneDescription 与 structuring 已接通。完整 bundle 使用 LGPL-only pack；普通 serve 不下载。真实 source/model capability 仍为 NOT_RUN。
 
 Structuring 失败保留已提交的 description。普通 recall 不重新解释媒体。显式 `supersedes` 是更新 lineage；同一 lineage/input/producer/strategy request 复用成功结果。
 
@@ -25,6 +25,6 @@ Memory revision 的 `producerSignatureId` 可用 `client.material.producer` 读�
 
 ## 当前验证边界
 
-Windows local public wiring 已验证文本 derivation、结构化 role 不可用时保留 description、producer persistence、trace 和 restart。Image/audio 的代码路径已有标准 adapter，但 live gateway 尚未提供，结果 BLOCKED。Query rerank integration、video adapter 和真实实验仍待验收；见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
+Windows local 与仓库外 source-less public wiring 已验证文本 derivation、partial result、producer persistence、trace 和 restart。Gateway 配置已经提供；真实模型与 corpus 仍未执行，speech 未配置的 audio slice 为 BLOCKED。完整 workflow/query/rerank 和真实实验仍待验收；见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
 
 完整配置与语义合同见 [Gateway/model/Prompt Spec](../specs/active/model-runtime/gateway-model-and-prompts.md)、[Material Spec](../specs/active/model-runtime/material-derivation.md)。

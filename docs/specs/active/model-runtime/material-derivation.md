@@ -125,7 +125,7 @@ Transcript
 
 ## Video
 
-### External FFmpeg
+### Managed or operator-provided FFmpeg
 
 配置：
 
@@ -137,7 +137,7 @@ frame sampling policy
 max_audio_bytes
 ```
 
-Nous Wave不下载/更新FFmpeg。
+最终批准的 [Runtime Bundle](../deployment/runtime-bundle.md) 取代本段旧 acquisition 决定：普通 runtime 不下载。完整 multimedia bundle携带LGPL-only FFmpeg pack；显式 `nous runtime install` 可按固定manifest安装。operator executable优先，其次managed pack；仅明确允许的development profile可以PATH lookup。之前Gyan GPL auto-downloader删除。平台只声明实际执行证据。
 
 执行用 `spawn/execFile` + argument array，禁止shell string拼接。
 
@@ -169,6 +169,18 @@ committed SceneDescription的producer/quality metadata至少记录：
 可选再形成 `StructuredInterpretation`。
 
 ## ModelService public surface
+
+### Whole-workflow formation与付费前reservation
+
+Formation request必须包含caller-stable operation_id。semantic digest包含Subject、Occurrence、显式representation选择、aboutness mode/input；不包含后续配置变化。第一次开始固定resolved model/profile/prompt/config snapshot，不含token。same ID/same input返回原outcome；same ID/different input conflict。
+
+Memory owner保存有界reserved → proposal persisted → Authority committed/outcome状态；lease协调同ID并发，模型在Authority事务外调用。已有proposal/outcome跳过付费调用。provider返回后、proposal落盘前崩溃可能再次付费，但不允许重复Memory。purge receipt不得恢复正文或proposal。
+
+aboutness模式为explicit、select_from_resolved_mentions（默认）、none。explicit refs由owner校验且模型不得修改；自动模式只给已解析候选，模型输出候选key子集，禁止发明EntityRef。actor和all mentions都不自动成为aboutness。
+
+Derivation在付费前计算canonical identity并reserve/check；成功结果直接返回，live lease冲突返回有界busy而不并发重复调用。identity涵盖ordered exact inputs/kind/producer/strategy/prompt/config及显式supersedes。协调只承担当前真实workflow，不恢复已删除通用scheduler/attempt历史shape。description一旦成功立即提交，后续structuring失败保留partial chain。
+
+direct_structured的raw image/video使用独立material_direct_structuring role与direct-structure Prompt，不伪造Description。audio标准路径仍先transcription再textual structuring。
 
 current `InterpretSource`只能表达一次调用和一个representation，不能表达strategy/chain。
 

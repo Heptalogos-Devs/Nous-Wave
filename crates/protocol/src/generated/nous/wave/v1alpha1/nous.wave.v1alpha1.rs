@@ -1699,11 +1699,38 @@ pub struct DeriveMaterialRequest {
     pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ModelInvocationSummary {
+    #[prost(string, tag="1")]
+    pub role: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub protocol: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub model: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub profile_digest: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub prompt_digest: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(double, tag="6")]
+    pub latency_ms: f64,
+    #[prost(uint32, tag="7")]
+    pub request_count: u32,
+    #[prost(string, tag="8")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(uint64, optional, tag="9")]
+    pub input_usage: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag="10")]
+    pub output_usage: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag="11")]
+    pub total_usage: ::core::option::Option<u64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FormationResponse {
     #[prost(message, optional, tag="1")]
     pub memory: ::core::option::Option<Memory>,
     #[prost(message, repeated, tag="2")]
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
+    #[prost(message, repeated, tag="3")]
+    pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DerivationResponse {
@@ -1713,6 +1740,8 @@ pub struct DerivationResponse {
     pub selected_representation_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="3")]
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
+    #[prost(message, repeated, tag="4")]
+    pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct PrepareEmbeddingsRequest {
@@ -1727,6 +1756,8 @@ pub struct PrepareEmbeddingsResponse {
     pub committed: u32,
     #[prost(message, repeated, tag="2")]
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
+    #[prost(message, repeated, tag="3")]
+    pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
 }
 include!("nous.wave.v1alpha1.tonic.rs");
 // @@protoc_insertion_point(module)

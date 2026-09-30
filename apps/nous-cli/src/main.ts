@@ -1,7 +1,6 @@
 import { connectNousInstance } from "@nous-wave/client/node";
 import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 type Selection = {
@@ -9,11 +8,11 @@ type Selection = {
   sessionId?: string;
   workContextId?: string;
 };
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
-    "data-root": { type: "string", default: join(root, "data/dev") },
+    "run-root": { type: "string" },
+    "instance-root": { type: "string" },
     json: { type: "boolean", default: false },
     text: { type: "string" },
     source: { type: "string" },
@@ -25,8 +24,9 @@ const { values, positionals } = parseArgs({
     "max-calls": { type: "string", default: "16" },
   },
 });
-const dataRoot = resolve(values["data-root"]);
-const stateFile = join(dataRoot, "consumers/nous-cli.json");
+const stateFile = values["instance-root"]
+  ? join(resolve(values["instance-root"]), "consumers/nous-cli.json")
+  : undefined;
 const json = (value: unknown) =>
   JSON.stringify(
     value,
@@ -34,6 +34,8 @@ const json = (value: unknown) =>
     values.json ? undefined : 2,
   );
 async function selection(): Promise<Selection> {
+  if (!stateFile)
+    throw new Error("Use the nous launcher or provide --instance-root");
   try {
     const value: unknown = JSON.parse(await readFile(stateFile, "utf8"));
     if (!value || typeof value !== "object")
@@ -53,6 +55,8 @@ async function selection(): Promise<Selection> {
   }
 }
 async function save(state: Selection) {
+  if (!stateFile)
+    throw new Error("Use the nous launcher or provide --instance-root");
   await mkdir(dirname(stateFile), { recursive: true });
   const tmp = `${stateFile}.${crypto.randomUUID()}.tmp`;
   await writeFile(tmp, JSON.stringify(state), { mode: 0o600 });
@@ -102,7 +106,13 @@ async function main() {
         "context create|foreground|show|end",
       ],
     };
-  const client = await connectNousInstance(dataRoot);
+  if (!values["run-root"] || !stateFile)
+    throw new Error(
+      "Use the nous launcher or provide --run-root and --instance-root",
+    );
+  const client = await connectNousInstance({
+    runRoot: resolve(values["run-root"]),
+  });
   const state = await selection();
   if (command === "status")
     return {

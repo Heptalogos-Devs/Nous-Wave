@@ -5,6 +5,7 @@ export const roleNames = [
   "memory_formation",
   "material_description",
   "material_structuring",
+  "material_direct_structuring",
   "query_embedding",
   "query_rerank",
   "speech_transcription",
@@ -62,7 +63,7 @@ const modelSchema = z
       "openai-audio-transcription",
       "rerank-v1",
     ]),
-    model: nonempty,
+    model: z.string().max(512).default(""),
     capabilities: z
       .array(
         z.enum([
@@ -98,6 +99,23 @@ const bindingSchema = z.strictObject({
     .default("optional"),
 });
 export const modelConfigurationShape = {
+  video: z
+    .strictObject({
+      ffmpeg_executable: z.string().min(1).optional(),
+      max_source_bytes: z
+        .number()
+        .int()
+        .min(1024)
+        .max(67108864)
+        .default(16777216),
+      max_video_seconds: z.number().positive().max(3600).default(60),
+      max_frames: z.number().int().min(1).max(16).default(8),
+      max_frame_bytes: z.number().int().min(1024).max(1048576).default(262144),
+      max_audio_bytes: z.number().int().min(44).max(16777216).default(4194304),
+      process_timeout_ms: boundedTimeout.default(30000),
+      prompt: z.string().min(1).default("material/video-description.md"),
+    })
+    .prefault({}),
   material_strategy: z
     .enum(["description_only", "direct_structured", "describe_then_structure"])
     .default("description_only"),
@@ -154,6 +172,26 @@ export const modelConfigurationSchema = z
         ctx.addIssue({
           code: "custom",
           message: `Role ${role} does not consume a system prompt`,
+        });
+      if (
+        role === "material_direct_structuring" &&
+        (!model.capabilities.includes("image_input") ||
+          !model.capabilities.includes("structured_output"))
+      )
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "Direct structuring requires image_input and structured_output",
+        });
+      if (
+        protocol &&
+        (binding.temperature !== undefined ||
+          binding.top_p !== undefined ||
+          binding.max_output_tokens !== undefined)
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: `Role ${role} does not consume generation parameters`,
         });
     }
   });

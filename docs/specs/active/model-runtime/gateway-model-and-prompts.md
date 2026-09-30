@@ -69,6 +69,8 @@ rerank
 
 配置声明不能自动形成 READY；live qualification实际调用后才能形成 provider claim。
 
+本地可编辑配置允许 model identifier 留空，表示该 profile 尚未配置；其绑定角色为 NOT_CONFIGURED，不发请求，也不阻塞其他角色。只有具备实际 model identifier 的 profile 才 materialize client；embedding 的 dimension/revision 等签名声明仍须显式填写并通过调用校验。
+
 ### RoleBinding
 
 描述“某个 cognition/material operation 使用哪个 profile 和哪份 prompt”。
@@ -80,6 +82,7 @@ projection_steward
 memory_formation
 material_description
 material_structuring
+material_direct_structuring
 query_embedding
 query_rerank
 speech_transcription
@@ -286,6 +289,18 @@ prompts/material/video-description.md
 ```
 
 不按模型名称复制Prompt。
+
+独立 `material_direct_structuring` 使用 `prompts/material/direct-structure.md`，有自己的 model/generation/timeout/requirement；raw image/video 不借用 description 或两阶段 textual structuring 的绑定。该角色要求 image_input 和 structured_output。
+
+## 2026-09-30 追加冻结：操作与配置
+
+required 缺失使依赖 operation 明确失败；preferred 只有存在已定义合法 fallback 时才 fallback + degradation，否则失败；optional 缺失不使 parent 失败，diagnostics说明 skipped/unavailable。FormFromObservation 没有 deterministic fallback；用户可直接调用 Memory Authority手工形成。
+
+Core query_embedding ModelProfile是唯一可编辑模型/空间元数据；Core产生非敏感 canonical EmbeddingSpaceSignature/ProducerSignature，Kernel校验并持久化执行证据。space变化产生新的Serving generation，禁止同维度跨space混分。Kernel bootstrap不得维护第二个editable stored_embedding model profile。
+
+ModelInvocationSummary是有界ephemeral公开执行证据：role/protocol/model/profile_digest/prompt_digest?/latency_ms/validated numeric input/output/total usage?/request_count/status及可信provider cost（否则unknown）。不保留raw provider response/headers/token，不建立永久invocation journal。真实run合计500次硬预算，包括failure/warm-up/retry。
+
+路径、dotenv、ProgramRoot和ConfigurationRoot Prompt来源服从 [Runtime Bundle](../deployment/runtime-bundle.md)。
 
 ## Prompt responsibilities
 
