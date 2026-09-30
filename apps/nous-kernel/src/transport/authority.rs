@@ -2,6 +2,14 @@ use super::*;
 
 #[tonic::async_trait]
 impl k::authority_service_server::AuthorityService for KernelService {
+    async fn get_material_limits(
+        &self,
+        _: Request<()>,
+    ) -> std::result::Result<Response<p::MaterialLimits>, Status> {
+        Ok(Response::new(p::MaterialLimits {
+            max_upload_bytes: self.0.material.max_upload_bytes,
+        }))
+    }
     async fn create_work_context(
         &self,
         request: Request<p::CreateWorkContextRequest>,

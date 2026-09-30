@@ -138,6 +138,9 @@ export function createNousClient(transport: Transport) {
           degradation: result.degradation,
           hits: result.hits.map((h) => ({
             ref: h.lexicalRef,
+            reference: h.reference,
+            revision: h.revision,
+            evidence: h.evidence,
             text: h.text,
             authority: h.authority,
             evidenceFamilies: h.evidenceFamilies,
@@ -185,6 +188,7 @@ export function createNousClient(transport: Transport) {
       purgeEpisode: call(memory.purgeEpisode),
     },
     material: {
+      limits: call(material.getLimits),
       getArtifact: call(material.getArtifact),
       listArtifacts: call(material.listArtifacts),
       materialize: call(material.materializeEvidence),

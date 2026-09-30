@@ -2,7 +2,6 @@ kernel_executable = "./target/debug/nous-kernel"
 kernel_config = "./config.example.toml"
 data_root = "./data/core"
 port = 9470
-max_upload_bytes = 8589934592
 
 # Model roles are optional; no model is invoked by default.
 # Configure standard gateway profiles and reference credentials by env name only.

@@ -27,7 +27,7 @@ PRE_PRODUCTION 直接替换 current producer/consumer 和 fresh schema，不留�
 ## 施工顺序
 
 - [x] 完整读取执行包、current 契约和 Vault；fetch 并检查基线变化；建立语义分支。
-- [ ] 安装 current Plan/Specs，更新 scope 与已执行 Linux CI evidence，撤回 fake research claim。
+- [x] 安装 current Plan/Specs，更新 scope 与已执行 Linux CI evidence，撤回 fake research claim。
 - [ ] 替换 `apps/nous-core/src/config.ts` 和 `src/model/runtime.ts`：GatewayProfile → ModelProfile → RoleBinding、显式 SDK clients、role readiness、受限 PromptRegistry；建立 `prompts/`。精准验证 URL/secret 边界、prompt escape/digest、损坏 model output。
 - [ ] 修改 core/material/memory、canonical fresh SQL、public/kernel Proto 与所有 consumer：immutable ordered derivation inputs、DAG、ProducerSignature persistence、rich text selection、三种 derivation strategy；仅运行 `corepack pnpm generate` 生成 bindings。验证同主体、输入重复/cycle、provenance root 和无 binary TextDecoder 路径。
 - [ ] 扩展 `packages/client/src/node.ts` streaming artifact upload；创建只依赖 official Client 的 `apps/nous-cli`，提供 discovery、subject/session、observe/upload、derive/form/embed、NousQL、trace、use、WorkContext 与 restart 复用。运行无付费的 public consumer smoke。

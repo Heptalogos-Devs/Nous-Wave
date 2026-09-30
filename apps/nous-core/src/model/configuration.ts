@@ -12,7 +12,7 @@ export const roleNames = [
 export type ModelRole = (typeof roleNames)[number];
 const nonempty = z.string().min(1).max(512);
 const boundedTimeout = z.number().int().min(1).max(300_000);
-export const gatewaySchema = z
+const gatewaySchema = z
   .object({
     base_url: z.string().transform((value, ctx) => {
       let url: URL;
@@ -56,7 +56,7 @@ const embeddingSchema = z
     output_semantics: nonempty,
   })
   .strict();
-export const modelSchema = z
+const modelSchema = z
   .object({
     gateway: nonempty,
     protocol: z.enum([
@@ -91,7 +91,7 @@ export const modelSchema = z
           "Embedding protocol requires an explicit space profile; other protocols cannot declare one",
       });
   });
-export const bindingSchema = z
+const bindingSchema = z
   .object({
     model: nonempty,
     prompt: nonempty.optional(),

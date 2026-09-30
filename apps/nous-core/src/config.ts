@@ -26,12 +26,6 @@ const schema = z
     kernel_config: z.string().min(1),
     data_root: z.string().min(1),
     port: z.number().int().min(0).max(65535).default(9470),
-    max_upload_bytes: z
-      .number()
-      .int()
-      .positive()
-      .max(Number.MAX_SAFE_INTEGER)
-      .default(8 * 1024 ** 3),
     consumers: z.array(consumer).min(1).max(64),
     ...modelConfigurationShape,
   })
@@ -52,7 +46,6 @@ export async function loadConfig(path: string) {
     kernelConfig: resolve(base, config.kernel_config),
     dataRoot: resolve(base, config.data_root),
     port: config.port,
-    maxUploadBytes: config.max_upload_bytes,
     models: modelConfigurationSchema.parse({
       gateway_profiles: config.gateway_profiles,
       model_profiles: config.model_profiles,

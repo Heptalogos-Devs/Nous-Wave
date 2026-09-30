@@ -22,6 +22,8 @@
 
 ## 持久化
 
-`0006_configuration.sql` 建立 `configuration_state`、system/subject overrides、mutation receipts 和 `subject_capabilities`。Subject capability 是创建时展开并保存的供给状态，不随默认配置变化。
+canonical fresh migrations `0001_foundation.sql`–`0004_indexes.sql` 建立 `configuration_state`、system/subject overrides、mutation receipts 和 `subject_capabilities`。Subject capability 是创建时展开并保存的供给状态，不随默认配置变化。
 
 Bootstrap 文件只保留数据库、对象存储、Server bind 和 Serving root 等启动前参数；算法与策略值位于 `[settings]` registry。
+
+Artifact upload 的唯一部署上限为 Kernel `[bootstrap.object_store].max_upload_bytes`。Core 从 Kernel 读取同一有效值配置 multipart 接收；`MaterialService.GetLimits` 向 official Client 提供此值，Node uploader 每次上传先检查它。Core TOML 与 Client 不再维护第二份 8 GiB 上限。此 bootstrap 值改变后重启实例。

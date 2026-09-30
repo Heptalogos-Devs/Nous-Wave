@@ -8,7 +8,10 @@ import { ModelRuntime } from "./model/runtime.js";
 
 async function main() {
   const { values } = parseArgs({
-    options: { config: { type: "string", default: "nous.toml" } },
+    options: {
+      config: { type: "string", default: "nous.toml" },
+      "stop-on-stdin-close": { type: "boolean", default: false },
+    },
   });
   const config = await loadConfig(values.config);
   const instance = await claimInstance(config.dataRoot);
@@ -21,7 +24,6 @@ async function main() {
       kernel: kernel.client,
       token,
       consumers: config.consumers,
-      maxUploadBytes: config.maxUploadBytes,
       models: await ModelRuntime.fromConfig(config.models),
     });
     const endpoint = await app.listen({ host: "127.0.0.1", port: config.port });
@@ -30,6 +32,10 @@ async function main() {
     await new Promise<void>((resolve) => {
       process.once("SIGINT", resolve);
       process.once("SIGTERM", resolve);
+      if (values["stop-on-stdin-close"]) {
+        process.stdin.once("end", resolve);
+        process.stdin.resume();
+      }
     });
   } finally {
     await app?.close();

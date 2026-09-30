@@ -9,7 +9,7 @@ const defaults: Partial<Record<ModelRole, string>> = {
   material_description: "material/description.md",
   material_structuring: "material/structure.md",
 };
-export function digest(value: string): string {
+function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 export function canonicalDigest(value: unknown): string {

@@ -29,7 +29,7 @@ await writeFile(
 );
 await writeFile(
   coreConfig,
-  `kernel_executable = ${JSON.stringify(binary)}\nkernel_config = ${JSON.stringify(kernelConfig)}\ndata_root = ${JSON.stringify(dataRoot)}\nport = 9470\nmax_upload_bytes = 8589934592\n\n[gateway_profiles]\n[model_profiles]\n[roles]\n\n[[consumers]]\nconsumer_id = "default"\nrevision = "1"\nmemory = "PREFERRED"\nruntime = "OPTIONAL"\nresource = "OPTIONAL"\nmax_items = 32\nmax_text_bytes = 32768\nmaterialize = true\n`,
+  `kernel_executable = ${JSON.stringify(binary)}\nkernel_config = ${JSON.stringify(kernelConfig)}\ndata_root = ${JSON.stringify(dataRoot)}\nport = 9470\n\n[gateway_profiles]\n[model_profiles]\n[roles]\n\n[[consumers]]\nconsumer_id = "default"\nrevision = "1"\nmemory = "PREFERRED"\nruntime = "OPTIONAL"\nresource = "OPTIONAL"\nmax_items = 32\nmax_text_bytes = 32768\nmaterialize = true\n`,
 );
 
 const child = spawn(

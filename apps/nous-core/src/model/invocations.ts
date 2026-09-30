@@ -39,22 +39,18 @@ type ReadyRole = {
   profileDigest: string;
   configDigest: string;
 };
-const rerankResponse = z
-  .object({
-    results: z
-      .array(
-        z
-          .object({
-            index: z.number().int().nonnegative(),
-            relevance_score: z.number().finite(),
-          })
-          .passthrough(),
-      )
-      .max(64),
-    usage: z.unknown().optional(),
-  })
-  .passthrough();
-export function parseRerankResponse(input: unknown, count: number) {
+const rerankResponse = z.object({
+  results: z
+    .array(
+      z.object({
+        index: z.number().int().nonnegative(),
+        relevance_score: z.number().finite(),
+      }),
+    )
+    .max(64),
+  usage: z.unknown().optional(),
+});
+function parseRerankResponse(input: unknown, count: number) {
   const result = rerankResponse.parse(input);
   const indices = new Set<number>();
   for (const item of result.results) {
@@ -107,7 +103,12 @@ export class ModelInvocations {
           destination: gateway.base_url,
         });
         const configDigest = canonicalDigest({
-          binding,
+          binding: {
+            ...binding,
+            max_output_tokens: binding.max_output_tokens ?? 4096,
+            timeout_ms: binding.timeout_ms ?? gateway.request_timeout_ms,
+          },
+          adapter: "ai-sdk@7.0.102/openai@4.0.67",
           profileDigest,
           prompt: prompt ? { id: prompt.id, digest: prompt.digest } : undefined,
         });
@@ -152,6 +153,9 @@ export class ModelInvocations {
   }
   profile(role: ModelRole) {
     return this.active.get(role)?.profile;
+  }
+  identity(role: ModelRole) {
+    return this.active.get(role)?.configDigest;
   }
   private require(role: ModelRole): ReadyRole {
     const value = this.active.get(role);

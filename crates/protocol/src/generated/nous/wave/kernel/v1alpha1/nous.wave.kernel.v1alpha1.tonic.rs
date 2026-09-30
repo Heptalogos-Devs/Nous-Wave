@@ -615,6 +615,14 @@ pub mod authority_service_server {
     #[async_trait]
     pub trait AuthorityService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn get_material_limits(
+            &self,
+            request: tonic::Request<()>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::v1alpha1::MaterialLimits>,
+            tonic::Status,
+        >;
+        ///
         async fn create_work_context(
             &self,
             request: tonic::Request<
@@ -1315,6 +1323,50 @@ pub mod authority_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.kernel.v1alpha1.AuthorityService/GetMaterialLimits" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetMaterialLimitsSvc<T: AuthorityService>(pub Arc<T>);
+                    impl<T: AuthorityService> tonic::server::UnaryService<()>
+                    for GetMaterialLimitsSvc<T> {
+                        type Response = super::super::super::v1alpha1::MaterialLimits;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(&mut self, request: tonic::Request<()>) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AuthorityService>::get_material_limits(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetMaterialLimitsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.kernel.v1alpha1.AuthorityService/CreateWorkContext" => {
                     #[allow(non_camel_case_types)]
                     struct CreateWorkContextSvc<T: AuthorityService>(pub Arc<T>);

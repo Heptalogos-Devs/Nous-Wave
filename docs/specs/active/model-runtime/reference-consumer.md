@@ -49,6 +49,8 @@ artifacts.uploadBytes(...)
 
 `uploadFile`必须stream；不要把8GiB允许上限实现成一次`readFile()`。
 
+实际允许上限由 Kernel `[bootstrap.object_store].max_upload_bytes` 单独拥有。Core 与 Node Client 通过 typed `MaterialService.GetLimits` / private Kernel equivalent 读取有效值；不得各自再声明一份部署上限。
+
 认证沿用Core bearer；token不得暴露给CLI output。
 
 ## CLI connection

@@ -26,11 +26,13 @@ corepack pnpm qualification:memory-reference
 
 它只经过 Core 与官方 TypeScript Client，验证 Memory-only Subject、双 Session、Query、UseEvent retry、restart、suppress/restore、purge 和 provenance trace-back。
 
+手工使用实例：`corepack pnpm nous status`；Subject/Session、材料上传、NousQL 和 trace 的最短路径见 [Nous CLI](apps/nous-cli/README.md)。CLI 的无付费 public wiring qualification 为 `corepack pnpm qualification:real-consumer-local`，真实模型验收独立记录。
+
 WorkContext 与 Episode public qualification：
 
-`text
+```text
 corepack pnpm qualification:cognitive-runtime-episode
-`
+```
 
 ## 开发与验证
 

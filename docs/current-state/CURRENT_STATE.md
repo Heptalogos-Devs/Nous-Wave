@@ -35,6 +35,6 @@
 - `corepack pnpm qualification:cognitive-runtime-episode` — PASS; output included restart, cross-session continuation, Episode revision, overlap, hierarchy, lifecycle and purge evidence.
 - `corepack pnpm research:retrieval` — NOT_RUN for actual retrieval: the previous runner aggregated pre-filled fixture candidates and latency; it provides no real algorithm or semantic recall evidence.
 
-本轮 gateway、reference consumer、Material derivation 和真实检索仍在实现中。当前没有 live model 或真实 corpus recall 的 PASS 证据；见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
+本轮 gateway、Material derivation 和真实检索仍在实现中。reference consumer 的 Windows local public wiring 已 PASS（包括流式文件上传和重启复用）；模型 derive、完整 producer chain 与真实 corpus 尚未验收。当前没有 live model 或真实 corpus recall 的 PASS 证据；见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
 
 精确命令、commit、平台和失败/未运行项由 [Memory Reference Qualification](../qualification/2026-10-memory-reference-profile.md) 维护；本文只保留 capability summary。

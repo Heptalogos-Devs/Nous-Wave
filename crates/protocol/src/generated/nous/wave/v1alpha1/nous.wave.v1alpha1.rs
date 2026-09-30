@@ -690,6 +690,11 @@ pub struct Artifact {
     #[prost(message, optional, tag="7")]
     pub metadata: ::core::option::Option<::prost_types::Struct>,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MaterialLimits {
+    #[prost(uint64, tag="1")]
+    pub max_upload_bytes: u64,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListArtifactsResponse {
     #[prost(message, repeated, tag="1")]

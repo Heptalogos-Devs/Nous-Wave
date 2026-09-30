@@ -4,14 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
 import { z } from "zod";
-import {
-  gatewaySchema,
-  modelConfigurationSchema,
-} from "../src/model/configuration.js";
-import {
-  ModelInvocations,
-  parseRerankResponse,
-} from "../src/model/invocations.js";
+import { modelConfigurationSchema } from "../src/model/configuration.js";
+import { ModelInvocations } from "../src/model/invocations.js";
 import { PromptRegistry } from "../src/model/prompts.js";
 
 const temporary: string[] = [];
@@ -29,13 +23,19 @@ describe("model protocol and provenance boundaries", () => {
       "http://localhost/v1",
     ])
       expect(
-        gatewaySchema.safeParse({ base_url, credential_env: "TOKEN" }).success,
+        modelConfigurationSchema.safeParse({
+          gateway_profiles: { primary: { base_url, credential_env: "TOKEN" } },
+        }).success,
       ).toBe(false);
     expect(
-      gatewaySchema.parse({
-        base_url: "http://127.0.0.1:9000/v1/",
-        credential_env: "TOKEN",
-      }).base_url,
+      modelConfigurationSchema.parse({
+        gateway_profiles: {
+          primary: {
+            base_url: "http://127.0.0.1:9000/v1/",
+            credential_env: "TOKEN",
+          },
+        },
+      }).gateway_profiles.primary?.base_url,
     ).toBe("http://127.0.0.1:9000/v1");
     expect(
       modelConfigurationSchema.safeParse({
@@ -79,21 +79,6 @@ describe("model protocol and provenance boundaries", () => {
     );
     await writeFile(join(root, "p.md"), Buffer.from([0xff]));
     await expect(registry.load("memory_formation", "p.md")).rejects.toThrow();
-  });
-  it("rejects duplicate, out-of-range and nonfinite rerank scores", () => {
-    for (const results of [
-      [
-        { index: 0, relevance_score: 1 },
-        { index: 0, relevance_score: 0 },
-      ],
-      [{ index: 2, relevance_score: 1 }],
-      [{ index: 0, relevance_score: NaN }],
-    ])
-      expect(() => parseRerankResponse({ results }, 2)).toThrow();
-    expect(
-      parseRerankResponse({ results: [{ index: 1, relevance_score: 0.7 }] }, 2)
-        .results[0]?.index,
-    ).toBe(1);
   });
   it("uses explicit chat/embedding/rerank endpoints and redacts provider errors", async () => {
     const requests: { path: string; body: Record<string, unknown> }[] = [];
@@ -146,7 +131,15 @@ describe("model protocol and provenance boundaries", () => {
         else if (body.model === "bad-rerank") {
           res.statusCode = 401;
           res.end('{"error":"fixture-secret echoed by provider"}');
-        } else
+        } else if (body.model === "duplicate-rerank")
+          res.end(
+            '{"results":[{"index":0,"relevance_score":1},{"index":0,"relevance_score":0}]}',
+          );
+        else if (body.model === "out-of-range-rerank")
+          res.end('{"results":[{"index":2,"relevance_score":1}]}');
+        else if (body.model === "nonfinite-rerank")
+          res.end('{"results":[{"index":0,"relevance_score":1e400}]}');
+        else
           res.end(
             JSON.stringify({ results: [{ index: 1, relevance_score: 0.8 }] }),
           );
@@ -222,10 +215,21 @@ describe("model protocol and provenance boundaries", () => {
         "/v1/embeddings",
         "/v1/rerank",
       ]);
-      config.model_profiles.rerank!.model = "bad-rerank";
-      await expect(
-        (await ModelInvocations.create(config)).rerank("intent", ["a", "b"], 2),
-      ).rejects.toThrow("Rerank invocation failed");
+      for (const model of [
+        "bad-rerank",
+        "duplicate-rerank",
+        "out-of-range-rerank",
+        "nonfinite-rerank",
+      ]) {
+        config.model_profiles.rerank!.model = model;
+        await expect(
+          (await ModelInvocations.create(config)).rerank(
+            "intent",
+            ["a", "b"],
+            2,
+          ),
+        ).rejects.toThrow("Rerank invocation failed");
+      }
       expect(JSON.stringify(formation.evidence)).not.toContain(
         "fixture-secret",
       );

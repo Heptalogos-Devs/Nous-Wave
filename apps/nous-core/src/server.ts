@@ -45,7 +45,6 @@ export interface CoreOptions {
   kernel: KernelClient;
   token: string;
   consumers: ConsumerPolicy[];
-  maxUploadBytes?: number;
   models?: ModelRuntime;
 }
 const options = (context: HandlerContext) => ({
@@ -57,6 +56,12 @@ export async function createCore(settings: CoreOptions) {
     throw new Error("Core credential must contain at least 32 characters");
   const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
   const kernel = settings.kernel;
+  const materialLimits = await kernel.authority.getMaterialLimits({});
+  const maxUploadBytes = Number(materialLimits.maxUploadBytes);
+  if (!Number.isSafeInteger(maxUploadBytes) || maxUploadBytes < 1)
+    throw new Error(
+      "Kernel upload limit cannot be represented by the HTTP host",
+    );
   const planner = new ProjectionPlanner(
     new Map(settings.consumers.map((p) => [p.consumerId, p])),
     settings.models,
@@ -334,6 +339,7 @@ export async function createCore(settings: CoreOptions) {
     purgeEpisode: (r, c) => kernel.authority.purgeEpisode(r, options(c)),
   };
   const material: ServiceImpl<typeof MaterialService> = {
+    getLimits: (r, c) => kernel.authority.getMaterialLimits(r, options(c)),
     getOccurrence: (r, c) => kernel.authority.getOccurrence(r, options(c)),
     getSourceRegion: (r, c) => kernel.authority.getSourceRegion(r, options(c)),
     getDerivedRepresentation: (r, c) =>
@@ -439,7 +445,7 @@ export async function createCore(settings: CoreOptions) {
     limits: {
       files: 1,
       fields: 0,
-      fileSize: settings.maxUploadBytes ?? 8 * 1024 ** 3,
+      fileSize: maxUploadBytes,
     },
   });
   app.post<{ Params: { subjectId: string } }>(

@@ -54,7 +54,7 @@ export class ModelRuntime {
       : undefined;
     return new ModelRuntime(
       generator,
-      steward ? JSON.stringify(steward) : "deterministic",
+      invocations.identity("projection_steward") ?? "deterministic",
       invocations,
     );
   }

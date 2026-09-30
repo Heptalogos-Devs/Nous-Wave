@@ -2,9 +2,10 @@ import { createConnectTransport } from "@connectrpc/connect-node";
 import { createNousClient } from "./index.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { artifactUploads } from "./artifacts.js";
 
 export function connectNous(baseUrl: string, token: string) {
-  return createNousClient(
+  const client = createNousClient(
     createConnectTransport({
       baseUrl,
       httpVersion: "1.1",
@@ -17,6 +18,12 @@ export function connectNous(baseUrl: string, token: string) {
       ],
     }),
   );
+  return {
+    ...client,
+    artifacts: artifactUploads(baseUrl, token, (options) =>
+      client.material.limits({}, options),
+    ),
+  };
 }
 export async function connectNousInstance(dataRoot: string) {
   const value = JSON.parse(
