@@ -8,7 +8,12 @@ impl KernelService {
         Ok(p::QueryResponse {
             query_id: result.query_id.to_string(),
             status: enum_name(result.status),
-            hits: result.results.into_iter().map(hit).collect(),
+            hits: result
+                .results
+                .into_iter()
+                .enumerate()
+                .map(|(rank, value)| hit(value, rank + 1))
+                .collect(),
             resource_actions: result
                 .resource_actions
                 .into_iter()
@@ -28,14 +33,25 @@ impl KernelService {
                 })
                 .collect(),
             bound_query: None,
+            diagnostics: result.diagnostics.map(|value| p::QueryDiagnostics {
+                candidate_counts: value
+                    .candidate_counts
+                    .into_iter()
+                    .map(|(key, value)| (key, value as u64))
+                    .collect(),
+                lane_status: value.lane_status.into_iter().collect(),
+                topology_complete: value.topology_complete,
+                topology_discarded_mass: value.topology_discarded_mass,
+            }),
+            invocations: Vec::new(),
         })
     }
 }
 
 fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
     let expression = required(input.expression, "expression")?;
-    let modifiers = expression.modifiers.unwrap_or_default();
-    let mut query = CognitiveQuery {
+    let modifiers = expression.modifiers.clone().unwrap_or_default();
+    let query = CognitiveQuery {
         api_version: API_VERSION,
         subject: SubjectId(id(&input.subject_id)?),
         session: input
@@ -45,9 +61,7 @@ fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
             .transpose()?
             .map(SessionId),
         situation: SituationDescriptor::default(),
-        targets: Vec::new(),
-        cues: Vec::new(),
-        constraints: QueryConstraints::default(),
+        expression: compile_expression(expression, true, 0)?,
         exploration: enum_value(&modifiers.exploration).unwrap_or_default(),
         resources: ResourceIntent::default(),
         result_need: ResultNeed {
@@ -59,24 +73,60 @@ fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
         capabilities: CapabilityPolicy::default(),
         diagnostics: enum_value(&modifiers.diagnostics).unwrap_or_default(),
     };
-    for domain in modifiers.domains {
-        match domain.as_str() {
-            "memory" => query.targets.push(QueryTarget::Memory),
-            "" => {}
-            _ => return Err(Error::Invalid("unsupported cognitive query domain".into())),
-        }
-    }
-    for cue in expression.cues {
-        append_cue(&mut query, cue)?;
-    }
-    if let Some(constraints) = modifiers.constraints {
-        query.constraints = constraints_from_proto(constraints)?;
-    }
     query.validate()?;
     Ok(query)
 }
 
-fn append_cue(query: &mut CognitiveQuery, cue: p::Cue) -> Result<()> {
+fn compile_expression(
+    expression: p::QueryExpr,
+    root: bool,
+    depth: usize,
+) -> Result<CognitiveQueryExpr> {
+    if depth > 16 {
+        return Err(Error::Invalid("query expression depth exceeded".into()));
+    }
+    let modifiers = expression.modifiers.unwrap_or_default();
+    if !root
+        && (!modifiers.effort.is_empty()
+            || modifiers.limit.is_some()
+            || !modifiers.diagnostics.is_empty()
+            || !modifiers.exploration.is_empty()
+            || modifiers.materialize)
+    {
+        return Err(Error::Invalid("execution controls are root-only".into()));
+    }
+    let mut node = CognitiveQueryExpr {
+        operation: match expression.operation.as_str() {
+            "atom" => QueryOperation::Atom,
+            "all" => QueryOperation::All,
+            "any" => QueryOperation::Any,
+            _ => return Err(Error::Invalid("unknown query expression operation".into())),
+        },
+        ..Default::default()
+    };
+    for domain in modifiers.domains {
+        node.targets.push(match domain.as_str() {
+            "memory" => QueryTarget::Memory,
+            "evidence" => QueryTarget::Evidence,
+            "resource" => QueryTarget::Resource,
+            _ => return Err(Error::Invalid("unsupported cognitive query domain".into())),
+        });
+    }
+    for cue in expression.cues {
+        append_cue(&mut node, cue)?;
+    }
+    if let Some(constraints) = modifiers.constraints {
+        node.constraints = constraints_from_proto(constraints)?;
+    }
+    node.children = expression
+        .children
+        .into_iter()
+        .map(|child| compile_expression(child, false, depth + 1))
+        .collect::<Result<_>>()?;
+    Ok(node)
+}
+
+fn append_cue(query: &mut CognitiveQueryExpr, cue: p::Cue) -> Result<()> {
     match cue
         .cue
         .ok_or_else(|| Error::Invalid("cue is empty".into()))?
@@ -85,6 +135,18 @@ fn append_cue(query: &mut CognitiveQuery, cue: p::Cue) -> Result<()> {
         p::cue::Cue::Concept(value) => query.cues.push(Cue::Text(TextCue { text: value })),
         p::cue::Cue::SchemaId(value) => query.cues.push(Cue::Schema(SchemaCue {
             schema: CognitiveSchemaId(id(&value)?),
+        })),
+        p::cue::Cue::EntityRef(value) => query.cues.push(Cue::Entity(EntityCue {
+            entity_ref: EntityRef::new(value)?,
+        })),
+        p::cue::Cue::TagId(value) => query.cues.push(Cue::Tag(TagCue {
+            tag: TagId(id(&value)?),
+        })),
+        p::cue::Cue::ResourceRef(value) => query.cues.push(Cue::Resource(ResourceCue {
+            resource: ResourceRef::new(value)?,
+        })),
+        p::cue::Cue::ExternalObjectRef(value) => query.cues.push(Cue::Object(ObjectCue {
+            object_ref: ObjectRef::new(value)?,
         })),
         p::cue::Cue::Reference(value) => {
             let reference = from_ref(value)?;
@@ -140,7 +202,7 @@ fn constraints_from_proto(value: p::QueryConstraints) -> Result<QueryConstraints
     })
 }
 
-fn hit(value: CognitiveHit) -> p::Hit {
+fn hit(value: CognitiveHit, rank: usize) -> p::Hit {
     p::Hit {
         reference: Some(to_ref(value.reference)),
         revision: value.revision.map(to_ref),
@@ -177,5 +239,15 @@ fn hit(value: CognitiveHit) -> p::Hit {
             .freshness
             .recorded_at
             .map(|v| timestamp(v).seconds.to_string()),
+        score: Some(p::HitScore {
+            baseline: value.match_evidence.base_rank_score,
+            preference: 0.0,
+            rerank: None,
+            r#final: value.match_evidence.final_score,
+            baseline_rank: rank as u32,
+            final_rank: rank as u32,
+            best_lane_rank: value.match_evidence.best_lane_rank,
+            variants: value.match_evidence.variants,
+        }),
     }
 }

@@ -50,8 +50,12 @@ PRE_PRODUCTION 直接替换 current producer/consumer 和 fresh schema，不留�
 
 live：`corepack pnpm qualification:live` 和 `corepack pnpm research:retrieval-live`，不进入付费 CI。真实 Recall@1/5/10、MRR、provenance precision、wrong-source/entity、stale leakage、empty rate、p50/p95、rerank/Wave 统计、formation coverage、conditional 与 end-to-end recall；latency/usage/cost 只记实际观测。
 
-全部真实模型调用的合计硬上限为 500 次，包括失败、warm-up 和复跑。使用实际 batch/reuse 降低重复开销；预算耗尽的 slice 明确 BLOCKED。最终产品 proof 必须使用仓库外的精确 Windows x64 ZIP：私有 Node/PostgreSQL/FFmpeg → official Client → real gateway/source → Memory/NousQL/trace/use → 完整停止及 restart。共置、分离 roots、安装位置搬移和缺包启动不联网均须验证。最终报告增加 bundle/runtime pack digest、路径 profile、license/SBOM 和 source-less evidence。
+全部真实模型调用的合计硬上限为 10000 次，包括失败、warm-up 和复跑。使用实际 batch/reuse 降低重复开销；预算耗尽的 slice 明确 BLOCKED。最终产品 proof 必须使用仓库外的精确 Windows x64 ZIP：私有 Node/PostgreSQL/FFmpeg → official Client → real gateway/source → Memory/NousQL/trace/use → 完整停止及 restart。共置、分离 roots、安装位置搬移和缺包启动不联网均须验证。最终报告增加 bundle/runtime pack digest、路径 profile、license/SBOM 和 source-less evidence。
 
 结果仅用 PASS、FAIL、NOT_RUN、BLOCKED。报告各 base HEAD、分支、PR、Ready run、squash commit、branch deletion、协议/模型（不含 token）、source/unit/query/media 数量、各 live slice、真实指标、被删除 shape、limitations 和 SPEC_GAP/SPEC_CONFLICT。
 
 Journal、Dream、Self、Social、Motivation、automatic Episode segmentation、Heptalogos live integration、UI 和 Wave 默认启用均不在范围。完成授权行为与证据后停止。
+
+## 2026-10-01 用户修订
+
+使用 Apple、OpenAI 等公开真实文章，逐条回读来源确认 oracle。总调用上限改为 10000，包含失败与复跑，不要求耗尽。音频默认多模态理解，使用 material_description / material_direct_structuring 的 audio_input。video.input_mode=direct 为默认，frames 仅显式启用且本轮 NOT_RUN；audio.input_mode=transcription 保留标准 ASR 选项。直接媒体限定 openai-chat：input_audio {data,format} 与 video_url {url:data URI}；video_url 为网关内容扩展，不声称 OpenAI 原生标准能力。不做 provider zoo 或静默抽帧/转写 fallback。发送已上传 immutable Artifact bytes，配置声明须经实际调用验证。

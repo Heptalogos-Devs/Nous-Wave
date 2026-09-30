@@ -94,8 +94,9 @@ impl QueryPlan {
 
     pub fn serving_need(&self, query: &CognitiveQuery) -> ServingNeed {
         let has_text = query
-            .cues
-            .iter()
+            .scopes()
+            .into_iter()
+            .flat_map(|node| &node.cues)
             .any(|cue| matches!(cue, Cue::Text(_) | Cue::Example(_)));
         ServingNeed {
             exact: self.enabled_lanes.contains(&EvidenceFamily::Exact)
@@ -123,11 +124,15 @@ mod tests {
             subject: SubjectId::new(),
             session: None,
             situation: Default::default(),
-            targets: Vec::new(),
-            cues: vec![Cue::Text(TextCue {
-                text: "query".into(),
-            })],
-            constraints: Default::default(),
+            expression: CognitiveQueryExpr {
+                operation: QueryOperation::Atom,
+                children: Vec::new(),
+                targets: Vec::new(),
+                cues: vec![Cue::Text(TextCue {
+                    text: "query".into(),
+                })],
+                constraints: Default::default(),
+            },
             exploration: ExplorationIntent::None,
             resources: Default::default(),
             result_need: Default::default(),

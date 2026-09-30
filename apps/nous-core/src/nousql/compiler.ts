@@ -69,14 +69,33 @@ export async function compileNousQL(
         kind: "lexical",
         value: b.lexicalRef,
       }));
-    return bound.map((b) =>
-      create(CueSchema, { cue: { case: "reference", value: b.canonical } }),
-    );
+    return bound.map((b) => {
+      const cases = {
+        e: "entityRef",
+        tag: "tagId",
+        schema: "schemaId",
+        r: "resourceRef",
+        object: "externalObjectRef",
+      } as const;
+      return create(CueSchema, {
+        cue:
+          atom.selector === "ref"
+            ? { case: "reference", value: b.canonical }
+            : { case: cases[atom.selector], value: b.canonical.value },
+      });
+    });
   }
-  async function lower(node: Expression): Promise<QueryExpr> {
+  async function lower(node: Expression, root = false): Promise<QueryExpr> {
     const modifiers = create(QueryModifiersSchema, { constraints: {} });
     const seen = new Set<string>();
     for (const directive of node.directives) {
+      if (
+        !root &&
+        ["effort", "limit", "diagnostics", "explore", "materialize"].includes(
+          directive.name,
+        )
+      )
+        invalid(`$${directive.name} is only allowed at query root`);
       if (seen.has(directive.name))
         invalid(`Duplicate directive $${directive.name}`);
       seen.add(directive.name);
@@ -84,12 +103,16 @@ export async function compileNousQL(
     }
     for (const preference of node.preferences) {
       if (preference.operand.kind === "key") {
-        if (preference.operand.value !== "recent")
+        if (
+          !/^recent:(occurred|observed|valid|formed|recorded)$/.test(
+            preference.operand.value,
+          )
+        )
           invalid("Unknown soft preference key");
         modifiers.preferences.push({
           $typeName: "nous.wave.v1alpha1.Preference",
           negative: preference.negative,
-          key: "recent",
+          key: preference.operand.value,
         });
       } else {
         const cues = await bindAtom(preference.operand);
@@ -105,11 +128,11 @@ export async function compileNousQL(
     return create(QueryExprSchema, {
       operation: node.operation,
       cues: node.atom ? await bindAtom(node.atom) : [],
-      children: await Promise.all(node.children.map(lower)),
+      children: await Promise.all(node.children.map((child) => lower(child))),
       modifiers,
     });
   }
-  const expression = await lower(syntax);
+  const expression = await lower(syntax, true);
   expression.modifiers ??= create(QueryModifiersSchema);
   expression.modifiers.limit ??= 12;
   return { expression, sourceCanonical, boundCanonical: canonical(syntax) };
@@ -231,9 +254,13 @@ function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
       const axis = d.positional[0];
       if (
         d.positional.length !== 1 ||
-        !["occurred", "observed", "valid"].includes(String(axis))
+        !["occurred", "observed", "valid", "formed", "recorded"].includes(
+          String(axis),
+        )
       )
-        invalid("Time axis must be occurred, observed or valid");
+        invalid(
+          "Time axis must be occurred, observed, valid, formed or recorded",
+        );
       const keys = Object.keys(d.named);
       if (
         !keys.length ||
@@ -270,7 +297,7 @@ function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
         end = d.named.to === undefined ? undefined : date(d.named.to);
       }
       if (start && end && start > end) invalid("Time interval is reversed");
-      c[axis as "occurred" | "observed" | "valid"] = {
+      c[axis as "occurred" | "observed" | "valid" | "formed" | "recorded"] = {
         $typeName: "nous.wave.v1alpha1.TimeInterval",
         start: start ? timestamp(start) : undefined,
         end: end ? timestamp(end) : undefined,

@@ -27,3 +27,11 @@ canonical fresh migrations `0001_foundation.sql`–`0004_indexes.sql` 建立 `co
 Bootstrap 文件只保留数据库、对象存储、Server bind 和 Serving root 等启动前参数；算法与策略值位于 `[settings]` registry。
 
 Artifact upload 的唯一部署上限为 Kernel `[bootstrap.object_store].max_upload_bytes`。Core 从 Kernel 读取同一有效值配置 multipart 接收；`MaterialService.GetLimits` 向 official Client 提供此值，Node uploader 每次上传先检查它。Core TOML 与 Client 不再维护第二份 8 GiB 上限。此 bootstrap 值改变后重启实例。
+
+## Direct audio/video and model-call budget
+
+The user configuration entry remains ConfigurationRoot/nous.toml. `model_budget.max_calls` accepts1..10000 (default10000); reservations are persisted at InstanceRoot/model-budget.json, including failed requests. Increasing the limit preserves the accumulated count.
+
+`audio.input_mode` is `direct` (default) or `transcription`. Direct uses material_description or material_direct_structuring with audio_input capability and openai-chat content; transcription requires the separate speech_transcription role. `audio.max_source_bytes` bounds raw bytes (default16MiB, maximum24MiB).
+
+`video.input_mode` is `direct` (default) or `frames`. Direct requires video_input plus gateway video_url content-extension support; it sends the bounded uploaded Artifact, without client-side frame extraction. Frames explicitly selects the FFmpeg frame path; max_frames/frame_bytes/audio_bytes/process_timeout apply to that path. Source-byte bounds apply to both modes. There is no automatic mode fallback. Configure model identifiers and declared capabilities in ModelProfile; readiness requires an actual validated invocation. Gateway aliases do not establish the underlying model version.

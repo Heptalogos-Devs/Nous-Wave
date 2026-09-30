@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 fn text_query(query: &nous_core::CognitiveQuery) -> String {
     query
+        .expression
         .cues
         .iter()
         .filter_map(|cue| match cue {

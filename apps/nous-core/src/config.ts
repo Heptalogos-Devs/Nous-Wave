@@ -8,6 +8,7 @@ import {
   modelConfigurationSchema,
 } from "./model/configuration.js";
 import type { RuntimeLocations } from "./locations.js";
+import { resolvedEmbedding } from "./model/embedding-profile.js";
 
 const requirement = z.enum(["REQUIRED", "PREFERRED", "OPTIONAL", "FORBIDDEN"]);
 const schema = z.strictObject({
@@ -16,7 +17,9 @@ const schema = z.strictObject({
   dotenv_file: z.string().min(1).default("gateway.env"),
   kernel_executable: z.string().min(1).optional(),
   model_budget: z
-    .strictObject({ max_calls: z.number().int().min(1).max(500).default(500) })
+    .strictObject({
+      max_calls: z.number().int().min(1).max(10000).default(10000),
+    })
     .prefault({}),
   database: z
     .strictObject({
@@ -91,6 +94,7 @@ export async function loadConfig(locations: RuntimeLocations) {
   const models = modelConfigurationSchema.parse({
     material_strategy: config.material_strategy,
     video: config.video,
+    audio: config.audio,
     gateway_profiles: config.gateway_profiles,
     model_profiles: config.model_profiles,
     roles: config.roles,
@@ -147,7 +151,10 @@ export async function loadConfig(locations: RuntimeLocations) {
           root: locations.blob,
           max_upload_bytes: config.object_store.max_upload_bytes,
         },
-        serving: { root: join(locations.cache, "serving") },
+        serving: {
+          root: join(locations.cache, "serving"),
+          resolved_embedding: resolvedEmbedding(models),
+        },
       },
       settings: config.settings,
     },

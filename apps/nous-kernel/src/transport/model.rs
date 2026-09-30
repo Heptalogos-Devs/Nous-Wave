@@ -1,6 +1,8 @@
 use super::*;
 use nous_core::{Result, SubjectId};
+use nous_persistence::database_error as db;
 use nous_retrieval::{QueryEmbedding, TextEmbeddingOutput};
+use sqlx::Row;
 
 impl KernelService {
     fn embedding_config(&self) -> Result<k::EmbeddingConfig> {
@@ -60,6 +62,116 @@ impl KernelService {
 }
 #[tonic::async_trait]
 impl k::model_material_service_server::ModelMaterialService for KernelService {
+    async fn find_workflow(
+        &self,
+        request: Request<k::FindWorkflowRequest>,
+    ) -> std::result::Result<Response<k::FoundWorkflow>, Status> {
+        let input = request.into_inner();
+        let result:Result<_>=async {
+            let row=sqlx::query("SELECT semantic_digest,snapshot,proposal,outcome FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(id(&input.subject_id)?).bind(&input.owner).bind(&input.operation_key).fetch_optional(self.0.store.pool()).await.map_err(db)?;
+            let Some(row)=row else{return Ok(k::FoundWorkflow{found:false,snapshot_json:None,proposal_json:None,outcome_json:None});};
+            if row.try_get::<String,_>("semantic_digest").map_err(db)?!=input.semantic_digest{return Err(Error::Conflict("model operation identity has different semantic input".into()));}
+            Ok(k::FoundWorkflow{found:true,snapshot_json:Some(row.try_get::<serde_json::Value,_>("snapshot").map_err(db)?.to_string()),proposal_json:row.try_get::<Option<serde_json::Value>,_>("proposal").map_err(db)?.map(|value|value.to_string()),outcome_json:row.try_get::<Option<serde_json::Value>,_>("outcome").map_err(db)?.map(|value|value.to_string())})
+        }.await;
+        result.map(Response::new).map_err(status)
+    }
+    async fn get_resolved_mentions(
+        &self,
+        request: Request<k::ResolvedMentionsRequest>,
+    ) -> std::result::Result<Response<k::ResolvedMentionsResponse>, Status> {
+        let input = request.into_inner();
+        let result:Result<_>=async {
+            let rows=sqlx::query("SELECT m.mention_id,m.surface,b.entity_ref FROM entity_mentions m JOIN LATERAL (SELECT entity_ref,binding_state FROM entity_binding_revisions WHERE mention_id=m.mention_id ORDER BY revision_no DESC LIMIT 1) b ON b.binding_state='bound' AND b.entity_ref IS NOT NULL WHERE m.subject_id=$1 AND m.occurrence_id=$2 ORDER BY m.mention_id LIMIT 129").bind(id(&input.subject_id)?).bind(id(&input.occurrence_id)?).fetch_all(self.0.store.pool()).await.map_err(db)?;
+            if rows.len()>128{return Err(Error::Invalid("resolved mention candidate bound exceeded".into()));}
+            let candidates=rows.into_iter().map(|row| Ok(k::ResolvedMention{key:row.try_get::<uuid::Uuid,_>("mention_id").map_err(db)?.to_string(),surface:row.try_get("surface").map_err(db)?,entity_ref:row.try_get("entity_ref").map_err(db)?})).collect::<Result<Vec<_>>>()?;
+            Ok(k::ResolvedMentionsResponse{candidates})
+        }.await;
+        result.map(Response::new).map_err(status)
+    }
+    async fn reserve_workflow(
+        &self,
+        request: Request<k::ReserveWorkflowRequest>,
+    ) -> std::result::Result<Response<k::WorkflowReservation>, Status> {
+        let input = request.into_inner();
+        let result: Result<_> = async {
+            let subject = SubjectId(id(&input.subject_id)?);
+            if input.owner == "memory" {
+                id(&input.operation_key)?;
+                if self.0.memory.is_none() {
+                    return Err(Error::Unavailable("Memory owner unavailable".into()));
+                }
+            }
+            let snapshot = workflow_json(&input.snapshot_json)?;
+            let reserved = self
+                .0
+                .store
+                .reserve_model_workflow(
+                    subject,
+                    &input.owner,
+                    &input.operation_key,
+                    &input.semantic_digest,
+                    &snapshot,
+                )
+                .await?;
+            Ok(k::WorkflowReservation {
+                snapshot_json: reserved.snapshot.to_string(),
+                proposal_json: reserved.proposal.map(|value| value.to_string()),
+                outcome_json: reserved.outcome.map(|value| value.to_string()),
+                lease_token: reserved.lease_token.map(|value| value.to_string()),
+                busy: reserved.busy,
+            })
+        }
+        .await;
+        result.map(Response::new).map_err(status)
+    }
+    async fn save_workflow(
+        &self,
+        request: Request<k::SaveWorkflowRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        let input = request.into_inner();
+        let result: Result<_> = async {
+            let proposal = input
+                .proposal_json
+                .as_deref()
+                .map(workflow_json)
+                .transpose()?;
+            let outcome = input
+                .outcome_json
+                .as_deref()
+                .map(workflow_json)
+                .transpose()?;
+            self.0
+                .store
+                .save_model_workflow(
+                    SubjectId(id(&input.subject_id)?),
+                    &input.owner,
+                    &input.operation_key,
+                    id(&input.lease_token)?,
+                    proposal.as_ref(),
+                    outcome.as_ref(),
+                )
+                .await
+        }
+        .await;
+        result.map(Response::new).map_err(status)
+    }
+    async fn release_workflow(
+        &self,
+        request: Request<k::ReleaseWorkflowRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        let input = request.into_inner();
+        self.0
+            .store
+            .release_model_workflow(
+                SubjectId(id(&input.subject_id).map_err(status)?),
+                &input.owner,
+                &input.operation_key,
+                id(&input.lease_token).map_err(status)?,
+            )
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
     async fn commit_interpretation(
         &self,
         request: Request<k::CommitInterpretationRequest>,
@@ -183,4 +295,11 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
         .await;
         result.map(Response::new).map_err(status)
     }
+}
+
+fn workflow_json(value: &str) -> Result<serde_json::Value> {
+    if value.len() > 1048576 {
+        return Err(Error::Invalid("workflow value exceeds bound".into()));
+    }
+    serde_json::from_str(value).map_err(|_| Error::Invalid("workflow JSON is invalid".into()))
 }

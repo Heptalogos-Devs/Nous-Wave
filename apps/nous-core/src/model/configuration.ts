@@ -69,6 +69,8 @@ const modelSchema = z
         z.enum([
           "text",
           "image_input",
+          "audio_input",
+          "video_input",
           "structured_output",
           "embedding",
           "speech_transcription",
@@ -101,6 +103,7 @@ const bindingSchema = z.strictObject({
 export const modelConfigurationShape = {
   video: z
     .strictObject({
+      input_mode: z.enum(["direct", "frames"]).default("direct"),
       ffmpeg_executable: z.string().min(1).optional(),
       max_source_bytes: z
         .number()
@@ -114,6 +117,17 @@ export const modelConfigurationShape = {
       max_audio_bytes: z.number().int().min(44).max(16777216).default(4194304),
       process_timeout_ms: boundedTimeout.default(30000),
       prompt: z.string().min(1).default("material/video-description.md"),
+    })
+    .prefault({}),
+  audio: z
+    .strictObject({
+      input_mode: z.enum(["direct", "transcription"]).default("direct"),
+      max_source_bytes: z
+        .number()
+        .int()
+        .min(1024)
+        .max(25165824)
+        .default(16777216),
     })
     .prefault({}),
   material_strategy: z

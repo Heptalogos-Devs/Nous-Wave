@@ -14,7 +14,7 @@ max_connections = 8
 
 # 每个实例持久保存已预留调用数量；包括失败请求，重启不清零。
 [model_budget]
-max_calls = 500 # 1–500；本轮全部真实实验在同一实例共用此预算。
+max_calls = 10000 # 1–10000；本轮全部真实实验在同一实例共用此预算。
 
 [object_store]
 max_upload_bytes = 8589934592 # Artifact 唯一上传上限，默认 8 GiB。
@@ -25,7 +25,7 @@ max_upload_bytes = 8589934592 # Artifact 唯一上传上限，默认 8 GiB。
 # Gateway：只配置应用调用地址与 token 变量名。上游渠道/供应商 key/配额由 New API 管理。
 [gateway_profiles.local]
 base_url = "http://127.0.0.1:3000/v1" # 必填；远程必须 HTTPS，literal loopback 可用 HTTP。
-credential_env = "NOUS_GATEWAY_TOKEN" # 必填；值写到 .env.local，不能在本文件放 key。
+credential_env = "NOUS_GATEWAY_TOKEN" # 必填；值写到 SecretRoot/gateway.env，不能在本文件放 key。
 enabled = false                      # 可选；填好模型与 key 后改为 true。
 request_timeout_ms = 30000            # 可选；1–300000 毫秒，建议先用 30 秒。
 
@@ -33,7 +33,7 @@ request_timeout_ms = 30000            # 可选；1–300000 毫秒，建议先�
 # protocol 选项：openai-chat / openai-responses / openai-embeddings /
 # openai-audio-transcription / rerank-v1。聊天选 chat，明确支持 Responses 时可改 responses。
 # capabilities 声明支持 text / image_input / structured_output / embedding /
-# speech_transcription / rerank；实际调用验证前不会报告 READY。
+# audio_input / video_input / speech_transcription / rerank；实际调用验证前不会报告 READY。
 [model_profiles.formation]
 gateway = "local"
 protocol = "openai-chat"
@@ -45,7 +45,7 @@ capabilities = ["text", "structured_output"]
 gateway = "local"
 protocol = "openai-chat"
 model = "" # 需支持图片输入；可与文本模型相同，但要确认能力。
-capabilities = ["text", "image_input", "structured_output"]
+capabilities = ["text", "image_input", "audio_input", "video_input", "structured_output"]
 
 [model_profiles.embedding]
 gateway = "local"
@@ -130,8 +130,14 @@ requirement = "optional"
 model = "speech"
 requirement = "optional"
 
-# 视频预算：按需要缩小，不自动发送整个原始 video 给 vendor-private 接口。
+# 多模态音频理解；无需单独 TTS/ASR endpoint。
+[audio]
+input_mode = "direct" # direct / transcription；后者要求 speech_transcription role。
+max_source_bytes = 16777216 # 1 KiB–24 MiB；拒绝超限，不静默截断。
+
+# 视频直接发送 Artifact；模型需 video_input，网关需支持 video_url。
 [video]
+input_mode = "direct" # direct / frames；frames 显式抽帧，本轮不使用。
 # FFmpeg 来自已安装的 LGPL-only runtime pack；serve 不下载。
 # ffmpeg_executable = "C:/tools/ffmpeg/bin/ffmpeg.exe" # 可选：使用已有 executable，省略则使用 RuntimeRoot 的 pack。
 max_source_bytes = 16777216   # 可选；视频输入预算，1 KiB–64 MiB，默认 16 MiB。

@@ -2,14 +2,8 @@ syntax = "proto3";
 package nous.wave.v1alpha1;
 import "nous/wave/v1alpha1/types.proto";
 import "nous/wave/v1alpha1/management.proto";
-message FormationRequest { string subject_id = 1; string occurrence_id = 2; optional string representation_id = 3; }
+message FormationRequest { string subject_id = 1; string occurrence_id = 2; optional string representation_id = 3; string operation_id = 4; string aboutness_mode = 5; repeated string explicit_aboutness = 6; }
 message DeriveMaterialRequest { string subject_id = 1; string source_region_id = 2; optional string strategy = 3; optional string target = 4; optional string supersedes = 5; }
-message ModelInvocationSummary {
-  string role = 1; string protocol = 2; string model = 3;
-  string profile_digest = 4; optional string prompt_digest = 5;
-  double latency_ms = 6; uint32 request_count = 7; string status = 8;
-  optional uint64 input_usage = 9; optional uint64 output_usage = 10; optional uint64 total_usage = 11;
-}
 message FormationResponse { Memory memory = 1; repeated Degradation degradation = 2; repeated ModelInvocationSummary invocations = 3; }
 message DerivationResponse { repeated DerivedRepresentation representations = 1; optional string selected_representation_id = 2; repeated Degradation degradation = 3; repeated ModelInvocationSummary invocations = 4; }
 message PrepareEmbeddingsRequest { string subject_id = 1; uint32 limit = 2; }

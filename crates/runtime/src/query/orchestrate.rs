@@ -45,14 +45,26 @@ impl CognitiveRuntimeService {
         self.query_with_plan(bound, contributors, plan).await
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "query orchestration keeps single fusion, owner batching, and final ordering in one semantic boundary"
-    )]
     pub async fn query_with_plan(
         &self,
         bound: BoundQuery,
         contributors: CognitiveContributors<'_>,
+        plan: QueryPlan,
+    ) -> Result<CognitiveQueryResult> {
+        if bound.source_query.expression.operation != QueryOperation::Atom {
+            return self.query_tree(bound, contributors, plan).await;
+        }
+        self.query_atom_with_plan(bound, &contributors, plan).await
+    }
+
+    #[expect(
+        clippy::too_many_lines,
+        reason = "query orchestration keeps single fusion, owner batching, and final ordering in one semantic boundary"
+    )]
+    pub(super) async fn query_atom_with_plan(
+        &self,
+        bound: BoundQuery,
+        contributors: &CognitiveContributors<'_>,
         plan: QueryPlan,
     ) -> Result<CognitiveQueryResult> {
         let query = &bound.source_query;
@@ -72,6 +84,7 @@ impl CognitiveRuntimeService {
         if let Some(memory) = contributors.memory {
             lane_outputs.extend(memory.direct_lanes(&bound, &plan).await?);
         } else if query
+            .expression
             .targets
             .iter()
             .any(|target| matches!(target, QueryTarget::Memory))
@@ -90,11 +103,11 @@ impl CognitiveRuntimeService {
         if !exact_output.candidates.is_empty() {
             lane_outputs.push(exact_output);
         }
-        let runtime_allowed = query.targets.is_empty()
-            || query.targets.iter().any(|target| {
+        let runtime_allowed = query.expression.targets.is_empty()
+            || query.expression.targets.iter().any(|target| {
                 matches!(
                     target,
-                    QueryTarget::AnyRelevantCognition | QueryTarget::Evidence
+                    QueryTarget::AnyRelevantCognition | QueryTarget::Memory | QueryTarget::Evidence
                 )
             });
         if runtime_allowed && let Some(session) = query.session {
@@ -113,6 +126,9 @@ impl CognitiveRuntimeService {
                     diagnostics: Vec::new(),
                 });
             }
+        }
+        for output in &mut lane_outputs {
+            output.candidates.truncate(plan.lane_budget(output.family));
         }
         let mut candidates = HashMap::<CognitiveRef, CandidateRankInput>::new();
         let mut lane_drops = BTreeMap::new();
@@ -228,6 +244,25 @@ impl CognitiveRuntimeService {
             }
         }
         for reference in generic {
+            if query
+                .expression
+                .targets
+                .iter()
+                .any(|target| matches!(target, QueryTarget::Memory))
+                && !query.expression.targets.iter().any(|target| {
+                    matches!(
+                        target,
+                        QueryTarget::AnyRelevantCognition
+                            | QueryTarget::Evidence
+                            | QueryTarget::Resource
+                    )
+                })
+            {
+                *validation_drops
+                    .entry("domain_ineligible".into())
+                    .or_default() += 1;
+                continue;
+            }
             self.store
                 .validate_reference(query.subject, &reference)
                 .await?;

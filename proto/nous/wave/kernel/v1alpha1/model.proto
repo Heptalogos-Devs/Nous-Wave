@@ -27,8 +27,22 @@ message CommitInterpretationRequest {
   google.protobuf.Struct quality = 12;
 }
 service ModelMaterialService {
+  rpc FindWorkflow(FindWorkflowRequest) returns (FoundWorkflow);
+  rpc GetResolvedMentions(ResolvedMentionsRequest) returns (ResolvedMentionsResponse);
+  rpc ReserveWorkflow(ReserveWorkflowRequest) returns (WorkflowReservation);
+  rpc SaveWorkflow(SaveWorkflowRequest) returns (google.protobuf.Empty);
+  rpc ReleaseWorkflow(ReleaseWorkflowRequest) returns (google.protobuf.Empty);
   rpc GetEmbeddingConfig(google.protobuf.Empty) returns (EmbeddingConfig);
   rpc ListEmbeddingNeeds(EmbeddingNeedsRequest) returns (EmbeddingNeedsResponse);
   rpc CommitEmbedding(CommitEmbeddingRequest) returns (google.protobuf.Empty);
   rpc CommitInterpretation(CommitInterpretationRequest) returns (nous.wave.v1alpha1.DerivedRepresentation);
 }
+message ReserveWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string semantic_digest = 4; string snapshot_json = 5; }
+message WorkflowReservation { string snapshot_json = 1; optional string proposal_json = 2; optional string outcome_json = 3; optional string lease_token = 4; bool busy = 5; }
+message SaveWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string lease_token = 4; optional string proposal_json = 5; optional string outcome_json = 6; }
+message ReleaseWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string lease_token = 4; }
+message ResolvedMentionsRequest { string subject_id = 1; string occurrence_id = 2; }
+message ResolvedMention { string key = 1; string surface = 2; string entity_ref = 3; }
+message ResolvedMentionsResponse { repeated ResolvedMention candidates = 1; }
+message FindWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string semantic_digest = 4; }
+message FoundWorkflow { bool found = 1; optional string snapshot_json = 2; optional string proposal_json = 3; optional string outcome_json = 4; }

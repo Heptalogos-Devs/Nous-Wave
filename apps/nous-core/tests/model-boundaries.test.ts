@@ -165,7 +165,12 @@ describe("model protocol and provenance boundaries", () => {
             gateway: "fixture",
             protocol: "openai-chat",
             model: "chat-id",
-            capabilities: ["text", "structured_output"],
+            capabilities: [
+              "text",
+              "structured_output",
+              "audio_input",
+              "video_input",
+            ],
           },
           embedding: {
             gateway: "fixture",
@@ -215,6 +220,34 @@ describe("model protocol and provenance boundaries", () => {
         "/v1/embeddings",
         "/v1/rerank",
       ]);
+      for (const mediaType of ["audio/mpeg", "video/mp4"]) {
+        const result = await runtime.generate(
+          "memory_formation",
+          "evidence",
+          z.object({ value: z.string() }),
+          undefined,
+          undefined,
+          undefined,
+          { bytes: Uint8Array.of(1, 2, 3), mediaType },
+        );
+        expect(result.value).toEqual({ value: "faithful" });
+        expect(result.evidence.usage?.totalTokens).toBe(3);
+        const messages = requests.at(-1)!.body.messages as {
+          content: unknown;
+        }[];
+        expect(messages[1]?.content).toEqual([
+          { type: "text", text: "evidence" },
+          mediaType === "audio/mpeg"
+            ? {
+                type: "input_audio",
+                input_audio: { data: "AQID", format: "mp3" },
+              }
+            : {
+                type: "video_url",
+                video_url: { url: "data:video/mp4;base64,AQID" },
+              },
+        ]);
+      }
       for (const model of [
         "bad-rerank",
         "duplicate-rerank",

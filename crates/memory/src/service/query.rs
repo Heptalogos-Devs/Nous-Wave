@@ -162,6 +162,7 @@ async fn entity_lane(
 ) -> Result<LaneOutput> {
     let query = &bound.source_query;
     let values = query
+        .expression
         .cues
         .iter()
         .filter_map(|cue| match cue {
@@ -170,6 +171,7 @@ async fn entity_lane(
         })
         .chain(
             query
+                .expression
                 .constraints
                 .entity_requirements
                 .iter()
@@ -217,11 +219,36 @@ async fn temporal_lane(
     plan: &QueryPlan,
 ) -> Result<LaneOutput> {
     let query = &bound.source_query;
-    let valid = query.constraints.valid.into_iter().collect::<Vec<_>>();
-    let occurred = query.constraints.occurred.into_iter().collect::<Vec<_>>();
-    let observed = query.constraints.observed.into_iter().collect::<Vec<_>>();
-    let formed = query.constraints.formed.into_iter().collect::<Vec<_>>();
-    let recorded = query.constraints.recorded.into_iter().collect::<Vec<_>>();
+    let valid = query
+        .expression
+        .constraints
+        .valid
+        .into_iter()
+        .collect::<Vec<_>>();
+    let occurred = query
+        .expression
+        .constraints
+        .occurred
+        .into_iter()
+        .collect::<Vec<_>>();
+    let observed = query
+        .expression
+        .constraints
+        .observed
+        .into_iter()
+        .collect::<Vec<_>>();
+    let formed = query
+        .expression
+        .constraints
+        .formed
+        .into_iter()
+        .collect::<Vec<_>>();
+    let recorded = query
+        .expression
+        .constraints
+        .recorded
+        .into_iter()
+        .collect::<Vec<_>>();
     let mut matches = HashMap::<Uuid, (Uuid, usize)>::new();
     let mut next_rank = 1usize;
     for interval in valid {

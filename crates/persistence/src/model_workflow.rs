@@ -1,0 +1,107 @@
+use crate::{AuthorityStore, database_error as db};
+use nous_core::{Error, Result, SubjectId};
+use serde_json::Value;
+use sqlx::Row;
+use uuid::Uuid;
+
+pub struct WorkflowReservation {
+    pub snapshot: Value,
+    pub proposal: Option<Value>,
+    pub outcome: Option<Value>,
+    pub lease_token: Option<Uuid>,
+    pub busy: bool,
+}
+
+impl AuthorityStore {
+    pub async fn reserve_model_workflow(
+        &self,
+        subject: SubjectId,
+        owner: &str,
+        key: &str,
+        digest: &str,
+        snapshot: &Value,
+    ) -> Result<WorkflowReservation> {
+        if !["memory", "material"].contains(&owner)
+            || key.is_empty()
+            || key.len() > 256
+            || digest.is_empty()
+            || digest.len() > 128
+            || serde_json::to_vec(snapshot)
+                .map_err(|error| Error::Invalid(error.to_string()))?
+                .len()
+                > 262144
+        {
+            return Err(Error::Invalid("invalid model workflow reservation".into()));
+        }
+        let mut tx = self.begin().await?;
+        sqlx::query("INSERT INTO model_workflow_operations(subject_id,owner,operation_key,semantic_digest,snapshot) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING").bind(subject.0).bind(owner).bind(key).bind(digest).bind(snapshot).execute(&mut *tx).await.map_err(db)?;
+        let row=sqlx::query("SELECT snapshot,proposal,outcome,semantic_digest,lease_until>now() AS live FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 FOR UPDATE").bind(subject.0).bind(owner).bind(key).fetch_one(&mut *tx).await.map_err(db)?;
+        if row.try_get::<String, _>("semantic_digest").map_err(db)? != digest {
+            return Err(Error::Conflict(
+                "model operation identity has different semantic input".into(),
+            ));
+        }
+        let snapshot = row.try_get("snapshot").map_err(db)?;
+        let proposal = row.try_get("proposal").map_err(db)?;
+        let outcome: Option<Value> = row.try_get("outcome").map_err(db)?;
+        let busy = outcome.is_none()
+            && row
+                .try_get::<Option<bool>, _>("live")
+                .map_err(db)?
+                .unwrap_or(false);
+        let token = if outcome.is_none() && !busy {
+            Some(Uuid::now_v7())
+        } else {
+            None
+        };
+        if let Some(token) = token {
+            sqlx::query("UPDATE model_workflow_operations SET lease_token=$4,lease_until=now()+interval '6 minutes',updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(subject.0).bind(owner).bind(key).bind(token).execute(&mut *tx).await.map_err(db)?;
+        }
+        tx.commit().await.map_err(db)?;
+        Ok(WorkflowReservation {
+            snapshot,
+            proposal,
+            outcome,
+            lease_token: token,
+            busy,
+        })
+    }
+
+    pub async fn save_model_workflow(
+        &self,
+        subject: SubjectId,
+        owner: &str,
+        key: &str,
+        token: Uuid,
+        proposal: Option<&Value>,
+        outcome: Option<&Value>,
+    ) -> Result<()> {
+        for value in [proposal, outcome].into_iter().flatten() {
+            if serde_json::to_vec(value)
+                .map_err(|error| Error::Invalid(error.to_string()))?
+                .len()
+                > 1048576
+            {
+                return Err(Error::Invalid("model workflow value exceeds bound".into()));
+            }
+        }
+        let updated=sqlx::query("UPDATE model_workflow_operations SET proposal=CASE WHEN $6::jsonb IS NULL THEN COALESCE($5,proposal) ELSE NULL END,outcome=COALESCE($6,outcome),snapshot=CASE WHEN $6::jsonb IS NULL THEN snapshot ELSE '{}'::jsonb END,lease_token=CASE WHEN $6::jsonb IS NULL THEN lease_token ELSE NULL END,lease_until=CASE WHEN $6::jsonb IS NULL THEN lease_until ELSE NULL END,updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 AND lease_token=$4 AND lease_until>now() AND outcome IS NULL").bind(subject.0).bind(owner).bind(key).bind(token).bind(proposal).bind(outcome).execute(self.pool()).await.map_err(db)?;
+        if updated.rows_affected() != 1 {
+            return Err(Error::Conflict(
+                "model workflow lease expired or changed".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub async fn release_model_workflow(
+        &self,
+        subject: SubjectId,
+        owner: &str,
+        key: &str,
+        token: Uuid,
+    ) -> Result<()> {
+        sqlx::query("UPDATE model_workflow_operations SET lease_token=NULL,lease_until=NULL,updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 AND lease_token=$4 AND outcome IS NULL").bind(subject.0).bind(owner).bind(key).bind(token).execute(self.pool()).await.map_err(db)?;
+        Ok(())
+    }
+}

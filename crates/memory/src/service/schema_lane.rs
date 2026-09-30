@@ -17,12 +17,12 @@ pub(crate) async fn schema_direct_lane(
     let query = &bound.source_query;
     let mut schema_ids = BTreeSet::new();
     let mut exact_revisions = BTreeSet::new();
-    for cue in &query.cues {
+    for cue in &query.expression.cues {
         if let Cue::Schema(value) = cue {
             schema_ids.insert(value.schema.0);
         }
     }
-    for target in &query.targets {
+    for target in &query.expression.targets {
         if let QueryTarget::SchemaNeighborhood { schema } = target {
             schema_ids.insert(schema.0);
         }
@@ -119,25 +119,36 @@ pub(crate) async fn schema_direct_lane(
             .map_err(nous_persistence::database_error)?
             == "normal";
         let requirements_match = query
+            .expression
             .constraints
             .entity_requirements
             .iter()
             .all(|entity| aboutness.contains(entity));
         let source_matches = schema_sources.get(&revision.0).cloned().unwrap_or_default();
-        let source_constraints_match = (query.constraints.source_classes_include.is_empty()
+        let source_constraints_match = (query
+            .expression
+            .constraints
+            .source_classes_include
+            .is_empty()
             || query
+                .expression
                 .constraints
                 .source_classes_include
                 .iter()
                 .any(|value| source_matches.contains(value)))
             && !query
+                .expression
                 .constraints
                 .source_classes_exclude
                 .iter()
                 .any(|value| source_matches.contains(value));
-        let modality_matches = query.constraints.modalities.is_empty()
-            || query.constraints.modalities.contains(&Modality::Text);
-        let evidence_matches = query.constraints.evidence_classes.is_empty();
+        let modality_matches = query.expression.constraints.modalities.is_empty()
+            || query
+                .expression
+                .constraints
+                .modalities
+                .contains(&Modality::Text);
+        let evidence_matches = query.expression.constraints.evidence_classes.is_empty();
         let current = row
             .try_get::<Uuid, _>("current_revision_id")
             .map_err(nous_persistence::database_error)?
@@ -272,17 +283,29 @@ pub(crate) async fn materialize_schema_revisions(
             .collect::<Result<Vec<_>>>()?;
         if !bound
             .source_query
+            .expression
             .constraints
             .entity_requirements
             .iter()
             .all(|entity| aboutness.contains(entity))
-            || (!bound.source_query.constraints.modalities.is_empty()
+            || (!bound
+                .source_query
+                .expression
+                .constraints
+                .modalities
+                .is_empty()
                 && !bound
                     .source_query
+                    .expression
                     .constraints
                     .modalities
                     .contains(&Modality::Text))
-            || !bound.source_query.constraints.evidence_classes.is_empty()
+            || !bound
+                .source_query
+                .expression
+                .constraints
+                .evidence_classes
+                .is_empty()
         {
             *drops.entry("query_constraints".into()).or_default() += 1;
             continue;

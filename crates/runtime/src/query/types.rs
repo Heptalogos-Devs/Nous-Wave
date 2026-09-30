@@ -18,7 +18,6 @@ pub struct BoundQuery {
     pub topology_seed_refs: Vec<(CognitiveRef, String)>,
     pub enabled_lanes: Vec<EvidenceFamily>,
     pub lane_budgets: BTreeMap<EvidenceFamily, usize>,
-    pub hard_constraints: QueryConstraints,
     pub accessibility_policy: AccessibilityQueryPolicy,
     pub selected_embedding_space: Option<EmbeddingSpaceSignature>,
     pub topology_required: bool,

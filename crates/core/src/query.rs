@@ -205,6 +205,39 @@ pub enum DiagnosticsRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CognitiveQueryExpr {
+    pub operation: QueryOperation,
+    #[serde(default)]
+    pub targets: Vec<QueryTarget>,
+    #[serde(default)]
+    pub cues: Vec<Cue>,
+    #[serde(default)]
+    pub constraints: QueryConstraints,
+    #[serde(default)]
+    pub children: Vec<CognitiveQueryExpr>,
+}
+
+impl Default for CognitiveQueryExpr {
+    fn default() -> Self {
+        Self {
+            operation: QueryOperation::Atom,
+            targets: Vec::new(),
+            cues: Vec::new(),
+            constraints: QueryConstraints::default(),
+            children: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryOperation {
+    Atom,
+    All,
+    Any,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveQuery {
     pub api_version: u32,
     #[serde(default)]
@@ -212,12 +245,7 @@ pub struct CognitiveQuery {
     pub session: Option<SessionId>,
     #[serde(default)]
     pub situation: SituationDescriptor,
-    #[serde(default)]
-    pub targets: Vec<QueryTarget>,
-    #[serde(default)]
-    pub cues: Vec<Cue>,
-    #[serde(default)]
-    pub constraints: QueryConstraints,
+    pub expression: CognitiveQueryExpr,
     #[serde(default)]
     pub exploration: ExplorationIntent,
     #[serde(default)]
@@ -233,6 +261,15 @@ pub struct CognitiveQuery {
 }
 
 impl CognitiveQuery {
+    pub fn scopes(&self) -> Vec<&CognitiveQueryExpr> {
+        let mut pending = vec![&self.expression];
+        let mut scopes = Vec::new();
+        while let Some(node) = pending.pop() {
+            scopes.push(node);
+            pending.extend(node.children.iter().rev());
+        }
+        scopes
+    }
     pub fn validate(&self) -> Result<()> {
         if self.api_version != API_VERSION {
             return Err(Error::Invalid(format!(
@@ -245,8 +282,34 @@ impl CognitiveQuery {
                 "result_need.limit must be between 1 and 2048".into(),
             ));
         }
-        if self.cues.len() > 256 || self.targets.len() > 128 {
-            return Err(Error::Invalid("query cue/target bound exceeded".into()));
+        let mut nodes = vec![(&self.expression, 0)];
+        let mut count = 0;
+        while let Some((node, depth)) = nodes.pop() {
+            count += 1;
+            if count > 64 || depth > 16 || node.cues.len() > 256 || node.targets.len() > 128 {
+                return Err(Error::Invalid(
+                    "query tree/cue/target bound exceeded".into(),
+                ));
+            }
+            if (node.operation == QueryOperation::Atom && !node.children.is_empty())
+                || (node.operation != QueryOperation::Atom
+                    && (node.children.len() < 2 || !node.cues.is_empty()))
+            {
+                return Err(Error::Invalid("invalid query expression shape".into()));
+            }
+            for interval in [
+                node.constraints.occurred,
+                node.constraints.observed,
+                node.constraints.valid,
+                node.constraints.formed,
+                node.constraints.recorded,
+            ]
+            .into_iter()
+            .flatten()
+            {
+                interval.validate()?;
+            }
+            nodes.extend(node.children.iter().map(|child| (child, depth + 1)));
         }
         if self.capabilities.text_embedding == RequirementStrength::Forbidden
             && self.capabilities.residual_sensing == RequirementStrength::Required
@@ -254,21 +317,6 @@ impl CognitiveQuery {
             return Err(Error::Invalid(
                 "required residual_sensing conflicts with forbidden text_embedding".into(),
             ));
-        }
-        if let Some(interval) = self.constraints.occurred {
-            interval.validate()?;
-        }
-        if let Some(interval) = self.constraints.observed {
-            interval.validate()?;
-        }
-        if let Some(interval) = self.constraints.valid {
-            interval.validate()?;
-        }
-        if let Some(interval) = self.constraints.formed {
-            interval.validate()?;
-        }
-        if let Some(interval) = self.constraints.recorded {
-            interval.validate()?;
         }
         Ok(())
     }

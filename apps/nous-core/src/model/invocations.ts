@@ -1,6 +1,13 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import type { ModelBudget } from "./budget.js";
-import { embed, generateText, Output, transcribe, type UserContent } from "ai";
+import {
+  embed,
+  embedMany,
+  generateText,
+  Output,
+  transcribe,
+  type UserContent,
+} from "ai";
 import { z } from "zod";
 import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
@@ -11,6 +18,7 @@ import {
   type ModelProfile,
   type ModelRole,
   type RoleBinding,
+  modelConfigurationSchema,
 } from "./configuration.js";
 import {
   canonicalDigest,
@@ -18,7 +26,10 @@ import {
   type PromptAsset,
 } from "./prompts.js";
 
+class MediaProtocolError extends Error {}
+
 export type ModelInvocationEvidence = {
+  implementation: string;
   role: ModelRole;
   protocol: string;
   model: string;
@@ -40,10 +51,25 @@ type ReadyRole = {
   provider: ReturnType<typeof createOpenAI>;
   baseURL: string;
   credential: string;
+  credentialEnv: string;
   timeout: number;
   profileDigest: string;
   configDigest: string;
 };
+const snapshotSchema = z.strictObject({
+  configuration: modelConfigurationSchema,
+  role: z.enum(roleNames),
+  prompt: z
+    .strictObject({
+      id: z.string().max(1024),
+      digest: z.string().regex(/^[a-f0-9]{64}$/),
+      text: z.string().max(131072),
+    })
+    .optional(),
+  profileDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  configDigest: z.string().regex(/^[a-f0-9]{64}$/),
+});
+export type ModelRoleSnapshot = z.infer<typeof snapshotSchema>;
 const rerankResponse = z.object({
   results: z
     .array(
@@ -70,6 +96,10 @@ export class ModelInvocations {
   private prompts?: PromptRegistry;
   private promptPaths: Partial<Record<ModelRole, string>> = {};
   private readonly active = new Map<ModelRole, ReadyRole>();
+  private readonly requirements = new Map<
+    ModelRole,
+    RoleBinding["requirement"]
+  >();
   private readonly states = new Map<
     ModelRole,
     { state: string; detail: string }
@@ -93,6 +123,7 @@ export class ModelInvocations {
     }
     for (const role of roleNames) {
       const binding = config.roles[role];
+      runtime.requirements.set(role, binding?.requirement ?? "optional");
       if (!binding) {
         runtime.states.set(role, {
           state: "NOT_CONFIGURED",
@@ -148,6 +179,7 @@ export class ModelInvocations {
           prompt,
           provider,
           credential,
+          credentialEnv: gateway.credential_env,
           baseURL: gateway.base_url,
           timeout: binding.timeout_ms ?? gateway.request_timeout_ms,
           profileDigest,
@@ -177,6 +209,81 @@ export class ModelInvocations {
   }
   profile(role: ModelRole) {
     return this.active.get(role)?.profile;
+  }
+  requirement(role: ModelRole) {
+    return this.requirements.get(role) ?? "optional";
+  }
+  snapshot(name: ModelRole): ModelRoleSnapshot {
+    const role = this.require(name);
+    return snapshotSchema.parse({
+      role: name,
+      configuration: {
+        gateway_profiles: {
+          [role.profile.gateway]: {
+            base_url: role.baseURL,
+            credential_env: role.credentialEnv,
+            enabled: true,
+            request_timeout_ms: role.timeout,
+          },
+        },
+        model_profiles: { [role.binding.model]: role.profile },
+        roles: { [name]: role.binding },
+      },
+      prompt: role.prompt,
+      profileDigest: role.profileDigest,
+      configDigest: role.configDigest,
+    });
+  }
+  async snapshotPrompt(
+    name: ModelRole,
+    path?: string,
+    adapter?: string,
+  ): Promise<ModelRoleSnapshot> {
+    const snapshot = this.snapshot(name);
+    if (path) {
+      const prompt = await this.prompts?.load(name, path);
+      if (!prompt) throw new Error("Strategy prompt unavailable");
+      snapshot.prompt = prompt;
+      snapshot.configDigest = canonicalDigest({
+        binding: snapshot.configDigest,
+        promptId: prompt.id,
+        promptDigest: prompt.digest,
+      });
+    }
+    if (adapter)
+      snapshot.configDigest = canonicalDigest({
+        binding: snapshot.configDigest,
+        adapter,
+      });
+    return snapshot;
+  }
+  private hydrate(input: ModelRoleSnapshot): ReadyRole {
+    const snapshot = snapshotSchema.parse(input),
+      binding = snapshot.configuration.roles[snapshot.role]!;
+    const profile = snapshot.configuration.model_profiles[binding.model]!,
+      gateway = snapshot.configuration.gateway_profiles[profile.gateway]!;
+    const credential = process.env[gateway.credential_env];
+    if (!credential)
+      throw new Error("Reserved model credential reference unavailable");
+    return {
+      name: snapshot.role,
+      profile,
+      binding,
+      prompt: snapshot.prompt,
+      baseURL: gateway.base_url,
+      credential,
+      credentialEnv: gateway.credential_env,
+      timeout: gateway.request_timeout_ms,
+      profileDigest: snapshot.profileDigest,
+      configDigest: snapshot.configDigest,
+      provider: createOpenAI({
+        baseURL: gateway.base_url,
+        apiKey: credential,
+        name: "standard-gateway",
+        fetch: (request, options) =>
+          fetch(request, { ...options, redirect: "error" }),
+      }),
+    };
   }
   identity(role: ModelRole) {
     return this.active.get(role)?.configDigest;
@@ -217,6 +324,7 @@ export class ModelInvocations {
             totalTokens: number(raw.totalTokens ?? raw.tokens),
           };
     return {
+      implementation: "ai-sdk@7.0.102/openai@4.0.67",
       role: role.name,
       protocol: role.profile.protocol,
       model: role.profile.model,
@@ -242,8 +350,11 @@ export class ModelInvocations {
     schema?: z.ZodType<T>,
     signal?: AbortSignal,
     promptRole?: ModelRole | { role: ModelRole; path: string },
+    fixed?: ModelRoleSnapshot,
+    media?: { bytes: Uint8Array; mediaType: string },
   ) {
-    let role = this.require(name);
+    let role = fixed ? this.hydrate(fixed) : this.require(name);
+    if (role.name !== name) throw new Error("Reserved model role mismatch");
     if (promptRole) {
       const selectedRole =
         typeof promptRole === "string" ? promptRole : promptRole.role;
@@ -270,7 +381,138 @@ export class ModelInvocations {
     )
       throw new Error("Role is not a text generation protocol");
     const start = performance.now();
+    let mediaStage = "admission";
     try {
+      if (media) {
+        const audio = media.mediaType.startsWith("audio/");
+        const formats: Record<string, string> = {
+          "audio/mpeg": "mp3",
+          "audio/mp3": "mp3",
+          "audio/wav": "wav",
+          "audio/x-wav": "wav",
+          "audio/aac": "aac",
+          "audio/mp4": "m4a",
+        };
+        if (
+          role.profile.protocol !== "openai-chat" ||
+          !role.profile.capabilities.includes(
+            audio ? "audio_input" : "video_input",
+          ) ||
+          (!audio && !media.mediaType.startsWith("video/")) ||
+          (audio && !formats[media.mediaType])
+        )
+          throw new Error(
+            "Direct media protocol/capability or format unavailable",
+          );
+        if (
+          !media.bytes.length ||
+          media.bytes.length > (audio ? 25165824 : 67108864)
+        )
+          throw new Error("Direct media exceeds input bounds");
+        const encoded = Buffer.from(media.bytes).toString("base64");
+        const part = audio
+          ? {
+              type: "input_audio",
+              input_audio: { data: encoded, format: formats[media.mediaType] },
+            }
+          : {
+              type: "video_url",
+              video_url: { url: `data:${media.mediaType};base64,${encoded}` },
+            };
+        await this.budget?.reserve();
+        mediaStage = "transport";
+        const response = await fetch(`${role.baseURL}/chat/completions`, {
+          method: "POST",
+          redirect: "error",
+          signal: this.signal(role, signal),
+          headers: {
+            Authorization: `Bearer ${role.credential}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: role.profile.model,
+            stream: false,
+            messages: [
+              { role: "system", content: role.prompt?.text ?? "" },
+              {
+                role: "user",
+                content: [{ type: "text", text: content }, part],
+              },
+            ],
+            temperature: role.binding.temperature,
+            top_p: role.binding.top_p,
+            max_tokens: role.binding.max_output_tokens ?? 4096,
+            ...(schema
+              ? {
+                  response_format: {
+                    type: "json_schema",
+                    json_schema: {
+                      name: "material",
+                      strict: true,
+                      schema: z.toJSONSchema(schema),
+                    },
+                  },
+                }
+              : {}),
+          }),
+        });
+        if (!response.ok || !response.body) {
+          await response.body?.cancel();
+          throw new MediaProtocolError(
+            `Direct media gateway HTTP ${response.status}`,
+          );
+        }
+        const reader = response.body.getReader(),
+          chunks: Uint8Array[] = [];
+        mediaStage = "response_read";
+        let size = 0;
+        try {
+          while (true) {
+            const next = await reader.read();
+            if (next.done) break;
+            size += next.value.byteLength;
+            if (size > 1048576) {
+              await reader.cancel();
+              throw new Error("Media response exceeds bounds");
+            }
+            chunks.push(next.value);
+          }
+        } finally {
+          reader.releaseLock();
+        }
+        mediaStage = "response_validation";
+        const result = z
+          .object({
+            choices: z
+              .array(
+                z.object({
+                  message: z.object({ content: z.string().min(1).max(65536) }),
+                }),
+              )
+              .min(1)
+              .max(1),
+            usage: z.unknown().optional(),
+          })
+          .parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+        const text = result.choices[0]!.message.content;
+        const value = schema ? schema.parse(JSON.parse(text)) : text;
+        const usage = result.usage as Record<string, unknown> | undefined;
+        this.states.set(name, {
+          state: "READY",
+          detail: "Direct media invocation validated",
+        });
+        return {
+          value,
+          evidence: {
+            ...this.evidence(role, start, {
+              inputTokens: usage?.prompt_tokens,
+              outputTokens: usage?.completion_tokens,
+              totalTokens: usage?.total_tokens,
+            }),
+            implementation: "gateway-chat-media-v1",
+          },
+        };
+      }
       await this.budget?.reserve();
       const result = await generateText({
         model:
@@ -296,13 +538,19 @@ export class ModelInvocations {
         value,
         evidence: this.evidence(role, start, result.usage),
       };
-    } catch {
+    } catch (error) {
       this.states.set(name, {
         state: "UNAVAILABLE",
         detail: "Model invocation failed validation or transport",
       });
       if (signal?.aborted) throw signal.reason;
+      if (error instanceof MediaProtocolError) throw error;
+      if (media)
+        throw new MediaProtocolError(
+          `Direct media invocation failed at ${mediaStage}`,
+        );
       // Provider error bodies may echo headers, input material, or credentials.
+      // oxlint-disable-next-line preserve-caught-error -- Provider causes may contain credentials or raw media.
       throw new Error(`Model role ${name} invocation failed`);
     }
   }
@@ -343,8 +591,59 @@ export class ModelInvocations {
       );
     }
   }
-  async transcription(audio: Uint8Array, signal?: AbortSignal) {
-    const role = this.require("speech_transcription");
+  async embeddingBatch(texts: string[], model: string, signal?: AbortSignal) {
+    const role = this.require("query_embedding");
+    if (
+      role.profile.model !== model ||
+      !role.profile.embedding ||
+      !texts.length ||
+      texts.length > 64 ||
+      texts.reduce((bytes, text) => bytes + Buffer.byteLength(text), 0) >
+        1048576
+    )
+      throw new Error("Embedding batch violates configured profile/bounds");
+    const start = performance.now();
+    try {
+      await this.budget?.reserve();
+      const result = await embedMany({
+        model: role.provider.embeddingModel(model),
+        values: texts,
+        maxRetries: 0,
+        maxParallelCalls: 1,
+        abortSignal: this.signal(role, signal),
+      });
+      if (
+        result.embeddings.length !== texts.length ||
+        result.embeddings.some(
+          (vector) =>
+            vector.length !== role.profile.embedding!.dimension ||
+            vector.some((value) => !Number.isFinite(value)),
+        )
+      )
+        throw new Error("Invalid embedding batch output");
+      this.states.set("query_embedding", {
+        state: "READY",
+        detail: "Embedding batch validated",
+      });
+      return {
+        value: result.embeddings,
+        evidence: this.evidence(role, start, result.usage),
+      };
+    } catch {
+      if (signal?.aborted) throw signal.reason;
+      throw new Error(
+        "Embedding batch invocation failed validation or transport",
+      );
+    }
+  }
+  async transcription(
+    audio: Uint8Array,
+    signal?: AbortSignal,
+    fixed?: ModelRoleSnapshot,
+  ) {
+    const role = fixed
+      ? this.hydrate(fixed)
+      : this.require("speech_transcription");
     const start = performance.now();
     try {
       await this.budget?.reserve();

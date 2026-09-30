@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { ModelBudget } from "./budget.js";
 import { z } from "zod";
 import type { Degradation, Segment } from "../domain.js";
-import { ModelInvocations } from "./invocations.js";
+import { ModelInvocations, type ModelRoleSnapshot } from "./invocations.js";
 import {
   modelConfigurationSchema,
   type ModelConfiguration,
@@ -21,6 +21,7 @@ const formationSchema = z.strictObject({
   text: z.string().min(1).max(32768),
   semanticRole: z.string().min(1).max(128),
   title: z.string().max(256).optional(),
+  selectedEntityKeys: z.array(z.string().max(128)).max(128).default([]),
 });
 const interpretationSchema = z.strictObject({
   text: z.string().min(1).max(65536),
@@ -34,6 +35,7 @@ export class ModelRuntime {
     readonly materialStrategy: ModelConfiguration["material_strategy"] = "description_only",
     readonly video = modelConfigurationSchema.parse({}).video,
     readonly credentialEnvironments: readonly string[] = [],
+    readonly audio = modelConfigurationSchema.parse({}).audio,
   ) {}
   static async fromConfig(
     config: ModelConfiguration,
@@ -74,24 +76,32 @@ export class ModelRuntime {
       Object.values(config.gateway_profiles).map(
         (gateway) => gateway.credential_env,
       ),
+      config.audio,
     );
   }
   get embeddingModel() {
     return this.invocations.profile("query_embedding")?.model;
   }
-  async form(text: string, signal?: AbortSignal) {
+  async form(text: string, signal?: AbortSignal, snapshot?: ModelRoleSnapshot) {
     const result = await this.invocations.generate(
       "memory_formation",
       text,
       formationSchema,
       signal,
+      undefined,
+      snapshot,
     );
     return {
       ...formationSchema.parse(result.value),
       evidence: result.evidence,
     };
   }
-  async interpret(bytes: Uint8Array, mediaType: string, signal?: AbortSignal) {
+  async interpret(
+    bytes: Uint8Array,
+    mediaType: string,
+    signal?: AbortSignal,
+    fixed?: ModelRoleSnapshot,
+  ) {
     if (!mediaType.startsWith("image/"))
       throw new Error("Image description requires image material");
     if (
@@ -106,6 +116,8 @@ export class ModelRuntime {
       content,
       undefined,
       signal,
+      undefined,
+      fixed,
     );
     return {
       text: interpretationSchema.parse({ text: result.value }).text,
@@ -115,6 +127,7 @@ export class ModelRuntime {
   async structure(
     input: string | { bytes: Uint8Array; mediaType: string },
     signal?: AbortSignal,
+    fixed?: ModelRoleSnapshot,
   ) {
     const schema = z.strictObject({
       text: z.string().min(1).max(65536),
@@ -144,6 +157,8 @@ export class ModelRuntime {
       content,
       schema,
       signal,
+      undefined,
+      fixed,
     );
     return {
       text: JSON.stringify(schema.parse(result.value)),
@@ -155,11 +170,39 @@ export class ModelRuntime {
       throw new Error("Embedding model is not configured for the Kernel space");
     return this.invocations.embedding(text, model, signal);
   }
+  async describeMedia(
+    bytes: Uint8Array,
+    mediaType: string,
+    structured: boolean,
+    signal?: AbortSignal,
+    fixed?: ModelRoleSnapshot,
+  ) {
+    const schema = z.strictObject({
+      text: z.string().min(1).max(65536),
+      facts: z.array(z.string().max(2048)).max(64),
+    });
+    const result = await this.invocations.generate(
+      structured ? "material_direct_structuring" : "material_description",
+      `Input media type: ${mediaType}. The attached material is the input evidence.`,
+      structured ? schema : undefined,
+      signal,
+      undefined,
+      fixed,
+      { bytes, mediaType },
+    );
+    return {
+      text: structured
+        ? JSON.stringify(schema.parse(result.value))
+        : interpretationSchema.parse({ text: result.value }).text,
+      evidence: result.evidence,
+    };
+  }
   async describeScene(
     frames: { bytes: Uint8Array; timestamp: number }[],
     transcript: string | undefined,
     structured: boolean,
     signal?: AbortSignal,
+    fixed?: ModelRoleSnapshot,
   ) {
     if (
       !this.invocations
@@ -192,9 +235,12 @@ export class ModelRuntime {
       content,
       structured ? schema : undefined,
       signal,
-      structured
+      fixed
         ? undefined
-        : { role: "material_description", path: this.video.prompt },
+        : structured
+          ? undefined
+          : { role: "material_description", path: this.video.prompt },
+      fixed,
     );
     return {
       text: structured

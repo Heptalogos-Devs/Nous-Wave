@@ -1,4 +1,5 @@
 import { connectNousInstance } from "@nous-wave/client/node";
+import { webSource } from "@nous-wave/client";
 import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -21,6 +22,10 @@ const { values, positionals } = parseArgs({
     target: { type: "string" },
     supersedes: { type: "string" },
     representation: { type: "string" },
+    "operation-id": { type: "string" },
+    "aboutness-mode": { type: "string" },
+    aboutness: { type: "string", multiple: true },
+    "query-file": { type: "string" },
     "max-calls": { type: "string", default: "16" },
   },
 });
@@ -165,8 +170,7 @@ async function main() {
       subjectId,
       sessionId: state.sessionId,
       requestId: crypto.randomUUID(),
-      sourceClass: values.source ? "web" : "file",
-      externalObjectRef: values.source,
+      ...(values.source ? webSource(values.source) : { sourceClass: "file" }),
       observedAt: { seconds: BigInt(Math.floor(Date.now() / 1000)), nanos: 0 },
       admit: true,
     };
@@ -201,29 +205,52 @@ async function main() {
       target: values.target,
       supersedes: values.supersedes,
     });
-  if (command === "form")
-    return client.model.formFromObservation({
+  if (command === "form") {
+    const operationId = values["operation-id"] ?? crypto.randomUUID();
+    const result = await client.model.formFromObservation({
       subjectId,
+      operationId,
+      aboutnessMode: values["aboutness-mode"],
+      explicitAboutness: values.aboutness,
       occurrenceId: required(action, "Occurrence ID"),
       representationId: values.representation,
     });
+    return { ...result, operationId };
+  }
   if (command === "embeddings" && action === "prepare") {
     const budget = Number(values["max-calls"]);
     if (!Number.isInteger(budget) || budget < 1 || budget > 10_000)
       throw new Error("--max-calls must be 1..10000");
     let committed = 0;
-    for (let calls = 0; calls < budget; calls++) {
+    let calls = 0;
+    const invocations: Awaited<
+      ReturnType<typeof client.model.prepareEmbeddings>
+    >["invocations"] = [];
+    for (let requests = 0; requests < budget; requests++) {
       const batch = await client.model.prepareEmbeddings({
         subjectId,
-        limit: 1,
+        limit: 64,
       });
       committed += batch.committed;
+      invocations.push(...batch.invocations);
+      calls += batch.invocations.reduce(
+        (total, invocation) => total + invocation.requestCount,
+        0,
+      );
       if (batch.committed === 0 || batch.degradation.length)
-        return { committed, calls: calls + 1, degradation: batch.degradation };
+        return {
+          committed,
+          calls,
+          requests: requests + 1,
+          invocations,
+          degradation: batch.degradation,
+        };
+      if (calls >= budget) break;
     }
     return {
       committed,
-      calls: budget,
+      calls,
+      invocations,
       degradation: [
         {
           code: "caller_budget_exhausted",
@@ -232,12 +259,18 @@ async function main() {
       ],
     };
   }
-  if (command === "query")
+  if (command === "query") {
+    const nousql = values["query-file"]
+      ? await readFile(values["query-file"], "utf8")
+      : required(action, "NousQL");
+    if (Buffer.byteLength(nousql) > 32768)
+      throw new Error("NousQL exceeds 32 KiB");
     return client.cognition.query({
       subjectId,
       sessionId: state.sessionId,
-      nousql: required(action, "NousQL"),
+      nousql,
     });
+  }
   if (command === "trace" || command === "use") {
     const refText = required(action, "Reference");
     let reference: { kind: string; value: string };

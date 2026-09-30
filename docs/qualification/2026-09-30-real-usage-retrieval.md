@@ -51,4 +51,26 @@ Kernel launch 现在从 child environment 排除配置引用的 gateway credenti
 
 Private runtime packs的实际校验：Node 24.20.0、PostgreSQL 18.6.0、FFmpeg 9.0.2。FFmpeg 从官方 source SHA256 `8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e` 构建；实际 Windows binary声明LGPL并禁用GPL/nonfree/autodetect。运行时install/list/verify PASS；普通serve不调用下载。最终native closure/license audit和完整SPDX仍须在最终candidate完成。
 
-Material graph regression再次PASS，并新增实际SQL/Memory provenance summary断言：同源两阶段只有一个root，多输入图展开两个独立source roots。调用预算精准测试PASS：并发reservation保持cap，重启不清零。尚未执行真实模型调用；预算当前未消耗。
+Material graph regression再次PASS，并新增实际SQL/Memory provenance summary断言：同源两阶段只有一个root，多输入图展开两个独立source roots。调用预算精准测试PASS：并发reservation保持cap，重启不清零。该阶段尚未执行真实模型调用；后续真实调用见下节。
+
+## 2026-10-01 ongoing real gateway evidence
+
+User increased maximum to 10000 total attempts; defaults and both configured ignored instances updated without changing model identifiers or secrets. Current live ledger count: 14, including the 3 failed transport attempts. Counts come from the durable budget ledger, not CLI RPC count. Completed formation replay did not charge a second call.
+
+PASS: actual PostgreSQL license observation → doubao-seed-2.0-mini formation (4166.7457 ms, input470/output407/total877) → doubao-embedding-vision vectors → public NousQL recall → provenance trace. This is one real source/unit/query smoke, not the formal experiment. Cost unknown.
+
+PASS: direct-media encoding/response/usage boundary checks, budget restart/concurrency checks, TypeScript typecheck/lint, Kernel build. These internal checks do not claim live media capability.
+
+PASS: gateway restored after Docker interruption. Official Client direct audio committed AudioDescription 01a0f371-1837-77d1-951d-67dd16dad8e7 from actual MP3 (76570 bytes, 6.36 seconds; occurrence 01a0f36c-7bf7-7f90-a348-94bfd1972eef), latency7817.8332ms, input181/output1050/total1231. User confirmed reported Chinese promotional content corresponds to audio. FAIL: response mislabels audio as visible text and incorrectly claims no audio. Token counts alone do not establish audio omission; separate audio-token usage unknown. Refined modality-explicit invocation NOT_RUN. Direct video NOT_RUN; frames NOT_RUN by user instruction.
+
+PASS: acquisition cache contains Apple Intelligence introduction, Apple foundation models, Apple Private Cloud Compute, and OpenAI Learning to reason with LLMs. SHA256/source URLs recorded in ignored data/research/corpus/sources-acquisition.json. Two additional OpenAI pages BLOCKED at acquisition. Paragraph candidates are unreviewed; semantic unit/oracle admission and actual formation NOT_RUN. No candidate/latency/metric fixture is accepted as live evidence.
+
+PASS: modality-explicit direct-audio refinement committed representation 01a0f374-5c16-7b53-8bcd-ae75fad79b94, superseding the first interpretation while preserving evidence. It identifies audio and Chinese promotional speech; latency4597.4609ms, input183/output528/total711. Fine-grained brand transcription/tone/background-sound oracle NOT_RUN; no exact-ASR accuracy claim.
+
+PASS: official Client audio formation → Memory 01a0f374-9c80-79f3-bffa-a3a504b98085 / revision 01a0f374-9c80-79f3-bffa-a3b94a4fca22 → actual embeddings → public NousQL returns this Memory at rank1 → provenance trace reaches AudioDescription/SourceRegion/MP3 source URL. Formation3543.5307ms/input542/output465/total1007. Query01a0f375-650d-7821-96e2-b99f1b60b303. This is a two-Memory smoke, not formal retrieval metrics. Native media adapter evidence now identifies gateway-chat-media-v1, distinct from AI SDK generation. Cost unknown.
+
+## 2026-10-01 query expression progress
+
+PASS: focused runtime allocation/scoped constraint checks and Memory owner integration: role-disjoint leaf sets intersect empty, union has2 identities, parent declarative constraint narrows to1. PASS: official Client/public NousQL on two existing real-source Memories: OR query01a0f386-dc46-7793-abb6-da7590ec78cd returned2; AND query01a0f387-09cd-75e2-88b5-a0b54b6b1403 returned0. Model ledger remained14. This verifies logical identity semantics, not retrieval recall quality.
+
+PASS: typed cues/root-only compiler/recent(axis) parser checks, Kernel build and Clippy. Removed obsolete duplicate integration.test.ts which incorrectly preserved @e as exact read. Preference contribution, model rerank delay revalidation, formal corpus and final portable acceptance remain NOT_RUN.

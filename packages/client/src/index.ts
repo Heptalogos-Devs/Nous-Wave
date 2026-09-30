@@ -11,6 +11,23 @@ import {
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import { IdentityService } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
+
+/** A consumer-owned web identity, with the original public locator preserved. */
+export function webSource(value: string) {
+  const url = new URL(value);
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password
+  )
+    throw new Error("Source URL must be credential-free HTTP(S)");
+  const source = url.toString();
+  return {
+    sourceClass: "web",
+    externalObjectRef: `object:web:${source}`,
+    context: { source_url: source },
+  };
+}
 import {
   ResourceService,
   TopologyService,

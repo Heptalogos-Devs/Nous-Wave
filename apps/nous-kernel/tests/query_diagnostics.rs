@@ -3,8 +3,8 @@ mod test_support;
 
 use chrono::{Duration, Utc};
 use nous_core::{
-    CognitiveQuery, CognitiveRef, Cue, EntityCue, QueryConstraints, QueryTarget, ResultNeed,
-    TextCue, TimeInterval,
+    CognitiveQuery, CognitiveQueryExpr, CognitiveRef, Cue, EntityCue, QueryConstraints,
+    QueryOperation, QueryTarget, ResultNeed, TextCue, TimeInterval,
 };
 use serde_json::Value;
 use test_support::{database, form_input, observation, open_runtime, open_runtime_with_serving};
@@ -36,11 +36,15 @@ fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {
         subject,
         session: None,
         situation: Default::default(),
-        targets: vec![QueryTarget::AnyRelevantCognition],
-        cues: vec![Cue::Text(TextCue {
-            text: "diagnostic phrase".into(),
-        })],
-        constraints: Default::default(),
+        expression: CognitiveQueryExpr {
+            operation: QueryOperation::Atom,
+            children: Vec::new(),
+            targets: vec![QueryTarget::AnyRelevantCognition],
+            cues: vec![Cue::Text(TextCue {
+                text: "diagnostic phrase".into(),
+            })],
+            constraints: Default::default(),
+        },
         exploration: Default::default(),
         resources: Default::default(),
         result_need: ResultNeed {
@@ -119,11 +123,11 @@ async fn diagnostic_oracle_reports_validation_budget_exhaustion() {
         .expect("temporal budget revisions");
     tx.commit().await.expect("budget commit");
     let mut query = text_query(subject);
-    query.cues = vec![Cue::Entity(EntityCue {
+    query.expression.cues = vec![Cue::Entity(EntityCue {
         entity_ref: nous_core::EntityRef::new("entity:budget").unwrap(),
     })];
     query.result_need.limit = 8;
-    query.constraints = QueryConstraints {
+    query.expression.constraints = QueryConstraints {
         valid: Some(TimeInterval {
             start: Some(Utc::now() - Duration::seconds(5)),
             end: Some(Utc::now() + Duration::seconds(5)),
@@ -185,11 +189,15 @@ async fn diagnostic_oracle_reports_suppressed_exact_drop() {
             subject,
             session: None,
             situation: Default::default(),
-            targets: vec![QueryTarget::Exact {
-                reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
-            }],
-            cues: Vec::new(),
-            constraints: Default::default(),
+            expression: CognitiveQueryExpr {
+                operation: QueryOperation::Atom,
+                children: Vec::new(),
+                targets: vec![QueryTarget::Exact {
+                    reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
+                }],
+                cues: Vec::new(),
+                constraints: Default::default(),
+            },
             exploration: Default::default(),
             resources: Default::default(),
             result_need: ResultNeed {

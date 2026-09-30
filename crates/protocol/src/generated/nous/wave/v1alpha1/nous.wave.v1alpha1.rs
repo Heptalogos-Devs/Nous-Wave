@@ -278,7 +278,7 @@ pub struct QueryConstraints {
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Cue {
-    #[prost(oneof="cue::Cue", tags="1, 2, 3, 4")]
+    #[prost(oneof="cue::Cue", tags="1, 2, 3, 4, 5, 6, 7, 8")]
     pub cue: ::core::option::Option<cue::Cue>,
 }
 /// Nested message and enum types in `Cue`.
@@ -293,6 +293,14 @@ pub mod cue {
         Concept(::prost::alloc::string::String),
         #[prost(string, tag="4")]
         SchemaId(::prost::alloc::string::String),
+        #[prost(string, tag="5")]
+        EntityRef(::prost::alloc::string::String),
+        #[prost(string, tag="6")]
+        TagId(::prost::alloc::string::String),
+        #[prost(string, tag="7")]
+        ResourceRef(::prost::alloc::string::String),
+        #[prost(string, tag="8")]
+        ExternalObjectRef(::prost::alloc::string::String),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -382,6 +390,8 @@ pub struct Hit {
     pub formed_at: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="13")]
     pub recorded_at: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="14")]
+    pub score: ::core::option::Option<HitScore>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ResourceAction {
@@ -393,6 +403,61 @@ pub struct ResourceAction {
     pub reason: ::prost::alloc::string::String,
     #[prost(bool, tag="4")]
     pub current_authority: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ModelInvocationSummary {
+    #[prost(string, tag="1")]
+    pub role: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub protocol: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub model: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub profile_digest: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub prompt_digest: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(double, tag="6")]
+    pub latency_ms: f64,
+    #[prost(uint32, tag="7")]
+    pub request_count: u32,
+    #[prost(string, tag="8")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(uint64, optional, tag="9")]
+    pub input_usage: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag="10")]
+    pub output_usage: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag="11")]
+    pub total_usage: ::core::option::Option<u64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryDiagnostics {
+    #[prost(map="string, uint64", tag="1")]
+    pub candidate_counts: ::std::collections::HashMap<::prost::alloc::string::String, u64>,
+    #[prost(map="string, string", tag="2")]
+    pub lane_status: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(bool, optional, tag="3")]
+    pub topology_complete: ::core::option::Option<bool>,
+    #[prost(double, optional, tag="4")]
+    pub topology_discarded_mass: ::core::option::Option<f64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HitScore {
+    #[prost(double, tag="1")]
+    pub baseline: f64,
+    #[prost(double, tag="2")]
+    pub preference: f64,
+    #[prost(double, optional, tag="3")]
+    pub rerank: ::core::option::Option<f64>,
+    #[prost(double, tag="4")]
+    pub r#final: f64,
+    #[prost(uint32, tag="5")]
+    pub baseline_rank: u32,
+    #[prost(uint32, tag="6")]
+    pub final_rank: u32,
+    #[prost(uint32, tag="7")]
+    pub best_lane_rank: u32,
+    #[prost(string, repeated, tag="8")]
+    pub variants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResponse {
@@ -408,6 +473,10 @@ pub struct QueryResponse {
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
     #[prost(string, optional, tag="6")]
     pub bound_query: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="7")]
+    pub diagnostics: ::core::option::Option<QueryDiagnostics>,
+    #[prost(message, repeated, tag="8")]
+    pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReportUseRequest {
@@ -1684,6 +1753,12 @@ pub struct FormationRequest {
     pub occurrence_id: ::prost::alloc::string::String,
     #[prost(string, optional, tag="3")]
     pub representation_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="4")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub aboutness_mode: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="6")]
+    pub explicit_aboutness: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DeriveMaterialRequest {
@@ -1697,31 +1772,6 @@ pub struct DeriveMaterialRequest {
     pub target: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="5")]
     pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ModelInvocationSummary {
-    #[prost(string, tag="1")]
-    pub role: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub protocol: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
-    pub model: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
-    pub profile_digest: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="5")]
-    pub prompt_digest: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(double, tag="6")]
-    pub latency_ms: f64,
-    #[prost(uint32, tag="7")]
-    pub request_count: u32,
-    #[prost(string, tag="8")]
-    pub status: ::prost::alloc::string::String,
-    #[prost(uint64, optional, tag="9")]
-    pub input_usage: ::core::option::Option<u64>,
-    #[prost(uint64, optional, tag="10")]
-    pub output_usage: ::core::option::Option<u64>,
-    #[prost(uint64, optional, tag="11")]
-    pub total_usage: ::core::option::Option<u64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FormationResponse {

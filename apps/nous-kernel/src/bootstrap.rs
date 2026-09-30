@@ -25,7 +25,7 @@ struct ServingBootstrapConfig {
     #[serde(default = "default_serving_root")]
     root: String,
     #[serde(default)]
-    stored_embedding: Option<nous_retrieval::StoredEmbeddingConfig>,
+    resolved_embedding: Option<nous_retrieval::StoredEmbeddingConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -116,7 +116,7 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
             memory_enabled: true,
         },
         embedding: None,
-        stored_embedding: config.bootstrap.serving.stored_embedding,
+        stored_embedding: config.bootstrap.serving.resolved_embedding,
         deployment_settings: serde_json::to_value(
             config
                 .settings

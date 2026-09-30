@@ -61,6 +61,8 @@ capability声明示例：
 ```text
 text
 image_input
+audio_input
+video_input
 structured_output
 embedding
 speech_transcription
@@ -298,7 +300,7 @@ required 缺失使依赖 operation 明确失败；preferred 只有存在已定�
 
 Core query_embedding ModelProfile是唯一可编辑模型/空间元数据；Core产生非敏感 canonical EmbeddingSpaceSignature/ProducerSignature，Kernel校验并持久化执行证据。space变化产生新的Serving generation，禁止同维度跨space混分。Kernel bootstrap不得维护第二个editable stored_embedding model profile。
 
-ModelInvocationSummary是有界ephemeral公开执行证据：role/protocol/model/profile_digest/prompt_digest?/latency_ms/validated numeric input/output/total usage?/request_count/status及可信provider cost（否则unknown）。不保留raw provider response/headers/token，不建立永久invocation journal。真实run合计500次硬预算，包括failure/warm-up/retry。
+ModelInvocationSummary是有界ephemeral公开执行证据：role/protocol/model/profile_digest/prompt_digest?/latency_ms/validated numeric input/output/total usage?/request_count/status及可信provider cost（否则unknown）。不保留raw provider response/headers/token，不建立永久invocation journal。真实run合计10000次硬预算，包括failure/warm-up/retry。
 
 路径、dotenv、ProgramRoot和ConfigurationRoot Prompt来源服从 [Runtime Bundle](../deployment/runtime-bundle.md)。
 
@@ -418,3 +420,7 @@ describe_then_structure
 本轮真实小样本比较三者的信息保留、hallucination、downstream Memory质量、召回、latency和usage。
 
 不预先删任何一条，也不因一种model表现差就把结论写成普遍规律。
+
+## 2026-10-01 用户修订
+
+使用 Apple、OpenAI 等公开真实文章，逐条回读来源确认 oracle。总调用上限改为 10000，包含失败与复跑，不要求耗尽。音频默认多模态理解，使用 material_description / material_direct_structuring 的 audio_input。video.input_mode=direct 为默认，frames 仅显式启用且本轮 NOT_RUN；audio.input_mode=transcription 保留标准 ASR 选项。直接媒体限定 openai-chat：input_audio {data,format} 与 video_url {url:data URI}；video_url 为网关内容扩展，不声称 OpenAI 原生标准能力。不做 provider zoo 或静默抽帧/转写 fallback。发送已上传 immutable Artifact bytes，配置声明须经实际调用验证。

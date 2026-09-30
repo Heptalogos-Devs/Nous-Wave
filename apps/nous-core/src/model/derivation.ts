@@ -2,7 +2,12 @@ import type { CallOptions } from "@connectrpc/connect";
 import type { DeriveMaterialRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
-import type { ModelInvocationEvidence } from "./invocations.js";
+import type {
+  ModelInvocationEvidence,
+  ModelRoleSnapshot,
+} from "./invocations.js";
+import type { ModelRole } from "./configuration.js";
+import { z } from "zod";
 import type { DerivedRepresentation } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { sampleVideo } from "./video.js";
 import { canonicalDigest } from "./prompts.js";
@@ -42,15 +47,19 @@ export async function deriveMaterial(
     options,
   );
   const isVideo = artifact.mediaType.toLowerCase().startsWith("video/");
+  const isAudio = artifact.mediaType.toLowerCase().startsWith("audio/");
+  const maxSourceBytes = isAudio
+    ? models.audio.max_source_bytes
+    : models.video.max_source_bytes;
   let source;
-  if (isVideo && region.coordinateKind === "whole_artifact") {
-    if (artifact.byteLength > BigInt(models.video.max_source_bytes))
+  if ((isVideo || isAudio) && region.coordinateKind === "whole_artifact") {
+    if (artifact.byteLength > BigInt(maxSourceBytes))
       return {
         representations: [],
         degradation: [
           {
-            code: "video_source_too_large",
-            detail: "Video exceeds configured preprocessing byte bound",
+            code: "media_source_too_large",
+            detail: "Media exceeds configured input byte bound",
           },
         ],
       };
@@ -61,8 +70,8 @@ export async function deriveMaterial(
       options,
     )) {
       length += chunk.content.length;
-      if (length > models.video.max_source_bytes)
-        throw new Error("Video stream exceeds configured byte bound");
+      if (length > maxSourceBytes)
+        throw new Error("Media stream exceeds configured byte bound");
       chunks.push(chunk.content);
     }
     source = {
@@ -136,7 +145,7 @@ export async function deriveMaterial(
                   ? "document_extraction"
                   : "text_interpretation",
           implementation: evidence
-            ? "ai-sdk@7.0.102/openai@4.0.67"
+            ? evidence.implementation
             : "verified-utf8-decoding-v1",
           modelIdentity: evidence?.model,
           modelRevision: evidence?.modelRevision,
@@ -154,6 +163,101 @@ export async function deriveMaterial(
     );
     representations.push(representation);
     return representation;
+  };
+  const paid = async (
+    kind: string,
+    graph: Parameters<typeof commit>[2],
+    role: ModelRole,
+    invoke: (
+      snapshot: ModelRoleSnapshot,
+    ) => Promise<{ text: string; evidence: ModelInvocationEvidence }>,
+    quality: Record<string, unknown> = {},
+    preprocessingDigest?: string,
+    promptPath?: string,
+    adapter?: string,
+  ) => {
+    const model = await models.invocations.snapshotPrompt(
+      role,
+      promptPath,
+      adapter,
+    );
+    const key = canonicalDigest({
+      subject: request.subjectId,
+      graph,
+      kind,
+      strategy,
+      producer: model.configDigest,
+      preprocessingDigest,
+      supersedes: representations.length === 0 ? request.supersedes : undefined,
+    });
+    const identity = {
+      subjectId: request.subjectId,
+      owner: "material",
+      operationKey: key,
+      semanticDigest: key,
+    };
+    const reservation = await kernel.modelMaterial.reserveWorkflow(
+      { ...identity, snapshotJson: JSON.stringify(model) },
+      options,
+    );
+    if (reservation.outcomeJson) {
+      const outcome = z
+        .strictObject({ representationId: z.string().uuid() })
+        .parse(JSON.parse(reservation.outcomeJson));
+      const representation = await kernel.authority.getDerivedRepresentation(
+        { subjectId: request.subjectId, id: outcome.representationId },
+        options,
+      );
+      representations.push(representation);
+      return representation;
+    }
+    if (reservation.busy || !reservation.leaseToken)
+      throw new Error("Derivation workflow is busy; retry the same inputs");
+    const lease = {
+      subjectId: request.subjectId,
+      owner: "material",
+      operationKey: key,
+      leaseToken: reservation.leaseToken,
+    };
+    try {
+      let proposal = reservation.proposalJson
+        ? (JSON.parse(reservation.proposalJson) as {
+            text: string;
+            evidence: ModelInvocationEvidence;
+          })
+        : undefined;
+      if (!proposal) {
+        proposal = await invoke(
+          JSON.parse(reservation.snapshotJson) as ModelRoleSnapshot,
+        );
+        await kernel.modelMaterial.saveWorkflow(
+          { ...lease, proposalJson: JSON.stringify(proposal) },
+          options,
+        );
+      }
+      const representation = await commit(
+        proposal.text,
+        kind,
+        graph,
+        proposal.evidence,
+        quality,
+        preprocessingDigest,
+      );
+      await kernel.modelMaterial.saveWorkflow(
+        {
+          ...lease,
+          outcomeJson: JSON.stringify({
+            representationId: representation.representationId,
+          }),
+        },
+        options,
+      );
+      return representation;
+    } finally {
+      await kernel.modelMaterial
+        .releaseWorkflow(lease, { timeoutMs: 5000 })
+        .catch(() => {});
+    }
   };
   const inputs = [
     {
@@ -180,7 +284,11 @@ export async function deriveMaterial(
         },
       ],
     };
-  if (mime.startsWith("audio/") && strategy === "direct_structured")
+  if (
+    mime.startsWith("audio/") &&
+    models.audio.input_mode === "transcription" &&
+    strategy === "direct_structured"
+  )
     return {
       representations: [],
       degradation: [
@@ -191,6 +299,63 @@ export async function deriveMaterial(
       ],
     };
   try {
+    if (
+      (mime.startsWith("video/") && models.video.input_mode === "direct") ||
+      (mime.startsWith("audio/") && models.audio.input_mode === "direct")
+    ) {
+      const selected = await paid(
+        strategy === "direct_structured"
+          ? "structured_interpretation"
+          : mime.startsWith("video/")
+            ? "scene_description"
+            : "audio_description",
+        inputs,
+        strategy === "direct_structured"
+          ? "material_direct_structuring"
+          : "material_description",
+        (snapshot) =>
+          models.describeMedia(
+            source.content,
+            mime,
+            strategy === "direct_structured",
+            signal,
+            snapshot,
+          ),
+        {
+          input_mode: "direct",
+          source_bytes: source.content.length,
+          modality: mime.startsWith("video/") ? "video" : "audio",
+          audio_scope: "model_input",
+        },
+        canonicalDigest({ input_mode: "direct", media_type: mime }),
+        mime.startsWith("video/") && strategy !== "direct_structured"
+          ? models.video.prompt
+          : undefined,
+        "gateway-chat-media-v1",
+      );
+      if (strategy === "describe_then_structure")
+        await paid(
+          "structured_interpretation",
+          [
+            {
+              ordinal: 0,
+              reference: {
+                kind: "derived_representation",
+                value: selected.representationId,
+              },
+              role: "description",
+            },
+          ],
+          "material_structuring",
+          (snapshot) => models.structure(selected.text!, signal, snapshot),
+        );
+      return {
+        representations,
+        invocations,
+        selectedRepresentationId: representations.at(-1)!.representationId,
+        degradation: [],
+      };
+    }
     if (mime.startsWith("video/")) {
       const samples = await sampleVideo(
         source.content,
@@ -204,15 +369,18 @@ export async function deriveMaterial(
       const degradation: { code: string; detail: string }[] = [];
       if (samples.audio) {
         try {
-          const result = await models.invocations.transcription(
-            samples.audio,
-            signal,
-          );
-          const representation = await commit(
-            result.value,
+          const representation = await paid(
             "transcript",
             inputs,
-            result.evidence,
+            "speech_transcription",
+            async (snapshot) => {
+              const result = await models.invocations.transcription(
+                samples.audio!,
+                signal,
+                snapshot,
+              );
+              return { text: result.value, evidence: result.evidence };
+            },
             samples.quality,
             samples.preprocessingDigest,
           );
@@ -237,27 +405,29 @@ export async function deriveMaterial(
           code: "video_audio_not_interpreted",
           detail: "Audio is not included in the scene description",
         });
-      const description = await models.describeScene(
-        samples.frames,
-        transcript,
-        strategy === "direct_structured",
-        signal,
-      );
-      const selected = await commit(
-        description.text,
+      const selected = await paid(
         strategy === "direct_structured"
           ? "structured_interpretation"
           : "scene_description",
         sceneInputs,
-        description.evidence,
+        strategy === "direct_structured"
+          ? "material_direct_structuring"
+          : "material_description",
+        (snapshot) =>
+          models.describeScene(
+            samples.frames,
+            transcript,
+            strategy === "direct_structured",
+            signal,
+            snapshot,
+          ),
         samples.quality,
         samples.preprocessingDigest,
+        strategy === "direct_structured" ? undefined : models.video.prompt,
       );
       if (strategy === "describe_then_structure") {
         try {
-          const result = await models.structure(selected.text!, signal);
-          await commit(
-            result.text,
+          await paid(
             "structured_interpretation",
             [
               {
@@ -269,7 +439,8 @@ export async function deriveMaterial(
                 role: "description",
               },
             ],
-            result.evidence,
+            "material_structuring",
+            (snapshot) => models.structure(selected.text!, signal, snapshot),
           );
         } catch {
           if (signal?.aborted) throw signal.reason;
@@ -287,17 +458,18 @@ export async function deriveMaterial(
       };
     }
     if (strategy === "direct_structured") {
-      const result = await models.structure(
-        textual
-          ? new TextDecoder("utf-8", { fatal: true }).decode(source.content)
-          : { bytes: source.content, mediaType: mime },
-        signal,
-      );
-      const structured = await commit(
-        result.text,
+      const structured = await paid(
         "structured_interpretation",
         inputs,
-        result.evidence,
+        textual ? "material_structuring" : "material_direct_structuring",
+        (snapshot) =>
+          models.structure(
+            textual
+              ? new TextDecoder("utf-8", { fatal: true }).decode(source.content)
+              : { bytes: source.content, mediaType: mime },
+            signal,
+            snapshot,
+          ),
       );
       return {
         representations,
@@ -306,32 +478,35 @@ export async function deriveMaterial(
         degradation: [],
       };
     }
-    const result = textual
-      ? {
-          text: new TextDecoder("utf-8", { fatal: true }).decode(
-            source.content,
-          ),
-          evidence: undefined,
-        }
+    const description = textual
+      ? await commit(
+          new TextDecoder("utf-8", { fatal: true }).decode(source.content),
+          "extracted_text",
+          inputs,
+        )
       : mime.startsWith("audio/")
-        ? await models.invocations
-            .transcription(source.content, signal)
-            .then((r) => ({ text: r.value, evidence: r.evidence }))
-        : await models.interpret(source.content, mime, signal);
-    const description = await commit(
-      result.text,
-      textual
-        ? "extracted_text"
-        : mime.startsWith("audio/")
-          ? "transcript"
-          : "image_description",
-      inputs,
-      result.evidence,
-    );
+        ? await paid(
+            "transcript",
+            inputs,
+            "speech_transcription",
+            async (snapshot) => {
+              const result = await models.invocations.transcription(
+                source.content,
+                signal,
+                snapshot,
+              );
+              return { text: result.value, evidence: result.evidence };
+            },
+          )
+        : await paid(
+            "image_description",
+            inputs,
+            "material_description",
+            (snapshot) =>
+              models.interpret(source.content, mime, signal, snapshot),
+          );
     if (strategy === "describe_then_structure") {
-      const structured = await models.structure(description.text!, signal);
-      await commit(
-        structured.text,
+      await paid(
         "structured_interpretation",
         [
           {
@@ -343,7 +518,8 @@ export async function deriveMaterial(
             role: "description",
           },
         ],
-        structured.evidence,
+        "material_structuring",
+        (snapshot) => models.structure(description.text!, signal, snapshot),
       );
     }
     return {

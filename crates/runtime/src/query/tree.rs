@@ -1,0 +1,351 @@
+use super::{BoundQuery, CognitiveContributors, QueryPlan, planned_lanes};
+use crate::CognitiveRuntimeService;
+use nous_core::*;
+use std::collections::{BTreeMap, HashMap};
+
+fn intersect<T: Clone + PartialEq>(parent: &[T], child: &[T]) -> Option<Vec<T>> {
+    if parent.is_empty() {
+        return Some(child.to_vec());
+    }
+    if child.is_empty() {
+        return Some(parent.to_vec());
+    }
+    let values: Vec<_> = child
+        .iter()
+        .filter(|value| parent.contains(value))
+        .cloned()
+        .collect();
+    (!values.is_empty()).then_some(values)
+}
+
+fn interval(
+    parent: Option<TimeInterval>,
+    child: Option<TimeInterval>,
+) -> Option<Option<TimeInterval>> {
+    match (parent, child) {
+        (Some(a), Some(b)) => {
+            let start = a.start.into_iter().chain(b.start).max();
+            let end = a.end.into_iter().chain(b.end).min();
+            if start.zip(end).is_some_and(|(start, end)| start >= end) {
+                None
+            } else {
+                Some(Some(TimeInterval { start, end }))
+            }
+        }
+        (a, b) => Some(a.or(b)),
+    }
+}
+
+fn constraints(parent: &QueryConstraints, child: &QueryConstraints) -> Option<QueryConstraints> {
+    let mut result = child.clone();
+    result.source_classes_include = intersect(
+        &parent.source_classes_include,
+        &child.source_classes_include,
+    )?;
+    result.cognitive_roles_include = intersect(
+        &parent.cognitive_roles_include,
+        &child.cognitive_roles_include,
+    )?;
+    result.formation_modes_include = intersect(
+        &parent.formation_modes_include,
+        &child.formation_modes_include,
+    )?;
+    result.modalities = intersect(&parent.modalities, &child.modalities)?;
+    result.evidence_classes = intersect(&parent.evidence_classes, &child.evidence_classes)?;
+    for value in &parent.source_classes_exclude {
+        if !result.source_classes_exclude.contains(value) {
+            result.source_classes_exclude.push(value.clone());
+        }
+    }
+    for value in &parent.entity_requirements {
+        if !result.entity_requirements.contains(value) {
+            result.entity_requirements.push(value.clone());
+        }
+    }
+    result.occurred = interval(parent.occurred, child.occurred)?;
+    result.observed = interval(parent.observed, child.observed)?;
+    result.valid = interval(parent.valid, child.valid)?;
+    result.formed = interval(parent.formed, child.formed)?;
+    result.recorded = interval(parent.recorded, child.recorded)?;
+    if parent
+        .authority
+        .zip(child.authority)
+        .is_some_and(|(a, b)| a != b)
+    {
+        return None;
+    }
+    result.authority = child.authority.or(parent.authority);
+    result.include_suppressed = parent.include_suppressed && child.include_suppressed;
+    Some(result)
+}
+
+fn inherit_targets(parent: &[QueryTarget], child: &[QueryTarget]) -> Option<Vec<QueryTarget>> {
+    if child.is_empty() {
+        return Some(parent.to_vec());
+    }
+    let domains: Vec<_> = parent
+        .iter()
+        .filter(|target| !matches!(target, QueryTarget::Exact { .. }))
+        .map(std::mem::discriminant)
+        .collect();
+    if domains.is_empty() {
+        return Some(child.to_vec());
+    }
+    let narrowed: Vec<_> = child
+        .iter()
+        .filter(|target| {
+            matches!(target, QueryTarget::Exact { .. })
+                || domains.contains(&std::mem::discriminant(*target))
+        })
+        .cloned()
+        .collect();
+    (!narrowed.is_empty()).then_some(narrowed)
+}
+fn better_hit(existing: &CognitiveHit, incoming: &CognitiveHit) -> CognitiveHit {
+    if incoming.match_evidence.final_score > existing.match_evidence.final_score {
+        incoming.clone()
+    } else {
+        existing.clone()
+    }
+}
+
+fn leaves(
+    node: &CognitiveQueryExpr,
+    parent: Option<&CognitiveQueryExpr>,
+    output: &mut Vec<Option<CognitiveQueryExpr>>,
+) {
+    let mut scoped = node.clone();
+    let mut eligible = true;
+    if let Some(parent) = parent {
+        if let Some(value) = constraints(&parent.constraints, &node.constraints) {
+            scoped.constraints = value;
+        } else {
+            eligible = false;
+        }
+        if let Some(targets) = inherit_targets(&parent.targets, &node.targets) {
+            scoped.targets = targets;
+        } else {
+            eligible = false;
+        }
+    }
+    if node.operation == QueryOperation::Atom {
+        scoped.children.clear();
+        output.push(eligible.then_some(scoped));
+    } else {
+        for child in &node.children {
+            if eligible {
+                leaves(child, Some(&scoped), output);
+            } else {
+                empty_leaves(child, output);
+            }
+        }
+    }
+}
+fn empty_leaves(node: &CognitiveQueryExpr, output: &mut Vec<Option<CognitiveQueryExpr>>) {
+    if node.operation == QueryOperation::Atom {
+        output.push(None);
+    } else {
+        for child in &node.children {
+            empty_leaves(child, output);
+        }
+    }
+}
+
+fn combine(
+    node: &CognitiveQueryExpr,
+    results: &mut impl Iterator<Item = Vec<CognitiveHit>>,
+) -> HashMap<CognitiveRef, CognitiveHit> {
+    if node.operation == QueryOperation::Atom {
+        return results
+            .next()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|hit| (hit.reference.clone(), hit))
+            .collect();
+    }
+    let mut children = node.children.iter();
+    let mut result = children
+        .next()
+        .map(|child| combine(child, results))
+        .unwrap_or_default();
+    for child in children {
+        let incoming = combine(child, results);
+        if node.operation == QueryOperation::All {
+            result.retain(|reference, _| incoming.contains_key(reference));
+        }
+        for (reference, hit) in incoming {
+            if node.operation == QueryOperation::Any || result.contains_key(&reference) {
+                result
+                    .entry(reference)
+                    .and_modify(|existing| {
+                        *existing = better_hit(existing, &hit);
+                    })
+                    .or_insert(hit);
+            }
+        }
+    }
+    result
+}
+
+fn allocation(total: usize, index: usize, branches: usize) -> usize {
+    total / branches + usize::from(index < total % branches)
+}
+
+impl CognitiveRuntimeService {
+    pub(super) async fn query_tree(
+        &self,
+        bound: BoundQuery,
+        contributors: CognitiveContributors<'_>,
+        plan: QueryPlan,
+    ) -> Result<CognitiveQueryResult> {
+        let mut scopes = Vec::new();
+        leaves(&bound.source_query.expression, None, &mut scopes);
+        let count = scopes.len();
+        let mut result = CognitiveQueryResult {
+            query_id: bound.query_id,
+            generation: QueryGenerationTrace::default(),
+            status: QueryStatus::Complete,
+            results: Vec::new(),
+            resource_actions: Vec::new(),
+            degradation: Vec::new(),
+            diagnostics: Some(QueryDiagnostics {
+                candidate_counts: BTreeMap::from([
+                    ("expression_branches".into(), count),
+                    (
+                        "allocated_validation_budget".into(),
+                        plan.final_validation_budget,
+                    ),
+                ]),
+                lane_status: BTreeMap::new(),
+                topology_complete: None,
+                topology_discarded_mass: None,
+                trace: None,
+            }),
+        };
+        let mut outputs = Vec::new();
+        for (index, scope) in scopes.into_iter().enumerate() {
+            let validation_budget = allocation(plan.final_validation_budget, index, count);
+            if validation_budget == 0 && scope.is_some() {
+                result.status = QueryStatus::Partial;
+                result.degradation.push(Degradation {
+                    code: "expression_budget_exhausted".into(),
+                    detail: Some(format!("branch {index} has no allocated validation work")),
+                });
+            }
+            let Some(scope) = scope.filter(|_| validation_budget > 0) else {
+                outputs.push(Vec::new());
+                continue;
+            };
+            let mut branch = bound.clone();
+            branch.source_query.expression = scope;
+            branch.source_query.result_need.limit = validation_budget;
+            branch.exact_bindings.retain(|binding| branch.source_query.expression.targets.iter().any(|target| matches!(target, QueryTarget::Exact { reference } if reference == &binding.requested_ref)));
+            let local = planned_lanes(&branch.source_query);
+            branch.lane_budgets = plan
+                .lane_budgets
+                .iter()
+                .map(|(&lane, &total)| {
+                    (
+                        lane,
+                        if local.contains(&lane) {
+                            allocation(total, index, count)
+                        } else {
+                            0
+                        },
+                    )
+                })
+                .collect();
+            branch.enabled_lanes = local
+                .into_iter()
+                .filter(|lane| branch.lane_budget(*lane) > 0)
+                .collect();
+            if branch.enabled_lanes.is_empty() {
+                outputs.push(Vec::new());
+                continue;
+            }
+            let mut branch_plan = plan.clone();
+            branch_plan.enabled_lanes = branch.enabled_lanes.clone();
+            branch_plan.lane_budgets = branch.lane_budgets.clone();
+            branch_plan.candidate_limit = branch.lane_budgets.values().copied().max().unwrap_or(0);
+            branch_plan.final_validation_budget = validation_budget;
+            branch_plan.topology_nodes = allocation(plan.topology_nodes, index, count);
+            branch_plan.resource_limit = allocation(plan.resource_limit, index, count);
+            branch_plan.expand_topology =
+                branch.enabled_lanes.contains(&EvidenceFamily::TopologyWave);
+            let mut value = self
+                .query_atom_with_plan(branch, &contributors, branch_plan)
+                .await?;
+            result.generation = value.generation;
+            if value.status == QueryStatus::Partial {
+                result.status = QueryStatus::Partial;
+            } else if value.status == QueryStatus::Degraded
+                && result.status == QueryStatus::Complete
+            {
+                result.status = QueryStatus::Degraded;
+            }
+            result.degradation.append(&mut value.degradation);
+            result.resource_actions.append(&mut value.resource_actions);
+            if let Some(diagnostics) = value.diagnostics {
+                let target = result
+                    .diagnostics
+                    .as_mut()
+                    .expect("tree diagnostics initialized");
+                for (key, value) in diagnostics.candidate_counts {
+                    target
+                        .candidate_counts
+                        .insert(format!("branch_{index}_{key}"), value);
+                }
+                for (key, value) in diagnostics.lane_status {
+                    target
+                        .lane_status
+                        .insert(format!("branch_{index}_{key}"), value);
+                }
+            }
+            outputs.push(value.results);
+        }
+        result.results = combine(&bound.source_query.expression, &mut outputs.into_iter())
+            .into_values()
+            .collect();
+        result.results.sort_by(|a, b| {
+            b.match_evidence
+                .final_score
+                .total_cmp(&a.match_evidence.final_score)
+                .then_with(|| a.reference.to_string().cmp(&b.reference.to_string()))
+        });
+        result
+            .results
+            .truncate(bound.source_query.result_need.limit);
+        Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn branch_allocation_preserves_total_and_scopes_cannot_broaden_filters() {
+        for count in 1..65 {
+            assert_eq!(
+                (0..count)
+                    .map(|index| allocation(48, index, count))
+                    .sum::<usize>(),
+                48
+            );
+        }
+        let parent = QueryConstraints {
+            source_classes_include: vec![SourceClass::from("web".to_owned())],
+            ..Default::default()
+        };
+        let child = QueryConstraints {
+            source_classes_include: vec![SourceClass::from("file".to_owned())],
+            ..Default::default()
+        };
+        assert!(constraints(&parent, &child).is_none());
+        assert_eq!(
+            constraints(&parent, &QueryConstraints::default())
+                .unwrap()
+                .source_classes_include,
+            parent.source_classes_include
+        );
+    }
+}

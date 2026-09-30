@@ -90,11 +90,16 @@ impl CognitiveRuntimeService {
         if query.resources.current_authority == CurrentAuthorityNeed::None
             && !query.resources.synopsis_only
             && !plan.prefer_resource_synopsis
-            && !query.cues.iter().any(|cue| matches!(cue, Cue::Resource(_)))
+            && !query
+                .expression
+                .cues
+                .iter()
+                .any(|cue| matches!(cue, Cue::Resource(_)))
         {
             return Ok((Vec::new(), Vec::new()));
         }
         let requested = query
+            .expression
             .cues
             .iter()
             .filter_map(|cue| match cue {

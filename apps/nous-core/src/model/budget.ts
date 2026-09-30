@@ -9,8 +9,8 @@ export class ModelBudget {
     private readonly path: string,
     private readonly limit: number,
   ) {
-    if (!Number.isInteger(limit) || limit < 1 || limit > 500)
-      throw new Error("Live model budget must be 1..500");
+    if (!Number.isInteger(limit) || limit < 1 || limit > 10000)
+      throw new Error("Live model budget must be 1..10000");
   }
   reserve(): Promise<void> {
     const reserved = this.queue.then(async () => {

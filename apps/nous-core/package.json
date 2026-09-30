@@ -13,6 +13,7 @@
     "@connectrpc/connect-fastify": "2.2.0",
     "@connectrpc/connect-node": "2.2.0",
     "@fastify/multipart": "10.1.1",
+    "@noble/hashes": "2.0.1",
     "@nous-wave/protocol": "workspace:*",
     "ai": "7.0.102",
     "chevrotain": "13.2.0",

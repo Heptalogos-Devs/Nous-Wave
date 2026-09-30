@@ -3,6 +3,7 @@ mod lane;
 mod orchestrate;
 mod plan;
 mod ranking;
+mod tree;
 mod types;
 pub use bind::planned_lanes;
 pub use lane::{LaneCandidate, LaneOutput, LaneStatus};

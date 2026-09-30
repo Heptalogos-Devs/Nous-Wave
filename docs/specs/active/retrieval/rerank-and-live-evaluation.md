@@ -834,3 +834,9 @@ end-to-end recall
 - 不能因为Wave已经写了很多代码而给它保留特权。
 
 本轮没有授权把Wave设成default。
+
+## 2026-10-01 expression execution allocation
+
+Current canonical internal CognitiveQuery owns one CognitiveQueryExpr; old root-level targets/cues/constraints route is removed. Each expression has operation/typed cues/domain targets/local constraints/children. One BoundQuery resolves exact identities and configuration before work. Logical leaf order fixes allocation: floor(total/leaves), with the first total%leaves leaves receiving one extra. Apply this independently to each lane, total validation, topology nodes and resource actions. Contradictory inherited constraints yield an empty set. No validation allocation yields Partial with expression_budget_exhausted. Query sources are limited to64 expression nodes/16 depth. Branch combination uses identity intersection/union and maximum observed baseline contribution, with stable reference ordering for equal scores.
+
+Query embedding uses actual batch requests for candidate text only, excludes soft preference text from candidate material, and caches at most128 vectors in process by exact text/space/producer digest. No cross-space cache reuse. Invocation summaries count actual model requests; cache hits do not claim new model calls. Required embedding failure rejects the operation; lexical fallback for optional/preferred remains visibly degraded.

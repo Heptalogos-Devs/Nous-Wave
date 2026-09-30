@@ -45,7 +45,7 @@ pub(crate) fn topology_lane(
             seeds.push((node, seed_weight(family.as_str(), 1.0), family.as_str()));
         }
     }
-    for cue in &bound.source_query.cues {
+    for cue in &bound.source_query.expression.cues {
         let (reference, weight, family) = match cue {
             Cue::Entity(value) => (
                 CognitiveRef::Entity(value.entity_ref.clone()),

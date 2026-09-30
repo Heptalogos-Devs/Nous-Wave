@@ -18,6 +18,21 @@ CREATE TABLE artifacts (
     UNIQUE(subject_id, content_hash)
 );
 
+CREATE TABLE model_workflow_operations (
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    owner text NOT NULL CHECK (owner IN ('memory','material')),
+    operation_key text NOT NULL CHECK (length(operation_key) BETWEEN 1 AND 256),
+    semantic_digest text NOT NULL CHECK (length(semantic_digest) BETWEEN 1 AND 128),
+    snapshot jsonb NOT NULL,
+    proposal jsonb NULL,
+    outcome jsonb NULL,
+    lease_token uuid NULL,
+    lease_until timestamptz NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY(subject_id,owner,operation_key)
+);
+
 CREATE TABLE observation_occurrences (
     occurrence_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,

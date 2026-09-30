@@ -3,8 +3,8 @@ mod test_support;
 use chrono::Duration;
 use chrono::Utc;
 use nous_core::{
-    CognitiveQuery, CognitiveRef, Cue, EntityRef, EpistemicClass, OperationId, QueryConstraints,
-    QueryTarget, ResultNeed, TemporalExtent, TextCue, UseEventId,
+    CognitiveQuery, CognitiveQueryExpr, CognitiveRef, Cue, EntityRef, EpistemicClass, OperationId,
+    QueryConstraints, QueryOperation, QueryTarget, ResultNeed, TemporalExtent, TextCue, UseEventId,
 };
 use nous_memory::{
     AssociationPolarity, AssociationSupport, AssociationSupportClass, CognitiveRole,
@@ -23,9 +23,13 @@ fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
         subject,
         session: None,
         situation: Default::default(),
-        targets: Vec::new(),
-        cues: Vec::new(),
-        constraints: QueryConstraints::default(),
+        expression: CognitiveQueryExpr {
+            operation: QueryOperation::Atom,
+            children: Vec::new(),
+            targets: Vec::new(),
+            cues: Vec::new(),
+            constraints: QueryConstraints::default(),
+        },
         exploration: Default::default(),
         resources: Default::default(),
         result_need: ResultNeed {
@@ -94,9 +98,10 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
         .await
         .expect("second memory");
     let mut request = query(subject);
-    request.cues = vec![Cue::Entity(nous_core::EntityCue { entity_ref: alice })];
-    request.constraints.cognitive_roles_include = vec!["declarative".into(), "experiential".into()];
-    let result = runtime.query(request).await.expect("entity query");
+    request.expression.cues = vec![Cue::Entity(nous_core::EntityCue { entity_ref: alice })];
+    request.expression.constraints.cognitive_roles_include =
+        vec!["declarative".into(), "experiential".into()];
+    let result = runtime.query(request.clone()).await.expect("entity query");
     let references = result
         .results
         .into_iter()
@@ -108,6 +113,42 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
     assert!(references.contains(&CognitiveRef::MemoryRevision(
         second.revision.memory_revision_id,
     )));
+    let mut declarative = request.expression.clone();
+    declarative.constraints.cognitive_roles_include = vec!["declarative".into()];
+    let mut experiential = request.expression.clone();
+    experiential.constraints.cognitive_roles_include = vec!["experiential".into()];
+    let mut tree = query(subject);
+    tree.expression = CognitiveQueryExpr {
+        operation: QueryOperation::All,
+        targets: vec![QueryTarget::Memory],
+        children: vec![declarative, experiential],
+        ..Default::default()
+    };
+    assert!(
+        runtime
+            .query(tree.clone())
+            .await
+            .expect("scoped intersection")
+            .results
+            .is_empty()
+    );
+    tree.expression.operation = QueryOperation::Any;
+    assert_eq!(
+        runtime
+            .query(tree.clone())
+            .await
+            .expect("scoped union")
+            .results
+            .len(),
+        2
+    );
+    tree.expression.constraints.cognitive_roles_include = vec!["declarative".into()];
+    let narrowed = runtime.query(tree).await.expect("parent narrowing");
+    assert_eq!(narrowed.results.len(), 1);
+    assert_eq!(
+        narrowed.results[0].reference,
+        CognitiveRef::MemoryRevision(first.revision.memory_revision_id)
+    );
 }
 
 #[tokio::test]
@@ -188,7 +229,7 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
         .expect("resident B use");
     let mut request = query(subject);
     request.session = Some(session_a.session_id);
-    request.targets = vec![QueryTarget::AnyRelevantCognition];
+    request.expression.targets = vec![QueryTarget::AnyRelevantCognition];
     let result = runtime.query(request).await.expect("runtime query");
     let references = result
         .results
@@ -264,7 +305,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         .await
         .expect("memory");
     let mut request = query(subject);
-    request.targets = vec![QueryTarget::Exact {
+    request.expression.targets = vec![QueryTarget::Exact {
         reference: CognitiveRef::Memory(memory.object.memory_id),
     }];
     let bound = runtime.cognition.bind_query(request).await.expect("bind");
@@ -325,11 +366,15 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
             subject,
             session: None,
             situation: Default::default(),
-            targets: vec![QueryTarget::Exact {
-                reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
-            }],
-            cues: Vec::new(),
-            constraints: Default::default(),
+            expression: CognitiveQueryExpr {
+                operation: QueryOperation::Atom,
+                children: Vec::new(),
+                targets: vec![QueryTarget::Exact {
+                    reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
+                }],
+                cues: Vec::new(),
+                constraints: Default::default(),
+            },
             exploration: Default::default(),
             resources: Default::default(),
             result_need: ResultNeed {
@@ -427,7 +472,7 @@ async fn lexical_lane_does_not_create_rank_from_substring() {
         .await
         .expect("memory");
     let mut request = query(subject);
-    request.cues = vec![Cue::Text(TextCue { text: "lat".into() })];
+    request.expression.cues = vec![Cue::Text(TextCue { text: "lat".into() })];
     request.capabilities.text_embedding = nous_core::RequirementStrength::Forbidden;
     let result = runtime.query(request).await.expect("lexical query");
     assert!(result.results.is_empty());
@@ -451,7 +496,7 @@ async fn lexical_provider_hit_survives_non_literal_case_difference() {
         .await
         .expect("memory");
     let mut request = query(subject);
-    request.cues = vec![Cue::Text(TextCue {
+    request.expression.cues = vec![Cue::Text(TextCue {
         text: "LATENCY".into(),
     })];
     request.capabilities.text_embedding = nous_core::RequirementStrength::Forbidden;
@@ -514,7 +559,7 @@ async fn stale_lexical_generation_cannot_return_old_revision() {
         .await
         .expect("revision");
     let mut request = query(subject);
-    request.cues = vec![Cue::Text(TextCue {
+    request.expression.cues = vec![Cue::Text(TextCue {
         text: "old lexical phrase".into(),
     })];
     request.capabilities.text_embedding = nous_core::RequirementStrength::Forbidden;
@@ -572,7 +617,7 @@ async fn authority_lanes_reach_matches_beyond_first_n_objects() {
     tx.commit().await.expect("fixture commit");
     let tail_revision = tail_revision.expect("tail revision");
     let mut entity_query = query(subject);
-    entity_query.cues = vec![Cue::Entity(nous_core::EntityCue {
+    entity_query.expression.cues = vec![Cue::Entity(nous_core::EntityCue {
         entity_ref: EntityRef::new(target_entity).expect("entity"),
     })];
     let entity_result = runtime.query(entity_query).await.expect("entity query");
@@ -580,7 +625,7 @@ async fn authority_lanes_reach_matches_beyond_first_n_objects() {
         hit.reference == CognitiveRef::MemoryRevision(nous_core::MemoryRevisionId(tail_revision))
     }));
     let mut temporal_query = query(subject);
-    temporal_query.constraints.valid = Some(nous_core::TimeInterval {
+    temporal_query.expression.constraints.valid = Some(nous_core::TimeInterval {
         start: Some(temporal_start),
         end: Some(temporal_end),
     });

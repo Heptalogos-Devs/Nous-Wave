@@ -81,6 +81,101 @@ pub struct CommitInterpretationRequest {
     pub quality: ::core::option::Option<::prost_types::Struct>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReserveWorkflowRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub semantic_digest: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub snapshot_json: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WorkflowReservation {
+    #[prost(string, tag="1")]
+    pub snapshot_json: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="3")]
+    pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="4")]
+    pub lease_token: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, tag="5")]
+    pub busy: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SaveWorkflowRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub lease_token: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReleaseWorkflowRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub lease_token: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResolvedMentionsRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub occurrence_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResolvedMention {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub surface: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub entity_ref: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolvedMentionsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub candidates: ::prost::alloc::vec::Vec<ResolvedMention>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FindWorkflowRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub semantic_digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FoundWorkflow {
+    #[prost(bool, tag="1")]
+    pub found: bool,
+    #[prost(string, optional, tag="2")]
+    pub snapshot_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="3")]
+    pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="4")]
+    pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UploadHeader {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,

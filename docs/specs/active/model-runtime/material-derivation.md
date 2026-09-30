@@ -105,25 +105,13 @@ image
 
 ## Audio
 
-标准默认：
+默认 `audio.input_mode = "direct"`：Artifact(audio/*) → material_description 多模态理解 → AudioDescription。覆盖语音、环境声、音乐及可观察表达；不等同于逐字 Transcript。可选择 direct_structured 或 describe_then_structure，角色和提交规则与图片一致。
 
-```text
-Artifact(audio/*)
-→ openai-audio-transcription
-→ Transcript
-```
-
-可选：
-
-```text
-Transcript
-→ material_structuring
-→ StructuredInterpretation
-```
-
-记录language hint（若配置）、model、protocol、prompt/config和usage。
+显式 `audio.input_mode = "transcription"` 使用 openai-audio-transcription → Transcript → 可选文本结构化。缺失所选协议/能力时明确失败，不静默切换。
 
 ## Video
+
+默认 `video.input_mode = "direct"`：已上传原始视频 bytes → openai-chat video_url content extension → SceneDescription。此路径不在客户端抽帧、不单独 ASR；记录实际音画输入与理解范围。无法透传时局部 BLOCKED，不自动降级。下面的 FFmpeg decomposition 仅用于显式 `frames` 模式。
 
 ### Managed or operator-provided FFmpeg
 
@@ -141,7 +129,7 @@ max_audio_bytes
 
 执行用 `spawn/execFile` + argument array，禁止shell string拼接。
 
-### Decomposition
+### Explicit frames mode decomposition
 
 ```text
 video
@@ -180,7 +168,7 @@ aboutness模式为explicit、select_from_resolved_mentions（默认）、none。
 
 Derivation在付费前计算canonical identity并reserve/check；成功结果直接返回，live lease冲突返回有界busy而不并发重复调用。identity涵盖ordered exact inputs/kind/producer/strategy/prompt/config及显式supersedes。协调只承担当前真实workflow，不恢复已删除通用scheduler/attempt历史shape。description一旦成功立即提交，后续structuring失败保留partial chain。
 
-direct_structured的raw image/video使用独立material_direct_structuring role与direct-structure Prompt，不伪造Description。audio标准路径仍先transcription再textual structuring。
+direct_structured的raw image/video使用独立material_direct_structuring role与direct-structure Prompt，不伪造Description。audio 默认直接多模态理解；显式 transcription 模式先转写。
 
 current `InterpretSource`只能表达一次调用和一个representation，不能表达strategy/chain。
 
@@ -219,7 +207,7 @@ degradation[]
 
 1. text → verified text / ExtractedText；
 2. image → latest accepted ImageDescription；
-3. audio → latest accepted Transcript；
+3. audio → latest accepted AudioDescription（direct）或 Transcript（transcription）；
 4. video → latest accepted SceneDescription；
 5. caller明确指定时使用指定representation。
 
@@ -260,3 +248,7 @@ support_role = direct | interpretation according to semantics
 - materialization失败有明确degradation；
 - temp frames/audio和live-run raw media不进入tracked tree；
 - secret不会进入representation quality/metadata。
+
+## 2026-10-01 默认媒体路径替换
+
+音频默认 direct → AudioDescription，视频默认 direct → SceneDescription；独立 direct role 可直接 StructuredInterpretation，两阶段先提交描述。发送 Artifact 的有界原始 bytes：Chat input_audio(data,format) / video_url(data URI)。不要求 ASR，不静默抽帧。video.input_mode=frames 保留有界 FFmpeg 路径，audio.input_mode=transcription 保留 ASR；frames 本轮 NOT_RUN。默认 representation selection 随实际配置选择 audio_description 或 transcript。实际音画理解范围须由 grounded 样本核验。

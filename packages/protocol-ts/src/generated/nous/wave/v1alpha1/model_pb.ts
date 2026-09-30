@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Degradation, Memory } from "./types_pb.js";
+import type { Degradation, Memory, ModelInvocationSummary } from "./types_pb.js";
 import { file_nous_wave_v1alpha1_types } from "./types_pb.js";
 import type { DerivedRepresentation } from "./management_pb.js";
 import { file_nous_wave_v1alpha1_management } from "./management_pb.js";
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nous/wave/v1alpha1/model.proto.
  */
 export const file_nous_wave_v1alpha1_model: GenFile = /*@__PURE__*/
-  fileDesc("Ch5ub3VzL3dhdmUvdjFhbHBoYTEvbW9kZWwucHJvdG8SEm5vdXMud2F2ZS52MWFscGhhMSJzChBGb3JtYXRpb25SZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSFQoNb2NjdXJyZW5jZV9pZBgCIAEoCRIeChFyZXByZXNlbnRhdGlvbl9pZBgDIAEoCUgAiAEBQhQKEl9yZXByZXNlbnRhdGlvbl9pZCKxAQoVRGVyaXZlTWF0ZXJpYWxSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSGAoQc291cmNlX3JlZ2lvbl9pZBgCIAEoCRIVCghzdHJhdGVneRgDIAEoCUgAiAEBEhMKBnRhcmdldBgEIAEoCUgBiAEBEhcKCnN1cGVyc2VkZXMYBSABKAlIAogBAUILCglfc3RyYXRlZ3lCCQoHX3RhcmdldEINCgtfc3VwZXJzZWRlcyLIAgoWTW9kZWxJbnZvY2F0aW9uU3VtbWFyeRIMCgRyb2xlGAEgASgJEhAKCHByb3RvY29sGAIgASgJEg0KBW1vZGVsGAMgASgJEhYKDnByb2ZpbGVfZGlnZXN0GAQgASgJEhoKDXByb21wdF9kaWdlc3QYBSABKAlIAIgBARISCgpsYXRlbmN5X21zGAYgASgBEhUKDXJlcXVlc3RfY291bnQYByABKA0SDgoGc3RhdHVzGAggASgJEhgKC2lucHV0X3VzYWdlGAkgASgESAGIAQESGQoMb3V0cHV0X3VzYWdlGAogASgESAKIAQESGAoLdG90YWxfdXNhZ2UYCyABKARIA4gBAUIQCg5fcHJvbXB0X2RpZ2VzdEIOCgxfaW5wdXRfdXNhZ2VCDwoNX291dHB1dF91c2FnZUIOCgxfdG90YWxfdXNhZ2UitgEKEUZvcm1hdGlvblJlc3BvbnNlEioKBm1lbW9yeRgBIAEoCzIaLm5vdXMud2F2ZS52MWFscGhhMS5NZW1vcnkSNAoLZGVncmFkYXRpb24YAiADKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuRGVncmFkYXRpb24SPwoLaW52b2NhdGlvbnMYAyADKAsyKi5ub3VzLndhdmUudjFhbHBoYTEuTW9kZWxJbnZvY2F0aW9uU3VtbWFyeSKXAgoSRGVyaXZhdGlvblJlc3BvbnNlEkIKD3JlcHJlc2VudGF0aW9ucxgBIAMoCzIpLm5vdXMud2F2ZS52MWFscGhhMS5EZXJpdmVkUmVwcmVzZW50YXRpb24SJwoac2VsZWN0ZWRfcmVwcmVzZW50YXRpb25faWQYAiABKAlIAIgBARI0CgtkZWdyYWRhdGlvbhgDIAMoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5EZWdyYWRhdGlvbhI/CgtpbnZvY2F0aW9ucxgEIAMoCzIqLm5vdXMud2F2ZS52MWFscGhhMS5Nb2RlbEludm9jYXRpb25TdW1tYXJ5Qh0KG19zZWxlY3RlZF9yZXByZXNlbnRhdGlvbl9pZCI9ChhQcmVwYXJlRW1iZWRkaW5nc1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRINCgVsaW1pdBgCIAEoDSKlAQoZUHJlcGFyZUVtYmVkZGluZ3NSZXNwb25zZRIRCgljb21taXR0ZWQYASABKA0SNAoLZGVncmFkYXRpb24YAiADKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuRGVncmFkYXRpb24SPwoLaW52b2NhdGlvbnMYAyADKAsyKi5ub3VzLndhdmUudjFhbHBoYTEuTW9kZWxJbnZvY2F0aW9uU3VtbWFyeTLJAgoMTW9kZWxTZXJ2aWNlEmIKE0Zvcm1Gcm9tT2JzZXJ2YXRpb24SJC5ub3VzLndhdmUudjFhbHBoYTEuRm9ybWF0aW9uUmVxdWVzdBolLm5vdXMud2F2ZS52MWFscGhhMS5Gb3JtYXRpb25SZXNwb25zZRJjCg5EZXJpdmVNYXRlcmlhbBIpLm5vdXMud2F2ZS52MWFscGhhMS5EZXJpdmVNYXRlcmlhbFJlcXVlc3QaJi5ub3VzLndhdmUudjFhbHBoYTEuRGVyaXZhdGlvblJlc3BvbnNlEnAKEVByZXBhcmVFbWJlZGRpbmdzEiwubm91cy53YXZlLnYxYWxwaGExLlByZXBhcmVFbWJlZGRpbmdzUmVxdWVzdBotLm5vdXMud2F2ZS52MWFscGhhMS5QcmVwYXJlRW1iZWRkaW5nc1Jlc3BvbnNlYgZwcm90bzM", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management]);
+  fileDesc("Ch5ub3VzL3dhdmUvdjFhbHBoYTEvbW9kZWwucHJvdG8SEm5vdXMud2F2ZS52MWFscGhhMSK9AQoQRm9ybWF0aW9uUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEhUKDW9jY3VycmVuY2VfaWQYAiABKAkSHgoRcmVwcmVzZW50YXRpb25faWQYAyABKAlIAIgBARIUCgxvcGVyYXRpb25faWQYBCABKAkSFgoOYWJvdXRuZXNzX21vZGUYBSABKAkSGgoSZXhwbGljaXRfYWJvdXRuZXNzGAYgAygJQhQKEl9yZXByZXNlbnRhdGlvbl9pZCKxAQoVRGVyaXZlTWF0ZXJpYWxSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSGAoQc291cmNlX3JlZ2lvbl9pZBgCIAEoCRIVCghzdHJhdGVneRgDIAEoCUgAiAEBEhMKBnRhcmdldBgEIAEoCUgBiAEBEhcKCnN1cGVyc2VkZXMYBSABKAlIAogBAUILCglfc3RyYXRlZ3lCCQoHX3RhcmdldEINCgtfc3VwZXJzZWRlcyK2AQoRRm9ybWF0aW9uUmVzcG9uc2USKgoGbWVtb3J5GAEgASgLMhoubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeRI0CgtkZWdyYWRhdGlvbhgCIAMoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5EZWdyYWRhdGlvbhI/CgtpbnZvY2F0aW9ucxgDIAMoCzIqLm5vdXMud2F2ZS52MWFscGhhMS5Nb2RlbEludm9jYXRpb25TdW1tYXJ5IpcCChJEZXJpdmF0aW9uUmVzcG9uc2USQgoPcmVwcmVzZW50YXRpb25zGAEgAygLMikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZWRSZXByZXNlbnRhdGlvbhInChpzZWxlY3RlZF9yZXByZXNlbnRhdGlvbl9pZBgCIAEoCUgAiAEBEjQKC2RlZ3JhZGF0aW9uGAMgAygLMh8ubm91cy53YXZlLnYxYWxwaGExLkRlZ3JhZGF0aW9uEj8KC2ludm9jYXRpb25zGAQgAygLMioubm91cy53YXZlLnYxYWxwaGExLk1vZGVsSW52b2NhdGlvblN1bW1hcnlCHQobX3NlbGVjdGVkX3JlcHJlc2VudGF0aW9uX2lkIj0KGFByZXBhcmVFbWJlZGRpbmdzUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEg0KBWxpbWl0GAIgASgNIqUBChlQcmVwYXJlRW1iZWRkaW5nc1Jlc3BvbnNlEhEKCWNvbW1pdHRlZBgBIAEoDRI0CgtkZWdyYWRhdGlvbhgCIAMoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5EZWdyYWRhdGlvbhI/CgtpbnZvY2F0aW9ucxgDIAMoCzIqLm5vdXMud2F2ZS52MWFscGhhMS5Nb2RlbEludm9jYXRpb25TdW1tYXJ5MskCCgxNb2RlbFNlcnZpY2USYgoTRm9ybUZyb21PYnNlcnZhdGlvbhIkLm5vdXMud2F2ZS52MWFscGhhMS5Gb3JtYXRpb25SZXF1ZXN0GiUubm91cy53YXZlLnYxYWxwaGExLkZvcm1hdGlvblJlc3BvbnNlEmMKDkRlcml2ZU1hdGVyaWFsEikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZU1hdGVyaWFsUmVxdWVzdBomLm5vdXMud2F2ZS52MWFscGhhMS5EZXJpdmF0aW9uUmVzcG9uc2UScAoRUHJlcGFyZUVtYmVkZGluZ3MSLC5ub3VzLndhdmUudjFhbHBoYTEuUHJlcGFyZUVtYmVkZGluZ3NSZXF1ZXN0Gi0ubm91cy53YXZlLnYxYWxwaGExLlByZXBhcmVFbWJlZGRpbmdzUmVzcG9uc2ViBnByb3RvMw", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management]);
 
 /**
  * @generated from message nous.wave.v1alpha1.FormationRequest
@@ -34,6 +34,21 @@ export type FormationRequest = Message<"nous.wave.v1alpha1.FormationRequest"> & 
    * @generated from field: optional string representation_id = 3;
    */
   representationId?: string | undefined;
+
+  /**
+   * @generated from field: string operation_id = 4;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string aboutness_mode = 5;
+   */
+  aboutnessMode: string;
+
+  /**
+   * @generated from field: repeated string explicit_aboutness = 6;
+   */
+  explicitAboutness: string[];
 };
 
 /**
@@ -81,73 +96,6 @@ export const DeriveMaterialRequestSchema: GenMessage<DeriveMaterialRequest> = /*
   messageDesc(file_nous_wave_v1alpha1_model, 1);
 
 /**
- * @generated from message nous.wave.v1alpha1.ModelInvocationSummary
- */
-export type ModelInvocationSummary = Message<"nous.wave.v1alpha1.ModelInvocationSummary"> & {
-  /**
-   * @generated from field: string role = 1;
-   */
-  role: string;
-
-  /**
-   * @generated from field: string protocol = 2;
-   */
-  protocol: string;
-
-  /**
-   * @generated from field: string model = 3;
-   */
-  model: string;
-
-  /**
-   * @generated from field: string profile_digest = 4;
-   */
-  profileDigest: string;
-
-  /**
-   * @generated from field: optional string prompt_digest = 5;
-   */
-  promptDigest?: string | undefined;
-
-  /**
-   * @generated from field: double latency_ms = 6;
-   */
-  latencyMs: number;
-
-  /**
-   * @generated from field: uint32 request_count = 7;
-   */
-  requestCount: number;
-
-  /**
-   * @generated from field: string status = 8;
-   */
-  status: string;
-
-  /**
-   * @generated from field: optional uint64 input_usage = 9;
-   */
-  inputUsage?: bigint | undefined;
-
-  /**
-   * @generated from field: optional uint64 output_usage = 10;
-   */
-  outputUsage?: bigint | undefined;
-
-  /**
-   * @generated from field: optional uint64 total_usage = 11;
-   */
-  totalUsage?: bigint | undefined;
-};
-
-/**
- * Describes the message nous.wave.v1alpha1.ModelInvocationSummary.
- * Use `create(ModelInvocationSummarySchema)` to create a new message.
- */
-export const ModelInvocationSummarySchema: GenMessage<ModelInvocationSummary> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 2);
-
-/**
  * @generated from message nous.wave.v1alpha1.FormationResponse
  */
 export type FormationResponse = Message<"nous.wave.v1alpha1.FormationResponse"> & {
@@ -172,7 +120,7 @@ export type FormationResponse = Message<"nous.wave.v1alpha1.FormationResponse"> 
  * Use `create(FormationResponseSchema)` to create a new message.
  */
 export const FormationResponseSchema: GenMessage<FormationResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 3);
+  messageDesc(file_nous_wave_v1alpha1_model, 2);
 
 /**
  * @generated from message nous.wave.v1alpha1.DerivationResponse
@@ -204,7 +152,7 @@ export type DerivationResponse = Message<"nous.wave.v1alpha1.DerivationResponse"
  * Use `create(DerivationResponseSchema)` to create a new message.
  */
 export const DerivationResponseSchema: GenMessage<DerivationResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 4);
+  messageDesc(file_nous_wave_v1alpha1_model, 3);
 
 /**
  * @generated from message nous.wave.v1alpha1.PrepareEmbeddingsRequest
@@ -226,7 +174,7 @@ export type PrepareEmbeddingsRequest = Message<"nous.wave.v1alpha1.PrepareEmbedd
  * Use `create(PrepareEmbeddingsRequestSchema)` to create a new message.
  */
 export const PrepareEmbeddingsRequestSchema: GenMessage<PrepareEmbeddingsRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 5);
+  messageDesc(file_nous_wave_v1alpha1_model, 4);
 
 /**
  * @generated from message nous.wave.v1alpha1.PrepareEmbeddingsResponse
@@ -253,7 +201,7 @@ export type PrepareEmbeddingsResponse = Message<"nous.wave.v1alpha1.PrepareEmbed
  * Use `create(PrepareEmbeddingsResponseSchema)` to create a new message.
  */
 export const PrepareEmbeddingsResponseSchema: GenMessage<PrepareEmbeddingsResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 6);
+  messageDesc(file_nous_wave_v1alpha1_model, 5);
 
 /**
  * @generated from service nous.wave.v1alpha1.ModelService
