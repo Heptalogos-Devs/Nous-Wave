@@ -170,6 +170,19 @@ pub fn support_proto(value: RevisionSupport) -> p::RevisionSupport {
 pub fn from_ref(value: p::CognitiveRef) -> Result<CognitiveRef> {
     nous_core::parse_reference(&value.kind, &value.value)
 }
+pub fn from_producer(p: p::ProducerSignature) -> Result<nous_core::ProducerSignature> {
+    Ok(nous_core::ProducerSignature {
+        signature_hash: String::new(),
+        provider_class: p.provider_class,
+        operation: enum_value(&p.operation)?,
+        implementation: p.implementation,
+        model_identity: p.model_identity,
+        model_revision: p.model_revision,
+        preprocessing_identity: p.preprocessing_identity,
+        preprocessing_revision: p.preprocessing_revision,
+        config_digest: p.config_digest,
+    })
+}
 pub fn to_ref(value: CognitiveRef) -> p::CognitiveRef {
     let (kind, value) = nous_core::reference_parts(&value);
     p::CognitiveRef { kind, value }

@@ -61,6 +61,8 @@ function parseRerankResponse(input: unknown, count: number) {
   return result;
 }
 export class ModelInvocations {
+  private prompts?: PromptRegistry;
+  private promptPaths: Partial<Record<ModelRole, string>> = {};
   private readonly active = new Map<ModelRole, ReadyRole>();
   private readonly states = new Map<
     ModelRole,
@@ -75,6 +77,11 @@ export class ModelInvocations {
   ) {
     const runtime = new ModelInvocations();
     const prompts = new PromptRegistry(promptRoot);
+    runtime.prompts = prompts;
+    for (const role of roleNames) {
+      const path = config.roles[role]?.prompt;
+      if (path) runtime.promptPaths[role] = path;
+    }
     for (const role of roleNames) {
       const binding = config.roles[role];
       if (!binding) {
@@ -130,7 +137,7 @@ export class ModelInvocations {
           configDigest,
         });
         runtime.states.set(role, {
-          state: "READY",
+          state: "UNAVAILABLE",
           detail: "Client configured; live conformance remains unverified",
         });
       } catch {
@@ -189,8 +196,25 @@ export class ModelInvocations {
     content: UserContent,
     schema?: z.ZodType<T>,
     signal?: AbortSignal,
+    promptRole?: ModelRole,
   ) {
-    const role = this.require(name);
+    let role = this.require(name);
+    if (promptRole) {
+      const prompt = await this.prompts?.load(
+        promptRole,
+        this.promptPaths[promptRole],
+      );
+      if (!prompt) throw new Error("Strategy prompt unavailable");
+      role = {
+        ...role,
+        prompt,
+        configDigest: canonicalDigest({
+          binding: role.configDigest,
+          promptId: prompt.id,
+          promptDigest: prompt.digest,
+        }),
+      };
+    }
     if (
       role.profile.protocol !== "openai-chat" &&
       role.profile.protocol !== "openai-responses"
@@ -212,11 +236,21 @@ export class ModelInvocations {
         maxRetries: 0,
         abortSignal: this.signal(role, signal),
       });
+      if (!schema && !result.text.trim()) throw new Error("Empty model output");
+      const value = schema ? schema.parse(result.output) : result.text;
+      this.states.set(name, {
+        state: "READY",
+        detail: "Standard protocol invocation validated",
+      });
       return {
-        value: schema ? schema.parse(result.output) : result.text,
+        value,
         evidence: this.evidence(role, start, result.usage),
       };
     } catch {
+      this.states.set(name, {
+        state: "UNAVAILABLE",
+        detail: "Model invocation failed validation or transport",
+      });
       if (signal?.aborted) throw signal.reason;
       // Provider error bodies may echo headers, input material, or credentials.
       throw new Error(`Model role ${name} invocation failed`);
@@ -239,11 +273,19 @@ export class ModelInvocations {
         result.embedding.some((v) => !Number.isFinite(v))
       )
         throw new Error("Invalid vector");
+      this.states.set("query_embedding", {
+        state: "READY",
+        detail: "Embedding invocation validated",
+      });
       return {
         value: result.embedding,
         evidence: this.evidence(role, start, result.usage),
       };
     } catch {
+      this.states.set("query_embedding", {
+        state: "UNAVAILABLE",
+        detail: "Embedding invocation unavailable",
+      });
       if (signal?.aborted) throw signal.reason;
       throw new Error(
         "Embedding invocation failed or vector violated the configured space",
@@ -261,8 +303,16 @@ export class ModelInvocations {
         abortSignal: this.signal(role, signal),
       });
       if (!result.text.trim()) throw new Error("Empty transcript");
+      this.states.set("speech_transcription", {
+        state: "READY",
+        detail: "Transcription invocation validated",
+      });
       return { value: result.text, evidence: this.evidence(role, start) };
     } catch {
+      this.states.set("speech_transcription", {
+        state: "UNAVAILABLE",
+        detail: "Transcription invocation unavailable",
+      });
       if (signal?.aborted) throw signal.reason;
       throw new Error("Speech transcription invocation failed");
     }
@@ -330,11 +380,19 @@ export class ModelInvocations {
         ),
         documents.length,
       );
+      this.states.set("query_rerank", {
+        state: "READY",
+        detail: "Rerank invocation validated",
+      });
       return {
         value: result.results,
         evidence: this.evidence(role, start, result.usage),
       };
     } catch {
+      this.states.set("query_rerank", {
+        state: "UNAVAILABLE",
+        detail: "Rerank invocation unavailable",
+      });
       if (signal?.aborted) throw signal.reason;
       throw new Error(
         "Rerank invocation failed or response violated candidate mapping",

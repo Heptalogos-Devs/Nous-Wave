@@ -4,33 +4,30 @@ import type { Degradation, Segment } from "../domain.js";
 import { ModelInvocations } from "./invocations.js";
 import type { ModelConfiguration } from "./configuration.js";
 
-const proposalSchema = z
-  .object({
-    selectedIds: z.array(z.string()).max(64),
-    summary: z.string().max(8192).optional(),
-  })
-  .strict();
+const proposalSchema = z.strictObject({
+  selectedIds: z.array(z.string()).max(64),
+  summary: z.string().max(8192).optional(),
+});
 type StewardProposal = z.infer<typeof proposalSchema>;
 export type ProposalGenerator = (
   segments: Segment[],
   signal?: AbortSignal,
 ) => Promise<StewardProposal>;
-const formationSchema = z
-  .object({
-    text: z.string().min(1).max(32768),
-    semanticRole: z.string().min(1).max(128),
-    title: z.string().max(256).optional(),
-  })
-  .strict();
-const interpretationSchema = z
-  .object({ text: z.string().min(1).max(65536) })
-  .strict();
+const formationSchema = z.strictObject({
+  text: z.string().min(1).max(32768),
+  semanticRole: z.string().min(1).max(128),
+  title: z.string().max(256).optional(),
+});
+const interpretationSchema = z.strictObject({
+  text: z.string().min(1).max(65536),
+});
 
 export class ModelRuntime {
   constructor(
     private readonly generator?: ProposalGenerator,
     private readonly producer = "deterministic",
     readonly invocations = new ModelInvocations(),
+    readonly materialStrategy: ModelConfiguration["material_strategy"] = "description_only",
   ) {}
   static async fromConfig(config: ModelConfiguration) {
     const invocations = await ModelInvocations.create(config);
@@ -56,6 +53,7 @@ export class ModelRuntime {
       generator,
       invocations.identity("projection_steward") ?? "deterministic",
       invocations,
+      config.material_strategy,
     );
   }
   get embeddingModel() {
@@ -74,14 +72,15 @@ export class ModelRuntime {
     };
   }
   async interpret(bytes: Uint8Array, mediaType: string, signal?: AbortSignal) {
-    const content = mediaType.startsWith("text/")
-      ? [
-          {
-            type: "text" as const,
-            text: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-          },
-        ]
-      : [{ type: "image" as const, image: bytes, mediaType }];
+    if (!mediaType.startsWith("image/"))
+      throw new Error("Image description requires image material");
+    if (
+      !this.invocations
+        .profile("material_description")
+        ?.capabilities.includes("image_input")
+    )
+      throw new Error("Image model capability is unavailable");
+    const content = [{ type: "image" as const, image: bytes, mediaType }];
     const result = await this.invocations.generate(
       "material_description",
       content,
@@ -90,6 +89,45 @@ export class ModelRuntime {
     );
     return {
       text: interpretationSchema.parse({ text: result.value }).text,
+      evidence: result.evidence,
+    };
+  }
+  async structure(
+    input: string | { bytes: Uint8Array; mediaType: string },
+    signal?: AbortSignal,
+  ) {
+    const schema = z.strictObject({
+      text: z.string().min(1).max(65536),
+      facts: z.array(z.string().max(2048)).max(64),
+    });
+    const role =
+      typeof input === "string"
+        ? "material_structuring"
+        : "material_description";
+    if (
+      typeof input !== "string" &&
+      !this.invocations.profile(role)?.capabilities.includes("image_input")
+    )
+      throw new Error("Direct structured image capability is unavailable");
+    const content =
+      typeof input === "string"
+        ? input
+        : [
+            {
+              type: "image" as const,
+              image: input.bytes,
+              mediaType: input.mediaType,
+            },
+          ];
+    const result = await this.invocations.generate(
+      role,
+      content,
+      schema,
+      signal,
+      typeof input === "string" ? undefined : "material_structuring",
+    );
+    return {
+      text: JSON.stringify(schema.parse(result.value)),
       evidence: result.evidence,
     };
   }

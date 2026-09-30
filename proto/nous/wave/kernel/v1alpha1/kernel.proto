@@ -17,6 +17,9 @@ service ArtifactStreamService {
 
 service AuthorityService {
   rpc GetMaterialLimits(google.protobuf.Empty) returns (nous.wave.v1alpha1.MaterialLimits);
+  rpc ListDerivedRepresentations(nous.wave.v1alpha1.RepresentationListRequest) returns (nous.wave.v1alpha1.RepresentationListResponse);
+  rpc GetProducer(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.ProducerSignature);
+  rpc GetDerivedRegion(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.DerivedRegion);
   rpc CreateWorkContext(nous.wave.v1alpha1.CreateWorkContextRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
   rpc GetWorkContext(nous.wave.v1alpha1.GetWorkContextRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
   rpc ListWorkContexts(nous.wave.v1alpha1.ListWorkContextsRequest) returns (nous.wave.v1alpha1.ListWorkContextsResponse);

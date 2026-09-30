@@ -1,5 +1,6 @@
 //! PostgreSQL Authority repositories and migration ownership.
 mod identity;
+mod producer;
 mod projection_input;
 mod projections;
 mod references;

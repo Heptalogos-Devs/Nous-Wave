@@ -19,6 +19,8 @@ const { values, positionals } = parseArgs({
     source: { type: "string" },
     "media-type": { type: "string" },
     strategy: { type: "string" },
+    target: { type: "string" },
+    supersedes: { type: "string" },
     representation: { type: "string" },
     "max-calls": { type: "string", default: "16" },
   },
@@ -92,6 +94,7 @@ async function main() {
         "observe text --text <text> --source <url>",
         "observe file <path>",
         "form <occurrence-id>",
+        "derive <source-region-id> --strategy <strategy>",
         "embeddings prepare --max-calls <n>",
         "query <NousQL>",
         "trace <canonical-or-lexical-ref>",
@@ -180,10 +183,19 @@ async function main() {
       return { artifact, ...observation };
     }
   }
+  if (command === "derive")
+    return client.model.deriveMaterial({
+      subjectId,
+      sourceRegionId: required(action, "Source region ID"),
+      strategy: values.strategy,
+      target: values.target,
+      supersedes: values.supersedes,
+    });
   if (command === "form")
     return client.model.formFromObservation({
       subjectId,
-      sourceId: required(action, "Occurrence ID"),
+      occurrenceId: required(action, "Occurrence ID"),
+      representationId: values.representation,
     });
   if (command === "embeddings" && action === "prepare") {
     const budget = Number(values["max-calls"]);
@@ -256,6 +268,47 @@ async function main() {
         ],
       });
     const sources = [];
+    const visited = new Set<string>();
+    const derivations: unknown[] = [];
+    const traceMaterial = async (materialRef: {
+      kind: string;
+      value: string;
+    }): Promise<void> => {
+      const key = `${materialRef.kind}:${materialRef.value}`;
+      if (visited.has(key)) return;
+      if (visited.size >= 512)
+        throw new Error("Trace material budget exceeded");
+      visited.add(key);
+      if (materialRef.kind === "derived_representation") {
+        const representation = await client.material.representation({
+          subjectId,
+          id: materialRef.value,
+        });
+        derivations.push({ reference: materialRef, representation });
+        for (const input of representation.inputs)
+          if (input.reference) await traceMaterial(input.reference);
+      } else if (materialRef.kind === "derived_region") {
+        const region = await client.material.derivedRegion({
+          subjectId,
+          id: materialRef.value,
+        });
+        derivations.push({ reference: materialRef, region });
+        await traceMaterial({
+          kind: "derived_representation",
+          value: region.representationId,
+        });
+      } else if (materialRef.kind === "source_region") {
+        const region = await client.material.sourceRegion({
+          subjectId,
+          id: materialRef.value,
+        });
+        const artifact = await client.material.getArtifact({
+          subjectId,
+          id: region.artifactId,
+        });
+        derivations.push({ reference: materialRef, region, artifact });
+      }
+    };
     for (const support of memory.supports) {
       if (support.support.case !== "evidence") continue;
       const evidence = support.support.value;
@@ -276,9 +329,30 @@ async function main() {
               id: evidence.locator.value,
             })
           : undefined;
+      if (representation)
+        await traceMaterial({
+          kind: "derived_representation",
+          value: representation.representationId,
+        });
+      if (evidence.locator.case === "derivedRegionId")
+        await traceMaterial({
+          kind: "derived_region",
+          value: evidence.locator.value,
+        });
+      if (evidence.locator.case === "sourceRegionId")
+        await traceMaterial({
+          kind: "source_region",
+          value: evidence.locator.value,
+        });
       sources.push({ evidence, occurrence, artifact, representation });
     }
-    return { memory, sources };
+    const producer = memory.producerSignatureId
+      ? await client.material.producer({
+          subjectId,
+          id: memory.producerSignatureId,
+        })
+      : undefined;
+    return { memory, producer, sources, derivations };
   }
   if (command === "context") {
     if (action === "create") {

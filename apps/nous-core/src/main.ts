@@ -18,7 +18,11 @@ async function main() {
   let kernel: Awaited<ReturnType<typeof startKernel>> | undefined;
   let app: Awaited<ReturnType<typeof createCore>> | undefined;
   try {
-    kernel = await startKernel(config.kernelExecutable, config.kernelConfig);
+    kernel = await startKernel(config.kernelExecutable, config.kernelConfig, {
+      credentialEnvironments: Object.values(config.models.gateway_profiles).map(
+        (gateway) => gateway.credential_env,
+      ),
+    });
     const token = randomBytes(32).toString("hex");
     app = await createCore({
       kernel: kernel.client,

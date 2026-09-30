@@ -6,13 +6,7 @@ impl MaterialService {
         mut representation: DerivedRepresentation,
     ) -> Result<DerivedRepresentation> {
         representation.validate()?;
-        representation.producer.signature_hash.clear();
-        representation.producer.signature_hash = blake3::hash(
-            &serde_json::to_vec(&representation.producer)
-                .map_err(|e| Error::Invalid(e.to_string()))?,
-        )
-        .to_hex()
-        .to_string();
+        representation.producer = AuthorityStore::canonical_producer(&representation.producer)?;
         let input_digest = blake3::hash(
             &serde_json::to_vec(&representation.inputs)
                 .map_err(|e| Error::Invalid(e.to_string()))?,
@@ -112,9 +106,8 @@ impl MaterialService {
             tx.commit().await.map_err(db)?;
             return Ok(representation);
         }
-        let producer = &representation.producer;
-        let producer_id: Uuid = sqlx::query_scalar("INSERT INTO producer_signatures(producer_signature_id,signature_hash,provider_class,operation,implementation,model_identity,model_revision,preprocessing_identity,preprocessing_revision,config_digest,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(signature_hash) DO UPDATE SET signature_hash=excluded.signature_hash RETURNING producer_signature_id")
-            .bind(Uuid::now_v7()).bind(&producer.signature_hash).bind(&producer.provider_class).bind(producer.operation.as_str()).bind(&producer.implementation).bind(&producer.model_identity).bind(&producer.model_revision).bind(&producer.preprocessing_identity).bind(&producer.preprocessing_revision).bind(&producer.config_digest).bind(representation.created_at).fetch_one(&mut *tx).await.map_err(db)?;
+        let producer_id =
+            AuthorityStore::register_producer_in(&mut tx, &representation.producer).await?;
         sqlx::query("INSERT INTO derived_representations(derived_representation_id,subject_id,input_digest,strategy,derivation_key,representation_kind,producer_signature_id,revision,payload_text,payload_artifact_id,quality,created_at,supersedes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
             .bind(representation.derived_representation_id.0).bind(representation.subject_id.0).bind(input_digest).bind(&representation.strategy).bind(key).bind(representation.representation_kind.as_str()).bind(producer_id).bind(representation.revision).bind(&representation.payload_text).bind(representation.payload_artifact_id.map(|id| id.0)).bind(&representation.quality).bind(representation.created_at).bind(representation.supersedes.map(|id| id.0)).execute(&mut *tx).await.map_err(db)?;
         for input in &representation.inputs {

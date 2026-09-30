@@ -8,6 +8,7 @@ use nous_memory::{
 fn grounded_input() -> ExplicitMemoryInput {
     let occurrence = OccurrenceId::new();
     ExplicitMemoryInput {
+        producer: None,
         operation_id: OperationId::new(),
         subject: SubjectId::new(),
         cognitive_role: CognitiveRole::Declarative,

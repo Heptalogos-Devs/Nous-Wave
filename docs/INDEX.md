@@ -29,6 +29,7 @@
 - [参考目录](reference/README.md)：当前接口参考的职责和入口。
 - [NousQL](reference/NOUSQL.md)：TypeScript parser/compiler 的当前语法、绑定行为和限制。
 - [Configuration Service](reference/CONFIGURATION.md)：registry、覆盖优先级、快照、digest 和 persistence。
+- [Model Runtime](reference/MODEL_RUNTIME.md)：gateway-first clients、角色、Prompt 与实际表示链。
 - [Capability Composition](reference/CAPABILITIES.md)：Process/Subject capability 与 Memory-only 运行合同。
 
 ## 当前状态与证据

@@ -8,6 +8,7 @@ pub(super) fn view(input: MemoryView) -> p::Memory {
     let object = input.object;
     let revision = input.revision;
     p::Memory {
+        producer_signature_id: revision.producer_signature_id.map(|id| id.to_string()),
         memory_id: object.memory_id.0.to_string(),
         revision_id: revision.memory_revision_id.0.to_string(),
         subject_id: object.subject_id.0.to_string(),
@@ -66,6 +67,7 @@ fn memory_input(
     let formed_at =
         time(content.formed_at)?.ok_or_else(|| Error::Invalid("formed_at is required".into()))?;
     Ok(ExplicitMemoryInput {
+        producer: content.producer.map(from_producer).transpose()?,
         operation_id,
         subject,
         cognitive_role: enum_value(&content.cognitive_role)?,
@@ -237,6 +239,7 @@ impl KernelService {
         Ok(view(
             self.require_memory()?
                 .revise_memory(ReviseMemoryInput {
+                    producer: parsed.producer,
                     operation_id,
                     subject,
                     memory_id: nous_core::MemoryId(id(&input.memory_id)?),
@@ -338,6 +341,7 @@ fn view_from_revision(
     revision: nous_memory::MemoryRevision,
 ) -> p::Memory {
     p::Memory {
+        producer_signature_id: revision.producer_signature_id.map(|id| id.to_string()),
         memory_id: memory.0.to_string(),
         revision_id: revision.memory_revision_id.0.to_string(),
         subject_id: subject.0.to_string(),

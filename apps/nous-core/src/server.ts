@@ -339,6 +339,11 @@ export async function createCore(settings: CoreOptions) {
     purgeEpisode: (r, c) => kernel.authority.purgeEpisode(r, options(c)),
   };
   const material: ServiceImpl<typeof MaterialService> = {
+    getDerivedRegion: (r, c) =>
+      kernel.authority.getDerivedRegion(r, options(c)),
+    getProducer: (r, c) => kernel.authority.getProducer(r, options(c)),
+    listDerivedRepresentations: (r, c) =>
+      kernel.authority.listDerivedRepresentations(r, options(c)),
     getLimits: (r, c) => kernel.authority.getMaterialLimits(r, options(c)),
     getOccurrence: (r, c) => kernel.authority.getOccurrence(r, options(c)),
     getSourceRegion: (r, c) => kernel.authority.getSourceRegion(r, options(c)),

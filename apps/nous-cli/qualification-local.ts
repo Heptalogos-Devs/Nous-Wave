@@ -134,6 +134,32 @@ try {
   );
   const occurrenceId = String(observation.occurrenceId);
   const client = await connectNousInstance(dataRoot);
+  const extracted = await client.model.deriveMaterial({
+    subjectId,
+    sourceRegionId: String(observation.sourceRegionId),
+    strategy: "description_only",
+  });
+  assert.equal(extracted.representations[0]?.kind, "extracted_text");
+  assert.equal(
+    extracted.representations[0]?.inputs[0]?.reference?.value,
+    observation.sourceRegionId,
+  );
+  assert(
+    extracted.representations[0]?.producer?.preprocessingIdentity.includes(
+      "verified-utf8",
+    ),
+  );
+  const partial = await client.model.deriveMaterial({
+    subjectId,
+    sourceRegionId: String(observation.sourceRegionId),
+    strategy: "describe_then_structure",
+  });
+  assert.equal(partial.representations.length, 1);
+  assert.equal(partial.degradation[0]?.code, "material_structuring_failed");
+  assert.equal(
+    partial.selectedRepresentationId,
+    partial.representations[0]?.representationId,
+  );
   assert.equal((await client.material.limits({})).maxUploadBytes, 1048576n);
   await assert.rejects(
     client.artifacts.uploadBytes(subjectId, new Uint8Array(1048577), {
@@ -145,6 +171,14 @@ try {
     subjectId,
     operationId: crypto.randomUUID(),
     input: {
+      producer: {
+        providerClass: "deterministic-local-qualification",
+        operation: "memory_formation_text",
+        implementation: "local-wiring-v1",
+        preprocessingIdentity: "manual-grounded-source",
+        preprocessingRevision: "1",
+        configDigest: "local-wiring-v1",
+      },
       cognitiveRole: "declarative",
       formationMode: "grounded",
       groundingOccurrenceId: occurrenceId,
@@ -159,7 +193,10 @@ try {
             value: {
               occurrenceId,
               supportRole: "direct",
-              locator: { case: "wholeOccurrence", value: true },
+              locator: {
+                case: "derivedRepresentationId",
+                value: extracted.selectedRepresentationId!,
+              },
             },
           },
         },
@@ -170,12 +207,21 @@ try {
     subjectId,
     '"protocol continuity" $memory $limit(5)',
   );
+  assert(memory.producerSignatureId);
+  const producer = await client.material.producer({
+    subjectId,
+    id: memory.producerSignatureId,
+  });
+  assert.equal(producer.operation, "memory_formation_text");
+  assert.equal(producer.preprocessingIdentity, "manual-grounded-source");
+  assert.match(producer.signatureHash, /^[a-f0-9]{64}$/);
   assert(
     response.hits.some((hit) => hit.revision?.value === memory.revisionId),
   );
   await cli("query", '"protocol continuity" $memory $limit(5)');
   const trace = await cli("trace", `memory:${memory.memoryId}`);
   assert(Array.isArray(trace.sources) && trace.sources.length === 1);
+  assert(Array.isArray(trace.derivations) && trace.derivations.length >= 2);
   await cli("use", `memory_revision:${memory.revisionId}`);
   const file = join(dataRoot, "source.txt");
   await writeFile(file, "Streaming artifact consumer proof.");

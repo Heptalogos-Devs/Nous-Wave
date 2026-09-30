@@ -78,7 +78,7 @@ export function createNousClient(transport: Transport) {
     },
     model: {
       formFromObservation: call(model.formFromObservation),
-      interpretSource: call(model.interpretSource),
+      deriveMaterial: call(model.deriveMaterial),
       prepareEmbeddings: call(model.prepareEmbeddings),
     },
     resources: {
@@ -188,6 +188,9 @@ export function createNousClient(transport: Transport) {
       purgeEpisode: call(memory.purgeEpisode),
     },
     material: {
+      derivedRegion: call(material.getDerivedRegion),
+      producer: call(material.getProducer),
+      representations: call(material.listDerivedRepresentations),
       limits: call(material.getLimits),
       getArtifact: call(material.getArtifact),
       listArtifacts: call(material.listArtifacts),

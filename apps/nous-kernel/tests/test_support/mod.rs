@@ -251,6 +251,7 @@ pub(crate) fn form_input(
     text: &str,
 ) -> ExplicitMemoryInput {
     ExplicitMemoryInput {
+        producer: None,
         operation_id,
         subject,
         cognitive_role: CognitiveRole::Declarative,

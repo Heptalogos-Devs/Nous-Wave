@@ -22,6 +22,7 @@ message CommitInterpretationRequest {
   string kind = 7;
   nous.wave.v1alpha1.ProducerSignature producer = 8;
   string strategy = 10;
+  optional string supersedes = 11;
 }
 service ModelMaterialService {
   rpc GetEmbeddingConfig(google.protobuf.Empty) returns (EmbeddingConfig);

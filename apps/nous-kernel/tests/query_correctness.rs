@@ -270,6 +270,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     let bound = runtime.cognition.bind_query(request).await.expect("bind");
     let plan = QueryPlan::for_bound_query(&bound);
     let revision = nous_memory::ReviseMemoryInput {
+        producer: None,
         operation_id: OperationId::new(),
         subject,
         memory_id: memory.object.memory_id,
@@ -489,6 +490,7 @@ async fn stale_lexical_generation_cannot_return_old_revision() {
         .require_memory()
         .unwrap()
         .revise_memory(nous_memory::ReviseMemoryInput {
+            producer: None,
             operation_id: OperationId::new(),
             subject,
             memory_id: first.object.memory_id,
@@ -620,6 +622,7 @@ async fn memory_revision_identity_guard_rejects_disjoint_aboutness() {
         .require_memory()
         .unwrap()
         .revise_memory(nous_memory::ReviseMemoryInput {
+            producer: None,
             operation_id: revision.operation_id,
             subject,
             memory_id: memory.object.memory_id,

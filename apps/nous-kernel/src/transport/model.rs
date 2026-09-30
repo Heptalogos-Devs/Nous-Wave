@@ -111,7 +111,12 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                     payload_artifact_id: None,
                     quality: serde_json::json!({"status":"model_interpretation"}),
                     created_at: chrono::Utc::now(),
-                    supersedes: None,
+                    supersedes: input
+                        .supersedes
+                        .as_deref()
+                        .map(id)
+                        .transpose()?
+                        .map(nous_core::DerivedRepresentationId),
                 })
                 .await?;
             self.get_derived_representation(p::ObjectRequest {

@@ -3,6 +3,7 @@ import { ModelService } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js
 import type { KernelClient } from "../kernel-client.js";
 import { ModelRuntime } from "./runtime.js";
 import { ModelMaterialPipeline } from "./material.js";
+import { deriveMaterial } from "./derivation.js";
 
 function failure(code: string, error: unknown) {
   return [
@@ -41,17 +42,80 @@ export function modelOperations(
     formFromObservation: async (r, c) => {
       const opts = { signal: c.signal, timeoutMs: c.timeoutMs() };
       const occurrence = await kernel.authority.getOccurrence(
-        { subjectId: r.subjectId, id: r.sourceId },
+        { subjectId: r.subjectId, id: r.occurrenceId },
         opts,
       );
+      let representationId = r.representationId;
+      if (!representationId && occurrence.artifactId) {
+        const artifact = await kernel.authority.getArtifact(
+          { subjectId: r.subjectId, id: occurrence.artifactId },
+          opts,
+        );
+        const mime =
+          artifact.mediaType.split(";")[0]?.trim().toLowerCase() ?? "";
+        const kind = mime.startsWith("image/")
+          ? "image_description"
+          : mime.startsWith("audio/")
+            ? "transcript"
+            : mime.startsWith("video/")
+              ? "scene_description"
+              : "extracted_text";
+        const available = await kernel.authority.listDerivedRepresentations(
+          {
+            subjectId: r.subjectId,
+            artifactId: occurrence.artifactId,
+            kind,
+            limit: 1,
+          },
+          opts,
+        );
+        representationId = available.items[0]?.representationId;
+        if (
+          !representationId &&
+          !mime.startsWith("text/") &&
+          mime !== "application/json"
+        )
+          return {
+            degradation: [
+              {
+                code: "material_representation_required",
+                detail: "Derive a textual representation before formation",
+              },
+            ],
+          };
+      }
       const source = await kernel.authority.materializeEvidence(
         {
           subjectId: r.subjectId,
-          reference: { kind: "occurrence", value: r.sourceId },
+          reference: representationId
+            ? { kind: "derived_representation", value: representationId }
+            : { kind: "occurrence", value: r.occurrenceId },
           maxBytes: 32768n,
         },
         opts,
       );
+      if (source.partial)
+        return {
+          degradation: [
+            {
+              code: "formation_source_too_large",
+              detail: "Select a bounded textual representation",
+            },
+          ],
+        };
+      if (
+        !source.mediaType.toLowerCase().startsWith("text/") &&
+        source.mediaType.split(";")[0]?.trim().toLowerCase() !==
+          "application/json"
+      )
+        return {
+          degradation: [
+            {
+              code: "material_representation_required",
+              detail: "Formation requires textual material",
+            },
+          ],
+        };
       let proposal;
       try {
         proposal = await models.form(
@@ -75,11 +139,21 @@ export function modelOperations(
           input: {
             cognitiveRole: "declarative",
             formationMode: "grounded",
-            groundingOccurrenceId: r.sourceId,
+            groundingOccurrenceId: r.occurrenceId,
             semanticRole: proposal.semanticRole,
             text: proposal.text,
             title: proposal.title,
             epistemicClass: "derived",
+            producer: {
+              providerClass: proposal.evidence.protocol,
+              operation: "memory_formation_text",
+              implementation: "ai-sdk@7.0.102/openai@4.0.67",
+              modelIdentity: proposal.evidence.model,
+              modelRevision: proposal.evidence.modelRevision,
+              preprocessingIdentity: proposal.evidence.promptId!,
+              preprocessingRevision: proposal.evidence.promptDigest!,
+              configDigest: proposal.evidence.configDigest,
+            },
             formedAt,
             validTime: {},
             supports: [
@@ -87,95 +161,29 @@ export function modelOperations(
                 support: {
                   case: "evidence",
                   value: {
-                    occurrenceId: r.sourceId,
-                    locator: { case: "wholeOccurrence", value: true },
+                    occurrenceId: r.occurrenceId,
+                    locator: representationId
+                      ? {
+                          case: "derivedRepresentationId",
+                          value: representationId,
+                        }
+                      : { case: "wholeOccurrence", value: true },
                     supportRole: "interpretation",
                   },
                 },
               },
             ],
-            aboutness: occurrence.actorEntityRef
-              ? [occurrence.actorEntityRef]
-              : [],
+            aboutness: [],
           },
         },
         opts,
       );
       return { memory, degradation: [] };
     },
-    interpretSource: async (r, c) => {
-      const opts = { signal: c.signal, timeoutMs: c.timeoutMs() };
-      const region = await kernel.authority.getSourceRegion(
-        { subjectId: r.subjectId, id: r.sourceId },
-        opts,
-      );
-      const source = await kernel.authority.materializeEvidence(
-        {
-          subjectId: r.subjectId,
-          reference: { kind: "source_region", value: region.sourceRegionId },
-          maxBytes: 1048576n,
-        },
-        opts,
-      );
-      if (source.partial)
-        return {
-          degradation: [
-            {
-              code: "interpretation_source_too_large",
-              detail:
-                "Select a bounded source region before model interpretation",
-            },
-          ],
-        };
-      let text;
-      try {
-        text = await models.interpret(
-          source.content,
-          source.mediaType,
-          c.signal,
-        );
-      } catch (error) {
-        if (c.signal.aborted) throw error;
-        return { degradation: failure("interpretation_unavailable", error) };
-      }
-      const kind = source.mediaType.startsWith("image/")
-        ? "image_description"
-        : source.mediaType.startsWith("audio/") ||
-            source.mediaType.startsWith("video/")
-          ? "transcript"
-          : "extracted_text";
-      const representation = await kernel.modelMaterial.commitInterpretation(
-        {
-          subjectId: r.subjectId,
-          text: text.text,
-          kind,
-          strategy: "description_only",
-          inputs: [
-            {
-              ordinal: 0,
-              reference: { kind: "source_region", value: r.sourceId },
-              role: "source",
-            },
-          ],
-          producer: {
-            providerClass: text.evidence.protocol,
-            operation:
-              kind === "image_description"
-                ? "image_interpretation"
-                : kind === "transcript"
-                  ? "speech_transcription"
-                  : "document_extraction",
-            implementation: "ai-sdk@7.0.102/openai@4.0.67",
-            modelIdentity: text.evidence.model,
-            modelRevision: text.evidence.modelRevision,
-            preprocessingIdentity: text.evidence.promptId ?? "description_only",
-            preprocessingRevision: text.evidence.promptDigest ?? "1",
-            configDigest: text.evidence.configDigest,
-          },
-        },
-        opts,
-      );
-      return { representation, degradation: [] };
-    },
+    deriveMaterial: (r, c) =>
+      deriveMaterial(kernel, models, r, {
+        signal: c.signal,
+        timeoutMs: c.timeoutMs(),
+      }),
   };
 }

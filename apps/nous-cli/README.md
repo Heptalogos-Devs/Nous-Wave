@@ -10,6 +10,7 @@ corepack pnpm nous subject create
 corepack pnpm nous session open
 corepack pnpm nous observe text --text "实际来源中的有界原文" --source "https://example.com/source"
 corepack pnpm nous observe file ./sample.png
+corepack pnpm nous derive <source-region-id> --strategy describe_then_structure
 corepack pnpm nous form <occurrence-id>
 corepack pnpm nous embeddings prepare --max-calls 16
 corepack pnpm nous query '"检索线索" $memory $limit(5)'

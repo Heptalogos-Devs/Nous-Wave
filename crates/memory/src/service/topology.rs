@@ -418,6 +418,7 @@ impl MemoryService {
             })
             .collect();
         let input = ExplicitMemoryInput {
+            producer: None,
             operation_id: request.operation_id,
             subject,
             cognitive_role: CognitiveRole::Declarative,

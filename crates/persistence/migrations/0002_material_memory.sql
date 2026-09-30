@@ -21,6 +21,7 @@ CREATE TABLE memory_revisions (
     revision_intent text NULL CHECK (revision_intent IN ('correct','rephrase','reinterpret')),
     formation_mode text NOT NULL CHECK (formation_mode IN ('grounded','synthesized')),
     grounding_occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
     semantic_role text NOT NULL,
     title text NULL,
     representation_text text NOT NULL CHECK (length(trim(representation_text)) > 0 AND octet_length(representation_text) <= 1048576),

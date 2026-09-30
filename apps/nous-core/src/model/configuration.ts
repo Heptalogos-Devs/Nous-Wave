@@ -12,52 +12,48 @@ export const roleNames = [
 export type ModelRole = (typeof roleNames)[number];
 const nonempty = z.string().min(1).max(512);
 const boundedTimeout = z.number().int().min(1).max(300_000);
-const gatewaySchema = z
-  .object({
-    base_url: z.string().transform((value, ctx) => {
-      let url: URL;
-      try {
-        url = new URL(value);
-      } catch {
-        ctx.addIssue({ code: "custom", message: "Invalid gateway URL" });
-        return z.NEVER;
-      }
-      const loopback = url.hostname === "127.0.0.1" || url.hostname === "[::1]";
-      if (
-        url.username ||
-        url.password ||
-        url.search ||
-        url.hash ||
-        (url.protocol !== "https:" && !(url.protocol === "http:" && loopback))
-      ) {
-        ctx.addIssue({
-          code: "custom",
-          message:
-            "Gateway requires credential-free HTTPS or literal loopback HTTP",
-        });
-        return z.NEVER;
-      }
-      return url.toString().replace(/\/$/, "");
-    }),
-    credential_env: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
-    enabled: z.boolean().default(true),
-    request_timeout_ms: boundedTimeout.default(30_000),
-  })
-  .strict();
-const embeddingSchema = z
-  .object({
-    dimension: z.number().int().min(1).max(8192),
-    weights_revision: nonempty,
-    task: nonempty,
-    input_representation: nonempty,
-    preprocessing_identity: nonempty,
-    preprocessing_revision: nonempty,
-    normalization: nonempty,
-    output_semantics: nonempty,
-  })
-  .strict();
+const gatewaySchema = z.strictObject({
+  base_url: z.string().transform((value, ctx) => {
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      ctx.addIssue({ code: "custom", message: "Invalid gateway URL" });
+      return z.NEVER;
+    }
+    const loopback = url.hostname === "127.0.0.1" || url.hostname === "[::1]";
+    if (
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      (url.protocol !== "https:" && !(url.protocol === "http:" && loopback))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Gateway requires credential-free HTTPS or literal loopback HTTP",
+      });
+      return z.NEVER;
+    }
+    return url.toString().replace(/\/$/, "");
+  }),
+  credential_env: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+  enabled: z.boolean().default(true),
+  request_timeout_ms: boundedTimeout.default(30_000),
+});
+const embeddingSchema = z.strictObject({
+  dimension: z.number().int().min(1).max(8192),
+  weights_revision: nonempty,
+  task: nonempty,
+  input_representation: nonempty,
+  preprocessing_identity: nonempty,
+  preprocessing_revision: nonempty,
+  normalization: nonempty,
+  output_semantics: nonempty,
+});
 const modelSchema = z
-  .object({
+  .strictObject({
     gateway: nonempty,
     protocol: z.enum([
       "openai-chat",
@@ -82,7 +78,6 @@ const modelSchema = z
     model_revision: nonempty.optional(),
     embedding: embeddingSchema.optional(),
   })
-  .strict()
   .superRefine((model, ctx) => {
     if ((model.protocol === "openai-embeddings") !== Boolean(model.embedding))
       ctx.addIssue({
@@ -91,27 +86,27 @@ const modelSchema = z
           "Embedding protocol requires an explicit space profile; other protocols cannot declare one",
       });
   });
-const bindingSchema = z
-  .object({
-    model: nonempty,
-    prompt: nonempty.optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    top_p: z.number().min(0).max(1).optional(),
-    max_output_tokens: z.number().int().min(1).max(65_536).optional(),
-    timeout_ms: boundedTimeout.optional(),
-    requirement: z
-      .enum(["optional", "preferred", "required"])
-      .default("optional"),
-  })
-  .strict();
+const bindingSchema = z.strictObject({
+  model: nonempty,
+  prompt: nonempty.optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  top_p: z.number().min(0).max(1).optional(),
+  max_output_tokens: z.number().int().min(1).max(65_536).optional(),
+  timeout_ms: boundedTimeout.optional(),
+  requirement: z
+    .enum(["optional", "preferred", "required"])
+    .default("optional"),
+});
 export const modelConfigurationShape = {
+  material_strategy: z
+    .enum(["description_only", "direct_structured", "describe_then_structure"])
+    .default("description_only"),
   gateway_profiles: z.record(z.string(), gatewaySchema).default({}),
   model_profiles: z.record(z.string(), modelSchema).default({}),
   roles: z.partialRecord(z.enum(roleNames), bindingSchema).default({}),
 };
 export const modelConfigurationSchema = z
-  .object(modelConfigurationShape)
-  .strict()
+  .strictObject(modelConfigurationShape)
   .superRefine((config, ctx) => {
     for (const [id, model] of Object.entries(config.model_profiles)) {
       if (!config.gateway_profiles[model.gateway])
