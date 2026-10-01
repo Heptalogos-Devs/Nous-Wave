@@ -131,9 +131,15 @@ for (const [entry, target] of entries) {
   }
 }
 await cp(
-  join(repo, "target/x86_64-pc-windows-msvc/release/nous-kernel.exe"),
+  join(repo, "target/x86_64-pc-windows-gnullvm/release/nous-kernel.exe"),
   join(program, "kernel/nous-kernel.exe"),
 );
+for (const library of ["libc++.dll", "libunwind.dll"]) {
+  await cp(
+    join(repo, "target/x86_64-pc-windows-gnullvm/release", library),
+    join(program, "kernel", library),
+  );
+}
 await cp(join(repo, "prompts"), join(program, "prompts"), { recursive: true });
 await mkdir(join(program, "templates"));
 await cp(join(repo, "nous.example.toml"), join(program, "templates/nous.toml"));
@@ -276,6 +282,7 @@ if (kernelClosure.missingNotices.length)
     "Kernel license text missing: " + kernelClosure.missingNotices.join(", "),
   );
 const runtimeComponents: Component[] = [];
+const nativeRelationships: Relationship[] = [];
 for (const pack of components.packs) {
   const runtimeManifest = JSON.parse(
     await readFile(join(runtime, pack.component, "manifest.json"), "utf8"),
@@ -289,6 +296,167 @@ for (const pack of components.packs) {
     purpose: "APPLICATION",
   });
 }
+const nodeVersions = JSON.parse(
+  (
+    await execute(
+      join(runtime, "node/node.exe"),
+      ["-p", "JSON.stringify(process.versions)"],
+      { windowsHide: true },
+    )
+  ).stdout,
+) as Record<string, string>;
+const nodeLicensePath = "runtime/node/licenses/node/LICENSE";
+const nodeLicense = await readFile(join(output, nodeLicensePath), "utf8");
+const nodeDependencies = [
+  ["acorn", "Acorn", "deps/acorn", "MIT"],
+  ["ada", "ada", "deps/ada", "MIT"],
+  ["amaro", "amaro", "deps/amaro", "MIT"],
+  ["ares", "c-ares", "deps/cares", "MIT"],
+  ["brotli", "brotli", "deps/brotli", "MIT"],
+  ["icu", "ICU", "deps/icu-small", "Unicode-3.0"],
+  ["llhttp", "llhttp", "deps/llhttp", "MIT"],
+  ["merve", "merve", "deps/merve", "MIT"],
+  ["nghttp2", "nghttp2", "deps/nghttp2", "MIT"],
+  ["openssl", "OpenSSL", "deps/openssl", "Apache-2.0"],
+  ["simdjson", "simdjson", "deps/simdjson", "Apache-2.0"],
+  ["simdutf", "simdutf", "deps/v8/third_party/simdutf", "MIT"],
+  ["undici", "undici", "deps/undici", "MIT"],
+  ["uv", "libuv", "deps/uv", "MIT"],
+  ["uvwasi", "uvwasi", "deps/uvwasi", "MIT"],
+  ["v8", "V8", "deps/v8", "BSD-3-Clause"],
+  ["zlib", "zlib", "deps/zlib", "Zlib"],
+  ["zstd", "zstd", "deps/zstd", "BSD-3-Clause"],
+] as const;
+for (const [key, name, sourcePath, license] of nodeDependencies) {
+  if (
+    !nodeVersions[key] ||
+    !nodeLicense.includes(`- ${name}, located at ${sourcePath},`)
+  )
+    throw new Error(`Node embedded dependency version/notice missing: ${name}`);
+  const id = `SPDXRef-node-embedded-${key}`;
+  runtimeComponents.push({
+    id,
+    name,
+    version: nodeVersions[key],
+    license,
+    source: `https://github.com/nodejs/node/tree/v${nodeVersions.node}/${sourcePath}`,
+    purpose: "LIBRARY",
+    notice: nodeLicensePath,
+  });
+  nativeRelationships.push({
+    spdxElementId: "SPDXRef-runtime-node",
+    relationshipType: "CONTAINS",
+    relatedSpdxElement: id,
+  });
+}
+for (const [key, sourcePath, license] of [
+  ["nbytes", "deps/nbytes/LICENSE", "MIT"],
+  ["ncrypto", "LICENSE", "MIT"],
+  ["sqlite", "deps/sqlite/sqlite3.h", "LicenseRef-SQLite-Public-Domain"],
+] as const) {
+  const source = `https://raw.githubusercontent.com/nodejs/node/v${nodeVersions.node}/${sourcePath}`;
+  const content = await publicFile(source);
+  if (!nodeVersions[key] || !content)
+    throw new Error(`Node notice unavailable: ${key}`);
+  const notice = `licenses/node-embedded/${key}.txt`;
+  await mkdir(join(output, "licenses/node-embedded"), { recursive: true });
+  await writeFile(
+    join(output, notice),
+    key === "sqlite" ? content.split("*/", 1)[0] + "*/\n" : content,
+  );
+  const id = `SPDXRef-node-embedded-${key}`;
+  runtimeComponents.push({
+    id,
+    name: key,
+    version: nodeVersions[key],
+    license,
+    source,
+    purpose: "LIBRARY",
+    notice,
+  });
+  nativeRelationships.push({
+    spdxElementId: "SPDXRef-runtime-node",
+    relationshipType: "CONTAINS",
+    relatedSpdxElement: id,
+  });
+}
+const compilerRoot = join(
+  repo,
+  "data/runtime-build/llvm-mingw-windows/llvm-mingw-20260922-ucrt-x86_64",
+);
+await mkdir(join(output, "licenses/native"), { recursive: true });
+await cp(
+  join(compilerRoot, "LICENSE.TXT"),
+  join(output, "licenses/native/LLVM-LICENSE.txt"),
+);
+await cp(
+  join(runtime, "postgresql/licenses/mingw-runtime"),
+  join(output, "licenses/native/mingw-runtime"),
+  { recursive: true },
+);
+const rustSysroot = (
+  await execute("rustc", ["--print", "sysroot"], { windowsHide: true })
+).stdout.trim();
+const rustVersion = (await execute("rustc", ["-Vv"], { windowsHide: true }))
+  .stdout;
+await cp(
+  join(rustSysroot, "share/doc/rust/COPYRIGHT-library.html"),
+  join(output, "licenses/native/Rust-library-COPYRIGHT.html"),
+);
+await cp(
+  join(rustSysroot, "share/doc/rust/licenses"),
+  join(output, "licenses/native/rust"),
+  { recursive: true },
+);
+await writeFile(join(output, "licenses/native/rust-source.txt"), rustVersion);
+const rustRelease = /^release: (.+)$/m.exec(rustVersion)?.[1];
+const rustCommit = /^commit-hash: (.+)$/m.exec(rustVersion)?.[1];
+if (!rustRelease || !rustCommit)
+  throw new Error("Rust library provenance unavailable");
+for (const component of [
+  {
+    id: "SPDXRef-native-llvm-runtime",
+    name: "LLVM runtime (libc++/compiler-rt/libunwind)",
+    version: "20260922",
+    license: "Apache-2.0 WITH LLVM-exception",
+    source: "https://github.com/mstorsjo/llvm-mingw/releases/tag/20260922",
+    purpose: "LIBRARY",
+    notice: "licenses/native/LLVM-LICENSE.txt",
+  },
+  {
+    id: "SPDXRef-native-mingw-runtime",
+    name: "MinGW-w64 runtime",
+    version: "57b595039040eaa15bece85b7cc71d952281b269",
+    license: "LicenseRef-MinGW-Runtime",
+    source:
+      "https://github.com/mingw-w64/mingw-w64/tree/57b595039040eaa15bece85b7cc71d952281b269",
+    purpose: "LIBRARY",
+    notice: "licenses/native/mingw-runtime",
+  },
+  {
+    id: "SPDXRef-native-rust-library",
+    name: "Rust standard library",
+    version: rustRelease,
+    license: "MIT OR Apache-2.0",
+    source: `https://github.com/rust-lang/rust/tree/${rustCommit}/library`,
+    purpose: "LIBRARY",
+    notice: "licenses/native/Rust-library-COPYRIGHT.html",
+  },
+] satisfies Component[]) {
+  runtimeComponents.push(component);
+  nativeRelationships.push({
+    spdxElementId: kernelClosure.root,
+    relationshipType: "DEPENDS_ON",
+    relatedSpdxElement: component.id,
+  });
+}
+for (const name of ["postgresql", "ffmpeg"])
+  for (const dependency of ["llvm", "mingw"])
+    nativeRelationships.push({
+      spdxElementId: `SPDXRef-runtime-${name}`,
+      relationshipType: "DEPENDS_ON",
+      relatedSpdxElement: `SPDXRef-native-${dependency}-runtime`,
+    });
 await mkdir(join(output, "manifest"));
 await writeFile(
   join(output, "manifest/components.json"),
@@ -321,6 +489,31 @@ await writeFile(
         creators: ["Tool: Nous-Wave-assembler"],
         created: new Date().toISOString(),
       },
+      hasExtractedLicensingInfos: [
+        {
+          licenseId: "LicenseRef-MinGW-Runtime",
+          name: "MinGW-w64 runtime composite notices",
+          extractedText: await readFile(
+            join(
+              output,
+              "licenses/native/mingw-runtime/COPYING.MinGW-w64-runtime.txt",
+            ),
+            "utf8",
+          ),
+          seeAlsos: [
+            "https://github.com/mingw-w64/mingw-w64/tree/57b595039040eaa15bece85b7cc71d952281b269",
+          ],
+        },
+        {
+          licenseId: "LicenseRef-SQLite-Public-Domain",
+          name: "SQLite public domain dedication",
+          extractedText:
+            "The author disclaims copyright to this source code. See the retained SQLite header for its full dedication.",
+          seeAlsos: [
+            `https://raw.githubusercontent.com/nodejs/node/v${nodeVersions.node}/deps/sqlite/sqlite3.h`,
+          ],
+        },
+      ],
       packages: [
         ...inventory.map((pkg, index) =>
           spdxPackage({
@@ -335,6 +528,7 @@ await writeFile(
       ],
       relationships: [
         ...kernelClosure.relationships,
+        ...nativeRelationships,
         ...[
           kernelClosure.root,
           ...runtimeComponents.map((component) => component.id),
@@ -471,6 +665,7 @@ type Component = {
   license: string;
   source: string;
   purpose: "APPLICATION" | "LIBRARY" | "OTHER";
+  notice?: string;
 };
 type Relationship = {
   spdxElementId: string;
@@ -491,7 +686,7 @@ async function kernelInventory(repositoryRoot: string, bundleRoot: string) {
           "--format-version",
           "1",
           "--filter-platform",
-          "x86_64-pc-windows-msvc",
+          "x86_64-pc-windows-gnullvm",
         ],
         { cwd: repositoryRoot, windowsHide: true, maxBuffer: 16 * 1024 * 1024 },
       )
@@ -701,5 +896,12 @@ function spdxPackage(component: Component) {
     licenseConcluded: "NOASSERTION",
     copyrightText: "NOASSERTION",
     primaryPackagePurpose: component.purpose,
+    ...(component.notice
+      ? {
+          attributionTexts: [
+            `License and attribution retained at ${component.notice}`,
+          ],
+        }
+      : {}),
   };
 }

@@ -48,4 +48,6 @@ Core `query/orchestrator.ts` 统一 query embedding、model rerank 和 External 
 
 ## 当前边界
 
+Windows shipping Kernel uses LLVM-MinGW UCRT/win-gnullvm and private libc++/libunwind beside the executable. RuntimeLocations owns independent roots and shipping resolution; compiler/native-library acquisition occurs during explicit build/install. Source-less ZIP includes compiled official Client and retained SPDX/license provenance. Core exposes bounded Resource invocation evidence separately from model summaries and cognitive scores.
+
 当前 executable scope 是 Memory-only Reference Profile、WorkContext continuity 和 Episode foundation。Self、Social、Motivation、Desired Condition、Journal、Offline Cognition 和 Heptalogos live integration 由 Vault 保留长期目标语义，但不在本 checkout 提供 owner、protocol 或 public capability claim。

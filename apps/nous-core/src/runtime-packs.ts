@@ -104,7 +104,18 @@ async function verifyAt(
   name: z.infer<typeof component>,
   manifestHash: string,
 ) {
-  if ((await hashFile(join(root, "manifest.json"))) !== manifestHash)
+  let actualManifestHash: string;
+  try {
+    actualManifestHash = await hashFile(join(root, "manifest.json"));
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      throw new Error(
+        `UNAVAILABLE: ${name} runtime pack missing; run nous runtime install ${name}`,
+        { cause: error },
+      );
+    throw error;
+  }
+  if (actualManifestHash !== manifestHash)
     throw new Error("Runtime manifest disagrees with the application catalog");
   const pack = packSchema.parse(
     JSON.parse(await readFile(join(root, "manifest.json"), "utf8")),

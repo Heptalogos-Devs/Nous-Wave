@@ -16,15 +16,17 @@ Nous Wave 是一个 pre-production Subject cognition system。本仓库当前实
 corepack pnpm dev
 ```
 
-该命令生成 repo-owned dev 配置，选择当前平台的 Kernel binary，使用 private loopback/ephemeral Kernel port，并将 Core discovery 写入 `data/dev/runtime/core.json`。Kernel binary 不存在时会直接提示先运行 `cargo build -p nous-kernel`。
+该命令生成 repo-owned dev 配置，选择当前平台的 Kernel binary，使用 private loopback/ephemeral Kernel port，并将 Core discovery 写入 `data/dev/run/core.json`。Kernel binary 不存在时会直接提示先运行 `cargo build -p nous-kernel`。
 
-完整 public acceptance：
+完整 acceptance：
 
 ```text
-corepack pnpm qualification:memory-reference
+just acceptance
 ```
 
-它只经过 Core 与官方 TypeScript Client，验证 Memory-only Subject、双 Session、Query、UseEvent retry、restart、suppress/restore、purge 和 provenance trace-back。
+该入口包含构建、协议、静态检查与 public qualification。其中 Memory proof 经过 Core 与官方 TypeScript Client，验证双 Session、Query、UseEvent retry、restart、生命周期和 provenance。
+
+Windows 便携发布构建使用固定 LLVM-MinGW UCRT compiler：运行 `scripts/build-windows-kernel.ps1` 后 `corepack pnpm assemble:portable --output <fresh-output-directory>`。安装 payload 携带私有 Node/PostgreSQL/FFmpeg 与官方 Client，使用 `bin/nous.cmd serve --home <instance>` 或 `--locator <bootstrap.toml>` 启动；普通启动不下载组件。路径、pack 与许可合同见 [Runtime Bundle Spec](docs/specs/active/deployment/runtime-bundle.md)，已执行的平台证据见 Qualification。
 
 手工使用实例：`corepack pnpm nous status`；Subject/Session、材料上传、NousQL 和 trace 的最短路径见 [Nous CLI](apps/nous-cli/README.md)。CLI 的无付费 public wiring qualification 为 `corepack pnpm qualification:real-consumer-local`，真实模型验收独立记录。
 

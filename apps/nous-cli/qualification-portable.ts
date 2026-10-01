@@ -1,27 +1,96 @@
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { promisify, parseArgs } from "node:util";
 import { once } from "node:events";
-import { mkdtemp, cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
 const execute = promisify(execFile);
-const { values } = parseArgs({ options: { bundle: { type: "string" } } });
-if (!values.bundle) throw new Error("Provide --bundle <assembled directory>");
+const { values } = parseArgs({
+  options: {
+    bundle: { type: "string" },
+    layout: { type: "string", default: "home" },
+    relocate: { type: "boolean", default: false },
+  },
+});
+if (!values.bundle || !values.bundle.endsWith(".zip"))
+  throw new Error("Provide --bundle <exact portable ZIP>");
 const outside = await mkdtemp(join(tmpdir(), "nous-portable-"));
-const bundle = join(outside, "installation"),
-  home = join(outside, "separate-instance");
-await cp(resolve(values.bundle), bundle, { recursive: true });
-await mkdir(join(home, "config"), { recursive: true });
+if (!["home", "colocated", "locator"].includes(values.layout))
+  throw new Error("Unknown portable layout");
+if (values.layout === "colocated" && values.relocate)
+  throw new Error("Relocation proof uses an independent instance");
+let bundle = join(outside, "installation");
+const home =
+  values.layout === "colocated" ? bundle : join(outside, "separate-instance");
+const locator = join(outside, "locator/bootstrap.toml");
+const configRoot =
+  values.layout === "locator"
+    ? join(outside, "configuration-volume")
+    : join(home, "config");
+const runRoot =
+  values.layout === "locator"
+    ? join(outside, "runtime-state")
+    : join(home, "run");
+const instanceRoot =
+  values.layout === "locator"
+    ? join(outside, "identity-volume")
+    : join(home, "instance");
+const locationArgs =
+  values.layout === "locator" ? ["--locator", locator] : ["--home", home];
+async function writeLocator() {
+  if (values.layout !== "locator") return;
+  await mkdir(join(outside, "locator"), { recursive: true });
+  const paths = {
+    program: join(bundle, "program"),
+    runtime: join(bundle, "runtime"),
+    config: configRoot,
+    run: runRoot,
+    instance: instanceRoot,
+    data: join(outside, "database-volume"),
+    blob: join(outside, "blob-volume"),
+    cache: join(outside, "cache-volume"),
+    secret: join(outside, "secret-volume"),
+    log: join(outside, "log-volume"),
+    temp: join(outside, "temp-volume"),
+    backup: join(outside, "backup-volume"),
+  };
+  await writeFile(
+    locator,
+    "[paths]\n" +
+      Object.entries(paths)
+        .map(
+          ([key, value]) =>
+            `${key} = ${JSON.stringify(value.replaceAll("\\", "/"))}`,
+        )
+        .join("\n"),
+  );
+}
+const archive = resolve(values.bundle);
+const literal = (value: string) => "'" + value.replaceAll("'", "''") + "'";
+await execute(
+  join(
+    process.env.SystemRoot!,
+    "System32/WindowsPowerShell/v1.0/powershell.exe",
+  ),
+  [
+    "-NoProfile",
+    "-Command",
+    `Expand-Archive -LiteralPath ${literal(archive)} -DestinationPath ${literal(bundle)}`,
+  ],
+  { windowsHide: true },
+);
+await writeLocator();
+await mkdir(configRoot, { recursive: true });
 await writeFile(
-  join(home, "config/nous.toml"),
+  join(configRoot, "nous.toml"),
   (await readFile(join(bundle, "config/nous.toml"), "utf8")).replace(
     "port = 9470",
     "port = 0",
   ),
 );
-const node = join(bundle, "runtime/node/node.exe"),
+let node = join(bundle, "runtime/node/node.exe"),
   launcher = join(bundle, "program/core/launcher.js");
 const env = {
   ...process.env,
@@ -33,7 +102,7 @@ let core: ChildProcess | undefined;
 async function boot() {
   core = spawn(
     node,
-    [launcher, "serve", "--home", home, "--stop-on-stdin-close"],
+    [launcher, "serve", ...locationArgs, "--stop-on-stdin-close"],
     { cwd: outside, env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
   );
   const child = core;
@@ -74,7 +143,7 @@ async function stop() {
 async function cli(...args: string[]) {
   const result = await execute(
     node,
-    [launcher, "--home", home, "--json", ...args],
+    [launcher, ...locationArgs, "--json", ...args],
     { cwd: outside, env, windowsHide: true, maxBuffer: 1048576 },
   );
   return JSON.parse(result.stdout) as Record<string, unknown>;
@@ -96,7 +165,7 @@ try {
     pathToFileURL(join(bundle, "program/client/node.js")).href
   )) as typeof import("@nous-wave/client/node");
   const client = await clientModule.connectNousInstance({
-    runRoot: join(home, "run"),
+    runRoot,
   });
   const occurrenceId = String(observation.occurrenceId);
   const derived = await client.model.deriveMaterial({
@@ -149,13 +218,21 @@ try {
   await cli("trace", `memory:${memory.memoryId}`);
   await cli("use", `memory_revision:${memory.revisionId}`);
   const databaseState = await readFile(
-    join(home, "instance/postgres.json"),
+    join(instanceRoot, "postgres.json"),
     "utf8",
   );
   await stop();
+  if (values.relocate) {
+    const moved = join(outside, "moved-installation");
+    await rename(bundle, moved);
+    bundle = moved;
+    node = join(bundle, "runtime/node/node.exe");
+    launcher = join(bundle, "program/core/launcher.js");
+    await writeLocator();
+  }
   await boot();
   const restarted = await clientModule.connectNousInstance({
-    runRoot: join(home, "run"),
+    runRoot,
   });
   const recalled = await restarted.cognition.recall(
     subjectId,
@@ -168,19 +245,53 @@ try {
     ),
   );
   assert.equal(
-    await readFile(join(home, "instance/postgres.json"), "utf8"),
+    await readFile(join(instanceRoot, "postgres.json"), "utf8"),
     databaseState,
   );
+  await stop();
+  const postgresPack = join(bundle, "runtime/postgresql");
+  const hiddenPack = join(bundle, "runtime/postgresql-missing-proof");
+  assert(
+    postgresPack.startsWith(bundle + "\\") ||
+      postgresPack.startsWith(bundle + "/"),
+  );
+  assert(
+    hiddenPack.startsWith(bundle + "\\") || hiddenPack.startsWith(bundle + "/"),
+  );
+  await rename(postgresPack, hiddenPack);
+  try {
+    await assert.rejects(
+      execute(
+        node,
+        [launcher, "serve", ...locationArgs, "--stop-on-stdin-close"],
+        { cwd: outside, env, windowsHide: true, timeout: 30000 },
+      ),
+      (error: unknown) =>
+        error instanceof Error &&
+        "stderr" in error &&
+        /runtime install postgresql/.test(String(error.stderr)),
+    );
+    assert.equal(
+      await readFile(join(instanceRoot, "postgres.json"), "utf8"),
+      databaseState,
+    );
+  } finally {
+    await rename(hiddenPack, postgresPack);
+  }
   console.log(
     JSON.stringify({
       result: "PASS",
       platform: process.platform,
       bundle,
+      archive,
+      layout: values.layout,
+      relocated: values.relocate,
       outsideRepository: true,
       developerPath: false,
       sourceLess: true,
       restart: true,
       stableDatabasePort: true,
+      missingPackRejected: true,
       subjectId,
       memoryId: memory.memoryId,
       liveModel: "NOT_RUN",

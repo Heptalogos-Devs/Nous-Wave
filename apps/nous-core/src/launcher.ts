@@ -129,10 +129,12 @@ async function main() {
     process.stdin.resume();
   }
   child.once("error", (error) => {
+    if (serve) process.stdin.pause();
     console.error(error.message);
     process.exitCode = 1;
   });
   child.once("exit", (code) => {
+    if (serve) process.stdin.pause();
     process.exitCode = code ?? 1;
   });
 }

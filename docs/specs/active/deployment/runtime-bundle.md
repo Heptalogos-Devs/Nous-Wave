@@ -46,6 +46,8 @@ FFmpeg pack由 release pipeline 从精确 source构建；禁用 GPL、nonfree、
 
 Windows source-less proof在Git仓库外，使用任意CWD、无developer PATH和实际gateway/source，通过official Client完成 formation/embedding/rerank/NousQL/provenance/use/restart。验证共置、完全分离roots、搬移安装位置、missing-pack serve无acquisition、external override及cancel。Result只有PASS/FAIL/NOT_RUN/BLOCKED，并记录payload digests；其他平台不得外推PASS。
 
-Windows shipping Kernel 使用显式 `--target x86_64-pc-windows-msvc` 与 `-C target-feature=+crt-static` release build，assembler 读取对应 target 目录，源码路径用 remap 去除开发机绝对路径。以实际 PE import inventory 确认应用不依赖开发机 MSVCP/VCRUNTIME；系统 Win32/UCRT 不当作私有 pack。
+2026-10-02 用户批准 Windows shipping Kernel 改用 LLVM-MinGW UCRT 与 `--target x86_64-pc-windows-gnullvm`；assembler 只读取此 target 的 release binary 和私有 `libc++.dll`/`libunwind.dll`。`scripts/build-windows-kernel.ps1` 设置独立 target C/C++/linker、C++17、source remap 与 post-link debug strip，复制精确 compiler runtime DLL。Rust MSVC source-tree 开发仍可运行，不再作为 shipping candidate。以实际 PE import inventory 验证所有非系统依赖已归入 payload；系统 Win32/UCRT 不当作私有 pack。
+
+Release compiler 为 LLVM-MinGW20260922 UCRT Windows x64，官方 archive SHA256 `e3ad77d117a4bea19a7a3b333341824d79a5a371004a10e25b8504e7b3047666`；PostgreSQL/FFmpeg 使用同发行的 Linux-host cross tools。保留 LLVM/MinGW runtime notices，逐项核查 Rust GNU self-contained/native inputs，不能以此前 MSVC narrow proof 代替新闭包验收。正常 serve 不获取 compiler。
 
 Source remapping includes the checkout, Cargo registry/git sources and Rust toolchain roots. Audit the actual assembled binaries as well as source manifests; remapping only workspace paths leaves dependency panic locations tied to the development machine.
