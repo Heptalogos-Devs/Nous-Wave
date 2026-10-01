@@ -752,7 +752,9 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
             .as_ref()
             .and_then(|value| value.candidate_counts.get("drop_stale_exact_binding"))
             .copied(),
-        Some(1)
+        Some(1),
+        "query diagnostics: {:?}",
+        result.diagnostics
     );
     let historical = runtime
         .query(CognitiveQuery {

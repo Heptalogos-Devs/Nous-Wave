@@ -151,3 +151,17 @@ PASS：Windows release Kernel 使用 `RUSTFLAGS="--remap-path-prefix=C:\dev\Hept
 PASS：`corepack pnpm assemble:portable --output data/releases/candidate-11`；`corepack pnpm qualification:portable-local --bundle data/releases/candidate-11`。ZIP SHA256 `5188bd7dbe7472f86df15cf63f32f393316b7eff4a39416016b45d7e7e4af700`，仓库外安装 `C:\Users\Arsvine\AppData\Local\Temp\nous-portable-mrWkER\installation`；Subject `01a0f773-bbb8-7af0-a8dd-14fecdff643a`，无 developer PATH/source，private Node/PostgreSQL、official Client 与 restart/stableDatabasePort true。liveModel NOT_RUN，corpus synthetic_portable_wiring；该候选含 working-tree input digest，仍不是 final live/acceptance candidate。
 
 删除 21 个 superseded Plan/Spec 文件，当前导航改为 Git history/Vault；未新增 parallel plan。剩余完整 Cargo/runtime/native SBOM、最终 live remeasure、多路径/搬移与 final acceptance NOT_RUN。
+
+## 官方依赖修复与发布清单
+
+Tantivy 改为官方精确 commit `5ca39332002c2c87fb5d2abc707cf527b3319d42`（含 lru 0.18.2 修复）；Cargo.lock 固定 git source，deny sources 仅允许该官方仓库，旧 RUSTSEC-2026-0253 ignore 删除。该 upstream revision 含未发布索引改动，最终 Serving/live qualification 必须使用新 candidate，旧测量不能自动沿用。
+
+PASS：`just osv`（OSV 2.6.0，source scan Cargo.lock/pnpm-lock.yaml，No issues found）；`cargo deny check advisories`；`cargo deny check sources licenses`；`cargo test -p nous-retrieval --lib`（7 tests）；`just dupes`（15 groups/6.4%）。没有修改扫描范围或 duplication threshold。
+
+首次 `cargo clippy -p nous-kernel --all-targets --all-features -- -D warnings` FAIL 于 postgresql_embedded 的 wildcard build-time release 获取（GitHub response decode），固定 POSTGRESQL_VERSION=18.6.0 重试 PASS；justfile 同步固定已采用版本。Windows static CRT release build PASS，PE imports 无 MSVCP/VCRUNTIME。
+
+`cargo test -p nous-kernel --test query_correctness -- --test-threads=1` FAIL，11/12；exact mutable binding 先被普通 stale revision filter 遮蔽，返回错误 drop reason。Memory owner 把 frozen-binding fence 放在普通 revision policy filter 前；原 `exact_mutable_binding_is_fenced_and_explicit_history_is_readable` 窄回归 PASS，`cargo clippy -p nous-kernel --test query_correctness -- -D warnings` PASS。全套在最终 acceptance 重跑，当前不声明全套 PASS。
+
+PASS：`corepack pnpm qualification:real-consumer-local`，Subject `01a0f788-a763-7c80-b0e3-6dd6340c8e15`；公开 query/material/resource/selected Observation/no-charge replay/restart 均 true，liveModel/liveRagflow NOT_RUN，synthetic_local_wiring。`corepack pnpm typecheck`、`corepack pnpm lint:ts`、`corepack pnpm lint:knip` PASS。
+
+发布组装已扩展 Cargo release/build dependency closure、SPDX relationships 和 runtime packs；保存每个 crate 的 metadata/许可文本与精确来源，build-only 输入区别于链接库。candidate-16 inventory 实际 377 Cargo inputs、缺失许可文本 0；组装器缺许可即失败。published htmlescape crate 已声明 Apache/MIT/MPL 选项，保留原 metadata/README 并按 Apache-2.0 选项附官方文本；其旧 repository 不可用，未虚构 publisher NOTICE。最终完整 native/static CRT SBOM 与精确 final candidate 仍待复核。

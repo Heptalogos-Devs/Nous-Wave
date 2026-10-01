@@ -56,7 +56,40 @@ async function publicFile(url: string) {
       await writeFile(cache, content);
       return content;
     } catch (error) {
-      if (attempt === 1) throw error;
+      if (attempt === 1) {
+        const source =
+          /^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([^/]+)\/(.+)$/.exec(
+            url,
+          );
+        if (!source) throw error;
+        try {
+          const response = await execute(
+            "gh",
+            [
+              "api",
+              `repos/${source[1]}/contents/${source[3]}?ref=${source[2]}`,
+              "--jq",
+              ".content",
+            ],
+            { windowsHide: true, maxBuffer: 2 * 1024 * 1024 },
+          );
+          const content = Buffer.from(
+            response.stdout.replaceAll(/\s/g, ""),
+            "base64",
+          ).toString("utf8");
+          await mkdir(dirname(cache), { recursive: true });
+          await writeFile(cache, content);
+          return content;
+        } catch (fallback) {
+          if (
+            fallback instanceof Error &&
+            "stderr" in fallback &&
+            String(fallback.stderr).includes("HTTP 404")
+          )
+            return undefined;
+          throw error;
+        }
+      }
     }
   }
   throw new Error("Public notice unavailable");
@@ -237,11 +270,35 @@ const inventory = [...packages.values()].map(({ name, version, license }) => ({
   version,
   license,
 }));
+const kernelClosure = await kernelInventory(repo, output);
+if (kernelClosure.missingNotices.length)
+  throw new Error(
+    "Kernel license text missing: " + kernelClosure.missingNotices.join(", "),
+  );
+const runtimeComponents: Component[] = [];
+for (const pack of components.packs) {
+  const runtimeManifest = JSON.parse(
+    await readFile(join(runtime, pack.component, "manifest.json"), "utf8"),
+  ) as { license: string; source: string };
+  runtimeComponents.push({
+    id: `SPDXRef-runtime-${pack.component}`,
+    name: pack.component,
+    version: pack.version,
+    license: runtimeManifest.license,
+    source: runtimeManifest.source,
+    purpose: "APPLICATION",
+  });
+}
 await mkdir(join(output, "manifest"));
 await writeFile(
   join(output, "manifest/components.json"),
   JSON.stringify(
-    { application: inventory, runtimes: components.packs },
+    {
+      application: inventory,
+      kernel: kernelClosure.components,
+      missing_cargo_notices: kernelClosure.missingNotices,
+      runtimes: components.packs,
+    },
     null,
     2,
   ) + "\n",
@@ -264,16 +321,29 @@ await writeFile(
         creators: ["Tool: Nous-Wave-assembler"],
         created: new Date().toISOString(),
       },
-      packages: inventory.map((pkg, index) => ({
-        SPDXID: "SPDXRef-npm-" + index,
-        name: pkg.name,
-        versionInfo: pkg.version,
-        downloadLocation: "NOASSERTION",
-        filesAnalyzed: false,
-        licenseDeclared: pkg.license,
-        licenseConcluded: "NOASSERTION",
-        copyrightText: "NOASSERTION",
-      })),
+      packages: [
+        ...inventory.map((pkg, index) =>
+          spdxPackage({
+            id: `SPDXRef-npm-${index}`,
+            ...pkg,
+            source: `https://registry.npmjs.org/${pkg.name}/-/${pkg.name.split("/").at(-1)}-${pkg.version}.tgz`,
+            purpose: "LIBRARY",
+          }),
+        ),
+        ...kernelClosure.components.map(spdxPackage),
+        ...runtimeComponents.map(spdxPackage),
+      ],
+      relationships: [
+        ...kernelClosure.relationships,
+        ...[
+          kernelClosure.root,
+          ...runtimeComponents.map((component) => component.id),
+        ].map((id) => ({
+          spdxElementId: "SPDXRef-DOCUMENT",
+          relationshipType: "DESCRIBES",
+          relatedSpdxElement: id,
+        })),
+      ],
     },
     null,
     2,
@@ -379,3 +449,257 @@ console.log(
     source_head: head,
   }),
 );
+
+type CargoPackage = {
+  id: string;
+  name: string;
+  version: string;
+  license: string | null;
+  license_file: string | null;
+  manifest_path: string;
+  source: string | null;
+  repository: string | null;
+};
+type CargoNode = {
+  id: string;
+  deps: { pkg: string; dep_kinds: { kind: string | null }[] }[];
+};
+type Component = {
+  id: string;
+  name: string;
+  version: string;
+  license: string;
+  source: string;
+  purpose: "APPLICATION" | "LIBRARY" | "OTHER";
+};
+type Relationship = {
+  spdxElementId: string;
+  relationshipType: string;
+  relatedSpdxElement: string;
+};
+
+/** The release graph excludes test-only edges and records build inputs explicitly. */
+async function kernelInventory(repositoryRoot: string, bundleRoot: string) {
+  const executeCargo = promisify(execFile);
+  const metadata = JSON.parse(
+    (
+      await executeCargo(
+        "cargo",
+        [
+          "metadata",
+          "--locked",
+          "--format-version",
+          "1",
+          "--filter-platform",
+          "x86_64-pc-windows-msvc",
+        ],
+        { cwd: repositoryRoot, windowsHide: true, maxBuffer: 16 * 1024 * 1024 },
+      )
+    ).stdout,
+  ) as {
+    packages: CargoPackage[];
+    resolve: { nodes: CargoNode[] };
+  };
+  const cargoPackages = new Map(metadata.packages.map((pkg) => [pkg.id, pkg]));
+  const nodes = new Map(metadata.resolve.nodes.map((node) => [node.id, node]));
+  const kernel = metadata.packages.find(
+    (pkg) => pkg.name === "nous-kernel" && !pkg.source,
+  );
+  if (!kernel) throw new Error("Kernel release dependency root missing");
+  const selected = new Set<string>();
+  const buildOnly = new Set<string>();
+  const pending = [{ id: kernel.id, build: false }];
+  const walked = new Set<string>();
+  while (pending.length) {
+    const item = pending.pop()!;
+    const traversal = `${item.id}:${item.build}`;
+    if (walked.has(traversal)) continue;
+    walked.add(traversal);
+    if (!selected.has(item.id) && item.build) buildOnly.add(item.id);
+    if (!item.build) buildOnly.delete(item.id);
+    selected.add(item.id);
+    for (const dep of nodes.get(item.id)?.deps ?? []) {
+      for (const kind of dep.dep_kinds) {
+        if (kind.kind === "dev") continue;
+        pending.push({
+          id: dep.pkg,
+          build: item.build || kind.kind === "build",
+        });
+      }
+    }
+  }
+  const ordered = [...selected].sort();
+  const ids = new Map(
+    ordered.map((id, index) => [id, `SPDXRef-cargo-${index}`]),
+  );
+  const cargoComponents: Component[] = [];
+  const relationships: Relationship[] = [];
+  const missingNotices: string[] = [];
+  for (const id of ordered) {
+    const pkg = cargoPackages.get(id);
+    if (!pkg) throw new Error("Release dependency package missing");
+    const root = dirname(pkg.manifest_path);
+    const destination = join(
+      bundleRoot,
+      "licenses/cargo",
+      pkg.name + "-" + pkg.version,
+    );
+    await mkdir(destination, { recursive: true });
+    await cp(pkg.manifest_path, join(destination, "Cargo.toml"));
+    const names = (await readdir(root)).filter((name) =>
+      /^(?:license|copying|notice|readme)(?:[._-]|$)/i.test(name),
+    );
+    if (pkg.license_file && !names.includes(pkg.license_file))
+      names.push(pkg.license_file);
+    let notices = 0;
+    for (const name of names) {
+      const content = await readFile(join(root, name)).catch(
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === "EISDIR") return undefined;
+          throw error;
+        },
+      );
+      if (!content) continue;
+      await writeFile(
+        join(destination, name.replaceAll(/[\\/]/g, "_")),
+        content,
+      );
+      if (
+        /^(?:license|copying|notice)/i.test(name) ||
+        name === pkg.license_file
+      )
+        notices++;
+    }
+    if (!pkg.source) {
+      await cp(join(repositoryRoot, "LICENSE"), join(destination, "LICENSE"));
+      notices++;
+    }
+    if (!notices && pkg.source?.startsWith("git+")) {
+      let parent = dirname(root);
+      for (let depth = 0; depth < 3 && !notices; depth++) {
+        for (const name of [
+          "LICENSE",
+          "LICENSE-MIT",
+          "LICENSE-APACHE",
+          "NOTICE",
+        ]) {
+          const content = await readFile(join(parent, name)).catch(
+            (error: NodeJS.ErrnoException) => {
+              if (error.code === "ENOENT") return undefined;
+              throw error;
+            },
+          );
+          if (!content) continue;
+          await writeFile(join(destination, name), content);
+          await writeFile(
+            join(destination, name + ".source.txt"),
+            pkg.source + "\n",
+          );
+          if (name !== "NOTICE") notices++;
+        }
+        parent = dirname(parent);
+      }
+    }
+    if (!notices && pkg.repository) {
+      const vcs = await readFile(
+        join(root, ".cargo_vcs_info.json"),
+        "utf8",
+      ).catch(() => undefined);
+      const revision = vcs
+        ? (JSON.parse(vcs) as { git: { sha1: string } }).git.sha1
+        : undefined;
+      if (revision && /^[a-f0-9]{40}$/.test(revision)) {
+        const repository = /github\.com[/:]([^/]+\/[^/]+?)(?:\.git)?\/?$/.exec(
+          pkg.repository,
+        )?.[1];
+        if (repository) {
+          for (const name of [
+            "LICENSE",
+            "LICENSE-MIT",
+            "LICENSE-APACHE",
+            "LICENSE.txt",
+            "LICENSES/Apache-2.0.txt",
+            "LICENSES/MIT.txt",
+            "NOTICE",
+          ]) {
+            const url = `https://raw.githubusercontent.com/${repository}/${revision}/${name}`;
+            const notice = await publicFile(url);
+            if (notice === undefined) continue;
+            const filename = name.replaceAll("/", "_");
+            await writeFile(join(destination, filename), notice);
+            await writeFile(
+              join(destination, filename + ".source.txt"),
+              url + "\n",
+            );
+            if (name !== "NOTICE") notices++;
+          }
+        }
+      }
+    }
+    if (!notices && pkg.name === "htmlescape" && pkg.version === "0.3.1") {
+      // The published crate grants Apache/MIT/MPL alternatives; its old repository is unavailable.
+      const source = "https://www.apache.org/licenses/LICENSE-2.0.txt";
+      const license = await publicFile(source);
+      if (!license) throw new Error("Apache license text unavailable");
+      await writeFile(join(destination, "LICENSE-APACHE"), license);
+      await writeFile(
+        join(destination, "license-choice.txt"),
+        "Distributed under the Apache-2.0 option declared by the publisher in the retained Cargo.toml. " +
+          "Publisher metadata and README are retained; no additional NOTICE was present in the published crate.\n" +
+          source +
+          "\n",
+      );
+      notices++;
+    }
+    if (!notices) missingNotices.push(pkg.name + "@" + pkg.version);
+    cargoComponents.push({
+      id: ids.get(id)!,
+      name: pkg.name,
+      version: pkg.version,
+      license: pkg.license?.replaceAll(/\s*\/\s*/g, " OR ") ?? "NOASSERTION",
+      source: pkg.source?.startsWith("registry+")
+        ? `https://crates.io/api/v1/crates/${pkg.name}/${pkg.version}/download`
+        : (pkg.source ?? "NOASSERTION"),
+      purpose: buildOnly.has(id)
+        ? "OTHER"
+        : pkg.name === "nous-kernel"
+          ? "APPLICATION"
+          : "LIBRARY",
+    });
+    for (const dep of nodes.get(id)?.deps ?? []) {
+      if (!selected.has(dep.pkg)) continue;
+      const kinds = new Set(
+        dep.dep_kinds
+          .filter((kind) => kind.kind !== "dev")
+          .map((kind) => kind.kind),
+      );
+      for (const kind of kinds)
+        relationships.push({
+          spdxElementId: ids.get(kind === "build" ? dep.pkg : id)!,
+          relationshipType:
+            kind === "build" ? "BUILD_DEPENDENCY_OF" : "DEPENDS_ON",
+          relatedSpdxElement: ids.get(kind === "build" ? id : dep.pkg)!,
+        });
+    }
+  }
+  return {
+    components: cargoComponents,
+    relationships,
+    missingNotices,
+    root: ids.get(kernel.id)!,
+  };
+}
+
+function spdxPackage(component: Component) {
+  return {
+    SPDXID: component.id,
+    name: component.name,
+    versionInfo: component.version,
+    downloadLocation: component.source,
+    filesAnalyzed: false,
+    licenseDeclared: component.license,
+    licenseConcluded: "NOASSERTION",
+    copyrightText: "NOASSERTION",
+    primaryPackagePurpose: component.purpose,
+  };
+}

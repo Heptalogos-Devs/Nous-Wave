@@ -1,4 +1,5 @@
 set windows-shell := ["powershell", "-NoProfile", "-Command"]
+export POSTGRESQL_VERSION := "18.6.0"
 
 default:
     @just --list

@@ -101,10 +101,6 @@ impl CognitiveContributor for MemoryService {
             };
             let historical = bound.revision_policy.allows_historical(reference)
                 && view.object.current_revision_id != revision;
-            if !historical && view.object.current_revision_id != revision {
-                increment_drop(&mut drops, "stale_revision");
-                continue;
-            }
             let exact = bound.exact_bindings.iter().any(|binding| {
                 binding.bound_ref == *reference
                     || binding.bound_ref == CognitiveRef::MemoryRevision(revision)
@@ -125,6 +121,10 @@ impl CognitiveContributor for MemoryService {
                     || (!historical && view.object.current_revision_id != revision))
             {
                 increment_drop(&mut drops, "stale_exact_binding");
+                continue;
+            }
+            if !historical && view.object.current_revision_id != revision {
+                increment_drop(&mut drops, "stale_revision");
                 continue;
             }
             let candidate = Candidate { view };
