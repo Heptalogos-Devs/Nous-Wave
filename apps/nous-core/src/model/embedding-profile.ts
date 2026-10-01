@@ -46,6 +46,7 @@ export function resolvedEmbedding(config: ModelConfiguration) {
     implementation: "ai-sdk@7.0.102/openai@4.0.67",
     model_identity: profile.model,
     model_revision: profile.model_revision ?? null,
+    output_schema_digest: null,
     preprocessing_identity: profile.embedding.preprocessing_identity,
     preprocessing_revision: profile.embedding.preprocessing_revision,
     config_digest: configDigest,
@@ -53,6 +54,10 @@ export function resolvedEmbedding(config: ModelConfiguration) {
   producer.signature_hash = digest(producer);
   return {
     space,
-    producer: { ...producer, model_revision: profile.model_revision },
+    producer: {
+      ...producer,
+      model_revision: profile.model_revision,
+      output_schema_digest: undefined,
+    },
   };
 }

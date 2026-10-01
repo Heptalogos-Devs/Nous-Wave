@@ -30,6 +30,7 @@ type Receipt = {
     string,
     { operationId: string; revisionId?: string; result?: unknown }
   >;
+  query?: { status: "PASS" | "FAIL"; response: unknown };
 };
 const { values } = parseArgs({
   options: {
@@ -175,6 +176,8 @@ for (const unit of units) {
       );
       if (!selected || derived.degradation.length)
         throw new Error(`Derivation incomplete: ${json(derived.degradation)}`);
+      if (strategy !== "description_only" && !selected.structuredPayload)
+        throw new Error("Structured strategy did not commit a JSON payload");
       const formed = await client.model.formFromObservation(
         {
           subjectId,
@@ -290,24 +293,45 @@ for (const unit of units) {
   const recalled = response.hits.filter((hit) =>
     expected.includes(hit.reference?.value),
   );
-  (state.units[unit.id] as Receipt & { query?: unknown }).query = {
-    status: recalled.length ? "PASS" : "FAIL",
+  state.units[unit.id]!.query = {
+    status: recalled.length && response.status === "complete" ? "PASS" : "FAIL",
     response,
   };
   await save();
 }
-const failed = Object.values(state.units)
+const outcomes = Object.values(state.units)
   .flatMap((unit) => Object.values(unit.strategies))
-  .filter(
+  .map(
     (operation) =>
-      (operation.result as { status?: string } | undefined)?.status !== "PASS",
-  ).length;
+      operation.result as { status?: string; quality?: string } | undefined,
+  );
+const failed = outcomes.filter((outcome) => outcome?.status !== "PASS").length;
+const qualityFailures = outcomes.filter(
+  (outcome) => outcome?.quality === "FAIL",
+).length;
+const unverified = outcomes.filter(
+  (outcome) => outcome?.quality === "NOT_RUN",
+).length;
+const queryFailures = units.filter(
+  (unit) => state.units[unit.id]?.query?.status !== "PASS",
+).length;
 process.stdout.write(
   json({
-    status: failed ? "FAIL" : "PASS",
+    status:
+      failed || qualityFailures || queryFailures
+        ? "FAIL"
+        : unverified
+          ? "NOT_RUN"
+          : "PASS",
+    pipelineStatus: failed ? "FAIL" : "PASS",
+    qualityStatus: qualityFailures ? "FAIL" : unverified ? "NOT_RUN" : "PASS",
+    queryStatus: queryFailures ? "FAIL" : "PASS",
     subjectId,
     units: units.length,
     failed,
+    qualityFailures,
+    unverified,
+    queryFailures,
   }) + "\n",
 );
-if (failed) process.exitCode = 1;
+if (failed || qualityFailures || queryFailures) process.exitCode = 1;

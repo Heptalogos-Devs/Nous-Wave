@@ -165,3 +165,13 @@ PASS：`just osv`（OSV 2.6.0，source scan Cargo.lock/pnpm-lock.yaml，No issue
 PASS：`corepack pnpm qualification:real-consumer-local`，Subject `01a0f788-a763-7c80-b0e3-6dd6340c8e15`；公开 query/material/resource/selected Observation/no-charge replay/restart 均 true，liveModel/liveRagflow NOT_RUN，synthetic_local_wiring。`corepack pnpm typecheck`、`corepack pnpm lint:ts`、`corepack pnpm lint:knip` PASS。
 
 发布组装已扩展 Cargo release/build dependency closure、SPDX relationships 和 runtime packs；保存每个 crate 的 metadata/许可文本与精确来源，build-only 输入区别于链接库。candidate-16 inventory 实际 377 Cargo inputs、缺失许可文本 0；组装器缺许可即失败。published htmlescape crate 已声明 Apache/MIT/MPL 选项，保留原 metadata/README 并按 Apache-2.0 选项附官方文本；其旧 repository 不可用，未虚构 publisher NOTICE。最终完整 native/static CRT SBOM 与精确 final candidate 仍待复核。
+
+## 配置中的 embedding public proof
+
+真实 portable 启动 FAIL：`resolved embedding signatures are not canonical`，调用计数未增加。ProducerSignature 增加 nullable output_schema_digest 后，Core embedding canonical bytes 遗漏了该字段；Kernel 严格校验正确。Core owner 补入 null 参与 hash，typed TOML 对缺省 Option 继续省略，未在消费者中绕过 signature。
+
+在既有 public qualification 中增加配置后的 embedding boot/commit/query，用真实 HTTP fixture 验证跨语言 canonical signature。修复前 `corepack pnpm qualification:real-consumer-local` FAIL，修复后 PASS；Subject `01a0f799-0180-71c3-951f-1880d432c1dd`，embeddingCalls=2、canonicalEmbedding=true，保留 resource-only 无 embedding 的先前阶段、schema/support/selected Observation/replay/restart。`corepack pnpm typecheck`、`corepack pnpm lint:ts`、`corepack pnpm lint:knip`、`corepack pnpm lint:dupes` PASS。
+
+candidate-18 ZIP SHA256 `46a7e0e75231902cc2012b6be1c91d0c1db61d74de51f76ad4ae3ca601eec7b1`。仓库外完整 ZIP 解包，使用私有 Node/PG/FFmpeg、System32-only PATH、新分离 instance home 和用户真实模型配置；actual boot PASS，Core endpoint `127.0.0.1:14653`。研究 GatewayProfile 指向显式 loopback accounting proxy，该 proxy 透传到用户 New API `/v1`，不改变 upstream provider/credentials。通过分发 official Client 的新 rich-schema 媒体 qualification 正在运行；此处尚不声明整组 live PASS。
+
+媒体 runner 汇总已区分 pipelineStatus/qualityStatus/queryStatus。缺 independent source oracle 的内容质量记 NOT_RUN；有 oracle 的缺事实或查询不完整记 FAIL，不再只凭 derivation pipeline 成功汇总 PASS。frames 仍 NOT_RUN，直接发送 raw image/audio/video Artifact。

@@ -1,7 +1,7 @@
 import { connectNousInstance } from "@nous-wave/client/node";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises";
+import { mkdtemp, writeFile, appendFile, rm, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -23,6 +23,7 @@ const configPath = join(dataRoot, "bootstrap.toml");
 let structuredEnabled = false;
 let providerCalls = 0;
 let resourceProviderCalls = 0;
+let embeddingCalls = 0;
 const provider = createServer((request, response) => {
   void (async () => {
     const chunks: Buffer[] = [];
@@ -59,6 +60,19 @@ const provider = createServer((request, response) => {
               }
             : [{ id: "dataset1" }];
       response.end(JSON.stringify({ code: 0, data }));
+      return;
+    }
+    if (request.url === "/v1/embeddings") {
+      embeddingCalls++;
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify({
+          object: "list",
+          model: "local-embedding",
+          data: [{ object: "embedding", index: 0, embedding: [1, 0] }],
+          usage: { prompt_tokens: 1, total_tokens: 1 },
+        }),
+      );
       return;
     }
     providerCalls++;
@@ -510,10 +524,37 @@ try {
       typeof uploaded.sourceRegionId === "string",
   );
   await stop();
+  await appendFile(
+    join(dataRoot, "config/nous.toml"),
+    `
+[model_profiles.embedding]
+gateway = "qualification"
+protocol = "openai-embeddings"
+model = "local-embedding"
+capabilities = ["embedding"]
+[model_profiles.embedding.embedding]
+dimension = 2
+max_batch_size = 1
+weights_revision = "fixture-1"
+task = "retrieval"
+input_representation = "text"
+preprocessing_identity = "identity"
+preprocessing_revision = "1"
+normalization = "l2"
+output_semantics = "dense"
+[roles.query_embedding]
+model = "embedding"
+`,
+  );
   await boot();
   const restarted = await connectNousInstance({
     runRoot: join(dataRoot, "run"),
   });
+  const prepared = await restarted.model.prepareEmbeddings({
+    subjectId,
+    limit: 1,
+  });
+  assert(prepared.committed > 0 && prepared.degradation.length === 0);
   const recall = await restarted.cognition.recall(
     subjectId,
     '"protocol continuity" $memory $limit(5)',
@@ -538,6 +579,8 @@ try {
       noChargeReplay: true,
       providerCalls,
       resourceProviderCalls,
+      embeddingCalls,
+      canonicalEmbedding: true,
       resourceContinuation: true,
       resourceObservation: true,
       liveRagflow: "NOT_RUN",
