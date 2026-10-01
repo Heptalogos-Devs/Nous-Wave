@@ -1,9 +1,10 @@
-import { connectNousInstance } from "@nous-wave/client/node";
+import type { connectNousInstance } from "@nous-wave/client/node";
 import { webSource } from "@nous-wave/client";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 import { performance } from "node:perf_hooks";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -53,6 +54,7 @@ const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     "run-root": { type: "string" },
+    "client-module": { type: "string" },
     manifest: { type: "string", default: "research/corpus/manifest.json" },
     queries: { type: "string", default: "research/corpus/queries.json" },
     texts: { type: "string", default: "data/research/corpus/unit-texts.json" },
@@ -66,8 +68,10 @@ const { values, positionals } = parseArgs({
     "embedding-interval-ms": { type: "string", default: "0" },
   },
 });
-if (!values["run-root"])
-  throw new Error("--run-root required; credentials are read by the runtime");
+if (!values["run-root"] || !values["client-module"])
+  throw new Error(
+    "--run-root and distributed --client-module required; credentials are read by the runtime",
+  );
 if (!["controlled", "end-to-end"].includes(values.track))
   throw new Error("Unknown track");
 if (!["baseline", "model-rerank", "wave", "combined"].includes(values.variant))
@@ -130,7 +134,12 @@ function save() {
   });
   return saving;
 }
-const client = await connectNousInstance({
+const distributed = (await import(
+  pathToFileURL(resolve(values["client-module"])).href
+)) as {
+  connectNousInstance: typeof connectNousInstance;
+};
+const client = await distributed.connectNousInstance({
   runRoot: resolve(values["run-root"]),
 });
 const cancellation = new AbortController();
@@ -296,7 +305,9 @@ async function importCorpus() {
                   options,
                 );
           if (!formed.memory)
-            throw new Error("Formation did not commit Memory");
+            throw new Error(
+              `Formation did not commit Memory: ${json("degradation" in formed ? formed.degradation : [])}`,
+            );
           receipt.memoryId = formed.memory.memoryId;
           receipt.revisionId = formed.memory.revisionId;
           receipt.memoryText = formed.memory.text;

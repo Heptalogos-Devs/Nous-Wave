@@ -186,8 +186,31 @@ Subject `01a0f79b-e4bc-7b11-bddc-721ff2a8b582`；5 Apple 图片、2 NASA raw vid
 
 研究 ledger 从1096增至1230，实际134 attempts，包含失败/prepare/query/rerank。成功响应中已收集108个 invocation requests、provider-reported total usage140884、invocation latency累计471793.1325ms；这些是已知子集，不是全量账单或 wall-clock time，query/partial/failure 的未收集 usage 不推填，cost unknown。数据为真实 gateway/公开 media/official Client 路径；无预填 latency/candidate/指标。
 
+## Formation failure and media continuation
+
+`corepack pnpm test apps/nous-core/tests/model-boundaries.test.ts` PASS (3 tests), `corepack pnpm typecheck` PASS, `corepack pnpm lint:ts` PASS. The current public deterministic proof (Subject `01a0f7f3-aa93-76e1-ab60-4f5e530bcca1`) verifies an HTTP503 formation failure returns bounded degradation without provider body/secret, then the same operation succeeds on retry. Cancellation and semantic errors retain RPC handling. Image content uses the current AI SDK file part; wire assertions still verify PNG data URI encoding. Live failure reasons require the rebuilt payload before interpreting the two remaining formation failures.
+
+Media retries reused successful receipts. The research-only structuring timeout was explicitly increased to120seconds for new producer snapshots; original user settings and product defaults were preserved. Latest candidate-19 pipeline is27/27 PASS and downstream query9/9 PASS, with one independently observed structured-image omission FAIL and six independent audio factual checks NOT_RUN. The overall media qualification remains FAIL. Direct video bytes were used; frames NOT_RUN. Exact final bundle acceptance remains NOT_RUN.
+
+Controlled import is PASS:105 grounded source units and105 real embeddings, Subject `01a0f7fc-b8e1-7481-9db5-c49f4339a732`. End-to-end Subject `01a0f7dc-207e-7e52-bdd6-bf03d5e9e9a7` has103/105 successful formations; two failed inputs remain explicit. Each of four measured variants returned40 complete responses, using the same Authority sequence per track (controlled421, end-to-end522). Separate cold-start measurements are being collected to remove process-cache asymmetry from latency comparisons; earlier warm measurements remain raw evidence, not comparable cold latency.
+
+Binary path audit FAIL for candidate-19: Kernel contained local Cargo source paths despite checkout remapping. The release rebuild with Cargo/Rust toolchain remaps is PASS; ASCII string audit finds zero local checkout/user source paths. PostgreSQL inherited compiler debug paths. LLVM-MinGW `llvm-strip --strip-debug` removed them from a fresh pack stage; postgres.exe audit finds zero source paths. New pack digest `c1d8b7e81dcc389a60e43bfdedb4ce820fb61278b053dd175c8ba9d63d96e600`, manifest digest `8eb181db0346a2613c477a265c12298d5b3de28876ba35301f61c67e16681968`. All-binary inventory, native SBOM and exact reassembled bundle qualification remain pending. No final source-less PASS is claimed from the existing candidate.
+
 ## VCP route/source audit
 
 审读 VCPToolBox 当前 commit `ead5a021d81baca3233eb8a726f8ea7a69fabc70` 的公开生产文档及 LICENSE：文档 SHA256 `377a1d1161a4ba530a883b1b2fd03f58f773f1fdd9cebffafe8a92e4773662d7`，LICENSE SHA256 `5392a8b3f46108fa3494e8c15b57da9e14e9bbd93335590cb5b50364fcf770a8`。ignored research cache 保留精确文本；没有把上游 source/fixtures 加入本分支或 bundle。Active Spec 标注 current route、CC BY-NC-SA 4.0 来源隔离与独立实现要求。
 
 reviewed cue_sensing/residual/wave/topology_lane 当前路径只提供 PCA/residual/bounded propagation/node potential。新增 typed mechanism 摘要 experimental-node-potential-v1，Runtime diagnostics 回传同一 owner 字段；没有添加 Ω/curve/field scoring。`cargo clippy -p nous-retrieval -p nous-runtime --all-targets -- -D warnings` PASS。完整 VCP、formal Wave/combined 本分支 NOT_RUN；下一独立任务才能施工。
+
+## Candidate-19 cold-query retrieval measurements
+
+Each track/variant starts a fresh Core. Public Client timing includes query embedding and model rerank where enabled. Some runs overlapped a release build; latencies are observations on this host. Provider cost unknown.
+
+| Track / variant | Recall@1 | Recall@5 | Recall@10 | MRR | p50 ms | p95 ms | Authority | Response |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| controlled / baseline | 0.85 | 0.975 | 1 | 0.90625 | 256.447 | 316.42 | 421 | 40 complete |
+| controlled / model-rerank | 1 | 1 | 1 | 1 | 605.668 | 1346.619 | 421 | 40 complete |
+| end-to-end / baseline | 0.875 | 0.975 | 0.975 | 0.920833 | 239.88 | 482.784 | 522 | 40 complete |
+| end-to-end / model-rerank | 0.95 | 0.975 | 0.975 | 0.9625 | 392.619 | 493.966 | 522 | 40 complete |
+
+Each track retains one fixed Authority dataset across mechanisms. Provenance precision=1; measured wrong-source/entity/stale leakage/empty-result rates=0. These source-grounded measures do not independently establish all factual correctness. End-to-end formation coverage=.975 over query oracles; conditional Recall@5/10=1. Wave/combined NOT_RUN because no qualified topology signal is present. Formal results remain associated with candidate-19 digest783ae5ddfeb4b86f4848d86037ed78ab661fe042c1377cc487602b58e09090ce, not a future final payload.

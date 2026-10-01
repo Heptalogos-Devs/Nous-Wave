@@ -4,6 +4,8 @@ import {
   embedMany,
   generateText,
   Output,
+  NoObjectGeneratedError,
+  APICallError,
   transcribe,
   type UserContent,
 } from "ai";
@@ -24,6 +26,36 @@ import {
 import { PromptRegistry, type PromptAsset } from "./prompts.js";
 
 class MediaProtocolError extends Error {}
+class ModelOutputError extends Error {}
+export class GenerationFailure extends Error {
+  constructor(role: ModelRole, reason: string) {
+    super(`Model role ${role} invocation failed: ${reason}`);
+  }
+}
+
+function safeGenerationFailure(error: unknown) {
+  if (error instanceof ModelOutputError) return error.message;
+  if (NoObjectGeneratedError.isInstance(error))
+    return error.finishReason && error.finishReason !== "stop"
+      ? `output_incomplete_${error.finishReason}`
+      : "output_schema_invalid";
+  if (error instanceof z.ZodError) return "output_schema_invalid";
+  if (error instanceof SyntaxError) return "output_json_invalid";
+  if (
+    APICallError.isInstance(error) &&
+    error.statusCode &&
+    Number.isInteger(error.statusCode) &&
+    error.statusCode >= 100 &&
+    error.statusCode <= 599
+  )
+    return `gateway_http_${error.statusCode}`;
+  if (
+    error instanceof Error &&
+    ["AbortError", "TimeoutError"].includes(error.name)
+  )
+    return "timeout_or_cancellation";
+  return "validation_or_transport";
+}
 
 export type ModelInvocationEvidence = {
   implementation: string;
@@ -544,7 +576,7 @@ export class ModelInvocations {
       });
       if (!schema && !result.text.trim()) throw new Error("Empty model output");
       if (schema && result.finishReason !== "stop")
-        throw new Error("Structured output did not complete");
+        throw new ModelOutputError(`output_incomplete_${result.finishReason}`);
       const value = schema ? schema.parse(result.output) : result.text;
       this.states.set(name, {
         state: "READY",
@@ -569,8 +601,7 @@ export class ModelInvocations {
           `Direct media invocation failed at ${mediaStage}`,
         );
       // Provider error bodies may echo headers, input material, or credentials.
-      // oxlint-disable-next-line preserve-caught-error -- Provider causes may contain credentials or raw media.
-      throw new Error(`Model role ${name} invocation failed`);
+      throw new GenerationFailure(name, safeGenerationFailure(error));
     }
   }
   async embedding(text: string, model: string, signal?: AbortSignal) {

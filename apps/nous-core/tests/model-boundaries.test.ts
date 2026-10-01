@@ -233,6 +233,15 @@ describe("model protocol and provenance boundaries", () => {
         "/v1/embeddings",
         "/v1/rerank",
       ]);
+      await runtime.generate("memory_formation", [
+        { type: "file", data: Uint8Array.of(1, 2, 3), mediaType: "image/png" },
+      ]);
+      const imageMessages = requests.at(-1)!.body.messages as {
+        content: unknown[];
+      }[];
+      expect(imageMessages.at(-1)?.content).toMatchObject([
+        { type: "image_url", image_url: { url: "data:image/png;base64,AQID" } },
+      ]);
       for (const mediaType of ["audio/mpeg", "video/mp4"]) {
         const result = await runtime.generate(
           "memory_formation",
@@ -292,7 +301,7 @@ describe("model protocol and provenance boundaries", () => {
           "evidence",
           z.object({ value: z.string() }),
         ),
-      ).rejects.toThrow("invocation failed");
+      ).rejects.toThrow("output_incomplete_length");
       await expect(
         incomplete.generate(
           "memory_formation",

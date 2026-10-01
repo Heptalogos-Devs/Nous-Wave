@@ -423,4 +423,6 @@ describe_then_structure
 
 ## 2026-10-01 用户修订
 
+Generation failures expose bounded reason codes for incomplete output, invalid JSON/schema, HTTP status, timeout/cancellation or transport validation. Provider bodies, causes, headers and submitted material are excluded. Formation returns `memory_formation_failed` with no Memory on a generation failure; cancellation and semantic conflicts retain their original RPC semantics. A retry of the same operation can continue after a transient provider failure. The absence of an invocation summary on failure does not imply no paid request; the research wire ledger counts attempts independently.
+
 使用 Apple、OpenAI 等公开真实文章，逐条回读来源确认 oracle。总调用上限改为 10000，包含失败与复跑，不要求耗尽。音频默认多模态理解，使用 material_description / material_direct_structuring 的 audio_input。video.input_mode=direct 为默认，frames 仅显式启用且本轮 NOT_RUN；audio.input_mode=transcription 保留标准 ASR 选项。直接媒体限定 openai-chat：input_audio {data,format} 与 video_url {url:data URI}；video_url 为网关内容扩展，不声称 OpenAI 原生标准能力。不做 provider zoo 或静默抽帧/转写 fallback。发送已上传 immutable Artifact bytes，配置声明须经实际调用验证。

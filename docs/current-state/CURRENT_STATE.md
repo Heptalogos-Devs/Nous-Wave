@@ -38,6 +38,6 @@
 - `corepack pnpm qualification:cognitive-runtime-episode` — PASS; output included restart, cross-session continuation, Episode revision, overlap, hierarchy, lifecycle and purge evidence.
 - `corepack pnpm research:retrieval` — NOT_RUN for actual retrieval: the previous runner aggregated pre-filled fixture candidates and latency; it provides no real algorithm or semantic recall evidence.
 
-本轮 reference consumer 的 Windows public wiring 已 PASS，包括结构化表示、字段支持链、流式上传、trace、meaningful use 与 restart。已有真实 gateway 与 6 source/105 unit/40 query corpus 的 baseline/model-rerank 测量，但全部属于历史 candidate，且记录了 partial query 限制。新的 rich schema/live 媒体、Resource/RAGFlow、final source-less bundle 和完整 Acceptance 仍未收敛；现有证据不能外推为本分支最终 PASS。见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
+本轮 reference consumer 的 Windows public wiring 已 PASS，包括结构化表示、字段支持链、流式上传、trace、meaningful use 与 restart。candidate-19 的真实 gateway 检索实验使用6 sources/105 units/40 queries：controlled105个真实 Memory、end-to-end103个形成成功；每轨 baseline/model-rerank 共160条查询全部 complete，Authority 在每轨内固定。三策略媒体27/27 pipeline PASS、9/9 recall PASS；独立质量检查仍有1 FAIL，音频独立事实检查 NOT_RUN。RAGFlow live BLOCKED（用户未配置）。最终 bundle、Resource provider evidence/历史结果政策复核、native SBOM 和完整 Acceptance 尚未收敛；现有证据不能外推为本分支最终 PASS。见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
 
 精确命令、commit、平台和失败/未运行项由 [Memory Reference Qualification](../qualification/2026-10-memory-reference-profile.md) 维护；本文只保留 capability summary。

@@ -5,6 +5,7 @@ import { ModelRuntime } from "./runtime.js";
 import { ModelMaterialPipeline } from "./material.js";
 import { deriveMaterial } from "./derivation.js";
 import { formObservation } from "./formation.js";
+import { GenerationFailure } from "./invocations.js";
 
 function failure(code: string, error: unknown) {
   return [
@@ -40,11 +41,21 @@ export function modelOperations(
         };
       }
     },
-    formFromObservation: (r, c) =>
-      formObservation(kernel, models, r, {
-        signal: c.signal,
-        timeoutMs: c.timeoutMs(),
-      }),
+    formFromObservation: async (r, c) => {
+      try {
+        return await formObservation(kernel, models, r, {
+          signal: c.signal,
+          timeoutMs: c.timeoutMs(),
+        });
+      } catch (error) {
+        if (c.signal.aborted || !(error instanceof GenerationFailure))
+          throw error;
+        return {
+          degradation: failure("memory_formation_failed", error),
+          invocations: [],
+        };
+      }
+    },
     deriveMaterial: (r, c) =>
       deriveMaterial(kernel, models, r, {
         signal: c.signal,

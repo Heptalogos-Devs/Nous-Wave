@@ -24,6 +24,7 @@ let structuredEnabled = false;
 let providerCalls = 0;
 let resourceProviderCalls = 0;
 let embeddingCalls = 0;
+let formationEnabled = false;
 const provider = createServer((request, response) => {
   void (async () => {
     const chunks: Buffer[] = [];
@@ -89,6 +90,37 @@ const provider = createServer((request, response) => {
         json_schema: { strict: boolean; schema: { required: string[] } };
       };
     };
+    if (body.response_format.json_schema.schema.required.includes("text")) {
+      if (!formationEnabled) {
+        response.writeHead(503);
+        response.end('{"error":"fixture-secret must not escape"}');
+        return;
+      }
+      response.end(
+        JSON.stringify({
+          id: "formation",
+          created: 1,
+          model: "local-contract",
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: "assistant",
+                content: JSON.stringify({
+                  text: "Streaming artifact consumer proof.",
+                  semanticRole: "fact",
+                  title: "Streaming proof",
+                  selectedEntityKeys: [],
+                }),
+              },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+      );
+      return;
+    }
     assert.equal(body.response_format.type, "json_schema");
     assert.equal(body.response_format.json_schema.strict, true);
     assert(
@@ -544,6 +576,8 @@ normalization = "l2"
 output_semantics = "dense"
 [roles.query_embedding]
 model = "embedding"
+[roles.memory_formation]
+model = "local"
 `,
   );
   await boot();
@@ -560,6 +594,30 @@ model = "embedding"
     '"protocol continuity" $memory $limit(5)',
   );
   assert(recall.hits.some((hit) => hit.revision?.value === memory.revisionId));
+  const formationRequest = {
+    subjectId,
+    operationId: crypto.randomUUID(),
+    occurrenceId: uploaded.occurrenceId,
+    aboutnessMode: "none",
+  };
+  const unavailableFormation =
+    await restarted.model.formFromObservation(formationRequest);
+  assert(!unavailableFormation.memory);
+  assert.equal(
+    unavailableFormation.degradation[0]?.code,
+    "memory_formation_failed",
+  );
+  assert.match(
+    unavailableFormation.degradation[0]?.detail ?? "",
+    /gateway_http_503/,
+  );
+  assert(!JSON.stringify(unavailableFormation).includes("fixture-secret"));
+  formationEnabled = true;
+  const recoveredFormation =
+    await restarted.model.formFromObservation(formationRequest);
+  assert(
+    recoveredFormation.memory && recoveredFormation.degradation.length === 0,
+  );
   await cli("session", "show");
   console.log(
     JSON.stringify({
@@ -581,6 +639,7 @@ model = "embedding"
       resourceProviderCalls,
       embeddingCalls,
       canonicalEmbedding: true,
+      generationFailureReported: true,
       resourceContinuation: true,
       resourceObservation: true,
       liveRagflow: "NOT_RUN",

@@ -70,4 +70,12 @@ Journal、Dream、Self、Social、Motivation、automatic Episode segmentation、
 
 ## 2026-10-01 用户修订
 
+## Current closure work (2026-10-02)
+
+Gateway/role/Prompt, structured Material/DAG, public consumer, idempotent formation, expression/rerank and optional Resource continuation implementations are present; final acceptance is NOT_RUN. Candidate-19 real-corpus baseline/rerank measurements have complete responses on fixed per-track Authority; final payload correlation is pending. Media pipeline runs, while one structured-image quality check remains FAIL and independent audio facts NOT_RUN. Live RAGFlow BLOCKED as authorized.
+
+Remaining work: complete bounded Resource provider evidence/diagnostics and audit historical/stale handling/material byte bounds; finish native license/SBOM and binary-path closure; verify exact final ZIP with separated/co-located roots, relocation, offline missing-pack and restart; qualify final live payload; sync current documents, required Skills, Vault and paper through their own PRs; perform one fresh final branch review and clean-head local `just acceptance`, then Ready/final-head CI/squash/delete. No VCP or Native Material Corpus implementation is authorized here.
+
+## Media and budget policy
+
 使用 Apple、OpenAI 等公开真实文章，逐条回读来源确认 oracle。总调用上限改为 10000，包含失败与复跑，不要求耗尽。音频默认多模态理解，使用 material_description / material_direct_structuring 的 audio_input。video.input_mode=direct 为默认，frames 仅显式启用且本轮 NOT_RUN；audio.input_mode=transcription 保留标准 ASR 选项。直接媒体限定 openai-chat：input_audio {data,format} 与 video_url {url:data URI}；video_url 为网关内容扩展，不声称 OpenAI 原生标准能力。不做 provider zoo 或静默抽帧/转写 fallback。发送已上传 immutable Artifact bytes，配置声明须经实际调用验证。

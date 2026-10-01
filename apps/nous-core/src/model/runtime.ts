@@ -116,7 +116,7 @@ export class ModelRuntime {
         ?.capabilities.includes("image_input")
     )
       throw new Error("Image model capability is unavailable");
-    const content = [{ type: "image" as const, image: bytes, mediaType }];
+    const content = [{ type: "file" as const, data: bytes, mediaType }];
     const result = await this.invocations.generate(
       "material_description",
       content,
@@ -156,8 +156,8 @@ export class ModelRuntime {
           })
         : [
             {
-              type: "image" as const,
-              image: input.bytes,
+              type: "file" as const,
+              data: input.bytes,
               mediaType: input.mediaType,
             },
           ];
@@ -238,8 +238,8 @@ export class ModelRuntime {
         }),
       },
       ...frames.map((f) => ({
-        type: "image" as const,
-        image: f.bytes,
+        type: "file" as const,
+        data: f.bytes,
         mediaType: "image/jpeg",
       })),
     ];

@@ -166,11 +166,13 @@ for (const unit of units) {
       continue;
     await save();
     const start = performance.now();
+    let partialDerivation: unknown;
     try {
       const derived = await client.model.deriveMaterial(
         { subjectId, sourceRegionId: receipt.sourceRegionId!, strategy },
         options,
       );
+      partialDerivation = derived;
       const selected = derived.representations.find(
         (item) => item.representationId === derived.selectedRepresentationId,
       );
@@ -188,7 +190,10 @@ for (const unit of units) {
         },
         options,
       );
-      if (!formed.memory) throw new Error("Formation did not commit Memory");
+      if (!formed.memory)
+        throw new Error(
+          `Formation did not commit Memory: ${json(formed.degradation)}`,
+        );
       operation.revisionId = formed.memory.revisionId;
       const missingFacts = unit.oracle_patterns.filter(
         (pattern) => !new RegExp(pattern, "is").test(selected.text ?? ""),
@@ -254,6 +259,7 @@ for (const unit of units) {
       operation.result = {
         status: "FAIL",
         strategy,
+        derived: partialDerivation,
         error: error instanceof Error ? error.message : "Operation failed",
       };
     }
