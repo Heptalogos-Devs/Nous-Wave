@@ -98,7 +98,7 @@ for (const [entry, target] of entries) {
   }
 }
 await cp(
-  join(repo, "target/release/nous-kernel.exe"),
+  join(repo, "target/x86_64-pc-windows-msvc/release/nous-kernel.exe"),
   join(program, "kernel/nous-kernel.exe"),
 );
 await cp(join(repo, "prompts"), join(program, "prompts"), { recursive: true });

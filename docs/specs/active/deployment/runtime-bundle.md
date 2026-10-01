@@ -45,3 +45,5 @@ FFmpeg pack由 release pipeline 从精确 source构建；禁用 GPL、nonfree、
 每个candidate生成 release/component/checksum manifests、SPDX SBOM、THIRD_PARTY_NOTICES与每个runtime的license/source/build references。Nous Wave-owned code保持MIT，各third-party组件独立标注实际许可，不能把GPL/nonfree FFmpeg误报为LGPL。
 
 Windows source-less proof在Git仓库外，使用任意CWD、无developer PATH和实际gateway/source，通过official Client完成 formation/embedding/rerank/NousQL/provenance/use/restart。验证共置、完全分离roots、搬移安装位置、missing-pack serve无acquisition、external override及cancel。Result只有PASS/FAIL/NOT_RUN/BLOCKED，并记录payload digests；其他平台不得外推PASS。
+
+Windows shipping Kernel 使用显式 `--target x86_64-pc-windows-msvc` 与 `-C target-feature=+crt-static` release build，assembler 读取对应 target 目录，源码路径用 remap 去除开发机绝对路径。以实际 PE import inventory 确认应用不依赖开发机 MSVCP/VCRUNTIME；系统 Win32/UCRT 不当作私有 pack。

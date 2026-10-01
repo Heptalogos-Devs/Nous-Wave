@@ -7,8 +7,10 @@ toolchain=$(realpath "$2")
 output=$(realpath -m "$3")
 build=$(realpath -m "$4")
 patch_file=$(realpath "$(dirname "${BASH_SOURCE[0]}")/postgresql-llvm-setjmp.patch")
+notices_script=$(realpath "$(dirname "${BASH_SOURCE[0]}")/build-runtime-notices.sh")
 test "$(sha256sum "$source_archive" | cut -d' ' -f1)" = 555610c24d53e4316da5b7d3fc25c279d96856d5e0e23ee308c328c5fa881d9f
 mkdir -p "$build" "$output/licenses/postgresql"
+bash "$notices_script" "$toolchain" "$output"
 tar -xf "$source_archive" -C "$build"
 export PATH="$toolchain/bin:/usr/bin:/bin"
 export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=1789709400

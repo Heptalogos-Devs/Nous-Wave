@@ -57,4 +57,4 @@ Agent 不得自行决定：
 
 旧 `active/cognitive-retrieval/` 与 R2 closure plan 的有效内容已吸收到 current Spec set；它们不再作为 parallel current truth。
 
-Self Authority 与 Configuration Foundation/Social Cognition 的原始实施合同保留在 `superseded/`，不再授权当前扩展。
+Self Authority 与 Configuration Foundation/Social Cognition 的旧实施合同由 Git history 保留；当前范围由 active Plan 命名的 Specs 决定，长期语义由 Architecture-Vault 持有。

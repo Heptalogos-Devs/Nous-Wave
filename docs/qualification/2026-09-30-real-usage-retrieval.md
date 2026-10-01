@@ -141,3 +141,13 @@ PASS：共享职责与 dependency 更新后再次执行 `corepack pnpm qualifica
 PASS：`corepack pnpm exec vitest run scripts/research/model-call-guard.test.ts scripts/research/gateway.test.ts`，2 tests；实际 local HTTP forwarding 验证 success/failure attempts、path rejection、重启后 cap 与请求内容保真。`corepack pnpm typecheck`、`corepack pnpm lint:ts`、`corepack pnpm lint:knip` PASS。研究模块为 dev-only，未加入 bundle/application closure。
 
 PASS：删除 normal runtime guard 后执行 `corepack pnpm qualification:real-consumer-local`，Subject `01a0f76e-924d-77c1-8a09-d7c6c843d3a0`；structured/resource/selected Observation/replay/restart 均 true。liveModel/liveRagflow NOT_RUN。后续真实研究必须显式连接 run-owned proxy；final live remeasure 尚 NOT_RUN。
+
+## 私有 native closure 窄验证
+
+PASS：Windows release Kernel 使用 `RUSTFLAGS="--remap-path-prefix=C:\dev\Heptalogos-Devs\Nous-Wave=. -C target-feature=+crt-static" cargo build -p nous-kernel --release --target x86_64-pc-windows-msvc`。`wsl objdump -p` 检查 Kernel/PostgreSQL/FFmpeg PE imports，未出现 MSVCP/VCRUNTIME，只有 Win32/UCRT 系统 imports；此检查不外推其他 OS。
+
+新 source-built PostgreSQL pack SHA256 `63b455e3eef03d6d2e009abe4442278ffc9c4d91e5c8e552b7cdd4b3f99ed744`；FFmpeg LGPL-only pack SHA256 `39d426ec77482e38f6d57b83f0e1d5b6808155a3c3eab11480eebc3aba514b41`。精确 source/build/patch/compiler/runtime notices 保留在各 pack。旧 catalog/archive 保存于 ignored previous-catalog，历史候选未修改；普通启动没有 acquisition。
+
+PASS：`corepack pnpm assemble:portable --output data/releases/candidate-11`；`corepack pnpm qualification:portable-local --bundle data/releases/candidate-11`。ZIP SHA256 `5188bd7dbe7472f86df15cf63f32f393316b7eff4a39416016b45d7e7e4af700`，仓库外安装 `C:\Users\Arsvine\AppData\Local\Temp\nous-portable-mrWkER\installation`；Subject `01a0f773-bbb8-7af0-a8dd-14fecdff643a`，无 developer PATH/source，private Node/PostgreSQL、official Client 与 restart/stableDatabasePort true。liveModel NOT_RUN，corpus synthetic_portable_wiring；该候选含 working-tree input digest，仍不是 final live/acceptance candidate。
+
+删除 21 个 superseded Plan/Spec 文件，当前导航改为 Git history/Vault；未新增 parallel plan。剩余完整 Cargo/runtime/native SBOM、最终 live remeasure、多路径/搬移与 final acceptance NOT_RUN。
