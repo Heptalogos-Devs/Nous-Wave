@@ -86,7 +86,7 @@
       "oracle_patterns": [
         "Annie",
         "bedtime|story",
-        "compose|prompt"
+        "Include All Text"
       ],
       "context": {
         "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",

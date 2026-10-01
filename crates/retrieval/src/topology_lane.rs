@@ -76,6 +76,7 @@ pub(crate) fn topology_lane(
     }
     if seeds.is_empty() {
         output.topology_work = Some(TopologyWorkSummary {
+            mechanism: "experimental-node-potential-v1".into(),
             seed_count: 0,
             visited_nodes: 0,
             complete: true,
@@ -104,6 +105,7 @@ pub(crate) fn topology_lane(
         plan.topology_nodes,
     );
     output.topology_work = Some(TopologyWorkSummary {
+        mechanism: "experimental-node-potential-v1".into(),
         seed_count,
         visited_nodes: river.node_potential.len(),
         complete: river.complete,

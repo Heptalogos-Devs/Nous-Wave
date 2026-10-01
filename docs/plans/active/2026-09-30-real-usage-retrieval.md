@@ -35,7 +35,7 @@ PRE_PRODUCTION 直接替换 current producer/consumer 和 fresh schema，不留�
 - [ ] 完成 richer structured schema → strict provider request → local semantic validation → payload/projection → stable field support refs。
 - [ ] 完成 External Resource descriptor/adapter、RAGFlow、Query continuation 和 official Client materialize/Observation；真实 provider 缺环境记 BLOCKED。
 - [x] 移出 normal runtime 的 model-call hard guard；研究 composition 保留显式可恢复 guard。
-- [ ] 完成 VCP current route/source audit；当前 experimental propagation 不声明完整 RiverMemo。完整 VCP、CognitiveClock/longitudinal 不在本分支施工。
+- [x] 完成 VCP current route/source audit；当前 experimental propagation 不声明完整 RiverMemo。完整 VCP、CognitiveClock/longitudinal 不在本分支施工。
 - [ ] `just acceptance` 统一 generation/diff/check/verify/dupes/TS dupes/OSV/build/既有 qualification/新增 cognitive-io-resource qualification；CI 只准备固定工具与调用该命令。
 - [x] 删除 superseded 文档树，吸收仍有效语义，更新导航与当前证据。
 

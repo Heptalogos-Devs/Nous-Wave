@@ -391,6 +391,9 @@ impl CognitiveRuntimeService {
                     .or_default() += lane.candidates.len();
                 if let Some(work) = &lane.topology_work {
                     diagnostics
+                        .lane_status
+                        .insert("topology_mechanism".into(), work.mechanism.clone());
+                    diagnostics
                         .candidate_counts
                         .insert("topology_seed_count".into(), work.seed_count);
                     diagnostics

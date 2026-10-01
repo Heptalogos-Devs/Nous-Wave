@@ -175,3 +175,19 @@ PASS：`corepack pnpm qualification:real-consumer-local`，Subject `01a0f788-a76
 candidate-18 ZIP SHA256 `46a7e0e75231902cc2012b6be1c91d0c1db61d74de51f76ad4ae3ca601eec7b1`。仓库外完整 ZIP 解包，使用私有 Node/PG/FFmpeg、System32-only PATH、新分离 instance home 和用户真实模型配置；actual boot PASS，Core endpoint `127.0.0.1:14653`。研究 GatewayProfile 指向显式 loopback accounting proxy，该 proxy 透传到用户 New API `/v1`，不改变 upstream provider/credentials。通过分发 official Client 的新 rich-schema 媒体 qualification 正在运行；此处尚不声明整组 live PASS。
 
 媒体 runner 汇总已区分 pipelineStatus/qualityStatus/queryStatus。缺 independent source oracle 的内容质量记 NOT_RUN；有 oracle 的缺事实或查询不完整记 FAIL，不再只凭 derivation pipeline 成功汇总 PASS。frames 仍 NOT_RUN，直接发送 raw image/audio/video Artifact。
+
+## Rich-schema 真实媒体执行
+
+`corepack pnpm qualification:live --run-root <outside-home>/run --client-module <outside-installation>/program/client/node.js --state data/research/live/media-rich-schema-state.json` 已执行；exact candidate-18 digest 如上。formation/direct/vision=`doubao-seed-2.0-mini`，embedding=`doubao-embedding-vision`/2048，rerank=`qwen3.7-text-rerank`，同一 gateway 标准协议/媒体扩展；未推断网关 alias 的实际 upstream revision。
+
+Subject `01a0f79b-e4bc-7b11-bddc-721ff2a8b582`；5 Apple 图片、2 NASA raw video clips、2 同来源 audio clips，9 units/27 strategies。完整查询 9/9 PASS；pipeline 23/27 PASS、4 FAIL（Writing Tools/Notes 的 two-stage structuring、Siri direct、press video two-stage）。整个 live run FAIL，未当作 acceptance PASS。两段 video 经私有 FFprobe 检查均有 video+audio stream；原始 bytes 直接发送，模型端联合音画理解的独立质量证明 NOT_RUN。
+
+独立回读 Compose screenshot 后发现旧 oracle 的 compose|prompt 不是可见文本；它错误惩罚了描述的正确画面。tracked oracle 改为实际可见 Include All Text，原 run state 保存于 ignored media-rich-schema-original-oracle.json；只重新评估既有输出，没有新增付费请求。原两项 quality FAIL 得到纠正，但 direct structured 确实遗漏新可见标签，仍 FAIL。当前 quality FAIL=1、audio independent oracle NOT_RUN=6；没有提升未验证音频质量。
+
+研究 ledger 从1096增至1230，实际134 attempts，包含失败/prepare/query/rerank。成功响应中已收集108个 invocation requests、provider-reported total usage140884、invocation latency累计471793.1325ms；这些是已知子集，不是全量账单或 wall-clock time，query/partial/failure 的未收集 usage 不推填，cost unknown。数据为真实 gateway/公开 media/official Client 路径；无预填 latency/candidate/指标。
+
+## VCP route/source audit
+
+审读 VCPToolBox 当前 commit `ead5a021d81baca3233eb8a726f8ea7a69fabc70` 的公开生产文档及 LICENSE：文档 SHA256 `377a1d1161a4ba530a883b1b2fd03f58f773f1fdd9cebffafe8a92e4773662d7`，LICENSE SHA256 `5392a8b3f46108fa3494e8c15b57da9e14e9bbd93335590cb5b50364fcf770a8`。ignored research cache 保留精确文本；没有把上游 source/fixtures 加入本分支或 bundle。Active Spec 标注 current route、CC BY-NC-SA 4.0 来源隔离与独立实现要求。
+
+reviewed cue_sensing/residual/wave/topology_lane 当前路径只提供 PCA/residual/bounded propagation/node potential。新增 typed mechanism 摘要 experimental-node-potential-v1，Runtime diagnostics 回传同一 owner 字段；没有添加 Ω/curve/field scoring。`cargo clippy -p nous-retrieval -p nous-runtime --all-targets -- -D warnings` PASS。完整 VCP、formal Wave/combined 本分支 NOT_RUN；下一独立任务才能施工。

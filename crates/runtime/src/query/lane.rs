@@ -23,6 +23,7 @@ pub struct LaneCandidate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopologyWorkSummary {
+    pub mechanism: String,
     pub seed_count: usize,
     pub visited_nodes: usize,
     pub complete: bool,

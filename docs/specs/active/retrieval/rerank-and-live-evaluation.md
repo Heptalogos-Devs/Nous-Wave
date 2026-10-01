@@ -848,3 +848,13 @@ Text cues are literal natural language. The lexical owner applies its indexed an
 Normalized RRF baseline scores are in [0,1]. Each satisfied soft cue contributes signed weight 0.02; aggregate preference contribution is clamped to [-0.06,0.06]. Explicit recency uses 1/(1+age/(30 days)); an unknown requested time axis contributes zero. Preferences operate only on candidates that passed Authority and hard constraints and never generate candidates.
 
 Model rerank retains the provider's finite score separately and orders the bounded validated pool before final limit. Final ordinal affinity is (k+1)/(k+rank), using the query's existing fusion k. The pool is limited to 64 candidates and 2 MiB of text. At most 16 pending immutable query snapshots are retained for six minutes, with one-use validation tickets. These coefficients and bounds remain fixed throughout formal measurements; any change requires a new identified measurement run.
+
+## VCP current route 与源隔离
+
+2026-10-01 批准 VCPToolBox 的公开 TagMemo/RiverMemo 算法作为下一 topology 实现路线，当前分支只做 route/source audit。来源为 lioensky/VCPToolBox commit `ead5a021d81baca3233eb8a726f8ea7a69fabc70` 的 [生产文档](https://github.com/lioensky/VCPToolBox/blob/ead5a021d81baca3233eb8a726f8ea7a69fabc70/docs/RIVERMEMO_TOPOLOGY_V3.md)，生产标识 rivermemo.topology-v3.1；不是 Vault accepted long-term decision。
+
+当前 Nous 只有 weighted PCA、residual、bounded propagation 与 node-potential ranking。缺 full-context QueryObservation、ordered candidate Tag curve、local/transfer fields、morphology、Ω、conditional innovation、Direct Anchor；完整 VCP NOT_RUN。Runtime query/bind 是未来 query-scoped observation 的语义 owner，Retrieval 实现数学与 rebuildable assets；本分支不新增空接口或半套 scoring。
+
+当前 topology_work 的机制标识为 experimental-node-potential-v1，公开 diagnostics 回传 topology_mechanism。complete 表示配置内传播预算完成，不代表完整 VCP。score 仍是 lane-local、经过既有 fusion 与 Authority validation；无真实 topology signal 时 Wave/combined NOT_RUN。
+
+上游 LICENSE 为 CC BY-NC-SA 4.0。本分支只审读公开文档并署名；没有复制或逐行翻译代码/fixture。下一实现按公开数学与已批准合同独立编写；直接移植需另行授权，不并入 MIT payload。
