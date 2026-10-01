@@ -465,6 +465,30 @@ pub struct ExternalResourceRecord {
     pub access_status: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResourceProviderEvidence {
+    #[prost(string, tag="1")]
+    pub profile_digest: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub request_count: u32,
+    #[prost(double, tag="3")]
+    pub latency_ms: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResourceInvocationSummary {
+    #[prost(string, tag="1")]
+    pub action_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub resource_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub provider_profile: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="5")]
+    pub provider_evidence: ::core::option::Option<ResourceProviderEvidence>,
+    #[prost(string, repeated, tag="6")]
+    pub diagnostics: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ModelInvocationSummary {
     #[prost(string, tag="1")]
     pub role: ::prost::alloc::string::String,
@@ -560,6 +584,8 @@ pub struct QueryResponse {
     pub rerank: ::core::option::Option<RerankMechanismSummary>,
     #[prost(message, repeated, tag="10")]
     pub resource_records: ::prost::alloc::vec::Vec<ExternalResourceRecord>,
+    #[prost(message, repeated, tag="11")]
+    pub resource_invocations: ::prost::alloc::vec::Vec<ResourceInvocationSummary>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReportUseRequest {

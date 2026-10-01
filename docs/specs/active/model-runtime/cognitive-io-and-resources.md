@@ -26,6 +26,10 @@ public QueryResponse 的 resource_records 与 cognitive hits 分开；resource_a
 
 Core profile `max_material_bytes` limits each record up to1MiB; Kernel enforces the same1MiB hard ceiling and2MiB total serialized record budget per query. Current authority policies are none/prefer/required. The unused internal HistoricalOrStale variant had no NousQL/compiler/public producer and is removed. Records marked denied/stale/missing are excluded; current-authority success requires allowed/current status. Historical external snapshots are not an executable query policy in this scope.
 
+Each private external result includes typed provider_evidence (profile digest, actual initiated HTTP request count, elapsed milliseconds) and bounded diagnostic codes. The Core adapter increments at fetch initiation, including failed transport attempts; unconfigured adapters initiate zero requests. Evidence is call-scoped, never shared mutable adapter state. Kernel rejects nonfinite/negative latency, more than65 requests per action, malformed profile identity, record/evidence digest mismatch, or more than8 diagnostic codes (64 bytes each, lowercase/underscore). These bounds cover the current16-dataset synopsis and1-search-plus64-validation paths. Provider bodies, credentials and content are excluded from diagnostics.
+
+Public `resource_invocations` retains evidence for successful and failed actions in the fixed QueryPlan action order, independently of candidate scores. Descriptor drift reports discarded execution evidence and preserves the original Authority fence. The official Client returns this collection directly. None of these provider timings or counts imply external model usage/cost is known.
+
 未呈现候选不建立 Observation。实际选用时有界 materialize → Artifact/SourceRegion → distinct ObservationOccurrence，external_object_ref 保存 stable ref identity；再次观察保持事件身份。external result 不直接成为 Memory。
 
 ## 执行与证据

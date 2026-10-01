@@ -59,57 +59,90 @@ fn validate_record(
     Ok(())
 }
 
+fn validate_results(
+    actions: &HashMap<uuid::Uuid, &ResourceActionSuggestion>,
+    incoming: &[ExternalResourceResult],
+) -> Result<()> {
+    let mut seen = HashSet::new();
+    let mut bytes = 0usize;
+    for response in incoming {
+        let action = actions
+            .get(&response.action_id)
+            .ok_or_else(|| Error::Invalid("unknown resource action identity".into()))?;
+        if !seen.insert(response.action_id)
+            || !response.provider_evidence.latency_ms.is_finite()
+            || response.provider_evidence.latency_ms < 0.0
+            || response.provider_evidence.request_count > 65
+            || (!response.provider_evidence.profile_digest.is_empty()
+                && (response.provider_evidence.profile_digest.len() != 64
+                    || !response
+                        .provider_evidence
+                        .profile_digest
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))))
+            || (response.provider_evidence.request_count > 0
+                && response.provider_evidence.profile_digest.is_empty())
+            || response.diagnostics.len() > 8
+            || response.diagnostics.iter().any(|code| {
+                code.is_empty()
+                    || code.len() > 64
+                    || !code
+                        .bytes()
+                        .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
+            })
+            || response.resource_ref != action.resource
+            || response.records.len() > action.limit
+            || !matches!(
+                response.status.as_str(),
+                "success" | "unavailable" | "denied" | "stale" | "failed"
+            )
+            || (response.status != "success" && !response.records.is_empty())
+        {
+            return Err(Error::Invalid(
+                "invalid or repeated resource action result".into(),
+            ));
+        }
+        let mut entries = HashSet::new();
+        for record in &response.records {
+            validate_record(record, action)?;
+            if record.reference.profile_digest != response.provider_evidence.profile_digest {
+                return Err(Error::Invalid(
+                    "external record provider evidence mismatch".into(),
+                ));
+            }
+            if !entries.insert((
+                &record.reference.provider_resource_id,
+                &record.reference.entry_id,
+                &record.reference.content_digest,
+            )) {
+                return Err(Error::Invalid("duplicate external resource record".into()));
+            }
+            bytes = bytes.saturating_add(
+                serde_json::to_vec(record)
+                    .map_err(|error| Error::Invalid(error.to_string()))?
+                    .len(),
+            );
+            if bytes > 2 * 1024 * 1024 {
+                return Err(Error::Invalid("external query records exceed 2 MiB".into()));
+            }
+        }
+    }
+    Ok(())
+}
+
 impl CognitiveRuntimeService {
     pub(crate) async fn finalize_resources(
         &self,
         subject: SubjectId,
         result: &mut CognitiveQueryResult,
-        incoming: Vec<ExternalResourceResult>,
+        mut incoming: Vec<ExternalResourceResult>,
     ) -> Result<()> {
         let actions: HashMap<_, _> = result
             .resource_actions
             .iter()
             .map(|action| (action.action_id, action))
             .collect();
-        let mut seen = HashSet::new();
-        let mut bytes = 0usize;
-        for response in &incoming {
-            let action = actions
-                .get(&response.action_id)
-                .ok_or_else(|| Error::Invalid("unknown resource action identity".into()))?;
-            if !seen.insert(response.action_id)
-                || response.resource_ref != action.resource
-                || response.records.len() > action.limit
-                || !matches!(
-                    response.status.as_str(),
-                    "success" | "unavailable" | "denied" | "stale" | "failed"
-                )
-                || (response.status != "success" && !response.records.is_empty())
-            {
-                return Err(Error::Invalid(
-                    "invalid or repeated resource action result".into(),
-                ));
-            }
-            let mut entries = HashSet::new();
-            for record in &response.records {
-                validate_record(record, action)?;
-                if !entries.insert((
-                    &record.reference.provider_resource_id,
-                    &record.reference.entry_id,
-                    &record.reference.content_digest,
-                )) {
-                    return Err(Error::Invalid("duplicate external resource record".into()));
-                }
-                bytes = bytes.saturating_add(
-                    serde_json::to_vec(record)
-                        .map_err(|error| Error::Invalid(error.to_string()))?
-                        .len(),
-                );
-                if bytes > 2 * 1024 * 1024 {
-                    return Err(Error::Invalid("external query records exceed 2 MiB".into()));
-                }
-            }
-        }
+        validate_results(&actions, &incoming)?;
         let current = self
             .list_resources(subject)
             .await?
@@ -122,6 +155,13 @@ impl CognitiveRuntimeService {
             })
             .collect::<HashMap<_, _>>();
         let mut completed = HashSet::new();
+        let order = result
+            .resource_actions
+            .iter()
+            .enumerate()
+            .map(|(index, action)| (action.action_id, index))
+            .collect::<HashMap<_, _>>();
+        incoming.sort_by_key(|response| order[&response.action_id]);
         for mut response in incoming {
             let action = actions[&response.action_id];
             let unchanged = current
@@ -129,6 +169,22 @@ impl CognitiveRuntimeService {
                 .map(descriptor_digest)
                 .transpose()?
                 .is_some_and(|digest| digest == action.descriptor_digest);
+            result.resource_invocations.push(ResourceInvocationSummary {
+                action_id: response.action_id,
+                resource_ref: response.resource_ref.clone(),
+                provider_profile: action.provider_profile.clone(),
+                status: if unchanged {
+                    response.status.clone()
+                } else {
+                    "discarded".into()
+                },
+                provider_evidence: response.provider_evidence,
+                diagnostics: if unchanged {
+                    response.diagnostics
+                } else {
+                    vec!["resource_descriptor_changed_during_query".into()]
+                },
+            });
             if !unchanged {
                 result.status = QueryStatus::Partial;
                 result.degradation.push(Degradation {

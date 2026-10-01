@@ -55,6 +55,10 @@ pub struct ExternalResourceResult {
     pub status: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="4")]
     pub records: ::prost::alloc::vec::Vec<super::super::v1alpha1::ExternalResourceRecord>,
+    #[prost(message, optional, tag="5")]
+    pub provider_evidence: ::core::option::Option<super::super::v1alpha1::ResourceProviderEvidence>,
+    #[prost(string, repeated, tag="6")]
+    pub diagnostics: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FinalizeQueryRequest {

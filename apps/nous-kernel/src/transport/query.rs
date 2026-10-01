@@ -49,10 +49,18 @@ impl KernelService {
                     .external_results
                     .into_iter()
                     .map(|value| {
+                        let evidence =
+                            required(value.provider_evidence, "resource provider evidence")?;
                         Ok(ExternalResourceResult {
                             action_id: id(&value.action_id)?,
                             resource_ref: ResourceRef::new(value.resource_ref)?,
                             status: value.status,
+                            provider_evidence: ResourceProviderEvidence {
+                                profile_digest: evidence.profile_digest,
+                                request_count: evidence.request_count,
+                                latency_ms: evidence.latency_ms,
+                            },
+                            diagnostics: value.diagnostics,
                             records: value
                                 .records
                                 .into_iter()
@@ -124,6 +132,22 @@ fn query_response(result: CognitiveQueryResult) -> p::QueryResponse {
         }),
         invocations: Vec::new(),
         rerank: None,
+        resource_invocations: result
+            .resource_invocations
+            .into_iter()
+            .map(|value| p::ResourceInvocationSummary {
+                action_id: value.action_id.to_string(),
+                resource_ref: value.resource_ref.as_str().into(),
+                provider_profile: value.provider_profile,
+                status: value.status,
+                diagnostics: value.diagnostics,
+                provider_evidence: Some(p::ResourceProviderEvidence {
+                    profile_digest: value.provider_evidence.profile_digest,
+                    request_count: value.provider_evidence.request_count,
+                    latency_ms: value.provider_evidence.latency_ms,
+                }),
+            })
+            .collect(),
         resource_records: result
             .resource_records
             .into_iter()

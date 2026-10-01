@@ -430,6 +430,19 @@ try {
   );
   assert.equal(resourceResult.hits.length, 0);
   assert.equal(resourceProviderCalls, 1);
+  assert.equal(resourceResult.resourceInvocations.length, 1);
+  const resourceInvocation = resourceResult.resourceInvocations[0]!;
+  assert.equal(resourceInvocation.status, "success");
+  assert.equal(
+    resourceInvocation.providerEvidence!.requestCount,
+    resourceProviderCalls,
+  );
+  assert(resourceInvocation.providerEvidence!.latencyMs >= 0);
+  assert.equal(
+    resourceInvocation.providerEvidence!.profileDigest,
+    resourceResult.resourceRecords[0]!.reference!.profileDigest,
+  );
+  assert.deepEqual(resourceInvocation.diagnostics, []);
   const selectedRef = resourceResult.resourceRecords[0]!.reference!;
   const observedAt = {
     seconds: BigInt(Math.floor(Date.now() / 1000)),
@@ -486,6 +499,26 @@ try {
     selected.observation.artifactId,
   );
   assert.equal((await client.material.limits({})).maxUploadBytes, 1048576n);
+  await client.resources.put({
+    subjectId,
+    descriptor: {
+      ...resourceDescriptor,
+      resourceRef: "resource:unavailable_fixture",
+      providerProfile: "unconfigured",
+    },
+  });
+  const unavailableResource = await client.cognition.recall(
+    subjectId,
+    '"external chunk" $resource $limit(2)',
+  );
+  const unavailableInvocation = unavailableResource.resourceInvocations.find(
+    (value) => value.providerProfile === "unconfigured",
+  )!;
+  assert.equal(unavailableInvocation.status, "unavailable");
+  assert.equal(unavailableInvocation.providerEvidence!.requestCount, 0);
+  assert.deepEqual(unavailableInvocation.diagnostics, ["adapter_unavailable"]);
+  assert.equal(unavailableResource.resourceRecords.length, 1);
+  assert.equal(unavailableResource.resourceActions.length, 1);
   await assert.rejects(
     client.artifacts.uploadBytes(subjectId, new Uint8Array(1048577), {
       mediaType: "application/octet-stream",
@@ -641,6 +674,7 @@ model = "local"
       canonicalEmbedding: true,
       generationFailureReported: true,
       resourceContinuation: true,
+      resourceInvocationEvidence: true,
       resourceObservation: true,
       liveRagflow: "NOT_RUN",
       liveModel: "NOT_RUN",

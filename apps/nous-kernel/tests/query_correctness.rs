@@ -106,6 +106,7 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
         "valid",
         "max_material",
         "oversized_material",
+        "invalid_provider_evidence",
         "unknown_action",
         "foreign_resource",
         "excess",
@@ -145,9 +146,16 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
             action_id: action.action_id,
             resource_ref: resource.clone(),
             status: "success".into(),
+            provider_evidence: nous_core::ResourceProviderEvidence {
+                profile_digest: "a".repeat(64),
+                request_count: 1,
+                latency_ms: 3.0,
+            },
+            diagnostics: Vec::new(),
             records: vec![record],
         };
         match case {
+            "invalid_provider_evidence" => response.provider_evidence.request_count = 66,
             "max_material" | "oversized_material" => {
                 use sha2::{Digest, Sha256};
                 response.records[0].content =

@@ -99,6 +99,8 @@ message Hit {
 message ResourceAction { string resource_ref = 1; string action = 2; string reason = 3; bool current_authority = 4; string action_id = 5; string query_text = 6; uint32 limit = 7; bool materialize = 8; string adapter_kind = 9; string provider_profile = 10; string provider_locator = 11; string descriptor_digest = 12; }
 message StableExternalRef { string provider_kind = 1; string provider_profile = 2; string profile_digest = 3; string resource_ref = 4; string provider_resource_id = 5; string entry_id = 6; optional string entry_version = 7; string content_digest = 8; string source_locator = 9; string retrieved_at = 10; string access_scope = 11; }
 message ExternalResourceRecord { string resource_ref = 1; StableExternalRef reference = 2; optional string title = 3; string content = 4; uint32 provider_rank = 5; optional double provider_score = 6; string version_status = 7; string access_status = 8; }
+message ResourceProviderEvidence { string profile_digest = 1; uint32 request_count = 2; double latency_ms = 3; }
+message ResourceInvocationSummary { string action_id = 1; string resource_ref = 2; string provider_profile = 3; string status = 4; ResourceProviderEvidence provider_evidence = 5; repeated string diagnostics = 6; }
 message ModelInvocationSummary {
   string role = 1; string protocol = 2; string model = 3;
   string profile_digest = 4; optional string prompt_digest = 5;
@@ -109,7 +111,7 @@ message ModelInvocationSummary {
 message QueryDiagnostics { map<string, uint64> candidate_counts = 1; map<string, string> lane_status = 2; optional bool topology_complete = 3; optional double topology_discarded_mass = 4; }
 message HitScore { double baseline = 1; double preference = 2; optional double rerank = 3; double final = 4; uint32 baseline_rank = 5; uint32 final_rank = 6; uint32 best_lane_rank = 7; repeated string variants = 8; }
 message RerankMechanismSummary { string mechanism = 1; string status = 2; string reason = 3; uint32 candidate_count = 4; uint32 provider_results = 5; string protocol = 6; string model = 7; }
-message QueryResponse { string query_id = 1; string status = 2; repeated Hit hits = 3; repeated ResourceAction resource_actions = 4; repeated Degradation degradation = 5; optional string bound_query = 6; QueryDiagnostics diagnostics = 7; repeated ModelInvocationSummary invocations = 8; RerankMechanismSummary rerank = 9; repeated ExternalResourceRecord resource_records = 10; }
+message QueryResponse { string query_id = 1; string status = 2; repeated Hit hits = 3; repeated ResourceAction resource_actions = 4; repeated Degradation degradation = 5; optional string bound_query = 6; QueryDiagnostics diagnostics = 7; repeated ModelInvocationSummary invocations = 8; RerankMechanismSummary rerank = 9; repeated ExternalResourceRecord resource_records = 10; repeated ResourceInvocationSummary resource_invocations = 11; }
 
 message ReportUseRequest { string subject_id = 1; optional string session_id = 2; string consumer_ref = 3; repeated UseEvent events = 4; }
 message UseEvent { string event_id = 1; CognitiveRef reference = 2; string kind = 3; google.protobuf.Timestamp occurred_at = 4; google.protobuf.Struct context = 5; }

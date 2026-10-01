@@ -42,21 +42,25 @@ type ResourceMaterial = {
   version: VersionCheck;
   access: AccessCheck;
 };
+export type ResourceCallContext = { requestStarted(): void };
 export interface ExternalResourceAdapter {
   readonly profileDigest: string;
   describe(
     binding: ResourceBinding,
     signal?: AbortSignal,
+    context?: ResourceCallContext,
   ): Promise<{ resourceIds: string[]; accessible: boolean }>;
   search(
     binding: ResourceBinding,
     question: string,
     limit: number,
     signal?: AbortSignal,
+    context?: ResourceCallContext,
   ): Promise<ResourceRecord[]>;
   materialize(
     reference: StableExternalRef,
     signal?: AbortSignal,
+    context?: ResourceCallContext,
   ): Promise<ResourceMaterial>;
   checkVersion(
     reference: StableExternalRef,
