@@ -242,3 +242,26 @@ Portable qualification now takes the exact ZIP, extracts it outside the reposito
 The colocated missing-pack proof initially FAIL: ENOENT lacked the explicit install command and launcher stdin kept the failed child alive until timeout. Fixed runtime verification's missing-manifest error and paused launcher stdin on child exit/error. Candidate-25 ZIP digest `6245c5d486f019916b151682b6173337f2632a69e51c9f9f15d7f5de6d18a126`: exact ZIP colocated/public Client/restart/stable port/missing-pack rejection PASS, Subject `01a0f860-5925-78f1-950c-4ef259bc6855`. Missing pack returns UNAVAILABLE/install command promptly and preserves database state. No acquisition is present in this verify-only startup path; liveModel NOT_RUN for this deterministic proof. An initial proof command raced unfinished archive assembly and FAILed before launch; it was rerun only after the assembly handle completed. Locator+relocation on candidate-25 and final clean-head acceptance are pending.
 
 Candidate-25 exact ZIP locator+relocation+restart+stable port+missing-pack rejection PASS, Subject `01a0f861-b56e-7fb1-9294-bdbefd5de37f`; all instance roots are independent of Program/Runtime and CWD. Both colocated and split layout proofs use private Node/PostgreSQL, shipping Kernel/LLVM DLLs and System32-only PATH. Final whole-branch acceptance NOT_RUN. Assembly inventory's Cargo platform filter was then corrected from historical MSVC to shipping gnullvm; final rebuilt SPDX counts and payload digest must be recorded before Ready. Normal developer Cargo target remains incremental.
+
+## Candidate-26 与音频语料修正（2026-10-02）
+
+candidate-26 精确 ZIP SHA256 `e83c4324bb4464d7e9d2276e03ae17325a90e3f723dbe21294ee3d8bd12eac69`，source `a38cd07a26f93cdd36cbf0e3e8701989323605d8`，source input SHA256 `f45f6fcc6d3ce674582ddb461ee928a9cc027c973f0163c9e25fa277fc6567d3`，source_dirty=false。locator/安装搬移/official Client/trace/use/停止重启/固定端口/缺包拒绝 PASS，Subject `01a0f871-e934-7580-ba24-55663f90574d`。该包包含 corrected gnullvm SPDX；后续文档/语料修改尚未作为最终分支包重新组装，final acceptance/Ready CI NOT_RUN。
+
+真实文本 formation 已补齐105/105，replay audit105/105 PASS、无新付费请求。controlled Authority421、end-to-end Authority526；每变体在新 Core 上运行40条真实 NousQL，四变体全部 complete，数据在各轨内固定。使用真实 embedding 与 `qwen3.7-text-rerank`；研究 proxy2067→2307，共240实际 HTTP 尝试。
+
+| Track / variant | Recall@1 | Recall@5 | Recall@10 | MRR | p50 / p95 ms |
+| --- | --- | --- | --- | --- | --- |
+| controlled / baseline | .85 | .975 | 1 | .90625 | 252.0808 / 415.0156 |
+| controlled / model-rerank | 1 | 1 | 1 | 1 | 393.1584 / 468.2948 |
+| end-to-end / baseline | .9 | 1 | 1 | .945833333333333 | 238.5688 / 413.0121 |
+| end-to-end / model-rerank | .975 | 1 | 1 | .9875 | 375.6403 / 567.7227 |
+
+六个文本来源、105单元、40条 grounded queries。formation coverage/provenance precision=1；wrong-source/entity、stale leakage、empty rate=0，限定于本语料和既定 oracle。Wave/combined NOT_RUN：缺少合格的真实 topology 信号。cost unknown。ignored `data/research/live/candidate-26-{controlled,e2e}-{baseline,rerank}.json` 保存逐条响应；不能沿用旧 Authority522 的指标。
+
+原9个媒体单元在新包上的 fresh run 为26/27 pipeline PASS、9/9 query PASS；Compose 图片两阶段 formation 因 output_schema_invalid FAIL，已提交 derivation 保留。用户随后独立回听两个 NASA WAV，报告两者基本相同：背景白噪音/电流声及间歇性周期提示音，第一段较轻，无可辨语音；设备身份未知。模型多识别重复嗡鸣/提示音且未制造语音，但遗漏或否认底噪，完整性 FAIL。原数据和结果保留，`research/corpus/audio-negative-controls.json` 记录负例；主音频语料移除这两个近重复样本。历史记录的独立音频 oracle NOT_RUN 由本次用户事实审查补充，不能据此倒改历史模型响应。
+
+主音频改为 Kevin MacLeod 的《Carefree》和《Gymnopedie No. 1》，来自作者 Incompetech，CC-BY-4.0，需要署名，属于免费授权音乐。保留原 MP3 SHA256 和作者 instruments/feel metadata；私有 FFmpeg 截取10–35秒、PCM16 mono24kHz，ffprobe 两段实际25秒 PASS。上传文件名 music-a.wav/music-b.wav；oracle 乐器信息不传入模型。作者 metadata 支撑音乐分类和乐器族 oracle；精确时长识别、节奏和细节听辨 NOT_RUN，不声称 agent 亲自听过。
+
+通过 candidate-26 distributed official Client 运行6个三策略 workflow 和2条 public NousQL，Subject `01a0f887-754c-7882-884e-a483f483f50c`，ignored `data/research/live/music-candidate26-state.json`。description_only 两段均 pipeline/metadata-scope quality PASS；direct_structured Carefree 提交 PASS、遗漏预定 ukulele/guitar 信息使 quality FAIL，Gymnopedie PASS；describe_then_structure Carefree PASS，Gymnopedie 第二阶段因 invents unavailable visual input 被校验拒绝 FAIL，第一阶段 AudioDescription 保留。两条查询2/2 PASS。未降低 oracle 或关闭校验来取得 PASS。
+
+此次音乐调用 ledger2450→2479，共29实际尝试；已返回并保存的成功 derivation/formation summary 为12 requests、total usage18386、模型 latency 累计73363.942ms，仅成功结果子集，不能当全量账单或端到端耗时。累计 ledger2479/10000；失败 usage/cost unknown。新音乐实验整体 pipeline/quality FAIL，最终媒体能力仍未通过完整质量验收。
