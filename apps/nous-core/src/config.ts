@@ -17,11 +17,6 @@ const schema = z.strictObject({
   port: z.number().int().min(0).max(65535).default(9470),
   dotenv_file: z.string().min(1).default("gateway.env"),
   kernel_executable: z.string().min(1).optional(),
-  model_budget: z
-    .strictObject({
-      max_calls: z.number().int().min(1).max(10000).default(10000),
-    })
-    .prefault({}),
   database: z
     .strictObject({
       mode: z.enum(["managed_private", "external"]).default("managed_private"),
@@ -133,7 +128,6 @@ export async function loadConfig(locations: RuntimeLocations) {
     throw new Error("External database credential environment is unavailable");
   return {
     deployment: config.deployment,
-    modelBudget: config.model_budget.max_calls,
     externalFfmpeg: Boolean(config.video.ffmpeg_executable),
     kernelExecutable,
     locations,

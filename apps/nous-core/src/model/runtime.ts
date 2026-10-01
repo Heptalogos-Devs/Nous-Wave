@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import type { ModelBudget } from "./budget.js";
 import { z } from "zod";
 import type { UserContent } from "ai";
 import {
@@ -48,14 +47,12 @@ export class ModelRuntime {
     config: ModelConfiguration,
     promptRoot?: string,
     overridePromptRoot?: string,
-    budget?: ModelBudget,
     tempRoot?: string,
   ) {
     const invocations = await ModelInvocations.create(
       config,
       promptRoot,
       overridePromptRoot,
-      budget,
     );
     const steward = invocations.profile("projection_steward");
     const generator: ProposalGenerator | undefined = steward

@@ -30,6 +30,8 @@ public QueryResponse 的 resource_records 与 cognitive hits 分开；resource_a
 
 normal runtime 不创建 persistent model-call count guard；research/qualification 可显式注入 run-owned guard，失败/warm-up/retry 按真实 request attempt 计数，restart 延续同一 ledger。timeout/concurrency/media/output bounds 继续是产品策略。
 
+当前 research composition 在标准 GatewayProfile 前显式启用 `research:gateway`，以 HTTP wire attempt 为计数边界。它只转发既有标准模型 endpoints，不管理 credentials、channels 或 provider；普通 serve、ModelInvocations 与 nous.toml 已移除研究预算。单一 run-owned proxy/ledger writer 串行 reservation，研究实例显式使用其 loopback endpoint；重启不清零。
+
 唯一完整 deterministic 验收为 `just acceptance`，包括 generated diff、pnpm check、just verify、Rust/TS dupes、OSV source scan、Kernel build、Memory/Runtime/Episode 与新增 public cognitive-io-resource qualification。Ready/manual workflow 只安装固定工具、依赖并调用入口。真实模型/RAGFlow 手动运行；无 endpoint/key/dataset 时 live provider BLOCKED。
 
 本分支只记录 VCP route/source audit 和现有 experimental topology 的实际能力。完整 VCP topology 与 CognitiveClock/longitudinal 是后续独立授权任务；不在本分支创建对应实现或分支。

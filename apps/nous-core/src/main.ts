@@ -11,7 +11,6 @@ import { fileURLToPath } from "node:url";
 import { writeFile } from "node:fs/promises";
 import { stringify } from "smol-toml";
 import { verifyRuntime } from "./runtime-packs.js";
-import { ModelBudget } from "./model/budget.js";
 import { ResourceRegistry } from "./resources/registry.js";
 
 async function main() {
@@ -62,10 +61,6 @@ async function main() {
         config.models,
         join(locations.program, "prompts"),
         join(locations.config, "prompts"),
-        new ModelBudget(
-          join(locations.instance, "model-budget.json"),
-          config.modelBudget,
-        ),
         locations.temp,
       ),
     });

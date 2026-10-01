@@ -6,7 +6,8 @@
         "scripts/dev.ts",
         "scripts/nous.ts",
         "scripts/pack-runtime.ts",
-        "scripts/assemble-portable.ts"
+        "scripts/assemble-portable.ts",
+        "scripts/research-gateway.ts!"
       ]
     },
     "apps/nous-core": {

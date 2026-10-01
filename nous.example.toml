@@ -12,10 +12,6 @@ name = "nous_wave"
 max_connections = 8
 # url_env = "NOUS_DATABASE_URL" # external 时必填；值进入受控环境或 dotenv。
 
-# 每个实例持久保存已预留调用数量；包括失败请求，重启不清零。
-[model_budget]
-max_calls = 10000 # 1–10000；本轮全部真实实验在同一实例共用此预算。
-
 [object_store]
 max_upload_bytes = 8589934592 # Artifact 唯一上传上限，默认 8 GiB。
 

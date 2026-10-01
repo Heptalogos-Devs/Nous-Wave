@@ -1,5 +1,4 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import type { ModelBudget } from "./budget.js";
 import {
   embed,
   embedMany,
@@ -91,7 +90,6 @@ function parseRerankResponse(input: unknown, count: number) {
   return result;
 }
 export class ModelInvocations {
-  private budget?: ModelBudget;
   private prompts?: PromptRegistry;
   private promptPaths: Partial<Record<ModelRole, string>> = {};
   private readonly active = new Map<ModelRole, ReadyRole>();
@@ -111,10 +109,8 @@ export class ModelInvocations {
       "../../../../prompts",
     ),
     overridePromptRoot?: string,
-    budget?: ModelBudget,
   ) {
     const runtime = new ModelInvocations();
-    runtime.budget = budget;
     for (const gateway of Object.values(config.gateway_profiles))
       if (gateway.enabled)
         runtime.credentialOrigins.add(
@@ -435,7 +431,6 @@ export class ModelInvocations {
               type: "video_url",
               video_url: { url: `data:${media.mediaType};base64,${encoded}` },
             };
-        await this.budget?.reserve();
         mediaStage = "transport";
         const response = await fetch(`${role.baseURL}/chat/completions`, {
           method: "POST",
@@ -531,7 +526,6 @@ export class ModelInvocations {
           },
         };
       }
-      await this.budget?.reserve();
       const result = await generateText({
         model:
           role.profile.protocol === "openai-chat"
@@ -585,7 +579,6 @@ export class ModelInvocations {
       throw new Error("Embedding profile disagrees with Kernel space");
     const start = performance.now();
     try {
-      await this.budget?.reserve();
       const result = await embed({
         model: role.provider.embeddingModel(model),
         value: text,
@@ -636,7 +629,6 @@ export class ModelInvocations {
         offset < texts.length;
         offset += role.profile.embedding.max_batch_size
       ) {
-        await this.budget?.reserve();
         const callStart = performance.now();
         const result = await embedMany({
           model: role.provider.embeddingModel(model),
@@ -714,7 +706,6 @@ export class ModelInvocations {
       : this.require("speech_transcription");
     const start = performance.now();
     try {
-      await this.budget?.reserve();
       const result = await transcribe({
         model: role.provider.transcription(role.profile.model),
         audio,
@@ -754,7 +745,6 @@ export class ModelInvocations {
       throw new Error("Rerank request exceeds bounds");
     const start = performance.now();
     try {
-      await this.budget?.reserve();
       const response = await fetch(`${role.baseURL}/rerank`, {
         method: "POST",
         redirect: "error",

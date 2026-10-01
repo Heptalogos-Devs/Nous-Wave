@@ -1,9 +1,8 @@
 import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
 
-export class ModelBudget {
+export class ResearchModelCallGuard {
   private queue: Promise<void> = Promise.resolve();
   constructor(
     private readonly path: string,
@@ -16,9 +15,18 @@ export class ModelBudget {
     const reserved = this.queue.then(async () => {
       let count = 0;
       try {
-        count = z
-          .strictObject({ count: z.number().int().nonnegative() })
-          .parse(JSON.parse(await readFile(this.path, "utf8"))).count;
+        const ledger: unknown = JSON.parse(await readFile(this.path, "utf8"));
+        if (
+          !ledger ||
+          typeof ledger !== "object" ||
+          !("count" in ledger) ||
+          Object.keys(ledger).length !== 1 ||
+          typeof ledger.count !== "number" ||
+          !Number.isSafeInteger(ledger.count) ||
+          ledger.count < 0
+        )
+          throw new Error("Invalid research call ledger");
+        count = ledger.count;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT")
           throw new Error("Model budget ledger is unavailable or invalid", {

@@ -34,9 +34,9 @@ Artifact upload 的唯一部署上限为 Kernel `[bootstrap.object_store].max_up
 
 ## Direct audio/video and model-call budget
 
-`model_profiles.<name>.embedding.max_batch_size` controls the number of inputs per actual embedding request (1–64, default64). Set it to1 for a gateway that accepts only a single input. Preparation and query batching use the same profile. Every emitted request reserves budget independently, and successful summaries aggregate actual request counts and reported usage; failed batches are not silently retried with another shape.
+`model_profiles.<name>.embedding.max_batch_size` 控制每次 embedding 请求的 input 数量（1–64，默认 64）；只接受单条 input 的网关设为 1。prepare 与 query batching 复用同一 profile，summary 汇总实际 request count 与 provider usage。失败不自动换请求 shape。
 
-The user configuration entry remains ConfigurationRoot/nous.toml. `model_budget.max_calls` accepts1..10000 (default10000); reservations are persisted at InstanceRoot/model-budget.json, including failed requests. Increasing the limit preserves the accumulated count.
+ConfigurationRoot/nous.toml 不再含 model_budget，普通 runtime 不创建调用计数 ledger 或研究 hard cap。timeout/concurrency/input/output bounds 仍是产品策略。研究显式启动 `corepack pnpm research:gateway -- --ledger <run-owned.json> --max-calls 10000`，将研究实例的 GatewayProfile.base_url 指向输出的 loopback endpoint；proxy 在每个实际 HTTP attempt 前持久预留，包括失败、warm-up 与 retry，重启复用同一 ledger。一个研究 run 使用一个 proxy/ledger writer；不在 normal runtime 自动启用。历史真实研究累计 1096 次已迁入 ignored `data/research/live/model-call-ledger.json`，后续沿此 ledger 继续。
 
 `audio.input_mode` is `direct` (default) or `transcription`. Direct uses material_description or material_direct_structuring with audio_input capability and openai-chat content; transcription requires the separate speech_transcription role. `audio.max_source_bytes` bounds raw bytes (default16MiB, maximum24MiB).
 

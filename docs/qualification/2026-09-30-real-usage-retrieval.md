@@ -133,3 +133,11 @@ PASS：`cargo test -p nous-core --test primitives`（3 tests）、`cargo test -p
 FAIL：`just osv`（OSV 2.6.0，`scan source -r .`）。初次命中 lru 0.16.4/RUSTSEC-2026-0253、paste/RUSTSEC-2024-0436、yauzl 3.2.0/GHSA-gmq8-994r-jv83。yauzl 升至 3.2.1、nalgebra 升级移除 paste 后再扫描，剩 lru 0.16.4 的 panic-safety advisory。Tantivy 0.26.1 与最新 published 0.26.2 均限制 lru 0.16.x；upstream main 已升级 0.18.2，但不能将大量未评估的 unreleased index/query 变化当成窄修复。此依赖仍需收敛，未添加 OSV exception、降低扫描范围或宣称 PASS。
 
 PASS：共享职责与 dependency 更新后再次执行 `corepack pnpm qualification:real-consumer-local`，Windows Subject `01a0f74b-eeb2-7542-a771-85ad3615dd1c`，structuredPayload/fieldSupport/noChargeReplay/resourceContinuation/resourceObservation/stop-restart 均 true；仍为 synthetic deterministic provider proof，liveModel/liveRagflow NOT_RUN。
+
+## Research guard composition
+
+普通 Core/ModelInvocations/nous.toml 已移除 model_budget 与实例级 hard call guard；未保留 dual reader。`scripts/research-gateway.ts` 是显式研究入口，以现有标准 gateway HTTP attempt 为计数边界，将 guard 放在 run-owned proxy/ledger。真实历史 ledger 17 + 1079 = 1096 attempts，迁入 ignored `data/research/live/model-call-ledger.json`，未清零。用户模型与 credential 内容保留，active local config 删除旧 model_budget section；历史 immutable candidates 未修改。
+
+PASS：`corepack pnpm exec vitest run scripts/research/model-call-guard.test.ts scripts/research/gateway.test.ts`，2 tests；实际 local HTTP forwarding 验证 success/failure attempts、path rejection、重启后 cap 与请求内容保真。`corepack pnpm typecheck`、`corepack pnpm lint:ts`、`corepack pnpm lint:knip` PASS。研究模块为 dev-only，未加入 bundle/application closure。
+
+PASS：删除 normal runtime guard 后执行 `corepack pnpm qualification:real-consumer-local`，Subject `01a0f76e-924d-77c1-8a09-d7c6c843d3a0`；structured/resource/selected Observation/replay/restart 均 true。liveModel/liveRagflow NOT_RUN。后续真实研究必须显式连接 run-owned proxy；final live remeasure 尚 NOT_RUN。
