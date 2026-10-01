@@ -19,7 +19,9 @@ use crate::*;
 use chrono::{DateTime, Utc};
 use nous_core::*;
 use nous_object_store::ObjectStore;
-use nous_persistence::{AuthorityStore, ProjectionInvalidation, database_error as db};
+use nous_persistence::{
+    AuthorityStore, ProjectionInvalidation, database_error as db, lock_operation,
+};
 pub use nous_runtime::{ResidentView, ResourceUpsert, ResourceView, SessionView};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sqlx::Row;
@@ -168,19 +170,6 @@ fn temporal_columns(
 
 fn operation_digest<T: Serialize>(kind: &str, subject: SubjectId, value: &T) -> Result<String> {
     canonical_request_digest(kind, subject, value)
-}
-
-async fn lock_operation(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-) -> Result<()> {
-    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
-        .bind(format!("{}:{}", subject.0, operation.0))
-        .execute(&mut **tx)
-        .await
-        .map_err(db)?;
-    Ok(())
 }
 
 async fn check_receipt(

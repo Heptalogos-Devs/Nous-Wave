@@ -23,6 +23,12 @@ use tonic::{Request, Response, Status};
 #[derive(Clone)]
 pub struct KernelService(pub NousRuntime);
 
+async fn rpc_reply<T>(
+    operation: impl std::future::Future<Output = nous_core::Result<T>>,
+) -> std::result::Result<Response<T>, Status> {
+    operation.await.map(Response::new).map_err(status)
+}
+
 impl KernelService {
     pub fn require_memory(&self) -> nous_core::Result<&nous_memory::MemoryService> {
         self.0.require_memory()

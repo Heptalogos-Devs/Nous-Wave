@@ -121,3 +121,15 @@ PASS：`corepack pnpm exec vitest run apps/nous-core/tests/resource-ragflow.test
 PASS：`cargo test -p nous-kernel --test query_correctness resource_continuation -- --test-threads=1`；`cargo clippy -p nous-kernel --test query_correctness -- -D warnings`。同一 Resource cohort 验证 Subject/action/provider identity、结果上限、必需当前权限的 denied/stale 拒绝、descriptor 查询期间删除后丢弃，以及 ticket 一次消费。没有扩大 duplication exclude/threshold。
 
 完整 Resource policy/diagnostics 收敛、最终 source-less candidate、统一完整 Acceptance 与 Ready run 仍 NOT_RUN；上述窄验证不声明整个分支完成。
+
+## Acceptance 入口与窄扫描
+
+`just acceptance` 已成为唯一完整 deterministic 入口；Ready/manual workflow 只安装 Node 24.20.0、Rust 1.98.1、fixed Buf plugins、just 1.58.0/cargo-deny 0.20.2/cargo-shear 1.13.4/cargo-dupes 0.2.1/OSV 2.6.0，安装 pnpm dependencies 后调用它。`just --dry-run acceptance` PASS，实际完整入口 NOT_RUN，等待最终候选；paid model/private RAGFlow 不进入默认 CI。
+
+PASS：`corepack pnpm lint:dupes`，132 clones，overall lines 2.47%，TypeScript lines 1.73%；配置未改变。初次 `just dupes` FAIL（18 groups，上限 16）；修复共享职责后 PASS（15 groups，exact lines 6.4%，阈值 6.5%）。Subject operation transaction lock 统一到 Persistence；transport RPC reply 转换共享；typed opaque ref 构造统一 macro，保留各 namespace/type。
+
+PASS：`cargo test -p nous-core --test primitives`（3 tests）、`cargo test -p nous-kernel --test query_correctness resource_continuation -- --test-threads=1`、`cargo clippy -p nous-kernel --all-targets --all-features -- -D warnings`、`cargo build -p nous-kernel`、`corepack pnpm typecheck`、`corepack pnpm proto:check`、`corepack pnpm lint:ts`、`corepack pnpm lint:knip`。nalgebra 升至 0.35.0 后 `cargo test -p nous-retrieval cue_sensing --lib` PASS，weighted/expanded PCA alignment 与 energy 的精度断言保持。
+
+FAIL：`just osv`（OSV 2.6.0，`scan source -r .`）。初次命中 lru 0.16.4/RUSTSEC-2026-0253、paste/RUSTSEC-2024-0436、yauzl 3.2.0/GHSA-gmq8-994r-jv83。yauzl 升至 3.2.1、nalgebra 升级移除 paste 后再扫描，剩 lru 0.16.4 的 panic-safety advisory。Tantivy 0.26.1 与最新 published 0.26.2 均限制 lru 0.16.x；upstream main 已升级 0.18.2，但不能将大量未评估的 unreleased index/query 变化当成窄修复。此依赖仍需收敛，未添加 OSV exception、降低扫描范围或宣称 PASS。
+
+PASS：共享职责与 dependency 更新后再次执行 `corepack pnpm qualification:real-consumer-local`，Windows Subject `01a0f74b-eeb2-7542-a771-85ad3615dd1c`，structuredPayload/fieldSupport/noChargeReplay/resourceContinuation/resourceObservation/stop-restart 均 true；仍为 synthetic deterministic provider proof，liveModel/liveRagflow NOT_RUN。

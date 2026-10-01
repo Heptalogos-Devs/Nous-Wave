@@ -1,7 +1,7 @@
 use crate::*;
 use chrono::{DateTime, Utc};
 use nous_core::{CognitiveRef, OperationId, SubjectId};
-use nous_persistence::database_error as db;
+use nous_persistence::{database_error as db, lock_operation};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::collections::BTreeSet;
@@ -744,19 +744,6 @@ async fn insert_refs(
 
 fn request_digest<T: Serialize>(kind: &str, subject: SubjectId, value: &T) -> Result<String> {
     nous_core::canonical_request_digest(kind, subject, value)
-}
-
-async fn lock_operation(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-) -> Result<()> {
-    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
-        .bind(format!("{}:{}", subject.0, operation.0))
-        .execute(&mut **tx)
-        .await
-        .map_err(db)?;
-    Ok(())
 }
 
 async fn receipt(

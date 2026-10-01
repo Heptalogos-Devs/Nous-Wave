@@ -14,8 +14,22 @@ pub use projections::{DenseInvalidation, ProjectionInvalidation};
 pub use serving::ServingRecord;
 pub use topology_input::{TopologyEdgeSource, TopologyProjectionInput};
 
-use nous_core::{Error, Result, SubjectId};
+use nous_core::{Error, OperationId, Result, SubjectId};
 use sqlx::{PgPool, Postgres, Transaction, postgres::PgPoolOptions};
+
+/// Serialize a Subject-scoped mutation receipt within its Authority transaction.
+pub async fn lock_operation(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    operation: OperationId,
+) -> Result<()> {
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+        .bind(format!("{}:{}", subject.0, operation.0))
+        .execute(&mut **tx)
+        .await
+        .map_err(database_error)?;
+    Ok(())
+}
 
 #[derive(Clone)]
 pub struct AuthorityStore {

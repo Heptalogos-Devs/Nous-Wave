@@ -43,7 +43,7 @@ typos:
     typos
 
 osv:
-    osv-scanner scan -r .
+    osv-scanner scan source -r .
 
 coverage:
     cargo llvm-cov --workspace --all-features --summary-only
@@ -59,3 +59,17 @@ deps:
 
 verify: fmt-check check lint lint-maintainability test deny deps
     @echo "Nous Wave verification passed."
+
+# Full deterministic acceptance. Paid models and private providers are manual.
+acceptance:
+    corepack pnpm generate
+    git diff --exit-code -- crates/protocol/src/generated packages/protocol-ts/src/generated
+    corepack pnpm check
+    just verify
+    just dupes
+    corepack pnpm lint:dupes
+    just osv
+    cargo build -p nous-kernel
+    corepack pnpm qualification:memory-reference
+    corepack pnpm qualification:cognitive-runtime-episode
+    corepack pnpm qualification:real-consumer-local

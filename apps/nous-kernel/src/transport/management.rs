@@ -4,30 +4,26 @@ use nous_persistence::database_error as db;
 use nous_runtime::{ResourceDescriptor, ResourceUpsert};
 use sqlx::Row;
 
+fn json_strings(value: serde_json::Value) -> Vec<String> {
+    value
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn resource(r: ResourceDescriptor) -> p::ResourceDescriptor {
     p::ResourceDescriptor {
         resource_ref: r.resource_ref.as_str().into(),
         display_label: r.display_label.unwrap_or_default(),
         authority_class: r.authority_class,
         coverage: to_object(r.coverage),
-        query_dimensions: r
-            .query_dimensions
-            .as_array()
-            .map(|a| {
-                a.iter()
-                    .filter_map(|v| v.as_str().map(str::to_owned))
-                    .collect()
-            })
-            .unwrap_or_default(),
-        modalities: r
-            .modalities
-            .as_array()
-            .map(|a| {
-                a.iter()
-                    .filter_map(|v| v.as_str().map(str::to_owned))
-                    .collect()
-            })
-            .unwrap_or_default(),
+        query_dimensions: json_strings(r.query_dimensions),
+        modalities: json_strings(r.modalities),
         freshness_policy: to_object(r.freshness_policy),
         access_cost_class: r.access_cost_class,
         readiness: r.readiness,
