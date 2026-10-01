@@ -126,6 +126,7 @@ mod tests {
             situation: Default::default(),
             expression: CognitiveQueryExpr {
                 operation: QueryOperation::Atom,
+                preferences: Vec::new(),
                 children: Vec::new(),
                 targets: Vec::new(),
                 cues: vec![Cue::Text(TextCue {

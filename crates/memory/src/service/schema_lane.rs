@@ -43,7 +43,7 @@ pub(crate) async fn schema_direct_lane(
         return Ok(output);
     }
     let rows = sqlx::query(
-        "SELECT s.schema_id,s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND (s.schema_id=ANY($2::uuid[]) OR r.schema_revision_id=ANY($3::uuid[]))",
+        "SELECT s.schema_id,s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_id,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND (s.schema_id=ANY($2::uuid[]) OR r.schema_revision_id=ANY($3::uuid[]))",
     )
     .bind(query.subject.0)
     .bind(schema_ids.iter().copied().collect::<Vec<_>>())
@@ -219,7 +219,7 @@ pub(crate) async fn materialize_schema_revisions(
     if revision_ids.is_empty() {
         return Ok((Vec::new(), BTreeMap::new()));
     }
-    let rows = sqlx::query("SELECT s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND r.schema_revision_id=ANY($2::uuid[])")
+    let rows = sqlx::query("SELECT s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_id,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND r.schema_revision_id=ANY($2::uuid[])")
         .bind(bound.source_query.subject.0)
         .bind(&revision_ids)
         .fetch_all(service.store.pool())
@@ -311,6 +311,14 @@ pub(crate) async fn materialize_schema_revisions(
             continue;
         }
         hits.push(CognitiveHit {
+            authority_epoch: Some(
+                row.try_get("object_epoch")
+                    .map_err(nous_persistence::database_error)?,
+            ),
+            preference_refs: vec![CognitiveRef::CognitiveSchema(CognitiveSchemaId(
+                row.try_get("schema_id")
+                    .map_err(nous_persistence::database_error)?,
+            ))],
             reference: reference.clone(),
             revision: None,
             semantic_role: Some("cognitive_schema".into()),
@@ -322,6 +330,7 @@ pub(crate) async fn materialize_schema_revisions(
             ),
             authority: AuthorityClass::SubjectCognition,
             freshness: FreshnessDescriptor {
+                occurred: Vec::new(),
                 observed_at: None,
                 valid_time: temporal_from_columns(
                     row.try_get("valid_time_kind")

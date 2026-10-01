@@ -30,6 +30,8 @@ Artifact upload 的唯一部署上限为 Kernel `[bootstrap.object_store].max_up
 
 ## Direct audio/video and model-call budget
 
+`model_profiles.<name>.embedding.max_batch_size` controls the number of inputs per actual embedding request (1–64, default64). Set it to1 for a gateway that accepts only a single input. Preparation and query batching use the same profile. Every emitted request reserves budget independently, and successful summaries aggregate actual request counts and reported usage; failed batches are not silently retried with another shape.
+
 The user configuration entry remains ConfigurationRoot/nous.toml. `model_budget.max_calls` accepts1..10000 (default10000); reservations are persisted at InstanceRoot/model-budget.json, including failed requests. Increasing the limit preserves the accumulated count.
 
 `audio.input_mode` is `direct` (default) or `transcription`. Direct uses material_description or material_direct_structuring with audio_input capability and openai-chat content; transcription requires the separate speech_transcription role. `audio.max_source_bytes` bounds raw bytes (default16MiB, maximum24MiB).

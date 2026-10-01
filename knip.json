@@ -9,12 +9,15 @@
         "scripts/assemble-portable.ts"
       ]
     },
-    "apps/nous-core": { "entry": ["src/main.ts!", "src/launcher.ts!"] },
+    "apps/nous-core": {
+      "entry": ["src/main.ts!", "src/launcher.ts!"]
+    },
     "apps/nous-cli": {
       "entry": [
         "src/main.ts!",
         "qualification-local.ts",
-        "qualification-portable.ts"
+        "qualification-portable.ts",
+        "research-live.ts"
       ]
     }
   },
@@ -22,8 +25,7 @@
     "apps/nous-core/official_client_closure.ts",
     "apps/nous-core/qualification-config.ts",
     "apps/nous-core/qualification_memory_reference.ts",
-    "apps/nous-core/qualification_cognitive_runtime_episode.ts",
-    "apps/nous-core/research_retrieval.ts"
+    "apps/nous-core/qualification_cognitive_runtime_episode.ts"
   ],
   "rules": {
     "files": "error",

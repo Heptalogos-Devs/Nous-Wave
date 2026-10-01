@@ -1,7 +1,5 @@
 use super::resolve_retrieval_policy;
-use super::types::{
-    AccessibilityQueryPolicy, BoundQuery, ExactBinding, RerankPolicy, RevisionPolicy,
-};
+use super::types::{AccessibilityQueryPolicy, BoundQuery, ExactBinding, RevisionPolicy};
 use crate::CognitiveRuntimeService;
 use nous_core::*;
 use std::collections::{BTreeMap, HashSet};
@@ -259,6 +257,7 @@ impl CognitiveRuntimeService {
         let exact_target_bypasses_auto_level = !exact_bindings.is_empty();
         Ok(BoundQuery {
             query_id: Uuid::now_v7(),
+            bound_at: chrono::Utc::now(),
             source_query: query.clone(),
             bound_at_authority_seq,
             revision_policy,
@@ -274,11 +273,6 @@ impl CognitiveRuntimeService {
             selected_embedding_space: None,
             topology_required: explicit_topology(&query),
             fusion_version: "rrf-v1".into(),
-            rerank_policy: RerankPolicy {
-                strength: query.capabilities.text_rerank,
-                enabled: query.capabilities.text_rerank == RequirementStrength::Required,
-                top_n: (query.result_need.limit.saturating_mul(4)).clamp(12, 50),
-            },
             config_snapshot,
             retrieval_policy,
         })

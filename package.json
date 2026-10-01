@@ -17,7 +17,6 @@
     "qualification:cognitive-runtime-episode": "tsx apps/nous-core/qualification_cognitive_runtime_episode.ts",
     "qualification:real-consumer-local": "tsx apps/nous-cli/qualification-local.ts",
     "qualification:portable-local": "tsx apps/nous-cli/qualification-portable.ts",
-    "research:retrieval": "tsx apps/nous-core/research_retrieval.ts",
     "format": "prettier \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"*.{json,js,cjs,mjs,yml,yaml}\" --write",
     "format:check": "prettier \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"*.{json,js,cjs,mjs,yml,yaml}\" --check",
     "typecheck": "tsc --noEmit",
@@ -31,7 +30,8 @@
     "lint:sherif": "sherif",
     "quality": "pnpm lint:knip && pnpm lint:deps && pnpm lint:sherif",
     "check:governance": "pnpm format:check && pnpm lint:ts && pnpm quality",
-    "check": "pnpm proto:check && pnpm typecheck && pnpm test && pnpm check:governance"
+    "check": "pnpm proto:check && pnpm typecheck && pnpm test && pnpm check:governance",
+    "research:retrieval-live": "tsx apps/nous-cli/research-live.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "1.73.0",

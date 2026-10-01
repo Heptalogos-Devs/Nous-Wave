@@ -25,6 +25,7 @@ fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
         situation: Default::default(),
         expression: CognitiveQueryExpr {
             operation: QueryOperation::Atom,
+            preferences: Vec::new(),
             children: Vec::new(),
             targets: Vec::new(),
             cues: Vec::new(),
@@ -62,6 +63,10 @@ async fn subject(runtime: &nous_kernel::NousRuntime) -> nous_core::SubjectId {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "shared entity cohort verifies Boolean scope and soft preference eligibility without duplicate database setup"
+)]
 async fn entity_lane_uses_aboutness_and_multi_value_include() {
     let (root, url, _postgres) = database().await;
     let runtime = open_runtime(&url, &root).await;
@@ -149,6 +154,235 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
         narrowed.results[0].reference,
         CognitiveRef::MemoryRevision(first.revision.memory_revision_id)
     );
+    let mut preferred = request.clone();
+    preferred.expression.preferences = vec![nous_core::QueryPreference {
+        negative: false,
+        operand: nous_core::PreferenceOperand::Cue(Cue::Text(TextCue {
+            text: "experiential".into(),
+        })),
+    }];
+    let positive = runtime
+        .query(preferred.clone())
+        .await
+        .expect("positive preference");
+    assert_eq!(positive.results.len(), 2);
+    assert_eq!(
+        positive.results[0].reference,
+        CognitiveRef::MemoryRevision(second.revision.memory_revision_id)
+    );
+    assert!(positive.results[0].match_evidence.preference_score > 0.0);
+    preferred.expression.preferences[0].negative = true;
+    let negative = runtime
+        .query(preferred.clone())
+        .await
+        .expect("negative preference");
+    assert_eq!(
+        negative.results[0].reference,
+        CognitiveRef::MemoryRevision(first.revision.memory_revision_id)
+    );
+    preferred.expression.preferences = vec![nous_core::QueryPreference {
+        negative: false,
+        operand: nous_core::PreferenceOperand::Recent(nous_core::TimeAxis::Valid),
+    }];
+    assert!(
+        runtime
+            .query(preferred.clone())
+            .await
+            .expect("unknown valid axis")
+            .results
+            .iter()
+            .all(|hit| hit.match_evidence.preference_score == 0.0)
+    );
+    preferred.expression.preferences = vec![
+        nous_core::QueryPreference {
+            negative: false,
+            operand: nous_core::PreferenceOperand::Cue(Cue::Text(TextCue {
+                text: "experiential".into()
+            }))
+        };
+        16
+    ];
+    let capped = runtime
+        .query(preferred.clone())
+        .await
+        .expect("bounded preference");
+    assert_eq!(capped.results[0].match_evidence.preference_score, 0.06);
+    preferred.expression.constraints.cognitive_roles_include = vec!["declarative".into()];
+    assert_eq!(
+        runtime
+            .query(preferred)
+            .await
+            .expect("preference cannot bypass constraints")
+            .results
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge() {
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let source = observation(&runtime, subject, "shared source").await;
+    let entity = EntityRef::new("entity:cohort").unwrap();
+    let mut cohort = Vec::new();
+    let mut operations = Vec::new();
+    for index in 0..3 {
+        let operation = OperationId::new();
+        operations.push(operation);
+        let mut input = form_input(
+            subject,
+            source.occurrence.occurrence_id,
+            operation,
+            &format!("candidate {index}"),
+        );
+        input.aboutness = vec![entity.clone()];
+        cohort.push(
+            runtime
+                .require_memory()
+                .unwrap()
+                .form_memory(input)
+                .await
+                .unwrap(),
+        );
+    }
+    let mut request = query(subject);
+    request.expression.cues = vec![Cue::Entity(nous_core::EntityCue { entity_ref: entity })];
+    let execution = runtime.execute_query(request, Some(64)).await.unwrap();
+    assert_eq!(execution.result.results.len(), 3);
+    let (pool, ticket) = runtime.cognition.retain_query(execution).unwrap();
+    let first = &cohort[0];
+    runtime
+        .require_memory()
+        .unwrap()
+        .revise_memory(nous_memory::ReviseMemoryInput {
+            producer: None,
+            operation_id: OperationId::new(),
+            subject,
+            memory_id: first.object.memory_id,
+            expected_object_epoch: first.object.object_epoch,
+            intent: nous_memory::RevisionIntent::Correct,
+            formation_mode: FormationMode::Grounded,
+            grounding_occurrence_id: Some(source.occurrence.occurrence_id),
+            semantic_role: "fact".into(),
+            representation_text: "replacement candidate".into(),
+            title: None,
+            supports: first.supports.clone(),
+            aboutness: first.aboutness.clone(),
+            valid_time: TemporalExtent::Unknown,
+            formed_at: Utc::now(),
+            epistemic_class: EpistemicClass::Observed,
+        })
+        .await
+        .unwrap();
+    let second = &cohort[1];
+    runtime
+        .require_memory()
+        .unwrap()
+        .suppress(
+            subject,
+            second.object.memory_id,
+            OperationId::new(),
+            second.object.object_epoch,
+        )
+        .await
+        .unwrap();
+    let third = &cohort[2];
+    let key = operations[2].0.to_string();
+    let reservation = runtime
+        .store
+        .reserve_model_workflow(
+            subject,
+            "memory",
+            &key,
+            "semantic input",
+            &serde_json::json!({"model":"frozen"}),
+        )
+        .await
+        .unwrap();
+    let lease = reservation.lease_token.unwrap();
+    runtime
+        .store
+        .save_model_workflow(
+            subject,
+            "memory",
+            &key,
+            lease,
+            Some(&serde_json::json!({"text":"private-cognitive-marker"})),
+            None,
+        )
+        .await
+        .unwrap();
+    runtime
+        .require_memory()
+        .unwrap()
+        .purge_memory(
+            subject,
+            third.object.memory_id,
+            OperationId::new(),
+            third.object.object_epoch,
+        )
+        .await
+        .unwrap();
+    use sqlx::Row;
+    let row = sqlx::query("SELECT snapshot,proposal,outcome FROM model_workflow_operations WHERE subject_id=$1 AND owner='memory' AND operation_key=$2").bind(subject.0).bind(&key).fetch_one(runtime.store.pool()).await.unwrap();
+    assert_eq!(
+        row.get::<serde_json::Value, _>("snapshot"),
+        serde_json::json!({})
+    );
+    assert!(
+        row.get::<Option<serde_json::Value>, _>("proposal")
+            .is_none()
+    );
+    assert_eq!(
+        row.get::<serde_json::Value, _>("outcome"),
+        serde_json::json!({"purged":true})
+    );
+    assert!(
+        runtime
+            .store
+            .save_model_workflow(
+                subject,
+                "memory",
+                &key,
+                lease,
+                Some(&serde_json::json!({"text":"resurrect"})),
+                None
+            )
+            .await
+            .is_err()
+    );
+    let order = pool
+        .results
+        .into_iter()
+        .map(|hit| (hit.reference, 1.0))
+        .collect();
+    let result = runtime
+        .cognition
+        .finalize_query(
+            subject,
+            ticket,
+            order,
+            nous_runtime::CognitiveContributors {
+                shared: None,
+                memory: Some(runtime.require_memory().unwrap()),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(result.results.is_empty());
+    assert!(
+        result
+            .degradation
+            .iter()
+            .any(|value| value.code == "authority_changed_during_rerank")
+    );
+    assert_eq!(
+        result.diagnostics.unwrap().candidate_counts["drop_authority_changed_during_rerank"],
+        3
+    );
+    assert!(runtime.cognition.release_query(subject, ticket).is_ok());
 }
 
 #[tokio::test]
@@ -368,6 +602,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
             situation: Default::default(),
             expression: CognitiveQueryExpr {
                 operation: QueryOperation::Atom,
+                preferences: Vec::new(),
                 children: Vec::new(),
                 targets: vec![QueryTarget::Exact {
                     reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),

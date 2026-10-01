@@ -286,6 +286,37 @@ await writeFile(
 const head = (
   await execute("git", ["rev-parse", "HEAD"], { cwd: repo })
 ).stdout.trim();
+const sourceFiles = (
+  await execute(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    { cwd: repo },
+  )
+).stdout
+  .split("\0")
+  .filter(Boolean)
+  .sort();
+const sourceHash = createHash("sha256");
+for (const path of sourceFiles) {
+  const contents = await readFile(join(repo, path)).catch(
+    (error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return undefined;
+      throw error;
+    },
+  );
+  if (contents === undefined) continue;
+  sourceHash
+    .update(path)
+    .update("\0")
+    .update(createHash("sha256").update(contents).digest())
+    .update("\0");
+}
+const sourceInputDigest = sourceHash.digest("hex");
+const sourceDirty = Boolean(
+  (
+    await execute("git", ["status", "--porcelain"], { cwd: repo })
+  ).stdout.trim(),
+);
 await writeFile(
   join(output, "manifest/release.json"),
   JSON.stringify(
@@ -295,6 +326,8 @@ await writeFile(
       platform: process.platform,
       arch: process.arch,
       source_head: head,
+      source_input_sha256: sourceInputDigest,
+      source_dirty: sourceDirty,
       source_tree: "working-tree-candidate",
       launcher: "bin/nous.cmd",
       application_license: "MIT",

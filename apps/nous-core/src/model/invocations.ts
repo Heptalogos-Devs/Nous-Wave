@@ -96,6 +96,7 @@ export class ModelInvocations {
   private prompts?: PromptRegistry;
   private promptPaths: Partial<Record<ModelRole, string>> = {};
   private readonly active = new Map<ModelRole, ReadyRole>();
+  private readonly credentialOrigins = new Set<string>();
   private readonly requirements = new Map<
     ModelRole,
     RoleBinding["requirement"]
@@ -115,6 +116,11 @@ export class ModelInvocations {
   ) {
     const runtime = new ModelInvocations();
     runtime.budget = budget;
+    for (const gateway of Object.values(config.gateway_profiles))
+      if (gateway.enabled)
+        runtime.credentialOrigins.add(
+          `${gateway.credential_env}@${new URL(gateway.base_url).origin}`,
+        );
     const prompts = new PromptRegistry(promptRoot, overridePromptRoot);
     runtime.prompts = prompts;
     for (const role of roleNames) {
@@ -263,6 +269,14 @@ export class ModelInvocations {
     const profile = snapshot.configuration.model_profiles[binding.model]!,
       gateway = snapshot.configuration.gateway_profiles[profile.gateway]!;
     const credential = process.env[gateway.credential_env];
+    if (
+      !this.credentialOrigins.has(
+        `${gateway.credential_env}@${new URL(gateway.base_url).origin}`,
+      )
+    )
+      throw new Error(
+        "Reserved gateway credential destination is no longer authorized by current configuration",
+      );
     if (!credential)
       throw new Error("Reserved model credential reference unavailable");
     return {
@@ -604,17 +618,31 @@ export class ModelInvocations {
       throw new Error("Embedding batch violates configured profile/bounds");
     const start = performance.now();
     try {
-      await this.budget?.reserve();
-      const result = await embedMany({
-        model: role.provider.embeddingModel(model),
-        values: texts,
-        maxRetries: 0,
-        maxParallelCalls: 1,
-        abortSignal: this.signal(role, signal),
-      });
+      const embeddings: number[][] = [];
+      const calls: ModelInvocationEvidence[] = [];
+      for (
+        let offset = 0;
+        offset < texts.length;
+        offset += role.profile.embedding.max_batch_size
+      ) {
+        await this.budget?.reserve();
+        const callStart = performance.now();
+        const result = await embedMany({
+          model: role.provider.embeddingModel(model),
+          values: texts.slice(
+            offset,
+            offset + role.profile.embedding.max_batch_size,
+          ),
+          maxRetries: 0,
+          maxParallelCalls: 1,
+          abortSignal: this.signal(role, signal),
+        });
+        embeddings.push(...result.embeddings);
+        calls.push(this.evidence(role, callStart, result.usage));
+      }
       if (
-        result.embeddings.length !== texts.length ||
-        result.embeddings.some(
+        embeddings.length !== texts.length ||
+        embeddings.some(
           (vector) =>
             vector.length !== role.profile.embedding!.dimension ||
             vector.some((value) => !Number.isFinite(value)),
@@ -626,13 +654,42 @@ export class ModelInvocations {
         detail: "Embedding batch validated",
       });
       return {
-        value: result.embeddings,
-        evidence: this.evidence(role, start, result.usage),
+        value: embeddings,
+        evidence: {
+          ...this.evidence(role, start),
+          requestCount: calls.length,
+          usage: {
+            inputTokens: calls.every(
+              (call) => call.usage?.inputTokens !== undefined,
+            )
+              ? calls.reduce((sum, call) => sum + call.usage!.inputTokens!, 0)
+              : undefined,
+            outputTokens: calls.every(
+              (call) => call.usage?.outputTokens !== undefined,
+            )
+              ? calls.reduce((sum, call) => sum + call.usage!.outputTokens!, 0)
+              : undefined,
+            totalTokens: calls.every(
+              (call) => call.usage?.totalTokens !== undefined,
+            )
+              ? calls.reduce((sum, call) => sum + call.usage!.totalTokens!, 0)
+              : undefined,
+          },
+        },
       };
-    } catch {
+    } catch (error) {
       if (signal?.aborted) throw signal.reason;
+      const status =
+        error &&
+        typeof error === "object" &&
+        "statusCode" in error &&
+        typeof error.statusCode === "number" &&
+        Number.isInteger(error.statusCode)
+          ? ` (HTTP ${error.statusCode})`
+          : "";
+      // oxlint-disable-next-line preserve-caught-error -- Provider causes can expose credentials or corpus text; only numeric status is public.
       throw new Error(
-        "Embedding batch invocation failed validation or transport",
+        `Embedding batch invocation failed validation or transport${status}`,
       );
     }
   }

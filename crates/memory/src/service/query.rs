@@ -86,6 +86,9 @@ impl CognitiveContributor for MemoryService {
             .memories_for_query(subject, &revision_ids, &accessibility_policy)
             .await?;
         let mut drops = BTreeMap::new();
+        let source_objects = self
+            .source_objects_for_revisions(subject, &revision_ids)
+            .await?;
         let mut hits = Vec::new();
         for reference in &memory_references {
             let Some((_, revision)) = resolved.get(reference).copied() else {
@@ -98,6 +101,10 @@ impl CognitiveContributor for MemoryService {
             };
             let historical = bound.revision_policy.allows_historical(reference)
                 && view.object.current_revision_id != revision;
+            if !historical && view.object.current_revision_id != revision {
+                increment_drop(&mut drops, "stale_revision");
+                continue;
+            }
             let exact = bound.exact_bindings.iter().any(|binding| {
                 binding.bound_ref == *reference
                     || binding.bound_ref == CognitiveRef::MemoryRevision(revision)
@@ -126,7 +133,10 @@ impl CognitiveContributor for MemoryService {
                 continue;
             }
             let hit_reference = CognitiveRef::MemoryRevision(revision);
-            hits.push(to_hit(&bound.source_query, &candidate, hit_reference));
+            let mut hit = to_hit(&bound.source_query, &candidate, hit_reference);
+            hit.preference_refs
+                .extend(source_objects.get(&revision.0).cloned().unwrap_or_default());
+            hits.push(hit);
         }
         for reference in episode_references {
             let episode = match reference {
@@ -384,6 +394,8 @@ fn episode_to_hit(
     reference: CognitiveRef,
 ) -> CognitiveHit {
     CognitiveHit {
+        authority_epoch: Some(episode.object.object_epoch),
+        preference_refs: Vec::new(),
         reference,
         revision: Some(CognitiveRef::EpisodeRevision(
             episode.revision.episode_revision_id,
@@ -400,6 +412,7 @@ fn episode_to_hit(
         ),
         authority: AuthorityClass::SubjectCognition,
         freshness: FreshnessDescriptor {
+            occurred: Vec::new(),
             observed_at: None,
             valid_time: TemporalExtent::Unknown,
             formed_at: Some(episode.revision.formed_at),

@@ -23,7 +23,7 @@ impl KernelService {
     pub(super) async fn query_with_material(
         &self,
         input: k::KernelQueryRequest,
-    ) -> Result<p::QueryResponse> {
+    ) -> Result<k::KernelQueryResponse> {
         if input.embeddings.len() > 64 {
             return Err(Error::Invalid("too many query embeddings".into()));
         }
@@ -56,8 +56,14 @@ impl KernelService {
                 },
             });
         }
-        nous_retrieval::with_query_material(materials, self.query(required(input.query, "query")?))
-            .await
+        nous_retrieval::with_query_material(
+            materials,
+            self.query(
+                required(input.query, "query")?,
+                input.validated_candidate_limit.map(|limit| limit as usize),
+            ),
+        )
+        .await
     }
 }
 #[tonic::async_trait]

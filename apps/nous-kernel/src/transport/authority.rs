@@ -611,11 +611,34 @@ impl k::authority_service_server::AuthorityService for KernelService {
     async fn query(
         &self,
         request: Request<k::KernelQueryRequest>,
+    ) -> std::result::Result<Response<k::KernelQueryResponse>, Status> {
+        Box::pin(KernelService::query_with_material(
+            self,
+            request.into_inner(),
+        ))
+        .await
+        .map(Response::new)
+        .map_err(status)
+    }
+    async fn finalize_query(
+        &self,
+        request: Request<k::FinalizeQueryRequest>,
     ) -> std::result::Result<Response<p::QueryResponse>, Status> {
-        KernelService::query_with_material(self, request.into_inner())
+        KernelService::finalize_query(self, request.into_inner())
             .await
             .map(Response::new)
             .map_err(status)
+    }
+    async fn release_query(
+        &self,
+        request: Request<k::ReleaseQueryRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        let input = request.into_inner();
+        let result: nous_core::Result<_> = self.0.cognition.release_query(
+            SubjectId(id(&input.subject_id).map_err(status)?),
+            id(&input.validation_ticket).map_err(status)?,
+        );
+        result.map(Response::new).map_err(status)
     }
     async fn report_use(
         &self,

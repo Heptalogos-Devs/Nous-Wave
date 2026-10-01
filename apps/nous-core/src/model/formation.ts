@@ -29,10 +29,13 @@ const proposalSchema = z.strictObject({
   request: z.unknown(),
   invocations: z.array(z.unknown()).max(1),
 });
-const outcomeSchema = z.strictObject({
-  revisionId: z.string(),
-  invocations: z.array(z.unknown()).max(1),
-});
+const outcomeSchema = z.union([
+  z.strictObject({ purged: z.literal(true) }),
+  z.strictObject({
+    revisionId: z.string(),
+    invocations: z.array(z.unknown()).max(1),
+  }),
+]);
 
 export async function formObservation(
   kernel: KernelClient,
@@ -40,11 +43,18 @@ export async function formObservation(
   r: FormationRequest,
   options: CallOptions,
 ) {
-  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(r.operationId))
+  if (
+    !z.string().uuid().safeParse(r.operationId).success ||
+    r.operationId === "00000000-0000-0000-0000-000000000000"
+  )
     throw new ConnectError(
       "Caller-stable operation_id is required",
       Code.InvalidArgument,
     );
+  r.operationId = r.operationId.toLowerCase();
+  r.subjectId = r.subjectId.toLowerCase();
+  r.occurrenceId = r.occurrenceId.toLowerCase();
+  if (r.representationId) r.representationId = r.representationId.toLowerCase();
   const mode = r.aboutnessMode || "select_from_resolved_mentions";
   if (
     !["explicit", "select_from_resolved_mentions", "none"].includes(mode) ||
@@ -73,6 +83,8 @@ export async function formObservation(
   };
   const replay = async (text: string) => {
     const outcome = outcomeSchema.parse(JSON.parse(text));
+    if ("purged" in outcome)
+      throw new ConnectError("Formation outcome was purged", Code.NotFound);
     const memory = await kernel.authority.getMemoryRevision(
       { subjectId: r.subjectId, id: outcome.revisionId },
       options,

@@ -151,7 +151,7 @@ fn empty_leaves(node: &CognitiveQueryExpr, output: &mut Vec<Option<CognitiveQuer
     }
 }
 
-fn combine(
+pub(super) fn combine(
     node: &CognitiveQueryExpr,
     results: &mut impl Iterator<Item = Vec<CognitiveHit>>,
 ) -> HashMap<CognitiveRef, CognitiveHit> {
@@ -192,12 +192,17 @@ fn allocation(total: usize, index: usize, branches: usize) -> usize {
 }
 
 impl CognitiveRuntimeService {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "tree execution keeps fixed allocation, leaf snapshots and diagnostic aggregation in one boundary"
+    )]
     pub(super) async fn query_tree(
         &self,
         bound: BoundQuery,
         contributors: CognitiveContributors<'_>,
         plan: QueryPlan,
-    ) -> Result<CognitiveQueryResult> {
+        output_limit: usize,
+    ) -> Result<super::QueryExecution> {
         let mut scopes = Vec::new();
         leaves(&bound.source_query.expression, None, &mut scopes);
         let count = scopes.len();
@@ -223,6 +228,7 @@ impl CognitiveRuntimeService {
             }),
         };
         let mut outputs = Vec::new();
+        let mut snapshots = Vec::new();
         for (index, scope) in scopes.into_iter().enumerate() {
             let validation_budget = allocation(plan.final_validation_budget, index, count);
             if validation_budget == 0 && scope.is_some() {
@@ -238,7 +244,7 @@ impl CognitiveRuntimeService {
             };
             let mut branch = bound.clone();
             branch.source_query.expression = scope;
-            branch.source_query.result_need.limit = validation_budget;
+            branch.source_query.expression.preferences.clear();
             branch.exact_bindings.retain(|binding| branch.source_query.expression.targets.iter().any(|target| matches!(target, QueryTarget::Exact { reference } if reference == &binding.requested_ref)));
             let local = planned_lanes(&branch.source_query);
             branch.lane_budgets = plan
@@ -273,8 +279,22 @@ impl CognitiveRuntimeService {
             branch_plan.expand_topology =
                 branch.enabled_lanes.contains(&EvidenceFamily::TopologyWave);
             let mut value = self
-                .query_atom_with_plan(branch, &contributors, branch_plan)
+                .query_atom_with_plan(
+                    branch.clone(),
+                    &contributors,
+                    branch_plan,
+                    validation_budget,
+                )
                 .await?;
+            snapshots.push(super::types::BoundLeaf {
+                ordinal: index,
+                bound: branch,
+                hits: value
+                    .results
+                    .iter()
+                    .map(super::types::CandidateStamp::from)
+                    .collect(),
+            });
             result.generation = value.generation;
             if value.status == QueryStatus::Partial {
                 result.status = QueryStatus::Partial;
@@ -303,20 +323,86 @@ impl CognitiveRuntimeService {
             }
             outputs.push(value.results);
         }
-        result.results = combine(&bound.source_query.expression, &mut outputs.into_iter())
-            .into_values()
-            .collect();
-        result.results.sort_by(|a, b| {
-            b.match_evidence
-                .final_score
-                .total_cmp(&a.match_evidence.final_score)
-                .then_with(|| a.reference.to_string().cmp(&b.reference.to_string()))
-        });
-        result
-            .results
-            .truncate(bound.source_query.result_need.limit);
-        Ok(result)
+        finalize(&bound, &mut result, outputs, output_limit);
+        Ok(super::QueryExecution {
+            bound,
+            result,
+            leaves: snapshots,
+        })
     }
+}
+
+fn finalize(
+    bound: &BoundQuery,
+    result: &mut CognitiveQueryResult,
+    outputs: Vec<Vec<CognitiveHit>>,
+    output_limit: usize,
+) {
+    let memberships = outputs
+        .iter()
+        .map(|hits| {
+            hits.iter()
+                .map(|hit| hit.reference.clone())
+                .collect::<std::collections::HashSet<_>>()
+        })
+        .collect::<Vec<_>>();
+    result.results = combine(&bound.source_query.expression, &mut outputs.into_iter())
+        .into_values()
+        .collect();
+    result.results.sort_by(|a, b| {
+        b.match_evidence
+            .base_rank_score
+            .total_cmp(&a.match_evidence.base_rank_score)
+            .then_with(|| a.reference.to_string().cmp(&b.reference.to_string()))
+    });
+    for (rank, hit) in result.results.iter_mut().enumerate() {
+        let mut preferences = Vec::new();
+        collect_preferences(
+            &bound.source_query.expression,
+            &hit.reference,
+            &memberships,
+            &mut 0,
+            &mut preferences,
+        );
+        hit.match_evidence.baseline_rank = (rank + 1) as u32;
+        hit.match_evidence.preference_score =
+            super::preferences::score(&preferences, hit, bound.bound_at);
+        hit.match_evidence.final_score =
+            hit.match_evidence.base_rank_score + hit.match_evidence.preference_score;
+    }
+    super::preferences::order(&mut result.results);
+    result.results.truncate(output_limit);
+}
+
+fn collect_preferences(
+    node: &CognitiveQueryExpr,
+    reference: &CognitiveRef,
+    memberships: &[std::collections::HashSet<CognitiveRef>],
+    leaf: &mut usize,
+    preferences: &mut Vec<QueryPreference>,
+) -> bool {
+    let mut local = Vec::new();
+    let matched = if node.operation == QueryOperation::Atom {
+        let matched = memberships[*leaf].contains(reference);
+        *leaf += 1;
+        matched
+    } else {
+        let values: Vec<_> = node
+            .children
+            .iter()
+            .map(|child| collect_preferences(child, reference, memberships, leaf, &mut local))
+            .collect();
+        if node.operation == QueryOperation::All {
+            values.into_iter().all(|value| value)
+        } else {
+            values.into_iter().any(|value| value)
+        }
+    };
+    if matched {
+        preferences.extend(node.preferences.clone());
+        preferences.extend(local);
+    }
+    matched
 }
 
 #[cfg(test)]

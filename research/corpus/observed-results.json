@@ -1,0 +1,75 @@
+{
+  "status": "NOT_RUN",
+  "scope": "Two model-rerank variants executed; baseline/Wave/combined and final acceptance pending",
+  "candidate_sha256": "1f01ba052f0c591ec14380a069954c7889f7ff0e2ab6e96be2210a6ec1f6013a",
+  "source_head": "de72e53a481fc3a6b98ce95cbb6503d6580b4859",
+  "source_dirty": true,
+  "sources": 6,
+  "units_per_track": 105,
+  "queries_per_variant": 40,
+  "protocols": [
+    "openai-chat",
+    "openai-embeddings",
+    "rerank-v1"
+  ],
+  "models": [
+    "doubao-seed-2.0-mini",
+    "doubao-embedding-vision",
+    "qwen3.7-text-rerank"
+  ],
+  "cost": "unknown",
+  "variants": [
+    {
+      "request_count": 80.0,
+      "authority_seq": "526",
+      "raw_result_sha256": "702b605e3f8c1618cb89a76f4dac76be5b3ebb91d47438dfd43b1e5572e6af9c",
+      "metrics": {
+        "formationCoverage": 1,
+        "recall1": 1,
+        "recall5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "conditionalRecall1": 1,
+        "conditionalRecall5": 1,
+        "conditionalRecall10": 1,
+        "provenancePrecision": 1,
+        "wrongSource": 0,
+        "wrongEntity": 0,
+        "staleLeakage": 0,
+        "emptyRate": 0,
+        "latencyP50Ms": 398.4849000000004,
+        "latencyP95Ms": 672.0191999999997
+      },
+      "variant": "model-rerank",
+      "status": "PASS",
+      "partial_queries": 40,
+      "track": "controlled"
+    },
+    {
+      "request_count": 40.0,
+      "authority_seq": "735",
+      "raw_result_sha256": "754ada29460cfffb48f6ef327b8a9e59317f7e658b7232a4629235aa35c6c1b8",
+      "metrics": {
+        "formationCoverage": 1,
+        "recall1": 1,
+        "recall5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "conditionalRecall1": 1,
+        "conditionalRecall5": 1,
+        "conditionalRecall10": 1,
+        "provenancePrecision": 1,
+        "wrongSource": 0,
+        "wrongEntity": 0,
+        "staleLeakage": 0,
+        "emptyRate": 0,
+        "latencyP50Ms": 147.6889999999994,
+        "latencyP95Ms": 190.6825000000008
+      },
+      "variant": "model-rerank",
+      "status": "PASS",
+      "partial_queries": 40,
+      "track": "end-to-end"
+    }
+  ]
+}

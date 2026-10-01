@@ -51,10 +51,45 @@ impl CognitiveRuntimeService {
         contributors: CognitiveContributors<'_>,
         plan: QueryPlan,
     ) -> Result<CognitiveQueryResult> {
-        if bound.source_query.expression.operation != QueryOperation::Atom {
-            return self.query_tree(bound, contributors, plan).await;
+        Ok(self
+            .execute_query_with_plan(bound, contributors, plan, None)
+            .await?
+            .result)
+    }
+
+    pub async fn execute_query_with_plan(
+        &self,
+        bound: BoundQuery,
+        contributors: CognitiveContributors<'_>,
+        plan: QueryPlan,
+        validated_pool_limit: Option<usize>,
+    ) -> Result<super::QueryExecution> {
+        if validated_pool_limit.is_some_and(|limit| limit == 0 || limit > 64) {
+            return Err(Error::Invalid("validated pool limit must be 1..64".into()));
         }
-        self.query_atom_with_plan(bound, &contributors, plan).await
+        let output_limit = validated_pool_limit.unwrap_or(bound.source_query.result_need.limit);
+        if bound.source_query.expression.operation != QueryOperation::Atom {
+            return self
+                .query_tree(bound, contributors, plan, output_limit)
+                .await;
+        }
+        let result = self
+            .query_atom_with_plan(bound.clone(), &contributors, plan, output_limit)
+            .await?;
+        let leaves = vec![super::types::BoundLeaf {
+            ordinal: 0,
+            bound: bound.clone(),
+            hits: result
+                .results
+                .iter()
+                .map(super::types::CandidateStamp::from)
+                .collect(),
+        }];
+        Ok(super::QueryExecution {
+            bound,
+            leaves,
+            result,
+        })
     }
 
     #[expect(
@@ -66,6 +101,7 @@ impl CognitiveRuntimeService {
         bound: BoundQuery,
         contributors: &CognitiveContributors<'_>,
         plan: QueryPlan,
+        output_limit: usize,
     ) -> Result<CognitiveQueryResult> {
         let query = &bound.source_query;
         let mut result = CognitiveQueryResult {
@@ -274,6 +310,10 @@ impl CognitiveRuntimeService {
         for candidate in ranked.into_iter().take(validation_bound) {
             if let Some(mut hit) = materialized.remove(&candidate.reference) {
                 hit.match_evidence = MatchEvidence {
+                    preference_score: 0.0,
+                    rerank_score: None,
+                    baseline_rank: 0,
+                    final_rank: 0,
                     families: candidate.families.clone(),
                     base_rank_score: candidate.baseline_score,
                     best_lane_rank: candidate.best_lane_rank as u32,
@@ -288,7 +328,12 @@ impl CognitiveRuntimeService {
         let (actions, degradation) = self.resource_actions_for_query(query, &plan).await?;
         result.resource_actions = actions;
         result.degradation.extend(degradation);
-        result.results.truncate(query.result_need.limit);
+        super::preferences::apply(
+            &mut result.results,
+            &query.expression.preferences,
+            bound.bound_at,
+        );
+        result.results.truncate(output_limit);
         if !result.degradation.is_empty() && result.status != QueryStatus::Partial {
             result.status = if result
                 .degradation
@@ -408,6 +453,8 @@ fn reference_hit(
         _ => AuthorityClass::Evidence,
     };
     CognitiveHit {
+        authority_epoch: None,
+        preference_refs: Vec::new(),
         reference: reference.clone(),
         revision: None,
         semantic_role: Some("reference".into()),
@@ -416,6 +463,7 @@ fn reference_hit(
         representation: None,
         authority,
         freshness: FreshnessDescriptor {
+            occurred: Vec::new(),
             observed_at: None,
             valid_time: TemporalExtent::Unknown,
             formed_at: None,
@@ -431,6 +479,10 @@ fn reference_hit(
             Vec::new()
         },
         match_evidence: MatchEvidence {
+            preference_score: 0.0,
+            rerank_score: None,
+            baseline_rank: 0,
+            final_rank: 0,
             families: vec![family],
             base_rank_score: 1.0,
             best_lane_rank: 1,

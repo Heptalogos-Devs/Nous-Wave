@@ -7,6 +7,7 @@ import {
 import type {
   QueryExpr,
   QueryRequest,
+  QueryResponse,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import { ModelRuntime } from "./runtime.js";
@@ -100,10 +101,109 @@ export class ModelMaterialPipeline {
           error instanceof Error ? error.message : "Embedding unavailable";
       }
     }
-    const result = await this.kernel.authority.query(
-      { query: input, embeddings: material },
+    const intent = input.expression ? positiveIntent(input.expression) : "";
+    const profile = this.models.invocations.profile("query_rerank");
+    if (
+      intent &&
+      !profile &&
+      this.models.invocations.requirement("query_rerank") === "required"
+    )
+      throw new ConnectError(
+        "Required query rerank role unavailable",
+        Code.FailedPrecondition,
+      );
+    const prepared = await this.kernel.authority.query(
+      {
+        query: input,
+        embeddings: material,
+        validatedCandidateLimit: intent && profile ? 64 : undefined,
+      },
       options,
     );
+    if (!prepared.response)
+      throw new ConnectError("Kernel query response missing", Code.Internal);
+    let result = prepared.response;
+    const ticket = prepared.validationTicket;
+    if (ticket) {
+      const candidates = result.hits
+        .filter((hit) => hit.text?.trim())
+        .slice(0, 64);
+      let order: {
+        reference: NonNullable<(typeof candidates)[number]["reference"]>;
+        score: number;
+      }[] = [];
+      let status = "NOT_RUN",
+        reason = "fewer_than_two_textual_candidates",
+        providerResults = 0;
+      try {
+        if (candidates.length >= 2) {
+          try {
+            const ranking = await this.models.invocations.rerank(
+              intent,
+              candidates.map((hit) => hit.text!),
+              candidates.length,
+              options.signal ?? undefined,
+            );
+            invocations.push(invocationSummary(ranking.evidence));
+            order = ranking.value.map((item) => {
+              const reference = candidates[item.index]!.reference;
+              if (!reference)
+                throw new ConnectError(
+                  "Kernel candidate reference missing",
+                  Code.Internal,
+                );
+              return { reference, score: item.relevance_score };
+            });
+            status = "PASS";
+            reason = "";
+            providerResults = order.length;
+          } catch (error) {
+            if (options.signal?.aborted) throw error;
+            if (
+              this.models.invocations.requirement("query_rerank") === "required"
+            )
+              throw new ConnectError(
+                "Required rerank invocation unavailable",
+                Code.FailedPrecondition,
+              );
+            status = "FAIL";
+            reason = "validated_baseline_fallback";
+          }
+        }
+        result = await this.kernel.authority.finalizeQuery(
+          { subjectId: input.subjectId, validationTicket: ticket, order },
+          options,
+        );
+        result.rerank = {
+          $typeName: "nous.wave.v1alpha1.RerankMechanismSummary",
+          mechanism: "model-order-with-baseline-tail-v1",
+          status,
+          reason,
+          candidateCount: candidates.length,
+          providerResults,
+          protocol: profile?.protocol ?? "",
+          model: profile?.model ?? "",
+        };
+        if (status === "FAIL") {
+          result.degradation.push({
+            $typeName: "nous.wave.v1alpha1.Degradation",
+            code: "query_rerank_unavailable",
+            detail: "Validated baseline retained after model rerank failure",
+          });
+          if (result.status === "complete") result.status = "degraded";
+        }
+      } finally {
+        await this.kernel.authority
+          .releaseQuery(
+            { subjectId: input.subjectId, validationTicket: ticket },
+            { timeoutMs: 5000 },
+          )
+          .catch(() => {});
+      }
+    } else
+      result.rerank = skippedRerank(
+        intent ? "role_not_configured" : "no_positive_textual_intent",
+      );
     result.invocations.push(
       ...invocations.map((summary) => ({
         $typeName: "nous.wave.v1alpha1.ModelInvocationSummary" as const,
@@ -132,9 +232,12 @@ export class ModelMaterialPipeline {
       );
     let committed = 0;
     const invocations: ReturnType<typeof invocationSummary>[] = [];
-    for (let offset = 0; offset < needs.needs.length; offset += 64) {
+    const batchSize =
+      this.models.invocations.profile("query_embedding")?.embedding
+        ?.max_batch_size ?? 64;
+    for (let offset = 0; offset < needs.needs.length; offset += batchSize) {
       try {
-        const batch = needs.needs.slice(offset, offset + 64);
+        const batch = needs.needs.slice(offset, offset + batchSize);
         const vectors = await this.models.invocations.embeddingBatch(
           batch.map((need) => need.text),
           needs.config.model,
@@ -176,4 +279,31 @@ export class ModelMaterialPipeline {
     }
     return { committed, degradation: [], invocations };
   }
+}
+
+function positiveIntent(node: QueryExpr): string {
+  const own = node.cues
+    .map((cue) =>
+      cue.cue.case === "text" || cue.cue.case === "concept"
+        ? cue.cue.value.trim()
+        : "",
+    )
+    .filter(Boolean)
+    .join(" ");
+  if (node.operation === "atom") return own;
+  const children = node.children.map(positiveIntent).filter(Boolean);
+  if (!children.length) return "";
+  return `${node.operation === "all" ? "ALL OF" : "ANY OF"}: ${children.map((text) => `(${text})`).join("; ")}`;
+}
+function skippedRerank(reason: string): NonNullable<QueryResponse["rerank"]> {
+  return {
+    $typeName: "nous.wave.v1alpha1.RerankMechanismSummary",
+    mechanism: "model-order-with-baseline-tail-v1",
+    status: "NOT_RUN",
+    reason,
+    candidateCount: 0,
+    providerResults: 0,
+    protocol: "",
+    model: "",
+  };
 }

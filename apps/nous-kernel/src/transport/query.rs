@@ -2,49 +2,103 @@ use super::*;
 use nous_core::*;
 
 impl KernelService {
-    pub(super) async fn query(&self, input: p::QueryRequest) -> Result<p::QueryResponse> {
-        let query = compile_query(input)?;
-        let result = self.0.query(query).await?;
-        Ok(p::QueryResponse {
-            query_id: result.query_id.to_string(),
-            status: enum_name(result.status),
-            hits: result
-                .results
-                .into_iter()
-                .enumerate()
-                .map(|(rank, value)| hit(value, rank + 1))
-                .collect(),
-            resource_actions: result
-                .resource_actions
-                .into_iter()
-                .map(|value| p::ResourceAction {
-                    resource_ref: value.resource.as_str().into(),
-                    action: value.action,
-                    reason: value.reason,
-                    current_authority: value.current_authority,
-                })
-                .collect(),
-            degradation: result
-                .degradation
-                .into_iter()
-                .map(|value| p::Degradation {
-                    code: value.code,
-                    detail: value.detail.unwrap_or_default(),
-                })
-                .collect(),
-            bound_query: None,
-            diagnostics: result.diagnostics.map(|value| p::QueryDiagnostics {
-                candidate_counts: value
-                    .candidate_counts
-                    .into_iter()
-                    .map(|(key, value)| (key, value as u64))
-                    .collect(),
-                lane_status: value.lane_status.into_iter().collect(),
-                topology_complete: value.topology_complete,
-                topology_discarded_mass: value.topology_discarded_mass,
-            }),
-            invocations: Vec::new(),
+    pub(super) async fn query(
+        &self,
+        input: p::QueryRequest,
+        pool_limit: Option<usize>,
+    ) -> Result<k::KernelQueryResponse> {
+        let execution = self
+            .0
+            .execute_query(compile_query(input)?, pool_limit)
+            .await?;
+        let (result, ticket) = if pool_limit.is_some() {
+            let (result, ticket) = self.0.cognition.retain_query(execution)?;
+            (result, Some(ticket.to_string()))
+        } else {
+            (execution.result, None)
+        };
+        Ok(k::KernelQueryResponse {
+            response: Some(query_response(result)),
+            validation_ticket: ticket,
         })
+    }
+    pub(super) async fn finalize_query(
+        &self,
+        input: k::FinalizeQueryRequest,
+    ) -> Result<p::QueryResponse> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        let order = input
+            .order
+            .into_iter()
+            .map(|item| {
+                Ok((
+                    from_ref(required(item.reference, "reference")?)?,
+                    item.score,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let result = self
+            .0
+            .cognition
+            .finalize_query(
+                subject,
+                id(&input.validation_ticket)?,
+                order,
+                nous_runtime::CognitiveContributors {
+                    shared: None,
+                    memory: self
+                        .0
+                        .memory
+                        .as_ref()
+                        .map(|owner| owner as &dyn nous_runtime::CognitiveContributor),
+                },
+            )
+            .await?;
+        Ok(query_response(result))
+    }
+}
+
+fn query_response(result: CognitiveQueryResult) -> p::QueryResponse {
+    p::QueryResponse {
+        query_id: result.query_id.to_string(),
+        status: enum_name(result.status),
+        hits: result
+            .results
+            .into_iter()
+            .enumerate()
+            .map(|(rank, value)| hit(value, rank + 1))
+            .collect(),
+        resource_actions: result
+            .resource_actions
+            .into_iter()
+            .map(|value| p::ResourceAction {
+                resource_ref: value.resource.as_str().into(),
+                action: value.action,
+                reason: value.reason,
+                current_authority: value.current_authority,
+            })
+            .collect(),
+        degradation: result
+            .degradation
+            .into_iter()
+            .map(|value| p::Degradation {
+                code: value.code,
+                detail: value.detail.unwrap_or_default(),
+            })
+            .collect(),
+        bound_query: None,
+        diagnostics: result.diagnostics.map(|value| p::QueryDiagnostics {
+            candidate_counts: value
+                .candidate_counts
+                .into_iter()
+                .map(|(key, value)| (key, value as u64))
+                .collect(),
+            lane_status: value.lane_status.into_iter().collect(),
+            topology_complete: value.topology_complete,
+            topology_discarded_mass: value.topology_discarded_mass,
+        }),
+        invocations: Vec::new(),
+        rerank: None,
     }
 }
 
@@ -114,6 +168,39 @@ fn compile_expression(
     }
     for cue in expression.cues {
         append_cue(&mut node, cue)?;
+    }
+    for preference in modifiers.preferences {
+        let operand = if let Some(cue) = preference.cue {
+            if !preference.key.is_empty() {
+                return Err(Error::Invalid("preference must have one operand".into()));
+            }
+            let mut value = CognitiveQueryExpr::default();
+            append_cue(&mut value, cue)?;
+            if let Some(cue) = value.cues.pop() {
+                PreferenceOperand::Cue(cue)
+            } else if let Some(QueryTarget::Exact { reference }) = value.targets.pop() {
+                PreferenceOperand::Exact(reference)
+            } else {
+                return Err(Error::Invalid("empty preference cue".into()));
+            }
+        } else {
+            PreferenceOperand::Recent(match preference.key.as_str() {
+                "recent:occurred" => TimeAxis::Occurred,
+                "recent:observed" => TimeAxis::Observed,
+                "recent:valid" => TimeAxis::Valid,
+                "recent:formed" => TimeAxis::Formed,
+                "recent:recorded" => TimeAxis::Recorded,
+                _ => {
+                    return Err(Error::Invalid(
+                        "recent requires an explicit time axis".into(),
+                    ));
+                }
+            })
+        };
+        node.preferences.push(QueryPreference {
+            negative: preference.negative,
+            operand,
+        });
     }
     if let Some(constraints) = modifiers.constraints {
         node.constraints = constraints_from_proto(constraints)?;
@@ -241,10 +328,10 @@ fn hit(value: CognitiveHit, rank: usize) -> p::Hit {
             .map(|v| timestamp(v).seconds.to_string()),
         score: Some(p::HitScore {
             baseline: value.match_evidence.base_rank_score,
-            preference: 0.0,
-            rerank: None,
+            preference: value.match_evidence.preference_score,
+            rerank: value.match_evidence.rerank_score,
             r#final: value.match_evidence.final_score,
-            baseline_rank: rank as u32,
+            baseline_rank: value.match_evidence.baseline_rank,
             final_rank: rank as u32,
             best_lane_rank: value.match_evidence.best_lane_rank,
             variants: value.match_evidence.variants,

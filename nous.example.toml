@@ -54,6 +54,7 @@ model = "" # 选择实际 embedding endpoint 的模型，不能用聊天模型�
 capabilities = ["embedding"]
 
 [model_profiles.embedding.embedding]
+max_batch_size = 64 # 每个真实 HTTP 请求 1–64 条；网关不接受数组批量时设为 1。失败不自动改单条重试。
 dimension = 1 # 占位值，必须改为实际维度；不会从第一条 vector 偷偷学习维度。
 weights_revision = "REPLACE_WEIGHTS_REVISION" # 必填；声明所选权重/版本，形成向量空间身份。
 task = "retrieval"                         # 必填；所选模型的实际任务语义。

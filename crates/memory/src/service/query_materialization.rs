@@ -37,6 +37,14 @@ pub(super) fn to_hit(
     reference: CognitiveRef,
 ) -> CognitiveHit {
     CognitiveHit {
+        authority_epoch: Some(candidate.view.object.object_epoch),
+        preference_refs: candidate
+            .view
+            .tags
+            .iter()
+            .copied()
+            .map(CognitiveRef::Tag)
+            .collect(),
         reference,
         revision: Some(CognitiveRef::MemoryRevision(
             candidate.view.revision.memory_revision_id,
@@ -47,6 +55,7 @@ pub(super) fn to_hit(
         representation: Some(candidate.view.revision.representation_text.clone()),
         authority: AuthorityClass::SubjectCognition,
         freshness: FreshnessDescriptor {
+            occurred: candidate.view.temporal_evidence.occurred.clone(),
             observed_at: candidate.view.temporal_evidence.observed_at,
             valid_time: candidate.view.revision.valid_time.clone(),
             formed_at: Some(candidate.view.revision.formed_at),

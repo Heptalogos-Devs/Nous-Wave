@@ -10,6 +10,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct BoundQuery {
     pub query_id: Uuid,
+    pub bound_at: chrono::DateTime<chrono::Utc>,
     pub source_query: CognitiveQuery,
     pub bound_at_authority_seq: i64,
     pub revision_policy: RevisionPolicy,
@@ -22,7 +23,6 @@ pub struct BoundQuery {
     pub selected_embedding_space: Option<EmbeddingSpaceSignature>,
     pub topology_required: bool,
     pub fusion_version: String,
-    pub rerank_policy: RerankPolicy,
     pub config_snapshot: nous_configuration::ConfigSnapshot,
     pub retrieval_policy: super::RetrievalPolicy,
 }
@@ -60,11 +60,32 @@ pub struct AccessibilityQueryPolicy {
     pub exact_target_bypasses_auto_level: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct RerankPolicy {
-    pub strength: RequirementStrength,
-    pub enabled: bool,
-    pub top_n: usize,
+#[derive(Debug, Clone)]
+pub struct QueryExecution {
+    pub result: CognitiveQueryResult,
+    pub bound: BoundQuery,
+    pub(super) leaves: Vec<BoundLeaf>,
+}
+#[derive(Debug, Clone)]
+pub(super) struct BoundLeaf {
+    pub ordinal: usize,
+    pub bound: BoundQuery,
+    pub hits: Vec<CandidateStamp>,
+}
+#[derive(Debug, Clone)]
+pub(super) struct CandidateStamp {
+    pub reference: CognitiveRef,
+    pub revision: Option<CognitiveRef>,
+    pub authority_epoch: Option<i64>,
+}
+impl From<&CognitiveHit> for CandidateStamp {
+    fn from(hit: &CognitiveHit) -> Self {
+        Self {
+            reference: hit.reference.clone(),
+            revision: hit.revision.clone(),
+            authority_epoch: hit.authority_epoch,
+        }
+    }
 }
 
 impl BoundQuery {

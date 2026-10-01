@@ -28,6 +28,38 @@ pub struct KernelQueryRequest {
     pub query: ::core::option::Option<super::super::v1alpha1::QueryRequest>,
     #[prost(message, repeated, tag="2")]
     pub embeddings: ::prost::alloc::vec::Vec<QueryEmbedding>,
+    #[prost(uint32, optional, tag="3")]
+    pub validated_candidate_limit: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct KernelQueryResponse {
+    #[prost(message, optional, tag="1")]
+    pub response: ::core::option::Option<super::super::v1alpha1::QueryResponse>,
+    #[prost(string, optional, tag="2")]
+    pub validation_ticket: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RerankCandidate {
+    #[prost(message, optional, tag="1")]
+    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
+    #[prost(double, tag="2")]
+    pub score: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FinalizeQueryRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub validation_ticket: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="3")]
+    pub order: ::prost::alloc::vec::Vec<RerankCandidate>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReleaseQueryRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub validation_ticket: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingNeedsRequest {

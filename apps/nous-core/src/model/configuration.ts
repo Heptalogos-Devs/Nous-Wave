@@ -45,6 +45,7 @@ const gatewaySchema = z.strictObject({
 });
 const embeddingSchema = z.strictObject({
   dimension: z.number().int().min(1).max(8192),
+  max_batch_size: z.number().int().min(1).max(64).default(64),
   weights_revision: nonempty,
   task: nonempty,
   input_representation: nonempty,

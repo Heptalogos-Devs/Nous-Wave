@@ -177,8 +177,6 @@ pub struct CapabilityPolicy {
     #[serde(default)]
     pub text_embedding: RequirementStrength,
     #[serde(default)]
-    pub text_rerank: RequirementStrength,
-    #[serde(default)]
     pub multimodal_interpretation: RequirementStrength,
     #[serde(default)]
     pub residual_sensing: RequirementStrength,
@@ -188,7 +186,6 @@ impl Default for CapabilityPolicy {
     fn default() -> Self {
         Self {
             text_embedding: RequirementStrength::Optional,
-            text_rerank: RequirementStrength::Optional,
             multimodal_interpretation: RequirementStrength::Optional,
             residual_sensing: RequirementStrength::Optional,
         }
@@ -215,6 +212,8 @@ pub struct CognitiveQueryExpr {
     pub constraints: QueryConstraints,
     #[serde(default)]
     pub children: Vec<CognitiveQueryExpr>,
+    #[serde(default)]
+    pub preferences: Vec<QueryPreference>,
 }
 
 impl Default for CognitiveQueryExpr {
@@ -225,8 +224,29 @@ impl Default for CognitiveQueryExpr {
             cues: Vec::new(),
             constraints: QueryConstraints::default(),
             children: Vec::new(),
+            preferences: Vec::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryPreference {
+    pub negative: bool,
+    pub operand: PreferenceOperand,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PreferenceOperand {
+    Cue(Cue),
+    Exact(CognitiveRef),
+    Recent(TimeAxis),
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum TimeAxis {
+    Occurred,
+    Observed,
+    Valid,
+    Formed,
+    Recorded,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -286,7 +306,12 @@ impl CognitiveQuery {
         let mut count = 0;
         while let Some((node, depth)) = nodes.pop() {
             count += 1;
-            if count > 64 || depth > 16 || node.cues.len() > 256 || node.targets.len() > 128 {
+            if count > 64
+                || depth > 16
+                || node.cues.len() > 256
+                || node.targets.len() > 128
+                || node.preferences.len() > 16
+            {
                 return Err(Error::Invalid(
                     "query tree/cue/target bound exceeded".into(),
                 ));
@@ -366,6 +391,10 @@ pub struct MatchEvidence {
     #[serde(default)]
     pub families: Vec<EvidenceFamily>,
     pub base_rank_score: f64,
+    pub preference_score: f64,
+    pub rerank_score: Option<f64>,
+    pub baseline_rank: u32,
+    pub final_rank: u32,
     pub best_lane_rank: u32,
     pub enabled_lane_count: u32,
     pub final_score: f64,
@@ -376,6 +405,9 @@ pub struct MatchEvidence {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveHit {
+    pub authority_epoch: Option<i64>,
+    #[serde(default)]
+    pub preference_refs: Vec<CognitiveRef>,
     pub reference: CognitiveRef,
     pub revision: Option<CognitiveRef>,
     pub semantic_role: Option<String>,

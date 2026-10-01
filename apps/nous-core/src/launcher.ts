@@ -113,12 +113,21 @@ async function main() {
       locations.instance,
       ...forwarded,
     );
+  if (serve && !nodeArgs.includes("--stop-on-stdin-close"))
+    nodeArgs.push("--stop-on-stdin-close");
   const child = spawn(process.execPath, nodeArgs, {
-    stdio: "inherit",
+    stdio: serve ? ["pipe", "inherit", "inherit"] : "inherit",
     windowsHide: true,
   });
   for (const signal of ["SIGINT", "SIGTERM"] as const)
-    process.once(signal, () => child.kill(signal));
+    process.once(signal, () => {
+      if (serve) child.stdin?.end();
+      else child.kill(signal);
+    });
+  if (serve && forwarded.includes("--stop-on-stdin-close")) {
+    process.stdin.once("end", () => child.stdin?.end());
+    process.stdin.resume();
+  }
   child.once("error", (error) => {
     console.error(error.message);
     process.exitCode = 1;

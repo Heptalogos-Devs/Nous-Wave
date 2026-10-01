@@ -79,7 +79,9 @@ service AuthorityService {
   rpc ListSessions(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListSessionsResponse);
   rpc CloseSession(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Session);
   rpc RecordObservation(nous.wave.v1alpha1.ObservationInput) returns (nous.wave.v1alpha1.AcceptedObservation);
-  rpc Query(KernelQueryRequest) returns (nous.wave.v1alpha1.QueryResponse);
+  rpc Query(KernelQueryRequest) returns (KernelQueryResponse);
+  rpc FinalizeQuery(FinalizeQueryRequest) returns (nous.wave.v1alpha1.QueryResponse);
+  rpc ReleaseQuery(ReleaseQueryRequest) returns (google.protobuf.Empty);
   rpc ReportUse(nous.wave.v1alpha1.ReportUseRequest) returns (nous.wave.v1alpha1.ReportUseResponse);
   rpc GetMemory(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Memory);
   rpc ListMemories(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListMemoriesResponse);

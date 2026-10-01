@@ -38,6 +38,7 @@ fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {
         situation: Default::default(),
         expression: CognitiveQueryExpr {
             operation: QueryOperation::Atom,
+            preferences: Vec::new(),
             children: Vec::new(),
             targets: vec![QueryTarget::AnyRelevantCognition],
             cues: vec![Cue::Text(TextCue {
@@ -191,6 +192,7 @@ async fn diagnostic_oracle_reports_suppressed_exact_drop() {
             situation: Default::default(),
             expression: CognitiveQueryExpr {
                 operation: QueryOperation::Atom,
+                preferences: Vec::new(),
                 children: Vec::new(),
                 targets: vec![QueryTarget::Exact {
                     reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),

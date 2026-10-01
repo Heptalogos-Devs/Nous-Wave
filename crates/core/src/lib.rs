@@ -483,6 +483,8 @@ impl TimeInterval {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FreshnessDescriptor {
+    #[serde(default)]
+    pub occurred: Vec<TemporalExtent>,
     pub observed_at: Option<DateTime<Utc>>,
     pub valid_time: TemporalExtent,
     pub formed_at: Option<DateTime<Utc>>,

@@ -459,6 +459,23 @@ pub struct HitScore {
     #[prost(string, repeated, tag="8")]
     pub variants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RerankMechanismSummary {
+    #[prost(string, tag="1")]
+    pub mechanism: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(uint32, tag="4")]
+    pub candidate_count: u32,
+    #[prost(uint32, tag="5")]
+    pub provider_results: u32,
+    #[prost(string, tag="6")]
+    pub protocol: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub model: ::prost::alloc::string::String,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResponse {
     #[prost(string, tag="1")]
@@ -477,6 +494,8 @@ pub struct QueryResponse {
     pub diagnostics: ::core::option::Option<QueryDiagnostics>,
     #[prost(message, repeated, tag="8")]
     pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
+    #[prost(message, optional, tag="9")]
+    pub rerank: ::core::option::Option<RerankMechanismSummary>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReportUseRequest {

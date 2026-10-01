@@ -17,7 +17,6 @@ pub mod model_material_service_server {
             &self,
             request: tonic::Request<super::FindWorkflowRequest>,
         ) -> std::result::Result<tonic::Response<super::FoundWorkflow>, tonic::Status>;
-        ///
         async fn get_resolved_mentions(
             &self,
             request: tonic::Request<super::ResolvedMentionsRequest>,
@@ -25,7 +24,6 @@ pub mod model_material_service_server {
             tonic::Response<super::ResolvedMentionsResponse>,
             tonic::Status,
         >;
-        ///
         async fn reserve_workflow(
             &self,
             request: tonic::Request<super::ReserveWorkflowRequest>,
@@ -33,22 +31,18 @@ pub mod model_material_service_server {
             tonic::Response<super::WorkflowReservation>,
             tonic::Status,
         >;
-        ///
         async fn save_workflow(
             &self,
             request: tonic::Request<super::SaveWorkflowRequest>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
-        ///
         async fn release_workflow(
             &self,
             request: tonic::Request<super::ReleaseWorkflowRequest>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
-        ///
         async fn get_embedding_config(
             &self,
             request: tonic::Request<()>,
         ) -> std::result::Result<tonic::Response<super::EmbeddingConfig>, tonic::Status>;
-        ///
         async fn list_embedding_needs(
             &self,
             request: tonic::Request<super::EmbeddingNeedsRequest>,
@@ -1419,9 +1413,22 @@ pub mod authority_service_server {
             &self,
             request: tonic::Request<super::KernelQueryRequest>,
         ) -> std::result::Result<
+            tonic::Response<super::KernelQueryResponse>,
+            tonic::Status,
+        >;
+        ///
+        async fn finalize_query(
+            &self,
+            request: tonic::Request<super::FinalizeQueryRequest>,
+        ) -> std::result::Result<
             tonic::Response<super::super::super::v1alpha1::QueryResponse>,
             tonic::Status,
         >;
+        ///
+        async fn release_query(
+            &self,
+            request: tonic::Request<super::ReleaseQueryRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
         ///
         async fn report_use(
             &self,
@@ -4694,7 +4701,7 @@ pub mod authority_service_server {
                         T: AuthorityService,
                     > tonic::server::UnaryService<super::KernelQueryRequest>
                     for QuerySvc<T> {
-                        type Response = super::super::super::v1alpha1::QueryResponse;
+                        type Response = super::KernelQueryResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
@@ -4717,6 +4724,98 @@ pub mod authority_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = QuerySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.kernel.v1alpha1.AuthorityService/FinalizeQuery" => {
+                    #[allow(non_camel_case_types)]
+                    struct FinalizeQuerySvc<T: AuthorityService>(pub Arc<T>);
+                    impl<
+                        T: AuthorityService,
+                    > tonic::server::UnaryService<super::FinalizeQueryRequest>
+                    for FinalizeQuerySvc<T> {
+                        type Response = super::super::super::v1alpha1::QueryResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::FinalizeQueryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AuthorityService>::finalize_query(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = FinalizeQuerySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.kernel.v1alpha1.AuthorityService/ReleaseQuery" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReleaseQuerySvc<T: AuthorityService>(pub Arc<T>);
+                    impl<
+                        T: AuthorityService,
+                    > tonic::server::UnaryService<super::ReleaseQueryRequest>
+                    for ReleaseQuerySvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReleaseQueryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AuthorityService>::release_query(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReleaseQuerySvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
