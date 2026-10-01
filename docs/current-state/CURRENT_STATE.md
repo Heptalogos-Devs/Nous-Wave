@@ -12,7 +12,7 @@
 | Public Query/Serving recall | PASS | public qualification path |
 | Two-session Runtime isolation | PASS | public qualification path; focused `runtime_residency` remains current regression |
 | UseEvent idempotency | PASS | public qualification path; focused query/runtime regressions |
-| Process restart and same Authority revision | PASS | public qualification path; `process_restart` focused test |
+| Process restart and same Authority revision | PASS | official Client Memory Reference、Cognitive Runtime/Episode 与精确便携 ZIP 的重启证明 |
 | Suppression/restore | PASS | public qualification path |
 | Purge and shared source retention | PASS | public qualification path; `purge_shared` focused test |
 | Provenance trace-back | PASS | public qualification path |
