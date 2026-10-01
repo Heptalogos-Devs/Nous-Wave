@@ -44,6 +44,8 @@ Memory revision 与 producer registry 同事务提交，批量 read 携带 produ
 
 Runtime 持有 QueryPlan、lane budgets、object-revision aggregation、fixed RRF 和 final result ordering。Retrieval 通过 Runtime-owned contract 提供 serving candidates，不被 Runtime 作为具体实现依赖。
 
+Core `query/orchestrator.ts` 统一 query embedding、model rerank 和 External Resource host actions，沿 Kernel 同一 immutable ticket finalize/release。`resources/` 持有 provider-neutral adapter 与有界网络编排；optional RAGFlow adapter 只对接用户已有 API，不承担外部安装、模型配置或生命周期。Kernel 保存 Resource descriptor、冻结 action 与限额、校验结果 identity 和 descriptor drift；公开 resource_records 保持 External Material 身份。official Client 显式选用结果时，Core materialize 后通过 Material owner 创建 Artifact/SourceRegion/Observation；同 operation replay 复用结果，不增加 provider request。普通本地材料继续由 Nous Material 与原生 Tantivy/USearch Serving 负责；独立 Material Corpus 施工尚未授权。
+
 ## 当前边界
 
 当前 executable scope 是 Memory-only Reference Profile、WorkContext continuity 和 Episode foundation。Self、Social、Motivation、Desired Condition、Journal、Offline Cognition 和 Heptalogos live integration 由 Vault 保留长期目标语义，但不在本 checkout 提供 owner、protocol 或 public capability claim。

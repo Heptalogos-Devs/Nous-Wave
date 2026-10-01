@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalDigest } from "../prompts.js";
+import { canonicalDigest } from "../../digest.js";
 import {
   materialInterpretationSchema,
   materialInterpretationSchemaDigest,

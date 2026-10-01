@@ -212,6 +212,7 @@ impl CognitiveRuntimeService {
             status: QueryStatus::Complete,
             results: Vec::new(),
             resource_actions: Vec::new(),
+            resource_records: Vec::new(),
             degradation: Vec::new(),
             diagnostics: Some(QueryDiagnostics {
                 candidate_counts: BTreeMap::from([
@@ -265,7 +266,7 @@ impl CognitiveRuntimeService {
                 .into_iter()
                 .filter(|lane| branch.lane_budget(*lane) > 0)
                 .collect();
-            if branch.enabled_lanes.is_empty() {
+            if branch.enabled_lanes.is_empty() && !branch.source_query.requests_resources() {
                 outputs.push(Vec::new());
                 continue;
             }

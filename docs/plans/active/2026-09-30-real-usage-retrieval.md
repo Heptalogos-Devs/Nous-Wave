@@ -30,6 +30,8 @@ PRE_PRODUCTION 直接替换 current producer/consumer 和 fresh schema，不留�
 
 2026-10-01 新执行包收敛当前分支：canonical Zod structured schema、schema digest、structured payload、DerivedRegion 字段支持链、provider-neutral Resource/RAGFlow、同一 Query ticket continuation，以及唯一 `just acceptance`。普通 runtime 移出研究调用次数硬限制；研究运行仍显式计数。本文旧硬预算措辞只适用于 research/qualification。现有 Draft PR #5 持有执行 checklist。
 
+2026-10-01 追加修正：RAGFlow 降为 optional external-provider proof。保留通用 Resource/StableExternalRef/continuation/selected materialization 与 adapter；不安装、不自动配置、不管理外部 RAGFlow，不将其纳入 default runtime/acceptance。用户未提供实例与 dataset，live RAGFlow 为 BLOCKED。Material-owned corpus 复用 Nous 原生 Material/Serving 的方向保留给下一独立研究；本分支不新增 MaterialCollection 或 Native Material Corpus。
+
 - [ ] 完成 richer structured schema → strict provider request → local semantic validation → payload/projection → stable field support refs。
 - [ ] 完成 External Resource descriptor/adapter、RAGFlow、Query continuation 和 official Client materialize/Observation；真实 provider 缺环境记 BLOCKED。
 - [ ] 移出 normal runtime 的 model-call hard guard；研究 composition 保留显式可恢复 guard。

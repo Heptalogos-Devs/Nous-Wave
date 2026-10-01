@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ModelConfiguration } from "./configuration.js";
-import { canonicalDigest } from "./prompts.js";
+import { canonicalDigest } from "../digest.js";
 
 type Policy = ModelConfiguration["video"];
 export async function sampleVideo(

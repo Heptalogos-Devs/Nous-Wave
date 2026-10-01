@@ -1,6 +1,6 @@
 import { jsonSchema } from "ai";
 import { z } from "zod";
-import { canonicalDigest } from "../prompts.js";
+import { canonicalDigest } from "../../digest.js";
 
 export function structuredOutputContract<T>(owner: z.ZodType<T>) {
   const providerSchema = z.toJSONSchema(owner, { target: "draft-7" });

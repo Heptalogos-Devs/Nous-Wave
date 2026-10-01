@@ -15,10 +15,16 @@ pub struct ResourceDescriptor {
     pub access_cost_class: String,
     pub readiness: String,
     pub updated_at: DateTime<Utc>,
+    pub adapter_kind: String,
+    pub provider_profile: String,
+    pub provider_locator: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceUpsert {
+    pub adapter_kind: String,
+    pub provider_profile: String,
+    pub provider_locator: String,
     pub resource_ref: ResourceRef,
     pub display_label: Option<String>,
     pub authority_class: String,

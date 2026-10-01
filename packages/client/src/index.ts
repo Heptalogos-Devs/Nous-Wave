@@ -99,6 +99,7 @@ export function createNousClient(transport: Transport) {
       prepareEmbeddings: call(model.prepareEmbeddings),
     },
     resources: {
+      materialize: call(resources.materializeResource),
       put: call(resources.putResource),
       get: call(resources.getResource),
       list: call(resources.listResources),
@@ -145,25 +146,7 @@ export function createNousClient(transport: Transport) {
         nousql: string,
         options?: RequestOptions,
       ) => {
-        const result = await call(cognition.query)(
-          { subjectId, nousql },
-          options,
-        );
-        return {
-          status: result.status,
-          boundQuery: result.boundQuery,
-          degradation: result.degradation,
-          hits: result.hits.map((h) => ({
-            ref: h.lexicalRef,
-            reference: h.reference,
-            revision: h.revision,
-            evidence: h.evidence,
-            text: h.text,
-            authority: h.authority,
-            evidenceFamilies: h.evidenceFamilies,
-            formationMode: h.formationMode,
-          })),
-        };
+        return call(cognition.query)({ subjectId, nousql }, options);
       },
       createWorkContext: call(cognition.createWorkContext),
       getWorkContext: call(cognition.getWorkContext),

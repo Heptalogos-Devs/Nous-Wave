@@ -12,6 +12,7 @@ import { writeFile } from "node:fs/promises";
 import { stringify } from "smol-toml";
 import { verifyRuntime } from "./runtime-packs.js";
 import { ModelBudget } from "./model/budget.js";
+import { ResourceRegistry } from "./resources/registry.js";
 
 async function main() {
   const { values } = parseArgs({
@@ -42,15 +43,21 @@ async function main() {
       mode: 0o600,
     });
     kernel = await startKernel(config.kernelExecutable, kernelConfig, {
-      credentialEnvironments: Object.values(config.models.gateway_profiles).map(
-        (gateway) => gateway.credential_env,
-      ),
+      credentialEnvironments: [
+        ...Object.values(config.models.gateway_profiles).map(
+          (gateway) => gateway.credential_env,
+        ),
+        ...Object.values(config.resourceProfiles).map(
+          (profile) => profile.credential_env,
+        ),
+      ],
     });
     const token = randomBytes(32).toString("hex");
     app = await createCore({
       kernel: kernel.client,
       token,
       consumers: config.consumers,
+      resources: new ResourceRegistry(config.resourceProfiles),
       models: await ModelRuntime.fromConfig(
         config.models,
         join(locations.program, "prompts"),

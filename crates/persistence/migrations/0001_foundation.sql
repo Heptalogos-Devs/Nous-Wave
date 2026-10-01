@@ -199,6 +199,9 @@ CREATE TABLE entity_binding_revisions (
 CREATE TABLE resources (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     resource_ref text NOT NULL,
+    adapter_kind text NOT NULL,
+    provider_profile text NOT NULL,
+    provider_locator text NOT NULL,
     display_label text NULL,
     authority_class text NOT NULL,
     coverage jsonb NOT NULL DEFAULT '{}',

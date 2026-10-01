@@ -403,6 +403,66 @@ pub struct ResourceAction {
     pub reason: ::prost::alloc::string::String,
     #[prost(bool, tag="4")]
     pub current_authority: bool,
+    #[prost(string, tag="5")]
+    pub action_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub query_text: ::prost::alloc::string::String,
+    #[prost(uint32, tag="7")]
+    pub limit: u32,
+    #[prost(bool, tag="8")]
+    pub materialize: bool,
+    #[prost(string, tag="9")]
+    pub adapter_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub provider_profile: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub provider_locator: ::prost::alloc::string::String,
+    #[prost(string, tag="12")]
+    pub descriptor_digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StableExternalRef {
+    #[prost(string, tag="1")]
+    pub provider_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub provider_profile: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_digest: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub resource_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub provider_resource_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub entry_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="7")]
+    pub entry_version: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="8")]
+    pub content_digest: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub source_locator: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub retrieved_at: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub access_scope: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExternalResourceRecord {
+    #[prost(string, tag="1")]
+    pub resource_ref: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<StableExternalRef>,
+    #[prost(string, optional, tag="3")]
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="4")]
+    pub content: ::prost::alloc::string::String,
+    #[prost(uint32, tag="5")]
+    pub provider_rank: u32,
+    #[prost(double, optional, tag="6")]
+    pub provider_score: ::core::option::Option<f64>,
+    #[prost(string, tag="7")]
+    pub version_status: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub access_status: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ModelInvocationSummary {
@@ -498,6 +558,8 @@ pub struct QueryResponse {
     pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
     #[prost(message, optional, tag="9")]
     pub rerank: ::core::option::Option<RerankMechanismSummary>,
+    #[prost(message, repeated, tag="10")]
+    pub resource_records: ::prost::alloc::vec::Vec<ExternalResourceRecord>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReportUseRequest {
@@ -1319,6 +1381,12 @@ pub struct ResourceDescriptor {
     pub access_cost_class: ::prost::alloc::string::String,
     #[prost(string, tag="9")]
     pub readiness: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub adapter_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub provider_profile: ::prost::alloc::string::String,
+    #[prost(string, tag="12")]
+    pub provider_locator: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PutResourceRequest {
@@ -1769,6 +1837,28 @@ pub struct EffectiveConfig {
 pub struct ProjectionStatus {
     #[prost(message, repeated, tag="1")]
     pub families: ::prost::alloc::vec::Vec<ComponentStatus>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MaterializeResourceRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub reference: ::core::option::Option<StableExternalRef>,
+    #[prost(message, optional, tag="4")]
+    pub observed_at: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResourceMaterialization {
+    #[prost(message, optional, tag="1")]
+    pub reference: ::core::option::Option<StableExternalRef>,
+    #[prost(message, optional, tag="2")]
+    pub observation: ::core::option::Option<AcceptedObservation>,
+    #[prost(string, tag="3")]
+    pub content: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub media_type: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct FormationRequest {

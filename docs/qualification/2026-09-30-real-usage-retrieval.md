@@ -109,3 +109,15 @@ PASS：`cargo test -p nous-material segmentation -- --test-threads=1`；`cargo t
 PASS：`corepack pnpm qualification:real-consumer-local`（Windows，Subject `01a0f6db-a633-7bd2-ba5c-c083d8fa514b`）。public Core/official Client 验证 direct/two-stage payload、选中 structured 表示、producer/invocation schema digest、stable DerivedRegion 与精确 materialize、描述阶段成功后第二阶段失败保留、重复成功操作不新增 provider request，并保持 CLI/上传/trace/use/restart。deterministic local provider 实际 3 requests，包含 1 个可控失败；liveModel NOT_RUN，corpus synthetic_local_wiring。最终新 schema 的 live 媒体/provider、Resource 与最终 Acceptance 仍 NOT_RUN。
 
 PASS：projection identity 补入全部 structured producer config digest 后再次运行 `corepack pnpm qualification:real-consumer-local`，Subject `01a0f6dd-e718-7e61-b9a9-17512921360c`；`corepack pnpm proto:check` 和 `cargo clippy -p nous-kernel --all-targets --all-features -- -D warnings` PASS。两项跨生命周期数据库 scenario 保留带原因的 too_many_lines expect，所有行为断言保持；未调整 duplication threshold 或扫描范围。
+
+## Optional External Resource 接续
+
+用户 2026-10-01 修正授权：RAGFlow 为 optional external provider，不由 Nous 安装、启动或配置，不是本地材料默认后端，不属于默认 acceptance 依赖。用户确认尚未配置实例与 dataset，live RAGFlow BLOCKED。Native Material Corpus / MaterialCollection 研究留待独立任务。
+
+PASS：`corepack pnpm qualification:real-consumer-local`，Windows Subject `01a0f716-d999-70c3-b5d2-a42573bb286d`。official Client 完整 QueryResponse 保留 resource_records/诊断；冻结 action 经 Core adapter 后沿同一 ticket finalize。选中记录形成 Artifact/SourceRegion/Observation，重复同 operation 返回同 Occurrence 且不增加 provider request；不同 operation 形成不同 Occurrence、复用相同 Artifact。public boot、CLI、upload、trace、meaningful use、restart 均 PASS。deterministic local model 3 requests（含受控失败），resource provider 3 requests；liveModel/liveRagflow 在该命令均 NOT_RUN，corpus synthetic_local_wiring。
+
+PASS：`corepack pnpm exec vitest run apps/nous-core/tests/resource-ragflow.test.ts`；`corepack pnpm typecheck`；`corepack pnpm lint:ts`；`corepack pnpm lint:knip`。adapter 校验 pinned RAGFlow retrieval/chunk wire、nullable version、content digest、selector 越界、变化/删除/拒绝、输出上限、取消与凭据不回显。profile drift 为 stale；真实缺失为 missing。
+
+PASS：`cargo test -p nous-kernel --test query_correctness resource_continuation -- --test-threads=1`；`cargo clippy -p nous-kernel --test query_correctness -- -D warnings`。同一 Resource cohort 验证 Subject/action/provider identity、结果上限、必需当前权限的 denied/stale 拒绝、descriptor 查询期间删除后丢弃，以及 ticket 一次消费。没有扩大 duplication exclude/threshold。
+
+完整 Resource policy/diagnostics 收敛、最终 source-less candidate、统一完整 Acceptance 与 Ready run 仍 NOT_RUN；上述窄验证不声明整个分支完成。

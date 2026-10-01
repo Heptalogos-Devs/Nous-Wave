@@ -31,6 +31,9 @@ fn resource(r: ResourceDescriptor) -> p::ResourceDescriptor {
         freshness_policy: to_object(r.freshness_policy),
         access_cost_class: r.access_cost_class,
         readiness: r.readiness,
+        adapter_kind: r.adapter_kind,
+        provider_profile: r.provider_profile,
+        provider_locator: r.provider_locator,
     }
 }
 impl KernelService {
@@ -47,6 +50,9 @@ impl KernelService {
                 subject,
                 ResourceUpsert {
                     resource_ref: ResourceRef::new(&r.resource_ref)?,
+                    adapter_kind: r.adapter_kind,
+                    provider_profile: r.provider_profile,
+                    provider_locator: r.provider_locator,
                     display_label: Some(r.display_label.clone()),
                     authority_class: r.authority_class,
                     coverage: object(r.coverage),

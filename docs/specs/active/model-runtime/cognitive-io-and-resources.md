@@ -14,6 +14,10 @@ description_only 提交自由描述。direct_structured 给模型 invocation-loc
 
 ## Resource 与续接
 
+按 Authority/lifecycle owner 区分 Material-owned corpus 与 External Resource。直接交给 Nous 的材料由 Artifact/SourceRegion/DerivedRepresentation 与原生 Serving 负责；另一系统持有的知识库通过 ExternalResourceAdapter 访问。RAGFlow 是可选外部 provider，不是本地材料的默认后端，不属于 Runtime Bundle、runtime packs、默认启动或默认验收依赖。Nous 不安装、启动、管理或自动配置 RAGFlow 的 dataset、模型和 Docker 网络；只读取用户已有实例的 API profile 与 resource locator。New API 同样属于共享部署基础设施，Nous 不管理其生命周期。
+
+本分支完成通用 External Resource contract、optional RAGFlow adapter 和 deterministic qualification。live RAGFlow 仅为手动集成验证；用户确认未配置时记 BLOCKED，不阻塞默认 runtime 或 deterministic acceptance。本分支不新增 MaterialCollection、不大规模施工 Native Material Corpus；后续独立研究先审计当前 Material/Tantivy/USearch/Serving substrate。
+
 Kernel Resource descriptor 保存 adapter_kind/provider_profile/provider_locator，网络与 credential 留 Core。Core adapter 负责 describe/search/materialize/checkVersion/checkAccess；首个 provider 为 RAGFlow，vendor wire 只在其 adapter。StableExternalRef 保存 provider/profile digest/resource/entry/version(nullable)/content digest/source locator/retrieved time/access descriptor；无 provider revision 时重新读取 content digest 检查变化。
 
 沿已有 prepare → host action → finalize 的单一 immutable ticket 续接，不另建 pending state machine。Kernel 在 provider call 前固定 Resource action IDs、绑定 descriptor、query intent、limits、materialize/current-authority、budgets、config snapshot。finalize 校验 Subject/action/resource/provider identity、一次提交、数量和 current version/access。不能创建新 action 或改变 lane/query budgets。provider records 保留 provider rank，不与认知 raw scores 相加。

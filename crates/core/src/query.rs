@@ -281,6 +281,18 @@ pub struct CognitiveQuery {
 }
 
 impl CognitiveQuery {
+    pub fn requests_resources(&self) -> bool {
+        self.resources.current_authority != CurrentAuthorityNeed::None
+            || self.resources.synopsis_only
+            || self.exploration == ExplorationIntent::Global
+            || self.scopes().iter().any(|scope| {
+                scope.cues.iter().any(|cue| matches!(cue, Cue::Resource(_)))
+                    || scope
+                        .targets
+                        .iter()
+                        .any(|target| matches!(target, QueryTarget::Resource))
+            })
+    }
     pub fn scopes(&self) -> Vec<&CognitiveQueryExpr> {
         let mut pending = vec![&self.expression];
         let mut scopes = Vec::new();
@@ -427,15 +439,52 @@ pub struct CognitiveHit {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceActionSuggestion {
+    pub action_id: Uuid,
+    pub query_text: String,
+    pub limit: usize,
+    pub materialize: bool,
+    pub adapter_kind: String,
+    pub provider_profile: String,
+    pub provider_locator: String,
+    pub descriptor_digest: String,
     pub resource: ResourceRef,
     pub action: String,
     pub reason: String,
     #[serde(default)]
     pub current_authority: bool,
-    #[serde(default)]
-    pub records: Vec<serde_json::Value>,
-    #[serde(default)]
-    pub evidence: Vec<EvidenceHandle>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StableExternalRef {
+    pub provider_kind: String,
+    pub provider_profile: String,
+    pub profile_digest: String,
+    pub resource_ref: ResourceRef,
+    pub provider_resource_id: String,
+    pub entry_id: String,
+    pub entry_version: Option<String>,
+    pub content_digest: String,
+    pub source_locator: String,
+    pub retrieved_at: String,
+    pub access_scope: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalResourceRecord {
+    pub resource_ref: ResourceRef,
+    pub reference: StableExternalRef,
+    pub title: Option<String>,
+    pub content: String,
+    pub provider_rank: u32,
+    pub provider_score: Option<f64>,
+    pub version_status: String,
+    pub access_status: String,
+}
+#[derive(Debug, Clone)]
+pub struct ExternalResourceResult {
+    pub action_id: Uuid,
+    pub resource_ref: ResourceRef,
+    pub status: String,
+    pub records: Vec<ExternalResourceRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -455,6 +504,7 @@ pub struct CognitiveQueryResult {
     pub results: Vec<CognitiveHit>,
     #[serde(default)]
     pub resource_actions: Vec<ResourceActionSuggestion>,
+    pub resource_records: Vec<ExternalResourceRecord>,
     #[serde(default)]
     pub degradation: Vec<Degradation>,
     pub diagnostics: Option<QueryDiagnostics>,

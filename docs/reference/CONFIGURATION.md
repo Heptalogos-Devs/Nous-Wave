@@ -28,6 +28,10 @@ Bootstrap 文件只保留数据库、对象存储、Server bind 和 Serving root
 
 Artifact upload 的唯一部署上限为 Kernel `[bootstrap.object_store].max_upload_bytes`。Core 从 Kernel 读取同一有效值配置 multipart 接收；`MaterialService.GetLimits` 向 official Client 提供此值，Node uploader 每次上传先检查它。Core TOML 与 Client 不再维护第二份 8 GiB 上限。此 bootstrap 值改变后重启实例。
 
+## 可选 External Resource
+
+`resource_profiles.<name>` 配置已有外部系统的 API；当前 `adapter_kind="ragflow"`，`base_url` 指向 `/api/v1` 根，`credential_env` 引用 SecretRoot/gateway.env 或进程环境中的 key。`enabled=false` 禁用 profile；timeout 与单条 material byte 上限是有界网络策略。Resource descriptor 的 `provider_profile` 引用该名称，`provider_locator` 保存 JSON selector（`dataset_ids` 与可选 `document_ids`）。Nous 不管理 RAGFlow dataset、模型、安装或 Docker 网络；它不属于默认 runtime 或 acceptance 依赖。直接交给 Nous 的本地材料使用原生 Material/Serving。
+
 ## Direct audio/video and model-call budget
 
 `model_profiles.<name>.embedding.max_batch_size` controls the number of inputs per actual embedding request (1–64, default64). Set it to1 for a gateway that accepts only a single input. Preparation and query batching use the same profile. Every emitted request reserves budget independently, and successful summaries aggregate actual request counts and reported usage; failed batches are not silently retried with another shape.

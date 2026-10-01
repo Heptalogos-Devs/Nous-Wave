@@ -10,7 +10,7 @@ import type { ModelRole } from "./configuration.js";
 import { z } from "zod";
 import type { DerivedRepresentation } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { sampleVideo } from "./video.js";
-import { canonicalDigest } from "./prompts.js";
+import { canonicalDigest } from "../digest.js";
 import { invocationSummary } from "./summary.js";
 import {
   materialInterpretationSchemaDigest,

@@ -95,6 +95,7 @@ impl CognitiveRuntimeService {
         subject: SubjectId,
         ticket: Uuid,
         order: Vec<(CognitiveRef, f64)>,
+        external_results: Vec<ExternalResourceResult>,
         contributors: CognitiveContributors<'_>,
     ) -> Result<CognitiveQueryResult> {
         let execution = self.take_query(subject, ticket)?;
@@ -212,6 +213,8 @@ impl CognitiveRuntimeService {
         for (rank, hit) in result.results.iter_mut().enumerate() {
             hit.match_evidence.final_rank = (rank + 1) as u32;
         }
+        self.finalize_resources(subject, &mut result, external_results)
+            .await?;
         Ok(result)
     }
     async fn generic_still_valid(

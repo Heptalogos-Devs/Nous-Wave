@@ -110,6 +110,7 @@ impl CognitiveRuntimeService {
             status: QueryStatus::Complete,
             results: Vec::new(),
             resource_actions: Vec::new(),
+            resource_records: Vec::new(),
             degradation: Vec::new(),
             diagnostics: None,
         };
@@ -221,12 +222,27 @@ impl CognitiveRuntimeService {
                         | QueryTarget::Resource
                 )
             });
-        if memory_only {
+        let resource_only = query
+            .expression
+            .targets
+            .iter()
+            .any(|target| matches!(target, QueryTarget::Resource))
+            && !query.expression.targets.iter().any(|target| {
+                matches!(
+                    target,
+                    QueryTarget::AnyRelevantCognition | QueryTarget::Memory | QueryTarget::Evidence
+                )
+            });
+        if memory_only || resource_only {
             let before = candidates.len();
             candidates.retain(|reference, _| {
-                contributors
-                    .memory
-                    .is_some_and(|owner| owner.owns(reference))
+                if resource_only {
+                    matches!(reference, CognitiveRef::Resource(_))
+                } else {
+                    contributors
+                        .memory
+                        .is_some_and(|owner| owner.owns(reference))
+                }
             });
             let dropped = before - candidates.len();
             if dropped > 0 {

@@ -11,12 +11,13 @@ impl KernelService {
             .0
             .execute_query(compile_query(input)?, pool_limit)
             .await?;
-        let (result, ticket) = if pool_limit.is_some() {
-            let (result, ticket) = self.0.cognition.retain_query(execution)?;
-            (result, ticket.map(|value| value.to_string()))
-        } else {
-            (execution.result, None)
-        };
+        let (result, ticket) =
+            if pool_limit.is_some() || !execution.result.resource_actions.is_empty() {
+                let (result, ticket) = self.0.cognition.retain_query(execution)?;
+                (result, ticket.map(|value| value.to_string()))
+            } else {
+                (execution.result, None)
+            };
         Ok(k::KernelQueryResponse {
             response: Some(query_response(result)),
             validation_ticket: ticket,
@@ -44,6 +45,22 @@ impl KernelService {
                 subject,
                 id(&input.validation_ticket)?,
                 order,
+                input
+                    .external_results
+                    .into_iter()
+                    .map(|value| {
+                        Ok(ExternalResourceResult {
+                            action_id: id(&value.action_id)?,
+                            resource_ref: ResourceRef::new(value.resource_ref)?,
+                            status: value.status,
+                            records: value
+                                .records
+                                .into_iter()
+                                .map(from_resource_record)
+                                .collect::<Result<Vec<_>>>()?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?,
                 nous_runtime::CognitiveContributors {
                     shared: None,
                     memory: self
@@ -76,6 +93,14 @@ fn query_response(result: CognitiveQueryResult) -> p::QueryResponse {
                 action: value.action,
                 reason: value.reason,
                 current_authority: value.current_authority,
+                action_id: value.action_id.to_string(),
+                query_text: value.query_text,
+                limit: value.limit as u32,
+                materialize: value.materialize,
+                adapter_kind: value.adapter_kind,
+                provider_profile: value.provider_profile,
+                provider_locator: value.provider_locator,
+                descriptor_digest: value.descriptor_digest,
             })
             .collect(),
         degradation: result
@@ -99,9 +124,64 @@ fn query_response(result: CognitiveQueryResult) -> p::QueryResponse {
         }),
         invocations: Vec::new(),
         rerank: None,
+        resource_records: result
+            .resource_records
+            .into_iter()
+            .map(to_resource_record)
+            .collect(),
     }
 }
 
+fn to_resource_record(value: ExternalResourceRecord) -> p::ExternalResourceRecord {
+    let reference = value.reference;
+    p::ExternalResourceRecord {
+        resource_ref: value.resource_ref.as_str().into(),
+        reference: Some(p::StableExternalRef {
+            provider_kind: reference.provider_kind,
+            provider_profile: reference.provider_profile,
+            profile_digest: reference.profile_digest,
+            resource_ref: reference.resource_ref.as_str().into(),
+            provider_resource_id: reference.provider_resource_id,
+            entry_id: reference.entry_id,
+            entry_version: reference.entry_version,
+            content_digest: reference.content_digest,
+            source_locator: reference.source_locator,
+            retrieved_at: reference.retrieved_at,
+            access_scope: reference.access_scope,
+        }),
+        title: value.title,
+        content: value.content,
+        provider_rank: value.provider_rank,
+        provider_score: value.provider_score,
+        version_status: value.version_status,
+        access_status: value.access_status,
+    }
+}
+fn from_resource_record(value: p::ExternalResourceRecord) -> Result<ExternalResourceRecord> {
+    let reference = required(value.reference, "external reference")?;
+    Ok(ExternalResourceRecord {
+        resource_ref: ResourceRef::new(value.resource_ref)?,
+        reference: StableExternalRef {
+            provider_kind: reference.provider_kind,
+            provider_profile: reference.provider_profile,
+            profile_digest: reference.profile_digest,
+            resource_ref: ResourceRef::new(reference.resource_ref)?,
+            provider_resource_id: reference.provider_resource_id,
+            entry_id: reference.entry_id,
+            entry_version: reference.entry_version,
+            content_digest: reference.content_digest,
+            source_locator: reference.source_locator,
+            retrieved_at: reference.retrieved_at,
+            access_scope: reference.access_scope,
+        },
+        title: value.title,
+        content: value.content,
+        provider_rank: value.provider_rank,
+        provider_score: value.provider_score,
+        version_status: value.version_status,
+        access_status: value.access_status,
+    })
+}
 fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
     let expression = required(input.expression, "expression")?;
     let modifiers = expression.modifiers.clone().unwrap_or_default();
@@ -117,7 +197,14 @@ fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
         situation: SituationDescriptor::default(),
         expression: compile_expression(expression, true, 0)?,
         exploration: enum_value(&modifiers.exploration).unwrap_or_default(),
-        resources: ResourceIntent::default(),
+        resources: ResourceIntent {
+            current_authority: if modifiers.current_authority.is_empty() {
+                CurrentAuthorityNeed::None
+            } else {
+                enum_value(&modifiers.current_authority)?
+            },
+            synopsis_only: false,
+        },
         result_need: ResultNeed {
             limit: modifiers.limit.unwrap_or(12) as usize,
             need_evidence: true,

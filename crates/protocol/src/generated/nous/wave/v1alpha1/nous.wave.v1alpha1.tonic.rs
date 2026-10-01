@@ -248,6 +248,14 @@ pub mod resource_service_server {
     #[async_trait]
     pub trait ResourceService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn materialize_resource(
+            &self,
+            request: tonic::Request<super::MaterializeResourceRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResourceMaterialization>,
+            tonic::Status,
+        >;
+        ///
         async fn put_resource(
             &self,
             request: tonic::Request<super::PutResourceRequest>,
@@ -354,6 +362,55 @@ pub mod resource_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.v1alpha1.ResourceService/MaterializeResource" => {
+                    #[allow(non_camel_case_types)]
+                    struct MaterializeResourceSvc<T: ResourceService>(pub Arc<T>);
+                    impl<
+                        T: ResourceService,
+                    > tonic::server::UnaryService<super::MaterializeResourceRequest>
+                    for MaterializeResourceSvc<T> {
+                        type Response = super::ResourceMaterialization;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::MaterializeResourceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ResourceService>::materialize_resource(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = MaterializeResourceSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.v1alpha1.ResourceService/PutResource" => {
                     #[allow(non_camel_case_types)]
                     struct PutResourceSvc<T: ResourceService>(pub Arc<T>);

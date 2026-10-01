@@ -1,4 +1,7 @@
 import Fastify from "fastify";
+import { ResourceRegistry } from "./resources/registry.js";
+import { QueryOrchestrator } from "./query/orchestrator.js";
+import { materializeResource } from "./resources/materialize.js";
 import multipart from "@fastify/multipart";
 import { fastifyConnectPlugin } from "@connectrpc/connect-fastify";
 import {
@@ -37,7 +40,6 @@ import type { ConsumerPolicy } from "./domain.js";
 import { ProjectionPlanner } from "./cognition/projection.js";
 import { ContextCompiler } from "./cognition/context.js";
 import { ModelRuntime } from "./model/runtime.js";
-import { ModelMaterialPipeline } from "./model/material.js";
 import { ModelService } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import { modelOperations } from "./model/operations.js";
 
@@ -46,6 +48,7 @@ export interface CoreOptions {
   token: string;
   consumers: ConsumerPolicy[];
   models?: ModelRuntime;
+  resources?: ResourceRegistry;
 }
 const options = (context: HandlerContext) => ({
   signal: context.signal,
@@ -67,10 +70,9 @@ export async function createCore(settings: CoreOptions) {
     settings.models,
   );
   const contexts = new ContextCompiler();
-  const models = new ModelMaterialPipeline(
-    kernel,
-    settings.models ?? new ModelRuntime(),
-  );
+  const modelRuntime = settings.models ?? new ModelRuntime();
+  const resourceRegistry = settings.resources ?? new ResourceRegistry({});
+  const queries = new QueryOrchestrator(kernel, modelRuntime, resourceRegistry);
   app.addHook("onRequest", async (request, reply) => {
     const origin = request.headers.origin;
     if (origin && origin !== `http://${request.headers.host}`)
@@ -116,7 +118,7 @@ export async function createCore(settings: CoreOptions) {
     );
     const queryDegradation = [];
     if (request.query) {
-      const query = await models.query(
+      const query = await queries.execute(
         create(QueryRequestSchema, {
           subjectId: request.subjectId,
           sessionId: request.sessionId,
@@ -220,7 +222,7 @@ export async function createCore(settings: CoreOptions) {
         r.nousql = undefined;
         boundQuery = compiled.boundCanonical;
       }
-      const result = await models.query(r, options(c));
+      const result = await queries.execute(r, options(c));
       for (const hit of result.hits) {
         if (
           hit.reference &&
@@ -359,6 +361,8 @@ export async function createCore(settings: CoreOptions) {
     resolveIdentity: (r, c) => kernel.authority.resolveIdentity(r, options(c)),
   };
   const resources: ServiceImpl<typeof ResourceService> = {
+    materializeResource: (r, c) =>
+      materializeResource(kernel, resourceRegistry, r, options(c)),
     putResource: (r, c) => kernel.authority.putResource(r, options(c)),
     getResource: (r, c) => kernel.authority.getResource(r, options(c)),
     listResources: (r, c) => kernel.authority.listResources(r, options(c)),
@@ -436,10 +440,7 @@ export async function createCore(settings: CoreOptions) {
       router.service(ResourceService, resources);
       router.service(TopologyService, topology);
       router.service(SystemService, system);
-      router.service(
-        ModelService,
-        modelOperations(kernel, settings.models ?? new ModelRuntime()),
-      );
+      router.service(ModelService, modelOperations(kernel, modelRuntime));
     },
     grpc: false,
     grpcWeb: false,

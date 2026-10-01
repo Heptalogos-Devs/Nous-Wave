@@ -249,7 +249,7 @@ impl CognitiveRuntimeService {
             }
         };
         let enabled_lanes = planned_lanes(&query);
-        if enabled_lanes.is_empty() {
+        if enabled_lanes.is_empty() && !query.requests_resources() {
             return Err(Error::Invalid("query has no enabled retrieval lane".into()));
         }
         let lane_budgets = budget_values(&query, &enabled_lanes, &retrieval_policy);

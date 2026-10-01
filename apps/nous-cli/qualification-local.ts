@@ -22,6 +22,7 @@ const configPath = join(dataRoot, "bootstrap.toml");
 // Deterministic local provider contract proof, never live-model or corpus evidence.
 let structuredEnabled = false;
 let providerCalls = 0;
+let resourceProviderCalls = 0;
 const provider = createServer((request, response) => {
   void (async () => {
     const chunks: Buffer[] = [];
@@ -30,6 +31,35 @@ const provider = createServer((request, response) => {
       if (!(bytes instanceof Uint8Array))
         throw new Error("Invalid fixture request bytes");
       chunks.push(Buffer.from(bytes));
+    }
+    if (request.url?.startsWith("/api/v1/")) {
+      resourceProviderCalls++;
+      response.setHeader("Content-Type", "application/json");
+      const content = "RAGFlow external chunk contract marker.";
+      const data =
+        request.method === "POST"
+          ? {
+              chunks: [
+                {
+                  id: "chunk1",
+                  dataset_id: "dataset1",
+                  document_id: "document1",
+                  content,
+                  document_keyword: "source.txt",
+                  similarity: 0.8,
+                },
+              ],
+            }
+          : request.url.includes("/documents/")
+            ? {
+                id: "chunk1",
+                doc_id: "document1",
+                content_with_weight: content,
+                available_int: 1,
+              }
+            : [{ id: "dataset1" }];
+      response.end(JSON.stringify({ code: 0, data }));
+      return;
     }
     providerCalls++;
     response.setHeader("Content-Type", "application/json");
@@ -100,7 +130,7 @@ if (!providerAddress || typeof providerAddress === "string")
 await mkdir(join(dataRoot, "config"));
 await writeFile(
   join(dataRoot, "config", "nous.toml"),
-  `deployment = "development"\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.qualification]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_QUALIFICATION_GATEWAY"\n[model_profiles.local]\ngateway = "qualification"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[roles.material_structuring]\nmodel = "local"\n`,
+  `deployment = "development"\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.qualification]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_QUALIFICATION_GATEWAY"\n[model_profiles.local]\ngateway = "qualification"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[roles.material_structuring]\nmodel = "local"\n[resource_profiles.ragflow]\nadapter_kind = "ragflow"\nbase_url = "http://127.0.0.1:${providerAddress.port}/api/v1"\ncredential_env = "NOUS_QUALIFICATION_GATEWAY"\n`,
 );
 const runtimeRoot = process.env.NOUS_WAVE_POSTGRES_RUNTIME
   ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
@@ -324,6 +354,91 @@ try {
   });
   assert.equal(replay.selectedRepresentationId, structured.representationId);
   assert.equal(providerCalls, beforeReplay);
+  const resourceDescriptor = await client.resources.put({
+    subjectId,
+    descriptor: {
+      resourceRef: "resource:qualification",
+      displayLabel: "Qualification KB",
+      authorityClass: "external_material",
+      accessCostClass: "local_fixture",
+      readiness: "ready",
+      adapterKind: "ragflow",
+      providerProfile: "ragflow",
+      providerLocator: JSON.stringify({ dataset_ids: ["dataset1"] }),
+    },
+  });
+  assert.equal(resourceDescriptor.providerProfile, "ragflow");
+  const resourceResult = await client.cognition.recall(
+    subjectId,
+    '"external chunk" $resource $limit(2)',
+  );
+  assert.equal(resourceResult.resourceActions.length, 0);
+  assert.equal(resourceResult.resourceRecords.length, 1);
+  assert.equal(
+    resourceResult.resourceRecords[0]!.content,
+    "RAGFlow external chunk contract marker.",
+  );
+  assert.equal(
+    resourceResult.resourceRecords[0]!.reference!.resourceRef,
+    resourceDescriptor.resourceRef,
+  );
+  assert.equal(resourceResult.hits.length, 0);
+  assert.equal(resourceProviderCalls, 1);
+  const selectedRef = resourceResult.resourceRecords[0]!.reference!;
+  const observedAt = {
+    seconds: BigInt(Math.floor(Date.now() / 1000)),
+    nanos: 0,
+  };
+  const selectedRequest = {
+    subjectId,
+    operationId: crypto.randomUUID(),
+    reference: selectedRef,
+    observedAt,
+  };
+  const selected = await client.resources.materialize(selectedRequest);
+  assert(
+    selected.observation?.artifactId && selected.observation.sourceRegionId,
+  );
+  const selectedOccurrence = await client.material.occurrence({
+    subjectId,
+    id: selected.observation.occurrenceId,
+  });
+  assert.equal(selectedOccurrence.sourceClass, "resource");
+  assert.match(
+    selectedOccurrence.externalObjectRef!,
+    /^object:resource-entry:[a-f0-9]{64}$/,
+  );
+  const selectedSource = await client.material.materialize({
+    subjectId,
+    reference: {
+      kind: "source_region",
+      value: selected.observation.sourceRegionId,
+    },
+    maxBytes: 4096n,
+  });
+  assert.equal(
+    new TextDecoder().decode(selectedSource.content),
+    "RAGFlow external chunk contract marker.",
+  );
+  const afterSelected = resourceProviderCalls;
+  const duplicateSelected = await client.resources.materialize(selectedRequest);
+  assert.equal(
+    duplicateSelected.observation?.occurrenceId,
+    selected.observation.occurrenceId,
+  );
+  assert.equal(resourceProviderCalls, afterSelected);
+  const secondExposure = await client.resources.materialize({
+    ...selectedRequest,
+    operationId: crypto.randomUUID(),
+  });
+  assert.notEqual(
+    secondExposure.observation?.occurrenceId,
+    selected.observation.occurrenceId,
+  );
+  assert.equal(
+    secondExposure.observation?.artifactId,
+    selected.observation.artifactId,
+  );
   assert.equal((await client.material.limits({})).maxUploadBytes, 1048576n);
   await assert.rejects(
     client.artifacts.uploadBytes(subjectId, new Uint8Array(1048577), {
@@ -422,6 +537,10 @@ try {
       fieldSupport: true,
       noChargeReplay: true,
       providerCalls,
+      resourceProviderCalls,
+      resourceContinuation: true,
+      resourceObservation: true,
+      liveRagflow: "NOT_RUN",
       liveModel: "NOT_RUN",
       corpus: "synthetic_local_wiring",
     }),

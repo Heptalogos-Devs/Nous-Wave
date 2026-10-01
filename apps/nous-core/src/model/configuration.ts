@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { remoteEndpointSchema } from "../remote-endpoint.js";
 
 export const roleNames = [
   "projection_steward",
@@ -14,31 +15,7 @@ export type ModelRole = (typeof roleNames)[number];
 const nonempty = z.string().min(1).max(512);
 const boundedTimeout = z.number().int().min(1).max(300_000);
 const gatewaySchema = z.strictObject({
-  base_url: z.string().transform((value, ctx) => {
-    let url: URL;
-    try {
-      url = new URL(value);
-    } catch {
-      ctx.addIssue({ code: "custom", message: "Invalid gateway URL" });
-      return z.NEVER;
-    }
-    const loopback = url.hostname === "127.0.0.1" || url.hostname === "[::1]";
-    if (
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash ||
-      (url.protocol !== "https:" && !(url.protocol === "http:" && loopback))
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        message:
-          "Gateway requires credential-free HTTPS or literal loopback HTTP",
-      });
-      return z.NEVER;
-    }
-    return url.toString().replace(/\/$/, "");
-  }),
+  base_url: remoteEndpointSchema,
   credential_env: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
   enabled: z.boolean().default(true),
   request_timeout_ms: boundedTimeout.default(30_000),

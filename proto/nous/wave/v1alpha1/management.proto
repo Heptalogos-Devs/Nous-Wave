@@ -5,7 +5,7 @@ import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "nous/wave/v1alpha1/types.proto";
 
-message ResourceDescriptor { string resource_ref = 1; string display_label = 2; string authority_class = 3; google.protobuf.Struct coverage = 4; repeated string query_dimensions = 5; repeated string modalities = 6; google.protobuf.Struct freshness_policy = 7; string access_cost_class = 8; string readiness = 9; }
+message ResourceDescriptor { string resource_ref = 1; string display_label = 2; string authority_class = 3; google.protobuf.Struct coverage = 4; repeated string query_dimensions = 5; repeated string modalities = 6; google.protobuf.Struct freshness_policy = 7; string access_cost_class = 8; string readiness = 9; string adapter_kind = 10; string provider_profile = 11; string provider_locator = 12; }
 message PutResourceRequest { string subject_id = 1; ResourceDescriptor descriptor = 2; }
 message ListResourcesResponse { repeated ResourceDescriptor items = 1; string next_page_token = 2; }
 message Tag { string tag_id = 1; string label = 2; optional string description = 3; optional string kind_hint = 4; string origin = 5; }
@@ -49,6 +49,8 @@ message EffectiveConfigEntry { string key = 1; string value = 2; string source =
 message EffectiveConfig { repeated EffectiveConfigEntry entries = 1; }
 message ProjectionStatus { repeated ComponentStatus families = 1; }
 
-service ResourceService { rpc PutResource(PutResourceRequest) returns (ResourceDescriptor); rpc GetResource(ObjectRequest) returns (ResourceDescriptor); rpc ListResources(ListRequest) returns (ListResourcesResponse); rpc RemoveResource(ObjectRequest) returns (google.protobuf.Empty); }
+message MaterializeResourceRequest { string subject_id = 1; string operation_id = 2; StableExternalRef reference = 3; google.protobuf.Timestamp observed_at = 4; }
+message ResourceMaterialization { StableExternalRef reference = 1; AcceptedObservation observation = 2; string content = 3; string media_type = 4; }
+service ResourceService { rpc MaterializeResource(MaterializeResourceRequest) returns (ResourceMaterialization); rpc PutResource(PutResourceRequest) returns (ResourceDescriptor); rpc GetResource(ObjectRequest) returns (ResourceDescriptor); rpc ListResources(ListRequest) returns (ListResourcesResponse); rpc RemoveResource(ObjectRequest) returns (google.protobuf.Empty); }
 service TopologyService { rpc CreateTag(CreateTagRequest) returns (Tag); rpc GetTag(ObjectRequest) returns (Tag); rpc ListTags(ListRequest) returns (ListTagsResponse); rpc CreateAssociation(CreateAssociationRequest) returns (Association); rpc RevokeAssociation(RevokeAssociationRequest) returns (google.protobuf.Empty); rpc GetNeighborhood(NeighborhoodRequest) returns (NeighborhoodResponse); rpc RebindEntity(RebindEntityRequest) returns (google.protobuf.Empty); rpc CreateCognitiveSchema(CreateCognitiveSchemaRequest) returns (CognitiveSchema); rpc GetCognitiveSchema(GetCognitiveSchemaRequest) returns (CognitiveSchema); rpc AddSchemaEvidence(AddSchemaEvidenceRequest) returns (CognitiveSchema); rpc ReviseCognitiveSchema(ReviseCognitiveSchemaRequest) returns (CognitiveSchema); rpc SplitCognitiveSchema(SplitCognitiveSchemaRequest) returns (SplitCognitiveSchemaResponse); rpc MergeCognitiveSchemas(MergeCognitiveSchemasRequest) returns (CognitiveSchema); }
 service SystemService { rpc GetStatus(google.protobuf.Empty) returns (SystemStatus); rpc GetCapabilities(google.protobuf.Empty) returns (SystemStatus); rpc GetEffectiveConfig(google.protobuf.Empty) returns (EffectiveConfig); rpc GetProjectionStatus(SubjectRequest) returns (ProjectionStatus); }

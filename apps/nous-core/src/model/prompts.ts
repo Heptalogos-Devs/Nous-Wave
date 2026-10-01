@@ -13,19 +13,6 @@ const defaults: Partial<Record<ModelRole, string>> = {
 function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
-export function canonicalDigest(value: unknown): string {
-  const canonical = (item: unknown): unknown => {
-    if (Array.isArray(item)) return item.map(canonical);
-    if (item !== null && typeof item === "object")
-      return Object.fromEntries(
-        Object.entries(item)
-          .sort(([a], [b]) => a.localeCompare(b, "en"))
-          .map(([key, entry]) => [key, canonical(entry)]),
-      );
-    return item;
-  };
-  return digest(JSON.stringify(canonical(value)));
-}
 export type PromptAsset = { id: string; digest: string; text: string };
 export class PromptRegistry {
   constructor(

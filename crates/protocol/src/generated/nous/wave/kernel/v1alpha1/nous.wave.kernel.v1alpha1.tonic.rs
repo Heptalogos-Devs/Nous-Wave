@@ -20,12 +20,10 @@ pub mod model_material_service_server {
             tonic::Response<super::DescriptionSegments>,
             tonic::Status,
         >;
-        ///
         async fn find_workflow(
             &self,
             request: tonic::Request<super::FindWorkflowRequest>,
         ) -> std::result::Result<tonic::Response<super::FoundWorkflow>, tonic::Status>;
-        ///
         async fn get_resolved_mentions(
             &self,
             request: tonic::Request<super::ResolvedMentionsRequest>,
@@ -33,7 +31,6 @@ pub mod model_material_service_server {
             tonic::Response<super::ResolvedMentionsResponse>,
             tonic::Status,
         >;
-        ///
         async fn reserve_workflow(
             &self,
             request: tonic::Request<super::ReserveWorkflowRequest>,

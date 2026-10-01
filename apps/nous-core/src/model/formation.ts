@@ -8,7 +8,7 @@ import { type FormationRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/mo
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
 import type { ModelRoleSnapshot } from "./invocations.js";
-import { canonicalDigest } from "./prompts.js";
+import { canonicalDigest } from "../digest.js";
 import { invocationSummary } from "./summary.js";
 import { z } from "zod";
 

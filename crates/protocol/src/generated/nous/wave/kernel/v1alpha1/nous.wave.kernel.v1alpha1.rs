@@ -46,6 +46,17 @@ pub struct RerankCandidate {
     pub score: f64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExternalResourceResult {
+    #[prost(string, tag="1")]
+    pub action_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub resource_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub records: ::prost::alloc::vec::Vec<super::super::v1alpha1::ExternalResourceRecord>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FinalizeQueryRequest {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
@@ -53,6 +64,8 @@ pub struct FinalizeQueryRequest {
     pub validation_ticket: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="3")]
     pub order: ::prost::alloc::vec::Vec<RerankCandidate>,
+    #[prost(message, repeated, tag="4")]
+    pub external_results: ::prost::alloc::vec::Vec<ExternalResourceResult>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReleaseQueryRequest {

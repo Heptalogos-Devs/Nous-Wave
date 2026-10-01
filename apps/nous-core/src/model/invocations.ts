@@ -9,6 +9,7 @@ import {
   type UserContent,
 } from "ai";
 import { z } from "zod";
+import { canonicalDigest } from "../digest.js";
 import { structuredOutputContract } from "./schemas/provider.js";
 import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
@@ -21,11 +22,7 @@ import {
   type RoleBinding,
   modelConfigurationSchema,
 } from "./configuration.js";
-import {
-  canonicalDigest,
-  PromptRegistry,
-  type PromptAsset,
-} from "./prompts.js";
+import { PromptRegistry, type PromptAsset } from "./prompts.js";
 
 class MediaProtocolError extends Error {}
 

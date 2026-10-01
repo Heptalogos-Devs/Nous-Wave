@@ -1,6 +1,6 @@
 import { blake3 } from "@noble/hashes/blake3.js";
 import type { ModelConfiguration } from "./configuration.js";
-import { canonicalDigest } from "./prompts.js";
+import { canonicalDigest } from "../digest.js";
 
 function digest(value: unknown) {
   return Buffer.from(

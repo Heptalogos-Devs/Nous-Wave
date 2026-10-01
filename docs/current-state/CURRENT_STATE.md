@@ -17,6 +17,8 @@
 | Purge and shared source retention | PASS | public qualification path; `purge_shared` focused test |
 | Provenance trace-back | PASS | public qualification path |
 | Structured Material payload / field supports | PASS | Windows qualification:real-consumer-local；deterministic local provider；含 stable segmentation、精确 materialize、无额外调用 replay |
+| External Resource continuation / selected Observation | PASS | Windows official Client deterministic adapter qualification；query 不产生 Memory，选用后形成 Observation，同 operation 无额外 provider request |
+| Optional live RAGFlow | BLOCKED | 用户确认尚未配置实例/dataset；不属于默认启动或默认验收依赖 |
 | WorkContext create/pause/resume/end and cross-session continuation | PASS | corepack pnpm qualification:cognitive-runtime-episode |
 | Episode identity/revision/history, overlap/hierarchy, lifecycle and purge | PASS | corepack pnpm qualification:cognitive-runtime-episode |
 | Self/Social/Motivation executable slices | NOT_RUN | outside current checkout; long-term semantics remain in Architecture-Vault |

@@ -9,6 +9,7 @@ import {
 } from "./model/configuration.js";
 import type { RuntimeLocations } from "./locations.js";
 import { resolvedEmbedding } from "./model/embedding-profile.js";
+import { resourceProfilesSchema } from "./resources/configuration.js";
 
 const requirement = z.enum(["REQUIRED", "PREFERRED", "OPTIONAL", "FORBIDDEN"]);
 const schema = z.strictObject({
@@ -62,6 +63,7 @@ const schema = z.strictObject({
     .min(1)
     .max(64),
   ...modelConfigurationShape,
+  resource_profiles: resourceProfilesSchema,
 });
 
 export async function loadConfig(locations: RuntimeLocations) {
@@ -70,6 +72,9 @@ export async function loadConfig(locations: RuntimeLocations) {
   );
   const credentialNames = [
     ...Object.values(config.gateway_profiles).map((g) => g.credential_env),
+    ...Object.values(config.resource_profiles).map(
+      (profile) => profile.credential_env,
+    ),
     ...(config.database.url_env ? [config.database.url_env] : []),
   ];
   try {
@@ -134,6 +139,7 @@ export async function loadConfig(locations: RuntimeLocations) {
     locations,
     port: config.port,
     models,
+    resourceProfiles: config.resource_profiles,
     kernelBootstrap: {
       bootstrap: {
         database: {
