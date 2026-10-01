@@ -12,6 +12,12 @@ import type { DerivedRepresentation } from "@nous-wave/protocol/nous/wave/v1alph
 import { sampleVideo } from "./video.js";
 import { canonicalDigest } from "./prompts.js";
 import { invocationSummary } from "./summary.js";
+import {
+  materialInterpretationSchemaDigest,
+  materialProjectionIdentity,
+  type StructuredMaterialContext,
+} from "./schemas/material-interpretation.js";
+import type { JsonObject } from "@bufbuild/protobuf";
 
 export async function deriveMaterial(
   kernel: KernelClient,
@@ -111,6 +117,7 @@ export async function deriveMaterial(
     evidence?: ModelInvocationEvidence,
     quality: Record<string, unknown> = {},
     preprocessingDigest?: string,
+    structuredPayload?: JsonObject,
   ) => {
     if (evidence) invocations.push(invocationSummary(evidence));
     const representation = await kernel.modelMaterial.commitInterpretation(
@@ -120,6 +127,7 @@ export async function deriveMaterial(
         kind,
         inputs,
         strategy,
+        structuredPayload,
         quality: JSON.parse(
           JSON.stringify({
             ...quality,
@@ -149,14 +157,19 @@ export async function deriveMaterial(
             : "verified-utf8-decoding-v1",
           modelIdentity: evidence?.model,
           modelRevision: evidence?.modelRevision,
+          outputSchemaDigest: evidence?.outputSchemaDigest,
           preprocessingIdentity: `${evidence ? (evidence.promptId ?? "standard-audio-transcription") : "verified-utf8"}/${strategy}`,
           preprocessingRevision: evidence?.promptDigest ?? "1",
-          configDigest: preprocessingDigest
-            ? canonicalDigest({
-                role: evidence?.configDigest,
-                preprocessing: preprocessingDigest,
-              })
-            : (evidence?.configDigest ?? "utf8-fatal-v1"),
+          configDigest:
+            preprocessingDigest || structuredPayload
+              ? canonicalDigest({
+                  role: evidence?.configDigest,
+                  preprocessing: preprocessingDigest,
+                  projection: structuredPayload
+                    ? materialProjectionIdentity
+                    : undefined,
+                })
+              : (evidence?.configDigest ?? "utf8-fatal-v1"),
         },
       },
       options,
@@ -168,9 +181,11 @@ export async function deriveMaterial(
     kind: string,
     graph: Parameters<typeof commit>[2],
     role: ModelRole,
-    invoke: (
-      snapshot: ModelRoleSnapshot,
-    ) => Promise<{ text: string; evidence: ModelInvocationEvidence }>,
+    invoke: (snapshot: ModelRoleSnapshot) => Promise<{
+      text: string;
+      evidence: ModelInvocationEvidence;
+      structuredPayload?: JsonObject;
+    }>,
     quality: Record<string, unknown> = {},
     preprocessingDigest?: string,
     promptPath?: string,
@@ -189,6 +204,14 @@ export async function deriveMaterial(
       producer: model.configDigest,
       preprocessingDigest,
       supersedes: representations.length === 0 ? request.supersedes : undefined,
+      outputSchemaDigest:
+        kind === "structured_interpretation"
+          ? materialInterpretationSchemaDigest
+          : undefined,
+      projection:
+        kind === "structured_interpretation"
+          ? materialProjectionIdentity
+          : undefined,
     });
     const identity = {
       subjectId: request.subjectId,
@@ -224,6 +247,7 @@ export async function deriveMaterial(
         ? (JSON.parse(reservation.proposalJson) as {
             text: string;
             evidence: ModelInvocationEvidence;
+            structuredPayload?: JsonObject;
           })
         : undefined;
       if (!proposal) {
@@ -242,6 +266,7 @@ export async function deriveMaterial(
         proposal.evidence,
         quality,
         preprocessingDigest,
+        proposal.structuredPayload,
       );
       await kernel.modelMaterial.saveWorkflow(
         {
@@ -268,7 +293,53 @@ export async function deriveMaterial(
   ];
   const mime = source.mediaType.split(";")[0]?.trim().toLowerCase() ?? "";
   const textual = mime.startsWith("text/") || mime === "application/json";
+  const directContext: StructuredMaterialContext = {
+    visual: mime.startsWith("image/") || mime.startsWith("video/"),
+    audio: mime.startsWith("audio/") || mime.startsWith("video/"),
+    catalog: { S000: { kind: "source_region", value: request.sourceRegionId } },
+  };
   const signal = options.signal ?? undefined;
+  const structureDescription = async (description: DerivedRepresentation) => {
+    const { segments } = await kernel.modelMaterial.segmentDescription(
+      { subjectId: request.subjectId, id: description.representationId },
+      options,
+    );
+    const catalog: Record<string, { kind: string; value: string }> = {};
+    for (const segment of segments) {
+      if (!segment.reference)
+        throw new Error("Description segment reference is missing");
+      catalog[segment.key] = {
+        kind: segment.reference.kind,
+        value: segment.reference.value,
+      };
+    }
+    return paid(
+      "structured_interpretation",
+      [
+        {
+          ordinal: 0,
+          reference: {
+            kind: "derived_representation",
+            value: description.representationId,
+          },
+          role: "description",
+        },
+      ],
+      "material_structuring",
+      (snapshot) =>
+        models.structure(
+          segments.map((item) => `[${item.key}] ${item.text}`).join("\n"),
+          signal,
+          snapshot,
+          { ...directContext, catalog },
+        ),
+      {},
+      canonicalDigest({
+        segmentation: "description-utf8-lines-v1",
+        projection: materialProjectionIdentity,
+      }),
+    );
+  };
   if (
     !textual &&
     !mime.startsWith("image/") &&
@@ -320,6 +391,7 @@ export async function deriveMaterial(
             strategy === "direct_structured",
             signal,
             snapshot,
+            directContext,
           ),
         {
           input_mode: "direct",
@@ -334,21 +406,7 @@ export async function deriveMaterial(
         "gateway-chat-media-v1",
       );
       if (strategy === "describe_then_structure")
-        await paid(
-          "structured_interpretation",
-          [
-            {
-              ordinal: 0,
-              reference: {
-                kind: "derived_representation",
-                value: selected.representationId,
-              },
-              role: "description",
-            },
-          ],
-          "material_structuring",
-          (snapshot) => models.structure(selected.text!, signal, snapshot),
-        );
+        await structureDescription(selected);
       return {
         representations,
         invocations,
@@ -423,6 +481,7 @@ export async function deriveMaterial(
             strategy === "direct_structured",
             signal,
             snapshot,
+            directContext,
           ),
         samples.quality,
         samples.preprocessingDigest,
@@ -430,21 +489,7 @@ export async function deriveMaterial(
       );
       if (strategy === "describe_then_structure") {
         try {
-          await paid(
-            "structured_interpretation",
-            [
-              {
-                ordinal: 0,
-                reference: {
-                  kind: "derived_representation",
-                  value: selected.representationId,
-                },
-                role: "description",
-              },
-            ],
-            "material_structuring",
-            (snapshot) => models.structure(selected.text!, signal, snapshot),
-          );
+          await structureDescription(selected);
         } catch {
           if (signal?.aborted) throw signal.reason;
           degradation.push({
@@ -456,7 +501,7 @@ export async function deriveMaterial(
       return {
         representations,
         invocations,
-        selectedRepresentationId: selected.representationId,
+        selectedRepresentationId: representations.at(-1)!.representationId,
         degradation,
       };
     }
@@ -472,6 +517,7 @@ export async function deriveMaterial(
               : { bytes: source.content, mediaType: mime },
             signal,
             snapshot,
+            directContext,
           ),
       );
       return {
@@ -509,26 +555,12 @@ export async function deriveMaterial(
               models.interpret(source.content, mime, signal, snapshot),
           );
     if (strategy === "describe_then_structure") {
-      await paid(
-        "structured_interpretation",
-        [
-          {
-            ordinal: 0,
-            reference: {
-              kind: "derived_representation",
-              value: description.representationId,
-            },
-            role: "description",
-          },
-        ],
-        "material_structuring",
-        (snapshot) => models.structure(description.text!, signal, snapshot),
-      );
+      await structureDescription(description);
     }
     return {
       representations,
       invocations,
-      selectedRepresentationId: description.representationId,
+      selectedRepresentationId: representations.at(-1)!.representationId,
       degradation: [],
     };
   } catch (error) {

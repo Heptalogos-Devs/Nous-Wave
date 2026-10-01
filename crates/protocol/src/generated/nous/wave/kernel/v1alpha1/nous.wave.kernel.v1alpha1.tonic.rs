@@ -13,10 +13,19 @@ pub mod model_material_service_server {
     #[async_trait]
     pub trait ModelMaterialService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn segment_description(
+            &self,
+            request: tonic::Request<super::super::super::v1alpha1::ObjectRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::DescriptionSegments>,
+            tonic::Status,
+        >;
+        ///
         async fn find_workflow(
             &self,
             request: tonic::Request<super::FindWorkflowRequest>,
         ) -> std::result::Result<tonic::Response<super::FoundWorkflow>, tonic::Status>;
+        ///
         async fn get_resolved_mentions(
             &self,
             request: tonic::Request<super::ResolvedMentionsRequest>,
@@ -24,6 +33,7 @@ pub mod model_material_service_server {
             tonic::Response<super::ResolvedMentionsResponse>,
             tonic::Status,
         >;
+        ///
         async fn reserve_workflow(
             &self,
             request: tonic::Request<super::ReserveWorkflowRequest>,
@@ -140,6 +150,58 @@ pub mod model_material_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.kernel.v1alpha1.ModelMaterialService/SegmentDescription" => {
+                    #[allow(non_camel_case_types)]
+                    struct SegmentDescriptionSvc<T: ModelMaterialService>(pub Arc<T>);
+                    impl<
+                        T: ModelMaterialService,
+                    > tonic::server::UnaryService<
+                        super::super::super::v1alpha1::ObjectRequest,
+                    > for SegmentDescriptionSvc<T> {
+                        type Response = super::DescriptionSegments;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::super::v1alpha1::ObjectRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ModelMaterialService>::segment_description(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SegmentDescriptionSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.kernel.v1alpha1.ModelMaterialService/FindWorkflow" => {
                     #[allow(non_camel_case_types)]
                     struct FindWorkflowSvc<T: ModelMaterialService>(pub Arc<T>);

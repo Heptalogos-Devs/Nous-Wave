@@ -119,6 +119,7 @@ pub struct DerivedRepresentation {
     pub producer: ProducerSignature,
     pub revision: i32,
     pub payload_text: Option<String>,
+    pub payload_json: Option<serde_json::Value>,
     pub payload_artifact_id: Option<ArtifactId>,
     pub quality: serde_json::Value,
     pub created_at: DateTime<Utc>,
@@ -153,14 +154,31 @@ impl DerivedRepresentation {
                 ));
             }
         }
-        if self.payload_text.is_none() && self.payload_artifact_id.is_none() {
+        if self.payload_text.is_none()
+            && self.payload_json.is_none()
+            && self.payload_artifact_id.is_none()
+        {
             return Err(Error::Invalid(
-                "derived representation needs text or an artifact payload".into(),
+                "derived representation needs text, structured JSON or artifact payload".into(),
             ));
+        }
+        if self
+            .payload_json
+            .as_ref()
+            .is_some_and(|value| !value.is_object() || value.to_string().len() > 262_144)
+        {
+            return Err(Error::Invalid("invalid structured payload bounds".into()));
         }
         if self.revision < 1 {
             return Err(Error::Invalid(
                 "derived representation revision starts at 1".into(),
+            ));
+        }
+        if self.representation_kind == RepresentationKind::StructuredInterpretation
+            && (self.payload_json.is_none() || self.producer.output_schema_digest.is_none())
+        {
+            return Err(Error::Invalid(
+                "structured interpretation requires payload and schema identity".into(),
             ));
         }
         Ok(())
@@ -181,7 +199,13 @@ pub struct DerivedRegion {
 
 impl DerivedRegion {
     pub fn validate(&self) -> Result<()> {
-        const KINDS: &[&str] = &["text_span", "segment", "bbox-in-derived", "structural_path"];
+        const KINDS: &[&str] = &[
+            "text_span",
+            "segment",
+            "description_segment",
+            "bbox-in-derived",
+            "structural_path",
+        ];
         if !KINDS.contains(&self.coordinate_kind.as_str()) || self.coordinate_hash.trim().is_empty()
         {
             return Err(Error::Invalid("invalid derived coordinate".into()));

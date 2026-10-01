@@ -16,6 +16,7 @@
 | Suppression/restore | PASS | public qualification path |
 | Purge and shared source retention | PASS | public qualification path; `purge_shared` focused test |
 | Provenance trace-back | PASS | public qualification path |
+| Structured Material payload / field supports | PASS | Windows qualification:real-consumer-local；deterministic local provider；含 stable segmentation、精确 materialize、无额外调用 replay |
 | WorkContext create/pause/resume/end and cross-session continuation | PASS | corepack pnpm qualification:cognitive-runtime-episode |
 | Episode identity/revision/history, overlap/hierarchy, lifecycle and purge | PASS | corepack pnpm qualification:cognitive-runtime-episode |
 | Self/Social/Motivation executable slices | NOT_RUN | outside current checkout; long-term semantics remain in Architecture-Vault |
@@ -35,6 +36,6 @@
 - `corepack pnpm qualification:cognitive-runtime-episode` — PASS; output included restart, cross-session continuation, Episode revision, overlap, hierarchy, lifecycle and purge evidence.
 - `corepack pnpm research:retrieval` — NOT_RUN for actual retrieval: the previous runner aggregated pre-filled fixture candidates and latency; it provides no real algorithm or semantic recall evidence.
 
-本轮 gateway、Material derivation 和真实检索仍在实现中。reference consumer 的 Windows local public wiring 已 PASS（包括流式文件上传和重启复用）；模型 derive、完整 producer chain 与真实 corpus 尚未验收。当前没有 live model 或真实 corpus recall 的 PASS 证据；见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
+本轮 reference consumer 的 Windows public wiring 已 PASS，包括结构化表示、字段支持链、流式上传、trace、meaningful use 与 restart。已有真实 gateway 与 6 source/105 unit/40 query corpus 的 baseline/model-rerank 测量，但全部属于历史 candidate，且记录了 partial query 限制。新的 rich schema/live 媒体、Resource/RAGFlow、final source-less bundle 和完整 Acceptance 仍未收敛；现有证据不能外推为本分支最终 PASS。见 [本轮 Qualification](../qualification/2026-09-30-real-usage-retrieval.md)。
 
 精确命令、commit、平台和失败/未运行项由 [Memory Reference Qualification](../qualification/2026-10-memory-reference-profile.md) 维护；本文只保留 capability summary。

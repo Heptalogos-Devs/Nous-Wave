@@ -178,6 +178,7 @@ pub fn from_producer(p: p::ProducerSignature) -> Result<nous_core::ProducerSigna
         implementation: p.implementation,
         model_identity: p.model_identity,
         model_revision: p.model_revision,
+        output_schema_digest: p.output_schema_digest,
         preprocessing_identity: p.preprocessing_identity,
         preprocessing_revision: p.preprocessing_revision,
         config_digest: p.config_digest,

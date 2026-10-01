@@ -9,6 +9,7 @@ import {
   type UserContent,
 } from "ai";
 import { z } from "zod";
+import { structuredOutputContract } from "./schemas/provider.js";
 import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,6 +38,7 @@ export type ModelInvocationEvidence = {
   profileDigest: string;
   promptId?: string;
   promptDigest?: string;
+  outputSchemaDigest?: string;
   configDigest: string;
   latencyMs: number;
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
@@ -394,6 +396,9 @@ export class ModelInvocations {
       role.profile.protocol !== "openai-responses"
     )
       throw new Error("Role is not a text generation protocol");
+    const output = schema ? structuredOutputContract(schema) : undefined;
+    if (output && !role.profile.capabilities.includes("structured_output"))
+      throw new Error("Strict structured output capability is unavailable");
     const start = performance.now();
     let mediaStage = "admission";
     try {
@@ -463,7 +468,7 @@ export class ModelInvocations {
                     json_schema: {
                       name: "material",
                       strict: true,
-                      schema: z.toJSONSchema(schema),
+                      schema: output!.providerSchema,
                     },
                   },
                 }
@@ -500,6 +505,7 @@ export class ModelInvocations {
             choices: z
               .array(
                 z.object({
+                  finish_reason: z.literal("stop"),
                   message: z.object({ content: z.string().min(1).max(65536) }),
                 }),
               )
@@ -524,6 +530,7 @@ export class ModelInvocations {
               totalTokens: usage?.total_tokens,
             }),
             implementation: "gateway-chat-media-v1",
+            outputSchemaDigest: output?.digest,
           },
         };
       }
@@ -535,7 +542,9 @@ export class ModelInvocations {
             : role.provider.responses(role.profile.model),
         system: role.prompt?.text,
         messages: [{ role: "user", content }],
-        output: schema ? Output.object({ schema }) : undefined,
+        output: output
+          ? Output.object({ schema: output.sdkSchema })
+          : undefined,
         temperature: role.binding.temperature,
         topP: role.binding.top_p,
         maxOutputTokens: role.binding.max_output_tokens ?? 4096,
@@ -543,6 +552,8 @@ export class ModelInvocations {
         abortSignal: this.signal(role, signal),
       });
       if (!schema && !result.text.trim()) throw new Error("Empty model output");
+      if (schema && result.finishReason !== "stop")
+        throw new Error("Structured output did not complete");
       const value = schema ? schema.parse(result.output) : result.text;
       this.states.set(name, {
         state: "READY",
@@ -550,7 +561,10 @@ export class ModelInvocations {
       });
       return {
         value,
-        evidence: this.evidence(role, start, result.usage),
+        evidence: {
+          ...this.evidence(role, start, result.usage),
+          outputSchemaDigest: output?.digest,
+        },
       };
     } catch (error) {
       this.states.set(name, {

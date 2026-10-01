@@ -111,6 +111,22 @@ pub struct CommitInterpretationRequest {
     pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag="12")]
     pub quality: ::core::option::Option<::prost_types::Struct>,
+    #[prost(message, optional, tag="13")]
+    pub structured_payload: ::core::option::Option<::prost_types::Struct>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DescriptionSegment {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DescriptionSegments {
+    #[prost(message, repeated, tag="1")]
+    pub segments: ::prost::alloc::vec::Vec<DescriptionSegment>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReserveWorkflowRequest {

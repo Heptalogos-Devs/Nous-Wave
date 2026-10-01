@@ -76,6 +76,7 @@ CREATE TABLE producer_signatures (
     implementation text NOT NULL,
     model_identity text NULL,
     model_revision text NULL,
+    output_schema_digest text NULL CHECK (output_schema_digest ~ '^[0-9a-f]{64}$'),
     preprocessing_identity text NOT NULL,
     preprocessing_revision text NOT NULL,
     config_digest text NOT NULL,
@@ -108,11 +109,12 @@ CREATE TABLE derived_representations (
     producer_signature_id uuid NOT NULL REFERENCES producer_signatures(producer_signature_id),
     revision integer NOT NULL CHECK (revision > 0),
     payload_text text NULL,
+    payload_json jsonb NULL CHECK (jsonb_typeof(payload_json) = 'object'),
     payload_artifact_id uuid NULL REFERENCES artifacts(artifact_id),
     quality jsonb NOT NULL DEFAULT '{}',
     created_at timestamptz NOT NULL,
     supersedes uuid NULL REFERENCES derived_representations(derived_representation_id),
-    CHECK (payload_text IS NOT NULL OR payload_artifact_id IS NOT NULL)
+    CHECK (payload_text IS NOT NULL OR payload_json IS NOT NULL OR payload_artifact_id IS NOT NULL)
 );
 
 CREATE TABLE derived_regions (

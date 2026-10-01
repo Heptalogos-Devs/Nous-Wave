@@ -257,6 +257,7 @@ export async function formObservation(
             implementation: "ai-sdk@7.0.102/openai@4.0.67",
             modelIdentity: result.evidence.model,
             modelRevision: result.evidence.modelRevision,
+            outputSchemaDigest: result.evidence.outputSchemaDigest,
             preprocessingIdentity: result.evidence.promptId!,
             preprocessingRevision: result.evidence.promptDigest!,
             configDigest: result.evidence.configDigest,

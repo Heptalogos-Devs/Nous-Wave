@@ -10,6 +10,10 @@ use nous_material::{DerivationInput, DerivedRepresentation};
 use nous_subject::{CognitiveSeedInput, CreateSubject};
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one database journey checks shared provenance, stable segments, structured payload and schema-bound replay"
+)]
 async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
     let (root, url, _postgres) = test_support::database().await;
     let runtime = test_support::open_runtime(&url, &root).await;
@@ -31,12 +35,13 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         .subject_id;
     let observed = test_support::observation(&runtime, subject, "source facts").await;
     let source = observed.source_region.unwrap().source_region_id;
-    let make = |input: CognitiveRef, kind| DerivedRepresentation {
+    let make = |input: CognitiveRef, kind| {
+        DerivedRepresentation {
         derived_representation_id: DerivedRepresentationId::new(),
         subject_id: subject,
         inputs: vec![DerivationInput {
             ordinal: 0,
-            reference: input,
+            reference: input.clone(),
             role: "source".into(),
         }],
         strategy: "describe_then_structure".into(),
@@ -48,16 +53,22 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
             implementation: "material-graph-test".into(),
             model_identity: None,
             model_revision: None,
+            output_schema_digest: (kind == RepresentationKind::StructuredInterpretation).then(|| "a".repeat(64)),
             preprocessing_identity: "test".into(),
             preprocessing_revision: "1".into(),
             config_digest: "test-config".into(),
         },
         revision: 1,
         payload_text: Some("faithful representation".into()),
+        payload_json: (kind == RepresentationKind::StructuredInterpretation).then(|| {
+            let (kind,value)=nous_core::reference_parts(&input);
+            serde_json::json!({"summary":"faithful representation","coverage":{"visual":"not_available","audio":"not_available","embedded_text":"observed"},"observations":[{"kind":"text","content":"source facts","basis":"direct","start_ms":null,"end_ms":null,"supports":[{"kind":kind,"value":value}]}],"mentions":[],"embedded_text":[],"speech":[],"interpretations":[],"uncertainties":[]})
+        }),
         payload_artifact_id: None,
         quality: serde_json::json!({}),
         created_at: Utc::now(),
         supersedes: None,
+    }
     };
     let description = runtime
         .material
@@ -71,14 +82,60 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         description.producer.signature_hash,
         "untrusted supplied hash"
     );
-    let structured = runtime
+    let segments = runtime
         .material
-        .persist_derived_representation(make(
-            CognitiveRef::DerivedRepresentation(description.derived_representation_id),
-            RepresentationKind::StructuredInterpretation,
-        ))
+        .segment_description(subject, description.derived_representation_id)
         .await
         .unwrap();
+    let replay_segments = runtime
+        .material
+        .segment_description(subject, description.derived_representation_id)
+        .await
+        .unwrap();
+    assert_eq!(
+        segments[0].region.derived_region_id,
+        replay_segments[0].region.derived_region_id
+    );
+    assert_eq!(
+        segments
+            .iter()
+            .map(|segment| segment.text.as_str())
+            .collect::<String>(),
+        description.payload_text.as_deref().unwrap()
+    );
+    let mut structured_input = make(
+        CognitiveRef::DerivedRepresentation(description.derived_representation_id),
+        RepresentationKind::StructuredInterpretation,
+    );
+    structured_input.payload_json.as_mut().unwrap()["observations"][0]["supports"] = serde_json::json!([{"kind":"derived_region","value":segments[0].region.derived_region_id.0.to_string()}]);
+    let expected_payload = structured_input.payload_json.clone();
+    let structured = runtime
+        .material
+        .persist_derived_representation(structured_input)
+        .await
+        .unwrap();
+    let saved_payload: Option<serde_json::Value> = sqlx::query_scalar(
+        "SELECT payload_json FROM derived_representations WHERE derived_representation_id=$1",
+    )
+    .bind(structured.derived_representation_id.0)
+    .fetch_one(runtime.store.pool())
+    .await
+    .unwrap();
+    assert_eq!(saved_payload, expected_payload);
+    let mut changed_schema = make(
+        CognitiveRef::DerivedRepresentation(description.derived_representation_id),
+        RepresentationKind::StructuredInterpretation,
+    );
+    changed_schema.producer.output_schema_digest = Some("b".repeat(64));
+    let changed_schema = runtime
+        .material
+        .persist_derived_representation(changed_schema)
+        .await
+        .unwrap();
+    assert_ne!(
+        changed_schema.derived_representation_id,
+        structured.derived_representation_id
+    );
     let roots: Vec<uuid::Uuid> =
         sqlx::query_scalar("SELECT source_region_id FROM representation_source_regions($1,$2)")
             .bind(subject.0)
@@ -107,6 +164,18 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         1
     );
     let other = test_support::observation(&runtime, subject, "independent source facts").await;
+    let mut forged_support = make(
+        CognitiveRef::DerivedRepresentation(description.derived_representation_id),
+        RepresentationKind::StructuredInterpretation,
+    );
+    forged_support.payload_json.as_mut().unwrap()["observations"][0]["supports"] = serde_json::json!([{"kind":"source_region","value":other.source_region.as_ref().unwrap().source_region_id.0.to_string()}]);
+    assert!(
+        runtime
+            .material
+            .persist_derived_representation(forged_support)
+            .await
+            .is_err()
+    );
     let mut combined = make(
         CognitiveRef::DerivedRepresentation(structured.derived_representation_id),
         RepresentationKind::Summary,

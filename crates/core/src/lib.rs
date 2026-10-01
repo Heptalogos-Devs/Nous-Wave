@@ -381,6 +381,7 @@ pub struct ProducerSignature {
     pub implementation: String,
     pub model_identity: Option<String>,
     pub model_revision: Option<String>,
+    pub output_schema_digest: Option<String>,
     pub preprocessing_identity: String,
     pub preprocessing_revision: String,
     pub config_digest: String,

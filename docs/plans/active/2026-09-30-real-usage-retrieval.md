@@ -12,6 +12,7 @@
 - [Gateway、模型、Prompt 与 provenance](../../specs/active/model-runtime/gateway-model-and-prompts.md)
 - [Material derivation graph](../../specs/active/model-runtime/material-derivation.md)
 - [Reference consumer](../../specs/active/model-runtime/reference-consumer.md)
+- [Structured Material、支持链与 External Resource 续接](../../specs/active/model-runtime/cognitive-io-and-resources.md)
 - [Runtime Bundle、逻辑路径与 runtime packs](../../specs/active/deployment/runtime-bundle.md)
 - [Rerank 与真实评估](../../specs/active/retrieval/rerank-and-live-evaluation.md)
 - [Memory Authority](../../specs/active/memory-reference-profile/01-memory-authority-provenance.md)、[Runtime/Use](../../specs/active/memory-reference-profile/02-runtime-use.md)、[Query/Serving](../../specs/active/memory-reference-profile/03-query-serving.md)、[Qualification](../../specs/active/memory-reference-profile/04-qualification.md)
@@ -26,6 +27,15 @@ PRE_PRODUCTION 直接替换 current producer/consumer 和 fresh schema，不留�
 全部开发、实验、文档和 acceptance 留在从 `37e75b8382592fe09ff536dac5a14a84dee47902` 建立的 `feat/real-usage-retrieval`。一个完整 PR；Ready CI PASS 后不再修改分支，squash merge 并删除分支。live slice 缺凭据时保持 BLOCKED，允许其余验收完成后按如实记录集成。
 
 ## 施工顺序
+
+2026-10-01 新执行包收敛当前分支：canonical Zod structured schema、schema digest、structured payload、DerivedRegion 字段支持链、provider-neutral Resource/RAGFlow、同一 Query ticket continuation，以及唯一 `just acceptance`。普通 runtime 移出研究调用次数硬限制；研究运行仍显式计数。本文旧硬预算措辞只适用于 research/qualification。现有 Draft PR #5 持有执行 checklist。
+
+- [ ] 完成 richer structured schema → strict provider request → local semantic validation → payload/projection → stable field support refs。
+- [ ] 完成 External Resource descriptor/adapter、RAGFlow、Query continuation 和 official Client materialize/Observation；真实 provider 缺环境记 BLOCKED。
+- [ ] 移出 normal runtime 的 model-call hard guard；研究 composition 保留显式可恢复 guard。
+- [ ] 完成 VCP current route/source audit；当前 experimental propagation 不声明完整 RiverMemo。完整 VCP、CognitiveClock/longitudinal 不在本分支施工。
+- [ ] `just acceptance` 统一 generation/diff/check/verify/dupes/TS dupes/OSV/build/既有 qualification/新增 cognitive-io-resource qualification；CI 只准备固定工具与调用该命令。
+- [ ] 删除 superseded 文档树，吸收仍有效语义，更新导航与当前证据。
 
 2026-09-30 追加决定已经由用户批准：完整 QueryExpr/scoped constraints、bounded signed preferences、typed recent、caller-stable formation workflow、resolved-mention aboutness、独立 direct-structuring role、paid-call 前 derivation reservation、Core-only editable embedding profile，以及 source-less Windows x64 Runtime Bundle。下面的原任务继续执行，不建立第二轮计划。
 

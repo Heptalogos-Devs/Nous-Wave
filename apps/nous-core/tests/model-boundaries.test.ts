@@ -7,6 +7,7 @@ import { z } from "zod";
 import { modelConfigurationSchema } from "../src/model/configuration.js";
 import { ModelInvocations } from "../src/model/invocations.js";
 import { PromptRegistry } from "../src/model/prompts.js";
+import { structuredOutputContract } from "../src/model/schemas/provider.js";
 
 const temporary: string[] = [];
 afterEach(async () => {
@@ -110,7 +111,8 @@ describe("model protocol and provenance boundaries", () => {
                     role: "assistant",
                     content: '{"value":"faithful"}',
                   },
-                  finish_reason: "stop",
+                  finish_reason:
+                    body.model === "incomplete-chat" ? "length" : "stop",
                 },
               ],
               usage: {
@@ -209,6 +211,17 @@ describe("model protocol and provenance boundaries", () => {
       );
       expect(formation.value).toEqual({ value: "faithful" });
       expect(formation.evidence.promptDigest).toHaveLength(64);
+      const outputContract = structuredOutputContract(
+        z.object({ value: z.string() }),
+      );
+      expect(formation.evidence.outputSchemaDigest).toBe(outputContract.digest);
+      const format = requests[0]!.body.response_format as {
+        type: string;
+        json_schema: { strict: boolean; schema: unknown };
+      };
+      expect(format.type).toBe("json_schema");
+      expect(format.json_schema.strict).toBe(true);
+      expect(format.json_schema.schema).toEqual(outputContract.providerSchema);
       expect(
         (await runtime.embedding("evidence", "embedding-id")).value,
       ).toEqual([0.2, 0.3]);
@@ -232,6 +245,11 @@ describe("model protocol and provenance boundaries", () => {
         );
         expect(result.value).toEqual({ value: "faithful" });
         expect(result.evidence.usage?.totalTokens).toBe(3);
+        expect(result.evidence.outputSchemaDigest).toBe(outputContract.digest);
+        expect(requests.at(-1)!.body.response_format).toMatchObject({
+          type: "json_schema",
+          json_schema: { strict: true, schema: outputContract.providerSchema },
+        });
         const messages = requests.at(-1)!.body.messages as {
           content: unknown;
         }[];
@@ -266,6 +284,26 @@ describe("model protocol and provenance boundaries", () => {
       expect(JSON.stringify(formation.evidence)).not.toContain(
         "fixture-secret",
       );
+      config.model_profiles.chat!.model = "incomplete-chat";
+      const incomplete = await ModelInvocations.create(config);
+      await expect(
+        incomplete.generate(
+          "memory_formation",
+          "evidence",
+          z.object({ value: z.string() }),
+        ),
+      ).rejects.toThrow("invocation failed");
+      await expect(
+        incomplete.generate(
+          "memory_formation",
+          "evidence",
+          z.object({ value: z.string() }),
+          undefined,
+          undefined,
+          undefined,
+          { bytes: Uint8Array.of(1), mediaType: "audio/mpeg" },
+        ),
+      ).rejects.toThrow("response_validation");
     } finally {
       delete process.env.NOUS_TEST_GATEWAY;
       await new Promise<void>((done) => server.close(() => done()));

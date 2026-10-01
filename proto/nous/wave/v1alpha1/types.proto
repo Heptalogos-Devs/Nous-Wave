@@ -102,6 +102,7 @@ message ModelInvocationSummary {
   string profile_digest = 4; optional string prompt_digest = 5;
   double latency_ms = 6; uint32 request_count = 7; string status = 8;
   optional uint64 input_usage = 9; optional uint64 output_usage = 10; optional uint64 total_usage = 11;
+  optional string output_schema_digest = 12;
 }
 message QueryDiagnostics { map<string, uint64> candidate_counts = 1; map<string, string> lane_status = 2; optional bool topology_complete = 3; optional double topology_discarded_mass = 4; }
 message HitScore { double baseline = 1; double preference = 2; optional double rerank = 3; double final = 4; uint32 baseline_rank = 5; uint32 final_rank = 6; uint32 best_lane_rank = 7; repeated string variants = 8; }
@@ -177,7 +178,7 @@ message MemoryHistoryRequest { string subject_id = 1; string memory_id = 2; Page
 
 message Artifact { string artifact_id = 1; string subject_id = 2; string content_hash = 3; uint64 byte_length = 4; string media_type = 5; google.protobuf.Timestamp created_at = 6; google.protobuf.Struct metadata = 7; }
 message MaterialLimits { uint64 max_upload_bytes = 1; }
-message ProducerSignature { string signature_hash = 1; string provider_class = 2; string operation = 3; string implementation = 4; optional string model_identity = 5; optional string model_revision = 6; string preprocessing_identity = 7; string preprocessing_revision = 8; string config_digest = 9; }
+message ProducerSignature { string signature_hash = 1; string provider_class = 2; string operation = 3; string implementation = 4; optional string model_identity = 5; optional string model_revision = 6; string preprocessing_identity = 7; string preprocessing_revision = 8; string config_digest = 9; optional string output_schema_digest = 10; }
 message DerivationInput { uint32 ordinal = 1; CognitiveRef reference = 2; string role = 3; }
 message RepresentationListRequest { string subject_id = 1; optional string source_region_id = 2; optional string artifact_id = 3; optional string kind = 4; uint32 limit = 5; }
 message ListArtifactsResponse { repeated Artifact items = 1; string next_page_token = 2; }

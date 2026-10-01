@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import type { ModelBudget } from "./budget.js";
 import { z } from "zod";
+import type { UserContent } from "ai";
+import {
+  materialInterpretationSchema,
+  structuredMaterialResult,
+  type StructuredMaterialContext,
+} from "./schemas/material-interpretation.js";
 import type { Degradation, Segment } from "../domain.js";
 import { ModelInvocations, type ModelRoleSnapshot } from "./invocations.js";
 import {
@@ -131,11 +137,10 @@ export class ModelRuntime {
     input: string | { bytes: Uint8Array; mediaType: string },
     signal?: AbortSignal,
     fixed?: ModelRoleSnapshot,
+    context?: StructuredMaterialContext,
   ) {
-    const schema = z.strictObject({
-      text: z.string().min(1).max(65536),
-      facts: z.array(z.string().max(2048)).max(64),
-    });
+    if (!context)
+      throw new Error("Structured material requires a stable support catalog");
     const role =
       typeof input === "string"
         ? "material_structuring"
@@ -145,9 +150,13 @@ export class ModelRuntime {
       !this.invocations.profile(role)?.capabilities.includes("image_input")
     )
       throw new Error("Direct structured image capability is unavailable");
-    const content =
+    const content: UserContent =
       typeof input === "string"
-        ? input
+        ? JSON.stringify({
+            source_text: input,
+            support_catalog: Object.keys(context.catalog),
+            modalities: { visual: context.visual, audio: context.audio },
+          })
         : [
             {
               type: "image" as const,
@@ -155,16 +164,21 @@ export class ModelRuntime {
               mediaType: input.mediaType,
             },
           ];
+    if (Array.isArray(content))
+      content.unshift({
+        type: "text",
+        text: JSON.stringify({ support_catalog: Object.keys(context.catalog) }),
+      });
     const result = await this.invocations.generate(
       role,
       content,
-      schema,
+      materialInterpretationSchema,
       signal,
       undefined,
       fixed,
     );
     return {
-      text: JSON.stringify(schema.parse(result.value)),
+      ...structuredMaterialResult(result.value, context),
       evidence: result.evidence,
     };
   }
@@ -179,24 +193,23 @@ export class ModelRuntime {
     structured: boolean,
     signal?: AbortSignal,
     fixed?: ModelRoleSnapshot,
+    context?: StructuredMaterialContext,
   ) {
-    const schema = z.strictObject({
-      text: z.string().min(1).max(65536),
-      facts: z.array(z.string().max(2048)).max(64),
-    });
+    if (structured && !context)
+      throw new Error("Structured material requires a stable support catalog");
     const result = await this.invocations.generate(
       structured ? "material_direct_structuring" : "material_description",
-      `Input media type: ${mediaType}. The attached material is the input evidence.`,
-      structured ? schema : undefined,
+      `Input media type: ${mediaType}. The attached material is the input evidence. Support catalog: ${JSON.stringify(Object.keys(context?.catalog ?? {}))}.`,
+      structured ? materialInterpretationSchema : undefined,
       signal,
       undefined,
       fixed,
       { bytes, mediaType },
     );
     return {
-      text: structured
-        ? JSON.stringify(schema.parse(result.value))
-        : interpretationSchema.parse({ text: result.value }).text,
+      ...(structured
+        ? structuredMaterialResult(result.value, context!)
+        : { text: interpretationSchema.parse({ text: result.value }).text }),
       evidence: result.evidence,
     };
   }
@@ -206,6 +219,7 @@ export class ModelRuntime {
     structured: boolean,
     signal?: AbortSignal,
     fixed?: ModelRoleSnapshot,
+    context?: StructuredMaterialContext,
   ) {
     if (
       !this.invocations
@@ -215,16 +229,15 @@ export class ModelRuntime {
         ?.capabilities.includes("image_input")
     )
       throw new Error("Video frame model capability is unavailable");
-    const schema = z.strictObject({
-      text: z.string().min(1).max(65536),
-      facts: z.array(z.string().max(2048)).max(64),
-    });
+    if (structured && !context)
+      throw new Error("Structured material requires a stable support catalog");
     const content = [
       {
         type: "text" as const,
         text: JSON.stringify({
           sampled_timestamps: frames.map((f) => f.timestamp),
           transcript,
+          support_catalog: Object.keys(context?.catalog ?? {}),
         }),
       },
       ...frames.map((f) => ({
@@ -236,7 +249,7 @@ export class ModelRuntime {
     const result = await this.invocations.generate(
       structured ? "material_direct_structuring" : "material_description",
       content,
-      structured ? schema : undefined,
+      structured ? materialInterpretationSchema : undefined,
       signal,
       fixed
         ? undefined
@@ -246,9 +259,9 @@ export class ModelRuntime {
       fixed,
     );
     return {
-      text: structured
-        ? JSON.stringify(schema.parse(result.value))
-        : interpretationSchema.parse({ text: result.value }).text,
+      ...(structured
+        ? structuredMaterialResult(result.value, context!)
+        : { text: interpretationSchema.parse({ text: result.value }).text }),
       evidence: result.evidence,
     };
   }

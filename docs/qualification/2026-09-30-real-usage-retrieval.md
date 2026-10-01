@@ -91,3 +91,21 @@ PASS: source-less distributed official Client sent complete raw video Artifact t
 
 PASS: natural-language lexical regression (apostrophe, punctuation, field/operator-looking text) and cargo check nous-retrieval. PASS: pnpm check (15 focused tests, types, format, lint and dependency gates). Newly discovered launcher Windows signal shutdown was corrected to close owned stdin; final packaged shutdown proof NOT_RUN. Full just verify, Memory/Episode qualification, final source-less qualification, PR/Ready CI/merge remain NOT_RUN.
 PASS: end-to-end/baseline observed Recall@1=.875, Recall@5/10=1, MRR=.93125, latency p50/p95=24.2969/29.0525ms with warm query-vector cache. Baseline and model-rerank used the same Authority sequence within each track. Both baseline variants also returned partial because of the fixed validation budget; none is claimed complete.
+
+## 2026-10-01 Cognitive IO 合同接续
+
+远端核对 PASS：master `37e75b8382592fe09ff536dac5a14a84dee47902`，本地/远端 topic head `8c2e50f1e28f33b957ef72a60360347384a94844`。Vault main 本地/远端 `2614d65e8775c1f9652f44d69737ac7c57afd0d4`。已完整读取新 Cognitive IO 执行包、当前 Plan/Specs、current state/architecture 和 Vault authority。Draft [PR #5](https://github.com/Heptalogos-Devs/Nous-Wave/pull/5) 已创建；ruleset `24177202` active，required check `acceptance`，仓库只允许 Squash Merge。Ready/最终 Acceptance/merge NOT_RUN。
+
+PASS：`corepack pnpm generate`；`corepack pnpm typecheck`；`corepack pnpm lint:ts`；`corepack pnpm exec vitest run apps/nous-core/tests/model-boundaries.test.ts apps/nous-core/src/model/schemas/material-interpretation.test.ts`（7 tests）；`git diff --check`。这些是当前 working-tree 窄验证，不能证明公共 Material vertical 完成。
+
+已建立 richer canonical Zod schema 与 Material semantic validator/projection；SDK/raw strict schema 由同一 Zod owner 生成，实际请求与 schema digest 对齐，公开 invocation summary 增加 output_schema_digest。测试包含真实本地 HTTP wire、strict 标识、SDK/raw 两路径、完整结束检查、nullable/extra-field、未知支持、直接观察支持、时间与缺失 modality，以及 uncertainty projection。测试 server 为 deterministic 协议验证，不计 live provider PASS。
+
+FAIL：`corepack pnpm lint:knip` 当前报告 richer Material schema 尚未接入 production derivation。structured payload/ProducerSignature/workflow schema identity、description segmentation/stable supports、Resource continuation/RAGFlow、研究 guard 移出 normal runtime、最终 source-less closure 和统一 acceptance 仍在施工，NOT_RUN。未扩大 ignore 或降低 gate。
+
+后续修复 PASS：richer schema 已接入三策略；`corepack pnpm lint:knip`、`corepack pnpm lint:ts`、`corepack pnpm typecheck` 均 PASS。ProducerSignature 与 fresh SQL 保存 output_schema_digest，DerivedRepresentation 保存 payload_json；workflow identity 包含 schema/projection identity。描述分段在 Material owner 中按 UTF-8 byte span 持久化，retry 返回同一 DerivedRegion；提交 payload 的支持 refs 按输入图批量核验。
+
+PASS：`cargo test -p nous-material segmentation -- --test-threads=1`；`cargo test -p nous-kernel --test material_derivation -- --test-threads=1`；`cargo check -p nous-kernel --tests`；`cargo clippy -p nous-material -p nous-persistence --all-targets -- -D warnings`；`cargo build -p nous-kernel`。精确回归覆盖 UTF-8 保真、稳定 segment identity、JSON SQL round-trip、schema 变化形成新 derivation，以及输入图外的字段支持拒绝。
+
+PASS：`corepack pnpm qualification:real-consumer-local`（Windows，Subject `01a0f6db-a633-7bd2-ba5c-c083d8fa514b`）。public Core/official Client 验证 direct/two-stage payload、选中 structured 表示、producer/invocation schema digest、stable DerivedRegion 与精确 materialize、描述阶段成功后第二阶段失败保留、重复成功操作不新增 provider request，并保持 CLI/上传/trace/use/restart。deterministic local provider 实际 3 requests，包含 1 个可控失败；liveModel NOT_RUN，corpus synthetic_local_wiring。最终新 schema 的 live 媒体/provider、Resource 与最终 Acceptance 仍 NOT_RUN。
+
+PASS：projection identity 补入全部 structured producer config digest 后再次运行 `corepack pnpm qualification:real-consumer-local`，Subject `01a0f6dd-e718-7e61-b9a9-17512921360c`；`corepack pnpm proto:check` 和 `cargo clippy -p nous-kernel --all-targets --all-features -- -D warnings` PASS。两项跨生命周期数据库 scenario 保留带原因的 too_many_lines expect，所有行为断言保持；未调整 duplication threshold 或扫描范围。

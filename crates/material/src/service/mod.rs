@@ -3,6 +3,9 @@
 mod derivation;
 mod materialization;
 mod observation;
+mod segmentation;
+mod structured;
+pub use segmentation::DescriptionSegment;
 mod types;
 pub use materialization::{ByteRange, MaterializeRequest, MaterializedEvidence};
 pub use types::*;

@@ -64,6 +64,8 @@ impl MaterialService {
                 ));
             }
         }
+        self.validate_field_supports(&mut tx, &representation)
+            .await?;
         if let Some(artifact) = representation.payload_artifact_id {
             let owner: Option<Uuid> = sqlx::query_scalar(
                 "SELECT subject_id FROM artifacts WHERE artifact_id=$1 FOR SHARE",
@@ -99,6 +101,7 @@ impl MaterialService {
             representation.derived_representation_id =
                 DerivedRepresentationId(row.try_get("derived_representation_id").map_err(db)?);
             representation.payload_text = row.try_get("payload_text").map_err(db)?;
+            representation.payload_json = row.try_get("payload_json").map_err(db)?;
             representation.payload_artifact_id = row
                 .try_get::<Option<Uuid>, _>("payload_artifact_id")
                 .map_err(db)?
@@ -111,8 +114,8 @@ impl MaterialService {
         }
         let producer_id =
             AuthorityStore::register_producer_in(&mut tx, &representation.producer).await?;
-        sqlx::query("INSERT INTO derived_representations(derived_representation_id,subject_id,input_digest,strategy,derivation_key,representation_kind,producer_signature_id,revision,payload_text,payload_artifact_id,quality,created_at,supersedes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
-            .bind(representation.derived_representation_id.0).bind(representation.subject_id.0).bind(input_digest).bind(&representation.strategy).bind(key).bind(representation.representation_kind.as_str()).bind(producer_id).bind(representation.revision).bind(&representation.payload_text).bind(representation.payload_artifact_id.map(|id| id.0)).bind(&representation.quality).bind(representation.created_at).bind(representation.supersedes.map(|id| id.0)).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO derived_representations(derived_representation_id,subject_id,input_digest,strategy,derivation_key,representation_kind,producer_signature_id,revision,payload_text,payload_artifact_id,quality,created_at,supersedes,payload_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)")
+            .bind(representation.derived_representation_id.0).bind(representation.subject_id.0).bind(input_digest).bind(&representation.strategy).bind(key).bind(representation.representation_kind.as_str()).bind(producer_id).bind(representation.revision).bind(&representation.payload_text).bind(representation.payload_artifact_id.map(|id| id.0)).bind(&representation.quality).bind(representation.created_at).bind(representation.supersedes.map(|id| id.0)).bind(&representation.payload_json).execute(&mut *tx).await.map_err(db)?;
         for input in &representation.inputs {
             let (source, derived, region) = match input.reference {
                 CognitiveRef::SourceRegion(id) => (Some(id.0), None, None),
@@ -133,10 +136,10 @@ impl MaterialService {
         tx.commit().await.map_err(db)?;
         Ok(representation)
     }
-    pub async fn persist_derived_region(&self, region: DerivedRegion) -> Result<DerivedRegion> {
+    pub async fn persist_derived_region(&self, mut region: DerivedRegion) -> Result<DerivedRegion> {
         region.validate()?;
         let mut tx = self.store.begin().await?;
-        self.insert_derived_region_in_tx(&mut tx, &region).await?;
+        region.derived_region_id = self.insert_derived_region_in_tx(&mut tx, &region).await?;
         nous_persistence::AuthorityStore::invalidate_in(
             &mut tx,
             region.subject_id,
@@ -147,11 +150,11 @@ impl MaterialService {
         Ok(region)
     }
 
-    async fn insert_derived_region_in_tx(
+    pub(super) async fn insert_derived_region_in_tx(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         region: &DerivedRegion,
-    ) -> Result<()> {
+    ) -> Result<DerivedRegionId> {
         let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM derived_representations WHERE subject_id=$1 AND derived_representation_id=$2)")
             .bind(region.subject_id.0)
             .bind(region.derived_representation_id.0)
@@ -182,7 +185,7 @@ impl MaterialService {
                 ));
             }
         }
-        sqlx::query("INSERT INTO derived_regions(derived_region_id,subject_id,derived_representation_id,coordinate_kind,coordinate,coordinate_hash,parent_derived_region_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(derived_representation_id,coordinate_kind,coordinate_hash) DO NOTHING")
+        let actual_id: Uuid = sqlx::query_scalar("INSERT INTO derived_regions(derived_region_id,subject_id,derived_representation_id,coordinate_kind,coordinate,coordinate_hash,parent_derived_region_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(derived_representation_id,coordinate_kind,coordinate_hash) DO UPDATE SET coordinate_hash=excluded.coordinate_hash RETURNING derived_region_id")
             .bind(region.derived_region_id.0)
             .bind(region.subject_id.0)
             .bind(region.derived_representation_id.0)
@@ -191,9 +194,9 @@ impl MaterialService {
             .bind(&region.coordinate_hash)
             .bind(region.parent_derived_region_id.map(|id| id.0))
             .bind(region.created_at)
-            .execute(&mut **tx)
+            .fetch_one(&mut **tx)
             .await
             .map_err(db)?;
-        Ok(())
+        Ok(DerivedRegionId(actual_id))
     }
 }

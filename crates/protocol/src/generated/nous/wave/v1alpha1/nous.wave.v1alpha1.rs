@@ -428,6 +428,8 @@ pub struct ModelInvocationSummary {
     pub output_usage: ::core::option::Option<u64>,
     #[prost(uint64, optional, tag="11")]
     pub total_usage: ::core::option::Option<u64>,
+    #[prost(string, optional, tag="12")]
+    pub output_schema_digest: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryDiagnostics {
@@ -807,6 +809,8 @@ pub struct ProducerSignature {
     pub preprocessing_revision: ::prost::alloc::string::String,
     #[prost(string, tag="9")]
     pub config_digest: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="10")]
+    pub output_schema_digest: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DerivationInput {
@@ -1700,6 +1704,8 @@ pub struct DerivedRepresentation {
     pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="12")]
     pub strategy: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="13")]
+    pub structured_payload: ::core::option::Option<::prost_types::Struct>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RepresentationListResponse {

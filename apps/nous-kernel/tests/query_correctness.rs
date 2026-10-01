@@ -220,6 +220,10 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one retained query is finalized after revise, suppress and purge, including the purged proposal fence"
+)]
 async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge() {
     let (root, url, _postgres) = database().await;
     let runtime = open_runtime(&url, &root).await;

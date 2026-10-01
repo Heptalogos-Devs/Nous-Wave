@@ -7,6 +7,7 @@ export function invocationSummary(evidence: ModelInvocationEvidence) {
     model: evidence.model,
     profileDigest: evidence.profileDigest,
     promptDigest: evidence.promptDigest,
+    outputSchemaDigest: evidence.outputSchemaDigest,
     latencyMs: evidence.latencyMs,
     requestCount: evidence.requestCount,
     status: "PASS",

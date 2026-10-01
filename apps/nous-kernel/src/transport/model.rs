@@ -68,6 +68,36 @@ impl KernelService {
 }
 #[tonic::async_trait]
 impl k::model_material_service_server::ModelMaterialService for KernelService {
+    async fn segment_description(
+        &self,
+        request: Request<p::ObjectRequest>,
+    ) -> std::result::Result<Response<k::DescriptionSegments>, Status> {
+        let input = request.into_inner();
+        let result: Result<_> = async {
+            let segments = self
+                .0
+                .material
+                .segment_description(
+                    SubjectId(id(&input.subject_id)?),
+                    nous_core::DerivedRepresentationId(id(&input.id)?),
+                )
+                .await?;
+            Ok(k::DescriptionSegments {
+                segments: segments
+                    .into_iter()
+                    .map(|item| k::DescriptionSegment {
+                        key: item.key,
+                        text: item.text,
+                        reference: Some(to_ref(nous_core::CognitiveRef::DerivedRegion(
+                            item.region.derived_region_id,
+                        ))),
+                    })
+                    .collect(),
+            })
+        }
+        .await;
+        result.map(Response::new).map_err(status)
+    }
     async fn find_workflow(
         &self,
         request: Request<k::FindWorkflowRequest>,
@@ -192,17 +222,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
             let subject = SubjectId(id(&input.subject_id)?);
             let kind: nous_core::RepresentationKind = enum_value(&input.kind)?;
             let producer = required(input.producer, "producer")?;
-            let producer = nous_core::ProducerSignature {
-                signature_hash: String::new(),
-                provider_class: producer.provider_class,
-                operation: enum_value(&producer.operation)?,
-                implementation: producer.implementation,
-                model_identity: producer.model_identity,
-                model_revision: producer.model_revision,
-                preprocessing_identity: producer.preprocessing_identity,
-                preprocessing_revision: producer.preprocessing_revision,
-                config_digest: producer.config_digest,
-            };
+            let producer = from_producer(producer)?;
             let inputs = input
                 .inputs
                 .into_iter()
@@ -226,6 +246,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                     producer,
                     revision: 1,
                     payload_text: Some(input.text),
+                    payload_json: input.structured_payload.map(|value| object(Some(value))),
                     payload_artifact_id: None,
                     quality: object(input.quality),
                     created_at: chrono::Utc::now(),

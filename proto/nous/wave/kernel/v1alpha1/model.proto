@@ -29,8 +29,10 @@ message CommitInterpretationRequest {
   string strategy = 10;
   optional string supersedes = 11;
   google.protobuf.Struct quality = 12;
+  google.protobuf.Struct structured_payload = 13;
 }
 service ModelMaterialService {
+  rpc SegmentDescription(nous.wave.v1alpha1.ObjectRequest) returns (DescriptionSegments);
   rpc FindWorkflow(FindWorkflowRequest) returns (FoundWorkflow);
   rpc GetResolvedMentions(ResolvedMentionsRequest) returns (ResolvedMentionsResponse);
   rpc ReserveWorkflow(ReserveWorkflowRequest) returns (WorkflowReservation);
@@ -41,6 +43,8 @@ service ModelMaterialService {
   rpc CommitEmbedding(CommitEmbeddingRequest) returns (google.protobuf.Empty);
   rpc CommitInterpretation(CommitInterpretationRequest) returns (nous.wave.v1alpha1.DerivedRepresentation);
 }
+message DescriptionSegment { string key = 1; string text = 2; nous.wave.v1alpha1.CognitiveRef reference = 3; }
+message DescriptionSegments { repeated DescriptionSegment segments = 1; }
 message ReserveWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string semantic_digest = 4; string snapshot_json = 5; }
 message WorkflowReservation { string snapshot_json = 1; optional string proposal_json = 2; optional string outcome_json = 3; optional string lease_token = 4; bool busy = 5; }
 message SaveWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string lease_token = 4; optional string proposal_json = 5; optional string outcome_json = 6; }

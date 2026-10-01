@@ -38,7 +38,9 @@ Observation 先写 Material Authority，再由 Memory owner 以 occurrence-bound
 
 Material 的 DerivedRepresentation 保存 ordered exact inputs（SourceRegion、DerivedRepresentation 或 DerivedRegion）、strategy 和 producer。Fresh schema 用 `derived_representation_inputs` 表保存不可变边，`representation_source_regions` 从当前输入图计算来源闭包。输入须已存在且同 Subject；禁止重复和自引用，已提交表示没有追加/改写输入的接口，因此不能形成回边。成功 derivation key 与结果同事务保存；同 key 重试复用已提交结果。没有 current consumer 的旧 singular-source scheduler、lease/attempt 与独立 derivation state 表已删除。
 
-Core 的 public `DeriveMaterial` 返回实际表示链并保留部分成功结果；formation 使用实际 textual representation。Memory revision 与 producer registry 同事务提交，批量 Memory read 携带 producer reference；public Material read 支持 producer 和 DerivedRegion。CLI trace 通过 official Client 展开 exact derivation inputs。视频 adapter、query rerank 与 live evidence 仍在施工。
+Core 的 public `DeriveMaterial` 返回实际表示链并保留部分成功结果。结构化表示保存 JSON payload 与 deterministic text projection；唯一 Zod schema 用于 SDK/raw provider request 和 local validation，其 digest 进入 invocation、ProducerSignature 与 derivation identity。Material owner 对已提交描述做 UTF-8 byte segmentation，返回稳定 DerivedRegion catalog；第二模型输出的 keys 映射成字段 supports，Kernel 在输入 DAG 内核验引用。public Material read/materialize 支持按字段 DerivedRegion 精确回读。
+
+Memory revision 与 producer registry 同事务提交，批量 read 携带 producer reference。formation 使用调用方稳定 operation identity，先保存经过验证的 proposal，再提交 Authority；原配置/Prompt snapshot 保持操作连续性。CLI trace 通过 official Client 展开 exact derivation inputs。原始 audio/video gateway input 与 model rerank 已接通；新的 schema live 复核、External Resource continuation 和最终便携验收仍在施工。
 
 Runtime 持有 QueryPlan、lane budgets、object-revision aggregation、fixed RRF 和 final result ordering。Retrieval 通过 Runtime-owned contract 提供 serving candidates，不被 Runtime 作为具体实现依赖。
 

@@ -19,6 +19,7 @@
 - [Episode Specs](specs/active/episode/episode-authority.md)：Memory-owned Episode authority 与 Runtime integration。
 - [Gateway/model/Prompt Specs](specs/active/model-runtime/gateway-model-and-prompts.md)：标准模型协议、角色配置与 producer provenance。
 - [Material derivation Spec](specs/active/model-runtime/material-derivation.md)：exact input graph 与多媒体策略。
+- [Cognitive IO / Resource Spec](specs/active/model-runtime/cognitive-io-and-resources.md)：structured schema、字段支持链与 External Resource 续接施工合同。
 - [Reference consumer Spec](specs/active/model-runtime/reference-consumer.md)：official Client CLI 的完整使用路径。
 - [Rerank 与真实实验 Spec](specs/active/retrieval/rerank-and-live-evaluation.md)：valid pool、真实 corpus、oracle 与指标。
 - [真实使用与检索 Qualification](qualification/2026-09-30-real-usage-retrieval.md)：本轮实际证据和阻塞。

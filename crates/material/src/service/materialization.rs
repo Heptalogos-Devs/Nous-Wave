@@ -227,13 +227,18 @@ impl MaterialService {
 fn coordinate_range(kind: &str, coordinate: &serde_json::Value) -> Result<Option<ByteRange>> {
     match kind {
         "whole_artifact" => Ok(None),
-        "byte_range" | "text_span" => {
+        "byte_range" | "text_span" | "description_segment" => {
+            let (start_key, end_key) = if kind == "description_segment" {
+                ("utf8_start", "utf8_end")
+            } else {
+                ("start", "end")
+            };
             let start = coordinate
-                .get("start")
+                .get(start_key)
                 .and_then(|v| v.as_u64())
                 .ok_or_else(|| Error::Invalid("coordinate start is required".into()))?;
             let end = coordinate
-                .get("end")
+                .get(end_key)
                 .and_then(|v| v.as_u64())
                 .ok_or_else(|| Error::Invalid("coordinate end is required".into()))?;
             Ok(Some(ByteRange { start, end }))

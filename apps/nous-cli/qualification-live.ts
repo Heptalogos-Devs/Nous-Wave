@@ -80,7 +80,7 @@ if (state.manifestDigest !== digest)
 const json = (value: unknown) =>
   JSON.stringify(
     value,
-    (_, item) => (typeof item === "bigint" ? item.toString() : item),
+    (_, item: unknown) => (typeof item === "bigint" ? item.toString() : item),
     2,
   );
 const save = async () => {

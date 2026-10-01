@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const tsx = join(root, "node_modules/tsx/dist/cli.mjs");
@@ -18,10 +19,88 @@ const kernel =
   );
 const dataRoot = await mkdtemp(join(tmpdir(), "nous-real-consumer-"));
 const configPath = join(dataRoot, "bootstrap.toml");
+// Deterministic local provider contract proof, never live-model or corpus evidence.
+let structuredEnabled = false;
+let providerCalls = 0;
+const provider = createServer((request, response) => {
+  void (async () => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) {
+      const bytes: unknown = chunk;
+      if (!(bytes instanceof Uint8Array))
+        throw new Error("Invalid fixture request bytes");
+      chunks.push(Buffer.from(bytes));
+    }
+    providerCalls++;
+    response.setHeader("Content-Type", "application/json");
+    if (!structuredEnabled) {
+      response.writeHead(503);
+      response.end('{"error":"qualification unavailable"}');
+      return;
+    }
+    const body = JSON.parse(Buffer.concat(chunks).toString()) as {
+      messages: unknown;
+      response_format: {
+        type: string;
+        json_schema: { strict: boolean; schema: { required: string[] } };
+      };
+    };
+    assert.equal(body.response_format.type, "json_schema");
+    assert.equal(body.response_format.json_schema.strict, true);
+    assert(
+      body.response_format.json_schema.schema.required.includes(
+        "uncertainties",
+      ),
+    );
+    const key = JSON.stringify(body.messages).match(/D\d{3}/)?.[0] ?? "S000";
+    const result = {
+      summary: "Local protocol continuity marker.",
+      coverage: {
+        visual: "not_available",
+        audio: "not_available",
+        embedded_text: "observed",
+      },
+      observations: [
+        {
+          kind: "text",
+          content: "Local protocol continuity marker.",
+          basis: "direct",
+          start_ms: null,
+          end_ms: null,
+          support_keys: [key],
+        },
+      ],
+      mentions: [],
+      embedded_text: [],
+      speech: [],
+      interpretations: [],
+      uncertainties: [],
+    };
+    response.end(
+      JSON.stringify({
+        id: "qualification",
+        created: 1,
+        model: "local-contract",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: JSON.stringify(result) },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+    );
+  })().catch(() => response.destroy());
+});
+await new Promise<void>((done) => provider.listen(0, "127.0.0.1", done));
+const providerAddress = provider.address();
+if (!providerAddress || typeof providerAddress === "string")
+  throw new Error("Qualification provider missing port");
 await mkdir(join(dataRoot, "config"));
 await writeFile(
   join(dataRoot, "config", "nous.toml"),
-  `deployment = "development"\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n`,
+  `deployment = "development"\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.qualification]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_QUALIFICATION_GATEWAY"\n[model_profiles.local]\ngateway = "qualification"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[roles.material_structuring]\nmodel = "local"\n`,
 );
 const runtimeRoot = process.env.NOUS_WAVE_POSTGRES_RUNTIME
   ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
@@ -41,7 +120,15 @@ async function boot() {
       configPath,
       "--stop-on-stdin-close",
     ],
-    { cwd: root, stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
+    {
+      cwd: root,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+      env: {
+        ...process.env,
+        NOUS_QUALIFICATION_GATEWAY: "synthetic-local-contract",
+      },
+    },
   );
   const child = core;
   let errors = "";
@@ -166,6 +253,77 @@ try {
     partial.selectedRepresentationId,
     partial.representations[0]?.representationId,
   );
+  structuredEnabled = true;
+  const direct = await client.model.deriveMaterial({
+    subjectId,
+    sourceRegionId: String(observation.sourceRegionId),
+    strategy: "direct_structured",
+  });
+  assert.equal(direct.degradation.length, 0);
+  assert.equal(direct.representations.length, 1);
+  const directPayload = direct.representations[0]!.structuredPayload!;
+  assert.deepEqual(directPayload.observations, [
+    {
+      kind: "text",
+      content: "Local protocol continuity marker.",
+      basis: "direct",
+      start_ms: null,
+      end_ms: null,
+      supports: [
+        { kind: "source_region", value: String(observation.sourceRegionId) },
+      ],
+    },
+  ]);
+  const twoStage = await client.model.deriveMaterial({
+    subjectId,
+    sourceRegionId: String(observation.sourceRegionId),
+    strategy: "describe_then_structure",
+  });
+  assert.equal(twoStage.degradation.length, 0);
+  assert.equal(twoStage.representations.length, 2);
+  const structured = twoStage.representations[1]!;
+  assert.equal(twoStage.selectedRepresentationId, structured.representationId);
+  const persisted = await client.material.representation({
+    subjectId,
+    id: structured.representationId,
+  });
+  assert.deepEqual(persisted.structuredPayload, structured.structuredPayload);
+  assert.match(persisted.producer!.outputSchemaDigest!, /^[a-f0-9]{64}$/);
+  assert.equal(
+    twoStage.invocations[0]?.outputSchemaDigest,
+    persisted.producer!.outputSchemaDigest,
+  );
+  const observations = persisted.structuredPayload!.observations as {
+    supports: { kind: string; value: string }[];
+  }[];
+  assert.equal(observations[0]!.supports[0]!.kind, "derived_region");
+  const segment = await client.material.derivedRegion({
+    subjectId,
+    id: observations[0]!.supports[0]!.value,
+  });
+  assert.equal(
+    segment.representationId,
+    twoStage.representations[0]!.representationId,
+  );
+  assert.equal(segment.coordinateKind, "description_segment");
+  const segmentMaterial = await client.material.materialize({
+    subjectId,
+    reference: { kind: "derived_region", value: segment.derivedRegionId },
+    maxBytes: 4096n,
+  });
+  assert.equal(segmentMaterial.partial, false);
+  assert.equal(
+    new TextDecoder().decode(segmentMaterial.content),
+    "Local consumer wiring marker: protocol continuity.",
+  );
+  const beforeReplay = providerCalls;
+  const replay = await client.model.deriveMaterial({
+    subjectId,
+    sourceRegionId: String(observation.sourceRegionId),
+    strategy: "describe_then_structure",
+  });
+  assert.equal(replay.selectedRepresentationId, structured.representationId);
+  assert.equal(providerCalls, beforeReplay);
   assert.equal((await client.material.limits({})).maxUploadBytes, 1048576n);
   await assert.rejects(
     client.artifacts.uploadBytes(subjectId, new Uint8Array(1048577), {
@@ -260,6 +418,10 @@ try {
       trace: true,
       meaningfulUse: true,
       restart: true,
+      structuredPayload: true,
+      fieldSupport: true,
+      noChargeReplay: true,
+      providerCalls,
       liveModel: "NOT_RUN",
       corpus: "synthetic_local_wiring",
     }),
@@ -275,5 +437,6 @@ try {
   process.exitCode = 1;
 } finally {
   await stop();
+  await new Promise<void>((done) => provider.close(() => done()));
   await rm(dataRoot, { recursive: true, force: true });
 }
