@@ -160,6 +160,7 @@ impl CognitiveRuntimeService {
                         provider_metadata: serde_json::Value::Null,
                     }],
                     diagnostics: Vec::new(),
+                    topology_work: None,
                 });
             }
         }
@@ -183,6 +184,13 @@ impl CognitiveRuntimeService {
                     detail: output.diagnostics.first().cloned(),
                 });
             }
+            if output.status == LaneStatus::Truncated {
+                result.status = QueryStatus::Partial;
+                result.degradation.push(Degradation {
+                    code: format!("{:?}_lane_truncated", output.family).to_lowercase(),
+                    detail: Some("Configured lane work budget exhausted".into()),
+                });
+            }
             for candidate in &output.candidates {
                 let entry = candidates
                     .entry(candidate.reference.clone())
@@ -198,6 +206,31 @@ impl CognitiveRuntimeService {
                     .and_modify(|rank| *rank = (*rank).min(candidate.rank as usize))
                     .or_insert(candidate.rank as usize);
                 entry.variants.extend(candidate.variants.clone());
+            }
+        }
+        let memory_only = query
+            .expression
+            .targets
+            .iter()
+            .any(|target| matches!(target, QueryTarget::Memory))
+            && !query.expression.targets.iter().any(|target| {
+                matches!(
+                    target,
+                    QueryTarget::AnyRelevantCognition
+                        | QueryTarget::Evidence
+                        | QueryTarget::Resource
+                )
+            });
+        if memory_only {
+            let before = candidates.len();
+            candidates.retain(|reference, _| {
+                contributors
+                    .memory
+                    .is_some_and(|owner| owner.owns(reference))
+            });
+            let dropped = before - candidates.len();
+            if dropped > 0 {
+                *lane_drops.entry("domain_ineligible".into()).or_default() += dropped;
             }
         }
         let rank_inputs = candidates.into_values().collect::<Vec<_>>();
@@ -280,25 +313,6 @@ impl CognitiveRuntimeService {
             }
         }
         for reference in generic {
-            if query
-                .expression
-                .targets
-                .iter()
-                .any(|target| matches!(target, QueryTarget::Memory))
-                && !query.expression.targets.iter().any(|target| {
-                    matches!(
-                        target,
-                        QueryTarget::AnyRelevantCognition
-                            | QueryTarget::Evidence
-                            | QueryTarget::Resource
-                    )
-                })
-            {
-                *validation_drops
-                    .entry("domain_ineligible".into())
-                    .or_default() += 1;
-                continue;
-            }
             self.store
                 .validate_reference(query.subject, &reference)
                 .await?;
@@ -349,6 +363,28 @@ impl CognitiveRuntimeService {
             result.status = QueryStatus::Partial;
         }
         explain_plan(&mut result, query, &plan);
+        if let Some(diagnostics) = result.diagnostics.as_mut() {
+            for lane in &lane_outputs {
+                let name = format!("{:?}", lane.family).to_lowercase();
+                diagnostics
+                    .lane_status
+                    .insert(name.clone(), format!("{:?}", lane.status).to_lowercase());
+                *diagnostics
+                    .candidate_counts
+                    .entry(format!("{name}_candidates"))
+                    .or_default() += lane.candidates.len();
+                if let Some(work) = &lane.topology_work {
+                    diagnostics
+                        .candidate_counts
+                        .insert("topology_seed_count".into(), work.seed_count);
+                    diagnostics
+                        .candidate_counts
+                        .insert("topology_visited_nodes".into(), work.visited_nodes);
+                    diagnostics.topology_complete = Some(work.complete);
+                    diagnostics.topology_discarded_mass = Some(work.discarded_mass);
+                }
+            }
+        }
         if !validation_drops.is_empty() {
             let diagnostics = result.diagnostics.get_or_insert(QueryDiagnostics {
                 candidate_counts: BTreeMap::new(),

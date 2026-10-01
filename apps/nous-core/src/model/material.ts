@@ -124,6 +124,16 @@ export class ModelMaterialPipeline {
       throw new ConnectError("Kernel query response missing", Code.Internal);
     let result = prepared.response;
     const ticket = prepared.validationTicket;
+    if (
+      !ticket &&
+      intent &&
+      profile &&
+      this.models.invocations.requirement("query_rerank") === "required"
+    )
+      throw new ConnectError(
+        "Required rerank validation snapshot unavailable",
+        Code.ResourceExhausted,
+      );
     if (ticket) {
       const candidates = result.hits
         .filter((hit) => hit.text?.trim())
@@ -202,7 +212,11 @@ export class ModelMaterialPipeline {
       }
     } else
       result.rerank = skippedRerank(
-        intent ? "role_not_configured" : "no_positive_textual_intent",
+        intent
+          ? profile
+            ? "validation_pool_unavailable"
+            : "role_not_configured"
+          : "no_positive_textual_intent",
       );
     result.invocations.push(
       ...invocations.map((summary) => ({

@@ -17,7 +17,8 @@
         "src/main.ts!",
         "qualification-local.ts",
         "qualification-portable.ts",
-        "research-live.ts"
+        "research-live.ts",
+        "qualification-live.ts"
       ]
     }
   },

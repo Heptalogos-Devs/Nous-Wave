@@ -13,7 +13,7 @@ impl KernelService {
             .await?;
         let (result, ticket) = if pool_limit.is_some() {
             let (result, ticket) = self.0.cognition.retain_query(execution)?;
-            (result, Some(ticket.to_string()))
+            (result, ticket.map(|value| value.to_string()))
         } else {
             (execution.result, None)
         };

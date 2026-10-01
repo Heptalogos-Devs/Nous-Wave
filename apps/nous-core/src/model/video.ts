@@ -1,7 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import type { ModelConfiguration } from "./configuration.js";
 import { canonicalDigest } from "./prompts.js";
 
@@ -9,6 +8,7 @@ type Policy = ModelConfiguration["video"];
 export async function sampleVideo(
   bytes: Uint8Array,
   policy: Policy,
+  tempRoot: string,
   secretNames: readonly string[],
   includeAudio: boolean,
   signal?: AbortSignal,
@@ -20,7 +20,7 @@ export async function sampleVideo(
     throw new Error(
       "FFmpeg runtime is unavailable; use nous runtime install ffmpeg or configure an executable",
     );
-  const root = await mkdtemp(join(tmpdir(), "nous-video-"));
+  const root = await mkdtemp(join(tempRoot, "nous-video-"));
   const secretSet = new Set(secretNames.map((name) => name.toUpperCase()));
   const env: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(process.env))

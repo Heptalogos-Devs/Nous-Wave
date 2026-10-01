@@ -1,6 +1,6 @@
 {
   "status": "NOT_RUN",
-  "scope": "Two model-rerank variants executed; baseline/Wave/combined and final acceptance pending",
+  "scope": "Baseline and model-rerank both tracks executed; Wave/combined and final acceptance pending",
   "candidate_sha256": "1f01ba052f0c591ec14380a069954c7889f7ff0e2ab6e96be2210a6ec1f6013a",
   "source_head": "de72e53a481fc3a6b98ce95cbb6503d6580b4859",
   "source_dirty": true,
@@ -70,6 +70,72 @@
       "status": "PASS",
       "partial_queries": 40,
       "track": "end-to-end"
+    },
+    {
+      "raw_result_sha256": "3725d723456e47a09c4abb6fc8395d9bc6f8e0793685280cc978cc0bb7dbda73",
+      "status": "PASS",
+      "authority_seq": "526",
+      "variant": "baseline",
+      "request_count": 40.0,
+      "metrics": {
+        "formationCoverage": 1,
+        "recall1": 0.85,
+        "recall5": 0.975,
+        "recall10": 1,
+        "mrr": 0.90625,
+        "conditionalRecall1": 0.85,
+        "conditionalRecall5": 0.975,
+        "conditionalRecall10": 1,
+        "provenancePrecision": 1,
+        "wrongSource": 0,
+        "wrongEntity": 0,
+        "staleLeakage": 0,
+        "emptyRate": 0,
+        "latencyP50Ms": 235.35439999999994,
+        "latencyP95Ms": 473.4385000000002
+      },
+      "track": "controlled",
+      "partial_queries": 40
+    },
+    {
+      "raw_result_sha256": "93a7c68085a36324544fdc3b321e63278174dce4c6c03825214d82b2d0e186e7",
+      "status": "PASS",
+      "authority_seq": "735",
+      "variant": "baseline",
+      "request_count": null,
+      "metrics": {
+        "formationCoverage": 1,
+        "recall1": 0.875,
+        "recall5": 1,
+        "recall10": 1,
+        "mrr": 0.93125,
+        "conditionalRecall1": 0.875,
+        "conditionalRecall5": 1,
+        "conditionalRecall10": 1,
+        "provenancePrecision": 1,
+        "wrongSource": 0,
+        "wrongEntity": 0,
+        "staleLeakage": 0,
+        "emptyRate": 0,
+        "latencyP50Ms": 24.296899999999823,
+        "latencyP95Ms": 29.05250000000001
+      },
+      "track": "end-to-end",
+      "partial_queries": 40
     }
-  ]
+  ],
+  "formation": {
+    "status": "PASS",
+    "successful_operations": 105,
+    "replayed_operations": 105,
+    "replay_added_model_attempts": 0,
+    "successful_request_count": 105.0,
+    "latency_p50_ms": 4962.024999999994,
+    "latency_p95_ms": 6909.5576,
+    "input_tokens": 62742.0,
+    "output_tokens": 73174.0,
+    "total_tokens": 135916.0,
+    "failed_attempt_usage": "unknown",
+    "cost": "unknown"
+  }
 }

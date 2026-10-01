@@ -1,8 +1,14 @@
 use crate::{ServingSnapshot, SourceSeed, propagate_with_budget};
 use nous_core::{CognitiveRef, Cue, EvidenceFamily};
-use nous_runtime::{BoundQuery, LaneCandidate, LaneOutput, LaneStatus, QueryPlan};
+use nous_runtime::{
+    BoundQuery, LaneCandidate, LaneOutput, LaneStatus, QueryPlan, TopologyWorkSummary,
+};
 use std::collections::HashMap;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "Keep topology seed selection, bounded propagation and observed execution evidence in one owner"
+)]
 pub(crate) fn topology_lane(
     snapshot: &ServingSnapshot,
     bound: &BoundQuery,
@@ -69,6 +75,12 @@ pub(crate) fn topology_lane(
         }
     }
     if seeds.is_empty() {
+        output.topology_work = Some(TopologyWorkSummary {
+            seed_count: 0,
+            visited_nodes: 0,
+            complete: true,
+            discarded_mass: 0.0,
+        });
         return output;
     }
     let mut merged = HashMap::<u32, SourceSeed>::new();
@@ -84,12 +96,22 @@ pub(crate) fn topology_lane(
                 hop_zero: true,
             });
     }
+    let seed_count = merged.len();
     let river = propagate_with_budget(
         graph,
         &merged.into_values().collect::<Vec<_>>(),
         plan.topology_rounds,
         plan.topology_nodes,
     );
+    output.topology_work = Some(TopologyWorkSummary {
+        seed_count,
+        visited_nodes: river.node_potential.len(),
+        complete: river.complete,
+        discarded_mass: river.discarded_state_mass,
+    });
+    if !river.complete {
+        output.status = LaneStatus::Truncated;
+    }
     let mut values = river
         .node_potential
         .iter()

@@ -31,7 +31,7 @@ flags=(
   --enable-demuxer=mov,matroska,ogg,avi,mpegts,mpegvideo,wav,mp3
   --enable-decoder=h264,hevc,vp8,vp9,aac,mp3,vorbis,opus,mjpeg,png,pcm_s16le
   --enable-encoder=mjpeg,pcm_s16le
-  --enable-muxer=image2,wav,null
+  --enable-muxer=image2,wav,mov,mp4,null
   --enable-filter=scale,showinfo,format,aformat,aresample,anull
   --extra-cflags=-ffile-prefix-map=.=./
 )

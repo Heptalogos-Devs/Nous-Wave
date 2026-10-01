@@ -9,7 +9,8 @@ mod work_contexts;
 mod working_set;
 pub use query::{
     BoundQuery, CognitiveContributor, CognitiveContributors, LaneCandidate, LaneOutput, LaneStatus,
-    QueryExecution, QueryPlan, SharedLaneProvider, WorkCycle, register_retrieval_configuration,
+    QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
+    register_retrieval_configuration,
 };
 pub use work_contexts::*;
 pub use working_set::*;

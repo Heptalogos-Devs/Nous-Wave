@@ -36,12 +36,14 @@ export class ModelRuntime {
     readonly video = modelConfigurationSchema.parse({}).video,
     readonly credentialEnvironments: readonly string[] = [],
     readonly audio = modelConfigurationSchema.parse({}).audio,
+    readonly tempRoot?: string,
   ) {}
   static async fromConfig(
     config: ModelConfiguration,
     promptRoot?: string,
     overridePromptRoot?: string,
     budget?: ModelBudget,
+    tempRoot?: string,
   ) {
     const invocations = await ModelInvocations.create(
       config,
@@ -77,6 +79,7 @@ export class ModelRuntime {
         (gateway) => gateway.credential_env,
       ),
       config.audio,
+      tempRoot,
     );
   }
   get embeddingModel() {

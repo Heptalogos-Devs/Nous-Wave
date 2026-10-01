@@ -320,6 +320,14 @@ impl CognitiveRuntimeService {
                         .lane_status
                         .insert(format!("branch_{index}_{key}"), value);
                 }
+                if let Some(complete) = diagnostics.topology_complete {
+                    target.topology_complete =
+                        Some(target.topology_complete.unwrap_or(true) && complete);
+                }
+                if let Some(mass) = diagnostics.topology_discarded_mass {
+                    target.topology_discarded_mass =
+                        Some(target.topology_discarded_mass.unwrap_or(0.0) + mass);
+                }
             }
             outputs.push(value.results);
         }

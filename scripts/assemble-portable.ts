@@ -114,10 +114,43 @@ await cp(
   join(program, "manifest/runtimes.json"),
 );
 await mkdir(runtime);
-for (const name of ["node", "postgresql", "ffmpeg"])
-  await cp(join(repo, "data/dev/runtime", name), join(runtime, name), {
-    recursive: true,
-  });
+const components = JSON.parse(
+  await readFile(join(repo, "manifest/runtimes.json"), "utf8"),
+) as {
+  packs: {
+    component: string;
+    version: string;
+    platform: string;
+    arch: string;
+    sha256: string;
+    manifest_sha256: string;
+    archive: string;
+  }[];
+};
+for (const name of ["node", "postgresql", "ffmpeg"]) {
+  const matching = components.packs.filter(
+    (pack) =>
+      pack.component === name &&
+      pack.platform === process.platform &&
+      pack.arch === process.arch,
+  );
+  if (matching.length !== 1)
+    throw new Error(`No unique ${name} pack for the bundle platform`);
+  await execute(
+    process.execPath,
+    [
+      join(program, "core/launcher.js"),
+      "runtime",
+      "install",
+      name,
+      "--home",
+      output,
+      "--pack",
+      join(repo, "packs", matching[0]!.archive),
+    ],
+    { windowsHide: true, maxBuffer: 65536 },
+  );
+}
 await mkdir(join(output, "config"));
 await cp(join(repo, "nous.example.toml"), join(output, "config/nous.toml"));
 await cp(join(repo, "bootstrap.example.toml"), join(output, "bootstrap.toml"));
@@ -204,19 +237,6 @@ const inventory = [...packages.values()].map(({ name, version, license }) => ({
   version,
   license,
 }));
-const components = JSON.parse(
-  await readFile(join(repo, "manifest/runtimes.json"), "utf8"),
-) as {
-  packs: {
-    component: string;
-    version: string;
-    platform: string;
-    arch: string;
-    sha256: string;
-    manifest_sha256: string;
-    archive: string;
-  }[];
-};
 await mkdir(join(output, "manifest"));
 await writeFile(
   join(output, "manifest/components.json"),

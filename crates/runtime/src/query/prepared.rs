@@ -13,7 +13,10 @@ const QUERY_LEASE: Duration = Duration::from_secs(360);
 const QUERY_SLOTS: usize = 16;
 
 impl CognitiveRuntimeService {
-    pub fn retain_query(&self, execution: QueryExecution) -> Result<(CognitiveQueryResult, Uuid)> {
+    pub fn retain_query(
+        &self,
+        execution: QueryExecution,
+    ) -> Result<(CognitiveQueryResult, Option<Uuid>)> {
         if execution.result.results.len() > 64 {
             return Err(Error::Invalid("rerank pool exceeds 64 candidates".into()));
         }
@@ -25,7 +28,10 @@ impl CognitiveRuntimeService {
             .sum::<usize>()
             > 2 * 1024 * 1024
         {
-            return Err(Error::Invalid("rerank pool exceeds 2 MiB of text".into()));
+            return Ok(retention_fallback(
+                execution,
+                "validated pool exceeds the text retention bound",
+            ));
         }
         let mut pending = self
             .pending_queries
@@ -33,8 +39,9 @@ impl CognitiveRuntimeService {
             .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
         pending.retain(|_, value| value.created.elapsed() < QUERY_LEASE);
         if pending.len() >= QUERY_SLOTS {
-            return Err(Error::Unavailable(
-                "all bounded query lease slots are busy".into(),
+            return Ok(retention_fallback(
+                execution,
+                "bounded query lease slots are busy",
             ));
         }
         let ticket = Uuid::new_v4();
@@ -46,7 +53,7 @@ impl CognitiveRuntimeService {
                 execution,
             },
         );
-        Ok((result, ticket))
+        Ok((result, Some(ticket)))
     }
     fn take_query(&self, subject: SubjectId, ticket: Uuid) -> Result<QueryExecution> {
         let mut pending = self
@@ -245,6 +252,9 @@ fn same_stamp(current: Option<&CognitiveHit>, old: &super::types::CandidateStamp
 }
 
 fn apply_model_order(hits: &mut Vec<CognitiveHit>, mut order: Vec<(CognitiveRef, f64)>, k: f64) {
+    if order.is_empty() {
+        return;
+    }
     order.sort_by(|a, b| b.1.total_cmp(&a.1));
     let mut remaining: HashMap<_, _> = hits
         .drain(..)
@@ -265,4 +275,22 @@ fn apply_model_order(hits: &mut Vec<CognitiveHit>, mut order: Vec<(CognitiveRef,
     for (rank, hit) in hits.iter_mut().enumerate() {
         hit.match_evidence.final_score = (k + 1.0) / (k + (rank + 1) as f64);
     }
+}
+
+fn retention_fallback(
+    mut execution: QueryExecution,
+    reason: &str,
+) -> (CognitiveQueryResult, Option<Uuid>) {
+    execution
+        .result
+        .results
+        .truncate(execution.bound.source_query.result_need.limit);
+    execution.result.degradation.push(Degradation {
+        code: "query_rerank_pool_unavailable".into(),
+        detail: Some(reason.into()),
+    });
+    if execution.result.status == QueryStatus::Complete {
+        execution.result.status = QueryStatus::Degraded;
+    }
+    (execution.result, None)
 }

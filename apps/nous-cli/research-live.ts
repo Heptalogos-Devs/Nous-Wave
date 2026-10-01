@@ -35,11 +35,13 @@ type Receipt = {
   memoryText?: string;
   aboutness?: string[];
   failure?: string;
+  formationInvocations?: unknown[];
 };
 type Track = {
   createId: string;
   subjectId?: string;
   units: Record<string, Receipt>;
+  embeddingInvocations?: unknown[];
 };
 type State = {
   manifestDigest: string;
@@ -299,6 +301,8 @@ async function importCorpus() {
           receipt.revisionId = formed.memory.revisionId;
           receipt.memoryText = formed.memory.text;
           receipt.aboutness = formed.memory.aboutness;
+          receipt.formationInvocations =
+            "invocations" in formed ? formed.invocations : [];
           delete receipt.failure;
         } catch (error) {
           receipt.failure =
@@ -339,6 +343,8 @@ async function importCorpus() {
       options,
     );
     committed += batch.committed;
+    (track.embeddingInvocations ??= []).push(...batch.invocations);
+    await save();
     if (batch.degradation.length)
       throw new Error(
         `Real embedding preparation incomplete: ${JSON.stringify(batch.degradation)}`,
@@ -536,6 +542,40 @@ async function runQueries() {
   );
 }
 
+async function auditFormation() {
+  const track = state["end-to-end"];
+  if (trackName !== "end-to-end" || !track?.subjectId)
+    throw new Error("audit-formation requires an imported end-to-end track");
+  const subjectId = track.subjectId;
+  const before = await client.subjects.get({ subjectId }, options);
+  let audited = 0;
+  for (const receipt of Object.values(track.units)) {
+    if (!receipt.revisionId) continue;
+    const replay = await client.model.formFromObservation(
+      {
+        subjectId,
+        occurrenceId: receipt.occurrenceId!,
+        representationId: receipt.representationId,
+        operationId: receipt.operationId,
+        aboutnessMode: "select_from_resolved_mentions",
+      },
+      options,
+    );
+    if (replay.memory?.revisionId !== receipt.revisionId)
+      throw new Error("Formation replay changed its committed identity");
+    receipt.formationInvocations = replay.invocations;
+    audited++;
+  }
+  const after = await client.subjects.get({ subjectId }, options);
+  if (after.authoritySeq !== before.authoritySeq)
+    throw new Error("Formation audit changed Authority");
+  await save();
+  process.stdout.write(
+    json({ status: "PASS", audited, authoritySeq: before.authoritySeq }) + "\n",
+  );
+}
+
 if (positionals[0] === "import") await importCorpus();
 else if (positionals[0] === "run") await runQueries();
-else throw new Error("Use import or run");
+else if (positionals[0] === "audit-formation") await auditFormation();
+else throw new Error("Use import, run or audit-formation");

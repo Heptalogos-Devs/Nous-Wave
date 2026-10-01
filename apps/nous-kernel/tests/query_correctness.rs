@@ -252,6 +252,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
     let execution = runtime.execute_query(request, Some(64)).await.unwrap();
     assert_eq!(execution.result.results.len(), 3);
     let (pool, ticket) = runtime.cognition.retain_query(execution).unwrap();
+    let ticket = ticket.expect("validated query snapshot should be retained");
     let first = &cohort[0];
     runtime
         .require_memory()

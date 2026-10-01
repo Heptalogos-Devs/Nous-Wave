@@ -357,9 +357,12 @@ export async function deriveMaterial(
       };
     }
     if (mime.startsWith("video/")) {
+      if (!models.tempRoot)
+        throw new Error("Resolved TempRoot is required for video sampling");
       const samples = await sampleVideo(
         source.content,
         models.video,
+        models.tempRoot,
         models.credentialEnvironments,
         Boolean(models.invocations.profile("speech_transcription")),
         signal,

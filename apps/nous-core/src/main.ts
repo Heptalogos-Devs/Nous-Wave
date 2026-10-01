@@ -59,6 +59,7 @@ async function main() {
           join(locations.instance, "model-budget.json"),
           config.modelBudget,
         ),
+        locations.temp,
       ),
     });
     const endpoint = await app.listen({ host: "127.0.0.1", port: config.port });

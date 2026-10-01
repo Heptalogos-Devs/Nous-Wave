@@ -31,7 +31,8 @@
     "quality": "pnpm lint:knip && pnpm lint:deps && pnpm lint:sherif",
     "check:governance": "pnpm format:check && pnpm lint:ts && pnpm quality",
     "check": "pnpm proto:check && pnpm typecheck && pnpm test && pnpm check:governance",
-    "research:retrieval-live": "tsx apps/nous-cli/research-live.ts"
+    "research:retrieval-live": "tsx apps/nous-cli/research-live.ts",
+    "qualification:live": "tsx apps/nous-cli/qualification-live.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "1.73.0",

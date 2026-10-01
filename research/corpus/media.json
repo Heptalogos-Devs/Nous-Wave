@@ -1,0 +1,180 @@
+{
+  "units": [
+    {
+      "sha256": "c5aae2b0aae02a7975f5a90e44ad5fe939199abdf66239b9a363293489424520",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-Writing-Tools-240610",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-Writing-Tools-240610_big.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot shows proofreading and rewriting an email?",
+      "file": "apple-Writing-Tools-240610.jpg",
+      "oracle_patterns": [
+        "proofread",
+        "rewrite",
+        "mail|email"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "870461d8850ac04fd7fa6bb07dca248d421af9bcec18f7933dad6ddaa59ae1f6",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-Focus-Reduce-Interruptions",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-Focus-Reduce-Interruptions-240610_inline.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot displays an important pickup notification under Reduce Interruptions?",
+      "file": "apple-Focus-Reduce-Interruptions.jpg",
+      "oracle_patterns": [
+        "reduce interruptions",
+        "important|notification"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "6674005400044e6bfe73f56b27cde97c87c8ea95d4775b35d100b9e433e5c598",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-Notes-record-and-transcribe-audio",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-Notes-record-and-transcribe-audio-240610_big.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot shows a recorded architecture lecture in Notes?",
+      "file": "apple-Notes-record-and-transcribe-audio.jpg",
+      "oracle_patterns": [
+        "ARCH.?201",
+        "record|audio",
+        "notes|lecture"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "a6bf6c03301fcd09e731174c43b206598c0cf73df58d2c29b130695de55b00eb",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-Siri-ChatGPT-request",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-Siri-ChatGPT-request-240610_inline.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot asks permission for Siri to use ChatGPT?",
+      "file": "apple-Siri-ChatGPT-request.jpg",
+      "oracle_patterns": [
+        "ChatGPT",
+        "permission|confirm|use chatgpt"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "01cbae0cb2e208e43bddd0a7ae6de42d5516add53b3e01acd7eacbe4256e8f3b",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-ChatGPT-Writing-Tools-Compose-prompt",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-ChatGPT-Writing-Tools-Compose-prompt-240610_big.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot composes a bedtime story for Annie?",
+      "file": "apple-ChatGPT-Writing-Tools-Compose-prompt.jpg",
+      "oracle_patterns": [
+        "Annie",
+        "bedtime|story",
+        "compose|prompt"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "6884a0bb52b1e7e7cb87479a30aa708a28cb66869e550b3ae887cf845260762a",
+      "rights": "NASA official archival recording; retain source and credit, research cache only",
+      "id": "nasa-press-video",
+      "source_url": "https://images-assets.nasa.gov/video/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372~preview.mp4",
+      "oracle_status": "PASS",
+      "media_type": "video/mp4",
+      "query": "A historical press scene with suited people wearing sunglasses",
+      "file": "nasa-press-clip.mp4",
+      "oracle_patterns": [
+        "sunglass",
+        "people|crowd|group|men"
+      ],
+      "context": {
+        "requested_clip_start_seconds": "300",
+        "oracle_review": "Visual source frame reviewed; temporal and audio-word correctness not asserted",
+        "source_catalog": "https://images.nasa.gov/details/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372",
+        "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
+        "preprocessing": "FFmpeg stream copy; complete clip sent directly",
+        "requested_clip_duration_seconds": "12"
+      }
+    },
+    {
+      "sha256": "5141c764c1c236d254ef96dd8208bfe462c883171cd6fd1e5d18f060f0dfb2e2",
+      "rights": "NASA official archival recording; retain source and credit, research cache only",
+      "id": "nasa-rocket-video",
+      "source_url": "https://images-assets.nasa.gov/video/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372~preview.mp4",
+      "oracle_status": "PASS",
+      "media_type": "video/mp4",
+      "query": "Historical rocket launch footage showing a rocket and launch tower",
+      "file": "nasa-rocket-clip.mp4",
+      "oracle_patterns": [
+        "rocket|Saturn",
+        "tower|pad|launch"
+      ],
+      "context": {
+        "requested_clip_start_seconds": "1800",
+        "oracle_review": "Visual source frame reviewed; temporal and audio-word correctness not asserted",
+        "source_catalog": "https://images.nasa.gov/details/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372",
+        "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
+        "preprocessing": "FFmpeg stream copy; complete clip sent directly",
+        "requested_clip_duration_seconds": "12"
+      }
+    },
+    {
+      "sha256": "714ad32aa2d1bc2c84010993ea5c737051b36670d707862254827ff5e28fe766",
+      "rights": "NASA official archival recording; retain source and credit, research cache only",
+      "id": "nasa-press-audio",
+      "source_url": "https://images-assets.nasa.gov/video/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372~preview.mp4",
+      "oracle_status": "NOT_RUN",
+      "media_type": "audio/wav",
+      "query": "Historical press audio from NASA Apollo 11 pre-launch footage",
+      "file": "nasa-press-audio.wav",
+      "oracle_patterns": [],
+      "context": {
+        "requested_clip_start_seconds": "300",
+        "oracle_review": "Source/codec verified; independent speech/content oracle NOT_RUN",
+        "source_catalog": "https://images.nasa.gov/details/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372",
+        "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
+        "preprocessing": "FFmpeg PCM16 mono 16kHz audio extraction",
+        "requested_clip_duration_seconds": "12"
+      }
+    },
+    {
+      "sha256": "eef5ce083494eea2986a191325f16477874d2b313300c1e6a8d97dde12857f8c",
+      "rights": "NASA official archival recording; retain source and credit, research cache only",
+      "id": "nasa-rocket-audio",
+      "source_url": "https://images-assets.nasa.gov/video/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372~preview.mp4",
+      "oracle_status": "NOT_RUN",
+      "media_type": "audio/wav",
+      "query": "Historical launch broadcast audio from Apollo 11 footage",
+      "file": "nasa-rocket-audio.wav",
+      "oracle_patterns": [],
+      "context": {
+        "requested_clip_start_seconds": "1800",
+        "oracle_review": "Source/codec verified; independent speech/content oracle NOT_RUN",
+        "source_catalog": "https://images.nasa.gov/details/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372",
+        "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
+        "preprocessing": "FFmpeg PCM16 mono 16kHz audio extraction",
+        "requested_clip_duration_seconds": "12"
+      }
+    }
+  ],
+  "version": 1
+}

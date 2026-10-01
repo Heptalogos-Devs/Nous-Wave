@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { dirname } from "node:path";
 import { stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
 const observed = vi.hoisted(() => ({
   commands: [] as string[][],
   roots: [] as string[],
@@ -61,6 +62,7 @@ it("bounds samples and subprocess input, excludes gateway credentials and remove
     const result = await sampleVideo(
       new Uint8Array([1, 2, 3]),
       policy,
+      tmpdir(),
       ["nous_media_test_token"],
       false,
     );
@@ -83,7 +85,7 @@ it("bounds samples and subprocess input, excludes gateway credentials and remove
       });
     observed.failFrames = true;
     await expect(
-      sampleVideo(new Uint8Array([1]), policy, [], false),
+      sampleVideo(new Uint8Array([1]), policy, tmpdir(), [], false),
     ).rejects.toThrow("FFmpeg execution");
     for (const input of observed.roots)
       await expect(stat(dirname(input))).rejects.toMatchObject({
@@ -93,6 +95,7 @@ it("bounds samples and subprocess input, excludes gateway credentials and remove
       sampleVideo(
         new Uint8Array(policy.max_source_bytes + 1),
         policy,
+        tmpdir(),
         [],
         false,
       ),
