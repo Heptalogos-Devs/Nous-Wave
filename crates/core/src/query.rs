@@ -123,7 +123,6 @@ pub enum CurrentAuthorityNeed {
     None,
     Prefer,
     Required,
-    HistoricalOrStale,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

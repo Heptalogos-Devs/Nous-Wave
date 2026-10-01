@@ -68,13 +68,11 @@ live：`corepack pnpm qualification:live` 和 `corepack pnpm research:retrieval-
 
 Journal、Dream、Self、Social、Motivation、automatic Episode segmentation、Heptalogos live integration、UI 和 Wave 默认启用均不在范围。完成授权行为与证据后停止。
 
-## 2026-10-01 用户修订
-
 ## Current closure work (2026-10-02)
 
 Gateway/role/Prompt, structured Material/DAG, public consumer, idempotent formation, expression/rerank and optional Resource continuation implementations are present; final acceptance is NOT_RUN. Candidate-19 real-corpus baseline/rerank measurements have complete responses on fixed per-track Authority; final payload correlation is pending. Media pipeline runs, while one structured-image quality check remains FAIL and independent audio facts NOT_RUN. Live RAGFlow BLOCKED as authorized.
 
-Remaining work: complete bounded Resource provider evidence/diagnostics and audit historical/stale handling/material byte bounds; finish native license/SBOM and binary-path closure; verify exact final ZIP with separated/co-located roots, relocation, offline missing-pack and restart; qualify final live payload; sync current documents, required Skills, Vault and paper through their own PRs; perform one fresh final branch review and clean-head local `just acceptance`, then Ready/final-head CI/squash/delete. No VCP or Native Material Corpus implementation is authorized here.
+Remaining work: complete bounded Resource provider evidence/diagnostics; finish native license/SBOM; verify exact final ZIP with separated/co-located roots, relocation, offline missing-pack and restart; qualify final live payload; sync current documents, required Skills, Vault and paper through their own PRs; perform one fresh final branch review and clean-head local `just acceptance`, then Ready/final-head CI/squash/delete. Resource byte bounds are aligned and the unused historical variant removed; binary path closure passed for candidate-20. No VCP or Native Material Corpus implementation is authorized here.
 
 ## Media and budget policy
 

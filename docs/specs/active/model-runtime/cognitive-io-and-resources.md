@@ -24,6 +24,8 @@ Kernel Resource descriptor 保存 adapter_kind/provider_profile/provider_locator
 
 public QueryResponse 的 resource_records 与 cognitive hits 分开；resource_actions 只保留未执行项。未配置/失败 adapter 显式 degradation，local hits 保持原合同。Core finally release ticket，cancellation 传播网络请求。official Client 可管理 Resource、query、读取 records、materialize/admit selected record。
 
+Core profile `max_material_bytes` limits each record up to1MiB; Kernel enforces the same1MiB hard ceiling and2MiB total serialized record budget per query. Current authority policies are none/prefer/required. The unused internal HistoricalOrStale variant had no NousQL/compiler/public producer and is removed. Records marked denied/stale/missing are excluded; current-authority success requires allowed/current status. Historical external snapshots are not an executable query policy in this scope.
+
 未呈现候选不建立 Observation。实际选用时有界 materialize → Artifact/SourceRegion → distinct ObservationOccurrence，external_object_ref 保存 stable ref identity；再次观察保持事件身份。external result 不直接成为 Memory。
 
 ## 执行与证据

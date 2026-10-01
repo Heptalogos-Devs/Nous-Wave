@@ -36,7 +36,7 @@ fn validate_record(
             .title
             .as_ref()
             .is_some_and(|value| value.len() > 1024)
-        || record.content.len() > 262144
+        || record.content.len() > 1048576
         || record.provider_rank == 0
         || record
             .provider_score

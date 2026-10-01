@@ -104,6 +104,8 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
     request.result_need.limit = 1;
     for case in [
         "valid",
+        "max_material",
+        "oversized_material",
         "unknown_action",
         "foreign_resource",
         "excess",
@@ -146,6 +148,16 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
             records: vec![record],
         };
         match case {
+            "max_material" | "oversized_material" => {
+                use sha2::{Digest, Sha256};
+                response.records[0].content =
+                    "x".repeat(1048576 + usize::from(case == "oversized_material"));
+                response.records[0].reference.content_digest =
+                    Sha256::digest(response.records[0].content.as_bytes())
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect();
+            }
             "unknown_action" => response.action_id = Uuid::new_v4(),
             "foreign_resource" => {
                 response.records[0].reference.resource_ref =
@@ -184,7 +196,7 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
             .cognition
             .finalize_query(owner, ticket, Vec::new(), vec![response], contributors())
             .await;
-        if case == "valid" {
+        if matches!(case, "valid" | "max_material") {
             let result = outcome.unwrap();
             assert_eq!(result.resource_records.len(), 1);
             assert!(result.resource_actions.is_empty());
