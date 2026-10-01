@@ -325,7 +325,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
 }
 
 fn workflow_json(value: &str) -> Result<serde_json::Value> {
-    if value.len() > 1048576 {
+    if value.len() > nous_persistence::WORKFLOW_VALUE_MAX_BYTES {
         return Err(Error::Invalid("workflow value exceeds bound".into()));
     }
     serde_json::from_str(value).map_err(|_| Error::Invalid("workflow JSON is invalid".into()))

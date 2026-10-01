@@ -265,3 +265,18 @@ candidate-26 精确 ZIP SHA256 `e83c4324bb4464d7e9d2276e03ae17325a90e3f723dbe212
 通过 candidate-26 distributed official Client 运行6个三策略 workflow 和2条 public NousQL，Subject `01a0f887-754c-7882-884e-a483f483f50c`，ignored `data/research/live/music-candidate26-state.json`。description_only 两段均 pipeline/metadata-scope quality PASS；direct_structured Carefree 提交 PASS、遗漏预定 ukulele/guitar 信息使 quality FAIL，Gymnopedie PASS；describe_then_structure Carefree PASS，Gymnopedie 第二阶段因 invents unavailable visual input 被校验拒绝 FAIL，第一阶段 AudioDescription 保留。两条查询2/2 PASS。未降低 oracle 或关闭校验来取得 PASS。
 
 此次音乐调用 ledger2450→2479，共29实际尝试；已返回并保存的成功 derivation/formation summary 为12 requests、total usage18386、模型 latency 累计73363.942ms，仅成功结果子集，不能当全量账单或端到端耗时。累计 ledger2479/10000；失败 usage/cost unknown。新音乐实验整体 pipeline/quality FAIL，最终媒体能力仍未通过完整质量验收。
+
+## 完整分支审查修复与干净环境证明
+
+对 `37e75b8..20e83c9` 的完整审查发现6项 Important，审查结果 FAIL；用户随后禁止子代理，后续修复和验收均由当前执行者完成。修复覆盖现有 owner，不增加 crate、兼容路由或新 workflow。完整 acceptance/Ready CI 仍为 NOT_RUN。
+
+- PostgreSQL preparation：独立不存在的 runtime 目录使公开 Memory qualification FAIL。新增显式 development/qualification `cargo run -p nous-kernel --example qualification_postgres`，复用固定18.6.0 dependency，同卷 staging 后发布真实安装目录，拒绝错误版本/partial install；加入 `just acceptance`，YAML 保持薄入口。首次实现误留 versioned 子目录，公开 boot 仍 FAIL，修正后 fresh-v2 runtime 的 Memory Reference、WorkContext/Episode 均 PASS。两个旧 qualification producer 补齐 QueryExpr `operation=atom`；没有恢复省略 operation 的 parser。
+- Resource ticket 与 rerank：无正文本意图、required reranker、两个文本候选的复现 FAIL；Core 独立判断 rerank eligibility，同时 finalize/release Resource ticket。精准测试 RED→GREEN PASS，不声称错误路径产生过付费请求。
+- Scoped current authority：official Client 的嵌套 required 原只触发1个 provider read，缺失版本核验，FAIL。current-authority 移到内部 QueryConstraints 单一 owner，删去 ResourceIntent 副本，按父约束继承/子细化冻结 action；同场景现在2次真实 fixture HTTP read，public qualification PASS。旧 historical_or_stale 编译值删除，当前只接受 none/prefer/required。
+- Exact/domain：精准测试确认 exact child 丢失父 Memory fence，FAIL；继承的 domain 与 exact selector 独立保留，冲突 domain 产生空 branch。现有 query correctness cohort 实际验证 Artifact exact 不穿过 Memory root、合法 Memory exact 仍返回，PASS。
+- Resource proposal/outcome：1 MiB 内容在完整 JSON proposal 中超过旧1 MiB限制，public selected materialization FAIL。原始内容上限不变，完整 JSON 使用8 MiB bounded envelope以容纳最坏6倍转义，private ModelMaterial RPC 配套上限；RAGFlow JSON response 上限8 MiB，query records2 MiB aggregate bound不变。official Client 选用1 MiB ASCII及1 MiB转义控制文本、Observation admission、同 operation replay 无新增 provider read均 PASS，Subject `01a0f8dc-1bae-7021-9331-8ff9f7b4fe34`。fixture proof不计入真实模型/corpus实验。
+- Frames fresh TempRoot：现有 regression 改用不存在的独立 TempRoot，RED ENOENT；media owner先创建该 root，再只清理操作子目录，GREEN PASS。真实 frames model invocation仍 NOT_RUN。
+
+窄检查 PASS：query correctness12/12；Runtime unit6/6；TS focused4 files/7 tests；Kernel/Runtime all-targets/all-features Clippy；TypeScript type/lint/Knip。PostgreSQL patch 的空白 context 已精简，官方原始18.6 source上的 `patch --dry-run` PASS；未改编译后的代码效果。当前 `git diff --check` PASS，最终提交后会复核整个分支范围。
+
+此前 candidate-27 source20e83c9、input digest `1e3cf99ae95e66914740df1b7064e96d20bc1c6d67663c4b814172a6cd2b6116`、ZIP `eafc00c31b05debcaf401a967f1e66d10431e9bab3f4674d014757f163f686ba`：共置与完全分离 locator/搬移/official Client/restart/固定端口/缺包拒绝 PASS，分别 Subject `01a0f8c8-0bcb-7a70-9520-35a67d57123b`、`01a0f8c8-b085-7b73-a9ab-c2783c0d5dfc`。2239 checksum entries、40 native operator-path audit、credential/instance/development inventory排除 PASS；SPDX475 packages/1132 relationships。该包早于上述修复，不能成为最终 changed-code payload证据；新包与实际模型关联仍待执行。

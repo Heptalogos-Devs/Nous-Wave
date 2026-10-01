@@ -25,6 +25,8 @@ export class KernelClient {
       createGrpcTransport({
         baseUrl: endpoint,
         defaultTimeoutMs: 30_000,
+        readMaxBytes: 8 * 1024 * 1024 + 65536,
+        writeMaxBytes: 8 * 1024 * 1024 + 65536,
         interceptors: [
           (next) => async (request) => {
             request.header.set("authorization", "Bearer " + token);

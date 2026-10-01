@@ -222,11 +222,6 @@ fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
         expression: compile_expression(expression, true, 0)?,
         exploration: enum_value(&modifiers.exploration).unwrap_or_default(),
         resources: ResourceIntent {
-            current_authority: if modifiers.current_authority.is_empty() {
-                CurrentAuthorityNeed::None
-            } else {
-                enum_value(&modifiers.current_authority)?
-            },
             synopsis_only: false,
         },
         result_need: ResultNeed {
@@ -316,6 +311,11 @@ fn compile_expression(
     if let Some(constraints) = modifiers.constraints {
         node.constraints = constraints_from_proto(constraints)?;
     }
+    node.constraints.current_authority = if modifiers.current_authority.is_empty() {
+        CurrentAuthorityNeed::None
+    } else {
+        enum_value(&modifiers.current_authority)?
+    };
     node.children = expression
         .children
         .into_iter()
@@ -367,6 +367,7 @@ fn interval(value: Option<p::TimeInterval>) -> Result<Option<TimeInterval>> {
 
 fn constraints_from_proto(value: p::QueryConstraints) -> Result<QueryConstraints> {
     Ok(QueryConstraints {
+        current_authority: CurrentAuthorityNeed::None,
         source_classes_include: value
             .source_classes_include
             .into_iter()

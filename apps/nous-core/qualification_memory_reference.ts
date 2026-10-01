@@ -108,6 +108,7 @@ async function stop(booted: Boot | undefined) {
 
 function queryExpression(text?: string) {
   return create(QueryExprSchema, {
+    operation: "atom",
     cues: text
       ? [
           create(CueSchema, {

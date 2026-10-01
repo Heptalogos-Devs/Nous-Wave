@@ -153,7 +153,9 @@ impl CognitiveRuntimeService {
                         || query_text.is_empty()
                     {
                         "inspect_synopsis"
-                    } else if query.resources.current_authority != CurrentAuthorityNeed::None {
+                    } else if query.expression.constraints.current_authority
+                        != CurrentAuthorityNeed::None
+                    {
                         "query_current_authority"
                     } else {
                         "search"
@@ -164,14 +166,16 @@ impl CognitiveRuntimeService {
                         r.descriptor.readiness
                     ),
                     current_authority: matches!(
-                        query.resources.current_authority,
+                        query.expression.constraints.current_authority,
                         CurrentAuthorityNeed::Prefer | CurrentAuthorityNeed::Required
                     ),
                 })
             })
             .collect::<Result<Vec<_>>>()?;
         let degradation = vec![Degradation {
-            code: if query.resources.current_authority == CurrentAuthorityNeed::Required {
+            code: if query.expression.constraints.current_authority
+                == CurrentAuthorityNeed::Required
+            {
                 "required_external_authority_unresolved"
             } else {
                 "external_resource_action_required"

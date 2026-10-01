@@ -81,6 +81,8 @@ pub enum Cue {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct QueryConstraints {
     #[serde(default)]
+    pub current_authority: CurrentAuthorityNeed,
+    #[serde(default)]
     pub source_classes_include: Vec<SourceClass>,
     #[serde(default)]
     pub source_classes_exclude: Vec<SourceClass>,
@@ -116,7 +118,7 @@ pub enum ExplorationIntent {
     Global,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum CurrentAuthorityNeed {
     #[default]
@@ -127,8 +129,6 @@ pub enum CurrentAuthorityNeed {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ResourceIntent {
-    #[serde(default)]
-    pub current_authority: CurrentAuthorityNeed,
     #[serde(default)]
     pub synopsis_only: bool,
 }
@@ -281,11 +281,11 @@ pub struct CognitiveQuery {
 
 impl CognitiveQuery {
     pub fn requests_resources(&self) -> bool {
-        self.resources.current_authority != CurrentAuthorityNeed::None
-            || self.resources.synopsis_only
+        self.resources.synopsis_only
             || self.exploration == ExplorationIntent::Global
             || self.scopes().iter().any(|scope| {
-                scope.cues.iter().any(|cue| matches!(cue, Cue::Resource(_)))
+                scope.constraints.current_authority != CurrentAuthorityNeed::None
+                    || scope.cues.iter().any(|cue| matches!(cue, Cue::Resource(_)))
                     || scope
                         .targets
                         .iter()

@@ -2,7 +2,7 @@
 
 第一方 reference consumer，只使用 `@nous-wave/client` 和 Node 标准库。Core 的本地 discovery 文件提供连接信息，CLI 只保存当前 Subject/Session/WorkContext 的选择。
 
-先在仓库根目录运行 `cargo build -p nous-kernel` 和 `corepack pnpm dev`。另一个终端：
+先按[根 README](../../README.md)安装依赖、构建 Kernel，并显式运行 `cargo run -p nous-kernel --example qualification_postgres` 准备开发数据库；再运行 `corepack pnpm dev`。另一个终端：
 
 ```powershell
 corepack pnpm nous status

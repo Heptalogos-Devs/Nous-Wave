@@ -146,10 +146,14 @@ export class QueryOrchestrator {
         score: number;
       }[] = [];
       let status = "NOT_RUN",
-        reason = "fewer_than_two_textual_candidates",
+        reason = !intent
+          ? "no_positive_textual_intent"
+          : !profile
+            ? "role_not_configured"
+            : "fewer_than_two_textual_candidates",
         providerResults = 0;
       try {
-        if (candidates.length >= 2) {
+        if (intent && profile && candidates.length >= 2) {
           try {
             const ranking = await this.models.invocations.rerank(
               intent,

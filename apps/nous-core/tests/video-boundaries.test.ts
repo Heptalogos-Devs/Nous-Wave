@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
-import { dirname } from "node:path";
-import { stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 const observed = vi.hoisted(() => ({
   commands: [] as string[][],
@@ -58,11 +58,13 @@ it("bounds samples and subprocess input, excludes gateway credentials and remove
     },
   }).video;
   process.env.NOUS_MEDIA_TEST_TOKEN = "fixture-secret";
+  const instance = await mkdtemp(join(tmpdir(), "nous-video-instance-"));
+  const freshTempRoot = join(instance, "separate-temp-volume");
   try {
     const result = await sampleVideo(
       new Uint8Array([1, 2, 3]),
       policy,
-      tmpdir(),
+      freshTempRoot,
       ["nous_media_test_token"],
       false,
     );
@@ -102,5 +104,6 @@ it("bounds samples and subprocess input, excludes gateway credentials and remove
     ).rejects.toThrow("byte bound");
   } finally {
     delete process.env.NOUS_MEDIA_TEST_TOKEN;
+    await rm(instance, { recursive: true, force: true });
   }
 });

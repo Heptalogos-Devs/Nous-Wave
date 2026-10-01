@@ -100,7 +100,7 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
     request.expression.cues = vec![Cue::Text(TextCue {
         text: "external fact".into(),
     })];
-    request.resources.current_authority = nous_core::CurrentAuthorityNeed::Required;
+    request.expression.constraints.current_authority = nous_core::CurrentAuthorityNeed::Required;
     request.result_need.limit = 1;
     for case in [
         "valid",
@@ -276,6 +276,41 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
         .form_memory(second)
         .await
         .expect("second memory");
+    let mut domain_fenced = query(subject);
+    domain_fenced.expression = CognitiveQueryExpr {
+        operation: QueryOperation::Any,
+        targets: vec![QueryTarget::Memory],
+        children: vec![
+            CognitiveQueryExpr {
+                targets: vec![QueryTarget::Exact {
+                    reference: CognitiveRef::Artifact(
+                        first_observation.artifact.as_ref().unwrap().artifact_id,
+                    ),
+                }],
+                ..Default::default()
+            },
+            CognitiveQueryExpr {
+                targets: vec![QueryTarget::Exact {
+                    reference: CognitiveRef::MemoryRevision(first.revision.memory_revision_id),
+                }],
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    };
+    let fenced = runtime
+        .query(domain_fenced)
+        .await
+        .expect("parent domain fences exact evidence");
+    assert!(
+        fenced
+            .results
+            .iter()
+            .all(|hit| !matches!(hit.reference, CognitiveRef::Artifact(_)))
+    );
+    assert!(fenced.results.iter().any(
+        |hit| hit.reference == CognitiveRef::MemoryRevision(first.revision.memory_revision_id)
+    ));
     let mut request = query(subject);
     request.expression.cues = vec![Cue::Entity(nous_core::EntityCue { entity_ref: alice })];
     request.expression.constraints.cognitive_roles_include =

@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -23,6 +24,7 @@ const configPath = join(dataRoot, "bootstrap.toml");
 let structuredEnabled = false;
 let providerCalls = 0;
 let resourceProviderCalls = 0;
+let resourceContent = "RAGFlow external chunk contract marker.";
 let embeddingCalls = 0;
 let formationEnabled = false;
 const provider = createServer((request, response) => {
@@ -37,7 +39,7 @@ const provider = createServer((request, response) => {
     if (request.url?.startsWith("/api/v1/")) {
       resourceProviderCalls++;
       response.setHeader("Content-Type", "application/json");
-      const content = "RAGFlow external chunk contract marker.";
+      const content = resourceContent;
       const data =
         request.method === "POST"
           ? {
@@ -176,7 +178,7 @@ if (!providerAddress || typeof providerAddress === "string")
 await mkdir(join(dataRoot, "config"));
 await writeFile(
   join(dataRoot, "config", "nous.toml"),
-  `deployment = "development"\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.qualification]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_QUALIFICATION_GATEWAY"\n[model_profiles.local]\ngateway = "qualification"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[roles.material_structuring]\nmodel = "local"\n[resource_profiles.ragflow]\nadapter_kind = "ragflow"\nbase_url = "http://127.0.0.1:${providerAddress.port}/api/v1"\ncredential_env = "NOUS_QUALIFICATION_GATEWAY"\n`,
+  `deployment = "development"\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.qualification]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_QUALIFICATION_GATEWAY"\n[model_profiles.local]\ngateway = "qualification"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[roles.material_structuring]\nmodel = "local"\n[resource_profiles.ragflow]\nmax_material_bytes = 1048576\nadapter_kind = "ragflow"\nbase_url = "http://127.0.0.1:${providerAddress.port}/api/v1"\ncredential_env = "NOUS_QUALIFICATION_GATEWAY"\n`,
 );
 const runtimeRoot = process.env.NOUS_WAVE_POSTGRES_RUNTIME
   ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
@@ -416,7 +418,7 @@ try {
   assert.equal(resourceDescriptor.providerProfile, "ragflow");
   const resourceResult = await client.cognition.recall(
     subjectId,
-    '"external chunk" $resource $limit(2)',
+    '(("external chunk" $resource $current(required)) || ("unrelated" $memory)) $limit(2)',
   );
   assert.equal(resourceResult.resourceActions.length, 0);
   assert.equal(resourceResult.resourceRecords.length, 1);
@@ -429,7 +431,7 @@ try {
     resourceDescriptor.resourceRef,
   );
   assert.equal(resourceResult.hits.length, 0);
-  assert.equal(resourceProviderCalls, 1);
+  assert.equal(resourceProviderCalls, 2);
   assert.equal(resourceResult.resourceInvocations.length, 1);
   const resourceInvocation = resourceResult.resourceInvocations[0]!;
   assert.equal(resourceInvocation.status, "success");
@@ -499,6 +501,35 @@ try {
     selected.observation.artifactId,
   );
   assert.equal((await client.material.limits({})).maxUploadBytes, 1048576n);
+  for (const boundedContent of [
+    "x".repeat(1048576),
+    "\u0001".repeat(1048576),
+  ]) {
+    resourceContent = boundedContent;
+    // The known provider locator is re-read and its current digest is verified by materialize.
+    // Query results have their own 2 MiB aggregate bound; selection need not repeat search.
+    const largeRequest = {
+      ...selectedRequest,
+      operationId: crypto.randomUUID(),
+      reference: {
+        ...selectedRef,
+        contentDigest: createHash("sha256")
+          .update(boundedContent)
+          .digest("hex"),
+      },
+    };
+    const largeSelected = await client.resources.materialize(largeRequest);
+    assert.equal(largeSelected.content, boundedContent);
+    const callsBeforeLargeReplay: number = resourceProviderCalls;
+    const largeReplay = await client.resources.materialize(largeRequest);
+    assert.equal(largeReplay.content, boundedContent);
+    assert.equal(
+      largeReplay.observation?.occurrenceId,
+      largeSelected.observation?.occurrenceId,
+    );
+    assert.equal(resourceProviderCalls, callsBeforeLargeReplay);
+  }
+  resourceContent = "RAGFlow external chunk contract marker.";
   await client.resources.put({
     subjectId,
     descriptor: {

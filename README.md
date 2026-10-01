@@ -10,13 +10,18 @@ Nous Wave 是一个 pre-production Subject cognition system。本仓库当前实
 
 ## 最短运行路径
 
-依赖准备并构建 Kernel 后：
+安装依赖并构建 Kernel 后，显式准备固定版本的开发数据库运行时，再启动：
 
 ```text
+corepack pnpm install --frozen-lockfile
+cargo build -p nous-kernel
+cargo run -p nous-kernel --example qualification_postgres
 corepack pnpm dev
 ```
 
 该命令生成 repo-owned dev 配置，选择当前平台的 Kernel binary，使用 private loopback/ephemeral Kernel port，并将 Core discovery 写入 `data/dev/run/core.json`。Kernel binary 不存在时会直接提示先运行 `cargo build -p nous-kernel`。
+
+数据库准备命令可显式获取固定 PostgreSQL18.6，默认安装至 ignored `data/dev/runtime/postgresql`，不升级已有其他版本。qualification 可用 `NOUS_WAVE_POSTGRES_RUNTIME` 指向独立安装；`just acceptance` 自行运行此准备步骤。普通产品 `serve` 仍只使用已安装 pack。
 
 完整 acceptance：
 

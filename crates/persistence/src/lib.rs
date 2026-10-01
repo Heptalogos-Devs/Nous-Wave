@@ -1,7 +1,7 @@
 //! PostgreSQL Authority repositories and migration ownership.
 mod identity;
 mod model_workflow;
-pub use model_workflow::WorkflowReservation;
+pub use model_workflow::{WORKFLOW_VALUE_MAX_BYTES, WorkflowReservation};
 mod producer;
 mod projection_input;
 mod projections;

@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import type { ModelConfiguration } from "./configuration.js";
 import { canonicalDigest } from "../digest.js";
@@ -20,6 +27,7 @@ export async function sampleVideo(
     throw new Error(
       "FFmpeg runtime is unavailable; use nous runtime install ffmpeg or configure an executable",
     );
+  await mkdir(tempRoot, { recursive: true });
   const root = await mkdtemp(join(tempRoot, "nous-video-"));
   const secretSet = new Set(secretNames.map((name) => name.toUpperCase()));
   const env: NodeJS.ProcessEnv = {};

@@ -218,9 +218,7 @@ function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
       break;
     case "current": {
       const value = one();
-      if (
-        !["none", "prefer", "required", "historical_or_stale"].includes(value)
-      )
+      if (!["none", "prefer", "required"].includes(value))
         invalid("Invalid current-authority requirement");
       m.currentAuthority = value;
       break;

@@ -108,11 +108,11 @@ export class RagflowAdapter implements ExternalResourceAdapter {
         const chunk = await reader.read();
         if (chunk.done) break;
         size += chunk.value.byteLength;
-        if (size > 2 * 1024 * 1024) {
+        if (size > 8 * 1024 * 1024) {
           await reader.cancel();
           throw new ResourceProviderError(
             "failed",
-            "Resource provider response exceeds 2 MiB",
+            "Resource provider response exceeds 8 MiB",
           );
         }
         chunks.push(chunk.value);

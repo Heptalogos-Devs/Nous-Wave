@@ -109,7 +109,7 @@ function emptyQuery(sessionId: string) {
   return create(QueryRequestSchema, {
     subjectId,
     sessionId,
-    expression: create(QueryExprSchema, {}),
+    expression: create(QueryExprSchema, { operation: "atom" }),
   });
 }
 

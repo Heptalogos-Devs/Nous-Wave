@@ -14,6 +14,10 @@ description_only 提交自由描述。direct_structured 给模型 invocation-loc
 
 ## Resource 与续接
 
+`$current` 是 scoped current-authority 约束，随 expression 进入冻结 leaf action；父级 required 不能被子级 none/prefer 放宽。Kernel 内部只在 QueryConstraints 保存该值，删除旧 query-wide ResourceIntent 副本。Resource ticket 本身不授权 model rerank；没有正文本意图或没有 configured rerank role 时仍完成 Resource 续接，rerank 为 NOT_RUN。
+
+selected materialization 的内容上限仍为1 MiB UTF-8，query records 的2 MiB aggregate bound保持不变。重放 proposal/outcome 需要容纳 JSON 最坏6倍转义，完整 workflow JSON 上限为8 MiB；private ModelMaterial transport 额外保留64 KiB envelope 空间。RAGFlow response wire 上限为8 MiB，内容上限由 profile 单独核验。该调整不提高原始材料上限。
+
 按 Authority/lifecycle owner 区分 Material-owned corpus 与 External Resource。直接交给 Nous 的材料由 Artifact/SourceRegion/DerivedRepresentation 与原生 Serving 负责；另一系统持有的知识库通过 ExternalResourceAdapter 访问。RAGFlow 是可选外部 provider，不是本地材料的默认后端，不属于 Runtime Bundle、runtime packs、默认启动或默认验收依赖。Nous 不安装、启动、管理或自动配置 RAGFlow 的 dataset、模型和 Docker 网络；只读取用户已有实例的 API profile 与 resource locator。New API 同样属于共享部署基础设施，Nous 不管理其生命周期。
 
 本分支完成通用 External Resource contract、optional RAGFlow adapter 和 deterministic qualification。live RAGFlow 仅为手动集成验证；用户确认未配置时记 BLOCKED，不阻塞默认 runtime 或 deterministic acceptance。本分支不新增 MaterialCollection、不大规模施工 Native Material Corpus；后续独立研究先审计当前 Material/Tantivy/USearch/Serving substrate。

@@ -4,6 +4,9 @@ use serde_json::Value;
 use sqlx::Row;
 use uuid::Uuid;
 
+/// A 1 MiB Material string can occupy 6 MiB after JSON escaping, plus metadata.
+pub const WORKFLOW_VALUE_MAX_BYTES: usize = 8 * 1024 * 1024;
+
 pub struct WorkflowReservation {
     pub snapshot: Value,
     pub proposal: Option<Value>,
@@ -80,7 +83,7 @@ impl AuthorityStore {
             if serde_json::to_vec(value)
                 .map_err(|error| Error::Invalid(error.to_string()))?
                 .len()
-                > 1048576
+                > WORKFLOW_VALUE_MAX_BYTES
             {
                 return Err(Error::Invalid("model workflow value exceeds bound".into()));
             }

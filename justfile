@@ -71,6 +71,7 @@ acceptance:
     corepack pnpm lint:dupes
     just osv
     cargo build -p nous-kernel
+    cargo run -p nous-kernel --example qualification_postgres
     corepack pnpm qualification:memory-reference
     corepack pnpm qualification:cognitive-runtime-episode
     corepack pnpm qualification:real-consumer-local

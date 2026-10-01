@@ -24,3 +24,5 @@
 精确 parser/compiler、生成协议及当前行为测试见 [`apps/nous-core/src/nousql`](../../apps/nous-core/src/nousql)、[`proto/nous/wave/v1alpha1`](../../proto/nous/wave/v1alpha1) 和 [`apps/nous-core/tests/nousql.test.ts`](../../apps/nous-core/tests/nousql.test.ts)。
 
 Kernel 保留整棵 expression：AND 对 canonical candidate identity 取交集，OR 取并集；父约束继承，子约束细化。effort/limit/diagnostics/explore/materialize 只允许 root。整树共享预算，执行前按 leaf 数分配；不以 branch 数增加工作量。只有 @ref 是 exact read，其余 selectors 是 typed semantic cues。recent 轴只允许 occurred/observed/valid/formed/recorded，裸 recent 拒绝。
+
+`$current(none|prefer|required)` 可用于 scope；父级 required 不被子级放宽，最终约束进入该 leaf 的 Resource action。exact 子目标仍受父级 domain 限制，例如 `$memory` 下的 Artifact exact read 不产生返回候选。
