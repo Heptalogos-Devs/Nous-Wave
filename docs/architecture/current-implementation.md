@@ -40,7 +40,7 @@ Material 的 DerivedRepresentation 保存 ordered exact inputs（SourceRegion、
 
 Core 的 public `DeriveMaterial` 返回实际表示链并保留部分成功结果。结构化表示保存 JSON payload 与 deterministic text projection；唯一 Zod schema 用于 SDK/raw provider request 和 local validation，其 digest 进入 invocation、ProducerSignature 与 derivation identity。Material owner 对已提交描述做 UTF-8 byte segmentation，返回稳定 DerivedRegion catalog；第二模型输出的 keys 映射成字段 supports，Kernel 在输入 DAG 内核验引用。public Material read/materialize 支持按字段 DerivedRegion 精确回读。
 
-Memory revision 与 producer registry 同事务提交，批量 read 携带 producer reference。formation 使用调用方稳定 operation identity，先保存经过验证的 proposal，再提交 Authority；原配置/Prompt snapshot 保持操作连续性。CLI trace 通过 official Client 展开 exact derivation inputs。原始 audio/video gateway input 与 model rerank 已接通；新的 schema live 复核、External Resource continuation 和最终便携验收仍在施工。
+Memory revision 与 producer registry 同事务提交，批量 read 携带 producer reference。formation 使用调用方稳定 operation identity，先保存经过验证的 proposal，再提交 Authority；原配置/Prompt snapshot 保持操作连续性。CLI trace 通过 official Client 展开 exact derivation inputs。原始 audio/video gateway input、model rerank 与 External Resource continuation 已实现；真实 schema/media 运行结果和最终分支验收由 Qualification 分别记录。
 
 Runtime 持有 QueryPlan、lane budgets、object-revision aggregation、fixed RRF 和 final result ordering。Retrieval 通过 Runtime-owned contract 提供 serving candidates，不被 Runtime 作为具体实现依赖。
 
@@ -48,6 +48,6 @@ Core `query/orchestrator.ts` 统一 query embedding、model rerank 和 External 
 
 ## 当前边界
 
-Windows shipping Kernel uses LLVM-MinGW UCRT/win-gnullvm and private libc++/libunwind beside the executable. RuntimeLocations owns independent roots and shipping resolution; compiler/native-library acquisition occurs during explicit build/install. Source-less ZIP includes compiled official Client and retained SPDX/license provenance. Core exposes bounded Resource invocation evidence separately from model summaries and cognitive scores.
+Windows 发布 Kernel 使用 LLVM-MinGW UCRT/win-gnullvm，可执行文件旁携带私有 libc++/libunwind。RuntimeLocations 持有独立 roots 与发布路径解析；编译器及原生库仅在显式构建/安装时获取。无源码 ZIP 包含编译后的 official Client、SPDX 与许可材料。Core 返回有界 Resource invocation evidence，独立于模型摘要及认知分数。
 
 当前 executable scope 是 Memory-only Reference Profile、WorkContext continuity 和 Episode foundation。Self、Social、Motivation、Desired Condition、Journal、Offline Cognition 和 Heptalogos live integration 由 Vault 保留长期目标语义，但不在本 checkout 提供 owner、protocol 或 public capability claim。
