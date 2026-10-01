@@ -1,7 +1,7 @@
 use super::{CognitiveContributors, QueryExecution};
 use crate::CognitiveRuntimeService;
 use nous_core::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -60,15 +60,15 @@ impl CognitiveRuntimeService {
             .pending_queries
             .lock()
             .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
-        let value = pending
-            .get(&ticket)
-            .ok_or_else(|| Error::NotFound("query lease expired or consumed".into()))?;
-        if value.execution.bound.source_query.subject != subject {
+        let Entry::Occupied(entry) = pending.entry(ticket) else {
+            return Err(Error::NotFound("query lease expired or consumed".into()));
+        };
+        if entry.get().execution.bound.source_query.subject != subject {
             return Err(Error::Invalid(
                 "query lease belongs to a different Subject".into(),
             ));
         }
-        let value = pending.remove(&ticket).expect("checked query lease");
+        let value = entry.remove();
         if value.created.elapsed() >= QUERY_LEASE {
             return Err(Error::Unavailable("query lease expired".into()));
         }

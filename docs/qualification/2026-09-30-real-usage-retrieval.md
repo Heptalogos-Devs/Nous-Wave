@@ -280,3 +280,7 @@ candidate-26 精确 ZIP SHA256 `e83c4324bb4464d7e9d2276e03ae17325a90e3f723dbe212
 窄检查 PASS：query correctness12/12；Runtime unit6/6；TS focused4 files/7 tests；Kernel/Runtime all-targets/all-features Clippy；TypeScript type/lint/Knip。PostgreSQL patch 的空白 context 已精简，官方原始18.6 source上的 `patch --dry-run` PASS；未改编译后的代码效果。当前 `git diff --check` PASS，最终提交后会复核整个分支范围。
 
 此前 candidate-27 source20e83c9、input digest `1e3cf99ae95e66914740df1b7064e96d20bc1c6d67663c4b814172a6cd2b6116`、ZIP `eafc00c31b05debcaf401a967f1e66d10431e9bab3f4674d014757f163f686ba`：共置与完全分离 locator/搬移/official Client/restart/固定端口/缺包拒绝 PASS，分别 Subject `01a0f8c8-0bcb-7a70-9520-35a67d57123b`、`01a0f8c8-b085-7b73-a9ab-c2783c0d5dfc`。2239 checksum entries、40 native operator-path audit、credential/instance/development inventory排除 PASS；SPDX475 packages/1132 relationships。该包早于上述修复，不能成为最终 changed-code payload证据；新包与实际模型关联仍待执行。
+
+`68a69382731a4f452f96432b0777928a0168842c` 干净 checkout 的首次完整 `just acceptance` FAIL 于现有 maintainability gate：tree diagnostics 与 prepared ticket 各有一处 `expect()`。没有降低 lint 或扫描范围；改为明确 Infrastructure error 与单次 occupied entry/remove，`just lint-maintainability` PASS、Runtime unit6/6 PASS。完整验收尚须在修复后的干净 head重跑。
+
+同提交的 candidate-28 ZIP `16273a31a741c2d512056937df1113f4693241d9df338ba195f3f5599f6dde95` 共置 private-runtime/official Client/restart/固定端口/缺包拒绝 PASS，Subject `01a0f8e7-5a46-7683-84bd-6caa13ee16b7`。受控轨 baseline40条真实查询 complete，Recall@1=.85、Recall@5=.975、Recall@10=1、MRR=.90625，p50/p95=224.4293/260.5228ms，Authority421不变；ledger2479→2519。该候选早于上述维护性修复，其余变体暂未执行，不能替代最终候选测量。

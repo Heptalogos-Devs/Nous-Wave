@@ -336,10 +336,9 @@ impl CognitiveRuntimeService {
             result.degradation.append(&mut value.degradation);
             result.resource_actions.append(&mut value.resource_actions);
             if let Some(diagnostics) = value.diagnostics {
-                let target = result
-                    .diagnostics
-                    .as_mut()
-                    .expect("tree diagnostics initialized");
+                let target = result.diagnostics.as_mut().ok_or_else(|| {
+                    Error::Infrastructure("query tree diagnostics missing".into())
+                })?;
                 for (key, value) in diagnostics.candidate_counts {
                     target
                         .candidate_counts
