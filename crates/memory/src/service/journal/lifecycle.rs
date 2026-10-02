@@ -125,6 +125,10 @@ impl MemoryService {
             .bind(subject.0).bind(journal.0).execute(&mut *tx).await.map_err(db)?;
         sqlx::query("DELETE FROM resident_refs rr USING journal_revisions r WHERE rr.ref_kind='journal_revision' AND rr.ref_value=r.journal_revision_id::text AND r.subject_id=$1 AND r.journal_id=$2")
             .bind(subject.0).bind(journal.0).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("DELETE FROM work_context_refs wr USING journal_revisions r WHERE wr.ref_kind='journal_revision' AND wr.ref_value=r.journal_revision_id::text AND r.subject_id=$1 AND r.journal_id=$2")
+            .bind(subject.0).bind(journal.0).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("UPDATE model_workflow_operations SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE subject_id=$1 AND owner='memory' AND lower(operation_key) IN (SELECT operation_id::text FROM mutation_receipts WHERE subject_id=$1 AND result_kind='journal' AND result_ref=$2)")
+            .bind(subject.0).bind(journal.0.to_string()).execute(&mut *tx).await.map_err(db)?;
         sqlx::query("DELETE FROM journal_objects WHERE subject_id=$1 AND journal_id=$2")
             .bind(subject.0)
             .bind(journal.0)

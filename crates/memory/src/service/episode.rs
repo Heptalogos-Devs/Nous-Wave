@@ -805,6 +805,8 @@ impl MemoryService {
             "source_purged",
         )
         .await?;
+        self.purge_episode_runtime_refs_in(&mut tx, subject, episode)
+            .await?;
         sqlx::query("DELETE FROM episode_objects WHERE subject_id=$1 AND episode_id=$2")
             .bind(subject.0)
             .bind(episode.0)
@@ -822,6 +824,29 @@ impl MemoryService {
         )
         .await?;
         tx.commit().await.map_err(db)
+    }
+}
+
+impl MemoryService {
+    async fn purge_episode_runtime_refs_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        episode: EpisodeId,
+    ) -> Result<()> {
+        let refs: Vec<String> = sqlx::query_scalar("SELECT episode_revision_id::text FROM episode_revisions WHERE subject_id=$1 AND episode_id=$2")
+            .bind(subject.0).bind(episode.0).fetch_all(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) SELECT subject_id,consumer_ref,event_id,request_digest,$3 FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind='episode_revision' AND ref_value=ANY($2::text[]) ON CONFLICT DO NOTHING")
+            .bind(subject.0).bind(&refs).bind(self.cognition.now(subject)).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("DELETE FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind='episode_revision' AND ref_value=ANY($2::text[])")
+            .bind(subject.0).bind(&refs).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("DELETE FROM resident_refs WHERE ref_kind='episode_revision' AND ref_value=ANY($1::text[])")
+            .bind(&refs).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("DELETE FROM work_context_refs WHERE ref_kind='episode_revision' AND ref_value=ANY($1::text[])")
+            .bind(&refs).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("UPDATE model_workflow_operations SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE subject_id=$1 AND owner='memory' AND lower(operation_key) IN (SELECT operation_id::text FROM mutation_receipts WHERE subject_id=$1 AND result_kind='episode' AND result_ref=$2)")
+            .bind(subject.0).bind(episode.0.to_string()).execute(&mut **tx).await.map_err(db)?;
+        Ok(())
     }
 }
 

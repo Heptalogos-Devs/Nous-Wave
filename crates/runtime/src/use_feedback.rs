@@ -28,7 +28,10 @@ impl CognitiveRuntimeService {
             }
             if !matches!(
                 event.reference,
-                CognitiveRef::MemoryRevision(_) | CognitiveRef::CognitiveSchemaRevision(_)
+                CognitiveRef::MemoryRevision(_)
+                    | CognitiveRef::CognitiveSchemaRevision(_)
+                    | CognitiveRef::EpisodeRevision(_)
+                    | CognitiveRef::JournalRevision(_)
             ) {
                 return Err(Error::Invalid(
                     "UseEvent requires an exact cognition revision".into(),
@@ -113,14 +116,8 @@ impl CognitiveRuntimeService {
                     "UseEvent idempotency key has a different request digest".into(),
                 ));
             }
-            if stored_digest.is_none()
-                && !self
-                    .reference_in_subject(input.subject, &event.reference)
-                    .await?
-            {
-                return Err(Error::NotFound(
-                    "UseEvent revision is not in Subject".into(),
-                ));
+            if stored_digest.is_none() {
+                validate_use_target_in(&mut tx, input.subject, &event.reference).await?;
             }
             prepared.push(Prepared {
                 event,
@@ -207,4 +204,49 @@ fn validate_context_metadata(value: &serde_json::Value) -> Result<()> {
         }
     }
     Ok(())
+}
+
+async fn validate_use_target_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    subject: SubjectId,
+    reference: &CognitiveRef,
+) -> Result<()> {
+    let (query, id) = match reference {
+        CognitiveRef::MemoryRevision(id) => (
+            "SELECT o.purge_state FROM memory_revisions r JOIN memory_objects o USING(memory_id) WHERE r.subject_id=$1 AND r.memory_revision_id=$2 FOR SHARE OF o",
+            id.0,
+        ),
+        CognitiveRef::CognitiveSchemaRevision(id) => (
+            "SELECT o.purge_state FROM cognitive_schema_revisions r JOIN cognitive_schemas o USING(schema_id) WHERE o.subject_id=$1 AND r.schema_revision_id=$2 FOR SHARE OF o",
+            id.0,
+        ),
+        CognitiveRef::EpisodeRevision(id) => (
+            "SELECT o.purge_state FROM episode_revisions r JOIN episode_objects o USING(episode_id) WHERE r.subject_id=$1 AND r.episode_revision_id=$2 FOR SHARE OF o",
+            id.0,
+        ),
+        CognitiveRef::JournalRevision(id) => (
+            "SELECT o.purge_state FROM journal_revisions r JOIN journal_objects o USING(journal_id) WHERE r.subject_id=$1 AND r.journal_revision_id=$2 FOR SHARE OF o",
+            id.0,
+        ),
+        _ => {
+            return Err(Error::Invalid(
+                "UseEvent requires an exact cognition revision".into(),
+            ));
+        }
+    };
+    let state: Option<String> = sqlx::query_scalar(query)
+        .bind(subject.0)
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(db)?;
+    match state.as_deref() {
+        None => Err(Error::NotFound(
+            "UseEvent revision is not in Subject".into(),
+        )),
+        Some("normal") => Ok(()),
+        Some(_) => Err(Error::FailedPrecondition(
+            "UseEvent target is purging".into(),
+        )),
+    }
 }

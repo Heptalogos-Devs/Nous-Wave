@@ -689,6 +689,7 @@ fn validate_payload(
                 | CognitiveRef::CognitiveSchemaRevision(_)
                 | CognitiveRef::Occurrence(_)
                 | CognitiveRef::EpisodeRevision(_)
+                | CognitiveRef::JournalRevision(_)
         ) {
             return Err(Error::Invalid(
                 "WorkContext references must be exact continuation refs".into(),

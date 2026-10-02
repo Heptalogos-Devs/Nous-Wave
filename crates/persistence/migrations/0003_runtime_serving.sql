@@ -157,7 +157,7 @@ CREATE TABLE cognitive_use_events (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     consumer_ref text NOT NULL CHECK (octet_length(consumer_ref) BETWEEN 1 AND 512 AND consumer_ref !~ '[[:space:]]' AND consumer_ref LIKE '%:%:%'),
     event_id uuid NOT NULL,
-    ref_kind text NOT NULL CHECK (ref_kind IN ('memory_revision','cognitive_schema_revision')),
+    ref_kind text NOT NULL CHECK (ref_kind IN ('memory_revision','cognitive_schema_revision','episode_revision','journal_revision')),
     ref_value text NOT NULL,
     use_kind text NOT NULL CHECK (use_kind IN ('presented','referenced','acted_on','result_supported','result_refuted','corrected','pinned')),
     session_id uuid NULL REFERENCES cognitive_sessions(session_id) ON DELETE SET NULL,

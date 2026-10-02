@@ -184,7 +184,10 @@ impl CognitiveRuntimeService {
             if !mutable_object
                 && matches!(
                     reference,
-                    CognitiveRef::MemoryRevision(_) | CognitiveRef::CognitiveSchemaRevision(_)
+                    CognitiveRef::MemoryRevision(_)
+                        | CognitiveRef::CognitiveSchemaRevision(_)
+                        | CognitiveRef::EpisodeRevision(_)
+                        | CognitiveRef::JournalRevision(_)
                 )
             {
                 allowed_revision_refs.insert(bound_ref.clone());

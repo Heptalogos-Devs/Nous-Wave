@@ -661,6 +661,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     assert_eq!(replay.revision.formed_at, journal.revision.formed_at);
     assert_eq!(replay.revision.recorded_at, journal.revision.recorded_at);
     let revised = assert_journal_revalidation(&rt, input, &episode, &invalidated).await;
+    let uses = assert_longitudinal_use(&rt, subject, &episode, &revised).await;
     memory
         .purge_journal(
             subject,
@@ -682,6 +683,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
             .await
             .is_ok()
     );
+    assert_eq!(rt.cognition.use_feedback(uses).await.unwrap().1, 2);
 }
 
 async fn journal_source_episode(
@@ -762,4 +764,65 @@ async fn assert_journal_revalidation(
     input.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
     assert!(memory.commit_journal(input).await.is_err());
     revised
+}
+
+async fn assert_longitudinal_use(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    episode: &EpisodeView,
+    journal: &nous_memory::JournalView,
+) -> nous_runtime::UseFeedback {
+    let references = vec![
+        nous_core::CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
+        nous_core::CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
+    ];
+    let context = rt
+        .cognition
+        .create_work_context(nous_runtime::CreateWorkContextInput {
+            operation_id: nous_core::OperationId::new(),
+            subject,
+            purpose: "Continue longitudinal cognition".into(),
+            unresolved_questions: vec![],
+            constraints: serde_json::json!({}),
+            resume_conditions: vec![],
+            budget_summary: serde_json::json!({}),
+            references: references.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(context.references, references);
+    let session = rt
+        .cognition
+        .open_session(subject, serde_json::json!({}))
+        .await
+        .unwrap();
+    let input = nous_runtime::UseFeedback {
+        subject,
+        session_id: Some(session.session_id),
+        consumer_ref: "consumer:test:longitudinal".into(),
+        events: references
+            .into_iter()
+            .map(|reference| nous_runtime::UseFeedbackEvent {
+                event_id: nous_core::UseEventId::new(),
+                reference,
+                use_kind: nous_runtime::UseKind::Referenced,
+                occurred_at: rt.cognition.now(subject),
+                context: serde_json::json!({}),
+            })
+            .collect(),
+    };
+    let result = rt.cognition.use_feedback(input.clone()).await.unwrap();
+    assert_eq!((result.0, result.1), (2, 0));
+    let result = rt.cognition.use_feedback(input.clone()).await.unwrap();
+    assert_eq!((result.0, result.1), (0, 2));
+    assert_eq!(
+        rt.cognition
+            .session(subject, session.session_id)
+            .await
+            .unwrap()
+            .resident
+            .len(),
+        2
+    );
+    input
 }
