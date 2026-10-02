@@ -55,6 +55,13 @@ impl NousRuntime {
         self.material.materialize(subject, request).await
     }
     pub async fn open(options: RuntimeOptions) -> Result<Self> {
+        Self::open_with_clock(options, Arc::new(nous_runtime::SystemCognitiveClock)).await
+    }
+
+    pub async fn open_with_clock(
+        options: RuntimeOptions,
+        clock: Arc<dyn nous_runtime::CognitiveClock>,
+    ) -> Result<Self> {
         let store = AuthorityStore::connect(&options.postgres_url, options.max_connections).await?;
         store.migrate().await?;
         let mut registry = ConfigRegistryBuilder::new();
@@ -75,8 +82,12 @@ impl NousRuntime {
         let objects = ObjectStore::open(&options.object_root).await?;
         let subjects =
             SubjectCoreService::new(store.clone(), objects.clone(), configuration.clone());
-        let cognition =
-            CognitiveRuntimeService::new(store.clone(), resident_limit, configuration.clone())?;
+        let cognition = CognitiveRuntimeService::with_clock(
+            store.clone(),
+            resident_limit,
+            configuration.clone(),
+            clock,
+        )?;
         let material = MaterialService::new(
             store.clone(),
             objects.clone(),

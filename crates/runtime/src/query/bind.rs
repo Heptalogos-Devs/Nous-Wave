@@ -257,7 +257,7 @@ impl CognitiveRuntimeService {
         let exact_target_bypasses_auto_level = !exact_bindings.is_empty();
         Ok(BoundQuery {
             query_id: Uuid::now_v7(),
-            bound_at: chrono::Utc::now(),
+            bound_at: self.now(query.subject),
             source_query: query.clone(),
             bound_at_authority_seq,
             revision_policy,

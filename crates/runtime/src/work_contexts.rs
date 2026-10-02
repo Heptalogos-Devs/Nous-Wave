@@ -126,7 +126,7 @@ impl CognitiveRuntimeService {
         }
         let work_context_id = Uuid::now_v7();
         validate_refs_in_tx(&self.store, &mut tx, input.subject, &input.references).await?;
-        let now = Utc::now();
+        let now = self.now(input.subject);
         sqlx::query(
             "INSERT INTO work_contexts(work_context_id,subject_id,state,purpose,unresolved_questions,constraints,resume_conditions,budget_summary,revision,created_at,updated_at) VALUES($1,$2,'open',$3,$4,$5,$6,$7,1,$8,$8)",
         )
@@ -250,7 +250,7 @@ impl CognitiveRuntimeService {
             return Err(Error::Conflict("WorkContext revision is stale".into()));
         }
         validate_refs_in_tx(&self.store, &mut tx, input.subject, &input.references).await?;
-        let now = Utc::now();
+        let now = self.now(input.subject);
         sqlx::query(
             "UPDATE work_contexts SET purpose=$3,unresolved_questions=$4,constraints=$5,resume_conditions=$6,budget_summary=$7,revision=revision+1,updated_at=$8 WHERE subject_id=$1 AND work_context_id=$2",
         )
@@ -422,20 +422,20 @@ impl CognitiveRuntimeService {
                 )
                 .bind(subject.0)
                 .bind(session)
-                .bind(Utc::now())
+                .bind(self.now(subject))
                 .execute(&mut *tx)
                 .await
                 .map_err(db)?;
             }
         }
-        let ended_at = (next == "ended").then(Utc::now);
+        let ended_at = (next == "ended").then(|| self.now(subject));
         sqlx::query(
             "UPDATE work_contexts SET state=$3,revision=revision+1,updated_at=$4,ended_at=$5 WHERE subject_id=$1 AND work_context_id=$2",
         )
         .bind(subject.0)
         .bind(work_context_id)
         .bind(next)
-        .bind(Utc::now())
+        .bind(self.now(subject))
         .bind(ended_at)
         .execute(&mut *tx)
         .await
@@ -531,7 +531,7 @@ impl CognitiveRuntimeService {
         .bind(subject.0)
         .bind(session.0)
         .bind(work_context_id)
-        .bind(Utc::now())
+        .bind(self.now(subject))
         .execute(&mut *tx)
         .await
         .map_err(db)?;

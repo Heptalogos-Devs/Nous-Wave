@@ -50,7 +50,7 @@ async fn observation_admission_is_a_single_idempotent_runtime_batch() {
             source_class: nous_core::SourceClass::Message,
             external_object_ref: None,
             occurred_time: nous_core::TemporalExtent::Unknown,
-            observed_at: Utc::now(),
+            observed_at: Some(Utc::now()),
             conversation_ref: None,
             actor_entity_ref: None,
             context: serde_json::json!({}),

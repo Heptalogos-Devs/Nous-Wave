@@ -80,6 +80,79 @@ CREATE TABLE resident_refs (
     metadata jsonb NOT NULL DEFAULT '{}',
     PRIMARY KEY(session_id, ref_kind, ref_value)
 );
+
+CREATE TABLE maintenance_needs (
+    need_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    kind text NOT NULL CHECK (kind ~ '^[a-z][a-z0-9_]{0,63}$'),
+    scope_kind text NOT NULL CHECK (scope_kind ~ '^[a-z][a-z0-9_]{0,63}$'),
+    scope_ref text NOT NULL CHECK (octet_length(scope_ref) BETWEEN 1 AND 512),
+    trigger_authority_seq bigint NOT NULL CHECK (trigger_authority_seq >= 0),
+    due_at timestamptz NOT NULL,
+    priority integer NOT NULL CHECK (priority BETWEEN 0 AND 100),
+    state text NOT NULL CHECK (state IN ('pending','leased','satisfied','obsolete')),
+    lease_token uuid NULL,
+    lease_until timestamptz NULL,
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    last_problem_code text NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    CHECK ((state = 'leased') = (lease_token IS NOT NULL AND lease_until IS NOT NULL))
+);
+CREATE UNIQUE INDEX maintenance_active_scope ON maintenance_needs(subject_id,kind,scope_kind,scope_ref)
+    WHERE state IN ('pending','leased');
+CREATE INDEX maintenance_due ON maintenance_needs(subject_id,due_at,priority DESC)
+    WHERE state IN ('pending','leased');
+
+CREATE TABLE experience_items (
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    recorded_seq bigint NOT NULL CHECK (recorded_seq > 0),
+    occurrence_id uuid NOT NULL UNIQUE REFERENCES observation_occurrences(occurrence_id) ON DELETE CASCADE,
+    session_id uuid NOT NULL REFERENCES cognitive_sessions(session_id),
+    observed_at timestamptz NOT NULL,
+    source_class text NOT NULL,
+    conversation_ref text NULL,
+    actor_entity_ref text NULL,
+    active_work_context_id uuid NULL,
+    active_work_context_revision bigint NULL,
+    PRIMARY KEY(subject_id,recorded_seq),
+    FOREIGN KEY(subject_id,active_work_context_id) REFERENCES work_contexts(subject_id,work_context_id),
+    CHECK ((active_work_context_id IS NULL) = (active_work_context_revision IS NULL))
+);
+
+CREATE TABLE episode_drafts (
+    draft_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    track_key text NOT NULL CHECK (track_key ~ '^[a-z][a-z0-9_]{0,63}$'),
+    state text NOT NULL CHECK (state IN ('open','ready','committed','superseded')),
+    first_recorded_seq bigint NOT NULL,
+    last_recorded_seq bigint NOT NULL,
+    observed_start timestamptz NOT NULL,
+    observed_end timestamptz NOT NULL,
+    boundary_reason text NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    committed_episode_revision_id uuid NULL REFERENCES episode_revisions(episode_revision_id),
+    CHECK (first_recorded_seq <= last_recorded_seq),
+    CHECK (observed_start <= observed_end),
+    CHECK ((state = 'committed') = (committed_episode_revision_id IS NOT NULL))
+);
+CREATE UNIQUE INDEX episode_open_draft ON episode_drafts(subject_id,track_key) WHERE state='open';
+CREATE TABLE episode_draft_members (
+    draft_id uuid NOT NULL REFERENCES episode_drafts(draft_id) ON DELETE CASCADE,
+    recorded_seq bigint NOT NULL,
+    occurrence_id uuid NOT NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE CASCADE,
+    PRIMARY KEY(draft_id,recorded_seq),
+    UNIQUE(draft_id,occurrence_id)
+);
+CREATE TABLE segmentation_cursors (
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    track_key text NOT NULL CHECK (track_key ~ '^[a-z][a-z0-9_]{0,63}$'),
+    last_recorded_seq bigint NOT NULL DEFAULT 0 CHECK (last_recorded_seq >= 0),
+    open_draft_id uuid NULL REFERENCES episode_drafts(draft_id),
+    updated_at timestamptz NOT NULL,
+    PRIMARY KEY(subject_id,track_key)
+);
 CREATE TABLE cognitive_use_events (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     consumer_ref text NOT NULL CHECK (octet_length(consumer_ref) BETWEEN 1 AND 512 AND consumer_ref !~ '[[:space:]]' AND consumer_ref LIKE '%:%:%'),

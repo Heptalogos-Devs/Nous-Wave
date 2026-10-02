@@ -20,7 +20,7 @@ impl CognitiveRuntimeService {
         }
         for event in &input.events {
             if event.occurred_at < DateTime::<Utc>::UNIX_EPOCH
-                || event.occurred_at > Utc::now() + chrono::Duration::minutes(5)
+                || event.occurred_at > self.now(input.subject) + chrono::Duration::minutes(5)
             {
                 return Err(Error::Invalid(
                     "UseEvent occurred_at is outside the allowed range".into(),
@@ -130,7 +130,7 @@ impl CognitiveRuntimeService {
                 duplicate: stored_digest.is_some(),
             });
         }
-        let recorded_at = Utc::now();
+        let recorded_at = self.now(input.subject);
         let mut accepted = 0u32;
         let mut duplicates = 0u32;
         let mut meaningful_times = Vec::new();

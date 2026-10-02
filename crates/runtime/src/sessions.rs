@@ -12,7 +12,7 @@ impl CognitiveRuntimeService {
     ) -> Result<SessionView> {
         self.require_subject(subject).await?;
         let session = SessionId::new();
-        let now = Utc::now();
+        let now = self.now(subject);
         sqlx::query("INSERT INTO cognitive_sessions(session_id,subject_id,opened_at,last_activity_at,metadata) VALUES($1,$2,$3,$3,$4)")
             .bind(session.0).bind(subject.0).bind(now).bind(metadata)
             .execute(self.store.pool()).await.map_err(db)?;
@@ -26,7 +26,7 @@ impl CognitiveRuntimeService {
     ) -> Result<SessionView> {
         self.require_session(subject, session).await?;
         sqlx::query("UPDATE cognitive_sessions SET closed_at=$3,last_activity_at=$3,runtime_revision=runtime_revision+1 WHERE subject_id=$1 AND session_id=$2")
-            .bind(subject.0).bind(session.0).bind(Utc::now())
+            .bind(subject.0).bind(session.0).bind(self.now(subject))
             .execute(self.store.pool()).await.map_err(db)?;
         self.session(subject, session).await
     }
@@ -114,7 +114,7 @@ impl CognitiveRuntimeService {
                 ));
             }
         }
-        let now = Utc::now();
+        let now = self.now(subject);
         let mut changed = false;
         let mut admitted_count = 0u32;
         for admission in &merged {
