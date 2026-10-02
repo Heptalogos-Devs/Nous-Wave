@@ -52,8 +52,6 @@ for (const [source, target] of [
   ["manifest", "manifest"],
 ])
   await cp(join(repo, source!), join(program, target!), { recursive: true });
-await mkdir(join(program, "templates"));
-await cp(join(repo, "nous.example.toml"), join(program, "templates/nous.toml"));
 const components = JSON.parse(
   await readFile(join(repo, "manifest/runtimes.json"), "utf8"),
 ) as {
@@ -92,9 +90,6 @@ for (const name of ["node", "postgresql", "ffmpeg"]) {
     recursive: true,
   });
 }
-await mkdir(join(output, "config"));
-await cp(join(repo, "nous.example.toml"), join(output, "config/nous.toml"));
-await cp(join(repo, "bootstrap.example.toml"), join(output, "bootstrap.toml"));
 await mkdir(join(output, "bin"));
 await writeFile(
   join(output, "bin/nous.cmd"),

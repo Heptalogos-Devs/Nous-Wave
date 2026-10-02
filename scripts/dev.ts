@@ -1,8 +1,10 @@
 import { existsSync } from "node:fs";
-import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { initializeConfiguration } from "../apps/nous-core/src/configuration-file.js";
+import { resolveLocations } from "../apps/nous-core/src/locations.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const binary = join(
@@ -23,16 +25,8 @@ if (!existsSync(locator))
     "[paths]\nprogram = " + JSON.stringify(root) + '\nruntime = "runtime"\n',
     { flag: "wx" },
   );
-const config = join(home, "config", "nous.toml");
-if (!existsSync(config))
-  await writeFile(
-    config,
-    'deployment = "development"\nkernel_executable = ' +
-      JSON.stringify(binary) +
-      "\n" +
-      (await readFile(join(root, "nous.example.toml"), "utf8")),
-    { flag: "wx" },
-  );
+const locations = await resolveLocations({ locator, installationHome: root });
+await initializeConfiguration(locations);
 const child = spawn(
   process.execPath,
   [
@@ -40,6 +34,7 @@ const child = spawn(
     join(root, "apps/nous-core/src/main.ts"),
     "--locator",
     locator,
+    "--development",
   ],
   { stdio: "inherit", windowsHide: true },
 );

@@ -5,11 +5,11 @@ default:
     @just --list
 
 fmt:
-    cargo fmt --all
+    cargo fmt --all -- --config-path .config/rustfmt.toml
     corepack pnpm format
 
 check-fast:
-    cargo fmt --all -- --check
+    cargo fmt --all -- --config-path .config/rustfmt.toml --check
     corepack pnpm check:fast
     cargo clippy --workspace --all-targets --all-features -- -D warnings
 
@@ -18,7 +18,7 @@ check: check-fast
     cargo test --workspace --all-features -- --test-threads=1
 
 audit:
-    cargo deny check
+    cargo deny --config .config/deny.toml check
     cargo shear --deny-warnings
     corepack pnpm audit
     cargo dupes check

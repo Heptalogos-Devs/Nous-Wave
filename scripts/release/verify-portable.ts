@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import assert from "node:assert/strict";
@@ -121,16 +122,23 @@ for (const path of [
 ])
   assert((await readFile(join(bundle, path))).length > 0);
 await writeLocator();
-await mkdir(configRoot, { recursive: true });
-await writeFile(
-  join(configRoot, "nous.toml"),
-  (await readFile(join(bundle, "config/nous.toml"), "utf8")).replace(
-    "port = 9470",
-    "port = 0",
-  ),
-);
+assert(!existsSync(join(bundle, "config/nous.toml")));
+assert(!existsSync(join(bundle, "program/templates/nous.toml")));
+assert(!existsSync(join(bundle, "bootstrap.toml")));
 let node = join(bundle, "runtime/node/node.exe"),
   launcher = join(bundle, "program/core/launcher.js");
+await execute(node, [launcher, "init", ...locationArgs], {
+  cwd: outside,
+  windowsHide: true,
+});
+const initial = await readFile(join(configRoot, "nous.toml"), "utf8");
+await execute(node, [launcher, "init", ...locationArgs], {
+  cwd: outside,
+  windowsHide: true,
+});
+assert.equal(await readFile(join(configRoot, "nous.toml"), "utf8"), initial);
+await mkdir(configRoot, { recursive: true });
+await writeFile(join(configRoot, "nous.toml"), "port = 0\n" + initial);
 const env = {
   ...process.env,
   PATH: join(process.env.SystemRoot!, "System32"),

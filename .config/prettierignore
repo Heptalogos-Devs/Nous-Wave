@@ -1,0 +1,11 @@
+../node_modules/
+../.codegraph/
+../target/
+../coverage/
+../dist/
+../build/
+../Cargo.lock
+../pnpm-lock.yaml
+../crates/authority-store/data/
+../crates/protocol/src/generated/
+../packages/protocol-ts/src/generated/

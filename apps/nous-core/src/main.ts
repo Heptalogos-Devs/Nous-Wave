@@ -18,6 +18,7 @@ async function main() {
     options: {
       home: { type: "string" },
       locator: { type: "string" },
+      development: { type: "boolean", default: false },
       "stop-on-stdin-close": { type: "boolean", default: false },
     },
   });
@@ -26,7 +27,7 @@ async function main() {
     locator: values.locator,
     installationHome: resolve(dirname(fileURLToPath(import.meta.url)), "../.."),
   });
-  const config = await loadConfig(locations);
+  const config = await loadConfig(locations, values.development);
   if (config.deployment === "portable") {
     await verifyRuntime(locations, "node");
     if (config.kernelBootstrap.bootstrap.database.mode === "managed_private")

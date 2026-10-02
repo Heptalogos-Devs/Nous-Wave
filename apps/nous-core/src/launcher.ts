@@ -2,9 +2,10 @@ import { parseArgs } from "node:util";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { readFile, mkdir, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { parse } from "smol-toml";
 import { resolveLocations } from "./locations.js";
+import { initializeConfiguration } from "./configuration-file.js";
 import {
   installRuntime,
   listRuntimes,
@@ -16,7 +17,8 @@ async function main() {
   const profileArgs: string[] = [];
   const forwarded: string[] = [];
   for (let index = 0; index < args.length; index++) {
-    if (args[index] === "--home" || args[index] === "--locator") {
+    if (args[index] === "--development") profileArgs.push(args[index]!);
+    else if (args[index] === "--home" || args[index] === "--locator") {
       if (!args[index + 1])
         throw new Error("Missing instance location argument");
       profileArgs.push(args[index]!, args[++index]!);
@@ -24,7 +26,11 @@ async function main() {
   }
   const { values } = parseArgs({
     args: profileArgs,
-    options: { home: { type: "string" }, locator: { type: "string" } },
+    options: {
+      home: { type: "string" },
+      locator: { type: "string" },
+      development: { type: "boolean", default: false },
+    },
   });
   const installationHome = resolve(
     dirname(fileURLToPath(import.meta.url)),
@@ -71,26 +77,15 @@ async function main() {
       );
     return;
   }
-  if (command === "serve") {
-    await mkdir(locations.config, { recursive: true });
-    try {
-      await writeFile(
-        join(locations.config, "nous.toml"),
-        await readFile(join(locations.program, "templates", "nous.toml")),
-        { flag: "wx" },
-      );
-    } catch (error) {
-      if (
-        (error as NodeJS.ErrnoException).code !== "EEXIST" &&
-        (error as NodeJS.ErrnoException).code !== "ENOENT"
-      )
-        throw error;
-    }
+  if (command === "init") {
+    console.log(JSON.stringify(await initializeConfiguration(locations)));
+    return;
   }
+  if (command === "serve") await initializeConfiguration(locations);
   const config = parse(
     await readFile(join(locations.config, "nous.toml"), "utf8"),
   );
-  const development = config.deployment === "development";
+  const development = values.development || config.deployment === "development";
   const serve = command === "serve";
   const entry = development
     ? join(

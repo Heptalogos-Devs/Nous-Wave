@@ -61,7 +61,10 @@ const schema = z.strictObject({
   resource_profiles: resourceProfilesSchema,
 });
 
-export async function loadConfig(locations: RuntimeLocations) {
+export async function loadConfig(
+  locations: RuntimeLocations,
+  development = false,
+) {
   const config = schema.parse(
     parse(await readFile(join(locations.config, "nous.toml"), "utf8")),
   );
@@ -89,7 +92,8 @@ export async function loadConfig(locations: RuntimeLocations) {
     config.consumers.length
   )
     throw new Error("Duplicate consumer policy ID");
-  if (config.kernel_executable && config.deployment !== "development")
+  const deployment = development ? "development" : config.deployment;
+  if (config.kernel_executable && deployment !== "development")
     throw new Error("Kernel executable override is development-only");
   const models = modelConfigurationSchema.parse({
     material_strategy: config.material_strategy,
@@ -116,18 +120,24 @@ export async function loadConfig(locations: RuntimeLocations) {
   }
   const kernelExecutable = config.kernel_executable
     ? resolve(locations.program, config.kernel_executable)
-    : join(
-        locations.program,
-        "kernel",
-        process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
-      );
+    : deployment === "development"
+      ? join(
+          locations.program,
+          "target/debug",
+          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
+        )
+      : join(
+          locations.program,
+          "kernel",
+          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
+        );
   const databaseUrl = config.database.url_env
     ? process.env[config.database.url_env]
     : undefined;
   if (config.database.mode === "external" && !databaseUrl)
     throw new Error("External database credential environment is unavailable");
   return {
-    deployment: config.deployment,
+    deployment,
     externalFfmpeg: Boolean(config.video.ffmpeg_executable),
     kernelExecutable,
     locations,

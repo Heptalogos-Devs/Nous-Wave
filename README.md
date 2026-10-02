@@ -15,6 +15,8 @@ corepack pnpm dev
 
 开发配置和 discovery 位于 ignored `data/dev/`。`NOUS_WAVE_POSTGRES_RUNTIME` 可指定已准备的 PostgreSQL 安装。普通 serve 只使用已安装组件。
 
+手写开发配置放在 `data/dev/config/nous.toml`，`pnpm dev` 使用已有文件，仅在缺失时创建最小开发配置。工具配置集中在 [.config/](.config/README.md)。产品配置示例见 [配置说明](docs/reference/examples/README.md)。
+
 另一个终端用 `corepack pnpm nous status` 连接实例，具体操作见 [Nous CLI](apps/nous-cli/README.md)。
 
 ## 开发入口
@@ -26,6 +28,8 @@ Protobuf 的唯一来源是 `proto/`，修改后运行 `corepack pnpm generate`�
 ## Portable 与研究
 
 Windows x64：`just release-prepare` 构建 shipping Kernel 并显式准备 notices；`just release` 离线组装 `dist/portable/windows-x64/current.zip`；`just release-verify` 检查当前包。应用 bundle、runtime pack 与 notice cache 可复用；普通构建替换 current。显式 `pnpm release:archive` 才保存不可变发布物。
+
+Portable 不包含用户/开发配置。使用 `bin/nous.cmd init --home <instance>` 创建该实例配置，再编辑 `<instance>/config/nous.toml`；首次 serve 也可初始化，已有文件不会被覆盖。
 
 真实模型和语料实验使用 `pnpm research:gateway`、`research:retrieval-live`、`research:media-live`，方法与观测见 [Research](docs/research/README.md)。
 

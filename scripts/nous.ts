@@ -9,6 +9,7 @@ const child = spawn(
   [
     join(root, "node_modules/tsx/dist/cli.mjs"),
     join(root, "apps/nous-core/src/launcher.ts"),
+    "--development",
     ...(located ? [] : ["--locator", join(root, "data/dev/bootstrap.toml")]),
     ...args,
   ],

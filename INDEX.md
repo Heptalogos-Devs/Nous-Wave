@@ -15,5 +15,6 @@
 | TypeScript packages | [packages/README.md](packages/README.md) | 官方 Client 和生成的 TypeScript protocol bindings |
 | 验证入口 | [justfile](justfile) / [package.json](package.json) | Rust、Protobuf、TypeScript 和 按需 public smoke |
 | 脚本与维护 | [scripts/README.md](scripts/README.md) | 开发入口和有边界的开发期维护操作 |
+| 工具配置 | [.config/README.md](.config/README.md) | 显式工具设置与自动发现文件 |
 
 `crates/`、`apps/`、`packages/`、`proto/` 和 `scripts/` 的局部 `README.md` 负责解释各自边界；局部 `AGENTS.md` 只补充该区域相对根规则的 AI 操作约束。
