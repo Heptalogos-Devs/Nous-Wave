@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check local Markdown targets, return paths and ancestor INDEX coverage."""
 import argparse
-import json
+import tomllib
 import re
 import subprocess
 import sys
@@ -28,10 +28,11 @@ def local_targets(path):
 
 
 def check(config_path=None):
-    config = json.loads((config_path or ROOT / ".config/doc-navigation.json").read_text(encoding="utf-8"))
-    ignored = tuple(directory.rstrip("/") + "/" for directory in config["ignoredDirectories"])
-    exempt_names = set(config["returnExemptNames"])
-    exempt_paths = {ROOT / name for name in config["returnExemptPaths"]}
+    with (config_path or ROOT / ".config/scripts/doc-navigation.toml").open("rb") as stream:
+        config = tomllib.load(stream)
+    ignored = tuple(directory.rstrip("/") + "/" for directory in config["ignored_directories"])
+    exempt_names = set(config["return_exempt_names"])
+    exempt_paths = {ROOT / name for name in config["return_exempt_paths"]}
     names = subprocess.check_output(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
         cwd=ROOT,
@@ -74,6 +75,6 @@ def check(config_path=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=ROOT / ".config/doc-navigation.json")
+    parser.add_argument("--config", type=Path, default=ROOT / ".config/scripts/doc-navigation.toml")
     args = parser.parse_args()
     sys.exit(check(args.config))

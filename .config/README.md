@@ -6,6 +6,6 @@
 
 `typos --config .config/typos.toml` 可运行按需拼写审查。产品配置示例在 [docs/reference/examples](../docs/reference/examples/README.md)，开发实例配置在 ignored `data/dev/config/`。
 
-`doc-navigation.json` 配置文档导航检查的忽略目录及返回/覆盖豁免页面，调用方法见 [脚本 README](../scripts/README.md)。
+`scripts/` 保存仓库脚本的配置。`scripts/doc-navigation.toml` 配置文档导航检查的忽略目录及返回/覆盖豁免页面，调用方法见 [脚本 README](../scripts/README.md)。
 
 [返回目录](../INDEX.md)
