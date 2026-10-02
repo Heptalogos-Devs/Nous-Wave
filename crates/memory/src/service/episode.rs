@@ -205,29 +205,49 @@ impl MemoryService {
         let authority_seq =
             AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::text())
                 .await?;
+        self.schedule_episode_in(
+            &mut tx,
+            input.subject,
+            revision_id,
+            &input.track_key,
+            authority_seq,
+        )
+        .await?;
+        tx.commit().await.map_err(db)?;
+        self.episode(input.subject, episode_id, None).await
+    }
+
+    async fn schedule_episode_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        revision: EpisodeRevisionId,
+        track: &str,
+        authority_seq: i64,
+    ) -> Result<()> {
         let delay = self
             .configuration
-            .snapshot_for_subject(input.subject)?
+            .snapshot_for_subject(subject)?
             .get(nous_runtime::SETTLE_DELAY_KEY)?;
-        let due_at = self.cognition.now(input.subject) + chrono::Duration::seconds(delay as i64);
+        let due_at = self.cognition.now(subject) + chrono::Duration::seconds(delay as i64);
         for (kind, scope_kind, scope_ref) in [
             (
                 "episode_resegment",
                 "episode_revision",
-                revision_id.0.to_string(),
+                revision.0.to_string(),
             ),
-            ("journal_review", "track", input.track_key.clone()),
+            ("journal_review", "track", track.to_owned()),
             (
                 "memory_consolidate",
                 "episode_revision",
-                revision_id.0.to_string(),
+                revision.0.to_string(),
             ),
         ] {
             self.cognition
                 .enqueue_maintenance_in(
-                    &mut tx,
+                    tx,
                     &nous_runtime::MaintenanceRequest {
-                        subject: input.subject,
+                        subject,
                         kind: kind.into(),
                         scope_kind: scope_kind.into(),
                         scope_ref,
@@ -238,8 +258,7 @@ impl MemoryService {
                 )
                 .await?;
         }
-        tx.commit().await.map_err(db)?;
-        self.episode(input.subject, episode_id, None).await
+        Ok(())
     }
 
     pub async fn episode(
