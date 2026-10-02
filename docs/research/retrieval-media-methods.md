@@ -266,17 +266,9 @@ runner提供硬上限：
 
 # Real Retrieval Experiment
 
-## New runner
+## Runner
 
-建议：
-
-```text
-research/
-  retrieval/
-    import.ts
-    run.ts
-    metrics.ts
-```
+`scripts/research/retrieval.ts` 通过 import/run/audit-formation commands 管理固定语料、查询和 formation 重放，`scripts/research/media.ts` 对比媒体策略。
 
 runner只使用official Client/Node Client，不调用Kernel内部服务、rank函数、Wave函数生成最终结果。
 
@@ -418,5 +410,4 @@ end-to-end recall
 - 无增益/成本明显过高：允许后续直接重构或删除；
 - 不能因为Wave已经写了很多代码而给它保留特权。
 
-本轮没有授权把Wave设成default。
-
+Topology 保持显式实验 lane。
