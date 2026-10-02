@@ -7,7 +7,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let installation = std::env::var_os("NOUS_WAVE_POSTGRES_RUNTIME")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/dev/runtime/postgresql")
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../data/runtime/installed/postgresql")
         });
     let executable = installation.join(if cfg!(windows) {
         "bin/postgres.exe"

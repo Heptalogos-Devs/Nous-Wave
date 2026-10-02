@@ -8,14 +8,13 @@
   },
   "scripts": {
     "dev": "tsx scripts/dev/start.ts",
-    "start": "tsx apps/nous-core/src/main.ts",
     "nous": "tsx scripts/dev/nous.ts",
     "runtime:pack": "tsx scripts/runtime/pack.ts",
     "assemble:portable": "tsx scripts/release/assemble.ts",
-    "format": "prettier --config .config/prettier.json --ignore-path .config/prettierignore \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"scripts/**/*.ts\" \"*.{json,js,cjs,mjs,yml,yaml}\" \".config/*.{json,cjs,yaml}\" \"proto/*.yaml\" --write",
-    "format:check": "prettier --config .config/prettier.json --ignore-path .config/prettierignore \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"scripts/**/*.ts\" \"*.{json,js,cjs,mjs,yml,yaml}\" \".config/*.{json,cjs,yaml}\" \"proto/*.yaml\" --check",
+    "format": "prettier --config .config/prettier.json --ignore-path .config/prettierignore \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"scripts/**/*.ts\" \"*.{json,js,cjs,mjs,yml,yaml}\" \".config/*.{ts,json,cjs,yaml}\" \"proto/*.yaml\" --write",
+    "format:check": "prettier --config .config/prettier.json --ignore-path .config/prettierignore \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,tsx,js,json}\" \"scripts/**/*.ts\" \"*.{json,js,cjs,mjs,yml,yaml}\" \".config/*.{ts,json,cjs,yaml}\" \"proto/*.yaml\" --check",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --config .config/vitest.ts",
     "generate": "buf generate --template .config/buf.gen.yaml",
     "proto:check": "buf lint proto",
     "lint:ts": "oxlint --config .config/oxlint.json --ignore-pattern \"**/generated/**\" --type-aware --deny-warnings --report-unused-disable-directives",
@@ -45,7 +44,6 @@
     "@types/node": "22.20.3",
     "@types/yauzl": "2.10.3",
     "dependency-cruiser": "18.4.0",
-    "esbuild": "0.28.2",
     "jscpd": "5.3.2",
     "knip": "6.38.0",
     "oxlint": "1.85.0",
@@ -54,10 +52,13 @@
     "sherif": "1.13.0",
     "tsx": "4.23.13",
     "typescript": "7.0.2",
-    "vitest": "5.0.1",
+    "vitest": "5.0.1"
+  },
+  "dependencies": {
+    "esbuild": "0.28.2",
+    "@bufbuild/protobuf": "2.15.0",
     "@nous-wave/client": "workspace:*",
     "@nous-wave/protocol": "workspace:*",
-    "@bufbuild/protobuf": "2.15.0",
     "smol-toml": "1.8.0"
   }
 }

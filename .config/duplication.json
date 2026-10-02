@@ -14,6 +14,7 @@
     "**/.next/**",
     "**/.nx/**",
     "**/generated/**",
-    "**/*.generated.*"
+    "**/*.generated.*",
+    "data/**"
   ]
 }

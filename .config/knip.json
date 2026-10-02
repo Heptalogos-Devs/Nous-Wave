@@ -3,14 +3,12 @@
   "workspaces": {
     ".": {
       "entry": [
-        "scripts/dev/start.ts",
-        "scripts/dev/nous.ts",
-        "scripts/runtime/pack.ts",
-        "scripts/dev/prepare.ts",
-        "scripts/release/*.ts",
-        "scripts/smoke/*.ts",
-        "scripts/research/*.ts",
-        "scripts/research/serve-gateway.ts!"
+        "scripts/dev/*.ts!",
+        "scripts/runtime/pack.ts!",
+        "scripts/release/{assemble,archive,prepare-notices,verify-portable}.ts!",
+        "scripts/smoke/{memory,runtime-episode,model-material-resource}.ts!",
+        "scripts/research/{retrieval,media,serve-gateway}.ts!",
+        "scripts/research/*.test.ts"
       ]
     },
     "apps/nous-core": {

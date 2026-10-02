@@ -4,7 +4,7 @@
 
 根目录保留 Cargo/pnpm workspace、lockfiles、TypeScript 项目入口、toolchain 和 Git/editor 自动发现文件。`dupes.toml` 保留在根目录，因为该工具没有配置路径参数。
 
-`typos --config .config/typos.toml` 可运行按需拼写审查。产品配置示例在 [docs/reference/examples](../docs/reference/examples/README.md)，开发实例配置在 ignored `data/dev/config/`。
+`typos --config .config/typos.toml` 可运行按需拼写审查。产品配置示例在 [docs/reference/examples](../docs/reference/examples/README.md)，开发实例配置在 ignored `data/config/apps/`。
 
 `scripts/` 保存仓库脚本的配置。`scripts/doc-navigation.toml` 配置文档导航检查的忽略目录及返回/覆盖豁免页面，调用方法见 [脚本 README](../scripts/README.md)。
 

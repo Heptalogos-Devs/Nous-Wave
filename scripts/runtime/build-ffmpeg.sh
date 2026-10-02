@@ -9,9 +9,13 @@ notices_script=$(realpath "$(dirname "${BASH_SOURCE[0]}")/build-notices.sh")
 test "$(sha256sum "$source_archive" | cut -d' ' -f1)" = 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
 test "$(sha256sum "$compiler_archive" | cut -d' ' -f1)" = bb7bb7654b33d5aa8712acb837c963b2e0c56352560c76105270a3268c665c21
 build=${4:-}
-if test -z "$build"; then build=$(mktemp -d "$HOME/nous-ffmpeg-build.XXXXXX"); fi
-build=$(realpath "$build")
-printf '%s\n' "$build" > "${source_archive}.build-root"
+if test -z "$build"; then build="$(dirname "${BASH_SOURCE[0]}")/../../data/cache/runtime-build/ffmpeg/windows-x64"; fi
+build=$(realpath -m "$build")
+data_root=$(realpath -m "$(dirname "${BASH_SOURCE[0]}")/../../data")
+case "$output/" in "$data_root/"*) ;; *) echo "Output must be under repository data/" >&2; exit 1;; esac
+case "$build/" in "$data_root/"*) ;; *) echo "Build root must be under repository data/" >&2; exit 1;; esac
+
+mkdir -p "$build"
 tar -xf "$source_archive" -C "$build"
 tar -xf "$compiler_archive" -C "$build"
 toolchain="$build/llvm-mingw-20260922-ucrt-ubuntu-22.04-x86_64"

@@ -1,10 +1,10 @@
 import { connectNousInstance } from "@nous-wave/client/node";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, writeFile, appendFile, rm, mkdir } from "node:fs/promises";
+import { writeFile, appendFile, rm, mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { tmpdir } from "node:os";
+import { workspaceTemp } from "../workspace.js";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
@@ -18,7 +18,7 @@ const kernel =
     "target/debug",
     process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
   );
-const dataRoot = await mkdtemp(join(tmpdir(), "nous-real-consumer-"));
+const dataRoot = await workspaceTemp("smoke", "model-");
 const configPath = join(dataRoot, "bootstrap.toml");
 // Deterministic local provider contract wiring, never live-model or corpus evidence.
 let structuredEnabled = false;
@@ -180,7 +180,7 @@ await writeFile(
 );
 const runtimeRoot = process.env.NOUS_WAVE_POSTGRES_RUNTIME
   ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
-  : join(root, "data/dev/runtime");
+  : join(root, "data/runtime/installed");
 await writeFile(
   configPath,
   `[paths]\nprogram = ${JSON.stringify(root)}\nruntime = ${JSON.stringify(runtimeRoot)}\n`,

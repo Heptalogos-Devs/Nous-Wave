@@ -16,7 +16,10 @@ use std::time::Duration;
 use tempfile::TempDir;
 
 pub(crate) async fn database() -> (TempDir, String, PostgreSQL) {
-    let root = TempDir::new().expect("temporary PostgreSQL root");
+    let temporary =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/temp/tests");
+    std::fs::create_dir_all(&temporary).expect("test temporary directory");
+    let root = TempDir::new_in(temporary).expect("temporary PostgreSQL root");
     let settings = SettingsBuilder::new()
         .version(VersionReq::parse("=18.6.0").expect("version"))
         .trust_installation_dir(true)
@@ -29,7 +32,7 @@ pub(crate) async fn database() -> (TempDir, String, PostgreSQL) {
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| {
                     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                        .join("../../data/dev/runtime/postgresql")
+                        .join("../../data/runtime/installed/postgresql")
                 }),
         )
         .data_dir(root.path().join("data"))

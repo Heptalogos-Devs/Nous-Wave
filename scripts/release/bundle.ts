@@ -1,3 +1,4 @@
+import { workspacePaths } from "../workspace.js";
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -36,8 +37,8 @@ export async function bundleApplication(repo: string) {
     if (bytes) digest.update(file).update("\0").update(bytes);
   }
   const cache = join(
-    repo,
-    "data/release-cache/application",
+    workspacePaths.cache,
+    "release/application",
     digest.digest("hex"),
   );
   const program = join(cache, "program");

@@ -42,9 +42,9 @@ release:
     corepack pnpm assemble:portable
 
 release-verify:
-    corepack pnpm release:verify --bundle dist/portable/windows-x64/current.zip
-    corepack pnpm release:verify --bundle dist/portable/windows-x64/current.zip --layout colocated
-    corepack pnpm release:verify --bundle dist/portable/windows-x64/current.zip --layout locator --relocate
+    corepack pnpm release:verify --bundle data/releases/windows-x64/current.zip
+    corepack pnpm release:verify --bundle data/releases/windows-x64/current.zip --layout colocated
+    corepack pnpm release:verify --bundle data/releases/windows-x64/current.zip --layout locator --relocate
 
 clean-test-temp:
     powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1

@@ -1,3 +1,4 @@
+import { workspacePaths } from "../workspace.js";
 import type { connectNousInstance } from "@nous-wave/client/node";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
@@ -37,8 +38,14 @@ const { values } = parseArgs({
     "run-root": { type: "string" },
     "client-module": { type: "string" },
     manifest: { type: "string", default: "research/corpus/media.json" },
-    "raw-root": { type: "string", default: "data/research/corpus/raw" },
-    state: { type: "string", default: "data/research/live/media-state.json" },
+    "raw-root": {
+      type: "string",
+      default: resolve(workspacePaths.research, "corpus/raw"),
+    },
+    state: {
+      type: "string",
+      default: resolve(workspacePaths.research, "runs/media-state.json"),
+    },
   },
 });
 if (!values["run-root"] || !values["client-module"])

@@ -66,7 +66,7 @@ local_cache_name
 
 raw cache：
 
-`data/research/live/corpus/`
+`data/research/runs/corpus/`
 
 默认gitignored。
 
@@ -229,7 +229,7 @@ important uncertainty
 ignored：
 
 ```text
-data/research/live/runs/<timestamp>/
+data/research/runs/runs/<timestamp>/
   environment.json
   source-map.json
   model-profiles.redacted.json

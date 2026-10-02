@@ -18,7 +18,7 @@ ProgramRoot 是 immutable 应用 payload。RuntimeRoot 是 versioned 第三方 p
 
 Portable 出厂不携带活动 nous.toml、bootstrap locator、开发配置或配置模板。`nous init` 或首次 `nous serve` 在解析后的 ConfigurationRoot 以 exclusive create 生成最小用户配置；已有配置内容保持原样。默认策略由 Core 配置 schema 拥有，初始配置仅声明 portable deployment 和 default consumer，模型/Resource 由用户配置。仓库示例属于文档，不参与 assembly。
 
-源码开发命令以显式 development 启动 profile 选择 ProgramRoot 下的 debug Kernel 与源码 Client；该选择由命令承担，用户配置无需保存开发机 binary 路径。默认开发 ConfigurationRoot 为 ignored `data/dev/config`。
+源码开发命令以显式 development 启动 profile 选择 ProgramRoot 下的 debug Kernel 与源码 Client；该选择由命令承担，用户配置无需保存开发机 binary 路径。默认开发 ConfigurationRoot 为 ignored `data/config/apps`，SecretRoot 为 `data/config/secrets`，实例 roots 位于 `data/instances/dev`；共享 runtime 位于 `data/runtime/installed`。
 
 DataRoot/postgres 是 durable cluster；BlobRoot 是 Artifact/CAS；CacheRoot/serving 是可重建 Serving；RunRoot/core.json 是 endpoint/token/PID discovery；TempRoot 是短期 upload/media staging。CLI 选择状态属于 InstanceRoot/consumer，不属于 Authority。RunRoot 清理不删除 durable roots；同 instance/cluster 的启动必须互斥。SecretRoot/gateway.env 只向配置引用的 credential variables供值，OS environment 优先；Kernel/FFmpeg child 不继承 gateway token。
 
@@ -48,7 +48,7 @@ FFmpeg pack由 release pipeline 从精确 source构建；禁用 GPL、nonfree、
 
 当前 assembly 生成 release/component/checksum manifests、SPDX SBOM、THIRD_PARTY_NOTICES与每个runtime的license/source/build references。Nous Wave-owned code保持MIT，各third-party组件独立标注实际许可，不能把GPL/nonfree FFmpeg误报为LGPL。
 
-Windows release verification在Git仓库外，使用任意CWD、无developer PATH和实际gateway/source，通过official Client完成 formation/embedding/rerank/NousQL/provenance/use/restart。验证共置、完全分离roots、搬移安装位置、missing-pack serve无acquisition、external override及cancel。检查结果对应实际平台与当前 artifact。
+Windows release verification在ignored `data/temp/portable/` 隔离目录中，使用任意CWD、无developer PATH和实际gateway/source，通过official Client完成 formation/embedding/rerank/NousQL/provenance/use/restart。验证共置、完全分离roots、搬移安装位置、missing-pack serve无acquisition、external override及cancel。检查结果对应实际平台与当前 artifact。
 
 2026-10-02 用户批准 Windows shipping Kernel 改用 LLVM-MinGW UCRT 与 `--target x86_64-pc-windows-gnullvm`；assembler 只读取此 target 的 release binary 和私有 `libc++.dll`/`libunwind.dll`。`scripts/release/build-kernel.ps1` 设置独立 target C/C++/linker、C++17、source remap 与 post-link debug strip，复制精确 compiler runtime DLL。Rust MSVC source-tree 开发仍可运行，不再作为 shipping payload。以实际 PE import inventory 验证所有非系统依赖已归入 payload；系统 Win32/UCRT 不当作私有 pack。
 
@@ -56,6 +56,6 @@ Release compiler 为 LLVM-MinGW20260922 UCRT Windows x64，官方 archive SHA256
 
 Source remapping includes the checkout, Cargo registry/git sources and Rust toolchain roots. Audit the actual assembled binaries as well as source manifests; remapping only workspace paths leaves dependency panic locations tied to the development machine.
 
-应用 bundle、runtime packs 和 notices 分别缓存。网络 license/source preparation 为显式 `release:notices`；assembly 离线读取。默认输出 `dist/portable/windows-x64/current` 与 `current.zip`，先写 sibling staging，再替换 current；只有显式 archive 固化带 source SHA/payload digest 的发布物。
+应用 bundle、runtime packs 和 notices 分别缓存。网络 license/source preparation 为显式 `release:notices`；assembly 离线读取。默认输出 `data/releases/windows-x64/current` 与 `current.zip`，先写 sibling staging，再替换 current；只有显式 archive 固化带 source SHA/payload digest 的发布物。
 
 [返回文档目录](../../INDEX.md)

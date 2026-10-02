@@ -2,10 +2,10 @@
 ../.codegraph/
 ../target/
 ../coverage/
-../dist/
+../data/
 ../build/
 ../Cargo.lock
 ../pnpm-lock.yaml
-../crates/authority-store/data/
+../crates/persistence/data/
 ../crates/protocol/src/generated/
 ../packages/protocol-ts/src/generated/

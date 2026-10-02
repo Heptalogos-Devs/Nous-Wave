@@ -1,4 +1,4 @@
-param([string]$ToolchainRoot = 'data/runtime-build/llvm-mingw-windows/llvm-mingw-20260922-ucrt-x86_64')
+param([string]$ToolchainRoot = 'data/tools/llvm-mingw-windows/llvm-mingw-20260922-ucrt-x86_64')
 $ErrorActionPreference = 'Stop'
 $compiler = Join-Path (Resolve-Path -LiteralPath $ToolchainRoot).Path 'bin'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path

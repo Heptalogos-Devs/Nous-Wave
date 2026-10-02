@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+import { join } from "node:path";
+import { repositoryRoot as root, developmentLocator } from "../workspace.js";
+
 const args = process.argv.slice(2);
 const located = args.includes("--home") || args.includes("--locator");
 const child = spawn(
@@ -10,7 +10,7 @@ const child = spawn(
     join(root, "node_modules/tsx/dist/cli.mjs"),
     join(root, "apps/nous-core/src/launcher.ts"),
     "--development",
-    ...(located ? [] : ["--locator", join(root, "data/dev/bootstrap.toml")]),
+    ...(located ? [] : ["--locator", await developmentLocator()]),
     ...args,
   ],
   { stdio: "inherit", windowsHide: true },

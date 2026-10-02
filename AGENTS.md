@@ -6,6 +6,6 @@ TypeScript Core owns public hosting and model/resource execution. Rust semantic 
 
 Canonical wire contracts live in `proto/`; regenerate bindings with `corepack pnpm generate`. Fresh database schema is `crates/persistence/migrations/0001_foundation.sql` through `0004_indexes.sql`.
 
-Development configuration is ignored `data/dev/config/nous.toml`; secrets use SecretRoot/environment. Portable payloads contain no operator configuration. Runtime acquisition is explicit; ordinary serve uses installed packs.
+Development configuration is ignored `data/config/apps/nous.toml`; secrets use SecretRoot/environment. Portable payloads contain no operator configuration. Repository-generated local artifacts live under `data/`, except standard `node_modules/`, Cargo `target/`, and third-party CodeGraph storage. Runtime acquisition is explicit; ordinary serve uses installed packs.
 
 Default branches are integration-only: PR and squash merge, never direct push.

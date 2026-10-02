@@ -1,3 +1,4 @@
+import { workspacePaths } from "../workspace.js";
 import { createHash } from "node:crypto";
 import {
   cp,
@@ -15,14 +16,13 @@ const execute = promisify(execFile);
 let repo = "";
 export async function preparedPublicFile(repositoryRoot: string, url: string) {
   const key = createHash("sha256").update(url).digest("hex");
-  return readFile(
-    join(repositoryRoot, "data/runtime-build/license-cache", key),
-    "utf8",
-  ).catch(() => {
-    throw new Error(
-      "Prepared notice missing; run corepack pnpm release:notices",
-    );
-  });
+  return readFile(join(workspacePaths.cache, "licenses", key), "utf8").catch(
+    () => {
+      throw new Error(
+        "Prepared notice missing; run corepack pnpm release:notices",
+      );
+    },
+  );
 }
 async function publicFile(url: string) {
   const key = createHash("sha256").update(url).digest("hex");
@@ -93,7 +93,7 @@ async function noticeKey(
     "LICENSE",
     "scripts/release/notices.ts",
     "scripts/release/manifest.ts",
-    "manifest/runtimes.json",
+    "data/runtime/manifest/runtimes.json",
   ])
     hash.update(await readFile(join(repositoryRoot, name)));
   hash.update(
@@ -111,7 +111,10 @@ export async function prepareNotices(
 ) {
   repo = repositoryRoot;
   const catalog = JSON.parse(
-    await readFile(join(repo, "manifest/runtimes.json"), "utf8"),
+    await readFile(
+      join(workspacePaths.runtime, "manifest/runtimes.json"),
+      "utf8",
+    ),
   ) as {
     packs: {
       component: string;
@@ -136,8 +139,8 @@ export async function prepareNotices(
       `https://raw.githubusercontent.com/nodejs/node/v${node.version}/${path}`,
     );
   const output = join(
-    repo,
-    "data/release-cache/notices",
+    workspacePaths.cache,
+    "release/notices",
     await noticeKey(repo, packages),
   );
   const existing = await readFile(join(output, "inventory.json"), "utf8").catch(
@@ -235,8 +238,8 @@ export async function prepareNotices(
     );
 
   const compilerRoot = join(
-    repo,
-    "data/runtime-build/llvm-mingw-windows/llvm-mingw-20260922-ucrt-x86_64",
+    workspacePaths.tools,
+    "llvm-mingw-windows/llvm-mingw-20260922-ucrt-x86_64",
   );
   await mkdir(join(output, "licenses/native"), { recursive: true });
   await cp(
@@ -270,8 +273,8 @@ export async function loadNotices(
   output: string,
 ) {
   const cache = join(
-    repositoryRoot,
-    "data/release-cache/notices",
+    workspacePaths.cache,
+    "release/notices",
     await noticeKey(repositoryRoot, packages),
   );
   const metadata = JSON.parse(

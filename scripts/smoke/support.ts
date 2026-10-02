@@ -15,7 +15,7 @@ export type Boot = {
 export async function prepare(home: string) {
   const runtime = process.env.NOUS_WAVE_POSTGRES_RUNTIME
     ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
-    : join(repo, "data/dev/runtime");
+    : join(repo, "data/runtime/installed");
   const locator = join(home, "bootstrap.toml");
   await writeFile(locator, stringify({ paths: { program: repo, runtime } }));
   const locations = await resolveLocations({ locator, installationHome: repo });
