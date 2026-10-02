@@ -3,6 +3,7 @@
 mod accessibility;
 mod batch;
 mod episode;
+mod journal;
 mod lane;
 mod lifecycle;
 mod provenance;
@@ -35,6 +36,7 @@ pub use accessibility::{
     resolve_accessibility_policy,
 };
 pub use episode::*;
+pub use journal::*;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
 
 #[derive(Clone)]

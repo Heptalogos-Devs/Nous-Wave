@@ -231,6 +231,7 @@ pub fn validate_exact_supports(supports: &[RevisionSupport]) -> Result<()> {
                 CognitiveRef::MemoryRevision(_)
                     | CognitiveRef::CognitiveSchemaRevision(_)
                     | CognitiveRef::EpisodeRevision(_)
+                    | CognitiveRef::JournalRevision(_)
             )
         {
             return Err(Error::Invalid(

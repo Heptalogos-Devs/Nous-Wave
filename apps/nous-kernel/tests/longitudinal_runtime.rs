@@ -564,3 +564,202 @@ async fn assert_partition_revision(
     revise.operation_id = nous_core::OperationId::new();
     assert!(memory.apply_episode_partition(revise).await.is_err());
 }
+
+#[tokio::test]
+async fn journal_lineage_revalidation_and_receipt_are_exact() {
+    use nous_core::{
+        CognitionDependency, CognitiveRef, IntegrityState, OperationId, RevisionSupport,
+        SupportRole,
+    };
+    use nous_memory::{JournalInput, JournalPoint, JournalPointRole};
+    let (root, url, _postgres) = database().await;
+    let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
+    let rt = runtime_with_clock(&url, &root, clock.clone()).await;
+    let subject = create_subject(&rt).await;
+    let episode = journal_source_episode(&rt, &clock, subject).await;
+    let memory = rt.require_memory().unwrap();
+    let support = RevisionSupport::CognitionDependency(CognitionDependency {
+        target_revision: CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
+        support_role: SupportRole::Direct,
+    });
+    let input = JournalInput {
+        operation_id: OperationId::new(),
+        subject,
+        expected_authority_seq: rt.store.authority_seq(subject).await.unwrap(),
+        target: None,
+        sources: vec![EpisodePartitionSource {
+            revision: episode.revision.episode_revision_id,
+            expected_epoch: episode.object.object_epoch,
+        }],
+        title: Some("Experience summary".into()),
+        narrative: "Two sources contributed.".into(),
+        points: vec![JournalPoint {
+            role: JournalPointRole::Summary,
+            text: "Two sources contributed.".into(),
+            supports: vec![support],
+        }],
+        producer: None,
+    };
+    let journal = memory.commit_journal(input.clone()).await.unwrap();
+    let support = RevisionSupport::CognitionDependency(CognitionDependency {
+        target_revision: CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
+        support_role: SupportRole::Direct,
+    });
+    let provenance = memory
+        .provenance_summary(subject, std::slice::from_ref(&support))
+        .await
+        .unwrap();
+    assert_eq!(provenance.roots.len(), 2);
+    assert_eq!(provenance.normalized_inputs.len(), 1);
+    let bound = rt
+        .store
+        .bind_exact_reference(subject, &CognitiveRef::Journal(journal.object.journal_id))
+        .await
+        .unwrap();
+    assert_eq!(
+        bound.0,
+        CognitiveRef::JournalRevision(journal.revision.journal_revision_id)
+    );
+    assert_eq!(bound.1, Some(journal.object.object_epoch));
+    assert!(bound.2);
+    let mut invalid = input.clone();
+    invalid.operation_id = OperationId::new();
+    invalid.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
+    invalid.points[0].supports = vec![support];
+    assert!(memory.commit_journal(invalid).await.is_err());
+    memory
+        .suppress_episode(
+            subject,
+            episode.object.episode_id,
+            OperationId::new(),
+            episode.object.object_epoch,
+        )
+        .await
+        .unwrap();
+    let invalidated = memory
+        .journal(subject, journal.object.journal_id, None)
+        .await
+        .unwrap();
+    assert!(matches!(
+        invalidated.object.integrity_state,
+        IntegrityState::RevalidationRequired
+    ));
+    assert_eq!(
+        invalidated.object.object_epoch,
+        journal.object.object_epoch + 1
+    );
+    assert_eq!(invalidated.revision.narrative, journal.revision.narrative);
+    let needs = rt.cognition.maintenance_needs(subject).await.unwrap();
+    assert!(needs.iter().any(|need| need.kind == "journal_revalidate"
+        && need.scope_ref == journal.object.journal_id.0.to_string()));
+    clock.advance_by(subject, Duration::days(1)).unwrap();
+    let replay = memory.commit_journal(input.clone()).await.unwrap();
+    assert_eq!(
+        replay.revision.journal_revision_id,
+        journal.revision.journal_revision_id
+    );
+    assert_eq!(replay.revision.formed_at, journal.revision.formed_at);
+    assert_eq!(replay.revision.recorded_at, journal.revision.recorded_at);
+    let revised = assert_journal_revalidation(&rt, input, &episode, &invalidated).await;
+    memory
+        .purge_journal(
+            subject,
+            journal.object.journal_id,
+            OperationId::new(),
+            revised.object.object_epoch,
+        )
+        .await
+        .unwrap();
+    assert!(
+        memory
+            .journal(subject, journal.object.journal_id, None)
+            .await
+            .is_err()
+    );
+    assert!(
+        memory
+            .episode_revision(subject, episode.revision.episode_revision_id)
+            .await
+            .is_ok()
+    );
+}
+
+async fn journal_source_episode(
+    rt: &NousRuntime,
+    clock: &ManualCognitiveClock,
+    subject: nous_core::SubjectId,
+) -> EpisodeView {
+    let session = rt
+        .cognition
+        .open_session(subject, serde_json::json!({}))
+        .await
+        .unwrap();
+    for source in ["object:source-a", "object:source-b"] {
+        let mut input = observation(subject, Some(session.session_id));
+        input.material = ObservationMaterial::InlineText {
+            text: source.into(),
+            media_type: "text/plain".into(),
+        };
+        input.occurrence.external_object_ref = Some(nous_core::ObjectRef::new(source).unwrap());
+        rt.material
+            .record_observation_once(input, Some(uuid::Uuid::new_v4()))
+            .await
+            .unwrap();
+        clock.advance_by(subject, Duration::seconds(1)).unwrap();
+    }
+    rt.organize_experience(subject, 128, true)
+        .await
+        .unwrap()
+        .episodes
+        .remove(0)
+}
+
+async fn assert_journal_revalidation(
+    rt: &NousRuntime,
+    mut input: nous_memory::JournalInput,
+    episode: &EpisodeView,
+    invalidated: &nous_memory::JournalView,
+) -> nous_memory::JournalView {
+    let subject = input.subject;
+    let memory = rt.require_memory().unwrap();
+    let restored = memory
+        .restore_episode(
+            subject,
+            episode.object.episode_id,
+            nous_core::OperationId::new(),
+            episode.object.object_epoch + 1,
+        )
+        .await
+        .unwrap();
+    input.operation_id = nous_core::OperationId::new();
+    input.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
+    input.sources[0].expected_epoch = restored.object.object_epoch;
+    input.target = Some(nous_memory::JournalTarget {
+        journal_id: invalidated.object.journal_id,
+        expected_revision: invalidated.revision.journal_revision_id,
+        expected_epoch: invalidated.object.object_epoch,
+        intent: "revalidate".into(),
+    });
+    let revised = memory.commit_journal(input.clone()).await.unwrap();
+    assert_eq!(revised.object.journal_id, invalidated.object.journal_id);
+    assert_ne!(
+        revised.revision.journal_revision_id,
+        invalidated.revision.journal_revision_id
+    );
+    assert!(matches!(
+        revised.object.integrity_state,
+        nous_core::IntegrityState::Valid
+    ));
+    assert_eq!(
+        memory
+            .journal_history(subject, revised.object.journal_id)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    input.operation_id = nous_core::OperationId::new();
+    input.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
+    assert!(memory.commit_journal(input).await.is_err());
+    revised
+}

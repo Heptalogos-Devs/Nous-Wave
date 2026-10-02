@@ -50,6 +50,8 @@ uuid_id!(MemoryId);
 uuid_id!(MemoryRevisionId);
 uuid_id!(EpisodeId);
 uuid_id!(EpisodeRevisionId);
+uuid_id!(JournalId);
+uuid_id!(JournalRevisionId);
 uuid_id!(CognitiveSchemaId);
 uuid_id!(CognitiveSchemaRevisionId);
 uuid_id!(SchemaEvidenceLinkId);
@@ -122,6 +124,8 @@ pub enum CognitiveRef {
     MemoryRevision(MemoryRevisionId),
     Episode(EpisodeId),
     EpisodeRevision(EpisodeRevisionId),
+    Journal(JournalId),
+    JournalRevision(JournalRevisionId),
     CognitiveSchema(CognitiveSchemaId),
     CognitiveSchemaRevision(CognitiveSchemaRevisionId),
     CognitiveSeedVersion(CognitiveSeedVersionId),
@@ -212,6 +216,8 @@ pub enum CapabilityOperation {
     TextInterpretation,
     MemoryFormationText,
     MemoryConsolidationText,
+    EpisodeSegmentationText,
+    JournalSynthesisText,
     ImageInterpretation,
     ImageEmbedding,
     SpeechTranscription,
@@ -226,6 +232,8 @@ impl CapabilityOperation {
             Self::TextInterpretation => "text.interpretation",
             Self::MemoryFormationText => "memory.formation.text",
             Self::MemoryConsolidationText => "memory.consolidation.text",
+            Self::EpisodeSegmentationText => "episode.segmentation.text",
+            Self::JournalSynthesisText => "journal.synthesis.text",
             Self::ImageInterpretation => "image.interpretation",
             Self::ImageEmbedding => "image.embedding",
             Self::SpeechTranscription => "speech.transcription",
@@ -517,6 +525,8 @@ impl fmt::Display for CognitiveRef {
             Self::MemoryRevision(id) => write!(f, "memory_revision:{}", id.0),
             Self::Episode(id) => write!(f, "episode:{}", id.0),
             Self::EpisodeRevision(id) => write!(f, "episode_revision:{}", id.0),
+            Self::Journal(id) => write!(f, "journal:{}", id.0),
+            Self::JournalRevision(id) => write!(f, "journal_revision:{}", id.0),
             Self::CognitiveSchema(id) => write!(f, "cognitive_schema:{}", id.0),
             Self::CognitiveSchemaRevision(id) => {
                 write!(f, "cognitive_schema_revision:{}", id.0)

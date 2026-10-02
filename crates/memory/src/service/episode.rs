@@ -512,8 +512,17 @@ impl MemoryService {
         .await?;
         sqlx::query("UPDATE episode_objects SET current_revision_id=$3,object_epoch=object_epoch+1,integrity_state='valid' WHERE subject_id=$1 AND episode_id=$2")
             .bind(input.subject.0).bind(input.episode_id.0).bind(revision_id.0).execute(&mut *tx).await.map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
-            .await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
+                .await?;
+        self.invalidate_episode_journals_in(
+            &mut tx,
+            input.subject,
+            &[input.episode_id.0],
+            sequence,
+            "source_revised",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             input.subject,
@@ -731,7 +740,16 @@ impl MemoryService {
             .execute(&mut *tx)
             .await
             .map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        self.invalidate_episode_journals_in(
+            &mut tx,
+            subject,
+            &[episode.0],
+            sequence,
+            "source_lifecycle_changed",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             subject,
@@ -777,13 +795,22 @@ impl MemoryService {
                 "expected Episode object epoch is stale".into(),
             ));
         }
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        self.invalidate_episode_journals_in(
+            &mut tx,
+            subject,
+            &[episode.0],
+            sequence,
+            "source_purged",
+        )
+        .await?;
         sqlx::query("DELETE FROM episode_objects WHERE subject_id=$1 AND episode_id=$2")
             .bind(subject.0)
             .bind(episode.0)
             .execute(&mut *tx)
             .await
             .map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
         commit_receipt(
             &mut tx,
             subject,
