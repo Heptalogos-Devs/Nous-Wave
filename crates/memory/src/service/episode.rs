@@ -22,7 +22,7 @@ pub struct EpisodeInput {
     pub parent_episode_revision_id: Option<EpisodeRevisionId>,
     pub experience_time: TemporalExtent,
     pub boundary_explanation: String,
-    pub formed_at: DateTime<Utc>,
+
     pub producer_signature_id: Option<Uuid>,
     pub members: Vec<EpisodeMemberInput>,
     pub supports: Vec<RevisionSupport>,
@@ -39,7 +39,7 @@ pub struct ReviseEpisodeInput {
     pub parent_episode_revision_id: Option<EpisodeRevisionId>,
     pub experience_time: TemporalExtent,
     pub boundary_explanation: String,
-    pub formed_at: DateTime<Utc>,
+
     pub producer_signature_id: Option<Uuid>,
     pub members: Vec<EpisodeMemberInput>,
     pub supports: Vec<RevisionSupport>,
@@ -102,6 +102,7 @@ pub struct EpisodeView {
 
 impl MemoryService {
     pub async fn create_episode(&self, input: EpisodeInput) -> Result<EpisodeView> {
+        let started_at = self.cognition.now(input.subject);
         validate_episode_input(
             &input.track_key,
             &input.title,
@@ -120,7 +121,6 @@ impl MemoryService {
                 "parent": input.parent_episode_revision_id,
                 "experience_time": input.experience_time,
                 "boundary_explanation": input.boundary_explanation,
-                "formed_at": input.formed_at,
                 "producer_signature_id": input.producer_signature_id,
                 "members": input.members,
                 "supports": input.supports,
@@ -144,7 +144,13 @@ impl MemoryService {
                     .ok_or_else(|| Error::Infrastructure("Episode receipt has no result".into()))?
                     .parse()
                     .map_err(|_| Error::Infrastructure("invalid Episode receipt".into()))?;
-                return self.episode(input.subject, EpisodeId(id), None).await;
+                return self
+                    .episode(
+                        input.subject,
+                        EpisodeId(id),
+                        receipt.result_revision.map(EpisodeRevisionId),
+                    )
+                    .await;
             }
             return Err(Error::Unavailable(
                 "create Episode operation is already in progress".into(),
@@ -164,7 +170,10 @@ impl MemoryService {
         .await?;
         let episode_id = EpisodeId::new();
         let revision_id = EpisodeRevisionId::new();
-        let now = Utc::now();
+        let formed_at = self
+            .formation_time_in(&mut tx, input.subject, input.operation_id, started_at)
+            .await?;
+        let now = self.cognition.now(input.subject);
         let (time_kind, time_start, time_end) = temporal_columns(&input.experience_time);
         sqlx::query("INSERT INTO episode_objects(episode_id,subject_id,track_key,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,$4,1,'accepted','valid','normal','normal',$5)")
             .bind(episode_id.0).bind(input.subject.0).bind(&input.track_key).bind(revision_id.0).bind(now)
@@ -179,6 +188,7 @@ impl MemoryService {
             time_kind,
             time_start,
             time_end,
+            formed_at,
             now,
         )
         .await?;
@@ -192,8 +202,42 @@ impl MemoryService {
             Some(1),
         )
         .await?;
-        AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
-            .await?;
+        let authority_seq =
+            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::text())
+                .await?;
+        let delay = self
+            .configuration
+            .snapshot_for_subject(input.subject)?
+            .get(nous_runtime::SETTLE_DELAY_KEY)?;
+        let due_at = self.cognition.now(input.subject) + chrono::Duration::seconds(delay as i64);
+        for (kind, scope_kind, scope_ref) in [
+            (
+                "episode_resegment",
+                "episode_revision",
+                revision_id.0.to_string(),
+            ),
+            ("journal_review", "track", input.track_key.clone()),
+            (
+                "memory_consolidate",
+                "episode_revision",
+                revision_id.0.to_string(),
+            ),
+        ] {
+            self.cognition
+                .enqueue_maintenance_in(
+                    &mut tx,
+                    &nous_runtime::MaintenanceRequest {
+                        subject: input.subject,
+                        kind: kind.into(),
+                        scope_kind: scope_kind.into(),
+                        scope_ref,
+                        trigger_authority_seq: authority_seq,
+                        due_at,
+                        priority: 30,
+                    },
+                )
+                .await?;
+        }
         tx.commit().await.map_err(db)?;
         self.episode(input.subject, episode_id, None).await
     }
@@ -318,6 +362,7 @@ impl MemoryService {
         reason = "Episode revision keeps fencing, hierarchy, members, supports, and receipt commit together"
     )]
     pub async fn revise_episode(&self, input: ReviseEpisodeInput) -> Result<EpisodeView> {
+        let started_at = self.cognition.now(input.subject);
         validate_episode_input(
             "",
             &input.title,
@@ -340,7 +385,6 @@ impl MemoryService {
                 "parent": input.parent_episode_revision_id,
                 "experience_time": input.experience_time,
                 "boundary_explanation": input.boundary_explanation,
-                "formed_at": input.formed_at,
                 "members": input.members,
                 "supports": input.supports,
             }),
@@ -407,7 +451,10 @@ impl MemoryService {
         .await
         .map_err(db)?;
         let revision_id = EpisodeRevisionId::new();
-        let now = Utc::now();
+        let formed_at = self
+            .formation_time_in(&mut tx, input.subject, input.operation_id, started_at)
+            .await?;
+        let now = self.cognition.now(input.subject);
         let (kind, start, end) = temporal_columns(&input.experience_time);
         let create = EpisodeInput {
             operation_id: input.operation_id,
@@ -417,7 +464,7 @@ impl MemoryService {
             parent_episode_revision_id: input.parent_episode_revision_id,
             experience_time: input.experience_time,
             boundary_explanation: input.boundary_explanation,
-            formed_at: input.formed_at,
+
             producer_signature_id: input.producer_signature_id,
             members: input.members,
             supports: input.supports,
@@ -433,6 +480,7 @@ impl MemoryService {
             kind,
             start,
             end,
+            formed_at,
             now,
         )
         .await?;
@@ -501,7 +549,7 @@ impl MemoryService {
             }
         }
         sqlx::query("INSERT INTO episode_revision_relations(from_revision_id,to_revision_id,relation,created_at) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING")
-            .bind(from.0).bind(to.0).bind(&relation).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
+            .bind(from.0).bind(to.0).bind(&relation).bind(self.cognition.now(subject)).execute(&mut *tx).await.map_err(db)?;
         commit_receipt(
             &mut tx,
             subject,
@@ -926,6 +974,7 @@ async fn insert_episode_revision(
     kind: &str,
     start: Option<DateTime<Utc>>,
     end: Option<DateTime<Utc>>,
+    formed_at: DateTime<Utc>,
     recorded_at: DateTime<Utc>,
 ) -> Result<()> {
     insert_episode_revision_with_intent(
@@ -939,6 +988,7 @@ async fn insert_episode_revision(
         kind,
         start,
         end,
+        formed_at,
         recorded_at,
     )
     .await
@@ -959,10 +1009,11 @@ async fn insert_episode_revision_with_intent(
     kind: &str,
     start: Option<DateTime<Utc>>,
     end: Option<DateTime<Utc>>,
+    formed_at: DateTime<Utc>,
     recorded_at: DateTime<Utc>,
 ) -> Result<()> {
     sqlx::query("INSERT INTO episode_revisions(episode_revision_id,episode_id,subject_id,revision_no,parent_revision_id,revision_intent,title,parent_episode_revision_id,experience_time_kind,experience_time_start,experience_time_end,boundary_explanation,formed_at,recorded_at,producer_signature_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)")
-        .bind(revision.0).bind(episode.0).bind(input.subject.0).bind(revision_no).bind(parent_revision.map(|value| value.0)).bind(intent).bind(&input.title).bind(input.parent_episode_revision_id.map(|value| value.0)).bind(kind).bind(start).bind(end).bind(&input.boundary_explanation).bind(input.formed_at).bind(recorded_at).bind(input.producer_signature_id).execute(&mut **tx).await.map_err(db)?;
+        .bind(revision.0).bind(episode.0).bind(input.subject.0).bind(revision_no).bind(parent_revision.map(|value| value.0)).bind(intent).bind(&input.title).bind(input.parent_episode_revision_id.map(|value| value.0)).bind(kind).bind(start).bind(end).bind(&input.boundary_explanation).bind(formed_at).bind(recorded_at).bind(input.producer_signature_id).execute(&mut **tx).await.map_err(db)?;
     for (ordinal, member) in input.members.iter().enumerate() {
         let (kind, value) = reference_parts(&member.reference);
         sqlx::query("INSERT INTO episode_revision_members(episode_revision_id,ordinal,ref_kind,ref_value,role) VALUES($1,$2,$3,$4,$5)").bind(revision.0).bind(ordinal as i32).bind(kind).bind(value).bind(&member.role).execute(&mut **tx).await.map_err(db)?;

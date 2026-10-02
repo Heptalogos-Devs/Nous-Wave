@@ -291,7 +291,7 @@ pub(crate) fn form_input(
         aboutness: Vec::new(),
         tags: Vec::new(),
         valid_time: TemporalExtent::Unknown,
-        formed_at: Utc::now(),
+
         epistemic_class: EpistemicClass::Observed,
     }
 }

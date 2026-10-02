@@ -81,8 +81,6 @@ impl KernelService {
         input: p::CreateEpisodeRequest,
     ) -> Result<p::EpisodeResponse> {
         let subject = SubjectId(id(&input.subject_id)?);
-        let formed_at = time(input.formed_at)?
-            .ok_or_else(|| Error::Invalid("Episode formed_at is required".into()))?;
         let value = self
             .require_memory()?
             .create_episode(EpisodeInput {
@@ -93,7 +91,6 @@ impl KernelService {
                 parent_episode_revision_id: parsed_parent(input.parent_episode_revision_id)?,
                 experience_time: temporal(input.experience_time)?,
                 boundary_explanation: input.boundary_explanation,
-                formed_at,
                 producer_signature_id: input
                     .producer_signature_id
                     .as_deref()
@@ -181,8 +178,6 @@ impl KernelService {
         input: p::ReviseEpisodeRequest,
     ) -> Result<p::EpisodeResponse> {
         let subject = SubjectId(id(&input.subject_id)?);
-        let formed_at = time(input.formed_at)?
-            .ok_or_else(|| Error::Invalid("Episode formed_at is required".into()))?;
         Ok(response(
             self.require_memory()?
                 .revise_episode(ReviseEpisodeInput {
@@ -195,7 +190,6 @@ impl KernelService {
                     parent_episode_revision_id: parsed_parent(input.parent_episode_revision_id)?,
                     experience_time: temporal(input.experience_time)?,
                     boundary_explanation: input.boundary_explanation,
-                    formed_at,
                     producer_signature_id: input
                         .producer_signature_id
                         .as_deref()

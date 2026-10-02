@@ -137,7 +137,16 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                     return Err(Error::Unavailable("Memory owner unavailable".into()));
                 }
             }
-            let snapshot = workflow_json(&input.snapshot_json)?;
+            let mut snapshot = workflow_json(&input.snapshot_json)?;
+            if input.owner == "memory" {
+                let object = snapshot
+                    .as_object_mut()
+                    .ok_or_else(|| Error::Invalid("workflow snapshot must be an object".into()))?;
+                object.insert(
+                    "cognitive_formed_at".into(),
+                    serde_json::json!(self.0.cognition.now(subject)),
+                );
+            }
             let reserved = self
                 .0
                 .store

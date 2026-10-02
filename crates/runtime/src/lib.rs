@@ -13,6 +13,7 @@ mod use_feedback;
 mod work_contexts;
 mod working_set;
 pub use clock::{CognitiveClock, ManualCognitiveClock, SystemCognitiveClock};
+pub use episode_policy::SETTLE_DELAY_KEY;
 pub use episode_policy::{EpisodePolicy, ExperienceContext};
 pub use experience::ExperienceInput;
 pub use maintenance::*;

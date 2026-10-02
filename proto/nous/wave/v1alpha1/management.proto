@@ -35,7 +35,7 @@ message SplitCognitiveSchemaResponse { repeated CognitiveSchema children = 1; }
 message TopologyTagChange { optional string existing_tag_id = 1; Tag tag = 2; repeated string attach_to_revision_ids = 3; }
 message TopologyAssociationChange { Association association = 1; }
 message TopologyChanges { repeated TopologyTagChange tags = 1; repeated TopologyAssociationChange associations = 2; }
-message ConsolidateMemoryRequest { string operation_id = 1; string subject_id = 2; repeated string source_revision_ids = 3; string target = 4; string text = 5; string semantic_role = 6; google.protobuf.Timestamp formed_at = 7; TopologyChanges topology = 8; }
+message ConsolidateMemoryRequest { string operation_id = 1; string subject_id = 2; repeated string source_revision_ids = 3; string target = 4; string text = 5; string semantic_role = 6; TopologyChanges topology = 8; }
 message ConsolidationResponse { Memory memory = 1; uint32 topology_changes = 2; }
 
 message Occurrence { string occurrence_id = 1; string subject_id = 2; optional string artifact_id = 3; string source_class = 4; optional string external_object_ref = 5; TemporalExtent occurred_time = 6; google.protobuf.Timestamp observed_at = 7; optional string conversation_ref = 8; optional string actor_entity_ref = 9; google.protobuf.Struct context = 10; }

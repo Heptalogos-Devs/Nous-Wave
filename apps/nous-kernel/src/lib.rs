@@ -1,5 +1,7 @@
 //! Static composition of Subject Core, Cognitive Runtime and optional Memory.
 mod context;
+mod longitudinal;
+pub use longitudinal::ExperienceSegmentationResult;
 pub mod transport;
 
 use nous_configuration::{

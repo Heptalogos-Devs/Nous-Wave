@@ -281,7 +281,7 @@ async function importCorpus() {
                         text,
                         aboutness: [source.entity_ref],
                         epistemicClass: "reported",
-                        formedAt: now(receipt.createdAtMs),
+
                         supports: [
                           {
                             support: {

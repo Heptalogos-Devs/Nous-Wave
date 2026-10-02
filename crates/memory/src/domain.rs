@@ -276,7 +276,7 @@ pub struct ExplicitMemoryInput {
     #[serde(default)]
     pub tags: Vec<TagId>,
     pub valid_time: TemporalExtent,
-    pub formed_at: DateTime<Utc>,
+
     pub epistemic_class: EpistemicClass,
 }
 
@@ -375,7 +375,7 @@ pub struct MemoryFormationProposal {
     pub supports: Vec<RevisionSupport>,
     pub aboutness: Vec<EntityRef>,
     pub valid_time: TemporalExtent,
-    pub formed_at: DateTime<Utc>,
+
     pub epistemic_class: EpistemicClass,
 }
 
@@ -395,7 +395,7 @@ impl MemoryFormationProposal {
             aboutness: self.aboutness,
             tags: Vec::new(),
             valid_time: self.valid_time,
-            formed_at: self.formed_at,
+
             epistemic_class: self.epistemic_class,
         }
     }
@@ -573,7 +573,6 @@ pub struct ConsolidationRequest {
     pub target: ConsolidationTarget,
     pub representation_text: Option<String>,
     pub semantic_role: Option<String>,
-    pub formed_at: DateTime<Utc>,
     #[serde(default)]
     pub topology: Option<TopologyConsolidationProposal>,
 }
@@ -642,7 +641,7 @@ mod tests {
             aboutness: Vec::new(),
             tags: Vec::new(),
             valid_time: TemporalExtent::Unknown,
-            formed_at: Utc::now(),
+
             epistemic_class: EpistemicClass::Reported,
         };
         assert!(input.validate().is_ok());
@@ -664,7 +663,7 @@ mod tests {
             aboutness: Vec::new(),
             tags: Vec::new(),
             valid_time: TemporalExtent::Unknown,
-            formed_at: Utc::now(),
+
             epistemic_class: EpistemicClass::Inferred,
         };
         assert!(input.validate().is_err());

@@ -127,7 +127,6 @@ message MemoryContent {
   repeated string aboutness = 8;
   repeated string tags = 9;
   TemporalExtent valid_time = 10;
-  google.protobuf.Timestamp formed_at = 11;
   string epistemic_class = 12;
 }
 message Memory {
@@ -278,7 +277,6 @@ message CreateEpisodeRequest {
   optional string parent_episode_revision_id = 5;
   TemporalExtent experience_time = 6;
   string boundary_explanation = 7;
-  google.protobuf.Timestamp formed_at = 8;
   optional string producer_signature_id = 9;
   repeated EpisodeMember members = 10;
   repeated RevisionSupport supports = 11;
@@ -293,7 +291,6 @@ message ReviseEpisodeRequest {
   optional string parent_episode_revision_id = 7;
   TemporalExtent experience_time = 8;
   string boundary_explanation = 9;
-  google.protobuf.Timestamp formed_at = 10;
   optional string producer_signature_id = 11;
   repeated EpisodeMember members = 12;
   repeated RevisionSupport supports = 13;

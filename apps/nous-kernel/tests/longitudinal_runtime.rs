@@ -1,6 +1,6 @@
 mod test_support;
 
-use chrono::{Duration, Utc};
+use chrono::{Duration, SubsecRound, Utc};
 use nous_core::{SourceClass, TemporalExtent};
 use nous_kernel::{NousRuntime, RuntimeOptions};
 use nous_material::{
@@ -76,7 +76,7 @@ fn observation(
 #[tokio::test]
 async fn experience_capture_cursor_idle_and_reopen_are_stable() {
     let (root, url, _postgres) = database().await;
-    let start = Utc::now();
+    let start = Utc::now().trunc_subsecs(6);
     let clock = Arc::new(ManualCognitiveClock::new(start));
     let rt = runtime_with_clock(&url, &root, clock.clone()).await;
     let subject = create_subject(&rt).await;
@@ -141,7 +141,7 @@ async fn experience_capture_cursor_idle_and_reopen_are_stable() {
     assert_eq!(repeated.processed_count, 0);
     clock.advance_by(subject, Duration::minutes(30)).unwrap();
     drop(rt);
-    let rt = runtime_with_clock(&url, &root, clock).await;
+    let rt = runtime_with_clock(&url, &root, clock.clone()).await;
     let progress = rt
         .cognition
         .segment_experience(subject, "interaction", 128, false)
@@ -154,12 +154,79 @@ async fn experience_capture_cursor_idle_and_reopen_are_stable() {
         Some("hard_idle")
     );
     assert_eq!(progress.processed_count, 0);
+    let organized = rt.organize_experience(subject, 128, false).await.unwrap();
+    assert_eq!(organized.episodes.len(), 1);
+    assert_eq!(organized.episodes[0].revision.formed_at, clock.now(subject));
+    assert!(
+        rt.organize_experience(subject, 128, false)
+            .await
+            .unwrap()
+            .episodes
+            .is_empty()
+    );
+    assert!(
+        rt.cognition
+            .maintenance_needs(subject)
+            .await
+            .unwrap()
+            .iter()
+            .any(|need| need.kind == "journal_review")
+    );
+    let input = test_support::form_input(
+        subject,
+        accepted.occurrence.occurrence_id,
+        nous_core::OperationId::new(),
+        "owner-timed grounded memory",
+    );
+    let at = clock.now(subject);
+    let memory = rt
+        .require_memory()
+        .unwrap()
+        .form_memory(input.clone())
+        .await
+        .unwrap();
+    assert_eq!(memory.revision.formed_at, at);
+    assert_eq!(memory.revision.recorded_at, at);
+    clock.advance_by(subject, Duration::days(1)).unwrap();
+    rt.require_memory()
+        .unwrap()
+        .revise_memory(nous_memory::ReviseMemoryInput {
+            producer: None,
+            operation_id: nous_core::OperationId::new(),
+            subject,
+            memory_id: memory.object.memory_id,
+            expected_object_epoch: memory.object.object_epoch,
+            intent: nous_memory::RevisionIntent::Correct,
+            formation_mode: input.formation_mode,
+            grounding_occurrence_id: input.grounding_occurrence_id,
+            semantic_role: input.semantic_role.clone(),
+            representation_text: "corrected owner-timed memory".into(),
+            title: None,
+            supports: input.supports.clone(),
+            aboutness: vec![],
+            valid_time: TemporalExtent::Unknown,
+            epistemic_class: input.epistemic_class,
+        })
+        .await
+        .unwrap();
+    let replay = rt
+        .require_memory()
+        .unwrap()
+        .form_memory(input)
+        .await
+        .unwrap();
+    assert_eq!(
+        replay.revision.memory_revision_id,
+        memory.revision.memory_revision_id
+    );
+    assert_eq!(replay.revision.formed_at, at);
+    assert_eq!(replay.revision.recorded_at, at);
 }
 
 #[tokio::test]
 async fn maintenance_claims_use_execution_leases_and_keep_new_triggers() {
     let (root, url, _postgres) = database().await;
-    let start = Utc::now();
+    let start = Utc::now().trunc_subsecs(6);
     let clock = Arc::new(ManualCognitiveClock::new(start));
     let rt = runtime_with_clock(&url, &root, clock.clone()).await;
     let subject = create_subject(&rt).await;

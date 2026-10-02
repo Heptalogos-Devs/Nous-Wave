@@ -143,7 +143,7 @@ async function main() {
             }),
           ],
           validTime: create(TemporalExtentSchema, {}),
-          formedAt: instant,
+
           epistemicClass: "observed",
         }),
       }),

@@ -19,6 +19,7 @@ impl MemoryService {
         if revisions.is_empty() {
             return Ok(HashMap::new());
         }
+        let now = self.cognition.now(subject);
         let rows = sqlx::query("SELECT o.memory_id,o.subject_id,o.cognitive_role,o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,o.accessibility_mode,o.created_at,r.memory_revision_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.formation_mode,r.grounding_occurrence_id,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at,r.producer_signature_id FROM memory_objects o JOIN memory_revisions r ON r.memory_id=o.memory_id WHERE o.subject_id=$1 AND r.memory_revision_id=ANY($2::uuid[])")
         .bind(subject.0)
         .bind(revisions)
@@ -151,7 +152,7 @@ impl MemoryService {
                 (
                     row.try_get("accessibility_mode")
                         .unwrap_or_else(|_| "auto".into()),
-                    row.try_get("created_at").unwrap_or_else(|_| Utc::now()),
+                    row.try_get("created_at").unwrap_or(now),
                     Vec::new(),
                 )
             });
@@ -160,10 +161,9 @@ impl MemoryService {
                 row.try_get::<Option<DateTime<Utc>>, _>("occurred_at")
                     .map_err(db)?,
             ) {
-                entry.2.push((
-                    kind,
-                    (Utc::now() - at).num_seconds().max(0) as f64 / 86400.0,
-                ));
+                entry
+                    .2
+                    .push((kind, (now - at).num_seconds().max(0) as f64 / 86400.0));
             }
         }
         for (memory, (mode, created, uses)) in accessibility_inputs {
@@ -171,10 +171,10 @@ impl MemoryService {
                 "normal" => AccessibilityLevel::Normal,
                 "deep" => AccessibilityLevel::Deep,
                 "explicit" => AccessibilityLevel::Explicit,
-                _ => accessibility_policy.level_from_activation(accessibility_policy.activation(
-                    (Utc::now() - created).num_seconds().max(0) as f64 / 86400.0,
-                    &uses,
-                )),
+                _ => accessibility_policy.level_from_activation(
+                    accessibility_policy
+                        .activation((now - created).num_seconds().max(0) as f64 / 86400.0, &uses),
+                ),
             };
             accessibility.insert(memory, level);
         }

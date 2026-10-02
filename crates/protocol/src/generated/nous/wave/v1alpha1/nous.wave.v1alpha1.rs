@@ -624,8 +624,6 @@ pub struct MemoryContent {
     pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, optional, tag="10")]
     pub valid_time: ::core::option::Option<TemporalExtent>,
-    #[prost(message, optional, tag="11")]
-    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, tag="12")]
     pub epistemic_class: ::prost::alloc::string::String,
 }
@@ -1171,8 +1169,6 @@ pub struct CreateEpisodeRequest {
     pub experience_time: ::core::option::Option<TemporalExtent>,
     #[prost(string, tag="7")]
     pub boundary_explanation: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="8")]
-    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, optional, tag="9")]
     pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="10")]
@@ -1200,8 +1196,6 @@ pub struct ReviseEpisodeRequest {
     pub experience_time: ::core::option::Option<TemporalExtent>,
     #[prost(string, tag="9")]
     pub boundary_explanation: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="10")]
-    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, optional, tag="11")]
     pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="12")]
@@ -1648,8 +1642,6 @@ pub struct ConsolidateMemoryRequest {
     pub text: ::prost::alloc::string::String,
     #[prost(string, tag="6")]
     pub semantic_role: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="7")]
-    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag="8")]
     pub topology: ::core::option::Option<TopologyChanges>,
 }

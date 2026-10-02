@@ -435,7 +435,7 @@ impl MemoryService {
             aboutness: Vec::new(),
             tags: Vec::new(),
             valid_time: TemporalExtent::Unknown,
-            formed_at: request.formed_at,
+
             epistemic_class: EpistemicClass::Inferred,
         };
         Ok(ConsolidationResult {
