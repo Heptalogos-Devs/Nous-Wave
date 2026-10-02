@@ -18,6 +18,8 @@ service ArtifactStreamService {
 }
 
 service AuthorityService {
+  rpc RefreshMaintenance(RefreshMaintenanceRequest) returns (google.protobuf.Empty);
+  rpc PlanMaintenance(PlanMaintenanceRequest) returns (MaintenancePlan);
   rpc GetMaintenancePolicy(nous.wave.v1alpha1.SubjectRequest) returns (MaintenancePolicy);
   rpc ClaimMaintenance(ClaimMaintenanceRequest) returns (ClaimMaintenanceResponse);
   rpc FinishMaintenance(FinishMaintenanceRequest) returns (google.protobuf.Empty);

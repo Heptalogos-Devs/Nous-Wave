@@ -936,6 +936,16 @@ pub mod authority_service_server {
     #[async_trait]
     pub trait AuthorityService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn refresh_maintenance(
+            &self,
+            request: tonic::Request<super::RefreshMaintenanceRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        ///
+        async fn plan_maintenance(
+            &self,
+            request: tonic::Request<super::PlanMaintenanceRequest>,
+        ) -> std::result::Result<tonic::Response<super::MaintenancePlan>, tonic::Status>;
+        ///
         async fn get_maintenance_policy(
             &self,
             request: tonic::Request<super::super::super::v1alpha1::SubjectRequest>,
@@ -1809,6 +1819,101 @@ pub mod authority_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.kernel.v1alpha1.AuthorityService/RefreshMaintenance" => {
+                    #[allow(non_camel_case_types)]
+                    struct RefreshMaintenanceSvc<T: AuthorityService>(pub Arc<T>);
+                    impl<
+                        T: AuthorityService,
+                    > tonic::server::UnaryService<super::RefreshMaintenanceRequest>
+                    for RefreshMaintenanceSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RefreshMaintenanceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AuthorityService>::refresh_maintenance(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RefreshMaintenanceSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.kernel.v1alpha1.AuthorityService/PlanMaintenance" => {
+                    #[allow(non_camel_case_types)]
+                    struct PlanMaintenanceSvc<T: AuthorityService>(pub Arc<T>);
+                    impl<
+                        T: AuthorityService,
+                    > tonic::server::UnaryService<super::PlanMaintenanceRequest>
+                    for PlanMaintenanceSvc<T> {
+                        type Response = super::MaintenancePlan;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PlanMaintenanceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AuthorityService>::plan_maintenance(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PlanMaintenanceSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.kernel.v1alpha1.AuthorityService/GetMaintenancePolicy" => {
                     #[allow(non_camel_case_types)]
                     struct GetMaintenancePolicySvc<T: AuthorityService>(pub Arc<T>);

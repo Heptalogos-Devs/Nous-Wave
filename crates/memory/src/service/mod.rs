@@ -7,6 +7,7 @@ mod journal;
 mod lane;
 mod lifecycle;
 mod longitudinal_policy;
+mod maintenance_planning;
 mod provenance;
 mod query;
 mod query_materialization;
@@ -38,6 +39,7 @@ pub use accessibility::{
 };
 pub use episode::*;
 pub use journal::*;
+pub use maintenance_planning::MaintenanceScope;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
 
 #[derive(Clone)]

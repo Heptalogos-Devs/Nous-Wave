@@ -2,6 +2,22 @@ use super::*;
 
 #[tonic::async_trait]
 impl k::authority_service_server::AuthorityService for KernelService {
+    async fn refresh_maintenance(
+        &self,
+        request: Request<k::RefreshMaintenanceRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        rpc_reply(KernelService::refresh_maintenance(
+            self,
+            request.into_inner(),
+        ))
+        .await
+    }
+    async fn plan_maintenance(
+        &self,
+        request: Request<k::PlanMaintenanceRequest>,
+    ) -> std::result::Result<Response<k::MaintenancePlan>, Status> {
+        rpc_reply(KernelService::plan_maintenance(self, request.into_inner())).await
+    }
     async fn get_maintenance_policy(
         &self,
         request: Request<p::SubjectRequest>,

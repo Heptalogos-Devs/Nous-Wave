@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { writeFile } from "node:fs/promises";
 import { stringify } from "smol-toml";
 import { verifyRuntime } from "./runtime-packs.js";
+import { startMaintenanceLoop } from "./maintenance/grants.js";
 import { ResourceRegistry } from "./resources/registry.js";
 
 async function main() {
@@ -37,6 +38,7 @@ async function main() {
   const instance = await claimInstance(locations);
   let kernel: Awaited<ReturnType<typeof startKernel>> | undefined;
   let app: Awaited<ReturnType<typeof createCore>> | undefined;
+  let stopMaintenance: (() => Promise<void>) | undefined;
   try {
     const kernelConfig = join(locations.run, "kernel-bootstrap.toml");
     await writeFile(kernelConfig, stringify(config.kernelBootstrap), {
@@ -53,20 +55,22 @@ async function main() {
       ],
     });
     const token = randomBytes(32).toString("hex");
+    const models = await ModelRuntime.fromConfig(
+      config.models,
+      join(locations.program, "prompts"),
+      join(locations.config, "prompts"),
+      locations.temp,
+    );
     app = await createCore({
       kernel: kernel.client,
       token,
       consumers: config.consumers,
       resources: new ResourceRegistry(config.resourceProfiles),
-      models: await ModelRuntime.fromConfig(
-        config.models,
-        join(locations.program, "prompts"),
-        join(locations.config, "prompts"),
-        locations.temp,
-      ),
+      models,
     });
     const endpoint = await app.listen({ host: "127.0.0.1", port: config.port });
     await instance.publish(endpoint, token);
+    stopMaintenance = startMaintenanceLoop(kernel.client, models);
     console.log(JSON.stringify({ endpoint, discovery: instance.path }));
     await new Promise<void>((stopped) => {
       process.once("SIGINT", stopped);
@@ -77,6 +81,7 @@ async function main() {
       }
     });
   } finally {
+    await stopMaintenance?.();
     await app?.close();
     await kernel?.stop();
     await instance.release();

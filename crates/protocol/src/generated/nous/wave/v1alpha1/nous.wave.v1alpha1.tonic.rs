@@ -2467,6 +2467,14 @@ pub mod cognition_service_server {
     #[async_trait]
     pub trait CognitionService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn grant_maintenance(
+            &self,
+            request: tonic::Request<super::MaintenanceGrantRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::MaintenanceGrantResponse>,
+            tonic::Status,
+        >;
+        ///
         async fn open_session(
             &self,
             request: tonic::Request<super::SubjectRequest>,
@@ -2662,6 +2670,52 @@ pub mod cognition_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.v1alpha1.CognitionService/GrantMaintenance" => {
+                    #[allow(non_camel_case_types)]
+                    struct GrantMaintenanceSvc<T: CognitionService>(pub Arc<T>);
+                    impl<
+                        T: CognitionService,
+                    > tonic::server::UnaryService<super::MaintenanceGrantRequest>
+                    for GrantMaintenanceSvc<T> {
+                        type Response = super::MaintenanceGrantResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::MaintenanceGrantRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CognitionService>::grant_maintenance(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GrantMaintenanceSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.v1alpha1.CognitionService/OpenSession" => {
                     #[allow(non_camel_case_types)]
                     struct OpenSessionSvc<T: CognitionService>(pub Arc<T>);

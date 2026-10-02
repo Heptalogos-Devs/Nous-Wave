@@ -25,7 +25,7 @@ fn need_proto(value: MaintenanceNeed) -> k::MaintenanceNeed {
         updated_at: Some(timestamp(value.updated_at)),
     }
 }
-fn need(value: k::MaintenanceNeed) -> Result<MaintenanceNeed> {
+pub(super) fn need(value: k::MaintenanceNeed) -> Result<MaintenanceNeed> {
     Ok(MaintenanceNeed {
         need_id: id(&value.need_id)?,
         subject_id: SubjectId(id(&value.subject_id)?),
@@ -52,19 +52,46 @@ fn source(value: k::EpisodePartitionSource) -> Result<EpisodePartitionSource> {
 }
 
 impl KernelService {
+    pub(super) async fn refresh_maintenance(
+        &self,
+        input: k::RefreshMaintenanceRequest,
+    ) -> Result<()> {
+        let claimed = need(required(input.claimed, "claimed")?)?;
+        self.0
+            .cognition
+            .enqueue_maintenance(nous_runtime::MaintenanceRequest {
+                subject: claimed.subject_id,
+                kind: claimed.kind,
+                scope_kind: claimed.scope_kind,
+                scope_ref: claimed.scope_ref,
+                trigger_authority_seq: self.0.store.authority_seq(claimed.subject_id).await?,
+                due_at: self.0.cognition.now(claimed.subject_id),
+                priority: claimed.priority,
+            })
+            .await?;
+        Ok(())
+    }
     pub(super) async fn get_maintenance_policy(
         &self,
         input: p::SubjectRequest,
     ) -> Result<k::MaintenancePolicy> {
-        let subject = SubjectId(id(&input.subject_id)?);
-        self.0.store.require_subject(subject).await?;
-        let snapshot = self.0.configuration.snapshot_for_subject(subject)?;
+        let subject = if input.subject_id.is_empty() {
+            None
+        } else {
+            Some(SubjectId(id(&input.subject_id)?))
+        };
+        let snapshot = if let Some(subject) = subject {
+            self.0.store.require_subject(subject).await?;
+            self.0.configuration.snapshot_for_subject(subject)?
+        } else {
+            self.0.configuration.active_system_snapshot()?
+        };
         Ok(k::MaintenancePolicy {
             enabled: snapshot.get(nous_runtime::MAINTENANCE_ENABLED)?,
             poll_interval_seconds: snapshot.get(nous_runtime::POLL_INTERVAL)? as u32,
             max_operations: snapshot.get(nous_runtime::MAX_OPERATIONS)? as u32,
             worker_lease_seconds: snapshot.get(nous_runtime::WORKER_LEASE)? as u32,
-            cognitive_now: Some(timestamp(self.0.cognition.now(subject))),
+            cognitive_now: subject.map(|subject| timestamp(self.0.cognition.now(subject))),
         })
     }
 
@@ -154,11 +181,7 @@ impl KernelService {
                         boundary_explanation: segment.boundary_explanation,
                     })
                     .collect(),
-                producer_signature_id: input
-                    .producer_signature_id
-                    .as_deref()
-                    .map(id)
-                    .transpose()?,
+                producer: input.producer.map(from_producer).transpose()?,
             })
             .await?;
         Ok(k::ApplyEpisodePartitionResponse {

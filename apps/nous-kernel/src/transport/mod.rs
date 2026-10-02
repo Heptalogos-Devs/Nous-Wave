@@ -6,6 +6,7 @@ mod evidence;
 mod identity;
 mod journal;
 mod longitudinal;
+mod maintenance_plan;
 mod management;
 mod material;
 mod memory;

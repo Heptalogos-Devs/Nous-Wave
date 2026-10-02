@@ -1413,6 +1413,37 @@ pub struct ListJournalRevisionsResponse {
     #[prost(string, tag="2")]
     pub next_page_token: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MaintenanceGrantRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub max_operations: u32,
+    #[prost(uint32, tag="3")]
+    pub max_model_calls: u32,
+    #[prost(uint32, tag="4")]
+    pub max_elapsed_ms: u32,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MaintenanceOperationResult {
+    #[prost(string, tag="1")]
+    pub need_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="4")]
+    pub problem_code: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MaintenanceGrantResponse {
+    #[prost(message, repeated, tag="1")]
+    pub results: ::prost::alloc::vec::Vec<MaintenanceOperationResult>,
+    #[prost(uint32, tag="2")]
+    pub model_calls: u32,
+    #[prost(uint32, tag="3")]
+    pub elapsed_ms: u32,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResourceDescriptor {
     #[prost(string, tag="1")]

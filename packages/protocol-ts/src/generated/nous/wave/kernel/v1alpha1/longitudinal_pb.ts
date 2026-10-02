@@ -4,9 +4,9 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Episode, ProducerSignature } from "../../v1alpha1/types_pb.js";
+import type { Episode, ProducerSignature, RevisionSupport } from "../../v1alpha1/types_pb.js";
 import { file_nous_wave_v1alpha1_types } from "../../v1alpha1/types_pb.js";
-import type { JournalPoint } from "../../v1alpha1/journal_pb.js";
+import type { JournalPoint, JournalRevision } from "../../v1alpha1/journal_pb.js";
 import { file_nous_wave_v1alpha1_journal } from "../../v1alpha1/journal_pb.js";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nous/wave/kernel/v1alpha1/longitudinal.proto.
  */
 export const file_nous_wave_kernel_v1alpha1_longitudinal: GenFile = /*@__PURE__*/
-  fileDesc("Cixub3VzL3dhdmUva2VybmVsL3YxYWxwaGExL2xvbmdpdHVkaW5hbC5wcm90bxIZbm91cy53YXZlLmtlcm5lbC52MWFscGhhMSLfAwoPTWFpbnRlbmFuY2VOZWVkEg8KB25lZWRfaWQYASABKAkSEgoKc3ViamVjdF9pZBgCIAEoCRIMCgRraW5kGAMgASgJEhIKCnNjb3BlX2tpbmQYBCABKAkSEQoJc2NvcGVfcmVmGAUgASgJEh0KFXRyaWdnZXJfYXV0aG9yaXR5X3NlcRgGIAEoAxIqCgZkdWVfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhAKCHByaW9yaXR5GAggASgFEg0KBXN0YXRlGAkgASgJEhgKC2xlYXNlX3Rva2VuGAogASgJSACIAQESLwoLbGVhc2VfdW50aWwYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKDWF0dGVtcHRfY291bnQYDCABKAUSHgoRbGFzdF9wcm9ibGVtX2NvZGUYDSABKAlIAYgBARIuCgpjcmVhdGVkX2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GA8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEIOCgxfbGVhc2VfdG9rZW5CFAoSX2xhc3RfcHJvYmxlbV9jb2RlImoKF0NsYWltTWFpbnRlbmFuY2VSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSFQoNYWxsb3dlZF9raW5kcxgCIAMoCRINCgVsaW1pdBgDIAEoDRIVCg1sZWFzZV9zZWNvbmRzGAQgASgNIlUKGENsYWltTWFpbnRlbmFuY2VSZXNwb25zZRI5CgVuZWVkcxgBIAMoCzIqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuTWFpbnRlbmFuY2VOZWVkIsYBChhGaW5pc2hNYWludGVuYW5jZVJlcXVlc3QSOwoHY2xhaW1lZBgBIAEoCzIqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuTWFpbnRlbmFuY2VOZWVkEhMKC2Rpc3Bvc2l0aW9uGAIgASgJEiwKCG5leHRfZHVlGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIZCgxwcm9ibGVtX2NvZGUYBCABKAlIAIgBAUIPCg1fcHJvYmxlbV9jb2RlIk0KGU9yZ2FuaXplRXhwZXJpZW5jZVJlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRINCgVsaW1pdBgCIAEoDRINCgVjbG9zZRgDIAEoCCKSAQoaT3JnYW5pemVFeHBlcmllbmNlUmVzcG9uc2USFwoPcHJvY2Vzc2VkX2NvdW50GAEgASgNEi0KCGVwaXNvZGVzGAIgAygLMhsubm91cy53YXZlLnYxYWxwaGExLkVwaXNvZGUSLAoIbmV4dF9kdWUYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkUKFkVwaXNvZGVQYXJ0aXRpb25Tb3VyY2USEwoLcmV2aXNpb25faWQYASABKAkSFgoOZXhwZWN0ZWRfZXBvY2gYAiABKAMibQoXRXBpc29kZVBhcnRpdGlvblNlZ21lbnQSFgoObWVtYmVyX2luZGljZXMYASADKA0SEgoFdGl0bGUYAiABKAlIAIgBARIcChRib3VuZGFyeV9leHBsYW5hdGlvbhgDIAEoCUIICgZfdGl0bGUizQIKHEFwcGx5RXBpc29kZVBhcnRpdGlvblJlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSHgoWZXhwZWN0ZWRfYXV0aG9yaXR5X3NlcRgDIAEoAxJCCgdzb3VyY2VzGAQgAygLMjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FcGlzb2RlUGFydGl0aW9uU291cmNlEhsKE29yZGVyZWRfb2NjdXJyZW5jZXMYBSADKAkSRAoIc2VnbWVudHMYBiADKAsyMi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkVwaXNvZGVQYXJ0aXRpb25TZWdtZW50EiIKFXByb2R1Y2VyX3NpZ25hdHVyZV9pZBgHIAEoCUgAiAEBQhgKFl9wcm9kdWNlcl9zaWduYXR1cmVfaWQiTgodQXBwbHlFcGlzb2RlUGFydGl0aW9uUmVzcG9uc2USLQoIZXBpc29kZXMYASADKAsyGy5ub3VzLndhdmUudjFhbHBoYTEuRXBpc29kZSJpCg1Kb3VybmFsVGFyZ2V0EhIKCmpvdXJuYWxfaWQYASABKAkSHAoUZXhwZWN0ZWRfcmV2aXNpb25faWQYAiABKAkSFgoOZXhwZWN0ZWRfZXBvY2gYAyABKAMSDgoGaW50ZW50GAQgASgJIvoCChRDb21taXRKb3VybmFsUmVxdWVzdBIUCgxvcGVyYXRpb25faWQYASABKAkSEgoKc3ViamVjdF9pZBgCIAEoCRIeChZleHBlY3RlZF9hdXRob3JpdHlfc2VxGAMgASgDEjgKBnRhcmdldBgEIAEoCzIoLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuSm91cm5hbFRhcmdldBJCCgdzb3VyY2VzGAUgAygLMjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FcGlzb2RlUGFydGl0aW9uU291cmNlEhIKBXRpdGxlGAYgASgJSACIAQESEQoJbmFycmF0aXZlGAcgASgJEjAKBnBvaW50cxgIIAMoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Kb3VybmFsUG9pbnQSNwoIcHJvZHVjZXIYCSABKAsyJS5ub3VzLndhdmUudjFhbHBoYTEuUHJvZHVjZXJTaWduYXR1cmVCCAoGX3RpdGxlIqwBChFNYWludGVuYW5jZVBvbGljeRIPCgdlbmFibGVkGAEgASgIEh0KFXBvbGxfaW50ZXJ2YWxfc2Vjb25kcxgCIAEoDRIWCg5tYXhfb3BlcmF0aW9ucxgDIAEoDRIcChR3b3JrZXJfbGVhc2Vfc2Vjb25kcxgEIAEoDRIxCg1jb2duaXRpdmVfbm93GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcGIGcHJvdG8z", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_journal, file_google_protobuf_timestamp]);
+  fileDesc("Cixub3VzL3dhdmUva2VybmVsL3YxYWxwaGExL2xvbmdpdHVkaW5hbC5wcm90bxIZbm91cy53YXZlLmtlcm5lbC52MWFscGhhMSLfAwoPTWFpbnRlbmFuY2VOZWVkEg8KB25lZWRfaWQYASABKAkSEgoKc3ViamVjdF9pZBgCIAEoCRIMCgRraW5kGAMgASgJEhIKCnNjb3BlX2tpbmQYBCABKAkSEQoJc2NvcGVfcmVmGAUgASgJEh0KFXRyaWdnZXJfYXV0aG9yaXR5X3NlcRgGIAEoAxIqCgZkdWVfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhAKCHByaW9yaXR5GAggASgFEg0KBXN0YXRlGAkgASgJEhgKC2xlYXNlX3Rva2VuGAogASgJSACIAQESLwoLbGVhc2VfdW50aWwYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhUKDWF0dGVtcHRfY291bnQYDCABKAUSHgoRbGFzdF9wcm9ibGVtX2NvZGUYDSABKAlIAYgBARIuCgpjcmVhdGVkX2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GA8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEIOCgxfbGVhc2VfdG9rZW5CFAoSX2xhc3RfcHJvYmxlbV9jb2RlImoKF0NsYWltTWFpbnRlbmFuY2VSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSFQoNYWxsb3dlZF9raW5kcxgCIAMoCRINCgVsaW1pdBgDIAEoDRIVCg1sZWFzZV9zZWNvbmRzGAQgASgNIlUKGENsYWltTWFpbnRlbmFuY2VSZXNwb25zZRI5CgVuZWVkcxgBIAMoCzIqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuTWFpbnRlbmFuY2VOZWVkIsYBChhGaW5pc2hNYWludGVuYW5jZVJlcXVlc3QSOwoHY2xhaW1lZBgBIAEoCzIqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuTWFpbnRlbmFuY2VOZWVkEhMKC2Rpc3Bvc2l0aW9uGAIgASgJEiwKCG5leHRfZHVlGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIZCgxwcm9ibGVtX2NvZGUYBCABKAlIAIgBAUIPCg1fcHJvYmxlbV9jb2RlIk0KGU9yZ2FuaXplRXhwZXJpZW5jZVJlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRINCgVsaW1pdBgCIAEoDRINCgVjbG9zZRgDIAEoCCKSAQoaT3JnYW5pemVFeHBlcmllbmNlUmVzcG9uc2USFwoPcHJvY2Vzc2VkX2NvdW50GAEgASgNEi0KCGVwaXNvZGVzGAIgAygLMhsubm91cy53YXZlLnYxYWxwaGExLkVwaXNvZGUSLAoIbmV4dF9kdWUYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkUKFkVwaXNvZGVQYXJ0aXRpb25Tb3VyY2USEwoLcmV2aXNpb25faWQYASABKAkSFgoOZXhwZWN0ZWRfZXBvY2gYAiABKAMibQoXRXBpc29kZVBhcnRpdGlvblNlZ21lbnQSFgoObWVtYmVyX2luZGljZXMYASADKA0SEgoFdGl0bGUYAiABKAlIAIgBARIcChRib3VuZGFyeV9leHBsYW5hdGlvbhgDIAEoCUIICgZfdGl0bGUiyAIKHEFwcGx5RXBpc29kZVBhcnRpdGlvblJlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSHgoWZXhwZWN0ZWRfYXV0aG9yaXR5X3NlcRgDIAEoAxJCCgdzb3VyY2VzGAQgAygLMjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FcGlzb2RlUGFydGl0aW9uU291cmNlEhsKE29yZGVyZWRfb2NjdXJyZW5jZXMYBSADKAkSRAoIc2VnbWVudHMYBiADKAsyMi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkVwaXNvZGVQYXJ0aXRpb25TZWdtZW50EjcKCHByb2R1Y2VyGAcgASgLMiUubm91cy53YXZlLnYxYWxwaGExLlByb2R1Y2VyU2lnbmF0dXJlIk4KHUFwcGx5RXBpc29kZVBhcnRpdGlvblJlc3BvbnNlEi0KCGVwaXNvZGVzGAEgAygLMhsubm91cy53YXZlLnYxYWxwaGExLkVwaXNvZGUiaQoNSm91cm5hbFRhcmdldBISCgpqb3VybmFsX2lkGAEgASgJEhwKFGV4cGVjdGVkX3JldmlzaW9uX2lkGAIgASgJEhYKDmV4cGVjdGVkX2Vwb2NoGAMgASgDEg4KBmludGVudBgEIAEoCSL6AgoUQ29tbWl0Sm91cm5hbFJlcXVlc3QSFAoMb3BlcmF0aW9uX2lkGAEgASgJEhIKCnN1YmplY3RfaWQYAiABKAkSHgoWZXhwZWN0ZWRfYXV0aG9yaXR5X3NlcRgDIAEoAxI4CgZ0YXJnZXQYBCABKAsyKC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkpvdXJuYWxUYXJnZXQSQgoHc291cmNlcxgFIAMoCzIxLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRXBpc29kZVBhcnRpdGlvblNvdXJjZRISCgV0aXRsZRgGIAEoCUgAiAEBEhEKCW5hcnJhdGl2ZRgHIAEoCRIwCgZwb2ludHMYCCADKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuSm91cm5hbFBvaW50EjcKCHByb2R1Y2VyGAkgASgLMiUubm91cy53YXZlLnYxYWxwaGExLlByb2R1Y2VyU2lnbmF0dXJlQggKBl90aXRsZSKsAQoRTWFpbnRlbmFuY2VQb2xpY3kSDwoHZW5hYmxlZBgBIAEoCBIdChVwb2xsX2ludGVydmFsX3NlY29uZHMYAiABKA0SFgoObWF4X29wZXJhdGlvbnMYAyABKA0SHAoUd29ya2VyX2xlYXNlX3NlY29uZHMYBCABKA0SMQoNY29nbml0aXZlX25vdxgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiVQoWUGxhbk1haW50ZW5hbmNlUmVxdWVzdBI7CgdjbGFpbWVkGAEgASgLMioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5NYWludGVuYW5jZU5lZWQiowMKEEV4cGVyaWVuY2VNZW1iZXISCwoDa2V5GAEgASgJEhUKDW9jY3VycmVuY2VfaWQYAiABKAkSFAoMcmVjb3JkZWRfc2VxGAMgASgDEi8KC29ic2VydmVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBISCgpzZXNzaW9uX2lkGAUgASgJEhwKD3dvcmtfY29udGV4dF9pZBgGIAEoCUgAiAEBEiIKFXdvcmtfY29udGV4dF9yZXZpc2lvbhgHIAEoA0gBiAEBEh0KEGNvbnZlcnNhdGlvbl9yZWYYCCABKAlIAogBARIdChBhY3Rvcl9lbnRpdHlfcmVmGAkgASgJSAOIAQESFAoMc291cmNlX2NsYXNzGAogASgJEgwKBHRleHQYCyABKAkSFAoMdGV4dF9wYXJ0aWFsGAwgASgIQhIKEF93b3JrX2NvbnRleHRfaWRCGAoWX3dvcmtfY29udGV4dF9yZXZpc2lvbkITChFfY29udmVyc2F0aW9uX3JlZkITChFfYWN0b3JfZW50aXR5X3JlZiJYChNTdXBwb3J0Q2F0YWxvZ0VudHJ5EgsKA2tleRgBIAEoCRI0CgdzdXBwb3J0GAIgASgLMiMubm91cy53YXZlLnYxYWxwaGExLlJldmlzaW9uU3VwcG9ydCK8BAoPTWFpbnRlbmFuY2VQbGFuEhIKCnN1YmplY3RfaWQYASABKAkSFQoNYXV0aG9yaXR5X3NlcRgCIAEoAxIxCg1jb2duaXRpdmVfbm93GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZzdGF0dXMYBCABKAkSQgoHc291cmNlcxgFIAMoCzIxLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRXBpc29kZVBhcnRpdGlvblNvdXJjZRItCghlcGlzb2RlcxgGIAMoCzIbLm5vdXMud2F2ZS52MWFscGhhMS5FcGlzb2RlEjwKB21lbWJlcnMYByADKAsyKy5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkV4cGVyaWVuY2VNZW1iZXISQAoIc3VwcG9ydHMYCCADKAsyLi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlN1cHBvcnRDYXRhbG9nRW50cnkSOAoGdGFyZ2V0GAkgASgLMigubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Kb3VybmFsVGFyZ2V0EjQKB2pvdXJuYWwYCiABKAsyIy5ub3VzLndhdmUudjFhbHBoYTEuSm91cm5hbFJldmlzaW9uEiwKCG5leHRfZHVlGAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIZCgxwcm9ibGVtX2NvZGUYDCABKAlIAIgBAUIPCg1fcHJvYmxlbV9jb2RlIlgKGVJlZnJlc2hNYWludGVuYW5jZVJlcXVlc3QSOwoHY2xhaW1lZBgBIAEoCzIqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuTWFpbnRlbmFuY2VOZWVkYgZwcm90bzM", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_journal, file_google_protobuf_timestamp]);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.MaintenanceNeed
@@ -324,9 +324,9 @@ export type ApplyEpisodePartitionRequest = Message<"nous.wave.kernel.v1alpha1.Ap
   segments: EpisodePartitionSegment[];
 
   /**
-   * @generated from field: optional string producer_signature_id = 7;
+   * @generated from field: nous.wave.v1alpha1.ProducerSignature producer = 7;
    */
-  producerSignatureId?: string | undefined;
+  producer?: ProducerSignature | undefined;
 };
 
 /**
@@ -478,4 +478,204 @@ export type MaintenancePolicy = Message<"nous.wave.kernel.v1alpha1.MaintenancePo
  */
 export const MaintenancePolicySchema: GenMessage<MaintenancePolicy> = /*@__PURE__*/
   messageDesc(file_nous_wave_kernel_v1alpha1_longitudinal, 12);
+
+/**
+ * @generated from message nous.wave.kernel.v1alpha1.PlanMaintenanceRequest
+ */
+export type PlanMaintenanceRequest = Message<"nous.wave.kernel.v1alpha1.PlanMaintenanceRequest"> & {
+  /**
+   * @generated from field: nous.wave.kernel.v1alpha1.MaintenanceNeed claimed = 1;
+   */
+  claimed?: MaintenanceNeed | undefined;
+};
+
+/**
+ * Describes the message nous.wave.kernel.v1alpha1.PlanMaintenanceRequest.
+ * Use `create(PlanMaintenanceRequestSchema)` to create a new message.
+ */
+export const PlanMaintenanceRequestSchema: GenMessage<PlanMaintenanceRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_kernel_v1alpha1_longitudinal, 13);
+
+/**
+ * @generated from message nous.wave.kernel.v1alpha1.ExperienceMember
+ */
+export type ExperienceMember = Message<"nous.wave.kernel.v1alpha1.ExperienceMember"> & {
+  /**
+   * @generated from field: string key = 1;
+   */
+  key: string;
+
+  /**
+   * @generated from field: string occurrence_id = 2;
+   */
+  occurrenceId: string;
+
+  /**
+   * @generated from field: int64 recorded_seq = 3;
+   */
+  recordedSeq: bigint;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp observed_at = 4;
+   */
+  observedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: string session_id = 5;
+   */
+  sessionId: string;
+
+  /**
+   * @generated from field: optional string work_context_id = 6;
+   */
+  workContextId?: string | undefined;
+
+  /**
+   * @generated from field: optional int64 work_context_revision = 7;
+   */
+  workContextRevision?: bigint | undefined;
+
+  /**
+   * @generated from field: optional string conversation_ref = 8;
+   */
+  conversationRef?: string | undefined;
+
+  /**
+   * @generated from field: optional string actor_entity_ref = 9;
+   */
+  actorEntityRef?: string | undefined;
+
+  /**
+   * @generated from field: string source_class = 10;
+   */
+  sourceClass: string;
+
+  /**
+   * @generated from field: string text = 11;
+   */
+  text: string;
+
+  /**
+   * @generated from field: bool text_partial = 12;
+   */
+  textPartial: boolean;
+};
+
+/**
+ * Describes the message nous.wave.kernel.v1alpha1.ExperienceMember.
+ * Use `create(ExperienceMemberSchema)` to create a new message.
+ */
+export const ExperienceMemberSchema: GenMessage<ExperienceMember> = /*@__PURE__*/
+  messageDesc(file_nous_wave_kernel_v1alpha1_longitudinal, 14);
+
+/**
+ * @generated from message nous.wave.kernel.v1alpha1.SupportCatalogEntry
+ */
+export type SupportCatalogEntry = Message<"nous.wave.kernel.v1alpha1.SupportCatalogEntry"> & {
+  /**
+   * @generated from field: string key = 1;
+   */
+  key: string;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.RevisionSupport support = 2;
+   */
+  support?: RevisionSupport | undefined;
+};
+
+/**
+ * Describes the message nous.wave.kernel.v1alpha1.SupportCatalogEntry.
+ * Use `create(SupportCatalogEntrySchema)` to create a new message.
+ */
+export const SupportCatalogEntrySchema: GenMessage<SupportCatalogEntry> = /*@__PURE__*/
+  messageDesc(file_nous_wave_kernel_v1alpha1_longitudinal, 15);
+
+/**
+ * @generated from message nous.wave.kernel.v1alpha1.MaintenancePlan
+ */
+export type MaintenancePlan = Message<"nous.wave.kernel.v1alpha1.MaintenancePlan"> & {
+  /**
+   * @generated from field: string subject_id = 1;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: int64 authority_seq = 2;
+   */
+  authoritySeq: bigint;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp cognitive_now = 3;
+   */
+  cognitiveNow?: Timestamp | undefined;
+
+  /**
+   * @generated from field: string status = 4;
+   */
+  status: string;
+
+  /**
+   * @generated from field: repeated nous.wave.kernel.v1alpha1.EpisodePartitionSource sources = 5;
+   */
+  sources: EpisodePartitionSource[];
+
+  /**
+   * @generated from field: repeated nous.wave.v1alpha1.Episode episodes = 6;
+   */
+  episodes: Episode[];
+
+  /**
+   * @generated from field: repeated nous.wave.kernel.v1alpha1.ExperienceMember members = 7;
+   */
+  members: ExperienceMember[];
+
+  /**
+   * @generated from field: repeated nous.wave.kernel.v1alpha1.SupportCatalogEntry supports = 8;
+   */
+  supports: SupportCatalogEntry[];
+
+  /**
+   * @generated from field: nous.wave.kernel.v1alpha1.JournalTarget target = 9;
+   */
+  target?: JournalTarget | undefined;
+
+  /**
+   * @generated from field: nous.wave.v1alpha1.JournalRevision journal = 10;
+   */
+  journal?: JournalRevision | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp next_due = 11;
+   */
+  nextDue?: Timestamp | undefined;
+
+  /**
+   * @generated from field: optional string problem_code = 12;
+   */
+  problemCode?: string | undefined;
+};
+
+/**
+ * Describes the message nous.wave.kernel.v1alpha1.MaintenancePlan.
+ * Use `create(MaintenancePlanSchema)` to create a new message.
+ */
+export const MaintenancePlanSchema: GenMessage<MaintenancePlan> = /*@__PURE__*/
+  messageDesc(file_nous_wave_kernel_v1alpha1_longitudinal, 16);
+
+/**
+ * @generated from message nous.wave.kernel.v1alpha1.RefreshMaintenanceRequest
+ */
+export type RefreshMaintenanceRequest = Message<"nous.wave.kernel.v1alpha1.RefreshMaintenanceRequest"> & {
+  /**
+   * @generated from field: nous.wave.kernel.v1alpha1.MaintenanceNeed claimed = 1;
+   */
+  claimed?: MaintenanceNeed | undefined;
+};
+
+/**
+ * Describes the message nous.wave.kernel.v1alpha1.RefreshMaintenanceRequest.
+ * Use `create(RefreshMaintenanceRequestSchema)` to create a new message.
+ */
+export const RefreshMaintenanceRequestSchema: GenMessage<RefreshMaintenanceRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_kernel_v1alpha1_longitudinal, 17);
 

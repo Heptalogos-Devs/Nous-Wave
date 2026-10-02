@@ -440,6 +440,10 @@ impl CognitiveRuntimeService {
         .execute(&mut *tx)
         .await
         .map_err(db)?;
+        if next == "ended" {
+            self.wake_ended_context_in(&mut tx, subject, work_context_id)
+                .await?;
+        }
         commit_receipt(
             &mut tx,
             subject,
@@ -768,4 +772,34 @@ fn replay_context(receipt: MutationReceipt) -> Result<Uuid> {
         .ok_or_else(|| Error::Infrastructure("WorkContext receipt has no result".into()))?
         .parse()
         .map_err(|_| Error::Infrastructure("invalid WorkContext receipt".into()))
+}
+
+impl CognitiveRuntimeService {
+    async fn wake_ended_context_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        context: Uuid,
+    ) -> Result<()> {
+        let sequence:Option<i64>=sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1 AND EXISTS(SELECT 1 FROM experience_items WHERE subject_id=$1 AND active_work_context_id=$2)")
+            .bind(subject.0).bind(context).fetch_optional(&mut **tx).await.map_err(db)?;
+        if let Some(sequence) = sequence {
+            for kind in ["episode_segment", "journal_review"] {
+                self.enqueue_maintenance_in(
+                    tx,
+                    &MaintenanceRequest {
+                        subject,
+                        kind: kind.into(),
+                        scope_kind: "track".into(),
+                        scope_ref: "interaction".into(),
+                        trigger_authority_seq: sequence,
+                        due_at: self.now(subject),
+                        priority: 60,
+                    },
+                )
+                .await?;
+            }
+        }
+        Ok(())
+    }
 }

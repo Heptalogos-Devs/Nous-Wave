@@ -361,7 +361,7 @@ async fn partition_request(
                 boundary_explanation: "supported local organization".into(),
             })
             .collect(),
-        producer_signature_id: None,
+        producer: None,
     }
 }
 
@@ -587,6 +587,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     let rt = runtime_with_clock(&url, &root, clock.clone()).await;
     let subject = create_subject(&rt).await;
     let episode = journal_source_episode(&rt, &clock, subject).await;
+    assert_maintenance_planning(&rt, &clock, subject).await;
     let memory = rt.require_memory().unwrap();
     let support = RevisionSupport::CognitionDependency(CognitionDependency {
         target_revision: CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
@@ -924,4 +925,138 @@ async fn assert_journal_protocol(
         .into_inner();
     assert!(policy.enabled);
     assert_eq!(policy.max_operations, 4);
+}
+
+async fn assert_maintenance_planning(
+    rt: &NousRuntime,
+    clock: &ManualCognitiveClock,
+    subject: nous_core::SubjectId,
+) {
+    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    let service = nous_kernel::transport::KernelService(rt.clone());
+    clock.advance_by(subject, Duration::seconds(300)).unwrap();
+    for kind in ["episode_resegment", "journal_review"] {
+        let claim = service
+            .claim_maintenance(tonic::Request::new(k::ClaimMaintenanceRequest {
+                subject_id: subject.0.to_string(),
+                allowed_kinds: vec![kind.into()],
+                limit: 1,
+                lease_seconds: 60,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert_eq!(claim.needs.len(), 1);
+        let claimed = claim.needs[0].clone();
+        let plan = service
+            .plan_maintenance(tonic::Request::new(k::PlanMaintenanceRequest {
+                claimed: Some(claimed.clone()),
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert_eq!(plan.status, "ready");
+        assert_eq!(plan.sources.len(), 1);
+        assert_eq!(plan.members.len(), 2);
+        assert!(plan.members[0].recorded_seq < plan.members[1].recorded_seq);
+        assert_eq!(plan.members[0].text, "object:source-a");
+        assert!(plan.supports.len() >= 3);
+        let finish = k::FinishMaintenanceRequest {
+            claimed: Some(claimed),
+            disposition: "satisfied".into(),
+            next_due: None,
+            problem_code: None,
+        };
+        service
+            .finish_maintenance(tonic::Request::new(finish.clone()))
+            .await
+            .unwrap();
+        service
+            .finish_maintenance(tonic::Request::new(finish))
+            .await
+            .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn ended_work_context_wakes_and_closes_experience_before_idle_deadline() {
+    use nous_core::OperationId;
+    let (root, url, _postgres) = database().await;
+    let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
+    let rt = runtime_with_clock(&url, &root, clock.clone()).await;
+    let subject = create_subject(&rt).await;
+    let context = rt
+        .cognition
+        .create_work_context(nous_runtime::CreateWorkContextInput {
+            operation_id: OperationId::new(),
+            subject,
+            purpose: "Bounded work".into(),
+            unresolved_questions: vec![],
+            constraints: serde_json::json!({}),
+            resume_conditions: vec![],
+            budget_summary: serde_json::json!({}),
+            references: vec![],
+        })
+        .await
+        .unwrap();
+    let session = rt
+        .cognition
+        .open_session(subject, serde_json::json!({}))
+        .await
+        .unwrap();
+    rt.cognition
+        .set_active_work_context(
+            subject,
+            session.session_id,
+            Some(context.work_context_id),
+            session.runtime_revision,
+            OperationId::new(),
+        )
+        .await
+        .unwrap();
+    rt.material
+        .record_observation_once(
+            observation(subject, Some(session.session_id)),
+            Some(uuid::Uuid::new_v4()),
+        )
+        .await
+        .unwrap();
+    let initial = rt.organize_experience(subject, 128, false).await.unwrap();
+    assert!(initial.episodes.is_empty());
+    let claimed = rt
+        .cognition
+        .lease_maintenance(subject, &["episode_segment".into()], 1, 60)
+        .await
+        .unwrap();
+    rt.cognition
+        .acknowledge_maintenance(
+            &claimed[0],
+            MaintenanceDisposition::Pending {
+                due_at: initial.next_due.unwrap(),
+                problem_code: None,
+            },
+        )
+        .await
+        .unwrap();
+    rt.cognition
+        .end_work_context(
+            subject,
+            context.work_context_id,
+            context.revision,
+            OperationId::new(),
+        )
+        .await
+        .unwrap();
+    let needs = rt
+        .cognition
+        .lease_maintenance(subject, &["episode_segment".into()], 1, 60)
+        .await
+        .unwrap();
+    assert_eq!(needs.len(), 1);
+    let closed = rt.organize_experience(subject, 128, false).await.unwrap();
+    assert_eq!(closed.episodes.len(), 1);
+    assert_eq!(
+        closed.episodes[0].revision.boundary_explanation,
+        "work_context_ended"
+    );
 }

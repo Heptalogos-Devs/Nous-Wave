@@ -122,6 +122,7 @@ CREATE TABLE experience_items (
     CHECK ((active_work_context_id IS NULL) = (active_work_context_revision IS NULL))
 );
 
+CREATE INDEX experience_work_context ON experience_items(subject_id,active_work_context_id) WHERE active_work_context_id IS NOT NULL;
 CREATE TABLE episode_drafts (
     draft_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,

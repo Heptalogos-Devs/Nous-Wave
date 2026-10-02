@@ -119,6 +119,11 @@ impl MemoryService {
         if epoch != Some(expected_epoch) {
             return Err(Error::Conflict("Journal purge epoch is stale".into()));
         }
+        let mut refs:Vec<String>=sqlx::query_scalar("SELECT journal_revision_id::text FROM journal_revisions WHERE subject_id=$1 AND journal_id=$2")
+            .bind(subject.0).bind(journal.0).fetch_all(&mut *tx).await.map_err(db)?;
+        refs.push(journal.0.to_string());
+        self.purge_workflow_content_in(&mut tx, subject, &refs)
+            .await?;
         sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) SELECT e.subject_id,e.consumer_ref,e.event_id,e.request_digest,$3 FROM cognitive_use_events e JOIN journal_revisions r ON r.journal_revision_id::text=e.ref_value WHERE e.subject_id=$1 AND e.ref_kind='journal_revision' AND r.journal_id=$2 ON CONFLICT DO NOTHING")
             .bind(subject.0).bind(journal.0).bind(self.cognition.now(subject)).execute(&mut *tx).await.map_err(db)?;
         sqlx::query("DELETE FROM cognitive_use_events e USING journal_revisions r WHERE e.subject_id=$1 AND e.ref_kind='journal_revision' AND e.ref_value=r.journal_revision_id::text AND r.journal_id=$2")

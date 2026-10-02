@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { grantMaintenance } from "./maintenance/grants.js";
 import { ResourceRegistry } from "./resources/registry.js";
 import { QueryOrchestrator } from "./query/orchestrator.js";
 import { materializeResource } from "./resources/materialize.js";
@@ -177,6 +178,8 @@ export async function createCore(settings: CoreOptions) {
     return projection;
   }
   const cognition: ServiceImpl<typeof CognitionService> = {
+    grantMaintenance: (r, c) =>
+      grantMaintenance(kernel, modelRuntime, r, options(c)),
     openSession: (r, c) => kernel.authority.openSession(r, options(c)),
     getSession: (r, c) => kernel.authority.getSession(r, options(c)),
     listSessions: (r, c) => kernel.authority.listSessions(r, options(c)),

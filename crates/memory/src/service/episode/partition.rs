@@ -23,7 +23,7 @@ pub struct EpisodePartitionInput {
     pub sources: Vec<EpisodePartitionSource>,
     pub ordered_occurrences: Vec<OccurrenceId>,
     pub segments: Vec<EpisodePartitionSegment>,
-    pub producer_signature_id: Option<Uuid>,
+    pub producer: Option<ProducerSignature>,
 }
 
 impl MemoryService {
@@ -100,6 +100,7 @@ impl MemoryService {
             sqlx::query("UPDATE episode_objects SET acceptance_state='withdrawn',object_epoch=object_epoch+1 WHERE subject_id=$1 AND episode_id=ANY($2::uuid[])")
                 .bind(input.subject.0).bind(&ids).execute(&mut *tx).await.map_err(db)?;
         }
+        let producer_id = partition_producer_in(&mut tx, input.producer.as_ref()).await?;
         let outputs = self
             .write_partition_segments_in(
                 &mut tx,
@@ -108,6 +109,7 @@ impl MemoryService {
                 &occurrences,
                 formed_at,
                 recorded_at,
+                producer_id,
             )
             .await?;
         let sequence =
@@ -150,13 +152,15 @@ impl MemoryService {
         occurrences: &[DateTime<Utc>],
         formed_at: DateTime<Utc>,
         recorded_at: DateTime<Utc>,
+        producer_id: Option<Uuid>,
     ) -> Result<Vec<EpisodeRevisionId>> {
         let track: String = first.try_get("track_key").map_err(db)?;
         let parent: Option<Uuid> = first.try_get("parent_episode_revision_id").map_err(db)?;
         let one_to_one = input.sources.len() == 1 && input.segments.len() == 1;
         let mut outputs = Vec::with_capacity(input.segments.len());
         for segment in &input.segments {
-            let payload = partition_payload(input, segment, &track, parent, occurrences)?;
+            let mut payload = partition_payload(input, segment, &track, parent, occurrences)?;
+            payload.producer_signature_id = producer_id;
             let episode = if one_to_one {
                 EpisodeId(first.try_get("episode_id").map_err(db)?)
             } else {
@@ -233,13 +237,29 @@ impl MemoryService {
     }
 }
 
+async fn partition_producer_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    producer: Option<&ProducerSignature>,
+) -> Result<Option<Uuid>> {
+    match producer {
+        Some(producer) => Ok(Some(
+            AuthorityStore::register_producer_in(tx, producer).await?,
+        )),
+        None => Ok(None),
+    }
+}
+
 fn validate_partition(input: &EpisodePartitionInput) -> Result<()> {
     let flattened: Vec<usize> = input
         .segments
         .iter()
         .flat_map(|segment| segment.member_indices.iter().copied())
         .collect();
-    if input.sources.is_empty()
+    if input
+        .producer
+        .as_ref()
+        .is_some_and(|producer| producer.operation != CapabilityOperation::EpisodeSegmentationText)
+        || input.sources.is_empty()
         || input.sources.len() > 8
         || input.segments.is_empty()
         || input.segments.len() > 16
@@ -438,7 +458,7 @@ fn partition_payload(
         parent_episode_revision_id: parent.map(EpisodeRevisionId),
         experience_time,
         boundary_explanation: segment.boundary_explanation.clone(),
-        producer_signature_id: input.producer_signature_id,
+        producer_signature_id: None,
         members: occurrence_members
             .iter()
             .map(|id| EpisodeMemberInput {

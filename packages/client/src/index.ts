@@ -141,6 +141,7 @@ export function createNousClient(transport: Transport) {
       observe: call(cognition.recordObservation),
       query: call(cognition.query),
       reportUse: call(cognition.reportUse),
+      grantMaintenance: call(cognition.grantMaintenance),
       recall: async (
         subjectId: string,
         nousql: string,

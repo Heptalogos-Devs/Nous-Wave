@@ -35,7 +35,7 @@ message ApplyEpisodePartitionRequest {
   repeated EpisodePartitionSource sources = 4;
   repeated string ordered_occurrences = 5;
   repeated EpisodePartitionSegment segments = 6;
-  optional string producer_signature_id = 7;
+  nous.wave.v1alpha1.ProducerSignature producer = 7;
 }
 message ApplyEpisodePartitionResponse { repeated nous.wave.v1alpha1.Episode episodes = 1; }
 message JournalTarget { string journal_id = 1; string expected_revision_id = 2; int64 expected_epoch = 3; string intent = 4; }
@@ -57,3 +57,34 @@ message MaintenancePolicy {
   uint32 worker_lease_seconds = 4;
   google.protobuf.Timestamp cognitive_now = 5;
 }
+message PlanMaintenanceRequest { MaintenanceNeed claimed = 1; }
+message ExperienceMember {
+  string key = 1;
+  string occurrence_id = 2;
+  int64 recorded_seq = 3;
+  google.protobuf.Timestamp observed_at = 4;
+  string session_id = 5;
+  optional string work_context_id = 6;
+  optional int64 work_context_revision = 7;
+  optional string conversation_ref = 8;
+  optional string actor_entity_ref = 9;
+  string source_class = 10;
+  string text = 11;
+  bool text_partial = 12;
+}
+message SupportCatalogEntry { string key = 1; nous.wave.v1alpha1.RevisionSupport support = 2; }
+message MaintenancePlan {
+  string subject_id = 1;
+  int64 authority_seq = 2;
+  google.protobuf.Timestamp cognitive_now = 3;
+  string status = 4;
+  repeated EpisodePartitionSource sources = 5;
+  repeated nous.wave.v1alpha1.Episode episodes = 6;
+  repeated ExperienceMember members = 7;
+  repeated SupportCatalogEntry supports = 8;
+  JournalTarget target = 9;
+  nous.wave.v1alpha1.JournalRevision journal = 10;
+  google.protobuf.Timestamp next_due = 11;
+  optional string problem_code = 12;
+}
+message RefreshMaintenanceRequest { MaintenanceNeed claimed = 1; }

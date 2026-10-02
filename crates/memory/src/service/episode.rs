@@ -526,6 +526,15 @@ impl MemoryService {
         let sequence =
             AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
                 .await?;
+        self.schedule_episode_in(
+            &mut tx,
+            input.subject,
+            revision_id,
+            &create.track_key,
+            sequence,
+            true,
+        )
+        .await?;
         self.invalidate_episode_journals_in(
             &mut tx,
             input.subject,
@@ -847,6 +856,10 @@ impl MemoryService {
     ) -> Result<()> {
         let refs: Vec<String> = sqlx::query_scalar("SELECT episode_revision_id::text FROM episode_revisions WHERE subject_id=$1 AND episode_id=$2")
             .bind(subject.0).bind(episode.0).fetch_all(&mut **tx).await.map_err(db)?;
+        let mut workflow_refs = refs.clone();
+        workflow_refs.push(episode.0.to_string());
+        self.purge_workflow_content_in(tx, subject, &workflow_refs)
+            .await?;
         sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) SELECT subject_id,consumer_ref,event_id,request_digest,$3 FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind='episode_revision' AND ref_value=ANY($2::text[]) ON CONFLICT DO NOTHING")
             .bind(subject.0).bind(&refs).bind(self.cognition.now(subject)).execute(&mut **tx).await.map_err(db)?;
         sqlx::query("DELETE FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind='episode_revision' AND ref_value=ANY($2::text[])")

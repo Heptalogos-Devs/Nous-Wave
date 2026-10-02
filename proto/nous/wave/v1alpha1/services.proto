@@ -7,6 +7,7 @@ import "nous/wave/v1alpha1/types.proto";
 
 service SubjectService { rpc CreateSubject(CreateSubjectRequest) returns (Subject); rpc GetSubject(SubjectRequest) returns (Subject); rpc ListSubjects(ListRequest) returns (ListSubjectsResponse); rpc GetCognitiveSeed(SubjectRequest) returns (CognitiveSeedVersion); rpc AdoptCognitiveSeed(AdoptCognitiveSeedRequest) returns (CognitiveSeedVersion); }
 service CognitionService {
+  rpc GrantMaintenance(MaintenanceGrantRequest) returns (MaintenanceGrantResponse);
   rpc OpenSession(SubjectRequest) returns (Session);
   rpc GetSession(ObjectRequest) returns (Session);
   rpc ListSessions(ListRequest) returns (ListSessionsResponse);

@@ -108,8 +108,8 @@ pub struct ApplyEpisodePartitionRequest {
     pub ordered_occurrences: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]
     pub segments: ::prost::alloc::vec::Vec<EpisodePartitionSegment>,
-    #[prost(string, optional, tag="7")]
-    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="7")]
+    pub producer: ::core::option::Option<super::super::v1alpha1::ProducerSignature>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ApplyEpisodePartitionResponse {
@@ -160,6 +160,77 @@ pub struct MaintenancePolicy {
     pub worker_lease_seconds: u32,
     #[prost(message, optional, tag="5")]
     pub cognitive_now: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PlanMaintenanceRequest {
+    #[prost(message, optional, tag="1")]
+    pub claimed: ::core::option::Option<MaintenanceNeed>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExperienceMember {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub occurrence_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="3")]
+    pub recorded_seq: i64,
+    #[prost(message, optional, tag="4")]
+    pub observed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, tag="5")]
+    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="6")]
+    pub work_context_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, optional, tag="7")]
+    pub work_context_revision: ::core::option::Option<i64>,
+    #[prost(string, optional, tag="8")]
+    pub conversation_ref: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="9")]
+    pub actor_entity_ref: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="10")]
+    pub source_class: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(bool, tag="12")]
+    pub text_partial: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SupportCatalogEntry {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub support: ::core::option::Option<super::super::v1alpha1::RevisionSupport>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MaintenancePlan {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="2")]
+    pub authority_seq: i64,
+    #[prost(message, optional, tag="3")]
+    pub cognitive_now: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, tag="4")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="5")]
+    pub sources: ::prost::alloc::vec::Vec<EpisodePartitionSource>,
+    #[prost(message, repeated, tag="6")]
+    pub episodes: ::prost::alloc::vec::Vec<super::super::v1alpha1::Episode>,
+    #[prost(message, repeated, tag="7")]
+    pub members: ::prost::alloc::vec::Vec<ExperienceMember>,
+    #[prost(message, repeated, tag="8")]
+    pub supports: ::prost::alloc::vec::Vec<SupportCatalogEntry>,
+    #[prost(message, optional, tag="9")]
+    pub target: ::core::option::Option<JournalTarget>,
+    #[prost(message, optional, tag="10")]
+    pub journal: ::core::option::Option<super::super::v1alpha1::JournalRevision>,
+    #[prost(message, optional, tag="11")]
+    pub next_due: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, optional, tag="12")]
+    pub problem_code: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RefreshMaintenanceRequest {
+    #[prost(message, optional, tag="1")]
+    pub claimed: ::core::option::Option<MaintenanceNeed>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingConfig {
