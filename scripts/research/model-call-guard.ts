@@ -11,7 +11,7 @@ export class ResearchModelCallGuard {
     if (!Number.isInteger(limit) || limit < 1 || limit > 10000)
       throw new Error("Live model budget must be 1..10000");
   }
-  reserve(): Promise<void> {
+  reserve(): Promise<number> {
     const reserved = this.queue.then(async () => {
       let count = 0;
       try {
@@ -42,8 +42,9 @@ export class ResearchModelCallGuard {
         mode: 0o600,
       });
       await rename(temporary, this.path);
+      return count + 1;
     });
-    this.queue = reserved.catch(() => {});
+    this.queue = reserved.then(() => {}).catch(() => {});
     return reserved;
   }
 }

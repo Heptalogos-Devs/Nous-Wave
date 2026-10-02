@@ -26,7 +26,9 @@ it("counts real forwarded attempts including failure and preserves the run cap a
       response.writeHead(seen.length === 2 ? 503 : 200, {
         "Content-Type": "application/json",
       });
-      response.end('{"fixture":true}');
+      response.end(
+        '{"private_text":"fixture-only","usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5,"credential":"fixture-only"}}',
+      );
     })().catch(() => response.destroy());
   });
   upstream.listen(0, "127.0.0.1");
@@ -67,6 +69,31 @@ it("counts real forwarded attempts including failure and preserves the run cap a
     expect(JSON.parse(await readFile(options.ledger, "utf8"))).toEqual({
       count: 3,
     });
+    await proxy.close();
+    const records = (
+      await readFile(options.ledger + ".telemetry.jsonl", "utf8")
+    )
+      .trim()
+      .split("\n")
+      .map(
+        (line) =>
+          JSON.parse(line) as {
+            attempt: number;
+            latencyMs: number;
+            usage: unknown;
+            status: number;
+          },
+      );
+    expect(records.map((row) => row.attempt)).toEqual([1, 2, 3]);
+    expect(records.map((row) => row.status)).toEqual([200, 503, 200]);
+    expect(records.every((row) => row.latencyMs >= 0)).toBe(true);
+    expect(records[0]?.usage).toEqual({
+      prompt_tokens: 3,
+      completion_tokens: 2,
+      total_tokens: 5,
+    });
+    expect(JSON.stringify(records)).not.toContain("fixture-only");
+    proxy = await startResearchGateway(options);
   } finally {
     await proxy.close();
     upstream.closeAllConnections();
