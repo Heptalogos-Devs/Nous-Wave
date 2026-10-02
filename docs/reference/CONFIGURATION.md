@@ -41,3 +41,5 @@ ConfigurationRoot/nous.toml 不再含 model_budget，普通 runtime 不创建调
 `audio.input_mode` is `direct` (default) or `transcription`. Direct uses material_description or material_direct_structuring with audio_input capability and openai-chat content; transcription requires the separate speech_transcription role. `audio.max_source_bytes` bounds raw bytes (default16MiB, maximum24MiB).
 
 `video.input_mode` is `direct` (default) or `frames`. Direct requires video_input plus gateway video_url content-extension support; it sends the bounded uploaded Artifact, without client-side frame extraction. Frames explicitly selects the FFmpeg frame path; max_frames/frame_bytes/audio_bytes/process_timeout apply to that path. Source-byte bounds apply to both modes. There is no automatic mode fallback. Configure model identifiers and declared capabilities in ModelProfile; readiness requires an actual validated invocation. Gateway aliases do not establish the underlying model version.
+
+[返回文档目录](../INDEX.md)

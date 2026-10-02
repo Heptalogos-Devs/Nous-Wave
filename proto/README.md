@@ -5,3 +5,5 @@
 - [`nous/wave/v1alpha1/`](nous/wave/v1alpha1/): public Subject, Cognition, Memory, Material, Identity, Resource, Topology, System, and Model contracts.
 - [`nous/wave/kernel/v1alpha1/`](nous/wave/kernel/v1alpha1/): private Core-to-Kernel contracts.
 - `proto/buf.yaml` / `.config/buf.gen.yaml` define module and generation inputs.
+
+[返回目录](../INDEX.md)

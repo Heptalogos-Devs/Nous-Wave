@@ -252,3 +252,5 @@ support_role = direct | interpretation according to semantics
 ## 2026-10-01 默认媒体路径替换
 
 音频默认 direct → AudioDescription，视频默认 direct → SceneDescription；独立 direct role 可直接 StructuredInterpretation，两阶段先提交描述。发送 Artifact 的有界原始 bytes：Chat input_audio(data,format) / video_url(data URI)。不要求 ASR，不静默抽帧。video.input_mode=frames 保留有界 FFmpeg 路径，audio.input_mode=transcription 保留 ASR；frames 本轮 NOT_RUN。默认 representation selection 随实际配置选择 audio_description 或 transcript。实际音画理解范围须由 grounded 样本核验。
+
+[返回文档目录](../../INDEX.md)

@@ -33,8 +33,6 @@ Portable 不包含用户/开发配置。使用 `bin/nous.cmd init --home <instan
 
 真实模型和语料实验使用 `pnpm research:gateway`、`research:retrieval-live`、`research:media-live`，方法与观测见 [Research](docs/research/README.md)。
 
-更换电脑时，保留的本地配置、语料与研究素材见 [开发环境迁移](docs/reference/DEVELOPMENT.md)。
-
 ## 导航
 
 - [仓库地图](INDEX.md)

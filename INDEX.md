@@ -18,3 +18,9 @@
 | 工具配置 | [.config/README.md](.config/README.md) | 显式工具设置与自动发现文件 |
 
 `crates/`、`apps/`、`packages/`、`proto/` 和 `scripts/` 的局部 `README.md` 负责解释各自边界；局部 `AGENTS.md` 只补充该区域相对根规则的 AI 操作约束。
+
+## 包与研究素材
+
+- [Nous Wave TypeScript Client](packages/client/README.md)
+- [TypeScript Protocol Bindings](packages/protocol-ts/README.md)
+- [研究语料](research/corpus/README.md)

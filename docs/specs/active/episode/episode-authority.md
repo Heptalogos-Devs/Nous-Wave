@@ -26,3 +26,5 @@ Automatic boundary detection, automatic split/merge, ranked Episode retrieval, J
 ## Lifecycle
 
 Exact get/history/list, suppress/restore, withdraw/reaccept, and purge follow the existing Memory lifecycle dimensions and durable receipt semantics. Suppression, restore, and purge never create a content revision.
+
+[返回文档目录](../../INDEX.md)

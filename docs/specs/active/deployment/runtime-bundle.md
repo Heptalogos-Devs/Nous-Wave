@@ -57,3 +57,5 @@ Release compiler 为 LLVM-MinGW20260922 UCRT Windows x64，官方 archive SHA256
 Source remapping includes the checkout, Cargo registry/git sources and Rust toolchain roots. Audit the actual assembled binaries as well as source manifests; remapping only workspace paths leaves dependency panic locations tied to the development machine.
 
 应用 bundle、runtime packs 和 notices 分别缓存。网络 license/source preparation 为显式 `release:notices`；assembly 离线读取。默认输出 `dist/portable/windows-x64/current` 与 `current.zip`，先写 sibling staging，再替换 current；只有显式 archive 固化带 source SHA/payload digest 的发布物。
+
+[返回文档目录](../../INDEX.md)

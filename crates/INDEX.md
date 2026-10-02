@@ -14,3 +14,6 @@
 | `retrieval` | Lexical/dense/topology projections, generations and providers | `crates/retrieval/src/lib.rs` | runtime, persistence, object-store | Changing Serving mechanics or experimental lanes |
 
 `crates/protocol/src/generated/` is derived output. Change canonical `.proto` sources and regenerate.
+
+- [LexicalRef 词表 v1](persistence/data/README.md)
+- [Rust 实现](README.md)

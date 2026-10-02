@@ -22,3 +22,5 @@
 ## Deferred
 
 完整 VCP topology、longitudinal memory、CognitiveClock、Journal、Native Material Corpus、automatic Episode segmentation、Self/Social/Motivation、Offline Cognition/Dream 与 Heptalogos 行为 Authority。
+
+[返回文档目录](../INDEX.md)

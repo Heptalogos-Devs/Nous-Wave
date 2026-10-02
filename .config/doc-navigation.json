@@ -1,0 +1,5 @@
+{
+  "ignoredDirectories": [".agents", "prompts"],
+  "returnExemptNames": ["INDEX.md", "AGENTS.md"],
+  "returnExemptPaths": ["README.md"]
+}

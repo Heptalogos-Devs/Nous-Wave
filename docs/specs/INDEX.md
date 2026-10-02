@@ -8,3 +8,6 @@
 - [Runtime Bundle](active/deployment/runtime-bundle.md)
 
 Specs 保存当前产品语义。任务合同和 PR 驱动施工；实验方法归 Research。
+
+- [Memory Reference Profile](active/memory-reference-profile/README.md)
+- [产品合同](README.md)

@@ -1,15 +1,28 @@
 # Nous Wave 文档目录
 
-- [当前架构](architecture/current-implementation.md)
-- [当前状态](current-state/CURRENT_STATE.md)
-- [产品合同](specs/INDEX.md)
-- [研究方法与观测](research/README.md)
-- [Memory Reference 里程碑](roadmap/2026-10-27-memory-reference-profile.md)
-- [长期工程方向](roadmap/target-engineering.md)
+## 当前实现
+
+- [文档说明](README.md)
+- [架构入口](architecture/README.md) / [实现总览](architecture/current-implementation.md)
+- [状态入口](current-state/README.md) / [当前状态](current-state/CURRENT_STATE.md)
+- [产品合同路由](specs/INDEX.md)
+
+## 使用参考
+
+- [接口参考入口](reference/README.md)
 - [NousQL](reference/NOUSQL.md)
 - [Configuration](reference/CONFIGURATION.md)
 - [Model Runtime](reference/MODEL_RUNTIME.md)
 - [Capability Composition](reference/CAPABILITIES.md)
+- [配置示例](reference/examples/README.md)
+
+## 研究与方向
+
+- [研究入口](research/README.md)
+- [实验方法](research/retrieval-media-methods.md)
+- [检索与媒体观测](research/observations.md)
+- [Memory Reference 里程碑](roadmap/2026-10-27-memory-reference-profile.md)
+- [长期工程方向](roadmap/target-engineering.md)
 - [Architecture-Vault Target Design](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md)
 
-- [开发环境迁移](reference/DEVELOPMENT.md)
+[返回仓库地图](../INDEX.md)

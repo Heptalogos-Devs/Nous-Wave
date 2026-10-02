@@ -53,3 +53,5 @@ Mutation receipt 的 reserve/read/commit 数据库机械层由 Persistence 统�
 Windows 发布 Kernel 使用 LLVM-MinGW UCRT/win-gnullvm，可执行文件旁携带私有 libc++/libunwind。RuntimeLocations 持有独立 roots 与发布路径解析；编译器及原生库仅在显式构建/安装时获取。无源码 ZIP 包含编译后的 official Client、SPDX 与许可材料。Resource records 保留 stable external identity 与 access/version 语义。
 
 当前 executable scope 是 Memory-only Reference Profile、WorkContext continuity 和 Episode foundation。Self、Social、Motivation、Desired Condition、Journal、Offline Cognition 和 Heptalogos live integration 由 Vault 保留长期目标语义，但不在本 checkout 提供 owner、protocol 或 public capability claim。
+
+[返回文档目录](../INDEX.md)
