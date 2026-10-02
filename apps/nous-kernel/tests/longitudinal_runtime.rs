@@ -6,6 +6,9 @@ use nous_kernel::{NousRuntime, RuntimeOptions};
 use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, RuntimeDirective,
 };
+use nous_memory::{
+    EpisodePartitionInput, EpisodePartitionSegment, EpisodePartitionSource, EpisodeView,
+};
 use nous_retrieval::ServingOptions;
 use nous_runtime::{
     CognitiveClock, MaintenanceDisposition, MaintenanceRequest, ManualCognitiveClock,
@@ -172,55 +175,7 @@ async fn experience_capture_cursor_idle_and_reopen_are_stable() {
             .iter()
             .any(|need| need.kind == "journal_review")
     );
-    let input = test_support::form_input(
-        subject,
-        accepted.occurrence.occurrence_id,
-        nous_core::OperationId::new(),
-        "owner-timed grounded memory",
-    );
-    let at = clock.now(subject);
-    let memory = rt
-        .require_memory()
-        .unwrap()
-        .form_memory(input.clone())
-        .await
-        .unwrap();
-    assert_eq!(memory.revision.formed_at, at);
-    assert_eq!(memory.revision.recorded_at, at);
-    clock.advance_by(subject, Duration::days(1)).unwrap();
-    rt.require_memory()
-        .unwrap()
-        .revise_memory(nous_memory::ReviseMemoryInput {
-            producer: None,
-            operation_id: nous_core::OperationId::new(),
-            subject,
-            memory_id: memory.object.memory_id,
-            expected_object_epoch: memory.object.object_epoch,
-            intent: nous_memory::RevisionIntent::Correct,
-            formation_mode: input.formation_mode,
-            grounding_occurrence_id: input.grounding_occurrence_id,
-            semantic_role: input.semantic_role.clone(),
-            representation_text: "corrected owner-timed memory".into(),
-            title: None,
-            supports: input.supports.clone(),
-            aboutness: vec![],
-            valid_time: TemporalExtent::Unknown,
-            epistemic_class: input.epistemic_class,
-        })
-        .await
-        .unwrap();
-    let replay = rt
-        .require_memory()
-        .unwrap()
-        .form_memory(input)
-        .await
-        .unwrap();
-    assert_eq!(
-        replay.revision.memory_revision_id,
-        memory.revision.memory_revision_id
-    );
-    assert_eq!(replay.revision.formed_at, at);
-    assert_eq!(replay.revision.recorded_at, at);
+    assert_owner_timestamp_replay(&rt, &clock, subject, accepted.occurrence.occurrence_id).await;
 }
 
 #[tokio::test]
@@ -309,4 +264,303 @@ async fn maintenance_claims_use_execution_leases_and_keep_new_triggers() {
             .unwrap()
             .is_empty()
     );
+}
+
+async fn assert_owner_timestamp_replay(
+    rt: &NousRuntime,
+    clock: &ManualCognitiveClock,
+    subject: nous_core::SubjectId,
+    occurrence: nous_core::OccurrenceId,
+) {
+    let input = test_support::form_input(
+        subject,
+        occurrence,
+        nous_core::OperationId::new(),
+        "owner-timed grounded memory",
+    );
+    let at = clock.now(subject);
+    let memory = rt
+        .require_memory()
+        .unwrap()
+        .form_memory(input.clone())
+        .await
+        .unwrap();
+    assert_eq!(memory.revision.formed_at, at);
+    assert_eq!(memory.revision.recorded_at, at);
+    clock.advance_by(subject, Duration::days(1)).unwrap();
+    rt.require_memory()
+        .unwrap()
+        .revise_memory(nous_memory::ReviseMemoryInput {
+            producer: None,
+            operation_id: nous_core::OperationId::new(),
+            subject,
+            memory_id: memory.object.memory_id,
+            expected_object_epoch: memory.object.object_epoch,
+            intent: nous_memory::RevisionIntent::Correct,
+            formation_mode: input.formation_mode,
+            grounding_occurrence_id: input.grounding_occurrence_id,
+            semantic_role: input.semantic_role.clone(),
+            representation_text: "corrected owner-timed memory".into(),
+            title: None,
+            supports: input.supports.clone(),
+            aboutness: vec![],
+            valid_time: TemporalExtent::Unknown,
+            epistemic_class: input.epistemic_class,
+        })
+        .await
+        .unwrap();
+    let replay = rt
+        .require_memory()
+        .unwrap()
+        .form_memory(input)
+        .await
+        .unwrap();
+    assert_eq!(
+        replay.revision.memory_revision_id,
+        memory.revision.memory_revision_id
+    );
+    assert_eq!(replay.revision.formed_at, at);
+    assert_eq!(replay.revision.recorded_at, at);
+}
+
+async fn partition_request(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    sources: &[EpisodeView],
+    occurrences: &[nous_core::OccurrenceId],
+    groups: &[Vec<usize>],
+) -> EpisodePartitionInput {
+    EpisodePartitionInput {
+        operation_id: nous_core::OperationId::new(),
+        subject,
+        expected_authority_seq: rt.store.authority_seq(subject).await.unwrap(),
+        sources: sources
+            .iter()
+            .map(|source| EpisodePartitionSource {
+                revision: source.revision.episode_revision_id,
+                expected_epoch: source.object.object_epoch,
+            })
+            .collect(),
+        ordered_occurrences: occurrences.to_vec(),
+        segments: groups
+            .iter()
+            .enumerate()
+            .map(|(index, indices)| EpisodePartitionSegment {
+                member_indices: indices.clone(),
+                title: Some(format!("segment {index}")),
+                boundary_explanation: "supported local organization".into(),
+            })
+            .collect(),
+        producer_signature_id: None,
+    }
+}
+
+#[tokio::test]
+async fn episode_partition_split_repartition_merge_and_retry_are_atomic() {
+    let (root, url, _postgres) = database().await;
+    let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
+    let rt = runtime_with_clock(&url, &root, clock.clone()).await;
+    let subject = create_subject(&rt).await;
+    let session = rt
+        .cognition
+        .open_session(subject, serde_json::json!({}))
+        .await
+        .unwrap();
+    let mut occurrences = vec![];
+    for index in 0..4 {
+        let mut input = observation(subject, Some(session.session_id));
+        input.material = ObservationMaterial::InlineText {
+            text: format!("experience {index}"),
+            media_type: "text/plain".into(),
+        };
+        occurrences.push(
+            rt.material
+                .record_observation(input)
+                .await
+                .unwrap()
+                .occurrence
+                .occurrence_id,
+        );
+        clock.advance_by(subject, Duration::minutes(1)).unwrap();
+    }
+    let original = rt
+        .organize_experience(subject, 128, true)
+        .await
+        .unwrap()
+        .episodes;
+    let memory = rt.require_memory().unwrap();
+    let split_request = partition_request(
+        &rt,
+        subject,
+        &original,
+        &occurrences,
+        &[vec![0, 1], vec![2, 3]],
+    )
+    .await;
+    let split = memory
+        .apply_episode_partition(split_request.clone())
+        .await
+        .unwrap();
+    assert_eq!(split.len(), 2);
+    assert!(
+        split
+            .iter()
+            .all(|part| part.object.episode_id != original[0].object.episode_id)
+    );
+    let withdrawn = memory
+        .episode(subject, original[0].object.episode_id, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        withdrawn.object.acceptance_state,
+        nous_memory::AcceptanceState::Withdrawn
+    );
+    assert!(
+        memory
+            .reaccept_episode(
+                subject,
+                withdrawn.object.episode_id,
+                nous_core::OperationId::new(),
+                withdrawn.object.object_epoch
+            )
+            .await
+            .is_err()
+    );
+    assert!(split.iter().all(|part| {
+        part.relations
+            .iter()
+            .any(|relation| relation.relation == "split_from")
+    }));
+    let replay = memory.apply_episode_partition(split_request).await.unwrap();
+    assert_eq!(
+        replay[0].revision.episode_revision_id,
+        split[0].revision.episode_revision_id
+    );
+    assert_partition_rollback(&rt, subject, &split, &occurrences).await;
+    let repartition_request = partition_request(
+        &rt,
+        subject,
+        &split,
+        &occurrences,
+        &[vec![0], vec![1, 2, 3]],
+    )
+    .await;
+    let repartition = memory
+        .apply_episode_partition(repartition_request)
+        .await
+        .unwrap();
+    assert!(repartition.iter().all(|part| {
+        part.relations
+            .iter()
+            .filter(|relation| relation.relation == "derived_from")
+            .count()
+            == 2
+    }));
+    let merge_request = partition_request(
+        &rt,
+        subject,
+        &repartition,
+        &occurrences,
+        &[vec![0, 1, 2, 3]],
+    )
+    .await;
+    let merged = memory.apply_episode_partition(merge_request).await.unwrap();
+    assert_eq!(merged.len(), 1);
+    assert!(
+        merged[0]
+            .relations
+            .iter()
+            .filter(|relation| relation.relation == "merged_from")
+            .count()
+            == 2
+    );
+    assert_partition_revision(&rt, subject, &merged, &occurrences).await;
+}
+
+async fn assert_partition_rollback(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    sources: &[EpisodeView],
+    occurrences: &[nous_core::OccurrenceId],
+) {
+    let mut invalid =
+        partition_request(rt, subject, sources, occurrences, &[vec![0, 1], vec![2, 3]]).await;
+    invalid.segments[1].boundary_explanation = "x".repeat(20000);
+    let before: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM episode_objects WHERE subject_id=$1")
+            .bind(subject.0)
+            .fetch_one(rt.store.pool())
+            .await
+            .unwrap();
+    let watermark = rt.store.authority_seq(subject).await.unwrap();
+    assert!(
+        rt.require_memory()
+            .unwrap()
+            .apply_episode_partition(invalid)
+            .await
+            .is_err()
+    );
+    let after: i64 = sqlx::query_scalar("SELECT count(*) FROM episode_objects WHERE subject_id=$1")
+        .bind(subject.0)
+        .fetch_one(rt.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(before, after);
+    assert_eq!(watermark, rt.store.authority_seq(subject).await.unwrap());
+    for source in sources {
+        let current = rt
+            .require_memory()
+            .unwrap()
+            .episode(subject, source.object.episode_id, None)
+            .await
+            .unwrap();
+        assert_eq!(
+            current.object.acceptance_state,
+            nous_memory::AcceptanceState::Accepted
+        );
+        assert_eq!(
+            current.object.current_revision_id,
+            source.object.current_revision_id
+        );
+    }
+}
+
+async fn assert_partition_revision(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    merged: &[EpisodeView],
+    occurrences: &[nous_core::OccurrenceId],
+) {
+    let memory = rt.require_memory().unwrap();
+    let mut revise = partition_request(rt, subject, merged, occurrences, &[vec![0, 1, 2, 3]]).await;
+    revise.segments[0].title = Some("reinterpreted scope".into());
+    let revised = memory
+        .apply_episode_partition(revise.clone())
+        .await
+        .unwrap();
+    assert_eq!(revised[0].object.episode_id, merged[0].object.episode_id);
+    assert_ne!(
+        revised[0].revision.episode_revision_id,
+        merged[0].revision.episode_revision_id
+    );
+    assert_eq!(
+        memory
+            .episode_history(subject, revised[0].object.episode_id)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    let mut unchanged =
+        partition_request(rt, subject, &revised, occurrences, &[vec![0, 1, 2, 3]]).await;
+    unchanged.segments[0].title = revised[0].revision.title.clone();
+    let watermark = rt.store.authority_seq(subject).await.unwrap();
+    let no_change = memory.apply_episode_partition(unchanged).await.unwrap();
+    assert_eq!(
+        no_change[0].revision.episode_revision_id,
+        revised[0].revision.episode_revision_id
+    );
+    assert_eq!(rt.store.authority_seq(subject).await.unwrap(), watermark);
+    revise.operation_id = nous_core::OperationId::new();
+    assert!(memory.apply_episode_partition(revise).await.is_err());
 }
