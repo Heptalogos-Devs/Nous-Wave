@@ -23,4 +23,4 @@
 
 - [Nous Wave TypeScript Client](packages/client/README.md)
 - [TypeScript Protocol Bindings](packages/protocol-ts/README.md)
-- [研究语料](research/corpus/README.md)
+- [研究语料](docs/research/corpus/README.md)

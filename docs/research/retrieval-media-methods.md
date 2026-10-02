@@ -1,6 +1,6 @@
 # Retrieval 与媒体实验方法
 
-研究结果以真实来源、Ground Truth 与可追溯 provenance 为基础。当前语料与 oracle 见 [research/corpus](../../research/corpus/README.md)；当前观测见 [observations.md](observations.md)。
+研究结果以真实来源、Ground Truth 与可追溯 provenance 为基础。当前语料与 oracle 见 [研究语料](corpus/README.md)；当前观测见 [observations.md](observations.md)。
 
 ## 文本检索
 

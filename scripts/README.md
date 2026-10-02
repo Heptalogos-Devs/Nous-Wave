@@ -106,9 +106,9 @@ corepack pnpm research:retrieval-live run --run-root <实例run目录> --client-
 corepack pnpm research:media-live --run-root <实例run目录> --client-module <分发client模块>
 ```
 
-Retrieval 子命令为 `import`、`run`、`audit-formation`；track 为 `controlled` 或 `end-to-end`，variant 为 `baseline`、`model-rerank`、`wave`、`combined`。默认读取 `research/corpus/manifest.json`、`queries.json`、`data/research/corpus/unit-texts.json`，状态位于 `data/research/runs/corpus-state.json`。可用 `--manifest`、`--queries`、`--texts`、`--state`、`--output` 改路径；`--limit` 默认 0 表示全部，`--concurrency` 默认 4。导入可用 `--embedding-batch`（默认 64）、`--embedding-interval-ms`（默认 0）控制批次。
+Retrieval 子命令为 `import`、`run`、`audit-formation`；track 为 `controlled` 或 `end-to-end`，variant 为 `baseline`、`model-rerank`、`wave`、`combined`。默认读取 `docs/research/corpus/manifest.json`、`queries.json`、`data/research/corpus/unit-texts.json`，状态位于 `data/research/runs/corpus-state.json`。可用 `--manifest`、`--queries`、`--texts`、`--state`、`--output` 改路径；`--limit` 默认 0 表示全部，`--concurrency` 默认 4。导入可用 `--embedding-batch`（默认 64）、`--embedding-interval-ms`（默认 0）控制批次。
 
-Media 默认读取 `research/corpus/media.json` 与 `data/research/corpus/raw`，将处理状态写到 `data/research/runs/media-state.json`；用 `--manifest`、`--raw-root`、`--state` 覆盖。状态文件用于继续已有实验，不会从头重复已完成操作。
+Media 默认读取 `docs/research/corpus/media.json` 与 `data/research/corpus/raw`，将处理状态写到 `data/research/runs/media-state.json`；用 `--manifest`、`--raw-root`、`--state` 覆盖。状态文件用于继续已有实验，不会从头重复已完成操作。
 
 ## 维护
 

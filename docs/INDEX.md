@@ -19,6 +19,7 @@
 ## 研究与方向
 
 - [研究入口](research/README.md)
+- [研究语料与 oracle](research/corpus/README.md)
 - [实验方法](research/retrieval-media-methods.md)
 - [检索与媒体观测](research/observations.md)
 - [长期工程方向](roadmap/target-engineering.md)

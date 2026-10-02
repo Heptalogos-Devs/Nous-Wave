@@ -54,8 +54,8 @@ const { values, positionals } = parseArgs({
   options: {
     "run-root": { type: "string" },
     "client-module": { type: "string" },
-    manifest: { type: "string", default: "research/corpus/manifest.json" },
-    queries: { type: "string", default: "research/corpus/queries.json" },
+    manifest: { type: "string", default: "docs/research/corpus/manifest.json" },
+    queries: { type: "string", default: "docs/research/corpus/queries.json" },
     texts: {
       type: "string",
       default: resolve(workspacePaths.research, "corpus/unit-texts.json"),
