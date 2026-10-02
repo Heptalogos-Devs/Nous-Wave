@@ -1,6 +1,8 @@
 # WorkContext
 
-状态：IMPLEMENTATION-AUTHORIZING
+## Owner
+
+Runtime (crates/runtime) owns WorkContext identity, revisions, persistence and recovery.
 
 WorkContext 是 Runtime owner 的 Subject 级 durable checkpoint。它可以跨 Session 延续，但不是 Memory Authority，也不复制 Memory 内容。
 

@@ -1,8 +1,8 @@
 # Runtime & Use
 
-状态：IMPLEMENTATION-AUTHORIZING
+## Owner
 
-本 Spec 冻结 Session、ResidentSet、UseEvent、accessibility 和 restart-visible Runtime state。Runtime 不拥有 durable Memory Authority，也不依赖 concrete retrieval implementation。
+Runtime (crates/runtime) owns Session, ResidentSet, UseEvent, accessibility evaluation and restart-visible Runtime state. Memory owns durable Memory Authority.
 
 ## Session isolation
 

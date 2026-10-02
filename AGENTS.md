@@ -1,6 +1,8 @@
 # Nous Wave
 
-PRE_PRODUCTION; no released external consumers. Internal replacements update current producers/consumers together and delete superseded shapes. Architecture-Vault owns long-term cognition semantics and accepted decisions. Executable contracts are routed through [docs/INDEX.md](docs/INDEX.md).
+PRE_PRODUCTION; no released external consumers. Internal replacements update current producers/consumers together and delete superseded shapes. Architecture-Vault owns long-term cognition semantics and accepted decisions. Executable contracts are routed through [docs/INDEX.md](docs/INDEX.md). For behavior changes, read the relevant Vault target design and accepted decisions, owning current Spec, direct dependency contracts, and current code.
+
+Use project-specific engineering guidance in [.agents/skills/AGENTS.md](.agents/skills/AGENTS.md); the installed agency-execution skill owns general execution behavior.
 
 TypeScript Core owns public hosting and model/resource execution. Rust semantic owners hold Authority, mutation and lifecycle meaning. `persistence` supplies database mechanics; `retrieval` supplies rebuildable Serving. `runtime` is independent of concrete retrieval/provider implementations.
 
