@@ -1,8 +1,8 @@
 # Memory Authority & Provenance
 
-状态：IMPLEMENTATION-AUTHORIZING
+## Owner
 
-本 Spec 冻结 Memory-only Reference Profile 的 Authority、identity、revision、来源和 lifecycle 语义。长期目标语义以 Architecture-Vault 为准；本文件只冻结当前实现需要的边界。
+Memory (crates/memory) owns Memory/CognitiveSchema/Tag/AssociationEvidence Authority, provenance and lifecycle. Subject and Material provide the referenced identities and source records.
 
 ## 身份与来源
 
@@ -27,7 +27,7 @@
 - `explicit_import` 至少有一条有效 evidence；`synthesized` 需要至少两个 normalized inputs、至少两个 known independent provenance roots 和无 cycle；UnknownDependency 不增加独立 root。
 - synthesized Memory 与 CognitiveSchema 共用同一 provenance root traversal；同一 Artifact 的派生表示、同源重述、部分共享根和未知依赖均不能凑成两个独立根。
 - 增补/撤回 Schema evidence 改变 object epoch 和 projection invalidation，不伪造 content revision。
-- Tag identity 与显示名称分离；字符串相同不能单独证明 identity 相同。
+- Tag identity 与显示名称分离；不同 Tag identity 可以有相同显示字符串。
 - Association cognition endpoint 只接受 exact `MemoryRevision` 或 `CognitiveSchemaRevision`；Entity、Tag、Resource 可以是 stable structural endpoint。UseEvent support 必须可由 durable event 或 purge receipt 核验。
 - `cognitive_derivation` 与 `derived_structure` 必须携带 producer identity；`result_refuted` 不制造 positive meaningful-use association。
 - Topology projection 展开 provenance roots；同 `(from,to,root)` 只保留最高 support quality。contradiction、counterexample、boundary 和 negative association 不进入普通 non-negative adjacency。

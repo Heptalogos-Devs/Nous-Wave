@@ -1,7 +1,19 @@
 # 长期工程方向
 
-[Architecture-Vault Target Design](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md) 拥有长期认知语义。当前实现以 Material/Memory、Runtime、Query 与可重建 Serving 为基础。
+[Architecture-Vault Target Design](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md) 定义长期认知语义与系统边界。
 
-后续产品任务按实际需求扩展 automatic Episode segmentation、Journal、Offline Cognition、Self、Social、Motivation 和 Heptalogos 集成。算法选择和参数由独立研究与产品 Spec 决定。当前 deferred 范围见 [Current State](../current-state/CURRENT_STATE.md)。
+当前基础包括 Subject、Configuration、Material、Memory-only capability、Session、WorkContext、Episode authority、Query/Serving、模型派生和 External Resource。实现范围见 [Current State](../current-state/CURRENT_STATE.md)。
+
+尚未实现的目标域包括：
+
+- automatic Episode segmentation 与 Journal；
+- Offline Cognition；
+- Self；
+- Social Cognition；
+- Motivation；
+- Nous Wave 与 Heptalogos integration；
+- 完整 VCP topology 的研究与实现。
+
+功能选择依据系统依赖关系、架构价值和当前产品目标。大型能力在实际开始时建立对应的 implementation Spec；算法与参数由其 owner 合同和 Research 确定。
 
 [返回文档目录](../INDEX.md)

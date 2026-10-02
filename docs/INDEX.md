@@ -21,7 +21,6 @@
 - [研究入口](research/README.md)
 - [实验方法](research/retrieval-media-methods.md)
 - [检索与媒体观测](research/observations.md)
-- [Memory Reference 里程碑](roadmap/2026-10-27-memory-reference-profile.md)
 - [长期工程方向](roadmap/target-engineering.md)
 - [Architecture-Vault Target Design](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md)
 

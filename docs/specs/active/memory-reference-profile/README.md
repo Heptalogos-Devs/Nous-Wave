@@ -1,4 +1,4 @@
-# Memory Reference Profile
+# Memory-only capability contracts
 
 - [Authority 与 provenance](01-memory-authority-provenance.md)
 - [Runtime 与 Use](02-runtime-use.md)

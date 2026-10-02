@@ -1,256 +1,39 @@
-# Material Derivation Pipeline
+# Material Derivation
 
-## Goal
+## Owners
 
-真实文本、图片、音频、视频进入 Nous Wave 后先成为Evidence/Material，再形成可追踪的 textual DerivedRepresentation。Memory formation和后续retrieval优先消费textual representation，而不是每次重新处理raw media。
+TypeScript Core orchestrates external model calls and operation snapshots. The Material owner validates and persists exact input graphs, representations, regions and provenance.
 
-## DerivedRepresentation input graph
+## Identity 与 provenance
 
-将 current singular `source_region_id` ownership改成：
+Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation 与 DerivedRegion 各有独立 identity。相同 Artifact 的重复观察保留独立 occurrence identity。
 
-```text
-DerivedRepresentation
-  derived_representation_id
-  subject_id
-  representation_kind
-  producer
-  revision
-  payload_text?
-  payload_artifact_id?
-  quality
-  created_at
-  supersedes?
-  inputs[]
-```
+DerivedRepresentation 保存 ordered exact inputs、strategy、representation kind、ProducerSignature、revision、payload 与 quality。Inputs 可引用 SourceRegion、DerivedRepresentation 或 DerivedRegion，必须属于同一 Subject，不得重复、自引用或形成 cycle。已提交 input set 不可修改。Supersedes 表示显式 refinement lineage，不属于 derivation inputs。
 
-Input：
+成功 derivation identity 由 Subject、ordered input digest、representation kind、producer signature、strategy 和 supersedes 组成。同一请求重试复用成功表示；改变 lineage 或 inputs 会得到新的 identity。
 
-```text
-ordinal
-reference = SourceRegion | DerivedRepresentation | DerivedRegion
-role
-```
+## Supported derivation
 
-规则：
+- Text-like source 经严格 UTF-8 解码形成 ExtractedText，不调用模型重写原文。
+- Image 可形成 ImageDescription、StructuredInterpretation，或按 describe_then_structure 先提交描述再结构化。
+- Audio 默认使用 direct 多模态理解形成 AudioDescription。audio.input_mode 为 transcription 时使用独立 speech_transcription role 形成 Transcript；该模式不支持 direct_structured，describe_then_structure 可继续结构化 Transcript。两种 mode 之间不静默切换。
+- Video 默认以原始 Artifact bytes 通过 gateway chat 的 video_url input 形成 SceneDescription。显式 frames mode 使用 FFmpeg 作有界抽帧，可选提取音轨并调用 speech_transcription。处理记录包含 FFmpeg version、采样策略、时间戳、source duration 与 truncation。
+- direct_structured 使用 material_direct_structuring role；describe_then_structure 先持久化 description，再以 exact DerivedRegion segments 作为第二阶段输入。
 
-- 1..N inputs；
-- same Subject；
-- exact immutable refs；
-- duplicate input reject；
-- cycle reject；
-- input set immutable；
-- `supersedes`表达显式更新lineage，不是derivation input；
-- transitive provenance可以回到SourceRegion/Occurrence。
+素材策略为 description_only、direct_structured 与 describe_then_structure。结构化结果使用唯一的 Zod schema owner；schema digest 进入 ProducerSignature 与 derivation identity。DerivedRepresentation 可保存 structured JSON payload 和 deterministic text projection。每个结构化 support 都映射到输入 DAG 中可读回的 exact reference。
 
-### Persistence
+description segmentation 以 UTF-8 byte coordinates 建立稳定 DerivedRegion。structured model 只返回 invocation-local support keys；Core 映射成 exact DerivedRegion，Material/Kernel 验证归属和输入图。第二阶段失败时保留已提交的 description，并返回该表示及显式 degradation。
 
-修改 canonical fresh Material schema；推荐关系表 `derived_representation_inputs`。
+description segments 使用不超过 2,048 UTF-8 bytes 的稳定范围并优先在换行处分段。Text segmentation 输入上限为 1 MiB，最多 512 个 DerivedRegion。Video frames mode 使用 FFmpeg 作有界抽帧；实验观测归 [Research](../../../research/README.md)。
 
-不要追加一个仅为这次shape变化保留旧schema的额外migration。
+## Memory formation
 
-### DerivationRecord
+`formFromObservation` 使用调用方提供的稳定 operation_id。初次执行固定 model/profile/Prompt/config snapshot，并将语义输入绑定到 operation identity；相同 operation 与相同输入重放原 outcome，相同 operation 携带不同输入返回 conflict。
 
-如果当前DerivationRecord以 singular source region作为derivation key输入，改成：
+调用方可指定 exact representation_id。未指定时，Core 按 Artifact modality 和配置选择可用 representation：text 用 ExtractedText，image 用 ImageDescription，audio 用 AudioDescription 或 Transcript，video 用 SceneDescription。没有可用 textual representation 的 binary input 返回 `material_representation_required`。
 
-```text
-subject
-canonical input-set digest
-representation kind
-producer signature
-strategy
-```
+Aboutness 支持 explicit、select_from_resolved_mentions 与 none。select 模式使用 Kernel 已解析的 mention candidate keys，由 Model 选择子集；显式引用由 owner 验证。Actor identity 单独保存在 Observation。
 
-同输入/同producer/同strategy可稳定识别已成功derivation。
+形成结果引用实际使用的 occurrence 与 DerivedRepresentation。Material read/materialize 可按 SourceRegion、DerivedRegion 或 representation 精确回读来源链。普通 recall 不重新解释媒体。
 
-当前实现将成功 key 直接保存在 immutable DerivedRepresentation，不另建 scheduler/attempt 状态源。key 包含 Subject、ordered input digest、kind、producer signature、strategy；显式 `supersedes` lineage 作为 refinement discriminator，使同一 lineage request 重试复用成功结果，继续细化时引用上一个实际表示。无 current consumer 的旧 scheduler 删除。
-
-旧singular-only derivation path删除。
-
-## Text
-
-对 `text/plain` 和可靠text-like source：
-
-- verified decoding；
-- 可形成 `ExtractedText`；
-- 不调用LLM只为了重写一次文本；
-- 大文本按稳定SourceRegion coordinate切分；
-- 不使用随机chunk ordinal作为Authority coordinate。
-
-## Image
-
-```text
-Artifact(image/*)
-→ SourceRegion
-→ material_description model
-→ ImageDescription
-```
-
-可选：
-
-```text
-ImageDescription
-→ material_structuring model
-→ StructuredInterpretation
-```
-
-`direct_structured`：
-
-```text
-image
-→ multimodal model
-→ StructuredInterpretation
-```
-
-若 direct path没有rich description，不伪造一份description。
-
-## Audio
-
-默认 `audio.input_mode = "direct"`：Artifact(audio/*) → material_description 多模态理解 → AudioDescription。覆盖语音、环境声、音乐及可观察表达；不等同于逐字 Transcript。可选择 direct_structured 或 describe_then_structure，角色和提交规则与图片一致。
-
-显式 `audio.input_mode = "transcription"` 使用 openai-audio-transcription → Transcript → 可选文本结构化。缺失所选协议/能力时明确失败，不静默切换。
-
-## Video
-
-默认 `video.input_mode = "direct"`：已上传原始视频 bytes → openai-chat video_url content extension → SceneDescription。此路径不在客户端抽帧、不单独 ASR；记录实际音画输入与理解范围。无法透传时局部 BLOCKED，不自动降级。下面的 FFmpeg decomposition 仅用于显式 `frames` 模式。
-
-### Managed or operator-provided FFmpeg
-
-配置：
-
-```text
-ffmpeg_executable
-max_video_seconds
-max_frames
-frame sampling policy
-max_audio_bytes
-```
-
-最终批准的 [Runtime Bundle](../deployment/runtime-bundle.md) 取代本段旧 acquisition 决定：普通 runtime 不下载。完整 multimedia bundle携带LGPL-only FFmpeg pack；显式 `nous runtime install` 可按固定manifest安装。operator executable优先，其次managed pack；仅明确允许的development profile可以PATH lookup。之前Gyan GPL auto-downloader删除。平台只声明实际执行证据。
-
-执行用 `spawn/execFile` + argument array，禁止shell string拼接。
-
-### Explicit frames mode decomposition
-
-```text
-video
-→ bounded frames
-→ optional audio track
-```
-
-临时frame不要求每一帧永久成为Artifact。
-
-committed SceneDescription的producer/quality metadata至少记录：
-
-- source video region；
-- sampling policy；
-- sampled timestamps；
-- FFmpeg version/invocation identity。
-
-需要长期精确引用某帧时再建立SourceRegion。
-
-### Description
-
-把bounded frame set作为multimodal image input；有transcript时把transcript作为另一个exact input/context。
-
-形成 `SceneDescription`。
-
-可选再形成 `StructuredInterpretation`。
-
-## ModelService public surface
-
-### Whole-workflow formation与付费前reservation
-
-Formation request必须包含caller-stable operation_id。semantic digest包含Subject、Occurrence、显式representation选择、aboutness mode/input；不包含后续配置变化。第一次开始固定resolved model/profile/prompt/config snapshot，不含token。same ID/same input返回原outcome；same ID/different input conflict。
-
-Memory owner保存有界reserved → proposal persisted → Authority committed/outcome状态；lease协调同ID并发，模型在Authority事务外调用。已有proposal/outcome跳过付费调用。provider返回后、proposal落盘前崩溃可能再次付费，但不允许重复Memory。purge receipt不得恢复正文或proposal。
-
-aboutness模式为explicit、select_from_resolved_mentions（默认）、none。explicit refs由owner校验且模型不得修改；自动模式只给已解析候选，模型输出候选key子集，禁止发明EntityRef。actor和all mentions都不自动成为aboutness。
-
-Derivation在付费前计算canonical identity并reserve/check；成功结果直接返回，live lease冲突返回有界busy而不并发重复调用。identity涵盖ordered exact inputs/kind/producer/strategy/prompt/config及显式supersedes。协调只承担当前真实workflow，不恢复已删除通用scheduler/attempt历史shape。description一旦成功立即提交，后续structuring失败保留partial chain。
-
-direct_structured的raw image/video使用独立material_direct_structuring role与direct-structure Prompt，不伪造Description。audio 默认直接多模态理解；显式 transcription 模式先转写。
-
-current `InterpretSource`只能表达一次调用和一个representation，不能表达strategy/chain。
-
-替换为能表示derivation的public operation。语义至少包含：
-
-```text
-subject_id
-source_region_id
-strategy?          # configured default when absent
-target?            # description / structured / automatic
-```
-
-响应：
-
-```text
-representations[]
-selected_representation_id?
-degradation[]
-```
-
-要求：
-
-- caller看得到实际committed chain；
-- direct和two-stage能区分；
-- selected textual representation明确；
-- official Client暴露；
-- 旧 `interpretSource` current surface删除。
-
-具体Proto message名称按现有命名风格决定。
-
-## Memory formation source selection
-
-扩展 `formFromObservation` 支持 optional explicit `representation_id`。
-
-未提供时：
-
-1. text → verified text / ExtractedText；
-2. image → latest accepted ImageDescription；
-3. audio → latest accepted AudioDescription（direct）或 Transcript（transcription）；
-4. video → latest accepted SceneDescription；
-5. caller明确指定时使用指定representation。
-
-如果binary/non-text尚无可用textual representation，返回明确degradation，例如：
-
-`material_representation_required`
-
-绝不把binary bytes交给TextDecoder碰碰运气。
-
-Memory support：
-
-```text
-occurrence_id = source occurrence
-locator = exact DerivedRepresentation actually used
-support_role = direct | interpretation according to semantics
-```
-
-## Explicit refine/update
-
-只有caller明确要求重新解释/细化时执行。
-
-新结果：
-
-- 新 immutable DerivedRepresentation；
-- `supersedes`指向旧representation；
-- 新 ProducerSignature；
-- 原representation保留作provenance history。
-
-普通recall不自动重新interpret旧媒体。
-
-## Material lifecycle scope
-
-本轮不扩大成完整media retention/purge subsystem。
-
-但必须保证：
-
-- Evidence locator不存在时不能静默换raw source；
-- materialization失败有明确degradation；
-- temp frames/audio和live-run raw media不进入tracked tree；
-- secret不会进入representation quality/metadata。
-
-## 2026-10-01 默认媒体路径替换
-
-音频默认 direct → AudioDescription，视频默认 direct → SceneDescription；独立 direct role 可直接 StructuredInterpretation，两阶段先提交描述。发送 Artifact 的有界原始 bytes：Chat input_audio(data,format) / video_url(data URI)。不要求 ASR，不静默抽帧。video.input_mode=frames 保留有界 FFmpeg 路径，audio.input_mode=transcription 保留 ASR；frames 本轮 NOT_RUN。默认 representation selection 随实际配置选择 audio_description 或 transcript。实际音画理解范围须由 grounded 样本核验。
-
-[返回文档目录](../../INDEX.md)
+[返回当前产品合同](../../INDEX.md)

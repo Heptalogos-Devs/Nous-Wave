@@ -1,55 +1,43 @@
 # Configuration Service 当前参考
 
-当前配置基础服务位于 `crates/configuration`，由 Kernel 在数据库 migration 完成后打开。它只负责 registry、解析、覆盖、快照、权限、幂等 receipt 和 BLAKE3 digest，不拥有 Memory 的领域语义。
+应用配置位于 ConfigurationRoot/nous.toml，配置文件必须声明 `config_revision = 1`。Core 启动时解析配置并 materialize model/resource clients；改变 model profile、role 或 Prompt 后重启 Core 生效。
 
-## 应用配置与版本
+完整字段和可编辑示例见 [nous.toml](examples/nous.toml)。Bootstrap locator 只定位独立运行目录，见 [bootstrap.toml](examples/bootstrap.toml)。
 
-ConfigurationRoot/nous.toml 必须声明 `config_revision = 1`。字段删除、改名、类型变化，以及同名字段的语义或有效默认值变化，都更新该配置合同版本；新增具有明确默认值的可选字段沿用版本。版本不对应当前代码时，启动与 `nous config check` 拒绝配置，报告预期版本和受影响字段。版本表示配置语义，不随每个 Git commit 变化。
+## 配置检查与初始化
 
-当前 revision 1 引入版本声明，并删除 TOML 的 `deployment`：源码启动命令使用显式 `--development`，portable 使用包内程序。升级现有文件时先移除 `deployment`、已废弃的 `model_budget`，再添加 revision；保留其余用户值。项目内部替换直接迁移当前配置，没有旧版本读取路径。
+`nous init` 和首次 `nous serve` 在 ConfigurationRoot 以 exclusive create 写入最小配置。已有文件保持原样，不自动改写或迁移。配置版本不匹配时启动和检查命令拒绝该文件。
 
-`nous init` 和首次 `nous serve` 以 exclusive create 创建最小文件，只包含当前版本和 default consumer。已有文件不覆盖，也不自动迁移。完整可编辑说明见 [配置示例](examples/README.md)。源码开发与 portable 开发都引用 `data/config/apps` 和 `data/config/secrets`；默认 Prompt 分别来自源码与实际包的 ProgramRoot，配置 Prompt override 来自共享 ConfigurationRoot/prompts。
+`nous config check --home <instance>` 或 `--locator <bootstrap.toml>` 检查版本、字段、profile/role 引用、Prompt 和显式 executable 文件，输出 JSON 的 `valid`、`config_revision`、`configuration` 与 `issues`。检查不写文件、不加载凭据、不启动数据库，也不调用 provider。
 
-`nous config check --locator <bootstrap.toml>` 或 `--home <instance>` 使用当前程序的解析合同，检查版本、字段、profile/role 引用、Prompt 和显式 executable 文件。输出 JSON 的 `valid`、`config_revision`、`configuration`、`issues`；无问题退出 0，有问题退出 1。命令不写配置、不加载凭据进环境、不启动数据库、不调用 provider；服务连接、凭据有效性与未配置角色的实际能力由正常运行决定。
+## Configuration Service
 
-## 解析与能力
+Rust Configuration Service 负责 typed registry、解析、覆盖、immutable snapshot、mutation receipt 与 BLAKE3 digest。配置按 reference default → nous.toml `[settings]` → persisted system override → persisted Subject override 解析。每个 key 声明 owner、类型、校验、暴露等级、作用域与应用方式。
 
-有效值按以下顺序解析：reference default → deployment `[settings]` → persisted system override → persisted subject override。每个 key 由 owner 注册 typed descriptor，包含 owner、类型、校验、暴露等级、作用域、应用方式和 semantic effect。
+当前注册的配置覆盖 process/Subject capabilities、Runtime、Memory accessibility、lexical/dense/topology Serving、retrieval 与拓扑算法策略。配置 key 由其语义 owner 注册；对象 identity、领域 ownership、revision、lifecycle、幂等和 purge 是系统不变量。
 
-当前暴露等级为 `Developer`、`Advanced`、`Standard`；系统不变量没有配置 key。普通配置 mutation API 目前只在 Rust service 内部提供，未暴露未经认证的公共 RPC。
+Query bind、Serving prepare 和 Authority formation 使用固定的 ConfigSnapshot。其 digest 覆盖实际影响该 operation 或制品的 key subset。标记为 `RestartProcess` 的 mutation 保存 desired value 并报告 `pending_restart`；当前 active snapshot 在重启前保持不变。Subject capability 在创建时展开并持久保存。
 
-`ConfigSnapshot` 是 immutable operation input。Query bind、Serving prepare 和 Authority formation 使用一个 Subject snapshot；`digest_for` 只覆盖实际影响该结果的 key subset。`RestartProcess` override 会保存 desired value 并返回 `pending_restart`，当前 active snapshot 保持不变。
+Bootstrap 部分提供数据库模式、外部数据库 credential reference、pool 上限和 Artifact 上传上限。上传上限由 Kernel `[bootstrap.object_store].max_upload_bytes` 拥有；Core multipart receiver 与 official Client 使用同一有效值。
 
-当前基础 key 包括：
+## Models 与 Prompts
 
-- `capabilities.process.*` 与 `capabilities.subject_defaults.*`；
-- `runtime.resident_limit`；
-- `serving.lexical.enabled`、`serving.dense.enabled`、`serving.topology.enabled`；topology 是显式 experimental lane，默认关闭。
-- `memory.accessibility.*`；
-- `retrieval.rrf.*` 与 `retrieval.query.*`；
-- `topology.wave.*`，包括 edge quality 和 seed weights；
-- `social.language_convention.*` 与 `social.query.scope_preference`。
+`gateway_profiles` 指定 endpoint、credential environment variable、enabled state 和 request timeout。Remote endpoint 使用 HTTPS；literal loopback 可使用 HTTP。凭据从 SecretRoot 的 dotenv 文件或进程环境读取，进程环境优先；凭据不进入公开输出。
 
-## 持久化
+`model_profiles` 描述 gateway、标准 protocol、model identifier、能力和可选 revision。Embedding profile 同时声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics，组成 EmbeddingSpaceSignature。角色通过 `roles` 绑定 model profile、Prompt、generation parameters、timeout 与 `optional | preferred | required` requirement。
 
-canonical fresh migrations `0001_foundation.sql`–`0004_indexes.sql` 建立 `configuration_state`、system/subject overrides、mutation receipts 和 `subject_capabilities`。Subject capability 是创建时展开并保存的供给状态，不随默认配置变化。
+当前 role 包括 projection steward、Memory formation、material description/structuring/direct structuring、query embedding/rerank 和 speech transcription。Supported protocol 是 `openai-chat`、`openai-responses`、`openai-embeddings`、`openai-audio-transcription` 与 `rerank-v1`。
 
-Bootstrap 文件只保留数据库、对象存储、Server bind 和 Serving root 等启动前参数；算法与策略值位于 `[settings]` registry。
+Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前缀引用 ConfigurationRoot/prompts 下的文件。Prompt 必须是 UTF-8、位于所属 root 内且不超过 128 KiB。Producer identity 包含 Prompt 与 role config digest；token 不进入 ProducerSignature。
 
-Artifact upload 的唯一部署上限为 Kernel `[bootstrap.object_store].max_upload_bytes`。Core 从 Kernel 读取同一有效值配置 multipart 接收；`MaterialService.GetLimits` 向 official Client 提供此值，Node uploader 每次上传先检查它。Core TOML 与 Client 不再维护第二份 8 GiB 上限。此 bootstrap 值改变后重启实例。
+## Media 与 External Resource
 
-## 可选 External Resource
+`audio.input_mode` 为 `direct`（默认）或 `transcription`。Direct 将原始 Artifact bytes 作为 chat 的 `input_audio` 发送；transcription 需要 speech_transcription role。
 
-`resource_profiles.<name>` 配置已有外部系统的 API；当前 `adapter_kind="ragflow"`，`base_url` 指向 `/api/v1` 根，`credential_env` 引用 SecretRoot/gateway.env 或进程环境中的 key。`enabled=false` 禁用 profile；timeout 与单条 material byte 上限是有界网络策略。Resource descriptor 的 `provider_profile` 引用该名称，`provider_locator` 保存 JSON selector（`dataset_ids` 与可选 `document_ids`）。Nous 不管理 RAGFlow dataset、模型、安装或 Docker 网络；它不属于默认 runtime 或 运行依赖。直接交给 Nous 的本地材料使用原生 Material/Serving。
+`video.input_mode` 为 `direct`（默认）或 `frames`。Direct 将原始 Artifact bytes 作为 chat 的 `video_url` 发送；frames 使用有界 FFmpeg 抽帧与可选音轨转写。FFmpeg 来自显式 executable 或当前 RuntimeRoot 已安装 pack。两种 mode 都受来源字节上限约束；frames 另受时长、帧数、单帧、音频与进程时限约束。没有隐式模式回退。frames 的实验观测见 [Research](../research/README.md)。
 
-## Direct audio/video and model-call budget
+`resource_profiles.<name>` 当前支持 `adapter_kind = "ragflow"`，配置 endpoint、credential environment variable、enabled state、timeout 与单条 material byte 上限。Resource profile 连接操作者管理的 RAGFlow API；直接输入 Nous 的材料经原生 Material 与 Serving 处理。
 
-`model_profiles.<name>.embedding.max_batch_size` 控制每次 embedding 请求的 input 数量（1–64，默认 64）；只接受单条 input 的网关设为 1。prepare 与 query batching 复用同一 profile，summary 汇总实际 request count 与 provider usage。失败不自动换请求 shape。
+`consumers` 按 consumer id/revision 保存 Memory、Runtime、Resource contribution requirements 与 item/text budgets。Consumer policy 为一次调用限定各 owner 可贡献的内容和预算；领域 Authority 仍由对应 owner 持有。
 
-ConfigurationRoot/nous.toml 不再含 model_budget，普通 runtime 不创建调用计数 ledger 或研究 hard cap。timeout/concurrency/input/output bounds 仍是产品策略。研究显式启动 `corepack pnpm research:gateway --ledger <run-owned.json> --max-calls 10000`，将研究实例的 GatewayProfile.base_url 指向输出的 loopback endpoint；proxy 在每个实际 HTTP attempt 前持久预留，包括失败、warm-up 与 retry，重启复用同一 ledger。一个研究 run 使用一个 proxy/ledger writer；不在 normal runtime 自动启用。历史真实研究累计 1096 次已迁入 ignored `data/research/runs/model-call-ledger.json`，后续沿此 ledger 继续。
-
-`audio.input_mode` is `direct` (default) or `transcription`. Direct uses material_description or material_direct_structuring with audio_input capability and openai-chat content; transcription requires the separate speech_transcription role. `audio.max_source_bytes` bounds raw bytes (default16MiB, maximum24MiB).
-
-`video.input_mode` is `direct` (default) or `frames`. Direct requires video_input plus gateway video_url content-extension support; it sends the bounded uploaded Artifact, without client-side frame extraction. Frames explicitly selects the FFmpeg frame path; max_frames/frame_bytes/audio_bytes/process_timeout apply to that path. Source-byte bounds apply to both modes. There is no automatic mode fallback. Configure model identifiers and declared capabilities in ModelProfile; readiness requires an actual validated invocation. Gateway aliases do not establish the underlying model version.
-
-[返回文档目录](../INDEX.md)
+[返回 Reference](README.md)
