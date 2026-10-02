@@ -36,8 +36,20 @@ Rust Kernel
 
 Observation 先写 Material Authority，再由 Memory owner 以 occurrence-bound EvidenceRef 形成 immutable revision。Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime state 不成为认知真值。
 
+Material 的 DerivedRepresentation 保存 ordered exact inputs（SourceRegion、DerivedRepresentation 或 DerivedRegion）、strategy 和 producer。Fresh schema 用 `derived_representation_inputs` 表保存不可变边，`representation_source_regions` 从当前输入图计算来源闭包。输入须已存在且同 Subject；禁止重复和自引用，已提交表示没有追加/改写输入的接口，因此不能形成回边。成功 derivation key 与结果同事务保存；同 key 重试复用已提交结果。没有 current consumer 的旧 singular-source scheduler、lease/attempt 与独立 derivation state 表已删除。
+
+Core 的 public `DeriveMaterial` 返回实际表示链并保留部分成功结果。结构化表示保存 JSON payload 与 deterministic text projection；唯一 Zod schema 用于 SDK/raw provider request 和 local validation，其 digest 进入 ProducerSignature 与 derivation identity。Material owner 对已提交描述做 UTF-8 byte segmentation，返回稳定 DerivedRegion catalog；第二模型输出的 keys 映射成字段 supports，Kernel 在输入 DAG 内核验引用。public Material read/materialize 支持按字段 DerivedRegion 精确回读。
+
+Memory revision 与 producer registry 同事务提交，批量 read 携带 producer reference。formation 使用调用方稳定 operation identity，先保存经过验证的 proposal，再提交 Authority；原配置/Prompt snapshot 保持操作连续性。CLI trace 通过 official Client 展开 exact derivation inputs。原始 audio/video gateway input、model rerank 与 External Resource continuation 已实现；研究观测归 Research。
+
 Runtime 持有 QueryPlan、lane budgets、object-revision aggregation、fixed RRF 和 final result ordering。Retrieval 通过 Runtime-owned contract 提供 serving candidates，不被 Runtime 作为具体实现依赖。
 
+Core `query/orchestrator.ts` 统一 query embedding、model rerank 和 External Resource host actions，沿 Kernel 同一 immutable ticket finalize/release。`resources/` 持有 provider-neutral adapter 与有界网络编排；optional RAGFlow adapter 只对接用户已有 API，不承担外部安装、模型配置或生命周期。Kernel 保存 Resource descriptor、冻结 action 与限额、校验结果 identity 和 descriptor drift；公开 resource_records 保持 External Material 身份。official Client 显式选用结果时，Core materialize 后通过 Material owner 创建 Artifact/SourceRegion/Observation；同 operation replay 复用结果，不增加 provider request。普通本地材料继续由 Nous Material 与原生 Tantivy/USearch Serving 负责；独立 Material Corpus 施工尚未授权。
+
+Mutation receipt 的 reserve/read/commit 数据库机械层由 Persistence 统一提供；Memory 和 Runtime 保留各自 replay/lifecycle 语义。WorkContext foreground 重放按 committed state 判断，合法的空 result ref 不影响 Session replay。
+
 ## 当前边界
+
+Windows 发布 Kernel 使用 LLVM-MinGW UCRT/win-gnullvm，可执行文件旁携带私有 libc++/libunwind。RuntimeLocations 持有独立 roots 与发布路径解析；编译器及原生库仅在显式构建/安装时获取。无源码 ZIP 包含编译后的 official Client、SPDX 与许可材料。Resource records 保留 stable external identity 与 access/version 语义。
 
 当前 executable scope 是 Memory-only Reference Profile、WorkContext continuity 和 Episode foundation。Self、Social、Motivation、Desired Condition、Journal、Offline Cognition 和 Heptalogos live integration 由 Vault 保留长期目标语义，但不在本 checkout 提供 owner、protocol 或 public capability claim。

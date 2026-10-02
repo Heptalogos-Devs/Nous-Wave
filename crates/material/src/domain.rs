@@ -103,14 +103,23 @@ impl SourceRegion {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DerivationInput {
+    pub ordinal: u32,
+    pub reference: nous_core::CognitiveRef,
+    pub role: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DerivedRepresentation {
     pub derived_representation_id: DerivedRepresentationId,
     pub subject_id: SubjectId,
-    pub source_region_id: SourceRegionId,
+    pub inputs: Vec<DerivationInput>,
+    pub strategy: String,
     pub representation_kind: RepresentationKind,
     pub producer: ProducerSignature,
     pub revision: i32,
     pub payload_text: Option<String>,
+    pub payload_json: Option<serde_json::Value>,
     pub payload_artifact_id: Option<ArtifactId>,
     pub quality: serde_json::Value,
     pub created_at: DateTime<Utc>,
@@ -119,14 +128,57 @@ pub struct DerivedRepresentation {
 
 impl DerivedRepresentation {
     pub fn validate(&self) -> Result<()> {
-        if self.payload_text.is_none() && self.payload_artifact_id.is_none() {
+        let mut seen = std::collections::HashSet::new();
+        if self.inputs.is_empty() || self.inputs.len() > 64 || self.strategy.trim().is_empty() {
             return Err(Error::Invalid(
-                "derived representation needs text or an artifact payload".into(),
+                "derivation requires 1..64 ordered inputs and a strategy".into(),
             ));
+        }
+        for (ordinal, input) in self.inputs.iter().enumerate() {
+            if input.ordinal as usize != ordinal
+                || input.role.trim().is_empty()
+                || !matches!(
+                    input.reference,
+                    nous_core::CognitiveRef::SourceRegion(_)
+                        | nous_core::CognitiveRef::DerivedRepresentation(_)
+                        | nous_core::CognitiveRef::DerivedRegion(_)
+                )
+                || !seen.insert(input.reference.to_string())
+                || input.reference
+                    == nous_core::CognitiveRef::DerivedRepresentation(
+                        self.derived_representation_id,
+                    )
+            {
+                return Err(Error::Invalid(
+                    "invalid, duplicate, or cyclic derivation input".into(),
+                ));
+            }
+        }
+        if self.payload_text.is_none()
+            && self.payload_json.is_none()
+            && self.payload_artifact_id.is_none()
+        {
+            return Err(Error::Invalid(
+                "derived representation needs text, structured JSON or artifact payload".into(),
+            ));
+        }
+        if self
+            .payload_json
+            .as_ref()
+            .is_some_and(|value| !value.is_object() || value.to_string().len() > 262_144)
+        {
+            return Err(Error::Invalid("invalid structured payload bounds".into()));
         }
         if self.revision < 1 {
             return Err(Error::Invalid(
                 "derived representation revision starts at 1".into(),
+            ));
+        }
+        if self.representation_kind == RepresentationKind::StructuredInterpretation
+            && (self.payload_json.is_none() || self.producer.output_schema_digest.is_none())
+        {
+            return Err(Error::Invalid(
+                "structured interpretation requires payload and schema identity".into(),
             ));
         }
         Ok(())
@@ -147,7 +199,13 @@ pub struct DerivedRegion {
 
 impl DerivedRegion {
     pub fn validate(&self) -> Result<()> {
-        const KINDS: &[&str] = &["text_span", "segment", "bbox-in-derived", "structural_path"];
+        const KINDS: &[&str] = &[
+            "text_span",
+            "segment",
+            "description_segment",
+            "bbox-in-derived",
+            "structural_path",
+        ];
         if !KINDS.contains(&self.coordinate_kind.as_str()) || self.coordinate_hash.trim().is_empty()
         {
             return Err(Error::Invalid("invalid derived coordinate".into()));
@@ -167,34 +225,6 @@ pub struct CoverageNeed {
     pub state: String,
     pub current_representation_id: Option<DerivedRepresentationId>,
     pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DerivationRecord {
-    pub derivation_id: nous_core::DerivationId,
-    pub derivation_key: String,
-    pub subject_id: SubjectId,
-    pub source_region_id: SourceRegionId,
-    pub representation_kind: RepresentationKind,
-    pub producer: ProducerSignature,
-    pub state: String,
-    pub successful_representation_id: Option<DerivedRepresentationId>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DerivationAttempt {
-    pub attempt_id: Uuid,
-    pub derivation_id: nous_core::DerivationId,
-    pub attempt_no: i32,
-    pub state: String,
-    pub lease_owner: Option<String>,
-    pub lease_until: Option<DateTime<Utc>>,
-    pub started_at: DateTime<Utc>,
-    pub finished_at: Option<DateTime<Utc>>,
-    pub problem_code: Option<String>,
-    pub problem_detail: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

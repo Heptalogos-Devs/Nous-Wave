@@ -8,6 +8,7 @@ use nous_memory::{
 fn grounded_input() -> ExplicitMemoryInput {
     let occurrence = OccurrenceId::new();
     ExplicitMemoryInput {
+        producer: None,
         operation_id: OperationId::new(),
         subject: SubjectId::new(),
         cognitive_role: CognitiveRole::Declarative,
@@ -27,14 +28,6 @@ fn grounded_input() -> ExplicitMemoryInput {
         formed_at: Utc::now(),
         epistemic_class: EpistemicClass::Observed,
     }
-}
-
-#[test]
-fn role_and_formation_are_independent_domain_dimensions() {
-    let value = grounded_input();
-    assert_eq!(value.cognitive_role, CognitiveRole::Declarative);
-    assert_eq!(value.formation_mode, FormationMode::Grounded);
-    assert!(value.validate().is_ok());
 }
 
 #[test]

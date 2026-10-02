@@ -278,7 +278,7 @@ pub struct QueryConstraints {
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Cue {
-    #[prost(oneof="cue::Cue", tags="1, 2, 3, 4")]
+    #[prost(oneof="cue::Cue", tags="1, 2, 3, 4, 5, 6, 7, 8")]
     pub cue: ::core::option::Option<cue::Cue>,
 }
 /// Nested message and enum types in `Cue`.
@@ -293,6 +293,14 @@ pub mod cue {
         Concept(::prost::alloc::string::String),
         #[prost(string, tag="4")]
         SchemaId(::prost::alloc::string::String),
+        #[prost(string, tag="5")]
+        EntityRef(::prost::alloc::string::String),
+        #[prost(string, tag="6")]
+        TagId(::prost::alloc::string::String),
+        #[prost(string, tag="7")]
+        ResourceRef(::prost::alloc::string::String),
+        #[prost(string, tag="8")]
+        ExternalObjectRef(::prost::alloc::string::String),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -382,6 +390,8 @@ pub struct Hit {
     pub formed_at: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="13")]
     pub recorded_at: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="14")]
+    pub score: ::core::option::Option<HitScore>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ResourceAction {
@@ -393,6 +403,96 @@ pub struct ResourceAction {
     pub reason: ::prost::alloc::string::String,
     #[prost(bool, tag="4")]
     pub current_authority: bool,
+    #[prost(string, tag="5")]
+    pub action_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub query_text: ::prost::alloc::string::String,
+    #[prost(uint32, tag="7")]
+    pub limit: u32,
+    #[prost(bool, tag="8")]
+    pub materialize: bool,
+    #[prost(string, tag="9")]
+    pub adapter_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub provider_profile: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub provider_locator: ::prost::alloc::string::String,
+    #[prost(string, tag="12")]
+    pub descriptor_digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StableExternalRef {
+    #[prost(string, tag="1")]
+    pub provider_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub provider_profile: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub profile_digest: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub resource_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub provider_resource_id: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub entry_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="7")]
+    pub entry_version: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="8")]
+    pub content_digest: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub source_locator: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub retrieved_at: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub access_scope: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExternalResourceRecord {
+    #[prost(string, tag="1")]
+    pub resource_ref: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<StableExternalRef>,
+    #[prost(string, optional, tag="3")]
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="4")]
+    pub content: ::prost::alloc::string::String,
+    #[prost(uint32, tag="5")]
+    pub provider_rank: u32,
+    #[prost(double, optional, tag="6")]
+    pub provider_score: ::core::option::Option<f64>,
+    #[prost(string, tag="7")]
+    pub version_status: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub access_status: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryDiagnostics {
+    #[prost(map="string, uint64", tag="1")]
+    pub candidate_counts: ::std::collections::HashMap<::prost::alloc::string::String, u64>,
+    #[prost(map="string, string", tag="2")]
+    pub lane_status: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(bool, optional, tag="3")]
+    pub topology_complete: ::core::option::Option<bool>,
+    #[prost(double, optional, tag="4")]
+    pub topology_discarded_mass: ::core::option::Option<f64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HitScore {
+    #[prost(double, tag="1")]
+    pub baseline: f64,
+    #[prost(double, tag="2")]
+    pub preference: f64,
+    #[prost(double, optional, tag="3")]
+    pub rerank: ::core::option::Option<f64>,
+    #[prost(double, tag="4")]
+    pub r#final: f64,
+    #[prost(uint32, tag="5")]
+    pub baseline_rank: u32,
+    #[prost(uint32, tag="6")]
+    pub final_rank: u32,
+    #[prost(uint32, tag="7")]
+    pub best_lane_rank: u32,
+    #[prost(string, repeated, tag="8")]
+    pub variants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResponse {
@@ -408,6 +508,10 @@ pub struct QueryResponse {
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
     #[prost(string, optional, tag="6")]
     pub bound_query: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="7")]
+    pub diagnostics: ::core::option::Option<QueryDiagnostics>,
+    #[prost(message, repeated, tag="10")]
+    pub resource_records: ::prost::alloc::vec::Vec<ExternalResourceRecord>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReportUseRequest {
@@ -498,6 +602,8 @@ pub mod revision_support {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MemoryContent {
+    #[prost(message, optional, tag="13")]
+    pub producer: ::core::option::Option<ProducerSignature>,
     #[prost(string, tag="1")]
     pub cognitive_role: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
@@ -525,6 +631,8 @@ pub struct MemoryContent {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Memory {
+    #[prost(string, optional, tag="28")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="1")]
     pub memory_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
@@ -689,6 +797,56 @@ pub struct Artifact {
     pub created_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag="7")]
     pub metadata: ::core::option::Option<::prost_types::Struct>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MaterialLimits {
+    #[prost(uint64, tag="1")]
+    pub max_upload_bytes: u64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ProducerSignature {
+    #[prost(string, tag="1")]
+    pub signature_hash: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub provider_class: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub implementation: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub model_identity: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub model_revision: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="7")]
+    pub preprocessing_identity: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub preprocessing_revision: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub config_digest: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="10")]
+    pub output_schema_digest: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DerivationInput {
+    #[prost(uint32, tag="1")]
+    pub ordinal: u32,
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<CognitiveRef>,
+    #[prost(string, tag="3")]
+    pub role: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RepresentationListRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub source_region_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="3")]
+    pub artifact_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="4")]
+    pub kind: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, tag="5")]
+    pub limit: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListArtifactsResponse {
@@ -1175,6 +1333,12 @@ pub struct ResourceDescriptor {
     pub access_cost_class: ::prost::alloc::string::String,
     #[prost(string, tag="9")]
     pub readiness: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub adapter_kind: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub provider_profile: ::prost::alloc::string::String,
+    #[prost(string, tag="12")]
+    pub provider_locator: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PutResourceRequest {
@@ -1534,14 +1698,14 @@ pub struct SourceRegion {
     #[prost(string, optional, tag="6")]
     pub parent_source_region_id: ::core::option::Option<::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DerivedRepresentation {
     #[prost(string, tag="1")]
     pub representation_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="3")]
-    pub source_region_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="3")]
+    pub inputs: ::prost::alloc::vec::Vec<DerivationInput>,
     #[prost(string, tag="4")]
     pub kind: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
@@ -1552,6 +1716,40 @@ pub struct DerivedRepresentation {
     pub text: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="8")]
     pub artifact_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="9")]
+    pub producer: ::core::option::Option<ProducerSignature>,
+    #[prost(message, optional, tag="10")]
+    pub quality: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, optional, tag="11")]
+    pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="12")]
+    pub strategy: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="13")]
+    pub structured_payload: ::core::option::Option<::prost_types::Struct>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RepresentationListResponse {
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<DerivedRepresentation>,
+    #[prost(bool, tag="2")]
+    pub truncated: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DerivedRegion {
+    #[prost(string, tag="1")]
+    pub derived_region_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub representation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub coordinate_kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="5")]
+    pub coordinate: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, tag="6")]
+    pub coordinate_hash: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="7")]
+    pub parent_derived_region_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ComponentStatus {
@@ -1593,11 +1791,54 @@ pub struct ProjectionStatus {
     pub families: ::prost::alloc::vec::Vec<ComponentStatus>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct ModelSourceRequest {
+pub struct MaterializeResourceRequest {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
-    pub source_id: ::prost::alloc::string::String,
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub reference: ::core::option::Option<StableExternalRef>,
+    #[prost(message, optional, tag="4")]
+    pub observed_at: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResourceMaterialization {
+    #[prost(message, optional, tag="1")]
+    pub reference: ::core::option::Option<StableExternalRef>,
+    #[prost(message, optional, tag="2")]
+    pub observation: ::core::option::Option<AcceptedObservation>,
+    #[prost(string, tag="3")]
+    pub content: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub media_type: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FormationRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub occurrence_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub representation_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="4")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub aboutness_mode: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="6")]
+    pub explicit_aboutness: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeriveMaterialRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub source_region_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub strategy: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="4")]
+    pub target: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="5")]
+    pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FormationResponse {
@@ -1607,10 +1848,12 @@ pub struct FormationResponse {
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct InterpretationResponse {
-    #[prost(message, optional, tag="1")]
-    pub representation: ::core::option::Option<DerivedRepresentation>,
-    #[prost(message, repeated, tag="2")]
+pub struct DerivationResponse {
+    #[prost(message, repeated, tag="1")]
+    pub representations: ::prost::alloc::vec::Vec<DerivedRepresentation>,
+    #[prost(string, optional, tag="2")]
+    pub selected_representation_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="3")]
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

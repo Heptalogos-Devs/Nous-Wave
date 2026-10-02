@@ -14,29 +14,86 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nous/wave/v1alpha1/model.proto.
  */
 export const file_nous_wave_v1alpha1_model: GenFile = /*@__PURE__*/
-  fileDesc("Ch5ub3VzL3dhdmUvdjFhbHBoYTEvbW9kZWwucHJvdG8SEm5vdXMud2F2ZS52MWFscGhhMSI7ChJNb2RlbFNvdXJjZVJlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRIRCglzb3VyY2VfaWQYAiABKAkidQoRRm9ybWF0aW9uUmVzcG9uc2USKgoGbWVtb3J5GAEgASgLMhoubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeRI0CgtkZWdyYWRhdGlvbhgCIAMoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5EZWdyYWRhdGlvbiKRAQoWSW50ZXJwcmV0YXRpb25SZXNwb25zZRJBCg5yZXByZXNlbnRhdGlvbhgBIAEoCzIpLm5vdXMud2F2ZS52MWFscGhhMS5EZXJpdmVkUmVwcmVzZW50YXRpb24SNAoLZGVncmFkYXRpb24YAiADKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuRGVncmFkYXRpb24iPQoYUHJlcGFyZUVtYmVkZGluZ3NSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSDQoFbGltaXQYAiABKA0iZAoZUHJlcGFyZUVtYmVkZGluZ3NSZXNwb25zZRIRCgljb21taXR0ZWQYASABKA0SNAoLZGVncmFkYXRpb24YAiADKAsyHy5ub3VzLndhdmUudjFhbHBoYTEuRGVncmFkYXRpb24yzQIKDE1vZGVsU2VydmljZRJkChNGb3JtRnJvbU9ic2VydmF0aW9uEiYubm91cy53YXZlLnYxYWxwaGExLk1vZGVsU291cmNlUmVxdWVzdBolLm5vdXMud2F2ZS52MWFscGhhMS5Gb3JtYXRpb25SZXNwb25zZRJlCg9JbnRlcnByZXRTb3VyY2USJi5ub3VzLndhdmUudjFhbHBoYTEuTW9kZWxTb3VyY2VSZXF1ZXN0Gioubm91cy53YXZlLnYxYWxwaGExLkludGVycHJldGF0aW9uUmVzcG9uc2UScAoRUHJlcGFyZUVtYmVkZGluZ3MSLC5ub3VzLndhdmUudjFhbHBoYTEuUHJlcGFyZUVtYmVkZGluZ3NSZXF1ZXN0Gi0ubm91cy53YXZlLnYxYWxwaGExLlByZXBhcmVFbWJlZGRpbmdzUmVzcG9uc2ViBnByb3RvMw", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management]);
+  fileDesc("Ch5ub3VzL3dhdmUvdjFhbHBoYTEvbW9kZWwucHJvdG8SEm5vdXMud2F2ZS52MWFscGhhMSK9AQoQRm9ybWF0aW9uUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEhUKDW9jY3VycmVuY2VfaWQYAiABKAkSHgoRcmVwcmVzZW50YXRpb25faWQYAyABKAlIAIgBARIUCgxvcGVyYXRpb25faWQYBCABKAkSFgoOYWJvdXRuZXNzX21vZGUYBSABKAkSGgoSZXhwbGljaXRfYWJvdXRuZXNzGAYgAygJQhQKEl9yZXByZXNlbnRhdGlvbl9pZCKxAQoVRGVyaXZlTWF0ZXJpYWxSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSGAoQc291cmNlX3JlZ2lvbl9pZBgCIAEoCRIVCghzdHJhdGVneRgDIAEoCUgAiAEBEhMKBnRhcmdldBgEIAEoCUgBiAEBEhcKCnN1cGVyc2VkZXMYBSABKAlIAogBAUILCglfc3RyYXRlZ3lCCQoHX3RhcmdldEINCgtfc3VwZXJzZWRlcyJ1ChFGb3JtYXRpb25SZXNwb25zZRIqCgZtZW1vcnkYASABKAsyGi5ub3VzLndhdmUudjFhbHBoYTEuTWVtb3J5EjQKC2RlZ3JhZGF0aW9uGAIgAygLMh8ubm91cy53YXZlLnYxYWxwaGExLkRlZ3JhZGF0aW9uItYBChJEZXJpdmF0aW9uUmVzcG9uc2USQgoPcmVwcmVzZW50YXRpb25zGAEgAygLMikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZWRSZXByZXNlbnRhdGlvbhInChpzZWxlY3RlZF9yZXByZXNlbnRhdGlvbl9pZBgCIAEoCUgAiAEBEjQKC2RlZ3JhZGF0aW9uGAMgAygLMh8ubm91cy53YXZlLnYxYWxwaGExLkRlZ3JhZGF0aW9uQh0KG19zZWxlY3RlZF9yZXByZXNlbnRhdGlvbl9pZCI9ChhQcmVwYXJlRW1iZWRkaW5nc1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRINCgVsaW1pdBgCIAEoDSJkChlQcmVwYXJlRW1iZWRkaW5nc1Jlc3BvbnNlEhEKCWNvbW1pdHRlZBgBIAEoDRI0CgtkZWdyYWRhdGlvbhgCIAMoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5EZWdyYWRhdGlvbjLJAgoMTW9kZWxTZXJ2aWNlEmIKE0Zvcm1Gcm9tT2JzZXJ2YXRpb24SJC5ub3VzLndhdmUudjFhbHBoYTEuRm9ybWF0aW9uUmVxdWVzdBolLm5vdXMud2F2ZS52MWFscGhhMS5Gb3JtYXRpb25SZXNwb25zZRJjCg5EZXJpdmVNYXRlcmlhbBIpLm5vdXMud2F2ZS52MWFscGhhMS5EZXJpdmVNYXRlcmlhbFJlcXVlc3QaJi5ub3VzLndhdmUudjFhbHBoYTEuRGVyaXZhdGlvblJlc3BvbnNlEnAKEVByZXBhcmVFbWJlZGRpbmdzEiwubm91cy53YXZlLnYxYWxwaGExLlByZXBhcmVFbWJlZGRpbmdzUmVxdWVzdBotLm5vdXMud2F2ZS52MWFscGhhMS5QcmVwYXJlRW1iZWRkaW5nc1Jlc3BvbnNlYgZwcm90bzM", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management]);
 
 /**
- * @generated from message nous.wave.v1alpha1.ModelSourceRequest
+ * @generated from message nous.wave.v1alpha1.FormationRequest
  */
-export type ModelSourceRequest = Message<"nous.wave.v1alpha1.ModelSourceRequest"> & {
+export type FormationRequest = Message<"nous.wave.v1alpha1.FormationRequest"> & {
   /**
    * @generated from field: string subject_id = 1;
    */
   subjectId: string;
 
   /**
-   * @generated from field: string source_id = 2;
+   * @generated from field: string occurrence_id = 2;
    */
-  sourceId: string;
+  occurrenceId: string;
+
+  /**
+   * @generated from field: optional string representation_id = 3;
+   */
+  representationId?: string | undefined;
+
+  /**
+   * @generated from field: string operation_id = 4;
+   */
+  operationId: string;
+
+  /**
+   * @generated from field: string aboutness_mode = 5;
+   */
+  aboutnessMode: string;
+
+  /**
+   * @generated from field: repeated string explicit_aboutness = 6;
+   */
+  explicitAboutness: string[];
 };
 
 /**
- * Describes the message nous.wave.v1alpha1.ModelSourceRequest.
- * Use `create(ModelSourceRequestSchema)` to create a new message.
+ * Describes the message nous.wave.v1alpha1.FormationRequest.
+ * Use `create(FormationRequestSchema)` to create a new message.
  */
-export const ModelSourceRequestSchema: GenMessage<ModelSourceRequest> = /*@__PURE__*/
+export const FormationRequestSchema: GenMessage<FormationRequest> = /*@__PURE__*/
   messageDesc(file_nous_wave_v1alpha1_model, 0);
+
+/**
+ * @generated from message nous.wave.v1alpha1.DeriveMaterialRequest
+ */
+export type DeriveMaterialRequest = Message<"nous.wave.v1alpha1.DeriveMaterialRequest"> & {
+  /**
+   * @generated from field: string subject_id = 1;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: string source_region_id = 2;
+   */
+  sourceRegionId: string;
+
+  /**
+   * @generated from field: optional string strategy = 3;
+   */
+  strategy?: string | undefined;
+
+  /**
+   * @generated from field: optional string target = 4;
+   */
+  target?: string | undefined;
+
+  /**
+   * @generated from field: optional string supersedes = 5;
+   */
+  supersedes?: string | undefined;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.DeriveMaterialRequest.
+ * Use `create(DeriveMaterialRequestSchema)` to create a new message.
+ */
+export const DeriveMaterialRequestSchema: GenMessage<DeriveMaterialRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_model, 1);
 
 /**
  * @generated from message nous.wave.v1alpha1.FormationResponse
@@ -58,29 +115,34 @@ export type FormationResponse = Message<"nous.wave.v1alpha1.FormationResponse"> 
  * Use `create(FormationResponseSchema)` to create a new message.
  */
 export const FormationResponseSchema: GenMessage<FormationResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 1);
+  messageDesc(file_nous_wave_v1alpha1_model, 2);
 
 /**
- * @generated from message nous.wave.v1alpha1.InterpretationResponse
+ * @generated from message nous.wave.v1alpha1.DerivationResponse
  */
-export type InterpretationResponse = Message<"nous.wave.v1alpha1.InterpretationResponse"> & {
+export type DerivationResponse = Message<"nous.wave.v1alpha1.DerivationResponse"> & {
   /**
-   * @generated from field: nous.wave.v1alpha1.DerivedRepresentation representation = 1;
+   * @generated from field: repeated nous.wave.v1alpha1.DerivedRepresentation representations = 1;
    */
-  representation?: DerivedRepresentation | undefined;
+  representations: DerivedRepresentation[];
 
   /**
-   * @generated from field: repeated nous.wave.v1alpha1.Degradation degradation = 2;
+   * @generated from field: optional string selected_representation_id = 2;
+   */
+  selectedRepresentationId?: string | undefined;
+
+  /**
+   * @generated from field: repeated nous.wave.v1alpha1.Degradation degradation = 3;
    */
   degradation: Degradation[];
 };
 
 /**
- * Describes the message nous.wave.v1alpha1.InterpretationResponse.
- * Use `create(InterpretationResponseSchema)` to create a new message.
+ * Describes the message nous.wave.v1alpha1.DerivationResponse.
+ * Use `create(DerivationResponseSchema)` to create a new message.
  */
-export const InterpretationResponseSchema: GenMessage<InterpretationResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 2);
+export const DerivationResponseSchema: GenMessage<DerivationResponse> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_model, 3);
 
 /**
  * @generated from message nous.wave.v1alpha1.PrepareEmbeddingsRequest
@@ -102,7 +164,7 @@ export type PrepareEmbeddingsRequest = Message<"nous.wave.v1alpha1.PrepareEmbedd
  * Use `create(PrepareEmbeddingsRequestSchema)` to create a new message.
  */
 export const PrepareEmbeddingsRequestSchema: GenMessage<PrepareEmbeddingsRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 3);
+  messageDesc(file_nous_wave_v1alpha1_model, 4);
 
 /**
  * @generated from message nous.wave.v1alpha1.PrepareEmbeddingsResponse
@@ -124,7 +186,7 @@ export type PrepareEmbeddingsResponse = Message<"nous.wave.v1alpha1.PrepareEmbed
  * Use `create(PrepareEmbeddingsResponseSchema)` to create a new message.
  */
 export const PrepareEmbeddingsResponseSchema: GenMessage<PrepareEmbeddingsResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_v1alpha1_model, 4);
+  messageDesc(file_nous_wave_v1alpha1_model, 5);
 
 /**
  * @generated from service nous.wave.v1alpha1.ModelService
@@ -135,16 +197,16 @@ export const ModelService: GenService<{
    */
   formFromObservation: {
     methodKind: "unary";
-    input: typeof ModelSourceRequestSchema;
+    input: typeof FormationRequestSchema;
     output: typeof FormationResponseSchema;
   },
   /**
-   * @generated from rpc nous.wave.v1alpha1.ModelService.InterpretSource
+   * @generated from rpc nous.wave.v1alpha1.ModelService.DeriveMaterial
    */
-  interpretSource: {
+  deriveMaterial: {
     methodKind: "unary";
-    input: typeof ModelSourceRequestSchema;
-    output: typeof InterpretationResponseSchema;
+    input: typeof DeriveMaterialRequestSchema;
+    output: typeof DerivationResponseSchema;
   },
   /**
    * @generated from rpc nous.wave.v1alpha1.ModelService.PrepareEmbeddings

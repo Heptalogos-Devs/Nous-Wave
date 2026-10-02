@@ -3,20 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "qualification:official-client": "tsx official_client_closure.ts"
-  },
   "dependencies": {
+    "@ai-sdk/openai": "4.0.67",
     "@bufbuild/protobuf": "2.15.0",
     "@connectrpc/connect": "2.2.0",
     "@connectrpc/connect-fastify": "2.2.0",
     "@connectrpc/connect-node": "2.2.0",
     "@fastify/multipart": "10.1.1",
+    "@noble/hashes": "2.0.1",
     "@nous-wave/protocol": "workspace:*",
     "ai": "7.0.102",
     "chevrotain": "13.2.0",
     "fastify": "5.12.5",
     "smol-toml": "1.8.0",
+    "yauzl": "3.2.1",
     "zod": "4.6.5"
   }
 }

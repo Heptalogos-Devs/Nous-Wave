@@ -1,15 +1,27 @@
 use super::resolve_retrieval_policy;
-use super::types::{
-    AccessibilityQueryPolicy, BoundQuery, ExactBinding, RerankPolicy, RevisionPolicy,
-};
+use super::types::{AccessibilityQueryPolicy, BoundQuery, ExactBinding, RevisionPolicy};
 use crate::CognitiveRuntimeService;
 use nous_core::*;
 use std::collections::{BTreeMap, HashSet};
 use uuid::Uuid;
 
 pub fn planned_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
+    let mut result = Vec::new();
+    for node in query.scopes() {
+        let mut scoped = query.clone();
+        scoped.expression = node.clone();
+        scoped.expression.children.clear();
+        result.extend(local_lanes(&scoped));
+    }
+    result.sort();
+    result.dedup();
+    result
+}
+
+fn local_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     let mut lanes = Vec::new();
     if query
+        .expression
         .targets
         .iter()
         .any(|target| matches!(target, QueryTarget::Exact { .. }))
@@ -19,12 +31,17 @@ pub fn planned_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     if query.session.is_some() || !query.situation.current_refs.is_empty() {
         lanes.push(EvidenceFamily::Runtime);
     }
-    if query.cues.iter().any(|cue| matches!(cue, Cue::Entity(_)))
-        || !query.constraints.entity_requirements.is_empty()
+    if query
+        .expression
+        .cues
+        .iter()
+        .any(|cue| matches!(cue, Cue::Entity(_)))
+        || !query.expression.constraints.entity_requirements.is_empty()
     {
         lanes.push(EvidenceFamily::Entity);
     }
     let has_text = query
+        .expression
         .cues
         .iter()
         .any(|cue| matches!(cue, Cue::Text(_) | Cue::Example(_)));
@@ -35,16 +52,20 @@ pub fn planned_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
             lanes.push(EvidenceFamily::Dense);
         }
     }
-    if query.constraints.valid.is_some()
-        || query.constraints.occurred.is_some()
-        || query.constraints.observed.is_some()
-        || query.constraints.formed.is_some()
-        || query.constraints.recorded.is_some()
+    if query.expression.constraints.valid.is_some()
+        || query.expression.constraints.occurred.is_some()
+        || query.expression.constraints.observed.is_some()
+        || query.expression.constraints.formed.is_some()
+        || query.expression.constraints.recorded.is_some()
     {
         lanes.push(EvidenceFamily::Temporal);
     }
-    if query.cues.iter().any(|cue| matches!(cue, Cue::Schema(_)))
-        || query.targets.iter().any(|target| {
+    if query
+        .expression
+        .cues
+        .iter()
+        .any(|cue| matches!(cue, Cue::Schema(_)))
+        || query.expression.targets.iter().any(|target| {
             matches!(
                 target,
                 QueryTarget::SchemaNeighborhood { .. }
@@ -72,8 +93,12 @@ pub fn explicit_topology(query: &CognitiveQuery) -> bool {
             | ExplorationIntent::AroundTag
             | ExplorationIntent::AroundSchema
             | ExplorationIntent::ExplainAssociation
-    ) || query.cues.iter().any(|cue| matches!(cue, Cue::Relation(_)))
-        || query.targets.iter().any(|target| {
+    ) || query
+        .expression
+        .cues
+        .iter()
+        .any(|cue| matches!(cue, Cue::Relation(_)))
+        || query.expression.targets.iter().any(|target| {
             matches!(
                 target,
                 QueryTarget::EntityNeighborhood { .. } | QueryTarget::SchemaNeighborhood { .. }
@@ -82,7 +107,7 @@ pub fn explicit_topology(query: &CognitiveQuery) -> bool {
 }
 
 fn validate_hard_constraints(query: &CognitiveQuery) -> Result<()> {
-    for role in &query.constraints.cognitive_roles_include {
+    for role in &query.expression.constraints.cognitive_roles_include {
         if !matches!(
             role.as_str(),
             "experiential" | "declarative" | "procedural_experience"
@@ -92,14 +117,14 @@ fn validate_hard_constraints(query: &CognitiveQuery) -> Result<()> {
             )));
         }
     }
-    for mode in &query.constraints.formation_modes_include {
+    for mode in &query.expression.constraints.formation_modes_include {
         if !matches!(mode.as_str(), "grounded" | "synthesized") {
             return Err(Error::Invalid(format!(
                 "unsupported formation mode constraint: {mode}"
             )));
         }
     }
-    for evidence_class in &query.constraints.evidence_classes {
+    for evidence_class in &query.expression.constraints.evidence_classes {
         if !matches!(
             evidence_class.as_str(),
             "observed" | "reported" | "derived" | "inferred" | "narrative" | "simulated"
@@ -134,7 +159,11 @@ fn budget_values(
 impl CognitiveRuntimeService {
     pub async fn bind_query(&self, query: CognitiveQuery) -> Result<BoundQuery> {
         query.validate()?;
-        validate_hard_constraints(&query)?;
+        for node in query.scopes() {
+            let mut scoped = query.clone();
+            scoped.expression = node.clone();
+            validate_hard_constraints(&scoped)?;
+        }
         self.require_subject(query.subject).await?;
         let config_snapshot = self.configuration.snapshot_for_subject(query.subject)?;
         let retrieval_policy = resolve_retrieval_policy(&config_snapshot)?;
@@ -144,7 +173,7 @@ impl CognitiveRuntimeService {
 
         let mut exact_bindings = Vec::new();
         let mut allowed_revision_refs = HashSet::new();
-        for target in &query.targets {
+        for target in query.scopes().into_iter().flat_map(|node| &node.targets) {
             let QueryTarget::Exact { reference } = target else {
                 continue;
             };
@@ -178,7 +207,7 @@ impl CognitiveRuntimeService {
         }
 
         let mut topology_seed_refs = Vec::new();
-        for target in &query.targets {
+        for target in query.scopes().into_iter().flat_map(|node| &node.targets) {
             if let QueryTarget::SchemaNeighborhood { schema } = target {
                 let (bound_ref, _, _) = self
                     .store
@@ -187,7 +216,7 @@ impl CognitiveRuntimeService {
                 topology_seed_refs.push((bound_ref, "explicit_schema".into()));
             }
         }
-        for cue in &query.cues {
+        for cue in query.scopes().into_iter().flat_map(|node| &node.cues) {
             match cue {
                 Cue::Schema(value) => {
                     let (bound_ref, _, _) = self
@@ -220,7 +249,7 @@ impl CognitiveRuntimeService {
             }
         };
         let enabled_lanes = planned_lanes(&query);
-        if enabled_lanes.is_empty() {
+        if enabled_lanes.is_empty() && !query.requests_resources() {
             return Err(Error::Invalid("query has no enabled retrieval lane".into()));
         }
         let lane_budgets = budget_values(&query, &enabled_lanes, &retrieval_policy);
@@ -228,6 +257,7 @@ impl CognitiveRuntimeService {
         let exact_target_bypasses_auto_level = !exact_bindings.is_empty();
         Ok(BoundQuery {
             query_id: Uuid::now_v7(),
+            bound_at: chrono::Utc::now(),
             source_query: query.clone(),
             bound_at_authority_seq,
             revision_policy,
@@ -236,7 +266,6 @@ impl CognitiveRuntimeService {
             topology_seed_refs,
             enabled_lanes: enabled_lanes.clone(),
             lane_budgets,
-            hard_constraints: query.constraints.clone(),
             accessibility_policy: AccessibilityQueryPolicy {
                 effort: query.effort,
                 exact_target_bypasses_auto_level,
@@ -244,11 +273,6 @@ impl CognitiveRuntimeService {
             selected_embedding_space: None,
             topology_required: explicit_topology(&query),
             fusion_version: "rrf-v1".into(),
-            rerank_policy: RerankPolicy {
-                strength: query.capabilities.text_rerank,
-                enabled: query.capabilities.text_rerank == RequirementStrength::Required,
-                top_n: (query.result_need.limit.saturating_mul(4)).clamp(12, 50),
-            },
             config_snapshot,
             retrieval_policy,
         })

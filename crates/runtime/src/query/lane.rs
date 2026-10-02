@@ -22,6 +22,15 @@ pub struct LaneCandidate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TopologyWorkSummary {
+    pub mechanism: String,
+    pub seed_count: usize,
+    pub visited_nodes: usize,
+    pub complete: bool,
+    pub discarded_mass: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LaneOutput {
     pub family: EvidenceFamily,
     pub status: LaneStatus,
@@ -30,6 +39,7 @@ pub struct LaneOutput {
     pub candidates: Vec<LaneCandidate>,
     #[serde(default)]
     pub diagnostics: Vec<String>,
+    pub topology_work: Option<TopologyWorkSummary>,
 }
 
 impl LaneOutput {
@@ -41,6 +51,7 @@ impl LaneOutput {
             authority_watermark: None,
             candidates: Vec::new(),
             diagnostics: Vec::new(),
+            topology_work: None,
         }
     }
 }

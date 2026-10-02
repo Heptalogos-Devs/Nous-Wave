@@ -67,83 +67,38 @@ uuid_id!(UseEventId);
 uuid_id!(OperationId);
 uuid_id!(CognitiveSeedVersionId);
 
-/// A Host-owned identity. The string is opaque to Nous except for exact
-/// equality and its namespace/type prefix.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct EntityRef(String);
-
-impl EntityRef {
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        validate_opaque_ref(&value, "entity")?;
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
+macro_rules! opaque_ref {
+    ($(#[$metadata:meta])* $name:ident, $prefix:literal) => {
+        $(#[$metadata])*
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        #[serde(transparent)]
+        pub struct $name(String);
+        impl $name {
+            pub fn new(value: impl Into<String>) -> Result<Self> {
+                let value = value.into();
+                validate_opaque_ref(&value, $prefix)?;
+                Ok(Self(value))
+            }
+            pub fn as_str(&self) -> &str { &self.0 }
+        }
+        impl FromStr for $name {
+            type Err = Error;
+            fn from_str(value: &str) -> Result<Self> { Self::new(value) }
+        }
+    };
 }
-
-impl FromStr for EntityRef {
-    type Err = Error;
-
-    fn from_str(value: &str) -> Result<Self> {
-        Self::new(value)
-    }
-}
-
-/// A Host-owned resource identity. Nous stores awareness and uses a resolver;
-/// it does not make resource contents its Authority.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ResourceRef(String);
-
-impl ResourceRef {
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        validate_opaque_ref(&value, "resource")?;
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl FromStr for ResourceRef {
-    type Err = Error;
-
-    fn from_str(value: &str) -> Result<Self> {
-        Self::new(value)
-    }
-}
-
-/// An opaque reference to an external object owned by a Host system.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ObjectRef(String);
-
-impl ObjectRef {
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        validate_opaque_ref(&value, "object")?;
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl FromStr for ObjectRef {
-    type Err = Error;
-
-    fn from_str(value: &str) -> Result<Self> {
-        Self::new(value)
-    }
-}
-
+opaque_ref!(
+    /// A Host-owned identity, opaque except for exact equality and namespace.
+    EntityRef, "entity"
+);
+opaque_ref!(
+    /// A Host-owned resource identity; contents retain external Authority.
+    ResourceRef, "resource"
+);
+opaque_ref!(
+    /// An opaque reference to an external object owned by a Host system.
+    ObjectRef, "object"
+);
 fn validate_opaque_ref(value: &str, expected_prefix: &str) -> Result<()> {
     let parts: Vec<_> = value.split(':').collect();
     if value.is_empty()
@@ -296,10 +251,11 @@ pub enum RepresentationKind {
     ExtractedText,
     Ocr,
     Transcript,
+    AudioDescription,
     ImageDescription,
     SceneDescription,
     Summary,
-    Embedding,
+    StructuredInterpretation,
     ResourceSynopsis,
     Other,
 }
@@ -310,10 +266,11 @@ impl RepresentationKind {
             Self::ExtractedText => "extracted_text",
             Self::Ocr => "ocr",
             Self::Transcript => "transcript",
+            Self::AudioDescription => "audio_description",
             Self::ImageDescription => "image_description",
             Self::SceneDescription => "scene_description",
             Self::Summary => "summary",
-            Self::Embedding => "embedding",
+            Self::StructuredInterpretation => "structured_interpretation",
             Self::ResourceSynopsis => "resource_synopsis",
             Self::Other => "other",
         }
@@ -379,6 +336,7 @@ pub struct ProducerSignature {
     pub implementation: String,
     pub model_identity: Option<String>,
     pub model_revision: Option<String>,
+    pub output_schema_digest: Option<String>,
     pub preprocessing_identity: String,
     pub preprocessing_revision: String,
     pub config_digest: String,
@@ -481,6 +439,8 @@ impl TimeInterval {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FreshnessDescriptor {
+    #[serde(default)]
+    pub occurred: Vec<TemporalExtent>,
     pub observed_at: Option<DateTime<Utc>>,
     pub valid_time: TemporalExtent,
     pub formed_at: Option<DateTime<Utc>>,

@@ -4,16 +4,16 @@
 
 ## 当前语法
 
-- 原子：引号包围的文本、`#concept`、`*`，以及 `@e`、`@tag`、`@anchor`、`@r`、`@object`、`@ref` selector。
+- 原子：引号包围的文本、`#concept`、`*`，以及 `@e`、`@tag`、`@schema`、`@r`、`@object`、`@ref` selector。
 - 组合：显式 `&&`、`||` 和括号；`&&` 优先于 `||`。
-- 软偏好：`+atom`、`-atom` 和 `+recent`、`-recent`。
-- 指令：`$memory`、`$evidence`、`$resource`、`$effort`、`$limit`、`$source`、`$modality`、`$memoryClass`、`$evidenceClass`、`$authority`、`$current`、`$diagnostics`、`$explore`、`$materialize`、`$exclude` 和 `$time`。
+- 软偏好：`+atom`、`-atom` 和 `+recent(axis)`、`-recent(axis)`。
+- 指令：`$memory`、`$evidence`、`$resource`、`$effort`、`$limit`、`$source`、`$modality`、`$cognitiveRole`、`$formationMode`、`$evidenceClass`、`$authority`、`$current`、`$diagnostics`、`$explore`、`$materialize`、`$exclude` 和 `$time`。
 
 单个软偏好操作数目前也接受冗余括号；canonical form 会省略这层括号。
 
 实体 selector 可列多个参与者；绑定后按 LexicalRef 排序，重复规范身份会报错。名称必须由 Kernel identity resolver 唯一绑定；解析歧义不会退化为向量猜测。`@object` 接收不透明 Host 引用，`@ref` 接收 LexicalRef。
 
-`$time` 支持 `occurred`、`observed`、`valid` 三条时间轴，时间点必须带 ISO-8601 offset；`within` 不能与 `from/to/at` 混用。查询指令在同一表达式节点内去重，跨 scope 的 modifier 不自动搬移。
+`$time` 支持 `occurred`、`observed`、`valid` 以及 `formed`、`recorded` 五条时间轴，时间点必须带 ISO-8601 offset；`within` 不能与 `from/to/at` 混用。查询指令在同一表达式节点内去重，跨 scope 的 modifier 不自动搬移。
 
 ## 当前限制
 
@@ -22,3 +22,7 @@
 - 此接口不提供物理算法 selector；它只表达 typed query intent 和约束。
 
 精确 parser/compiler、生成协议及当前行为测试见 [`apps/nous-core/src/nousql`](../../apps/nous-core/src/nousql)、[`proto/nous/wave/v1alpha1`](../../proto/nous/wave/v1alpha1) 和 [`apps/nous-core/tests/nousql.test.ts`](../../apps/nous-core/tests/nousql.test.ts)。
+
+Kernel 保留整棵 expression：AND 对 canonical candidate identity 取交集，OR 取并集；父约束继承，子约束细化。effort/limit/diagnostics/explore/materialize 只允许 root。整树共享预算，执行前按 leaf 数分配；不以 branch 数增加工作量。只有 @ref 是 exact read，其余 selectors 是 typed semantic cues。recent 轴只允许 occurred/observed/valid/formed/recorded，裸 recent 拒绝。
+
+`$current(none|prefer|required)` 可用于 scope；父级 required 不被子级放宽，最终约束进入该 leaf 的 Resource action。exact 子目标仍受父级 domain 限制，例如 `$memory` 下的 Artifact exact read 不产生返回候选。

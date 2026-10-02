@@ -19,18 +19,38 @@ pub(crate) async fn database() -> (TempDir, String, PostgreSQL) {
     let root = TempDir::new().expect("temporary PostgreSQL root");
     let settings = SettingsBuilder::new()
         .version(VersionReq::parse("=18.6.0").expect("version"))
+        .trust_installation_dir(true)
         .host("127.0.0.1")
         .port(0)
         .username("postgres")
         .password("nous_wave")
-        .installation_dir(root.path().join("install"))
+        .installation_dir(
+            std::env::var_os("NOUS_WAVE_POSTGRES_RUNTIME")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| {
+                    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                        .join("../../data/dev/runtime/postgresql")
+                }),
+        )
         .data_dir(root.path().join("data"))
         .password_file(root.path().join("postgres.pgpass"))
         .timeout(Some(Duration::from_secs(30)))
         .temporary(true)
         .build();
     let mut postgres = PostgreSQL::new(settings);
-    postgres.setup().await.expect("setup PostgreSQL");
+    let binary = postgres.settings().installation_dir.join(if cfg!(windows) {
+        "bin/postgres.exe"
+    } else {
+        "bin/postgres"
+    });
+    assert!(
+        binary.is_file(),
+        "PostgreSQL runtime missing; run just dev-prepare"
+    );
+    postgres
+        .setup()
+        .await
+        .expect("initialize PostgreSQL cluster");
     postgres.start().await.expect("start PostgreSQL");
     postgres
         .create_database("nous_reference_profile")
@@ -251,6 +271,7 @@ pub(crate) fn form_input(
     text: &str,
 ) -> ExplicitMemoryInput {
     ExplicitMemoryInput {
+        producer: None,
         operation_id,
         subject,
         cognitive_role: CognitiveRole::Declarative,

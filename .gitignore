@@ -34,6 +34,8 @@ $RECYCLE.BIN/
 # -----------------------------------------------------------------------------
 /.local/
 /config.toml
+/core.toml
+/nous.toml
 .env
 .env.*
 !.env.example
@@ -129,3 +131,5 @@ venv.bak/
 # Project-local generated data
 # -----------------------------------------------------------------------------
 /data/
+/packs/
+/manifest/

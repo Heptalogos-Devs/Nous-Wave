@@ -104,6 +104,7 @@ pub struct MemoryObject {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryRevision {
+    pub producer_signature_id: Option<Uuid>,
     pub memory_revision_id: MemoryRevisionId,
     pub memory_id: MemoryId,
     pub subject_id: SubjectId,
@@ -257,6 +258,8 @@ pub struct AssociationEvidence {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExplicitMemoryInput {
+    #[serde(default)]
+    pub producer: Option<nous_core::ProducerSignature>,
     pub operation_id: OperationId,
     #[serde(default)]
     pub subject: SubjectId,
@@ -360,6 +363,8 @@ fn validate_supports(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryFormationProposal {
+    #[serde(default)]
+    pub producer: Option<nous_core::ProducerSignature>,
     pub operation_id: OperationId,
     pub cognitive_role: CognitiveRole,
     pub formation_mode: FormationMode,
@@ -377,6 +382,7 @@ pub struct MemoryFormationProposal {
 impl MemoryFormationProposal {
     pub fn into_input(self, subject: SubjectId) -> ExplicitMemoryInput {
         ExplicitMemoryInput {
+            producer: self.producer,
             operation_id: self.operation_id,
             subject,
             cognitive_role: self.cognitive_role,
@@ -623,6 +629,7 @@ mod tests {
     fn formation_mode_is_revision_level() {
         let occurrence = OccurrenceId::new();
         let input = ExplicitMemoryInput {
+            producer: None,
             operation_id: OperationId::new(),
             subject: SubjectId::new(),
             cognitive_role: CognitiveRole::Declarative,
@@ -644,6 +651,7 @@ mod tests {
     #[test]
     fn synthesized_requires_two_inputs() {
         let input = ExplicitMemoryInput {
+            producer: None,
             operation_id: OperationId::new(),
             subject: SubjectId::new(),
             cognitive_role: CognitiveRole::Declarative,

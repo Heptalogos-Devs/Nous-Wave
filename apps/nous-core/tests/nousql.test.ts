@@ -31,10 +31,28 @@ it("binds names exactly, sorts joint participants, and rejects duplicate identit
     "@e(ent:amber-lotus-cello-river,ent:quiet-piano-mint-cloud)",
   );
   expect(result.expression.cues).toHaveLength(2);
+  expect(
+    result.expression.cues.every((cue) => cue.cue.case === "entityRef"),
+  ).toBe(true);
   expect(result.expression.modifiers?.preferences[0]?.negative).toBe(false);
   await expect(compileNousQL('@e("Alice","Alice")', resolve)).rejects.toThrow(
     "DUPLICATE_ENTITY_PARTICIPANT",
   );
+});
+it("rejects nested execution controls and requires explicit preference time axes", async () => {
+  await expect(
+    compileNousQL('("a" $limit(2)) || "b"', resolve),
+  ).rejects.toThrow("query root");
+  expect(() => parse('"a" +recent')).toThrow("recent(");
+  const result = await compileNousQL(
+    '"a" +recent(formed) -recent(observed)',
+    resolve,
+  );
+  expect(result.expression.modifiers?.preferences.map((p) => p.key)).toEqual([
+    "recent:formed",
+    "recent:observed",
+  ]);
+  expect(result.boundCanonical).toContain("+recent(formed)");
 });
 it("keeps independent time axes and rejects ambiguous or duplicate modifiers", async () => {
   const now = new Date("2026-09-17T00:00:00Z");

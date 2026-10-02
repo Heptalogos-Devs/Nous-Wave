@@ -11,6 +11,23 @@ import {
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import { IdentityService } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
+
+/** A consumer-owned web identity, with the original public locator preserved. */
+export function webSource(value: string) {
+  const url = new URL(value);
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password
+  )
+    throw new Error("Source URL must be credential-free HTTP(S)");
+  const source = url.toString();
+  return {
+    sourceClass: "web",
+    externalObjectRef: `object:web:${source}`,
+    context: { source_url: source },
+  };
+}
 import {
   ResourceService,
   TopologyService,
@@ -78,10 +95,11 @@ export function createNousClient(transport: Transport) {
     },
     model: {
       formFromObservation: call(model.formFromObservation),
-      interpretSource: call(model.interpretSource),
+      deriveMaterial: call(model.deriveMaterial),
       prepareEmbeddings: call(model.prepareEmbeddings),
     },
     resources: {
+      materialize: call(resources.materializeResource),
       put: call(resources.putResource),
       get: call(resources.getResource),
       list: call(resources.listResources),
@@ -128,22 +146,7 @@ export function createNousClient(transport: Transport) {
         nousql: string,
         options?: RequestOptions,
       ) => {
-        const result = await call(cognition.query)(
-          { subjectId, nousql },
-          options,
-        );
-        return {
-          status: result.status,
-          boundQuery: result.boundQuery,
-          degradation: result.degradation,
-          hits: result.hits.map((h) => ({
-            ref: h.lexicalRef,
-            text: h.text,
-            authority: h.authority,
-            evidenceFamilies: h.evidenceFamilies,
-            formationMode: h.formationMode,
-          })),
-        };
+        return call(cognition.query)({ subjectId, nousql }, options);
       },
       createWorkContext: call(cognition.createWorkContext),
       getWorkContext: call(cognition.getWorkContext),
@@ -185,6 +188,10 @@ export function createNousClient(transport: Transport) {
       purgeEpisode: call(memory.purgeEpisode),
     },
     material: {
+      derivedRegion: call(material.getDerivedRegion),
+      producer: call(material.getProducer),
+      representations: call(material.listDerivedRepresentations),
+      limits: call(material.getLimits),
       getArtifact: call(material.getArtifact),
       listArtifacts: call(material.listArtifacts),
       materialize: call(material.materializeEvidence),

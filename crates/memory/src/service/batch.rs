@@ -19,7 +19,7 @@ impl MemoryService {
         if revisions.is_empty() {
             return Ok(HashMap::new());
         }
-        let rows = sqlx::query("SELECT o.memory_id,o.subject_id,o.cognitive_role,o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,o.accessibility_mode,o.created_at,r.memory_revision_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.formation_mode,r.grounding_occurrence_id,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM memory_objects o JOIN memory_revisions r ON r.memory_id=o.memory_id WHERE o.subject_id=$1 AND r.memory_revision_id=ANY($2::uuid[])")
+        let rows = sqlx::query("SELECT o.memory_id,o.subject_id,o.cognitive_role,o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,o.accessibility_mode,o.created_at,r.memory_revision_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.formation_mode,r.grounding_occurrence_id,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at,r.producer_signature_id FROM memory_objects o JOIN memory_revisions r ON r.memory_id=o.memory_id WHERE o.subject_id=$1 AND r.memory_revision_id=ANY($2::uuid[])")
         .bind(subject.0)
         .bind(revisions)
         .fetch_all(self.store.pool())
@@ -214,6 +214,7 @@ impl MemoryService {
                 created_at: row.try_get("created_at").map_err(db)?,
             };
             let revision = MemoryRevision {
+                producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
                 memory_revision_id: revision_id,
                 memory_id,
                 subject_id: subject,

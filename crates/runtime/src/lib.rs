@@ -9,7 +9,8 @@ mod work_contexts;
 mod working_set;
 pub use query::{
     BoundQuery, CognitiveContributor, CognitiveContributors, LaneCandidate, LaneOutput, LaneStatus,
-    QueryPlan, SharedLaneProvider, WorkCycle, register_retrieval_configuration,
+    QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
+    register_retrieval_configuration,
 };
 pub use work_contexts::*;
 pub use working_set::*;
@@ -21,6 +22,7 @@ use chrono::{DateTime, Utc};
 use nous_core::*;
 use nous_persistence::AuthorityStore;
 use std::collections::HashSet;
+use uuid::Uuid;
 
 pub const RESIDENT_LIMIT_KEY: nous_configuration::ConfigKey<usize> =
     nous_configuration::ConfigKey::new("runtime.resident_limit");
@@ -53,6 +55,9 @@ pub struct CognitiveRuntimeService {
     pub store: AuthorityStore,
     pub resident_limit: usize,
     pub configuration: nous_configuration::ConfigurationService,
+    pending_queries: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<Uuid, query::prepared::PendingQuery>>,
+    >,
 }
 
 impl CognitiveRuntimeService {
@@ -68,6 +73,7 @@ impl CognitiveRuntimeService {
             store,
             resident_limit,
             configuration,
+            pending_queries: Default::default(),
         })
     }
 

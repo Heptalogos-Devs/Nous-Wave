@@ -32,6 +32,21 @@ impl StoredEmbeddingProvider {
     }
 }
 pub fn validate_embedding_config(config: &StoredEmbeddingConfig) -> Result<()> {
+    let mut space = config.space.clone();
+    space.space_hash.clear();
+    let expected = blake3::hash(
+        &serde_json::to_vec(&space).map_err(|error| Error::Invalid(error.to_string()))?,
+    )
+    .to_hex()
+    .to_string();
+    if config.space.space_hash != expected
+        || config.producer.signature_hash
+            != AuthorityStore::canonical_producer(&config.producer)?.signature_hash
+    {
+        return Err(Error::Invalid(
+            "resolved embedding signatures are not canonical".into(),
+        ));
+    }
     if config.space.dimension == 0
         || config.space.dimension > 8192
         || config.space.space_hash.is_empty()

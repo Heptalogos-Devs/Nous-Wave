@@ -18,6 +18,21 @@ CREATE TABLE artifacts (
     UNIQUE(subject_id, content_hash)
 );
 
+CREATE TABLE model_workflow_operations (
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    owner text NOT NULL CHECK (owner IN ('memory','material')),
+    operation_key text NOT NULL CHECK (length(operation_key) BETWEEN 1 AND 256),
+    semantic_digest text NOT NULL CHECK (length(semantic_digest) BETWEEN 1 AND 128),
+    snapshot jsonb NOT NULL,
+    proposal jsonb NULL,
+    outcome jsonb NULL,
+    lease_token uuid NULL,
+    lease_until timestamptz NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY(subject_id,owner,operation_key)
+);
+
 CREATE TABLE observation_occurrences (
     occurrence_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
@@ -61,6 +76,7 @@ CREATE TABLE producer_signatures (
     implementation text NOT NULL,
     model_identity text NULL,
     model_revision text NULL,
+    output_schema_digest text NULL CHECK (output_schema_digest ~ '^[0-9a-f]{64}$'),
     preprocessing_identity text NOT NULL,
     preprocessing_revision text NOT NULL,
     config_digest text NOT NULL,
@@ -86,17 +102,19 @@ CREATE TABLE embedding_spaces (
 CREATE TABLE derived_representations (
     derived_representation_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
-    source_region_id uuid NOT NULL REFERENCES source_regions(source_region_id) ON DELETE CASCADE,
+    input_digest text NOT NULL,
+    strategy text NOT NULL,
+    derivation_key text UNIQUE NOT NULL,
     representation_kind text NOT NULL,
     producer_signature_id uuid NOT NULL REFERENCES producer_signatures(producer_signature_id),
     revision integer NOT NULL CHECK (revision > 0),
     payload_text text NULL,
+    payload_json jsonb NULL CHECK (jsonb_typeof(payload_json) = 'object'),
     payload_artifact_id uuid NULL REFERENCES artifacts(artifact_id),
     quality jsonb NOT NULL DEFAULT '{}',
     created_at timestamptz NOT NULL,
     supersedes uuid NULL REFERENCES derived_representations(derived_representation_id),
-    UNIQUE(subject_id, source_region_id, representation_kind, producer_signature_id, revision),
-    CHECK (payload_text IS NOT NULL OR payload_artifact_id IS NOT NULL)
+    CHECK (payload_text IS NOT NULL OR payload_json IS NOT NULL OR payload_artifact_id IS NOT NULL)
 );
 
 CREATE TABLE derived_regions (
@@ -111,6 +129,36 @@ CREATE TABLE derived_regions (
     UNIQUE(derived_representation_id, coordinate_kind, coordinate_hash)
 );
 
+CREATE TABLE derived_representation_inputs (
+    derived_representation_id uuid NOT NULL REFERENCES derived_representations(derived_representation_id) ON DELETE CASCADE,
+    ordinal integer NOT NULL CHECK (ordinal >= 0),
+    role text NOT NULL CHECK (length(role) > 0),
+    source_region_id uuid NULL REFERENCES source_regions(source_region_id) DEFERRABLE INITIALLY DEFERRED,
+    input_representation_id uuid NULL REFERENCES derived_representations(derived_representation_id) DEFERRABLE INITIALLY DEFERRED,
+    derived_region_id uuid NULL REFERENCES derived_regions(derived_region_id) DEFERRABLE INITIALLY DEFERRED,
+    PRIMARY KEY (derived_representation_id, ordinal),
+    UNIQUE NULLS NOT DISTINCT (derived_representation_id, source_region_id, input_representation_id, derived_region_id),
+    CHECK (num_nonnulls(source_region_id, input_representation_id, derived_region_id) = 1),
+    CHECK (input_representation_id IS DISTINCT FROM derived_representation_id)
+);
+
+CREATE FUNCTION representation_source_regions(owner_subject uuid, representation uuid)
+RETURNS TABLE (source_region_id uuid)
+LANGUAGE SQL STABLE AS $$
+    WITH RECURSIVE ancestry(id) AS (
+        SELECT derived_representation_id FROM derived_representations
+        WHERE subject_id = owner_subject AND derived_representation_id = representation
+        UNION
+        SELECT COALESCE(i.input_representation_id, r.derived_representation_id)
+        FROM ancestry a JOIN derived_representation_inputs i ON i.derived_representation_id = a.id
+        LEFT JOIN derived_regions r ON r.derived_region_id = i.derived_region_id
+        WHERE i.input_representation_id IS NOT NULL OR r.derived_representation_id IS NOT NULL
+    )
+    SELECT DISTINCT i.source_region_id FROM ancestry a
+    JOIN derived_representation_inputs i ON i.derived_representation_id = a.id
+    WHERE i.source_region_id IS NOT NULL
+$$;
+
 CREATE TABLE coverage_needs (
     coverage_need_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
@@ -122,33 +170,6 @@ CREATE TABLE coverage_needs (
     current_representation_id uuid NULL REFERENCES derived_representations(derived_representation_id),
     updated_at timestamptz NOT NULL,
     UNIQUE(subject_id, source_region_id, representation_kind, capability_operation)
-);
-
-CREATE TABLE derivations (
-    derivation_id uuid PRIMARY KEY,
-    derivation_key text UNIQUE NOT NULL,
-    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
-    source_region_id uuid NOT NULL REFERENCES source_regions(source_region_id) ON DELETE CASCADE,
-    representation_kind text NOT NULL,
-    producer_signature_id uuid NOT NULL REFERENCES producer_signatures(producer_signature_id),
-    state text NOT NULL CHECK (state IN ('pending','running','succeeded','failed','unavailable')),
-    successful_representation_id uuid NULL REFERENCES derived_representations(derived_representation_id),
-    created_at timestamptz NOT NULL,
-    updated_at timestamptz NOT NULL
-);
-
-CREATE TABLE derivation_attempts (
-    attempt_id uuid PRIMARY KEY,
-    derivation_id uuid NOT NULL REFERENCES derivations(derivation_id) ON DELETE CASCADE,
-    attempt_no integer NOT NULL CHECK (attempt_no > 0),
-    state text NOT NULL CHECK (state IN ('running','succeeded','transient_failed','permanent_failed')),
-    lease_owner text NULL,
-    lease_until timestamptz NULL,
-    started_at timestamptz NOT NULL,
-    finished_at timestamptz NULL,
-    problem_code text NULL,
-    problem_detail jsonb NOT NULL DEFAULT '{}',
-    UNIQUE(derivation_id, attempt_no)
 );
 
 CREATE TABLE entity_mentions (
@@ -178,6 +199,9 @@ CREATE TABLE entity_binding_revisions (
 CREATE TABLE resources (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     resource_ref text NOT NULL,
+    adapter_kind text NOT NULL,
+    provider_profile text NOT NULL,
+    provider_locator text NOT NULL,
     display_label text NULL,
     authority_class text NOT NULL,
     coverage jsonb NOT NULL DEFAULT '{}',

@@ -1,0 +1,168 @@
+# Nous Wave 用户配置，放置于 ConfigurationRoot/nous.toml。
+# SecretRoot/gateway.env 保存 key；所有目录由 bootstrap.toml 的 [paths] 定位。
+# 修改 role/model 配置后重启 Core；示例 identifier 空值表示尚未配置。
+port = 9470 # 0=自动；应用 API 仅 loopback。
+material_strategy = "description_only" # description_only / direct_structured / describe_then_structure
+
+dotenv_file = "gateway.env" # 相对 SecretRoot；OS environment 优先。
+
+[database]
+mode = "managed_private" # managed_private / external；默认使用私有 runtime pack。
+name = "nous_wave"
+max_connections = 8
+# url_env = "NOUS_DATABASE_URL" # external 时必填；值进入受控环境或 dotenv。
+
+[object_store]
+max_upload_bytes = 8589934592 # Artifact 唯一上传上限，默认 8 GiB。
+
+# 可选默认策略：description_only / direct_structured / describe_then_structure。
+# 首次建议 description_only；需要比较信息保留与成本时使用后两者。
+# 两阶段结构化失败会保留已提交的 rich description。
+# Gateway：只配置应用调用地址与 token 变量名。上游渠道/供应商 key/配额由 New API 管理。
+[gateway_profiles.local]
+base_url = "http://127.0.0.1:3000/v1" # 必填；远程必须 HTTPS，literal loopback 可用 HTTP。
+credential_env = "NOUS_GATEWAY_TOKEN" # 必填；值写到 SecretRoot/gateway.env，不能在本文件放 key。
+enabled = false                      # 可选；填好模型与 key 后改为 true。
+request_timeout_ms = 30000            # 可选；1–300000 毫秒，建议先用 30 秒。
+
+# ModelProfile 是可复用路由；RoleBinding 分别给 formation、vision、embedding 等选择 profile。
+# protocol 选项：openai-chat / openai-responses / openai-embeddings /
+# openai-audio-transcription / rerank-v1。聊天选 chat，明确支持 Responses 时可改 responses。
+# capabilities 声明支持 text / image_input / structured_output / embedding /
+# audio_input / video_input / speech_transcription / rerank；可执行配置完整时报告 READY。
+[model_profiles.formation]
+gateway = "local"
+protocol = "openai-chat"
+model = "" # 启用该角色时填写实际 identifier；空值=NOT_CONFIGURED。
+capabilities = ["text", "structured_output"]
+# model_revision = "实际已知的模型修订" # 可选；不知道就省略，不能凭空填 configured。
+
+[model_profiles.vision]
+gateway = "local"
+protocol = "openai-chat"
+model = "" # 需支持图片输入；可与文本模型相同，但要确认能力。
+capabilities = ["text", "image_input", "audio_input", "video_input", "structured_output"]
+
+[model_profiles.embedding]
+gateway = "local"
+protocol = "openai-embeddings"
+model = "" # 选择实际 embedding endpoint 的模型，不能用聊天模型。
+capabilities = ["embedding"]
+
+[model_profiles.embedding.embedding]
+max_batch_size = 64 # 每个真实 HTTP 请求 1–64 条；网关不接受数组批量时设为 1。失败不自动改单条重试。
+dimension = 1 # 占位值，必须改为实际维度；不会从第一条 vector 偷偷学习维度。
+weights_revision = "REPLACE_WEIGHTS_REVISION" # 必填；声明所选权重/版本，形成向量空间身份。
+task = "retrieval"                         # 必填；所选模型的实际任务语义。
+input_representation = "text"               # 必填；当前路径使用文本。
+preprocessing_identity = "utf8"             # 必填；实际输入预处理的稳定身份。
+preprocessing_revision = "1"                # 必填；预处理版本。
+normalization = "none"                      # 必填；填写实际输出规范；不是隐式转换开关。
+output_semantics = "dense_vector"           # 必填；实际输出语义。
+
+[model_profiles.rerank]
+gateway = "local"
+protocol = "rerank-v1"
+model = "" # 可选角色；需提供 /v1/rerank 标准 index/score response。
+capabilities = ["rerank"]
+
+[model_profiles.speech]
+gateway = "local"
+protocol = "openai-audio-transcription"
+model = "" # 可选角色；需支持标准 multipart audio transcription。
+capabilities = ["speech_transcription"]
+
+# Role 参数独立，不存在 global temperature/max tokens。
+# requirement：optional（不可用保留基础路径）/ preferred（降级可见）/ required（不能宣称完整完成）。
+# 生成角色可设置 temperature 0–2、top_p 0–1、max_output_tokens 1–65536、timeout_ms 1–300000。
+# 建议先低 temperature；不支持 sampling 参数的模型应删除相应参数。
+# Prompt 可省略以使用项目默认；prompts/... 明确选择 ProgramRoot。
+# 用户覆盖用 config-prompts/...，相对 ConfigurationRoot/prompts；缺失不 fallback。
+# 每份最多 128 KiB，修改会改变 producer。
+[roles.memory_formation]
+model = "formation"
+prompt = "prompts/memory/formation.md"
+temperature = 0.1
+max_output_tokens = 4096
+requirement = "preferred"
+
+[roles.projection_steward]
+model = "formation"
+prompt = "prompts/projection/steward.md"
+temperature = 0.1
+max_output_tokens = 2048
+requirement = "optional"
+
+[roles.material_description]
+model = "vision"
+prompt = "prompts/material/description.md"
+temperature = 0.1
+max_output_tokens = 8192
+requirement = "optional"
+
+[roles.material_structuring]
+model = "formation"
+prompt = "prompts/material/structure.md"
+temperature = 0.1
+max_output_tokens = 4096
+requirement = "optional"
+
+# 原始图片/视频直接结构化：与描述、文本再结构化独立配置。
+[roles.material_direct_structuring]
+model = "vision"
+prompt = "prompts/material/direct-structure.md"
+temperature = 0.1
+max_output_tokens = 4096
+requirement = "optional"
+
+[roles.query_embedding]
+model = "embedding"
+requirement = "preferred"
+
+[roles.query_rerank]
+model = "rerank"
+requirement = "optional"
+
+[roles.speech_transcription]
+model = "speech"
+requirement = "optional"
+
+# 多模态音频理解；无需单独 TTS/ASR endpoint。
+[audio]
+input_mode = "direct" # direct / transcription；后者要求 speech_transcription role。
+max_source_bytes = 16777216 # 1 KiB–24 MiB；拒绝超限，不静默截断。
+
+# 视频直接发送 Artifact；模型需 video_input，网关需支持 video_url。
+[video]
+input_mode = "direct" # direct / frames；frames 显式抽帧，本轮不使用。
+# FFmpeg 来自已安装的 LGPL-only runtime pack；serve 不下载。
+# ffmpeg_executable = "C:/tools/ffmpeg/bin/ffmpeg.exe" # 可选：使用已有 executable，省略则使用 RuntimeRoot 的 pack。
+max_source_bytes = 16777216   # 可选；视频输入预算，1 KiB–64 MiB，默认 16 MiB。
+max_video_seconds = 60        # 可选；最多观察多少秒，0–3600（必须 >0）。
+max_frames = 8                # 可选；1–16，建议先 4–8，越多越贵。
+max_frame_bytes = 262144      # 可选；每帧 1 KiB–1 MiB，默认 256 KiB。
+max_audio_bytes = 4194304     # 可选；44 B–16 MiB，默认 4 MiB；音轨转为 mono 16 kHz WAV。
+process_timeout_ms = 30000    # 可选；每个预处理进程的 timeout，建议 30 秒。
+prompt = "material/video-description.md" # 可选；视频时间序列专用 Prompt，仍受同一 registry 管理。
+
+# Consumer 控制的是上下文贡献预算，不是模型账号或认知 Authority。
+[[consumers]]
+consumer_id = "default"      # 必填；进程内唯一。
+revision = "1"               # 可选；修改 consumer policy 时使用新修订。
+memory = "PREFERRED"         # REQUIRED / PREFERRED / OPTIONAL / FORBIDDEN。
+runtime = "OPTIONAL"         # 同上，控制 Runtime context 是否需要。
+resource = "OPTIONAL"        # 同上，控制 Resource contribution。
+max_items = 32               # 可选；1–2048，建议 32。
+max_text_bytes = 32768       # 可选；1–1048576，建议 32 KiB。
+materialize = true           # 可选；展开可提供的文本。
+# 可选 External Resource：只对接你已有的 RAGFlow；Nous 不安装或配置其模型/dataset。
+# 普通本地材料不依赖它。无 RAGFlow 时保持 disabled，不影响默认启动。
+# key 放 SecretRoot/gateway.env 或环境变量，勿写入本文件。
+# Resource 的 provider_locator 是 dataset selector，例如 {"dataset_ids":["dataset-id"]}。
+[resource_profiles.ragflow]
+adapter_kind = "ragflow"
+base_url = "http://127.0.0.1:9380/api/v1" # API 根；按你已有实例或反向代理修改。
+credential_env = "RAGFLOW_API_KEY"
+enabled = false
+timeout_ms = 30000 # 可选；1–300000 ms，建议 30 秒；支持调用方取消。
+max_material_bytes = 262144 # 可选；1–1048576 bytes/chunk，建议 256 KiB。

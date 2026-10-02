@@ -45,15 +45,63 @@ impl CognitiveRuntimeService {
         self.query_with_plan(bound, contributors, plan).await
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "query orchestration keeps single fusion, owner batching, and final ordering in one semantic boundary"
-    )]
     pub async fn query_with_plan(
         &self,
         bound: BoundQuery,
         contributors: CognitiveContributors<'_>,
         plan: QueryPlan,
+    ) -> Result<CognitiveQueryResult> {
+        Ok(self
+            .execute_query_with_plan(bound, contributors, plan, None)
+            .await?
+            .result)
+    }
+
+    pub async fn execute_query_with_plan(
+        &self,
+        bound: BoundQuery,
+        contributors: CognitiveContributors<'_>,
+        plan: QueryPlan,
+        validated_pool_limit: Option<usize>,
+    ) -> Result<super::QueryExecution> {
+        if validated_pool_limit.is_some_and(|limit| limit == 0 || limit > 64) {
+            return Err(Error::Invalid("validated pool limit must be 1..64".into()));
+        }
+        let output_limit = validated_pool_limit.unwrap_or(bound.source_query.result_need.limit);
+        if bound.source_query.expression.operation != QueryOperation::Atom {
+            return self
+                .query_tree(bound, contributors, plan, output_limit)
+                .await;
+        }
+        let result = self
+            .query_atom_with_plan(bound.clone(), &contributors, plan, output_limit)
+            .await?;
+        let leaves = vec![super::types::BoundLeaf {
+            ordinal: 0,
+            bound: bound.clone(),
+            hits: result
+                .results
+                .iter()
+                .map(super::types::CandidateStamp::from)
+                .collect(),
+        }];
+        Ok(super::QueryExecution {
+            bound,
+            leaves,
+            result,
+        })
+    }
+
+    #[expect(
+        clippy::too_many_lines,
+        reason = "query orchestration keeps single fusion, owner batching, and final ordering in one semantic boundary"
+    )]
+    pub(super) async fn query_atom_with_plan(
+        &self,
+        bound: BoundQuery,
+        contributors: &CognitiveContributors<'_>,
+        plan: QueryPlan,
+        output_limit: usize,
     ) -> Result<CognitiveQueryResult> {
         let query = &bound.source_query;
         let mut result = CognitiveQueryResult {
@@ -62,6 +110,7 @@ impl CognitiveRuntimeService {
             status: QueryStatus::Complete,
             results: Vec::new(),
             resource_actions: Vec::new(),
+            resource_records: Vec::new(),
             degradation: Vec::new(),
             diagnostics: None,
         };
@@ -72,6 +121,7 @@ impl CognitiveRuntimeService {
         if let Some(memory) = contributors.memory {
             lane_outputs.extend(memory.direct_lanes(&bound, &plan).await?);
         } else if query
+            .expression
             .targets
             .iter()
             .any(|target| matches!(target, QueryTarget::Memory))
@@ -90,11 +140,11 @@ impl CognitiveRuntimeService {
         if !exact_output.candidates.is_empty() {
             lane_outputs.push(exact_output);
         }
-        let runtime_allowed = query.targets.is_empty()
-            || query.targets.iter().any(|target| {
+        let runtime_allowed = query.expression.targets.is_empty()
+            || query.expression.targets.iter().any(|target| {
                 matches!(
                     target,
-                    QueryTarget::AnyRelevantCognition | QueryTarget::Evidence
+                    QueryTarget::AnyRelevantCognition | QueryTarget::Memory | QueryTarget::Evidence
                 )
             });
         if runtime_allowed && let Some(session) = query.session {
@@ -111,8 +161,12 @@ impl CognitiveRuntimeService {
                         provider_metadata: serde_json::Value::Null,
                     }],
                     diagnostics: Vec::new(),
+                    topology_work: None,
                 });
             }
+        }
+        for output in &mut lane_outputs {
+            output.candidates.truncate(plan.lane_budget(output.family));
         }
         let mut candidates = HashMap::<CognitiveRef, CandidateRankInput>::new();
         let mut lane_drops = BTreeMap::new();
@@ -131,6 +185,13 @@ impl CognitiveRuntimeService {
                     detail: output.diagnostics.first().cloned(),
                 });
             }
+            if output.status == LaneStatus::Truncated {
+                result.status = QueryStatus::Partial;
+                result.degradation.push(Degradation {
+                    code: format!("{:?}_lane_truncated", output.family).to_lowercase(),
+                    detail: Some("Configured lane work budget exhausted".into()),
+                });
+            }
             for candidate in &output.candidates {
                 let entry = candidates
                     .entry(candidate.reference.clone())
@@ -146,6 +207,46 @@ impl CognitiveRuntimeService {
                     .and_modify(|rank| *rank = (*rank).min(candidate.rank as usize))
                     .or_insert(candidate.rank as usize);
                 entry.variants.extend(candidate.variants.clone());
+            }
+        }
+        let memory_only = query
+            .expression
+            .targets
+            .iter()
+            .any(|target| matches!(target, QueryTarget::Memory))
+            && !query.expression.targets.iter().any(|target| {
+                matches!(
+                    target,
+                    QueryTarget::AnyRelevantCognition
+                        | QueryTarget::Evidence
+                        | QueryTarget::Resource
+                )
+            });
+        let resource_only = query
+            .expression
+            .targets
+            .iter()
+            .any(|target| matches!(target, QueryTarget::Resource))
+            && !query.expression.targets.iter().any(|target| {
+                matches!(
+                    target,
+                    QueryTarget::AnyRelevantCognition | QueryTarget::Memory | QueryTarget::Evidence
+                )
+            });
+        if memory_only || resource_only {
+            let before = candidates.len();
+            candidates.retain(|reference, _| {
+                if resource_only {
+                    matches!(reference, CognitiveRef::Resource(_))
+                } else {
+                    contributors
+                        .memory
+                        .is_some_and(|owner| owner.owns(reference))
+                }
+            });
+            let dropped = before - candidates.len();
+            if dropped > 0 {
+                *lane_drops.entry("domain_ineligible".into()).or_default() += dropped;
             }
         }
         let rank_inputs = candidates.into_values().collect::<Vec<_>>();
@@ -239,6 +340,10 @@ impl CognitiveRuntimeService {
         for candidate in ranked.into_iter().take(validation_bound) {
             if let Some(mut hit) = materialized.remove(&candidate.reference) {
                 hit.match_evidence = MatchEvidence {
+                    preference_score: 0.0,
+                    rerank_score: None,
+                    baseline_rank: 0,
+                    final_rank: 0,
                     families: candidate.families.clone(),
                     base_rank_score: candidate.baseline_score,
                     best_lane_rank: candidate.best_lane_rank as u32,
@@ -253,7 +358,12 @@ impl CognitiveRuntimeService {
         let (actions, degradation) = self.resource_actions_for_query(query, &plan).await?;
         result.resource_actions = actions;
         result.degradation.extend(degradation);
-        result.results.truncate(query.result_need.limit);
+        super::preferences::apply(
+            &mut result.results,
+            &query.expression.preferences,
+            bound.bound_at,
+        );
+        result.results.truncate(output_limit);
         if !result.degradation.is_empty() && result.status != QueryStatus::Partial {
             result.status = if result
                 .degradation
@@ -269,6 +379,31 @@ impl CognitiveRuntimeService {
             result.status = QueryStatus::Partial;
         }
         explain_plan(&mut result, query, &plan);
+        if let Some(diagnostics) = result.diagnostics.as_mut() {
+            for lane in &lane_outputs {
+                let name = format!("{:?}", lane.family).to_lowercase();
+                diagnostics
+                    .lane_status
+                    .insert(name.clone(), format!("{:?}", lane.status).to_lowercase());
+                *diagnostics
+                    .candidate_counts
+                    .entry(format!("{name}_candidates"))
+                    .or_default() += lane.candidates.len();
+                if let Some(work) = &lane.topology_work {
+                    diagnostics
+                        .lane_status
+                        .insert("topology_mechanism".into(), work.mechanism.clone());
+                    diagnostics
+                        .candidate_counts
+                        .insert("topology_seed_count".into(), work.seed_count);
+                    diagnostics
+                        .candidate_counts
+                        .insert("topology_visited_nodes".into(), work.visited_nodes);
+                    diagnostics.topology_complete = Some(work.complete);
+                    diagnostics.topology_discarded_mass = Some(work.discarded_mass);
+                }
+            }
+        }
         if !validation_drops.is_empty() {
             let diagnostics = result.diagnostics.get_or_insert(QueryDiagnostics {
                 candidate_counts: BTreeMap::new(),
@@ -373,6 +508,8 @@ fn reference_hit(
         _ => AuthorityClass::Evidence,
     };
     CognitiveHit {
+        authority_epoch: None,
+        preference_refs: Vec::new(),
         reference: reference.clone(),
         revision: None,
         semantic_role: Some("reference".into()),
@@ -381,6 +518,7 @@ fn reference_hit(
         representation: None,
         authority,
         freshness: FreshnessDescriptor {
+            occurred: Vec::new(),
             observed_at: None,
             valid_time: TemporalExtent::Unknown,
             formed_at: None,
@@ -396,6 +534,10 @@ fn reference_hit(
             Vec::new()
         },
         match_evidence: MatchEvidence {
+            preference_score: 0.0,
+            rerank_score: None,
+            baseline_rank: 0,
+            final_rank: 0,
             families: vec![family],
             base_rank_score: 1.0,
             best_lane_rank: 1,

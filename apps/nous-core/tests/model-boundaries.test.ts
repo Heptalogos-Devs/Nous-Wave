@@ -1,0 +1,338 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer } from "node:http";
+import { z } from "zod";
+import { modelConfigurationSchema } from "../src/model/configuration.js";
+import { ModelInvocations } from "../src/model/invocations.js";
+import { PromptRegistry } from "../src/model/prompts.js";
+import { structuredOutputContract } from "../src/model/schemas/provider.js";
+
+const temporary: string[] = [];
+afterEach(async () => {
+  await Promise.all(
+    temporary.splice(0).map((p) => rm(p, { recursive: true, force: true })),
+  );
+});
+describe("model protocol and provenance boundaries", () => {
+  it("rejects unsafe destinations and misbound protocols before client creation", () => {
+    for (const base_url of [
+      "http://gateway.example/v1",
+      "https://user:secret@gateway.example/v1",
+      "https://gateway.example/v1?token=secret",
+      "http://localhost/v1",
+    ])
+      expect(
+        modelConfigurationSchema.safeParse({
+          gateway_profiles: { primary: { base_url, credential_env: "TOKEN" } },
+        }).success,
+      ).toBe(false);
+    expect(
+      modelConfigurationSchema.parse({
+        gateway_profiles: {
+          primary: {
+            base_url: "http://127.0.0.1:9000/v1/",
+            credential_env: "TOKEN",
+          },
+        },
+      }).gateway_profiles.primary?.base_url,
+    ).toBe("http://127.0.0.1:9000/v1");
+    expect(
+      modelConfigurationSchema.safeParse({
+        gateway_profiles: {
+          local: {
+            base_url: "https://example.com/v1",
+            credential_env: "TOKEN",
+          },
+        },
+        model_profiles: {
+          chat: {
+            gateway: "local",
+            protocol: "openai-chat",
+            model: "chat",
+            capabilities: ["text"],
+          },
+        },
+        roles: { query_embedding: { model: "chat" } },
+      }).success,
+    ).toBe(false);
+  });
+  it("bounds prompt decoding and canonical path while tracking changed content", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "nous-prompts-"));
+    temporary.push(dir);
+    const root = join(dir, "prompts");
+    await mkdir(root);
+    await writeFile(join(root, "p.md"), "first");
+    await writeFile(join(dir, "outside.md"), "outside");
+    const registry = new PromptRegistry(root);
+    const first = await registry.load("memory_formation", "p.md");
+    await writeFile(join(root, "p.md"), "second");
+    expect(
+      (await registry.load("memory_formation", "prompts/p.md"))?.digest,
+    ).not.toBe(first?.digest);
+    await expect(
+      registry.load("memory_formation", "../outside.md"),
+    ).rejects.toThrow("allowed root");
+    await writeFile(join(root, "p.md"), Buffer.alloc(128 * 1024 + 1));
+    await expect(registry.load("memory_formation", "p.md")).rejects.toThrow(
+      "128 KiB",
+    );
+    await writeFile(join(root, "p.md"), Buffer.from([0xff]));
+    await expect(registry.load("memory_formation", "p.md")).rejects.toThrow();
+  });
+  it("uses explicit chat/embedding/rerank endpoints and redacts provider errors", async () => {
+    const requests: { path: string; body: Record<string, unknown> }[] = [];
+    const server = createServer((req, res) => {
+      void (async () => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          const data: unknown = chunk;
+          if (!(data instanceof Uint8Array))
+            throw new Error("Unexpected request chunk");
+          chunks.push(Buffer.from(data));
+        }
+        const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<
+          string,
+          unknown
+        >;
+        requests.push({ path: req.url!, body });
+        res.setHeader("Content-Type", "application/json");
+        if (req.url === "/v1/chat/completions")
+          res.end(
+            JSON.stringify({
+              id: "fixture",
+              created: 1,
+              model: "chat-id",
+              choices: [
+                {
+                  index: 0,
+                  message: {
+                    role: "assistant",
+                    content: '{"value":"faithful"}',
+                  },
+                  finish_reason:
+                    body.model === "incomplete-chat" ? "length" : "stop",
+                },
+              ],
+              usage: {
+                prompt_tokens: 1,
+                completion_tokens: 2,
+                total_tokens: 3,
+              },
+            }),
+          );
+        else if (req.url === "/v1/embeddings")
+          res.end(
+            JSON.stringify({
+              data: [{ object: "embedding", index: 0, embedding: [0.2, 0.3] }],
+              model: "embedding-id",
+              usage: { prompt_tokens: 1, total_tokens: 1 },
+            }),
+          );
+        else if (body.model === "bad-rerank") {
+          res.statusCode = 401;
+          res.end('{"error":"fixture-secret echoed by provider"}');
+        } else if (body.model === "duplicate-rerank")
+          res.end(
+            '{"results":[{"index":0,"relevance_score":1},{"index":0,"relevance_score":0}]}',
+          );
+        else if (body.model === "out-of-range-rerank")
+          res.end('{"results":[{"index":2,"relevance_score":1}]}');
+        else if (body.model === "nonfinite-rerank")
+          res.end('{"results":[{"index":0,"relevance_score":1e400}]}');
+        else
+          res.end(
+            JSON.stringify({ results: [{ index: 1, relevance_score: 0.8 }] }),
+          );
+      })().catch(() => {
+        res.destroy();
+      });
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    const address = server.address();
+    if (!address || typeof address === "string")
+      throw new Error("Missing fixture port");
+    process.env.NOUS_TEST_GATEWAY = "fixture-secret";
+    try {
+      const config = modelConfigurationSchema.parse({
+        gateway_profiles: {
+          fixture: {
+            base_url: `http://127.0.0.1:${address.port}/v1`,
+            credential_env: "NOUS_TEST_GATEWAY",
+          },
+        },
+        model_profiles: {
+          chat: {
+            gateway: "fixture",
+            protocol: "openai-chat",
+            model: "chat-id",
+            capabilities: [
+              "text",
+              "structured_output",
+              "audio_input",
+              "video_input",
+            ],
+          },
+          embedding: {
+            gateway: "fixture",
+            protocol: "openai-embeddings",
+            model: "embedding-id",
+            capabilities: ["embedding"],
+            embedding: {
+              dimension: 2,
+              weights_revision: "1",
+              task: "retrieval",
+              input_representation: "text",
+              preprocessing_identity: "utf8",
+              preprocessing_revision: "1",
+              normalization: "none",
+              output_semantics: "dense",
+            },
+          },
+          rerank: {
+            gateway: "fixture",
+            protocol: "rerank-v1",
+            model: "rank-id",
+            capabilities: ["rerank"],
+          },
+        },
+        roles: {
+          memory_formation: { model: "chat" },
+          query_embedding: { model: "embedding" },
+          query_rerank: { model: "rerank" },
+        },
+      });
+      const runtime = await ModelInvocations.create(config);
+      expect(
+        runtime.capabilities
+          .filter(
+            (c) =>
+              c.name === "model.memory_formation" ||
+              c.name === "model.query_embedding" ||
+              c.name === "model.query_rerank",
+          )
+          .every((c) => c.state === "READY"),
+      ).toBe(true);
+      const formation = await runtime.generate(
+        "memory_formation",
+        "evidence",
+        z.object({ value: z.string() }),
+      );
+      expect(formation.value).toEqual({ value: "faithful" });
+      expect(formation.producerMetadata.promptDigest).toHaveLength(64);
+      const outputContract = structuredOutputContract(
+        z.object({ value: z.string() }),
+      );
+      expect(formation.producerMetadata.outputSchemaDigest).toBe(
+        outputContract.digest,
+      );
+      const format = requests[0]!.body.response_format as {
+        type: string;
+        json_schema: { strict: boolean; schema: unknown };
+      };
+      expect(format.type).toBe("json_schema");
+      expect(format.json_schema.strict).toBe(true);
+      expect(format.json_schema.schema).toEqual(outputContract.providerSchema);
+      expect(
+        (await runtime.embeddingBatch(["evidence"], "embedding-id")).value[0],
+      ).toEqual([0.2, 0.3]);
+      expect(
+        (await runtime.rerank("intent", ["a", "b"], 2)).value[0]?.index,
+      ).toBe(1);
+      expect(requests.map((r) => r.path)).toEqual([
+        "/v1/chat/completions",
+        "/v1/embeddings",
+        "/v1/rerank",
+      ]);
+      await runtime.generate("memory_formation", [
+        { type: "file", data: Uint8Array.of(1, 2, 3), mediaType: "image/png" },
+      ]);
+      const imageMessages = requests.at(-1)!.body.messages as {
+        content: unknown[];
+      }[];
+      expect(imageMessages.at(-1)?.content).toMatchObject([
+        { type: "image_url", image_url: { url: "data:image/png;base64,AQID" } },
+      ]);
+      for (const mediaType of ["audio/mpeg", "video/mp4"]) {
+        const result = await runtime.generate(
+          "memory_formation",
+          "evidence",
+          z.object({ value: z.string() }),
+          undefined,
+          undefined,
+          undefined,
+          { bytes: Uint8Array.of(1, 2, 3), mediaType },
+        );
+        expect(result.value).toEqual({ value: "faithful" });
+        expect(result.producerMetadata.outputSchemaDigest).toBe(
+          outputContract.digest,
+        );
+        expect(requests.at(-1)!.body.response_format).toMatchObject({
+          type: "json_schema",
+          json_schema: { strict: true, schema: outputContract.providerSchema },
+        });
+        const messages = requests.at(-1)!.body.messages as {
+          content: unknown;
+        }[];
+        expect(messages[1]?.content).toEqual([
+          { type: "text", text: "evidence" },
+          mediaType === "audio/mpeg"
+            ? {
+                type: "input_audio",
+                input_audio: { data: "AQID", format: "mp3" },
+              }
+            : {
+                type: "video_url",
+                video_url: { url: "data:video/mp4;base64,AQID" },
+              },
+        ]);
+      }
+      for (const model of [
+        "bad-rerank",
+        "duplicate-rerank",
+        "out-of-range-rerank",
+        "nonfinite-rerank",
+      ]) {
+        config.model_profiles.rerank!.model = model;
+        await expect(
+          (await ModelInvocations.create(config)).rerank(
+            "intent",
+            ["a", "b"],
+            2,
+          ),
+        ).rejects.toThrow("Rerank invocation failed");
+      }
+      expect(JSON.stringify(formation.producerMetadata)).not.toContain(
+        "fixture-secret",
+      );
+      config.model_profiles.chat!.model = "incomplete-chat";
+      const incomplete = await ModelInvocations.create(config);
+      await expect(
+        incomplete.generate(
+          "memory_formation",
+          "evidence",
+          z.object({ value: z.string() }),
+        ),
+      ).rejects.toThrow("output_incomplete_length");
+      expect(
+        incomplete.capabilities.find((c) => c.name === "model.memory_formation")
+          ?.state,
+      ).toBe("READY");
+      await expect(
+        incomplete.generate(
+          "memory_formation",
+          "evidence",
+          z.object({ value: z.string() }),
+          undefined,
+          undefined,
+          undefined,
+          { bytes: Uint8Array.of(1), mediaType: "audio/mpeg" },
+        ),
+      ).rejects.toThrow("response_validation");
+    } finally {
+      delete process.env.NOUS_TEST_GATEWAY;
+      await new Promise<void>((done) => server.close(() => done()));
+    }
+  });
+});

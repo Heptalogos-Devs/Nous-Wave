@@ -134,7 +134,19 @@ impl NousRuntime {
     }
 
     pub async fn query(&self, query: CognitiveQuery) -> Result<CognitiveQueryResult> {
-        let bound = self.cognition.bind_query(query).await?;
+        Ok(self.execute_query(query, None).await?.result)
+    }
+    pub async fn execute_query(
+        &self,
+        query: CognitiveQuery,
+        pool_limit: Option<usize>,
+    ) -> Result<nous_runtime::QueryExecution> {
+        let mut bound = self.cognition.bind_query(query).await?;
+        bound.selected_embedding_space = self
+            .serving
+            .embedding
+            .as_ref()
+            .map(|provider| provider.space());
         let plan = nous_runtime::QueryPlan::for_bound_query(&bound);
         let subject_capabilities = self
             .subjects
@@ -149,9 +161,9 @@ impl NousRuntime {
                 &bound.config_snapshot,
             )
             .await?;
-        let mut result = self
+        let mut execution = self
             .cognition
-            .query_with_plan(
+            .execute_query_with_plan(
                 bound,
                 nous_runtime::CognitiveContributors {
                     shared: Some(&self.serving),
@@ -165,8 +177,10 @@ impl NousRuntime {
                         .flatten(),
                 },
                 plan,
+                pool_limit,
             )
             .await?;
+        let result = &mut execution.result;
         result.degradation.extend(projection.degradation);
         if !result.degradation.is_empty() && result.status != QueryStatus::Partial {
             result.status = if result
@@ -179,7 +193,7 @@ impl NousRuntime {
                 QueryStatus::Degraded
             };
         }
-        Ok(result)
+        Ok(execution)
     }
 
     pub async fn status(&self) -> RuntimeStatus {

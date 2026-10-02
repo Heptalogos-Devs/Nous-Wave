@@ -1,0 +1,196 @@
+{
+  "units": [
+    {
+      "sha256": "c5aae2b0aae02a7975f5a90e44ad5fe939199abdf66239b9a363293489424520",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-Writing-Tools-240610",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-Writing-Tools-240610_big.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot shows proofreading and rewriting an email?",
+      "file": "apple-Writing-Tools-240610.jpg",
+      "oracle_patterns": [
+        "proofread",
+        "rewrite",
+        "mail|email"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "870461d8850ac04fd7fa6bb07dca248d421af9bcec18f7933dad6ddaa59ae1f6",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-Focus-Reduce-Interruptions",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-Focus-Reduce-Interruptions-240610_inline.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot displays an important pickup notification under Reduce Interruptions?",
+      "file": "apple-Focus-Reduce-Interruptions.jpg",
+      "oracle_patterns": [
+        "reduce interruptions",
+        "important|notification"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "6674005400044e6bfe73f56b27cde97c87c8ea95d4775b35d100b9e433e5c598",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-Notes-record-and-transcribe-audio",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-Notes-record-and-transcribe-audio-240610_big.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot shows a recorded architecture lecture in Notes?",
+      "file": "apple-Notes-record-and-transcribe-audio.jpg",
+      "oracle_patterns": [
+        "ARCH.?201",
+        "record|audio",
+        "notes|lecture"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "a6bf6c03301fcd09e731174c43b206598c0cf73df58d2c29b130695de55b00eb",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-Siri-ChatGPT-request",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-Siri-ChatGPT-request-240610_inline.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot asks permission for Siri to use ChatGPT?",
+      "file": "apple-Siri-ChatGPT-request.jpg",
+      "oracle_patterns": [
+        "ChatGPT",
+        "permission|confirm|use chatgpt"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "01cbae0cb2e208e43bddd0a7ae6de42d5516add53b3e01acd7eacbe4256e8f3b",
+      "rights": "Apple newsroom official product screenshot; research cache only, no redistribution",
+      "id": "apple-ChatGPT-Writing-Tools-Compose-prompt",
+      "source_url": "https://www.apple.com/newsroom/images/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/article/Apple-WWDC24-Apple-Intelligence-ChatGPT-Writing-Tools-Compose-prompt-240610_big.jpg.medium.jpg",
+      "oracle_status": "PASS",
+      "media_type": "image/jpeg",
+      "query": "Which screenshot composes a bedtime story for Annie?",
+      "file": "apple-ChatGPT-Writing-Tools-Compose-prompt.jpg",
+      "oracle_patterns": [
+        "Annie",
+        "bedtime|story",
+        "Include All Text"
+      ],
+      "context": {
+        "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
+        "oracle_review": "Visual source re-read; feature labels and interface verified"
+      }
+    },
+    {
+      "sha256": "6884a0bb52b1e7e7cb87479a30aa708a28cb66869e550b3ae887cf845260762a",
+      "rights": "NASA official archival recording; retain source and credit, research cache only",
+      "id": "nasa-press-video",
+      "source_url": "https://images-assets.nasa.gov/video/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372~preview.mp4",
+      "oracle_status": "PASS",
+      "media_type": "video/mp4",
+      "query": "A historical press scene with suited people wearing sunglasses",
+      "file": "nasa-press-clip.mp4",
+      "oracle_patterns": [
+        "sunglass",
+        "people|crowd|group|men"
+      ],
+      "context": {
+        "requested_clip_start_seconds": "300",
+        "oracle_review": "Visual source frame reviewed; temporal and audio-word correctness not asserted",
+        "source_catalog": "https://images.nasa.gov/details/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372",
+        "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
+        "preprocessing": "FFmpeg stream copy; complete clip sent directly",
+        "requested_clip_duration_seconds": "12"
+      }
+    },
+    {
+      "sha256": "5141c764c1c236d254ef96dd8208bfe462c883171cd6fd1e5d18f060f0dfb2e2",
+      "rights": "NASA official archival recording; retain source and credit, research cache only",
+      "id": "nasa-rocket-video",
+      "source_url": "https://images-assets.nasa.gov/video/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372~preview.mp4",
+      "oracle_status": "PASS",
+      "media_type": "video/mp4",
+      "query": "Historical rocket launch footage showing a rocket and launch tower",
+      "file": "nasa-rocket-clip.mp4",
+      "oracle_patterns": [
+        "rocket|Saturn",
+        "tower|pad|launch"
+      ],
+      "context": {
+        "requested_clip_start_seconds": "1800",
+        "oracle_review": "Visual source frame reviewed; temporal and audio-word correctness not asserted",
+        "source_catalog": "https://images.nasa.gov/details/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372",
+        "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
+        "preprocessing": "FFmpeg stream copy; complete clip sent directly",
+        "requested_clip_duration_seconds": "12"
+      }
+    },
+    {
+      "id": "music-carefree",
+      "file": "music-a.wav",
+      "sha256": "325e1feb4c369f0e9c001696e75995ea7d1bd7b52ea7ee424dd0dd9ecf88ad2e",
+      "media_type": "audio/wav",
+      "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Carefree.mp3",
+      "rights": "Carefree — Kevin MacLeod (incompetech.com); Creative Commons Attribution 4.0 https://creativecommons.org/licenses/by/4.0/; excerpted and resampled; research cache only",
+      "query": "Find the bright rhythmic plucked-string instrumental piece with percussion.",
+      "oracle_status": "PASS",
+      "oracle_patterns": [
+        "ukulele|guitar",
+        "music|instrumental"
+      ],
+      "context": {
+        "source_page": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400037",
+        "source_archive_sha256": "8433b770a630d9b1594fd484442c677907ece899a4d149954cd2e74fd733e311",
+        "preprocessing": "FFmpeg PCM16 mono 24kHz; 10–35 seconds excerpt, original MP3 retained"
+      },
+      "oracle_evidence": {
+        "kind": "independent publisher metadata",
+        "metadata_url": "https://incompetech.com/music/royalty-free/pieces.json",
+        "metadata_sha256": "54802ad340562624b9d1c9c97aa9f005e2b9bf79001f8a1a07ed857e68b2164a",
+        "instruments": "Ukulele, Guitar, Marimba, Glockenspiel, Percussion",
+        "feel": "Bouncy, Bright, Calming, Uplifting",
+        "scope": "instrument family and music classification only; no self-evaluation, no claim of personal listening or exact tempo verification"
+      }
+    },
+    {
+      "id": "music-gymnopedie",
+      "file": "music-b.wav",
+      "sha256": "36d19c406bd6ebbed4b12fcaba4107f927ffb6b78cb9ffecb76921f4684cc1c0",
+      "media_type": "audio/wav",
+      "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gymnopedie%20No%201.mp3",
+      "rights": "Gymnopedie No. 1 — Kevin MacLeod (incompetech.com); Creative Commons Attribution 4.0 https://creativecommons.org/licenses/by/4.0/; excerpted and resampled; research cache only",
+      "query": "Find the calm solo piano passage with a gently unfolding melody.",
+      "oracle_status": "PASS",
+      "oracle_patterns": [
+        "piano",
+        "music|instrumental"
+      ],
+      "context": {
+        "source_page": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100787",
+        "source_archive_sha256": "8cba6bb3da51066ad39520ec218a327bb6222d8fb32bc52f28a1e90b67756f70",
+        "preprocessing": "FFmpeg PCM16 mono 24kHz; 10–35 seconds excerpt, original MP3 retained"
+      },
+      "oracle_evidence": {
+        "kind": "independent publisher metadata",
+        "metadata_url": "https://incompetech.com/music/royalty-free/pieces.json",
+        "metadata_sha256": "54802ad340562624b9d1c9c97aa9f005e2b9bf79001f8a1a07ed857e68b2164a",
+        "instruments": "Piano",
+        "feel": "Calming, Relaxed, Uplifting",
+        "scope": "instrument family and music classification only; no self-evaluation, no claim of personal listening or exact tempo verification"
+      }
+    }
+  ],
+  "version": 1
+}

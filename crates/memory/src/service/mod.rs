@@ -19,7 +19,10 @@ use crate::*;
 use chrono::{DateTime, Utc};
 use nous_core::*;
 use nous_object_store::ObjectStore;
-use nous_persistence::{AuthorityStore, ProjectionInvalidation, database_error as db};
+use nous_persistence::{
+    AuthorityStore, ProjectionInvalidation, check_receipt, commit_receipt, database_error as db,
+    lock_operation,
+};
 pub use nous_runtime::{ResidentView, ResourceUpsert, ResourceView, SessionView};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sqlx::Row;
@@ -68,6 +71,8 @@ pub struct MemoryView {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviseMemoryInput {
+    #[serde(default)]
+    pub producer: Option<ProducerSignature>,
     pub operation_id: OperationId,
     pub subject: SubjectId,
     pub memory_id: MemoryId,
@@ -127,13 +132,6 @@ pub struct ConsolidationResult {
     pub topology_changes: usize,
 }
 
-#[derive(Debug, Clone)]
-struct Receipt {
-    state: String,
-    result_ref: Option<String>,
-    result_revision: Option<Uuid>,
-}
-
 fn parse_enum<T: DeserializeOwned>(value: String, name: &str) -> Result<T> {
     serde_json::from_value(serde_json::Value::String(value))
         .map_err(|error| Error::Infrastructure(format!("invalid {name}: {error}")))
@@ -166,80 +164,6 @@ fn temporal_columns(
 
 fn operation_digest<T: Serialize>(kind: &str, subject: SubjectId, value: &T) -> Result<String> {
     canonical_request_digest(kind, subject, value)
-}
-
-async fn lock_operation(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-) -> Result<()> {
-    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
-        .bind(format!("{}:{}", subject.0, operation.0))
-        .execute(&mut **tx)
-        .await
-        .map_err(db)?;
-    Ok(())
-}
-
-async fn check_receipt(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-    kind: &str,
-    digest: &str,
-) -> Result<Option<Receipt>> {
-    let row = sqlx::query("SELECT state,result_ref,result_revision,request_digest FROM mutation_receipts WHERE subject_id=$1 AND operation_id=$2")
-        .bind(subject.0)
-        .bind(operation.0)
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(db)?;
-    if let Some(row) = row {
-        let existing: String = row.try_get("request_digest").map_err(db)?;
-        if existing != digest {
-            return Err(Error::Conflict(format!(
-                "{kind} operation_id was used with a different request"
-            )));
-        }
-        return Ok(Some(Receipt {
-            state: row.try_get("state").map_err(db)?,
-            result_ref: row.try_get("result_ref").map_err(db)?,
-            result_revision: row.try_get("result_revision").map_err(db)?,
-        }));
-    }
-    sqlx::query("INSERT INTO mutation_receipts(subject_id,operation_id,operation_kind,request_digest,state,created_at) VALUES($1,$2,$3,$4,'in_progress',$5)")
-        .bind(subject.0)
-        .bind(operation.0)
-        .bind(kind)
-        .bind(digest)
-        .bind(Utc::now())
-        .execute(&mut **tx)
-        .await
-        .map_err(db)?;
-    Ok(None)
-}
-
-async fn commit_receipt(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-    result_kind: &str,
-    result_ref: Option<&str>,
-    result_revision: Option<Uuid>,
-    result_epoch: Option<i64>,
-) -> Result<()> {
-    sqlx::query("UPDATE mutation_receipts SET state='committed',result_kind=$3,result_ref=$4,result_revision=$5,result_epoch=$6,committed_at=$7 WHERE subject_id=$1 AND operation_id=$2")
-        .bind(subject.0)
-        .bind(operation.0)
-        .bind(result_kind)
-        .bind(result_ref)
-        .bind(result_revision)
-        .bind(result_epoch)
-        .bind(Utc::now())
-        .execute(&mut **tx)
-        .await
-        .map_err(db)?;
-    Ok(())
 }
 
 impl MemoryService {
@@ -310,7 +234,7 @@ impl MemoryService {
         memory_id: MemoryId,
         revision: Option<MemoryRevisionId>,
     ) -> Result<MemoryView> {
-        let row = sqlx::query("SELECT o.memory_id,o.subject_id,o.cognitive_role,o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,o.accessibility_mode,o.created_at,r.memory_revision_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.formation_mode,r.grounding_occurrence_id,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM memory_objects o JOIN memory_revisions r ON r.memory_id=o.memory_id AND r.memory_revision_id=COALESCE($3,o.current_revision_id) WHERE o.subject_id=$1 AND o.memory_id=$2")
+        let row = sqlx::query("SELECT o.memory_id,o.subject_id,o.cognitive_role,o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,o.accessibility_mode,o.created_at,r.memory_revision_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.formation_mode,r.grounding_occurrence_id,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at,r.producer_signature_id FROM memory_objects o JOIN memory_revisions r ON r.memory_id=o.memory_id AND r.memory_revision_id=COALESCE($3,o.current_revision_id) WHERE o.subject_id=$1 AND o.memory_id=$2")
             .bind(subject.0)
             .bind(memory_id.0)
             .bind(revision.map(|value| value.0))
@@ -348,6 +272,7 @@ impl MemoryService {
             created_at: row.try_get("created_at").map_err(db)?,
         };
         let revision_value = MemoryRevision {
+            producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
             memory_revision_id: revision_id,
             memory_id,
             subject_id: subject,
@@ -495,7 +420,12 @@ impl MemoryService {
         Ok(result)
     }
 
-    pub async fn form_memory(&self, input: ExplicitMemoryInput) -> Result<MemoryView> {
+    pub async fn form_memory(&self, mut input: ExplicitMemoryInput) -> Result<MemoryView> {
+        input.producer = input
+            .producer
+            .as_ref()
+            .map(AuthorityStore::canonical_producer)
+            .transpose()?;
         input.validate()?;
         self.store.require_subject(input.subject).await?;
         self.validate_supports_for_subject(input.subject, &input.supports)
@@ -508,7 +438,7 @@ impl MemoryService {
         let digest = operation_digest(
             "form_memory",
             input.subject,
-            &serde_json::json!({"cognitive_role":input.cognitive_role,"formation_mode":input.formation_mode,"grounding_occurrence_id":input.grounding_occurrence_id,"semantic_role":input.semantic_role,"representation_text":input.representation_text,"title":input.title,"supports":input.supports,"aboutness":input.aboutness,"tags":input.tags,"valid_time":input.valid_time,"formed_at":input.formed_at,"epistemic_class":input.epistemic_class}),
+            &serde_json::json!({"cognitive_role":input.cognitive_role,"formation_mode":input.formation_mode,"grounding_occurrence_id":input.grounding_occurrence_id,"semantic_role":input.semantic_role,"representation_text":input.representation_text,"title":input.title,"supports":input.supports,"aboutness":input.aboutness,"tags":input.tags,"valid_time":input.valid_time,"formed_at":input.formed_at,"epistemic_class":input.epistemic_class,"producer":input.producer}),
         )?;
         let mut tx = self.store.begin().await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
@@ -586,9 +516,23 @@ impl MemoryService {
         revision_no: i32,
         recorded_at: DateTime<Utc>,
     ) -> Result<()> {
+        let producer_id = if let Some(p) = &input.producer {
+            if !matches!(
+                p.operation,
+                CapabilityOperation::MemoryFormationText
+                    | CapabilityOperation::MemoryConsolidationText
+            ) {
+                return Err(Error::Invalid(
+                    "Memory producer requires a Memory formation operation".into(),
+                ));
+            }
+            Some(AuthorityStore::register_producer_in(tx, p).await?)
+        } else {
+            None
+        };
         let (valid_kind, valid_start, valid_end) = temporal_columns(&input.valid_time);
-        sqlx::query("INSERT INTO memory_revisions(memory_revision_id,memory_id,subject_id,revision_no,parent_revision_id,revision_intent,formation_mode,grounding_occurrence_id,semantic_role,title,representation_text,epistemic_class,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)")
-            .bind(revision_id.0).bind(memory_id.0).bind(input.subject.0).bind(revision_no).bind(parent.map(|id| id.0)).bind(revision_intent.map(|value| value.as_str())).bind(input.formation_mode.as_str()).bind(input.grounding_occurrence_id.map(|id| id.0)).bind(&input.semantic_role).bind(&input.title).bind(&input.representation_text).bind(format!("{:?}",input.epistemic_class).to_lowercase()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.formed_at).bind(recorded_at).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO memory_revisions(memory_revision_id,memory_id,subject_id,revision_no,parent_revision_id,revision_intent,formation_mode,grounding_occurrence_id,semantic_role,title,representation_text,epistemic_class,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at,producer_signature_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)")
+            .bind(revision_id.0).bind(memory_id.0).bind(input.subject.0).bind(revision_no).bind(parent.map(|id| id.0)).bind(revision_intent.map(|value| value.as_str())).bind(input.formation_mode.as_str()).bind(input.grounding_occurrence_id.map(|id| id.0)).bind(&input.semantic_role).bind(&input.title).bind(&input.representation_text).bind(format!("{:?}",input.epistemic_class).to_lowercase()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.formed_at).bind(recorded_at).bind(producer_id).execute(&mut **tx).await.map_err(db)?;
         for (index, support) in input.supports.iter().enumerate() {
             self.insert_support_in_tx(tx, revision_id, index as i32, support)
                 .await?;
@@ -706,16 +650,16 @@ impl MemoryService {
                 }
             }
             EvidenceLocator::DerivedRepresentation(id) => {
-                let artifact: Option<Uuid> = sqlx::query_scalar("SELECT sr.artifact_id FROM derived_representations d JOIN source_regions sr USING(source_region_id) WHERE d.subject_id=$1 AND d.derived_representation_id=$2").bind(subject.0).bind(id.0).fetch_one(self.store.pool()).await.map_err(db)?;
-                if artifact != occurrence_artifact {
+                let artifact: Option<Uuid> = sqlx::query_scalar("SELECT sr.artifact_id FROM representation_source_regions($1,$2) roots JOIN source_regions sr USING(source_region_id) WHERE sr.artifact_id=(SELECT artifact_id FROM observation_occurrences WHERE subject_id=$1 AND occurrence_id=$3)").bind(subject.0).bind(id.0).bind(evidence.occurrence_id.0).fetch_optional(self.store.pool()).await.map_err(db)?.flatten();
+                if artifact.is_none() || artifact != occurrence_artifact {
                     return Err(Error::Invalid(
                         "derived representation source does not match occurrence".into(),
                     ));
                 }
             }
             EvidenceLocator::DerivedRegion(id) => {
-                let artifact: Option<Uuid> = sqlx::query_scalar("SELECT sr.artifact_id FROM derived_regions dr JOIN derived_representations d USING(derived_representation_id) JOIN source_regions sr USING(source_region_id) WHERE dr.subject_id=$1 AND dr.derived_region_id=$2").bind(subject.0).bind(id.0).fetch_one(self.store.pool()).await.map_err(db)?;
-                if artifact != occurrence_artifact {
+                let artifact: Option<Uuid> = sqlx::query_scalar("SELECT sr.artifact_id FROM derived_regions dr JOIN LATERAL representation_source_regions($1,dr.derived_representation_id) roots ON true JOIN source_regions sr USING(source_region_id) WHERE dr.subject_id=$1 AND dr.derived_region_id=$2 AND sr.artifact_id=(SELECT artifact_id FROM observation_occurrences WHERE subject_id=$1 AND occurrence_id=$3)").bind(subject.0).bind(id.0).bind(evidence.occurrence_id.0).fetch_optional(self.store.pool()).await.map_err(db)?.flatten();
+                if artifact.is_none() || artifact != occurrence_artifact {
                     return Err(Error::Invalid(
                         "derived region source does not match occurrence".into(),
                     ));
@@ -747,7 +691,12 @@ impl MemoryService {
         clippy::too_many_lines,
         reason = "memory revision owns fencing, identity guard and immutable content commit"
     )]
-    pub async fn revise_memory(&self, input: ReviseMemoryInput) -> Result<MemoryView> {
+    pub async fn revise_memory(&self, mut input: ReviseMemoryInput) -> Result<MemoryView> {
+        input.producer = input
+            .producer
+            .as_ref()
+            .map(AuthorityStore::canonical_producer)
+            .transpose()?;
         if input.operation_id.0.is_nil() {
             return Err(Error::Invalid("operation_id is required".into()));
         }
@@ -761,7 +710,7 @@ impl MemoryService {
         let digest = operation_digest(
             "revise_memory",
             input.subject,
-            &serde_json::json!({"memory_id":input.memory_id,"expected_object_epoch":input.expected_object_epoch,"intent":input.intent,"formation_mode":input.formation_mode,"grounding_occurrence_id":input.grounding_occurrence_id,"semantic_role":input.semantic_role,"representation_text":input.representation_text,"title":input.title,"supports":input.supports,"aboutness":input.aboutness,"valid_time":input.valid_time,"formed_at":input.formed_at,"epistemic_class":input.epistemic_class}),
+            &serde_json::json!({"memory_id":input.memory_id,"expected_object_epoch":input.expected_object_epoch,"intent":input.intent,"formation_mode":input.formation_mode,"grounding_occurrence_id":input.grounding_occurrence_id,"semantic_role":input.semantic_role,"representation_text":input.representation_text,"title":input.title,"supports":input.supports,"aboutness":input.aboutness,"valid_time":input.valid_time,"formed_at":input.formed_at,"epistemic_class":input.epistemic_class,"producer":input.producer}),
         )?;
         let mut tx = self.store.begin().await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
@@ -835,6 +784,7 @@ impl MemoryService {
         let role: CognitiveRole =
             parse_enum(row.try_get("cognitive_role").map_err(db)?, "cognitive role")?;
         let input_for_insert = ExplicitMemoryInput {
+            producer: input.producer,
             operation_id: input.operation_id,
             subject: input.subject,
             cognitive_role: role,

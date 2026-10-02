@@ -172,6 +172,7 @@ impl CognitiveRuntimeService {
                 text,
                 authority: source.authority,
                 freshness: FreshnessDescriptor {
+                    occurred: Vec::new(),
                     observed_at: None,
                     valid_time: TemporalExtent::Unknown,
                     formed_at: None,

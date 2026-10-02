@@ -1,17 +1,25 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "apps/nous-core/qualification_memory_reference.ts",
-    "apps/nous-core/qualification_cognitive_runtime_episode.ts",
-    "apps/nous-core/research_retrieval.ts",
-    "scripts/dev.ts"
-  ],
-  "ignore": [
-    "apps/nous-core/official_client_closure.ts",
-    "apps/nous-core/qualification_memory_reference.ts",
-    "apps/nous-core/qualification_cognitive_runtime_episode.ts",
-    "apps/nous-core/research_retrieval.ts"
-  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/dev.ts",
+        "scripts/nous.ts",
+        "scripts/pack-runtime.ts",
+        "scripts/dev-prepare.ts",
+        "scripts/release/*.ts",
+        "scripts/smoke/*.ts",
+        "scripts/research/*.ts",
+        "scripts/research-gateway.ts!"
+      ]
+    },
+    "apps/nous-core": {
+      "entry": ["src/main.ts!", "src/launcher.ts!"]
+    },
+    "apps/nous-cli": {
+      "entry": ["src/main.ts!"]
+    }
+  },
   "rules": {
     "files": "error",
     "dependencies": "error",

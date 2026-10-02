@@ -199,7 +199,7 @@ async fn material_sources(
             schema_ids: Vec::new(),
         });
     }
-    let rows = sqlx::query("SELECT d.derived_representation_id,d.source_region_id,d.payload_text,d.representation_kind,a.content_hash,a.media_type FROM derived_representations d LEFT JOIN artifacts a ON a.artifact_id=d.payload_artifact_id WHERE d.subject_id=$1 ORDER BY d.derived_representation_id")
+    let rows = sqlx::query("SELECT d.derived_representation_id,d.payload_text,d.representation_kind,a.content_hash,a.media_type FROM derived_representations d LEFT JOIN artifacts a ON a.artifact_id=d.payload_artifact_id WHERE d.subject_id=$1 ORDER BY d.derived_representation_id")
         .bind(subject.0).fetch_all(&mut **tx).await.map_err(db)?;
     for row in rows {
         let text: Option<String> = row.try_get("payload_text").map_err(db)?;
@@ -219,13 +219,13 @@ async fn material_sources(
             content_hash: row.try_get("content_hash").map_err(db)?,
             title: Some(row.try_get("representation_kind").map_err(db)?),
             source_class: Some("derived".into()),
-            source_region: Some(SourceRegionId(row.try_get("source_region_id").map_err(db)?)),
+            source_region: None,
             entity_refs: Vec::new(),
             tag_ids: Vec::new(),
             schema_ids: Vec::new(),
         });
     }
-    let rows = sqlx::query("SELECT r.derived_region_id,r.created_at,d.source_region_id,d.payload_text,d.representation_kind,a.content_hash,a.media_type FROM derived_regions r JOIN derived_representations d ON d.derived_representation_id=r.derived_representation_id LEFT JOIN artifacts a ON a.artifact_id=d.payload_artifact_id WHERE r.subject_id=$1 ORDER BY r.derived_region_id")
+    let rows = sqlx::query("SELECT r.derived_region_id,r.created_at,d.payload_text,d.representation_kind,a.content_hash,a.media_type FROM derived_regions r JOIN derived_representations d ON d.derived_representation_id=r.derived_representation_id LEFT JOIN artifacts a ON a.artifact_id=d.payload_artifact_id WHERE r.subject_id=$1 ORDER BY r.derived_region_id")
         .bind(subject.0)
         .fetch_all(&mut **tx)
         .await
@@ -248,7 +248,7 @@ async fn material_sources(
             content_hash: row.try_get("content_hash").map_err(db)?,
             title: Some(row.try_get("representation_kind").map_err(db)?),
             source_class: Some("derived".into()),
-            source_region: Some(SourceRegionId(row.try_get("source_region_id").map_err(db)?)),
+            source_region: None,
             entity_refs: Vec::new(),
             tag_ids: Vec::new(),
             schema_ids: Vec::new(),

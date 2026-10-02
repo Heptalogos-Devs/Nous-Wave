@@ -37,6 +37,14 @@ pub(super) fn to_hit(
     reference: CognitiveRef,
 ) -> CognitiveHit {
     CognitiveHit {
+        authority_epoch: Some(candidate.view.object.object_epoch),
+        preference_refs: candidate
+            .view
+            .tags
+            .iter()
+            .copied()
+            .map(CognitiveRef::Tag)
+            .collect(),
         reference,
         revision: Some(CognitiveRef::MemoryRevision(
             candidate.view.revision.memory_revision_id,
@@ -47,6 +55,7 @@ pub(super) fn to_hit(
         representation: Some(candidate.view.revision.representation_text.clone()),
         authority: AuthorityClass::SubjectCognition,
         freshness: FreshnessDescriptor {
+            occurred: candidate.view.temporal_evidence.occurred.clone(),
             observed_at: candidate.view.temporal_evidence.observed_at,
             valid_time: candidate.view.revision.valid_time.clone(),
             formed_at: Some(candidate.view.revision.formed_at),
@@ -93,68 +102,106 @@ pub(super) fn hard_filter(
             && matches!(view.object.suppression_state, SuppressionState::Normal)))
         && matches!(view.object.purge_state, PurgeState::Normal)
         && accessibility_eligible(view.accessibility_level, query.effort, exact || historical)
-        && (query.constraints.cognitive_roles_include.is_empty()
+        && (query
+            .expression
+            .constraints
+            .cognitive_roles_include
+            .is_empty()
             || query
+                .expression
                 .constraints
                 .cognitive_roles_include
                 .iter()
                 .any(|role| role == view.object.cognitive_role.as_str()))
-        && (query.constraints.formation_modes_include.is_empty()
+        && (query
+            .expression
+            .constraints
+            .formation_modes_include
+            .is_empty()
             || query
+                .expression
                 .constraints
                 .formation_modes_include
                 .iter()
                 .any(|mode| mode == view.revision.formation_mode.as_str()))
         && query
+            .expression
             .constraints
             .entity_requirements
             .iter()
             .all(|entity| view.aboutness.contains(entity))
         && query
+            .expression
             .constraints
             .authority
             .is_none_or(|value| value == AuthorityClass::SubjectCognition)
-        && (query.constraints.source_classes_include.is_empty()
+        && (query
+            .expression
+            .constraints
+            .source_classes_include
+            .is_empty()
             || query
+                .expression
                 .constraints
                 .source_classes_include
                 .iter()
                 .any(|value| view.source_classes.contains(value)))
         && !query
+            .expression
             .constraints
             .source_classes_exclude
             .iter()
             .any(|value| view.source_classes.contains(value))
-        && (query.constraints.modalities.is_empty()
-            || query.constraints.modalities.contains(&Modality::Text))
-        && (query.constraints.evidence_classes.is_empty()
-            || query.constraints.evidence_classes.iter().any(|value| {
-                format!("{:?}", view.revision.epistemic_class).to_lowercase() == *value
-            }))
+        && (query.expression.constraints.modalities.is_empty()
+            || query
+                .expression
+                .constraints
+                .modalities
+                .contains(&Modality::Text))
+        && (query.expression.constraints.evidence_classes.is_empty()
+            || query
+                .expression
+                .constraints
+                .evidence_classes
+                .iter()
+                .any(|value| {
+                    format!("{:?}", view.revision.epistemic_class).to_lowercase() == *value
+                }))
         && temporal_match(query, view)
 }
 
 pub(super) fn temporal_match(query: &CognitiveQuery, view: &MemoryView) -> bool {
     query
+        .expression
         .constraints
         .valid
         .is_none_or(|interval| view.revision.valid_time.overlaps_interval(&interval))
-        && query.constraints.occurred.is_none_or(|interval| {
-            view.temporal_evidence
-                .occurred
-                .iter()
-                .any(|value| value.overlaps_interval(&interval))
-        })
-        && query.constraints.observed.is_none_or(|interval| {
-            view.temporal_evidence
-                .observed_at
-                .is_some_and(|value| interval.contains(value))
-        })
         && query
+            .expression
+            .constraints
+            .occurred
+            .is_none_or(|interval| {
+                view.temporal_evidence
+                    .occurred
+                    .iter()
+                    .any(|value| value.overlaps_interval(&interval))
+            })
+        && query
+            .expression
+            .constraints
+            .observed
+            .is_none_or(|interval| {
+                view.temporal_evidence
+                    .observed_at
+                    .is_some_and(|value| interval.contains(value))
+            })
+        && query
+            .expression
             .constraints
             .formed
             .is_none_or(|interval| interval.contains(view.revision.formed_at))
         && query
+            .expression
             .constraints
             .recorded
             .is_none_or(|interval| interval.contains(view.revision.recorded_at))

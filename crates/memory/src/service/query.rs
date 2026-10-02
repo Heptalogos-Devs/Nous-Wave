@@ -86,6 +86,9 @@ impl CognitiveContributor for MemoryService {
             .memories_for_query(subject, &revision_ids, &accessibility_policy)
             .await?;
         let mut drops = BTreeMap::new();
+        let source_objects = self
+            .source_objects_for_revisions(subject, &revision_ids)
+            .await?;
         let mut hits = Vec::new();
         for reference in &memory_references {
             let Some((_, revision)) = resolved.get(reference).copied() else {
@@ -120,13 +123,20 @@ impl CognitiveContributor for MemoryService {
                 increment_drop(&mut drops, "stale_exact_binding");
                 continue;
             }
+            if !historical && view.object.current_revision_id != revision {
+                increment_drop(&mut drops, "stale_revision");
+                continue;
+            }
             let candidate = Candidate { view };
             if !final_state_filter(&bound.source_query, &candidate, &state, exact, historical) {
                 increment_drop(&mut drops, &lifecycle_drop_reason(&state));
                 continue;
             }
             let hit_reference = CognitiveRef::MemoryRevision(revision);
-            hits.push(to_hit(&bound.source_query, &candidate, hit_reference));
+            let mut hit = to_hit(&bound.source_query, &candidate, hit_reference);
+            hit.preference_refs
+                .extend(source_objects.get(&revision.0).cloned().unwrap_or_default());
+            hits.push(hit);
         }
         for reference in episode_references {
             let episode = match reference {
@@ -162,6 +172,7 @@ async fn entity_lane(
 ) -> Result<LaneOutput> {
     let query = &bound.source_query;
     let values = query
+        .expression
         .cues
         .iter()
         .filter_map(|cue| match cue {
@@ -170,6 +181,7 @@ async fn entity_lane(
         })
         .chain(
             query
+                .expression
                 .constraints
                 .entity_requirements
                 .iter()
@@ -217,11 +229,36 @@ async fn temporal_lane(
     plan: &QueryPlan,
 ) -> Result<LaneOutput> {
     let query = &bound.source_query;
-    let valid = query.constraints.valid.into_iter().collect::<Vec<_>>();
-    let occurred = query.constraints.occurred.into_iter().collect::<Vec<_>>();
-    let observed = query.constraints.observed.into_iter().collect::<Vec<_>>();
-    let formed = query.constraints.formed.into_iter().collect::<Vec<_>>();
-    let recorded = query.constraints.recorded.into_iter().collect::<Vec<_>>();
+    let valid = query
+        .expression
+        .constraints
+        .valid
+        .into_iter()
+        .collect::<Vec<_>>();
+    let occurred = query
+        .expression
+        .constraints
+        .occurred
+        .into_iter()
+        .collect::<Vec<_>>();
+    let observed = query
+        .expression
+        .constraints
+        .observed
+        .into_iter()
+        .collect::<Vec<_>>();
+    let formed = query
+        .expression
+        .constraints
+        .formed
+        .into_iter()
+        .collect::<Vec<_>>();
+    let recorded = query
+        .expression
+        .constraints
+        .recorded
+        .into_iter()
+        .collect::<Vec<_>>();
     let mut matches = HashMap::<Uuid, (Uuid, usize)>::new();
     let mut next_rank = 1usize;
     for interval in valid {
@@ -357,6 +394,8 @@ fn episode_to_hit(
     reference: CognitiveRef,
 ) -> CognitiveHit {
     CognitiveHit {
+        authority_epoch: Some(episode.object.object_epoch),
+        preference_refs: Vec::new(),
         reference,
         revision: Some(CognitiveRef::EpisodeRevision(
             episode.revision.episode_revision_id,
@@ -373,6 +412,7 @@ fn episode_to_hit(
         ),
         authority: AuthorityClass::SubjectCognition,
         freshness: FreshnessDescriptor {
+            occurred: Vec::new(),
             observed_at: None,
             valid_time: TemporalExtent::Unknown,
             formed_at: Some(episode.revision.formed_at),

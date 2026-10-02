@@ -83,8 +83,10 @@ async fn run() -> Result<()> {
             service.clone(),
             auth.clone(),
         ))
-        .add_service(ModelMaterialServiceServer::with_interceptor(
-            service.clone(),
+        .add_service(tonic::service::interceptor::InterceptedService::new(
+            ModelMaterialServiceServer::new(service.clone())
+                .max_decoding_message_size(nous_persistence::WORKFLOW_VALUE_MAX_BYTES + 65536)
+                .max_encoding_message_size(nous_persistence::WORKFLOW_VALUE_MAX_BYTES + 65536),
             auth.clone(),
         ))
         .add_service(ArtifactStreamServiceServer::with_interceptor(

@@ -3,6 +3,9 @@
 mod derivation;
 mod materialization;
 mod observation;
+mod segmentation;
+mod structured;
+pub use segmentation::DescriptionSegment;
 mod types;
 pub use materialization::{ByteRange, MaterializeRequest, MaterializedEvidence};
 pub use types::*;
@@ -16,7 +19,6 @@ use nous_persistence::{AuthorityStore, ProjectionInvalidation};
 use nous_runtime::{CognitiveRuntimeService, ResidentAdmission, ResidentState};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
-use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Clone)]

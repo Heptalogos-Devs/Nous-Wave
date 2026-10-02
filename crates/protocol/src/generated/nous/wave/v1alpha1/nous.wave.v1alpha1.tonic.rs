@@ -248,6 +248,14 @@ pub mod resource_service_server {
     #[async_trait]
     pub trait ResourceService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn materialize_resource(
+            &self,
+            request: tonic::Request<super::MaterializeResourceRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResourceMaterialization>,
+            tonic::Status,
+        >;
+        ///
         async fn put_resource(
             &self,
             request: tonic::Request<super::PutResourceRequest>,
@@ -354,6 +362,55 @@ pub mod resource_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.v1alpha1.ResourceService/MaterializeResource" => {
+                    #[allow(non_camel_case_types)]
+                    struct MaterializeResourceSvc<T: ResourceService>(pub Arc<T>);
+                    impl<
+                        T: ResourceService,
+                    > tonic::server::UnaryService<super::MaterializeResourceRequest>
+                    for MaterializeResourceSvc<T> {
+                        type Response = super::ResourceMaterialization;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::MaterializeResourceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ResourceService>::materialize_resource(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = MaterializeResourceSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.v1alpha1.ResourceService/PutResource" => {
                     #[allow(non_camel_case_types)]
                     struct PutResourceSvc<T: ResourceService>(pub Arc<T>);
@@ -1728,17 +1785,17 @@ pub mod model_service_server {
         ///
         async fn form_from_observation(
             &self,
-            request: tonic::Request<super::ModelSourceRequest>,
+            request: tonic::Request<super::FormationRequest>,
         ) -> std::result::Result<
             tonic::Response<super::FormationResponse>,
             tonic::Status,
         >;
         ///
-        async fn interpret_source(
+        async fn derive_material(
             &self,
-            request: tonic::Request<super::ModelSourceRequest>,
+            request: tonic::Request<super::DeriveMaterialRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::InterpretationResponse>,
+            tonic::Response<super::DerivationResponse>,
             tonic::Status,
         >;
         ///
@@ -1832,7 +1889,7 @@ pub mod model_service_server {
                     struct FormFromObservationSvc<T: ModelService>(pub Arc<T>);
                     impl<
                         T: ModelService,
-                    > tonic::server::UnaryService<super::ModelSourceRequest>
+                    > tonic::server::UnaryService<super::FormationRequest>
                     for FormFromObservationSvc<T> {
                         type Response = super::FormationResponse;
                         type Future = BoxFuture<
@@ -1841,7 +1898,7 @@ pub mod model_service_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::ModelSourceRequest>,
+                            request: tonic::Request<super::FormationRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -1873,25 +1930,25 @@ pub mod model_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.ModelService/InterpretSource" => {
+                "/nous.wave.v1alpha1.ModelService/DeriveMaterial" => {
                     #[allow(non_camel_case_types)]
-                    struct InterpretSourceSvc<T: ModelService>(pub Arc<T>);
+                    struct DeriveMaterialSvc<T: ModelService>(pub Arc<T>);
                     impl<
                         T: ModelService,
-                    > tonic::server::UnaryService<super::ModelSourceRequest>
-                    for InterpretSourceSvc<T> {
-                        type Response = super::InterpretationResponse;
+                    > tonic::server::UnaryService<super::DeriveMaterialRequest>
+                    for DeriveMaterialSvc<T> {
+                        type Response = super::DerivationResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::ModelSourceRequest>,
+                            request: tonic::Request<super::DeriveMaterialRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as ModelService>::interpret_source(&inner, request).await
+                                <T as ModelService>::derive_material(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1902,7 +1959,7 @@ pub mod model_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = InterpretSourceSvc(inner);
+                        let method = DeriveMaterialSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -4913,6 +4970,32 @@ pub mod material_service_server {
     #[async_trait]
     pub trait MaterialService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn get_derived_region(
+            &self,
+            request: tonic::Request<super::ObjectRequest>,
+        ) -> std::result::Result<tonic::Response<super::DerivedRegion>, tonic::Status>;
+        ///
+        async fn get_producer(
+            &self,
+            request: tonic::Request<super::ObjectRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ProducerSignature>,
+            tonic::Status,
+        >;
+        ///
+        async fn list_derived_representations(
+            &self,
+            request: tonic::Request<super::RepresentationListRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RepresentationListResponse>,
+            tonic::Status,
+        >;
+        ///
+        async fn get_limits(
+            &self,
+            request: tonic::Request<()>,
+        ) -> std::result::Result<tonic::Response<super::MaterialLimits>, tonic::Status>;
+        ///
         async fn get_occurrence(
             &self,
             request: tonic::Request<super::ObjectRequest>,
@@ -5029,6 +5112,186 @@ pub mod material_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.v1alpha1.MaterialService/GetDerivedRegion" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetDerivedRegionSvc<T: MaterialService>(pub Arc<T>);
+                    impl<
+                        T: MaterialService,
+                    > tonic::server::UnaryService<super::ObjectRequest>
+                    for GetDerivedRegionSvc<T> {
+                        type Response = super::DerivedRegion;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ObjectRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as MaterialService>::get_derived_region(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetDerivedRegionSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.MaterialService/GetProducer" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetProducerSvc<T: MaterialService>(pub Arc<T>);
+                    impl<
+                        T: MaterialService,
+                    > tonic::server::UnaryService<super::ObjectRequest>
+                    for GetProducerSvc<T> {
+                        type Response = super::ProducerSignature;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ObjectRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as MaterialService>::get_producer(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetProducerSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.MaterialService/ListDerivedRepresentations" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListDerivedRepresentationsSvc<T: MaterialService>(pub Arc<T>);
+                    impl<
+                        T: MaterialService,
+                    > tonic::server::UnaryService<super::RepresentationListRequest>
+                    for ListDerivedRepresentationsSvc<T> {
+                        type Response = super::RepresentationListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RepresentationListRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as MaterialService>::list_derived_representations(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListDerivedRepresentationsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.MaterialService/GetLimits" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetLimitsSvc<T: MaterialService>(pub Arc<T>);
+                    impl<T: MaterialService> tonic::server::UnaryService<()>
+                    for GetLimitsSvc<T> {
+                        type Response = super::MaterialLimits;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(&mut self, request: tonic::Request<()>) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as MaterialService>::get_limits(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetLimitsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.v1alpha1.MaterialService/GetOccurrence" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccurrenceSvc<T: MaterialService>(pub Arc<T>);

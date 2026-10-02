@@ -2,9 +2,10 @@ import { createConnectTransport } from "@connectrpc/connect-node";
 import { createNousClient } from "./index.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { artifactUploads } from "./artifacts.js";
 
 export function connectNous(baseUrl: string, token: string) {
-  return createNousClient(
+  const client = createNousClient(
     createConnectTransport({
       baseUrl,
       httpVersion: "1.1",
@@ -17,10 +18,16 @@ export function connectNous(baseUrl: string, token: string) {
       ],
     }),
   );
+  return {
+    ...client,
+    artifacts: artifactUploads(baseUrl, token, (options) =>
+      client.material.limits({}, options),
+    ),
+  };
 }
-export async function connectNousInstance(dataRoot: string) {
+export async function connectNousInstance(instance: { runRoot: string }) {
   const value = JSON.parse(
-    await readFile(join(dataRoot, "runtime", "core.json"), "utf8"),
+    await readFile(join(instance.runRoot, "core.json"), "utf8"),
   ) as { endpoint?: unknown; token?: unknown };
   if (typeof value.endpoint !== "string" || typeof value.token !== "string")
     throw new Error("Invalid Core discovery record");

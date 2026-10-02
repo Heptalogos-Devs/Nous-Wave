@@ -2,9 +2,9 @@ use nous_core::{CognitiveRef, Error, Result, ServingGenerationId};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tantivy::{
-    Index, IndexReader, IndexWriter, TantivyDocument,
+    Index, IndexReader, IndexWriter, TantivyDocument, Term,
     collector::TopDocs,
-    query::QueryParser,
+    query::{BooleanQuery, Occur, Query, TermQuery},
     schema::{
         Field, IndexRecordOption, STORED, STRING, Schema, TEXT, TextFieldIndexing, TextOptions,
         Value,
@@ -175,10 +175,29 @@ impl LexicalGeneration {
             return Ok(Vec::new());
         }
         let searcher = self.reader.searcher();
-        let parser = QueryParser::for_index(&self.index, vec![self.body, self.title]);
-        let parsed = parser
-            .parse_query(query)
-            .map_err(|error| Error::Invalid(format!("invalid lexical query: {error}")))?;
+        // NousQL text cues are literal natural language, never Tantivy syntax.
+        let mut terms: Vec<(Occur, Box<dyn Query>)> = Vec::new();
+        for field in [self.body, self.title] {
+            let mut analyzer = self
+                .index
+                .tokenizer_for_field(field)
+                .map_err(|error| Error::Infrastructure(format!("Tantivy tokenizer: {error}")))?;
+            let mut stream = analyzer.token_stream(query);
+            let mut seen = std::collections::HashSet::new();
+            while stream.advance() {
+                let text = &stream.token().text;
+                if seen.insert(text.clone()) {
+                    terms.push((
+                        Occur::Should,
+                        Box::new(TermQuery::new(
+                            Term::from_field_text(field, text),
+                            IndexRecordOption::WithFreqs,
+                        )),
+                    ));
+                }
+            }
+        }
+        let parsed = BooleanQuery::new(terms);
         let hits = searcher
             .search(&parsed, &TopDocs::with_limit(limit).order_by_score())
             .map_err(|error| Error::Infrastructure(format!("Tantivy search: {error}")))?;
@@ -254,4 +273,37 @@ fn schema() -> (
         schema_ids,
         source_class,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn natural_language_is_literal_not_search_syntax() {
+        let mut index = LexicalGeneration::in_memory().unwrap();
+        index
+            .add_documents(&[LexicalDocument {
+                serving_doc_id: 1,
+                reference: CognitiveRef::MemoryRevision(nous_core::MemoryRevisionId::new()),
+                representation_text:
+                    "Apple's on-device language model has three billion parameters".into(),
+                title: None,
+                entity_refs: Vec::new(),
+                tag_ids: Vec::new(),
+                schema_ids: Vec::new(),
+                source_class: None,
+            }])
+            .unwrap();
+        for cue in [
+            "How large is Apple's on-device language model?",
+            "unknown_field:Apple AND (model",
+            "\"Apple's\" +model -language",
+        ] {
+            let hits = index.search(cue, 10).unwrap();
+            assert_eq!(hits.len(), 1, "{cue}");
+            assert_eq!(hits[0].serving_doc_id, 1);
+        }
+        assert!(index.search("?!", 10).unwrap().is_empty());
+    }
 }

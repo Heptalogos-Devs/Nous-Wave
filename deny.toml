@@ -8,9 +8,6 @@ version = 2
 yanked = "deny"
 unmaintained = "workspace"
 unsound = "all"
-# Tantivy 0.26.1 requires lru 0.16.x; the fixed lru release is outside
-# Tantivy's dependency range. Nous does not instantiate LruCache directly.
-ignore = ["RUSTSEC-2026-0253"]
 
 [licenses]
 version = 2
@@ -45,4 +42,5 @@ highlight = "all"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
+# Official security-fix commit is pinned in Cargo.toml/Cargo.lock.
+allow-git = ["https://github.com/quickwit-oss/tantivy"]

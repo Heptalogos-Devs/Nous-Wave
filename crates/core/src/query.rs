@@ -81,6 +81,8 @@ pub enum Cue {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct QueryConstraints {
     #[serde(default)]
+    pub current_authority: CurrentAuthorityNeed,
+    #[serde(default)]
     pub source_classes_include: Vec<SourceClass>,
     #[serde(default)]
     pub source_classes_exclude: Vec<SourceClass>,
@@ -116,20 +118,17 @@ pub enum ExplorationIntent {
     Global,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum CurrentAuthorityNeed {
     #[default]
     None,
     Prefer,
     Required,
-    HistoricalOrStale,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ResourceIntent {
-    #[serde(default)]
-    pub current_authority: CurrentAuthorityNeed,
     #[serde(default)]
     pub synopsis_only: bool,
 }
@@ -177,8 +176,6 @@ pub struct CapabilityPolicy {
     #[serde(default)]
     pub text_embedding: RequirementStrength,
     #[serde(default)]
-    pub text_rerank: RequirementStrength,
-    #[serde(default)]
     pub multimodal_interpretation: RequirementStrength,
     #[serde(default)]
     pub residual_sensing: RequirementStrength,
@@ -188,7 +185,6 @@ impl Default for CapabilityPolicy {
     fn default() -> Self {
         Self {
             text_embedding: RequirementStrength::Optional,
-            text_rerank: RequirementStrength::Optional,
             multimodal_interpretation: RequirementStrength::Optional,
             residual_sensing: RequirementStrength::Optional,
         }
@@ -205,6 +201,62 @@ pub enum DiagnosticsRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CognitiveQueryExpr {
+    pub operation: QueryOperation,
+    #[serde(default)]
+    pub targets: Vec<QueryTarget>,
+    #[serde(default)]
+    pub cues: Vec<Cue>,
+    #[serde(default)]
+    pub constraints: QueryConstraints,
+    #[serde(default)]
+    pub children: Vec<CognitiveQueryExpr>,
+    #[serde(default)]
+    pub preferences: Vec<QueryPreference>,
+}
+
+impl Default for CognitiveQueryExpr {
+    fn default() -> Self {
+        Self {
+            operation: QueryOperation::Atom,
+            targets: Vec::new(),
+            cues: Vec::new(),
+            constraints: QueryConstraints::default(),
+            children: Vec::new(),
+            preferences: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryPreference {
+    pub negative: bool,
+    pub operand: PreferenceOperand,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PreferenceOperand {
+    Cue(Cue),
+    Exact(CognitiveRef),
+    Recent(TimeAxis),
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum TimeAxis {
+    Occurred,
+    Observed,
+    Valid,
+    Formed,
+    Recorded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryOperation {
+    Atom,
+    All,
+    Any,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveQuery {
     pub api_version: u32,
     #[serde(default)]
@@ -212,12 +264,7 @@ pub struct CognitiveQuery {
     pub session: Option<SessionId>,
     #[serde(default)]
     pub situation: SituationDescriptor,
-    #[serde(default)]
-    pub targets: Vec<QueryTarget>,
-    #[serde(default)]
-    pub cues: Vec<Cue>,
-    #[serde(default)]
-    pub constraints: QueryConstraints,
+    pub expression: CognitiveQueryExpr,
     #[serde(default)]
     pub exploration: ExplorationIntent,
     #[serde(default)]
@@ -233,6 +280,27 @@ pub struct CognitiveQuery {
 }
 
 impl CognitiveQuery {
+    pub fn requests_resources(&self) -> bool {
+        self.resources.synopsis_only
+            || self.exploration == ExplorationIntent::Global
+            || self.scopes().iter().any(|scope| {
+                scope.constraints.current_authority != CurrentAuthorityNeed::None
+                    || scope.cues.iter().any(|cue| matches!(cue, Cue::Resource(_)))
+                    || scope
+                        .targets
+                        .iter()
+                        .any(|target| matches!(target, QueryTarget::Resource))
+            })
+    }
+    pub fn scopes(&self) -> Vec<&CognitiveQueryExpr> {
+        let mut pending = vec![&self.expression];
+        let mut scopes = Vec::new();
+        while let Some(node) = pending.pop() {
+            scopes.push(node);
+            pending.extend(node.children.iter().rev());
+        }
+        scopes
+    }
     pub fn validate(&self) -> Result<()> {
         if self.api_version != API_VERSION {
             return Err(Error::Invalid(format!(
@@ -245,8 +313,39 @@ impl CognitiveQuery {
                 "result_need.limit must be between 1 and 2048".into(),
             ));
         }
-        if self.cues.len() > 256 || self.targets.len() > 128 {
-            return Err(Error::Invalid("query cue/target bound exceeded".into()));
+        let mut nodes = vec![(&self.expression, 0)];
+        let mut count = 0;
+        while let Some((node, depth)) = nodes.pop() {
+            count += 1;
+            if count > 64
+                || depth > 16
+                || node.cues.len() > 256
+                || node.targets.len() > 128
+                || node.preferences.len() > 16
+            {
+                return Err(Error::Invalid(
+                    "query tree/cue/target bound exceeded".into(),
+                ));
+            }
+            if (node.operation == QueryOperation::Atom && !node.children.is_empty())
+                || (node.operation != QueryOperation::Atom
+                    && (node.children.len() < 2 || !node.cues.is_empty()))
+            {
+                return Err(Error::Invalid("invalid query expression shape".into()));
+            }
+            for interval in [
+                node.constraints.occurred,
+                node.constraints.observed,
+                node.constraints.valid,
+                node.constraints.formed,
+                node.constraints.recorded,
+            ]
+            .into_iter()
+            .flatten()
+            {
+                interval.validate()?;
+            }
+            nodes.extend(node.children.iter().map(|child| (child, depth + 1)));
         }
         if self.capabilities.text_embedding == RequirementStrength::Forbidden
             && self.capabilities.residual_sensing == RequirementStrength::Required
@@ -254,21 +353,6 @@ impl CognitiveQuery {
             return Err(Error::Invalid(
                 "required residual_sensing conflicts with forbidden text_embedding".into(),
             ));
-        }
-        if let Some(interval) = self.constraints.occurred {
-            interval.validate()?;
-        }
-        if let Some(interval) = self.constraints.observed {
-            interval.validate()?;
-        }
-        if let Some(interval) = self.constraints.valid {
-            interval.validate()?;
-        }
-        if let Some(interval) = self.constraints.formed {
-            interval.validate()?;
-        }
-        if let Some(interval) = self.constraints.recorded {
-            interval.validate()?;
         }
         Ok(())
     }
@@ -318,6 +402,10 @@ pub struct MatchEvidence {
     #[serde(default)]
     pub families: Vec<EvidenceFamily>,
     pub base_rank_score: f64,
+    pub preference_score: f64,
+    pub rerank_score: Option<f64>,
+    pub baseline_rank: u32,
+    pub final_rank: u32,
     pub best_lane_rank: u32,
     pub enabled_lane_count: u32,
     pub final_score: f64,
@@ -328,6 +416,9 @@ pub struct MatchEvidence {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveHit {
+    pub authority_epoch: Option<i64>,
+    #[serde(default)]
+    pub preference_refs: Vec<CognitiveRef>,
     pub reference: CognitiveRef,
     pub revision: Option<CognitiveRef>,
     pub semantic_role: Option<String>,
@@ -347,15 +438,52 @@ pub struct CognitiveHit {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceActionSuggestion {
+    pub action_id: Uuid,
+    pub query_text: String,
+    pub limit: usize,
+    pub materialize: bool,
+    pub adapter_kind: String,
+    pub provider_profile: String,
+    pub provider_locator: String,
+    pub descriptor_digest: String,
     pub resource: ResourceRef,
     pub action: String,
     pub reason: String,
     #[serde(default)]
     pub current_authority: bool,
-    #[serde(default)]
-    pub records: Vec<serde_json::Value>,
-    #[serde(default)]
-    pub evidence: Vec<EvidenceHandle>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StableExternalRef {
+    pub provider_kind: String,
+    pub provider_profile: String,
+    pub profile_digest: String,
+    pub resource_ref: ResourceRef,
+    pub provider_resource_id: String,
+    pub entry_id: String,
+    pub entry_version: Option<String>,
+    pub content_digest: String,
+    pub source_locator: String,
+    pub retrieved_at: String,
+    pub access_scope: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalResourceRecord {
+    pub resource_ref: ResourceRef,
+    pub reference: StableExternalRef,
+    pub title: Option<String>,
+    pub content: String,
+    pub provider_rank: u32,
+    pub provider_score: Option<f64>,
+    pub version_status: String,
+    pub access_status: String,
+}
+#[derive(Debug, Clone)]
+pub struct ExternalResourceResult {
+    pub action_id: Uuid,
+    pub resource_ref: ResourceRef,
+    pub status: String,
+    pub records: Vec<ExternalResourceRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -375,6 +503,7 @@ pub struct CognitiveQueryResult {
     pub results: Vec<CognitiveHit>,
     #[serde(default)]
     pub resource_actions: Vec<ResourceActionSuggestion>,
+    pub resource_records: Vec<ExternalResourceRecord>,
     #[serde(default)]
     pub degradation: Vec<Degradation>,
     pub diagnostics: Option<QueryDiagnostics>,

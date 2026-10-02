@@ -127,6 +127,20 @@ class Parser {
           this.peek()?.tokenType === Name
             ? { kind: "key" as const, value: this.take().image }
             : this.atom();
+        if (operand.kind === "key") {
+          if (operand.value !== "recent" || this.peek()?.image !== "(")
+            this.fail("Use recent(occurred|observed|valid|formed|recorded)");
+          this.take("(");
+          const axis = this.name();
+          if (
+            !["occurred", "observed", "valid", "formed", "recorded"].includes(
+              axis,
+            )
+          )
+            this.fail("Unknown recent time axis");
+          this.take(")");
+          operand.value = `recent:${axis}`;
+        }
         if (operand.kind === "universe")
           this.fail("Universe is not a preference");
         if (parenthesized) this.take(")");
@@ -268,7 +282,7 @@ export function canonical(e: Expression): string {
     );
   const preferences = e.preferences.map(
     (p) =>
-      `${p.negative ? "-" : "+"}${p.operand.kind === "key" ? p.operand.value : atomText(p.operand)}`,
+      `${p.negative ? "-" : "+"}${p.operand.kind === "key" ? p.operand.value.replace(/^recent:(.+)$/, "recent($1)") : atomText(p.operand)}`,
   );
   return [base, ...directives, ...preferences].join(" ");
 }

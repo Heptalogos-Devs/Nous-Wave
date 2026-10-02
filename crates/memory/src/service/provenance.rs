@@ -116,13 +116,12 @@ impl MemoryService {
         for support in supports {
             match support {
                 RevisionSupport::Evidence(evidence) => {
-                    let root = self
-                        .occurrence_root(subject, evidence.occurrence_id)
-                        .await?;
-                    summary.roots.insert(root.clone());
-                    summary
-                        .normalized_inputs
-                        .insert(format!("source:{}", root.root_key));
+                    for root in self.evidence_roots(subject, evidence).await? {
+                        summary
+                            .normalized_inputs
+                            .insert(format!("source:{}", root.root_key));
+                        summary.roots.insert(root);
+                    }
                 }
                 RevisionSupport::CognitionDependency(dependency) => {
                     let key = dependency.target_revision.to_string();
@@ -161,10 +160,9 @@ impl MemoryService {
             for support in nested.into_iter().rev() {
                 match support {
                     RevisionSupport::Evidence(evidence) => {
-                        let root = self
-                            .occurrence_root(subject, evidence.occurrence_id)
-                            .await?;
-                        summary.roots.insert(root);
+                        summary
+                            .roots
+                            .extend(self.evidence_roots(subject, &evidence).await?);
                     }
                     RevisionSupport::CognitionDependency(dependency) => {
                         stack.push((dependency.target_revision, false));
@@ -225,21 +223,57 @@ impl MemoryService {
         let source_class: String = row.try_get("source_class").map_err(db)?;
         let external: Option<String> = row.try_get("external_object_ref").map_err(db)?;
         let artifact: Option<Uuid> = row.try_get("artifact_id").map_err(db)?;
+        if let Some(artifact) = artifact {
+            return self.artifact_root(subject, artifact).await;
+        }
         if let Some(external) = external {
             return Ok(EvidenceRoot {
                 root_key: format!("external:{source_class}:{external}"),
                 certainty: EvidenceRootCertainty::Known,
             });
         }
-        if let Some(artifact) = artifact {
-            return Ok(EvidenceRoot {
-                root_key: format!("artifact:{artifact}"),
-                certainty: EvidenceRootCertainty::Known,
-            });
-        }
         Ok(EvidenceRoot {
             root_key: format!("occurrence:{}", occurrence.0),
             certainty: EvidenceRootCertainty::OccurrenceOnly,
+        })
+    }
+
+    async fn evidence_roots(
+        &self,
+        subject: SubjectId,
+        evidence: &EvidenceRef,
+    ) -> Result<BTreeSet<EvidenceRoot>> {
+        let representation = match evidence.locator {
+            EvidenceLocator::DerivedRepresentation(id) => Some(id.0),
+            EvidenceLocator::DerivedRegion(id) => Some(sqlx::query_scalar::<_,Uuid>("SELECT derived_representation_id FROM derived_regions WHERE subject_id=$1 AND derived_region_id=$2").bind(subject.0).bind(id.0).fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(|| Error::Invalid("derived evidence region is outside Subject".into()))?),
+            _ => None,
+        };
+        let Some(representation) = representation else {
+            return Ok(BTreeSet::from([self
+                .occurrence_root(subject, evidence.occurrence_id)
+                .await?]));
+        };
+        let artifacts = sqlx::query_scalar::<_,Uuid>("SELECT DISTINCT sr.artifact_id FROM representation_source_regions($1,$2) roots JOIN source_regions sr USING(source_region_id) WHERE sr.subject_id=$1").bind(subject.0).bind(representation).fetch_all(self.store.pool()).await.map_err(db)?;
+        if artifacts.is_empty() {
+            return Err(Error::Invalid(
+                "derived evidence has no valid source roots".into(),
+            ));
+        }
+        let mut roots = BTreeSet::new();
+        for artifact in artifacts {
+            roots.insert(self.artifact_root(subject, artifact).await?);
+        }
+        Ok(roots)
+    }
+
+    async fn artifact_root(&self, subject: SubjectId, artifact: Uuid) -> Result<EvidenceRoot> {
+        // Same Artifact and explicit external-source identity are dependency aliases.
+        // Their connected lineage prevents copied content or versions of one source
+        // from becoming independent corroboration through a different locator.
+        let external = sqlx::query_scalar::<_,Option<String>>("WITH RECURSIVE lineage AS (SELECT occurrence_id,artifact_id,source_class,external_object_ref FROM observation_occurrences WHERE subject_id=$1 AND artifact_id=$2 UNION SELECT o.occurrence_id,o.artifact_id,o.source_class,o.external_object_ref FROM observation_occurrences o JOIN lineage p ON (o.artifact_id IS NOT NULL AND o.artifact_id=p.artifact_id) OR (o.external_object_ref IS NOT NULL AND o.external_object_ref=p.external_object_ref AND o.source_class=p.source_class) WHERE o.subject_id=$1) SELECT MIN('external:' || source_class || ':' || external_object_ref) FROM lineage WHERE external_object_ref IS NOT NULL").bind(subject.0).bind(artifact).fetch_one(self.store.pool()).await.map_err(db)?;
+        Ok(EvidenceRoot {
+            root_key: external.unwrap_or_else(|| format!("artifact:{artifact}")),
+            certainty: EvidenceRootCertainty::Known,
         })
     }
 

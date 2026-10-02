@@ -28,6 +28,51 @@ pub struct KernelQueryRequest {
     pub query: ::core::option::Option<super::super::v1alpha1::QueryRequest>,
     #[prost(message, repeated, tag="2")]
     pub embeddings: ::prost::alloc::vec::Vec<QueryEmbedding>,
+    #[prost(uint32, optional, tag="3")]
+    pub validated_candidate_limit: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct KernelQueryResponse {
+    #[prost(message, optional, tag="1")]
+    pub response: ::core::option::Option<super::super::v1alpha1::QueryResponse>,
+    #[prost(string, optional, tag="2")]
+    pub validation_ticket: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RerankCandidate {
+    #[prost(message, optional, tag="1")]
+    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
+    #[prost(double, tag="2")]
+    pub score: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExternalResourceResult {
+    #[prost(string, tag="1")]
+    pub action_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub resource_ref: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub records: ::prost::alloc::vec::Vec<super::super::v1alpha1::ExternalResourceRecord>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FinalizeQueryRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub validation_ticket: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="3")]
+    pub order: ::prost::alloc::vec::Vec<RerankCandidate>,
+    #[prost(message, repeated, tag="4")]
+    pub external_results: ::prost::alloc::vec::Vec<ExternalResourceResult>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReleaseQueryRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub validation_ticket: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingNeedsRequest {
@@ -61,22 +106,135 @@ pub struct CommitEmbeddingRequest {
     #[prost(message, optional, tag="3")]
     pub material: ::core::option::Option<QueryEmbedding>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CommitInterpretationRequest {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub source_region_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub inputs: ::prost::alloc::vec::Vec<super::super::v1alpha1::DerivationInput>,
     #[prost(string, tag="3")]
     pub text: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
-    pub model: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
-    pub model_revision: ::prost::alloc::string::String,
-    #[prost(string, tag="6")]
-    pub implementation: ::prost::alloc::string::String,
     #[prost(string, tag="7")]
     pub kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="8")]
+    pub producer: ::core::option::Option<super::super::v1alpha1::ProducerSignature>,
+    #[prost(string, tag="10")]
+    pub strategy: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="11")]
+    pub supersedes: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="12")]
+    pub quality: ::core::option::Option<::prost_types::Struct>,
+    #[prost(message, optional, tag="13")]
+    pub structured_payload: ::core::option::Option<::prost_types::Struct>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DescriptionSegment {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DescriptionSegments {
+    #[prost(message, repeated, tag="1")]
+    pub segments: ::prost::alloc::vec::Vec<DescriptionSegment>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReserveWorkflowRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub semantic_digest: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub snapshot_json: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WorkflowReservation {
+    #[prost(string, tag="1")]
+    pub snapshot_json: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="3")]
+    pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="4")]
+    pub lease_token: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, tag="5")]
+    pub busy: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SaveWorkflowRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub lease_token: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReleaseWorkflowRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub lease_token: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResolvedMentionsRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub occurrence_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResolvedMention {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub surface: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub entity_ref: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolvedMentionsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub candidates: ::prost::alloc::vec::Vec<ResolvedMention>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FindWorkflowRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub owner: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub operation_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub semantic_digest: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FoundWorkflow {
+    #[prost(bool, tag="1")]
+    pub found: bool,
+    #[prost(string, optional, tag="2")]
+    pub snapshot_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="3")]
+    pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="4")]
+    pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UploadHeader {

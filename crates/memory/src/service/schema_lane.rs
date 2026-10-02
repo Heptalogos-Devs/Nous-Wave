@@ -17,12 +17,12 @@ pub(crate) async fn schema_direct_lane(
     let query = &bound.source_query;
     let mut schema_ids = BTreeSet::new();
     let mut exact_revisions = BTreeSet::new();
-    for cue in &query.cues {
+    for cue in &query.expression.cues {
         if let Cue::Schema(value) = cue {
             schema_ids.insert(value.schema.0);
         }
     }
-    for target in &query.targets {
+    for target in &query.expression.targets {
         if let QueryTarget::SchemaNeighborhood { schema } = target {
             schema_ids.insert(schema.0);
         }
@@ -43,7 +43,7 @@ pub(crate) async fn schema_direct_lane(
         return Ok(output);
     }
     let rows = sqlx::query(
-        "SELECT s.schema_id,s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND (s.schema_id=ANY($2::uuid[]) OR r.schema_revision_id=ANY($3::uuid[]))",
+        "SELECT s.schema_id,s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_id,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND (s.schema_id=ANY($2::uuid[]) OR r.schema_revision_id=ANY($3::uuid[]))",
     )
     .bind(query.subject.0)
     .bind(schema_ids.iter().copied().collect::<Vec<_>>())
@@ -119,25 +119,36 @@ pub(crate) async fn schema_direct_lane(
             .map_err(nous_persistence::database_error)?
             == "normal";
         let requirements_match = query
+            .expression
             .constraints
             .entity_requirements
             .iter()
             .all(|entity| aboutness.contains(entity));
         let source_matches = schema_sources.get(&revision.0).cloned().unwrap_or_default();
-        let source_constraints_match = (query.constraints.source_classes_include.is_empty()
+        let source_constraints_match = (query
+            .expression
+            .constraints
+            .source_classes_include
+            .is_empty()
             || query
+                .expression
                 .constraints
                 .source_classes_include
                 .iter()
                 .any(|value| source_matches.contains(value)))
             && !query
+                .expression
                 .constraints
                 .source_classes_exclude
                 .iter()
                 .any(|value| source_matches.contains(value));
-        let modality_matches = query.constraints.modalities.is_empty()
-            || query.constraints.modalities.contains(&Modality::Text);
-        let evidence_matches = query.constraints.evidence_classes.is_empty();
+        let modality_matches = query.expression.constraints.modalities.is_empty()
+            || query
+                .expression
+                .constraints
+                .modalities
+                .contains(&Modality::Text);
+        let evidence_matches = query.expression.constraints.evidence_classes.is_empty();
         let current = row
             .try_get::<Uuid, _>("current_revision_id")
             .map_err(nous_persistence::database_error)?
@@ -208,7 +219,7 @@ pub(crate) async fn materialize_schema_revisions(
     if revision_ids.is_empty() {
         return Ok((Vec::new(), BTreeMap::new()));
     }
-    let rows = sqlx::query("SELECT s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND r.schema_revision_id=ANY($2::uuid[])")
+    let rows = sqlx::query("SELECT s.current_revision_id,s.object_epoch,s.acceptance_state,s.integrity_state,s.suppression_state,s.purge_state,r.schema_id,r.schema_revision_id,r.structural_claim,r.aboutness,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at FROM cognitive_schemas s JOIN cognitive_schema_revisions r ON r.schema_id=s.schema_id WHERE s.subject_id=$1 AND r.schema_revision_id=ANY($2::uuid[])")
         .bind(bound.source_query.subject.0)
         .bind(&revision_ids)
         .fetch_all(service.store.pool())
@@ -272,22 +283,42 @@ pub(crate) async fn materialize_schema_revisions(
             .collect::<Result<Vec<_>>>()?;
         if !bound
             .source_query
+            .expression
             .constraints
             .entity_requirements
             .iter()
             .all(|entity| aboutness.contains(entity))
-            || (!bound.source_query.constraints.modalities.is_empty()
+            || (!bound
+                .source_query
+                .expression
+                .constraints
+                .modalities
+                .is_empty()
                 && !bound
                     .source_query
+                    .expression
                     .constraints
                     .modalities
                     .contains(&Modality::Text))
-            || !bound.source_query.constraints.evidence_classes.is_empty()
+            || !bound
+                .source_query
+                .expression
+                .constraints
+                .evidence_classes
+                .is_empty()
         {
             *drops.entry("query_constraints".into()).or_default() += 1;
             continue;
         }
         hits.push(CognitiveHit {
+            authority_epoch: Some(
+                row.try_get("object_epoch")
+                    .map_err(nous_persistence::database_error)?,
+            ),
+            preference_refs: vec![CognitiveRef::CognitiveSchema(CognitiveSchemaId(
+                row.try_get("schema_id")
+                    .map_err(nous_persistence::database_error)?,
+            ))],
             reference: reference.clone(),
             revision: None,
             semantic_role: Some("cognitive_schema".into()),
@@ -299,6 +330,7 @@ pub(crate) async fn materialize_schema_revisions(
             ),
             authority: AuthorityClass::SubjectCognition,
             freshness: FreshnessDescriptor {
+                occurred: Vec::new(),
                 observed_at: None,
                 valid_time: temporal_from_columns(
                     row.try_get("valid_time_kind")
