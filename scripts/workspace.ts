@@ -20,29 +20,50 @@ export const workspacePaths = Object.freeze({
   temporary: join(repositoryRoot, "data/temp"),
 });
 
-export async function developmentLocator() {
-  await mkdir(workspacePaths.development, { recursive: true });
-  const locator = join(workspacePaths.development, "bootstrap.toml");
+async function instanceLocator(
+  profile: "dev" | "portable",
+  program: string,
+  runtime: string,
+) {
+  const instance = join(repositoryRoot, "data/instances", profile);
+  await mkdir(instance, { recursive: true });
+  const locator = join(instance, "bootstrap.toml");
   await writeFile(
     locator,
     stringify({
       paths: {
-        program: repositoryRoot,
-        runtime: workspacePaths.installedRuntime,
+        program,
+        runtime,
         config: workspacePaths.configuration,
         secret: workspacePaths.secrets,
-        instance: join(workspacePaths.development, "identity"),
-        data: join(workspacePaths.development, "authority"),
-        blob: join(workspacePaths.development, "objects"),
-        cache: join(workspacePaths.cache, "instances/dev"),
-        log: join(workspacePaths.development, "logs"),
-        run: join(workspacePaths.development, "run"),
-        temp: join(workspacePaths.temporary, "dev"),
-        backup: join(workspacePaths.development, "backups"),
+        instance: join(instance, "identity"),
+        data: join(instance, "authority"),
+        blob: join(instance, "objects"),
+        cache: join(workspacePaths.cache, "instances", profile),
+        log: join(instance, "logs"),
+        run: join(instance, "run"),
+        temp: join(workspacePaths.temporary, profile),
+        backup: join(instance, "backups"),
       },
     }),
   );
   return locator;
+}
+
+export function developmentLocator() {
+  return instanceLocator(
+    "dev",
+    repositoryRoot,
+    workspacePaths.installedRuntime,
+  );
+}
+
+export function portableLocator(installation: string) {
+  return instanceLocator(
+    "portable",
+    join(installation, "program"),
+    join(installation, "runtime"),
+  );
 }
 
 export async function workspaceTemp(scope: string, prefix: string) {

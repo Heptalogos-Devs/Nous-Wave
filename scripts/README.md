@@ -17,6 +17,21 @@ corepack pnpm nous status
 
 `nous` 将参数传给源码 CLI，默认连接开发实例。用 `--home <实例目录>` 或 `--locator <bootstrap.toml>` 显式选择实例。操作示例见 [CLI README](../apps/nous-cli/README.md)。
 
+## 配置检查与真实 portable 开发
+
+完整配置说明保存在 [examples/nous.toml](../docs/reference/examples/nous.toml)，含当前版本与注释。修改 `data/config/apps/nous.toml` 后用当前源码离线检查：
+
+```text
+corepack pnpm nous config check
+corepack pnpm dev:portable config check
+corepack pnpm dev:portable serve
+corepack pnpm dev:portable status
+```
+
+`dev:portable` 默认使用 `data/releases/windows-x64/current/` 中的 Node 和 launcher，进而使用包内 Core/Kernel/Runtime；可用 `--bundle <解包目录>` 指定另一实际包。配置和密钥直接引用 `data/config/apps/`、`data/config/secrets/`，不复制或覆盖。生成的 locator 位于 `data/instances/portable/bootstrap.toml`，Authority/对象/身份与源码开发实例独立。无参数等同 `serve`；关闭规则由正常 launcher 承担。
+
+包尚未组装时该命令明确失败。配置检查使用所选包内的合同版本，旧包与新配置不一致时先调整配置或更新所用包；不要单独改版本字段绕过语义变化。
+
 ## Runtime 构建与打包
 
 这些脚本生成第三方 runtime，不生成用户配置。Windows x64 的 shipping runtime 使用固定 source digest 和 LLVM-MinGW UCRT。

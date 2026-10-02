@@ -2,8 +2,12 @@ import { parseArgs } from "node:util";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { parse } from "smol-toml";
+import {
+  ConfigurationError,
+  CONFIG_REVISION,
+  readConfiguration,
+} from "./config.js";
+import { checkConfiguration } from "./configuration-check.js";
 import { resolveLocations } from "./locations.js";
 import { initializeConfiguration } from "./configuration-file.js";
 import {
@@ -42,6 +46,12 @@ async function main() {
     installationHome,
   });
   const [command, action, name] = forwarded;
+  if (command === "config" && action === "check") {
+    const checked = await checkConfiguration(locations, values.development);
+    console.log(JSON.stringify(checked));
+    if (!checked.valid) process.exitCode = 1;
+    return;
+  }
   if (command === "runtime") {
     if (action === "list")
       console.log(JSON.stringify(await listRuntimes(locations)));
@@ -82,10 +92,8 @@ async function main() {
     return;
   }
   if (command === "serve") await initializeConfiguration(locations);
-  const config = parse(
-    await readFile(join(locations.config, "nous.toml"), "utf8"),
-  );
-  const development = values.development || config.deployment === "development";
+  const development = values.development;
+  if (command === "serve") await readConfiguration(locations, development);
   const serve = command === "serve";
   const entry = development
     ? join(
@@ -133,7 +141,18 @@ async function main() {
     process.exitCode = code ?? 1;
   });
 }
-main().catch(() => {
+main().catch((error) => {
+  if (error instanceof ConfigurationError) {
+    console.error(
+      JSON.stringify({
+        valid: false,
+        expected_revision: CONFIG_REVISION,
+        issues: error.issues,
+      }),
+    );
+    process.exitCode = 1;
+    return;
+  }
   console.error(
     "Nous launcher failed; check instance configuration and runtime installation",
   );

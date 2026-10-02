@@ -16,9 +16,11 @@ Core bootstrap 拥有路径解析、实例发现、应用启动和显式 runtime
 
 ProgramRoot 是 immutable 应用 payload。RuntimeRoot 是 versioned 第三方 packs。InstanceRoot 保存稳定 instance UUID 和 private database bootstrap state。ConfigurationRoot/nous.toml 是唯一用户配置入口；bootstrap.toml 只保存路径，不保存 token 或普通认知配置。Kernel 接收解析后的非敏感配置和 paths，不读取第二份可编辑模型配置。
 
-Portable 出厂不携带活动 nous.toml、bootstrap locator、开发配置或配置模板。`nous init` 或首次 `nous serve` 在解析后的 ConfigurationRoot 以 exclusive create 生成最小用户配置；已有配置内容保持原样。默认策略由 Core 配置 schema 拥有，初始配置仅声明 portable deployment 和 default consumer，模型/Resource 由用户配置。仓库示例属于文档，不参与 assembly。
+Portable 出厂不携带活动 nous.toml、bootstrap locator、开发配置或配置模板。`nous init` 或首次 `nous serve` 在解析后的 ConfigurationRoot 以 exclusive create 生成最小用户配置；已有配置内容保持原样。默认策略由 Core 配置 schema 拥有，初始配置仅声明当前 config_revision 和 default consumer，模型/Resource 由用户配置。仓库示例属于文档，不参与 assembly。
 
-源码开发命令以显式 development 启动 profile 选择 ProgramRoot 下的 debug Kernel 与源码 Client；该选择由命令承担，用户配置无需保存开发机 binary 路径。默认开发 ConfigurationRoot 为 ignored `data/config/apps`，SecretRoot 为 `data/config/secrets`，实例 roots 位于 `data/instances/dev`；共享 runtime 位于 `data/runtime/installed`。
+配置必须声明当前 `config_revision`，版本不匹配明确拒绝；删除/改名/类型与语义或有效默认值变化更新合同版本。init、serve 和离线 config check 使用同一配置 owner；既有文件不自动更新。`nous config check` 不启动 runtime、不调用 provider、不写文件，检查本地合同与明确文件引用。
+
+源码开发命令以显式 development 启动 profile 选择 ProgramRoot 下的 debug Kernel 与源码 Client；该选择由命令承担，用户配置无需保存开发机 binary 路径。默认开发 ConfigurationRoot 为 ignored `data/config/apps`，SecretRoot 为 `data/config/secrets`，实例 roots 位于 `data/instances/dev`；共享 runtime 位于 `data/runtime/installed`。`pnpm dev:portable` 使用实际包的 Node/Core/Kernel/Runtime，共享上述配置与密钥，实例状态位于独立 `data/instances/portable`，通过 locator 引用而不复制配置。TOML 不含启动 deployment 选择。
 
 DataRoot/postgres 是 durable cluster；BlobRoot 是 Artifact/CAS；CacheRoot/serving 是可重建 Serving；RunRoot/core.json 是 endpoint/token/PID discovery；TempRoot 是短期 upload/media staging。CLI 选择状态属于 InstanceRoot/consumer，不属于 Authority。RunRoot 清理不删除 durable roots；同 instance/cluster 的启动必须互斥。SecretRoot/gateway.env 只向配置引用的 credential variables供值，OS environment 优先；Kernel/FFmpeg child 不继承 gateway token。
 

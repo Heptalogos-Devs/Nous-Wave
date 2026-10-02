@@ -17,6 +17,8 @@ corepack pnpm dev
 
 手写开发配置放在 `data/config/apps/nous.toml`，`pnpm dev` 使用已有文件，仅在缺失时创建最小开发配置。工具配置集中在 [.config/](.config/README.md)。产品配置示例见 [配置说明](docs/reference/examples/README.md)。
 
+修改配置后用 `corepack pnpm nous config check` 离线检查。`corepack pnpm dev:portable` 使用真实 current 包并直接引用同一份配置，实例数据独立；用法见 [脚本说明](scripts/README.md)。
+
 另一个终端用 `corepack pnpm nous status` 连接实例，具体操作见 [Nous CLI](apps/nous-cli/README.md)。
 
 ## 开发入口

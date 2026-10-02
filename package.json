@@ -35,7 +35,8 @@
     "smoke:runtime": "tsx scripts/smoke/runtime-episode.ts",
     "smoke:model": "tsx scripts/smoke/model-material-resource.ts",
     "smoke": "pnpm smoke:memory && pnpm smoke:runtime && pnpm smoke:model",
-    "research:media-live": "tsx scripts/research/media.ts"
+    "research:media-live": "tsx scripts/research/media.ts",
+    "dev:portable": "tsx scripts/dev/portable.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "1.73.0",

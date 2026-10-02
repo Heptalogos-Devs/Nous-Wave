@@ -44,3 +44,5 @@
 | [smoke/support.ts](smoke/support.ts)                                         | 共享临时实例与 Core 启动              |
 
 - [本地路径与开发 locator](workspace.ts)
+
+- [实际 portable 开发入口](dev/portable.ts)

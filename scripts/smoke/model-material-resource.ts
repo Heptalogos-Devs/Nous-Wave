@@ -1,3 +1,4 @@
+import { CONFIG_REVISION } from "../../apps/nous-core/src/config.js";
 import { connectNousInstance } from "@nous-wave/client/node";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
@@ -172,11 +173,11 @@ const provider = createServer((request, response) => {
 await new Promise<void>((done) => provider.listen(0, "127.0.0.1", done));
 const providerAddress = provider.address();
 if (!providerAddress || typeof providerAddress === "string")
-  throw new Error("Qualification provider missing port");
+  throw new Error("Smoke provider missing port");
 await mkdir(join(dataRoot, "config"));
 await writeFile(
   join(dataRoot, "config", "nous.toml"),
-  `deployment = "development"\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.smoke]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n[model_profiles.local]\ngateway = "smoke"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[roles.material_structuring]\nmodel = "local"\n[resource_profiles.ragflow]\nmax_material_bytes = 1048576\nadapter_kind = "ragflow"\nbase_url = "http://127.0.0.1:${providerAddress.port}/api/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n`,
+  `config_revision = ${CONFIG_REVISION}\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.smoke]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n[model_profiles.local]\ngateway = "smoke"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[roles.material_structuring]\nmodel = "local"\n[resource_profiles.ragflow]\nmax_material_bytes = 1048576\nadapter_kind = "ragflow"\nbase_url = "http://127.0.0.1:${providerAddress.port}/api/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n`,
 );
 const runtimeRoot = process.env.NOUS_WAVE_POSTGRES_RUNTIME
   ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
@@ -192,6 +193,7 @@ async function boot() {
     [
       tsx,
       "apps/nous-core/src/main.ts",
+      "--development",
       "--locator",
       configPath,
       "--stop-on-stdin-close",
