@@ -1,6 +1,5 @@
-# TypeScript Packages
+# TypeScript 包
 
-`packages/` contains the official TypeScript Client and protocol bindings consumed by Nous Core.
+[官方 Client](client/README.md) 封装公共 typed Connect API，供 CLI 和其他 TypeScript 使用端调用。[Protocol bindings](protocol-ts/README.md) 从 canonical Protobuf 自动生成，由 Core 与 Client 共享。
 
-- [`client/`](client/README.md) wraps the public typed Connect API for TypeScript consumers.
-- [`protocol-ts/`](protocol-ts/README.md) exposes code generated from the canonical Protobuf source.
+[返回目录](../INDEX.md)

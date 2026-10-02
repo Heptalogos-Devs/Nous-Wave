@@ -3,6 +3,8 @@ set -euo pipefail
 # Fixed compiler/runtime notice closure used by both Windows pack builders.
 toolchain=$(realpath "$1")
 output=$(realpath -m "$2")
+data_root=$(realpath -m "$(dirname "${BASH_SOURCE[0]}")/../../data")
+case "$output/" in "$data_root/"*) ;; *) echo "Output must be under repository data/" >&2; exit 1;; esac
 revision=57b595039040eaa15bece85b7cc71d952281b269
 mkdir -p "$output/licenses/mingw-runtime" "$output/licenses/llvm-runtime"
 cp "$toolchain/LICENSE.TXT" "$output/licenses/llvm-runtime/LICENSE.TXT"

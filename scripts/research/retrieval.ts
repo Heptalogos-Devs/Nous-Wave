@@ -1,3 +1,4 @@
+import { workspacePaths } from "../workspace.js";
 import type { connectNousInstance } from "@nous-wave/client/node";
 import { webSource } from "@nous-wave/client";
 import { createHash, randomUUID } from "node:crypto";
@@ -55,11 +56,20 @@ const { values, positionals } = parseArgs({
     "client-module": { type: "string" },
     manifest: { type: "string", default: "research/corpus/manifest.json" },
     queries: { type: "string", default: "research/corpus/queries.json" },
-    texts: { type: "string", default: "data/research/corpus/unit-texts.json" },
-    state: { type: "string", default: "data/research/live/corpus-state.json" },
+    texts: {
+      type: "string",
+      default: resolve(workspacePaths.research, "corpus/unit-texts.json"),
+    },
+    state: {
+      type: "string",
+      default: resolve(workspacePaths.research, "runs/corpus-state.json"),
+    },
     track: { type: "string", default: "controlled" },
     variant: { type: "string", default: "baseline" },
-    output: { type: "string", default: "data/research/live/results.json" },
+    output: {
+      type: "string",
+      default: resolve(workspacePaths.research, "runs/results.json"),
+    },
     concurrency: { type: "string", default: "4" },
     limit: { type: "string", default: "0" },
     "embedding-batch": { type: "string", default: "64" },

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { parseArgs } from "node:util";
+import { repositoryRoot, workspacePaths } from "../workspace.js";
 
 const execute = promisify(execFile);
 const { values } = parseArgs({
@@ -15,7 +16,7 @@ const { values } = parseArgs({
     source: { type: "string" },
     license: { type: "string" },
     root: { type: "string" },
-    program: { type: "string" },
+    output: { type: "string", default: workspacePaths.runtime },
   },
 });
 if (
@@ -25,14 +26,21 @@ if (
   !/^[0-9A-Za-z._-]+$/.test(values.version) ||
   !values.source ||
   !values.license ||
-  !values.root ||
-  !values.program
+  !values.root
 )
-  throw new Error("Provide component/version/source/license/root/program");
+  throw new Error("Provide component/version/source/license/root");
 if (process.platform !== "win32" || process.arch !== "x64")
-  throw new Error("This assembler qualifies Windows x64 ZIP packs");
+  throw new Error("Runtime packing supports Windows x64 ZIP packs");
 const root = resolve(values.root),
-  program = resolve(values.program);
+  program = resolve(values.output);
+if (
+  ![program, root].every((path) =>
+    path.startsWith(join(repositoryRoot, "data") + sep),
+  )
+)
+  throw new Error(
+    "Runtime directory and pack output must be under repository data/",
+  );
 const required =
   values.component === "node"
     ? ["node.exe"]
@@ -101,7 +109,10 @@ await mkdir(join(program, "manifest"), { recursive: true });
 const archive = `nous-runtime-${values.component}-${values.version}-windows-x64.zip`;
 const systemRoot = process.env.SystemRoot;
 if (!systemRoot) throw new Error("Windows SystemRoot missing");
-const script = join(dirname(fileURLToPath(import.meta.url)), "zip-runtime.ps1");
+const script = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../release/zip.ps1",
+);
 await execute(
   join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
   [

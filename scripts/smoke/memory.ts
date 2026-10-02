@@ -22,9 +22,8 @@ import {
   TemporalExtentSchema,
   UseEventSchema,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
+import { workspaceTemp } from "../workspace.js";
 
 const subjectId = "00000000-0000-0000-0000-000000009801";
 const occurrenceRequestId = "00000000-0000-0000-0000-000000009802";
@@ -77,7 +76,7 @@ function hitMatches(
 }
 
 async function main() {
-  const root = await mkdtemp(join(tmpdir(), "nous-wave-memory-reference-"));
+  const root = await workspaceTemp("smoke", "memory-");
   const configPath = await prepare(root);
 
   let booted: Boot | undefined;

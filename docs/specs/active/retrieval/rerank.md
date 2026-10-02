@@ -23,3 +23,5 @@ Normalized RRF baseline 在[0,1]。每个满足的 soft cue 贡献 signed 0.02�
 Lexical owner 使用索引 analyzer，union body/title literal terms；文字不作为 Tantivy 查询语法。Query embedding 只取 candidate text，排除 soft preference text，实际 batch 发送并按 exact text/space/producer digest 缓存最多128 vectors。required embedding 失败拒绝 operation；optional/preferred lexical fallback 显式 degradation。
 
 Topology 默认关闭，显式实验 lane 标识 experimental-node-potential-v1。weighted PCA/residual/bounded propagation/node-potential 属于当前实现；完整 VCP 尚待后续任务。
+
+[返回文档目录](../../INDEX.md)

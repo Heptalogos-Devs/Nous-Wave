@@ -8,8 +8,10 @@ if ($MinimumAgeHours -lt 0) {
     throw "MinimumAgeHours must be non-negative."
 }
 
-$tempRoot = [System.IO.Path]::GetTempPath().TrimEnd('\')
-$marker = 'install\18.6.0\bin\postgres.exe'
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$tempRoot = Join-Path $repoRoot 'data/temp/tests'
+if (!(Test-Path -LiteralPath $tempRoot)) { Write-Output 'No local PostgreSQL test roots'; return }
+$marker = 'data/PG_VERSION'
 $now = Get-Date
 
 $runningProcesses = @(Get-Process -Name postgres -ErrorAction SilentlyContinue)
@@ -48,6 +50,8 @@ foreach ($candidate in $candidates) {
         $skippedRunning++
         continue
     }
+    $resolved = (Resolve-Path -LiteralPath $candidate.FullName).Path
+    if (!$resolved.StartsWith($tempRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or ($candidate.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Unexpected cleanup target' }
     if ($PSCmdlet.ShouldProcess($candidate.FullName, 'Remove embedded PostgreSQL test root')) {
         try {
             [System.IO.Directory]::Delete($candidate.FullName, $true)

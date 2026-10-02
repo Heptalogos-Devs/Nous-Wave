@@ -2,6 +2,16 @@
 
 当前配置基础服务位于 `crates/configuration`，由 Kernel 在数据库 migration 完成后打开。它只负责 registry、解析、覆盖、快照、权限、幂等 receipt 和 BLAKE3 digest，不拥有 Memory 的领域语义。
 
+## 应用配置与版本
+
+ConfigurationRoot/nous.toml 必须声明 `config_revision = 1`。字段删除、改名、类型变化，以及同名字段的语义或有效默认值变化，都更新该配置合同版本；新增具有明确默认值的可选字段沿用版本。版本不对应当前代码时，启动与 `nous config check` 拒绝配置，报告预期版本和受影响字段。版本表示配置语义，不随每个 Git commit 变化。
+
+当前 revision 1 引入版本声明，并删除 TOML 的 `deployment`：源码启动命令使用显式 `--development`，portable 使用包内程序。升级现有文件时先移除 `deployment`、已废弃的 `model_budget`，再添加 revision；保留其余用户值。项目内部替换直接迁移当前配置，没有旧版本读取路径。
+
+`nous init` 和首次 `nous serve` 以 exclusive create 创建最小文件，只包含当前版本和 default consumer。已有文件不覆盖，也不自动迁移。完整可编辑说明见 [配置示例](examples/README.md)。源码开发与 portable 开发都引用 `data/config/apps` 和 `data/config/secrets`；默认 Prompt 分别来自源码与实际包的 ProgramRoot，配置 Prompt override 来自共享 ConfigurationRoot/prompts。
+
+`nous config check --locator <bootstrap.toml>` 或 `--home <instance>` 使用当前程序的解析合同，检查版本、字段、profile/role 引用、Prompt 和显式 executable 文件。输出 JSON 的 `valid`、`config_revision`、`configuration`、`issues`；无问题退出 0，有问题退出 1。命令不写配置、不加载凭据进环境、不启动数据库、不调用 provider；服务连接、凭据有效性与未配置角色的实际能力由正常运行决定。
+
 ## 解析与能力
 
 有效值按以下顺序解析：reference default → deployment `[settings]` → persisted system override → persisted subject override。每个 key 由 owner 注册 typed descriptor，包含 owner、类型、校验、暴露等级、作用域、应用方式和 semantic effect。
@@ -36,8 +46,10 @@ Artifact upload 的唯一部署上限为 Kernel `[bootstrap.object_store].max_up
 
 `model_profiles.<name>.embedding.max_batch_size` 控制每次 embedding 请求的 input 数量（1–64，默认 64）；只接受单条 input 的网关设为 1。prepare 与 query batching 复用同一 profile，summary 汇总实际 request count 与 provider usage。失败不自动换请求 shape。
 
-ConfigurationRoot/nous.toml 不再含 model_budget，普通 runtime 不创建调用计数 ledger 或研究 hard cap。timeout/concurrency/input/output bounds 仍是产品策略。研究显式启动 `corepack pnpm research:gateway --ledger <run-owned.json> --max-calls 10000`，将研究实例的 GatewayProfile.base_url 指向输出的 loopback endpoint；proxy 在每个实际 HTTP attempt 前持久预留，包括失败、warm-up 与 retry，重启复用同一 ledger。一个研究 run 使用一个 proxy/ledger writer；不在 normal runtime 自动启用。历史真实研究累计 1096 次已迁入 ignored `data/research/live/model-call-ledger.json`，后续沿此 ledger 继续。
+ConfigurationRoot/nous.toml 不再含 model_budget，普通 runtime 不创建调用计数 ledger 或研究 hard cap。timeout/concurrency/input/output bounds 仍是产品策略。研究显式启动 `corepack pnpm research:gateway --ledger <run-owned.json> --max-calls 10000`，将研究实例的 GatewayProfile.base_url 指向输出的 loopback endpoint；proxy 在每个实际 HTTP attempt 前持久预留，包括失败、warm-up 与 retry，重启复用同一 ledger。一个研究 run 使用一个 proxy/ledger writer；不在 normal runtime 自动启用。历史真实研究累计 1096 次已迁入 ignored `data/research/runs/model-call-ledger.json`，后续沿此 ledger 继续。
 
 `audio.input_mode` is `direct` (default) or `transcription`. Direct uses material_description or material_direct_structuring with audio_input capability and openai-chat content; transcription requires the separate speech_transcription role. `audio.max_source_bytes` bounds raw bytes (default16MiB, maximum24MiB).
 
 `video.input_mode` is `direct` (default) or `frames`. Direct requires video_input plus gateway video_url content-extension support; it sends the bounded uploaded Artifact, without client-side frame extraction. Frames explicitly selects the FFmpeg frame path; max_frames/frame_bytes/audio_bytes/process_timeout apply to that path. Source-byte bounds apply to both modes. There is no automatic mode fallback. Configure model identifiers and declared capabilities in ModelProfile; readiness requires an actual validated invocation. Gateway aliases do not establish the underlying model version.
+
+[返回文档目录](../INDEX.md)

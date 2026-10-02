@@ -1,6 +1,6 @@
 version: v2
 modules:
-  - path: proto
+  - path: .
 lint:
   use:
     - STANDARD
@@ -9,7 +9,7 @@ lint:
     - RPC_RESPONSE_STANDARD_NAME
     - RPC_REQUEST_RESPONSE_UNIQUE
   ignore:
-    - proto/grpc/health/v1/health.proto
+    - grpc/health/v1/health.proto
 breaking:
   use:
     - FILE

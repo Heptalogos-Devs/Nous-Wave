@@ -7,3 +7,5 @@ The public Memory service exposes typed Episode create/read/history/list/revise/
 WorkContext may retain only an exact `EpisodeRevision` ref. Runtime validates and surfaces that ref; it does not copy Episode content or add a second ranked Episode lane.
 
 Final materialization may expose an exact current EpisodeRevision candidate using its title/boundary explanation and exact provenance. General lexical, dense, and topology Episode ranking is deferred.
+
+[返回文档目录](../../INDEX.md)

@@ -29,3 +29,5 @@ public QueryResponse 的 resource_records 与 cognitive hits 分开；resource_a
 Core profile `max_material_bytes` limits each record up to1MiB; Kernel enforces the same1MiB hard ceiling and2MiB total serialized record budget per query. Current authority policies are none/prefer/required. The unused internal HistoricalOrStale variant had no NousQL/compiler/public producer and is removed. Records marked denied/stale/missing are excluded; current-authority success requires allowed/current status. Historical external snapshots are not an executable query policy in this scope.
 
 未呈现候选不建立 Observation。实际选用时有界 materialize → Artifact/SourceRegion → distinct ObservationOccurrence，external_object_ref 保存 stable ref identity；再次观察保持事件身份。external result 不直接成为 Memory。
+
+[返回文档目录](../../INDEX.md)

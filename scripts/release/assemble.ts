@@ -1,3 +1,4 @@
+import { workspacePaths } from "../workspace.js";
 import {
   cp,
   mkdir,
@@ -22,7 +23,7 @@ import {
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 if (process.platform !== "win32" || process.arch !== "x64")
   throw new Error("Windows x64 assembly requires Windows x64");
-const parent = join(repo, "dist/portable/windows-x64");
+const parent = join(workspacePaths.releases, "windows-x64");
 const current = join(parent, "current"),
   output = join(parent, "current.staging"),
   previous = join(parent, "current.previous");
@@ -49,13 +50,14 @@ for (const name of ["nous-kernel.exe", "libc++.dll", "libunwind.dll"])
 for (const [source, target] of [
   ["prompts", "prompts"],
   ["crates/persistence/migrations", "migrations"],
-  ["manifest", "manifest"],
+  ["data/runtime/manifest", "manifest"],
 ])
   await cp(join(repo, source!), join(program, target!), { recursive: true });
-await mkdir(join(program, "templates"));
-await cp(join(repo, "nous.example.toml"), join(program, "templates/nous.toml"));
 const components = JSON.parse(
-  await readFile(join(repo, "manifest/runtimes.json"), "utf8"),
+  await readFile(
+    join(workspacePaths.runtime, "manifest/runtimes.json"),
+    "utf8",
+  ),
 ) as {
   packs: {
     component: string;
@@ -77,8 +79,8 @@ for (const name of ["node", "postgresql", "ffmpeg"]) {
   if (entries.length !== 1) throw new Error(`No unique ${name} pack`);
   const pack = entries[0]!;
   const cache = join(
-    repo,
-    "data/release-cache/runtime",
+    workspacePaths.cache,
+    "release/runtime",
     `${name}-${pack.version}-${pack.platform}-${pack.arch}-${pack.sha256}`,
   );
   const locations = await resolveLocations({
@@ -86,15 +88,16 @@ for (const name of ["node", "postgresql", "ffmpeg"]) {
     programRoot: program,
     runtimeRoot: cache,
   });
-  await installRuntime(locations, name, join(repo, "packs", pack.archive));
+  await installRuntime(
+    locations,
+    name,
+    join(workspacePaths.runtime, "packs", pack.archive),
+  );
   await verifyRuntime(locations, name);
   await cp(join(cache, name), join(output, "runtime", name), {
     recursive: true,
   });
 }
-await mkdir(join(output, "config"));
-await cp(join(repo, "nous.example.toml"), join(output, "config/nous.toml"));
-await cp(join(repo, "bootstrap.example.toml"), join(output, "bootstrap.toml"));
 await mkdir(join(output, "bin"));
 await writeFile(
   join(output, "bin/nous.cmd"),
@@ -109,7 +112,7 @@ await promisify(execFile)(
   [
     "-NoProfile",
     "-File",
-    join(repo, "scripts/zip-runtime.ps1"),
+    join(repo, "scripts/release/zip.ps1"),
     "-SourceRoot",
     output,
     "-ArchivePath",

@@ -7,3 +7,5 @@ Nous Kernel is the private Rust process. It composes Subject, Runtime, Material,
 - [Protobuf source](../../proto/README.md)
 
 The TypeScript Core owns public HTTP/Connect composition and consumer-facing orchestration. Kernel binds its own loopback ephemeral listener; the parent process discovers the endpoint.
+
+[返回目录](../../INDEX.md)

@@ -1,7 +1,7 @@
-param([string]$ToolchainRoot = 'data/runtime-build/llvm-mingw-windows/llvm-mingw-20260922-ucrt-x86_64')
+param([string]$ToolchainRoot = 'data/tools/llvm-mingw-windows/llvm-mingw-20260922-ucrt-x86_64')
 $ErrorActionPreference = 'Stop'
 $compiler = Join-Path (Resolve-Path -LiteralPath $ToolchainRoot).Path 'bin'
-$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
 $cargoRoot = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
 $rustupRoot = if ($env:RUSTUP_HOME) { $env:RUSTUP_HOME } else { Join-Path $env:USERPROFILE '.rustup' }
 $env:PATH = "$compiler;$env:PATH"

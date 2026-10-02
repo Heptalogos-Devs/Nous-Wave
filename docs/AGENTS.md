@@ -1,5 +1,3 @@
-# Repository Knowledge
+# Documentation Ownership
 
-Human-facing docs use Chinese; AI instructions use concise technical English. Architecture-Vault owns long-term design and accepted decisions. Current product contracts belong to `specs/`, code structure to `architecture/`, available/experimental/known/deferred facts to `current-state/`, and reusable experiments to `research/`.
-
-`INDEX.md` owns navigation. Plans are reserved for sustained coordination; ordinary tasks use their contract and PR. Git preserves completed construction history. Update local links when moving documents.
+Human-facing prose uses Chinese; agent instructions use concise technical English. [INDEX.md](INDEX.md) routes executable Specs, implementation architecture, current state, research and roadmap. Architecture-Vault owns long-term design and accepted decisions.

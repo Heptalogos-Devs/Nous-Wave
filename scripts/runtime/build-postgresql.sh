@@ -7,8 +7,14 @@ toolchain=$(realpath "$2")
 output=$(realpath -m "$3")
 build=$(realpath -m "$4")
 patch_file=$(realpath "$(dirname "${BASH_SOURCE[0]}")/postgresql-llvm-setjmp.patch")
-notices_script=$(realpath "$(dirname "${BASH_SOURCE[0]}")/build-runtime-notices.sh")
+notices_script=$(realpath "$(dirname "${BASH_SOURCE[0]}")/build-notices.sh")
 test "$(sha256sum "$source_archive" | cut -d' ' -f1)" = 555610c24d53e4316da5b7d3fc25c279d96856d5e0e23ee308c328c5fa881d9f
+mkdir -p "$build" "$output/licenses/postgresql"
+bash "$notices_script" "$toolchain" "$output"
+data_root=$(realpath -m "$(dirname "${BASH_SOURCE[0]}")/../../data")
+case "$output/" in "$data_root/"*) ;; *) echo "Output must be under repository data/" >&2; exit 1;; esac
+case "$build/" in "$data_root/"*) ;; *) echo "Build root must be under repository data/" >&2; exit 1;; esac
+
 mkdir -p "$build" "$output/licenses/postgresql"
 bash "$notices_script" "$toolchain" "$output"
 tar -xf "$source_archive" -C "$build"

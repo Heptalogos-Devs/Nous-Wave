@@ -13,3 +13,5 @@ References are deduplicated by canonical exact `CognitiveRef` while source famil
 - WorkContext refs are runtime relevance input, not meaningful use;
 - runtime query returns resident and active WorkContext candidates with source diagnostics;
 - Projection/Managed Context reads active WorkContext refs through Kernel and revalidates them before exposure.
+
+[返回文档目录](../../INDEX.md)

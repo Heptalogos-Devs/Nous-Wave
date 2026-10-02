@@ -1,10 +1,3 @@
-# 当前产品合同
+# 产品合同
 
-- [Memory Authority/provenance](active/memory-reference-profile/01-memory-authority-provenance.md)、[Runtime/Use](active/memory-reference-profile/02-runtime-use.md)、[Query/Serving](active/memory-reference-profile/03-query-serving.md)
-- [WorkContext](active/cognitive-runtime/work-context.md)、[Active Cognition](active/cognitive-runtime/active-cognition.md)
-- [Episode Authority](active/episode/episode-authority.md)、[Episode Runtime](active/episode/episode-runtime-integration.md)
-- [Gateway/model/Prompt](active/model-runtime/gateway-model-and-prompts.md)、[Material derivation](active/model-runtime/material-derivation.md)、[Structured Material/Resource](active/model-runtime/cognitive-io-and-resources.md)
-- [Reference consumer](active/model-runtime/reference-consumer.md)、[Query/rerank](active/retrieval/rerank.md)
-- [Runtime Bundle](active/deployment/runtime-bundle.md)
-
-Specs 保存当前产品语义。任务合同和 PR 驱动施工；实验方法归 Research。
+Specs 描述当前可执行产品的行为、数据和 owner 边界。Memory、Runtime、Episode、Model/Material、Resource 与部署合同见 [INDEX.md](INDEX.md)。长期目标与决定归 Architecture-Vault；实验方法和观测归 Research。

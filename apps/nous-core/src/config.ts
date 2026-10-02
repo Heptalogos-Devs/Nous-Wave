@@ -11,9 +11,19 @@ import type { RuntimeLocations } from "./locations.js";
 import { resolvedEmbedding } from "./model/embedding-profile.js";
 import { resourceProfilesSchema } from "./resources/configuration.js";
 
+export const CONFIG_REVISION = 1;
+
+export class ConfigurationError extends Error {
+  constructor(
+    readonly issues: { path: string; code: string; message: string }[],
+  ) {
+    super(issues.map((issue) => `${issue.path}: ${issue.message}`).join("; "));
+  }
+}
+
 const requirement = z.enum(["REQUIRED", "PREFERRED", "OPTIONAL", "FORBIDDEN"]);
 const schema = z.strictObject({
-  deployment: z.enum(["portable", "development"]).default("portable"),
+  config_revision: z.literal(CONFIG_REVISION),
   port: z.number().int().min(0).max(65535).default(9470),
   dotenv_file: z.string().min(1).default("gateway.env"),
   kernel_executable: z.string().min(1).optional(),
@@ -61,10 +71,95 @@ const schema = z.strictObject({
   resource_profiles: resourceProfilesSchema,
 });
 
-export async function loadConfig(locations: RuntimeLocations) {
-  const config = schema.parse(
-    parse(await readFile(join(locations.config, "nous.toml"), "utf8")),
+export function parseConfiguration(text: string, development = false) {
+  let document;
+  try {
+    document = parse(text);
+  } catch {
+    throw new ConfigurationError([
+      {
+        path: "nous.toml",
+        code: "invalid_toml",
+        message: "Invalid TOML syntax",
+      },
+    ]);
+  }
+  if (document.config_revision !== CONFIG_REVISION) {
+    const actual =
+      typeof document.config_revision === "number"
+        ? String(document.config_revision)
+        : "missing or invalid";
+    throw new ConfigurationError([
+      {
+        path: "config_revision",
+        code: "revision_mismatch",
+        message: `Expected ${CONFIG_REVISION}; found ${actual}. Review the current configuration contract before updating this field.`,
+      },
+    ]);
+  }
+  const parsed = schema.safeParse(document);
+  if (!parsed.success)
+    throw new ConfigurationError(
+      parsed.error.issues.map((issue) => ({
+        path: issue.path.join(".") || "nous.toml",
+        code: issue.code,
+        message: issue.message,
+      })),
+    );
+  const config = parsed.data;
+  if (
+    new Set(config.consumers.map((consumer) => consumer.consumer_id)).size !==
+    config.consumers.length
+  )
+    throw new ConfigurationError([
+      {
+        path: "consumers",
+        code: "duplicate_id",
+        message: "Duplicate consumer policy ID",
+      },
+    ]);
+  if (config.kernel_executable && !development)
+    throw new ConfigurationError([
+      {
+        path: "kernel_executable",
+        code: "invalid_profile",
+        message: "Kernel executable override is source-development-only",
+      },
+    ]);
+  const models = modelConfigurationSchema.safeParse({
+    material_strategy: config.material_strategy,
+    video: config.video,
+    audio: config.audio,
+    gateway_profiles: config.gateway_profiles,
+    model_profiles: config.model_profiles,
+    roles: config.roles,
+  });
+  if (!models.success)
+    throw new ConfigurationError(
+      models.error.issues.map((issue) => ({
+        path: issue.path.join(".") || "models",
+        code: issue.code,
+        message: issue.message,
+      })),
+    );
+  return { config, models: models.data };
+}
+
+export async function readConfiguration(
+  locations: RuntimeLocations,
+  development = false,
+) {
+  return parseConfiguration(
+    await readFile(join(locations.config, "nous.toml"), "utf8"),
+    development,
   );
+}
+
+export async function loadConfig(
+  locations: RuntimeLocations,
+  development = false,
+) {
+  const { config, models } = await readConfiguration(locations, development);
   const credentialNames = [
     ...Object.values(config.gateway_profiles).map((g) => g.credential_env),
     ...Object.values(config.resource_profiles).map(
@@ -84,21 +179,7 @@ export async function loadConfig(locations: RuntimeLocations) {
       // oxlint-disable-next-line preserve-caught-error -- Raw dotenv errors can include credential content.
       throw new Error("Credential dotenv file could not be loaded");
   }
-  if (
-    new Set(config.consumers.map((c) => c.consumer_id)).size !==
-    config.consumers.length
-  )
-    throw new Error("Duplicate consumer policy ID");
-  if (config.kernel_executable && config.deployment !== "development")
-    throw new Error("Kernel executable override is development-only");
-  const models = modelConfigurationSchema.parse({
-    material_strategy: config.material_strategy,
-    video: config.video,
-    audio: config.audio,
-    gateway_profiles: config.gateway_profiles,
-    model_profiles: config.model_profiles,
-    roles: config.roles,
-  });
+  const deployment = development ? "development" : "portable";
   if (models.video.ffmpeg_executable)
     models.video.ffmpeg_executable = resolve(
       locations.config,
@@ -116,18 +197,24 @@ export async function loadConfig(locations: RuntimeLocations) {
   }
   const kernelExecutable = config.kernel_executable
     ? resolve(locations.program, config.kernel_executable)
-    : join(
-        locations.program,
-        "kernel",
-        process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
-      );
+    : deployment === "development"
+      ? join(
+          locations.program,
+          "target/debug",
+          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
+        )
+      : join(
+          locations.program,
+          "kernel",
+          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
+        );
   const databaseUrl = config.database.url_env
     ? process.env[config.database.url_env]
     : undefined;
   if (config.database.mode === "external" && !databaseUrl)
     throw new Error("External database credential environment is unavailable");
   return {
-    deployment: config.deployment,
+    deployment,
     externalFfmpeg: Boolean(config.video.ffmpeg_executable),
     kernelExecutable,
     locations,

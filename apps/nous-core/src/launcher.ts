@@ -2,9 +2,14 @@ import { parseArgs } from "node:util";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { readFile, mkdir, writeFile } from "node:fs/promises";
-import { parse } from "smol-toml";
+import {
+  ConfigurationError,
+  CONFIG_REVISION,
+  readConfiguration,
+} from "./config.js";
+import { checkConfiguration } from "./configuration-check.js";
 import { resolveLocations } from "./locations.js";
+import { initializeConfiguration } from "./configuration-file.js";
 import {
   installRuntime,
   listRuntimes,
@@ -16,7 +21,8 @@ async function main() {
   const profileArgs: string[] = [];
   const forwarded: string[] = [];
   for (let index = 0; index < args.length; index++) {
-    if (args[index] === "--home" || args[index] === "--locator") {
+    if (args[index] === "--development") profileArgs.push(args[index]!);
+    else if (args[index] === "--home" || args[index] === "--locator") {
       if (!args[index + 1])
         throw new Error("Missing instance location argument");
       profileArgs.push(args[index]!, args[++index]!);
@@ -24,7 +30,11 @@ async function main() {
   }
   const { values } = parseArgs({
     args: profileArgs,
-    options: { home: { type: "string" }, locator: { type: "string" } },
+    options: {
+      home: { type: "string" },
+      locator: { type: "string" },
+      development: { type: "boolean", default: false },
+    },
   });
   const installationHome = resolve(
     dirname(fileURLToPath(import.meta.url)),
@@ -36,6 +46,12 @@ async function main() {
     installationHome,
   });
   const [command, action, name] = forwarded;
+  if (command === "config" && action === "check") {
+    const checked = await checkConfiguration(locations, values.development);
+    console.log(JSON.stringify(checked));
+    if (!checked.valid) process.exitCode = 1;
+    return;
+  }
   if (command === "runtime") {
     if (action === "list")
       console.log(JSON.stringify(await listRuntimes(locations)));
@@ -71,26 +87,13 @@ async function main() {
       );
     return;
   }
-  if (command === "serve") {
-    await mkdir(locations.config, { recursive: true });
-    try {
-      await writeFile(
-        join(locations.config, "nous.toml"),
-        await readFile(join(locations.program, "templates", "nous.toml")),
-        { flag: "wx" },
-      );
-    } catch (error) {
-      if (
-        (error as NodeJS.ErrnoException).code !== "EEXIST" &&
-        (error as NodeJS.ErrnoException).code !== "ENOENT"
-      )
-        throw error;
-    }
+  if (command === "init") {
+    console.log(JSON.stringify(await initializeConfiguration(locations)));
+    return;
   }
-  const config = parse(
-    await readFile(join(locations.config, "nous.toml"), "utf8"),
-  );
-  const development = config.deployment === "development";
+  if (command === "serve") await initializeConfiguration(locations);
+  const development = values.development;
+  if (command === "serve") await readConfiguration(locations, development);
   const serve = command === "serve";
   const entry = development
     ? join(
@@ -138,7 +141,18 @@ async function main() {
     process.exitCode = code ?? 1;
   });
 }
-main().catch(() => {
+main().catch((error) => {
+  if (error instanceof ConfigurationError) {
+    console.error(
+      JSON.stringify({
+        valid: false,
+        expected_revision: CONFIG_REVISION,
+        issues: error.issues,
+      }),
+    );
+    process.exitCode = 1;
+    return;
+  }
   console.error(
     "Nous launcher failed; check instance configuration and runtime installation",
   );

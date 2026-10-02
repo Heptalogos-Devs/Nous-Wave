@@ -24,9 +24,8 @@ import {
   UpdateWorkContextRequestSchema,
   WorkContextMutationRequestSchema,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
+import { workspaceTemp } from "../workspace.js";
 
 const subjectId = "00000000-0000-0000-0000-000000009901";
 const instant = create(TimestampSchema, {
@@ -56,9 +55,7 @@ function evidence(occurrenceId: string) {
 }
 
 async function main() {
-  const root = await mkdtemp(
-    join(tmpdir(), "nous-wave-cognitive-runtime-episode-"),
-  );
+  const root = await workspaceTemp("smoke", "runtime-");
   const configPath = await prepare(root);
   let current: Boot | undefined;
   try {

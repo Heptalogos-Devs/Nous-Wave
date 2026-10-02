@@ -1,3 +1,4 @@
+import { CONFIG_REVISION } from "../../apps/nous-core/src/config.js";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -15,7 +16,7 @@ export type Boot = {
 export async function prepare(home: string) {
   const runtime = process.env.NOUS_WAVE_POSTGRES_RUNTIME
     ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
-    : join(repo, "data/dev/runtime");
+    : join(repo, "data/runtime/installed");
   const locator = join(home, "bootstrap.toml");
   await writeFile(locator, stringify({ paths: { program: repo, runtime } }));
   const locations = await resolveLocations({ locator, installationHome: repo });
@@ -23,7 +24,7 @@ export async function prepare(home: string) {
   await writeFile(
     join(locations.config, "nous.toml"),
     stringify({
-      deployment: "development",
+      config_revision: CONFIG_REVISION,
       port: 0,
       kernel_executable:
         process.env.NOUS_WAVE_KERNEL_EXECUTABLE ??
@@ -54,6 +55,7 @@ export async function boot(locator: string): Promise<Boot> {
     [
       join(repo, "node_modules/tsx/dist/cli.mjs"),
       join(repo, "apps/nous-core/src/main.ts"),
+      "--development",
       "--locator",
       locator,
       "--stop-on-stdin-close",

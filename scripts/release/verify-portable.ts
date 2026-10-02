@@ -1,12 +1,13 @@
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { promisify, parseArgs } from "node:util";
 import { once } from "node:events";
-import { mkdtemp, mkdir, readFile, writeFile, rename } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { tmpdir } from "node:os";
+import { workspaceTemp } from "../workspace.js";
 import assert from "node:assert/strict";
 const execute = promisify(execFile);
 const { values } = parseArgs({
@@ -18,45 +19,47 @@ const { values } = parseArgs({
 });
 if (!values.bundle || !values.bundle.endsWith(".zip"))
   throw new Error("Provide --bundle <exact portable ZIP>");
-const outside = await mkdtemp(join(tmpdir(), "nous-portable-"));
+const verificationRoot = await workspaceTemp("portable", "verification-");
 if (!["home", "colocated", "locator"].includes(values.layout))
   throw new Error("Unknown portable layout");
 if (values.layout === "colocated" && values.relocate)
   throw new Error("Relocation uses an independent instance");
-let bundle = join(outside, "installation");
+let bundle = join(verificationRoot, "installation");
 const home =
-  values.layout === "colocated" ? bundle : join(outside, "separate-instance");
-const locator = join(outside, "locator/bootstrap.toml");
+  values.layout === "colocated"
+    ? bundle
+    : join(verificationRoot, "separate-instance");
+const locator = join(verificationRoot, "locator/bootstrap.toml");
 const configRoot =
   values.layout === "locator"
-    ? join(outside, "configuration-volume")
+    ? join(verificationRoot, "configuration-volume")
     : join(home, "config");
 const runRoot =
   values.layout === "locator"
-    ? join(outside, "runtime-state")
+    ? join(verificationRoot, "runtime-state")
     : join(home, "run");
 const instanceRoot =
   values.layout === "locator"
-    ? join(outside, "identity-volume")
+    ? join(verificationRoot, "identity-volume")
     : join(home, "instance");
 const locationArgs =
   values.layout === "locator" ? ["--locator", locator] : ["--home", home];
 async function writeLocator() {
   if (values.layout !== "locator") return;
-  await mkdir(join(outside, "locator"), { recursive: true });
+  await mkdir(join(verificationRoot, "locator"), { recursive: true });
   const paths = {
     program: join(bundle, "program"),
     runtime: join(bundle, "runtime"),
     config: configRoot,
     run: runRoot,
     instance: instanceRoot,
-    data: join(outside, "database-volume"),
-    blob: join(outside, "blob-volume"),
-    cache: join(outside, "cache-volume"),
-    secret: join(outside, "secret-volume"),
-    log: join(outside, "log-volume"),
-    temp: join(outside, "temp-volume"),
-    backup: join(outside, "backup-volume"),
+    data: join(verificationRoot, "database-volume"),
+    blob: join(verificationRoot, "blob-volume"),
+    cache: join(verificationRoot, "cache-volume"),
+    secret: join(verificationRoot, "secret-volume"),
+    log: join(verificationRoot, "log-volume"),
+    temp: join(verificationRoot, "temp-volume"),
+    backup: join(verificationRoot, "backup-volume"),
   };
   await writeFile(
     locator,
@@ -121,16 +124,23 @@ for (const path of [
 ])
   assert((await readFile(join(bundle, path))).length > 0);
 await writeLocator();
-await mkdir(configRoot, { recursive: true });
-await writeFile(
-  join(configRoot, "nous.toml"),
-  (await readFile(join(bundle, "config/nous.toml"), "utf8")).replace(
-    "port = 9470",
-    "port = 0",
-  ),
-);
+assert(!existsSync(join(bundle, "config/nous.toml")));
+assert(!existsSync(join(bundle, "program/templates/nous.toml")));
+assert(!existsSync(join(bundle, "bootstrap.toml")));
 let node = join(bundle, "runtime/node/node.exe"),
   launcher = join(bundle, "program/core/launcher.js");
+await execute(node, [launcher, "init", ...locationArgs], {
+  cwd: verificationRoot,
+  windowsHide: true,
+});
+const initial = await readFile(join(configRoot, "nous.toml"), "utf8");
+await execute(node, [launcher, "init", ...locationArgs], {
+  cwd: verificationRoot,
+  windowsHide: true,
+});
+assert.equal(await readFile(join(configRoot, "nous.toml"), "utf8"), initial);
+await mkdir(configRoot, { recursive: true });
+await writeFile(join(configRoot, "nous.toml"), "port = 0\n" + initial);
 const env = {
   ...process.env,
   PATH: join(process.env.SystemRoot!, "System32"),
@@ -142,7 +152,12 @@ async function boot() {
   core = spawn(
     node,
     [launcher, "serve", ...locationArgs, "--stop-on-stdin-close"],
-    { cwd: outside, env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
+    {
+      cwd: verificationRoot,
+      env,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    },
   );
   const child = core;
   let errors = "";
@@ -183,7 +198,7 @@ async function cli(...args: string[]) {
   const result = await execute(
     node,
     [launcher, ...locationArgs, "--json", ...args],
-    { cwd: outside, env, windowsHide: true, maxBuffer: 1048576 },
+    { cwd: verificationRoot, env, windowsHide: true, maxBuffer: 1048576 },
   );
   return JSON.parse(result.stdout) as Record<string, unknown>;
 }
@@ -262,7 +277,7 @@ try {
   );
   await stop();
   if (values.relocate) {
-    const moved = join(outside, "moved-installation");
+    const moved = join(verificationRoot, "moved-installation");
     await rename(bundle, moved);
     bundle = moved;
     node = join(bundle, "runtime/node/node.exe");
@@ -303,7 +318,7 @@ try {
       execute(
         node,
         [launcher, "serve", ...locationArgs, "--stop-on-stdin-close"],
-        { cwd: outside, env, windowsHide: true, timeout: 30000 },
+        { cwd: verificationRoot, env, windowsHide: true, timeout: 30000 },
       ),
       (error: unknown) =>
         error instanceof Error &&
@@ -325,7 +340,7 @@ try {
       archive,
       layout: values.layout,
       relocated: values.relocate,
-      outsideRepository: true,
+      verificationRootRepository: true,
       developerPath: false,
       sourceLess: true,
       restart: true,

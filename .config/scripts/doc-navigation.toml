@@ -1,0 +1,3 @@
+ignored_directories = [".agents", "prompts"]
+return_exempt_names = ["INDEX.md", "AGENTS.md"]
+return_exempt_paths = ["README.md"]

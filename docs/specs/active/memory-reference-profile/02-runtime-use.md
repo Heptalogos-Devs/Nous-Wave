@@ -30,3 +30,5 @@ Accessibility 是 query-time policy，不是 Memory truth、lifecycle 或 purge�
 ## Recovery
 
 Session、UseEvent receipt、ResidentSet 和 Authority sequence 必须在同一 data root 重启后可恢复；BoundQuery 不跨进程持久化。Runtime state 丢失时可从 Authority 重建，不能把缓存当作 durable cognition。WorkContext 只保存 bounded purpose/questions/constraints/resume conditions/budget 与 exact refs；prompt、raw cache、model hidden state 和 copied Memory 不持久化。
+
+[返回文档目录](../../INDEX.md)

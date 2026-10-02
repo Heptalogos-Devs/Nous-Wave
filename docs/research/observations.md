@@ -16,3 +16,5 @@ formation coverage/provenance precision=1，wrong-source/entity、stale leakage�
 代表音频使用 Kevin MacLeod《Carefree》《Gymnopedie No.1》的 CC-BY-4.0 署名音乐片段。六个三策略流程中五个提交，两个 public recall 成功；direct structured 遗漏 Carefree 的 ukulele/guitar 信息，Gymnopedie 两阶段结构化提出无输入的 visual 内容而被拒绝，已提交 AudioDescription 保留。oracle 支持作者 metadata 中的音乐/乐器族；精确时长、节奏及细节听辨仍未测量。
 
 RAGFlow 是 optional provider，用户实例/dataset 尚未配置。完整 VCP route 的公开算法审读不等于当前 topology 实现；当前仅 weighted PCA、residual、bounded propagation/node-potential lane。VCPToolBox 的 CC-BY-NC-SA 源码未并入 MIT payload。
+
+[返回文档目录](../INDEX.md)

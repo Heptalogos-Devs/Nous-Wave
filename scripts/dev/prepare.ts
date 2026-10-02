@@ -1,15 +1,14 @@
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { repositoryRoot as repo, workspacePaths } from "../workspace.js";
 import { readFile, stat } from "node:fs/promises";
-import { resolveLocations } from "../apps/nous-core/src/locations.js";
-import { installRuntime } from "../apps/nous-core/src/runtime-packs.js";
+import { resolveLocations } from "../../apps/nous-core/src/locations.js";
+import { installRuntime } from "../../apps/nous-core/src/runtime-packs.js";
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const installation =
   process.env.NOUS_WAVE_POSTGRES_RUNTIME ??
-  join(repo, "data/dev/runtime/postgresql");
+  join(workspacePaths.installedRuntime, "postgresql");
 const executable = join(
   installation,
   "bin",
@@ -23,13 +22,16 @@ if (await stat(executable).catch(() => undefined)) {
     throw new Error("Developer PostgreSQL must be version 18.6");
 } else if (process.platform === "win32") {
   const locations = await resolveLocations({
-    home: join(repo, "data/dev"),
+    home: workspacePaths.development,
     installationHome: repo,
-    programRoot: repo,
-    runtimeRoot: join(repo, "data/dev/runtime"),
+    programRoot: workspacePaths.runtime,
+    runtimeRoot: workspacePaths.installedRuntime,
   });
   const catalog = JSON.parse(
-    await readFile(join(repo, "manifest/runtimes.json"), "utf8"),
+    await readFile(
+      join(workspacePaths.runtime, "manifest/runtimes.json"),
+      "utf8",
+    ),
   ) as {
     packs: {
       component: string;
@@ -49,7 +51,7 @@ if (await stat(executable).catch(() => undefined)) {
   await installRuntime(
     locations,
     "postgresql",
-    join(repo, "packs", pack.archive),
+    join(workspacePaths.runtime, "packs", pack.archive),
   );
 } else {
   await promisify(execFile)(

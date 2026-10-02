@@ -66,7 +66,7 @@ local_cache_name
 
 raw cache：
 
-`data/research/live/corpus/`
+`data/research/runs/corpus/`
 
 默认gitignored。
 
@@ -229,7 +229,7 @@ important uncertainty
 ignored：
 
 ```text
-data/research/live/runs/<timestamp>/
+data/research/runs/runs/<timestamp>/
   environment.json
   source-map.json
   model-profiles.redacted.json
@@ -411,3 +411,5 @@ end-to-end recall
 - 不能因为Wave已经写了很多代码而给它保留特权。
 
 Topology 保持显式实验 lane。
+
+[返回文档目录](../INDEX.md)

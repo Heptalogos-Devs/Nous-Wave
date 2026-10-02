@@ -26,3 +26,5 @@ Typed public RPCs are `CreateWorkContext`、`GetWorkContext`、`ListWorkContexts
 ## Persistence and recovery
 
 The Runtime stores typed WorkContext data in the fresh canonical schema and recovers it from the same database root after process restart. Prompt, model hidden state, raw cache, and full chat history are not persisted.
+
+[返回文档目录](../../INDEX.md)

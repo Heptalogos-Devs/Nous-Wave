@@ -1,5 +1,5 @@
 {
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "$schema": "../node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript"],
   "categories": {
     "correctness": "error",
@@ -22,12 +22,5 @@
     "typescript/no-unnecessary-type-assertion": "off",
     "typescript/no-unsafe-enum-comparison": "off",
     "typescript/consistent-return": "off"
-  },
-  "ignorePatterns": [
-    "**/node_modules/**",
-    "**/dist/**",
-    "**/build/**",
-    "**/coverage/**",
-    "**/generated/**"
-  ]
+  }
 }
