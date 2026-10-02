@@ -7,6 +7,14 @@ rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
 
+[features]
+dev-runtime = ["postgresql_embedded/theseus"]
+
+[[bin]]
+name = "dev-prepare"
+path = "src/bin/dev-prepare.rs"
+required-features = ["dev-runtime"]
+
 [dependencies]
 async-trait.workspace = true
 nous-persistence.workspace = true

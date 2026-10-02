@@ -54,7 +54,15 @@ if (await stat(executable).catch(() => undefined)) {
 } else {
   await promisify(execFile)(
     "cargo",
-    ["run", "-p", "nous-kernel", "--bin", "dev-prepare"],
+    [
+      "run",
+      "-p",
+      "nous-kernel",
+      "--features",
+      "dev-runtime",
+      "--bin",
+      "dev-prepare",
+    ],
     { cwd: repo, maxBuffer: 1024 * 1024 },
   );
 }

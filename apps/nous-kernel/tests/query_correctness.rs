@@ -1321,7 +1321,7 @@ async fn query_distinguishes_provider_unavailable_from_unknown() {
         result
             .degradation
             .iter()
-            .any(|value| value.code == "dense_provider_unavailable")
+            .any(|value| value.code == "dense_lane_unavailable")
     );
 }
 
