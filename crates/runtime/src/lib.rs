@@ -4,6 +4,7 @@ mod clock;
 mod episode_policy;
 mod experience;
 mod maintenance;
+mod maintenance_policy;
 mod query;
 mod resources;
 mod segmentation;
@@ -17,6 +18,7 @@ pub use episode_policy::SETTLE_DELAY_KEY;
 pub use episode_policy::{EpisodePolicy, ExperienceContext};
 pub use experience::ExperienceInput;
 pub use maintenance::*;
+pub use maintenance_policy::*;
 pub use query::{
     BoundQuery, CognitiveContributor, CognitiveContributors, LaneCandidate, LaneOutput, LaneStatus,
     QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
@@ -59,6 +61,7 @@ pub fn register_configuration(
         },
     )?;
     episode_policy::register_episode_configuration(registry)?;
+    maintenance_policy::register_maintenance_configuration(registry)?;
     register_retrieval_configuration(registry)
 }
 

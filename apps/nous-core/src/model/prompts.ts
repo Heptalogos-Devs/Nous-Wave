@@ -6,6 +6,9 @@ import type { ModelRole } from "./configuration.js";
 const defaults: Partial<Record<ModelRole, string>> = {
   projection_steward: "projection/steward.md",
   memory_formation: "memory/formation.md",
+  episode_segmentation: "episode/segmentation.md",
+  journal_synthesis: "journal/synthesis.md",
+  memory_consolidation: "memory/consolidation.md",
   material_description: "material/description.md",
   material_structuring: "material/structure.md",
   material_direct_structuring: "material/direct-structure.md",

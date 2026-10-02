@@ -195,6 +195,43 @@ impl MemoryService {
         .await
     }
 
+    pub async fn journal_page(
+        &self,
+        subject: SubjectId,
+        journal: Option<JournalId>,
+        limit: i64,
+        last: Option<Uuid>,
+        status: &str,
+    ) -> Result<Vec<JournalView>> {
+        if !(1..=201).contains(&limit) {
+            return Err(Error::Invalid("Journal page limit is out of bounds".into()));
+        }
+        if !["", "accepted", "withdrawn"].contains(&status) {
+            return Err(Error::Invalid("invalid Journal status filter".into()));
+        }
+        self.store.require_subject(subject).await?;
+        if let Some(journal) = journal {
+            let ids: Vec<Uuid> = sqlx::query_scalar("SELECT journal_revision_id FROM journal_revisions WHERE subject_id=$1 AND journal_id=$2 AND ($3::uuid IS NULL OR journal_revision_id>$3) ORDER BY journal_revision_id LIMIT $4")
+                .bind(subject.0).bind(journal.0).bind(last).bind(limit).fetch_all(self.store.pool()).await.map_err(db)?;
+            let mut views = Vec::with_capacity(ids.len());
+            for revision in ids {
+                views.push(
+                    self.journal(subject, journal, Some(JournalRevisionId(revision)))
+                        .await?,
+                );
+            }
+            Ok(views)
+        } else {
+            let ids: Vec<Uuid> = sqlx::query_scalar("SELECT journal_id FROM journal_objects WHERE subject_id=$1 AND ($2::uuid IS NULL OR journal_id>$2) AND ($4='' OR acceptance_state=$4) ORDER BY journal_id LIMIT $3")
+                .bind(subject.0).bind(last).bind(limit).bind(status).fetch_all(self.store.pool()).await.map_err(db)?;
+            let mut views = Vec::with_capacity(ids.len());
+            for journal in ids {
+                views.push(self.journal(subject, JournalId(journal), None).await?);
+            }
+            Ok(views)
+        }
+    }
+
     pub async fn list_journals(&self, subject: SubjectId) -> Result<Vec<JournalView>> {
         self.store.require_subject(subject).await?;
         let ids: Vec<Uuid> = sqlx::query_scalar("SELECT journal_id FROM journal_objects WHERE subject_id=$1 ORDER BY created_at,journal_id LIMIT 256")

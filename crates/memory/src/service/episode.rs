@@ -233,7 +233,14 @@ impl MemoryService {
             .configuration
             .snapshot_for_subject(subject)?
             .get(nous_runtime::SETTLE_DELAY_KEY)?;
-        let due_at = self.cognition.now(subject) + chrono::Duration::seconds(delay as i64);
+        let now = self.cognition.now(subject);
+        let due_at = now + chrono::Duration::seconds(delay as i64);
+        let consolidation_due = now
+            + chrono::Duration::seconds(
+                self.configuration
+                    .snapshot_for_subject(subject)?
+                    .get(super::longitudinal_policy::CONSOLIDATION_DELAY)? as i64,
+            );
         for (kind, scope_kind, scope_ref) in [
             (
                 "episode_resegment",
@@ -259,7 +266,11 @@ impl MemoryService {
                         scope_kind: scope_kind.into(),
                         scope_ref,
                         trigger_authority_seq: authority_seq,
-                        due_at,
+                        due_at: if kind == "memory_consolidate" {
+                            consolidation_due
+                        } else {
+                            due_at
+                        },
                         priority: 30,
                     },
                 )

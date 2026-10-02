@@ -93,6 +93,8 @@ CREATE TABLE maintenance_needs (
     state text NOT NULL CHECK (state IN ('pending','leased','satisfied','obsolete')),
     lease_token uuid NULL,
     lease_until timestamptz NULL,
+    last_ack_token uuid NULL,
+    last_ack_digest text NULL CHECK (last_ack_digest IS NULL OR last_ack_digest ~ '^[0-9a-f]{64}$'),
     attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     last_problem_code text NULL,
     created_at timestamptz NOT NULL,

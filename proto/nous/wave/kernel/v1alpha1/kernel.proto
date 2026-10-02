@@ -1,5 +1,7 @@
 syntax = "proto3";
 package nous.wave.kernel.v1alpha1;
+import "nous/wave/kernel/v1alpha1/longitudinal.proto";
+import "nous/wave/v1alpha1/journal.proto";
 import "nous/wave/v1alpha1/types.proto";
 import "google/protobuf/empty.proto";
 import "nous/wave/v1alpha1/identity.proto";
@@ -16,6 +18,12 @@ service ArtifactStreamService {
 }
 
 service AuthorityService {
+  rpc GetMaintenancePolicy(nous.wave.v1alpha1.SubjectRequest) returns (MaintenancePolicy);
+  rpc ClaimMaintenance(ClaimMaintenanceRequest) returns (ClaimMaintenanceResponse);
+  rpc FinishMaintenance(FinishMaintenanceRequest) returns (google.protobuf.Empty);
+  rpc OrganizeExperience(OrganizeExperienceRequest) returns (OrganizeExperienceResponse);
+  rpc ApplyEpisodePartition(ApplyEpisodePartitionRequest) returns (ApplyEpisodePartitionResponse);
+  rpc CommitJournal(CommitJournalRequest) returns (nous.wave.v1alpha1.JournalResponse);
   rpc GetMaterialLimits(google.protobuf.Empty) returns (nous.wave.v1alpha1.MaterialLimits);
   rpc ListDerivedRepresentations(nous.wave.v1alpha1.RepresentationListRequest) returns (nous.wave.v1alpha1.RepresentationListResponse);
   rpc GetProducer(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.ProducerSignature);
@@ -40,6 +48,15 @@ service AuthorityService {
   rpc WithdrawEpisode(nous.wave.v1alpha1.EpisodeMutationRequest) returns (nous.wave.v1alpha1.EpisodeResponse);
   rpc ReacceptEpisode(nous.wave.v1alpha1.EpisodeMutationRequest) returns (nous.wave.v1alpha1.EpisodeResponse);
   rpc PurgeEpisode(nous.wave.v1alpha1.EpisodeMutationRequest) returns (google.protobuf.Empty);
+  rpc GetJournal(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.JournalResponse);
+  rpc GetJournalRevision(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.JournalRevision);
+  rpc ListJournals(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListJournalsResponse);
+  rpc ListJournalRevisions(nous.wave.v1alpha1.ListJournalRevisionsRequest) returns (nous.wave.v1alpha1.ListJournalRevisionsResponse);
+  rpc SuppressJournal(nous.wave.v1alpha1.JournalMutationRequest) returns (nous.wave.v1alpha1.JournalResponse);
+  rpc RestoreJournal(nous.wave.v1alpha1.JournalMutationRequest) returns (nous.wave.v1alpha1.JournalResponse);
+  rpc WithdrawJournal(nous.wave.v1alpha1.JournalMutationRequest) returns (nous.wave.v1alpha1.JournalResponse);
+  rpc ReacceptJournal(nous.wave.v1alpha1.JournalMutationRequest) returns (nous.wave.v1alpha1.JournalResponse);
+  rpc PurgeJournal(nous.wave.v1alpha1.JournalMutationRequest) returns (google.protobuf.Empty);
   rpc SetAccessibility(nous.wave.v1alpha1.SetAccessibilityRequest) returns (nous.wave.v1alpha1.Memory);
   rpc LinkRevisions(nous.wave.v1alpha1.LinkRevisionsRequest) returns (google.protobuf.Empty);
   rpc PutResource(nous.wave.v1alpha1.PutResourceRequest) returns (nous.wave.v1alpha1.ResourceDescriptor);

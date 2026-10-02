@@ -253,6 +253,7 @@ pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()
         "Deep accessibility threshold.",
         threshold
     );
+    super::longitudinal_policy::register_longitudinal_configuration(registry)?;
     Ok(())
 }
 

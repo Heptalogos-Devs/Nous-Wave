@@ -150,9 +150,14 @@ impl CognitiveRuntimeService {
                 problem_code,
             } => ("pending", due_at, problem_code),
         };
+        let digest = canonical_request_digest(
+            "maintenance_ack",
+            claimed.subject_id,
+            &serde_json::json!({"need":claimed.need_id,"token":token,"trigger":claimed.trigger_authority_seq,"state":state,"due":due,"problem":problem}),
+        )?;
         // A trigger arriving during execution survives acknowledgement as pending work.
         let updated = sqlx::query(
-            "UPDATE maintenance_needs SET state=CASE WHEN trigger_authority_seq>$4 THEN 'pending' ELSE $5 END,due_at=CASE WHEN trigger_authority_seq>$4 THEN due_at ELSE $6 END,lease_token=NULL,lease_until=NULL,last_problem_code=$7,updated_at=$8 WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp()",
+            "UPDATE maintenance_needs SET state=CASE WHEN trigger_authority_seq>$4 THEN 'pending' ELSE $5 END,due_at=CASE WHEN trigger_authority_seq>$4 THEN due_at ELSE $6 END,lease_token=NULL,lease_until=NULL,last_problem_code=$7,updated_at=$8,last_ack_token=$3,last_ack_digest=$9 WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp()",
         )
         .bind(claimed.subject_id.0)
         .bind(claimed.need_id)
@@ -162,10 +167,16 @@ impl CognitiveRuntimeService {
         .bind(due)
         .bind(problem)
         .bind(self.now(claimed.subject_id))
+        .bind(&digest)
         .execute(self.store.pool())
         .await
         .map_err(db)?;
         if updated.rows_affected() == 0 {
+            let replay: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND last_ack_token=$3 AND last_ack_digest=$4)")
+                .bind(claimed.subject_id.0).bind(claimed.need_id).bind(token).bind(&digest).fetch_one(self.store.pool()).await.map_err(db)?;
+            if replay {
+                return Ok(());
+            }
             return Err(Error::Conflict(
                 "maintenance lease expired or replaced".into(),
             ));

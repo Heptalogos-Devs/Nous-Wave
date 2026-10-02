@@ -6,6 +6,7 @@ mod episode;
 mod journal;
 mod lane;
 mod lifecycle;
+mod longitudinal_policy;
 mod provenance;
 mod query;
 mod query_materialization;

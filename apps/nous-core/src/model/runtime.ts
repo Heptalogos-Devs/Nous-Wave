@@ -13,6 +13,11 @@ import {
   type ModelConfiguration,
 } from "./configuration.js";
 
+import {
+  episodePartitionSchema,
+  journalSynthesisSchema,
+} from "./schemas/longitudinal.js";
+
 const proposalSchema = z.strictObject({
   selectedIds: z.array(z.string()).max(64),
   summary: z.string().max(8192).optional(),
@@ -60,6 +65,34 @@ export class ModelRuntime {
   }
   get embeddingModel() {
     return this.invocations.profile("query_embedding")?.model;
+  }
+  async segmentEpisode(
+    input: string,
+    signal?: AbortSignal,
+    snapshot?: ModelRoleSnapshot,
+  ) {
+    return this.invocations.generate(
+      "episode_segmentation",
+      input,
+      episodePartitionSchema,
+      signal,
+      undefined,
+      snapshot,
+    );
+  }
+  async synthesizeJournal(
+    input: string,
+    signal?: AbortSignal,
+    snapshot?: ModelRoleSnapshot,
+  ) {
+    return this.invocations.generate(
+      "journal_synthesis",
+      input,
+      journalSynthesisSchema,
+      signal,
+      undefined,
+      snapshot,
+    );
   }
   async form(text: string, signal?: AbortSignal, snapshot?: ModelRoleSnapshot) {
     const result = await this.invocations.generate(

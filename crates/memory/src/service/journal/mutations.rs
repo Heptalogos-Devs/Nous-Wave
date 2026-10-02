@@ -97,7 +97,13 @@ impl MemoryService {
                     scope_kind: "journal_revision".into(),
                     scope_ref: revision.0.to_string(),
                     trigger_authority_seq: sequence,
-                    due_at: recorded,
+                    due_at: recorded
+                        + chrono::Duration::seconds(
+                            self.configuration
+                                .snapshot_for_subject(input.subject)?
+                                .get(super::super::longitudinal_policy::CONSOLIDATION_DELAY)?
+                                as i64,
+                        ),
                     priority: 40,
                 },
             )

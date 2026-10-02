@@ -44,7 +44,7 @@ fn revision(
     }
 }
 
-fn view(value: nous_memory::EpisodeView) -> p::Episode {
+pub(super) fn view(value: nous_memory::EpisodeView) -> p::Episode {
     let current = value.object.current_revision_id == value.revision.episode_revision_id;
     p::Episode {
         episode_id: value.object.episode_id.0.to_string(),

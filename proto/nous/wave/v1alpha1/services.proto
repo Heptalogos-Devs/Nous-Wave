@@ -1,5 +1,6 @@
 syntax = "proto3";
 package nous.wave.v1alpha1;
+import "nous/wave/v1alpha1/journal.proto";
 import "google/protobuf/empty.proto";
 import "nous/wave/v1alpha1/management.proto";
 import "nous/wave/v1alpha1/types.proto";
@@ -25,6 +26,15 @@ service CognitionService {
   rpc BuildManagedContext(ManagedContextRequest) returns (ManagedContextResponse);
 }
 service MemoryService {
+  rpc GetJournal(ObjectRequest) returns (JournalResponse);
+  rpc GetJournalRevision(ObjectRequest) returns (JournalRevision);
+  rpc ListJournals(ListRequest) returns (ListJournalsResponse);
+  rpc ListJournalRevisions(ListJournalRevisionsRequest) returns (ListJournalRevisionsResponse);
+  rpc SuppressJournal(JournalMutationRequest) returns (JournalResponse);
+  rpc RestoreJournal(JournalMutationRequest) returns (JournalResponse);
+  rpc WithdrawJournal(JournalMutationRequest) returns (JournalResponse);
+  rpc ReacceptJournal(JournalMutationRequest) returns (JournalResponse);
+  rpc PurgeJournal(JournalMutationRequest) returns (google.protobuf.Empty);
   rpc SetAccessibility(SetAccessibilityRequest) returns (Memory);
   rpc LinkRevisions(LinkRevisionsRequest) returns (google.protobuf.Empty);
   rpc ConsolidateMemory(ConsolidateMemoryRequest) returns (ConsolidationResponse);

@@ -4,6 +4,8 @@ mod convert;
 mod episode;
 mod evidence;
 mod identity;
+mod journal;
+mod longitudinal;
 mod management;
 mod material;
 mod memory;

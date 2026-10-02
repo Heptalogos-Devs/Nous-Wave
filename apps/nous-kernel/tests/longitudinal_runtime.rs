@@ -232,6 +232,16 @@ async fn maintenance_claims_use_execution_leases_and_keep_new_triggers() {
         .acknowledge_maintenance(&leased[0], MaintenanceDisposition::Satisfied)
         .await
         .unwrap();
+    rt.cognition
+        .acknowledge_maintenance(&leased[0], MaintenanceDisposition::Satisfied)
+        .await
+        .unwrap();
+    assert!(
+        rt.cognition
+            .acknowledge_maintenance(&leased[0], MaintenanceDisposition::Obsolete)
+            .await
+            .is_err()
+    );
     let reclaimed = rt
         .cognition
         .lease_maintenance(subject, &kinds, 1, 60)
@@ -661,6 +671,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     assert_eq!(replay.revision.formed_at, journal.revision.formed_at);
     assert_eq!(replay.revision.recorded_at, journal.revision.recorded_at);
     let revised = assert_journal_revalidation(&rt, input, &episode, &invalidated).await;
+    assert_journal_protocol(&rt, subject, &revised).await;
     let uses = assert_longitudinal_use(&rt, subject, &episode, &revised).await;
     memory
         .purge_journal(
@@ -825,4 +836,92 @@ async fn assert_longitudinal_use(
         2
     );
     input
+}
+
+async fn assert_journal_protocol(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    journal: &nous_memory::JournalView,
+) {
+    use nous_protocol::{kernel::authority_service_server::AuthorityService, public as p};
+    let service = nous_kernel::transport::KernelService(rt.clone());
+    let current = service
+        .get_journal(tonic::Request::new(p::ObjectRequest {
+            subject_id: subject.0.to_string(),
+            id: journal.object.journal_id.0.to_string(),
+        }))
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(
+        current.journal.unwrap().current_revision.unwrap().points[0]
+            .supports
+            .len(),
+        1
+    );
+    let listed = service
+        .list_journals(tonic::Request::new(p::ListRequest {
+            subject_id: subject.0.to_string(),
+            page: Some(p::Page {
+                page_size: 1,
+                page_token: String::new(),
+            }),
+            status: "accepted".into(),
+        }))
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(
+        listed.items[0].journal_id,
+        journal.object.journal_id.0.to_string()
+    );
+    let request = p::ListJournalRevisionsRequest {
+        subject_id: subject.0.to_string(),
+        journal_id: journal.object.journal_id.0.to_string(),
+        page: Some(p::Page {
+            page_size: 1,
+            page_token: String::new(),
+        }),
+    };
+    let first = service
+        .list_journal_revisions(tonic::Request::new(request.clone()))
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(first.items.len(), 1);
+    assert!(!first.next_page_token.is_empty());
+    let mut next = request;
+    next.page.as_mut().unwrap().page_token = first.next_page_token.clone();
+    let second = service
+        .list_journal_revisions(tonic::Request::new(next))
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(
+        second.items[0].journal_revision_id,
+        journal.revision.journal_revision_id.0.to_string()
+    );
+    assert!(second.next_page_token.is_empty());
+    assert!(
+        service
+            .list_journals(tonic::Request::new(p::ListRequest {
+                status: String::new(),
+                subject_id: subject.0.to_string(),
+                page: Some(p::Page {
+                    page_size: 1,
+                    page_token: first.next_page_token
+                })
+            }))
+            .await
+            .is_err()
+    );
+    let policy = service
+        .get_maintenance_policy(tonic::Request::new(p::SubjectRequest {
+            subject_id: subject.0.to_string(),
+        }))
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(policy.enabled);
+    assert_eq!(policy.max_operations, 4);
 }

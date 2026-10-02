@@ -4,6 +4,9 @@ import { remoteEndpointSchema } from "../remote-endpoint.js";
 export const roleNames = [
   "projection_steward",
   "memory_formation",
+  "episode_segmentation",
+  "journal_synthesis",
+  "memory_consolidation",
   "material_description",
   "material_structuring",
   "material_direct_structuring",
@@ -159,6 +162,18 @@ export const modelConfigurationSchema = z
         ctx.addIssue({
           code: "custom",
           message: `Protocol/capability mismatch for role ${role}`,
+        });
+      if (
+        [
+          "episode_segmentation",
+          "journal_synthesis",
+          "memory_consolidation",
+        ].includes(role) &&
+        !model.capabilities.includes("structured_output")
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: `Role ${role} requires structured_output`,
         });
       if (protocol && binding.prompt)
         ctx.addIssue({
