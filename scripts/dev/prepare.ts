@@ -3,10 +3,10 @@ import { execFile } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile, stat } from "node:fs/promises";
-import { resolveLocations } from "../apps/nous-core/src/locations.js";
-import { installRuntime } from "../apps/nous-core/src/runtime-packs.js";
+import { resolveLocations } from "../../apps/nous-core/src/locations.js";
+import { installRuntime } from "../../apps/nous-core/src/runtime-packs.js";
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const installation =
   process.env.NOUS_WAVE_POSTGRES_RUNTIME ??
   join(repo, "data/dev/runtime/postgresql");

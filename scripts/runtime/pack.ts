@@ -30,7 +30,7 @@ if (
 )
   throw new Error("Provide component/version/source/license/root/program");
 if (process.platform !== "win32" || process.arch !== "x64")
-  throw new Error("This assembler qualifies Windows x64 ZIP packs");
+  throw new Error("Runtime packing supports Windows x64 ZIP packs");
 const root = resolve(values.root),
   program = resolve(values.program);
 const required =
@@ -101,7 +101,10 @@ await mkdir(join(program, "manifest"), { recursive: true });
 const archive = `nous-runtime-${values.component}-${values.version}-windows-x64.zip`;
 const systemRoot = process.env.SystemRoot;
 if (!systemRoot) throw new Error("Windows SystemRoot missing");
-const script = join(dirname(fileURLToPath(import.meta.url)), "zip-runtime.ps1");
+const script = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../release/zip.ps1",
+);
 await execute(
   join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
   [

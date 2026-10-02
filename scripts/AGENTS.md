@@ -1,5 +1,5 @@
-# Repository Script Instructions
+# Script Owners
 
-Scripts under this scope are maintenance or development entrypoints. Keep destructive cleanup narrowly scoped to named project-owned artifacts, provide a preview path when deletion is possible, and never traverse `node_modules/`, delete Cargo `target/` by default, or touch repository data outside the command's explicit scope.
+`dev/start.ts` owns development launch and shutdown, exposed by `pnpm dev`. `runtime/` builds and packs third-party runtimes; `release/` bundles the product. Release assembly consumes prepared packs/notices offline and replaces a single current staging.
 
-The canonical development entrypoint is `scripts/dev.ts`, exposed as `corepack pnpm dev`. Keep platform detection and child-process shutdown in that owner; do not duplicate it in README examples or alternate scripts.
+`research/` owns live provider experiments and run budgets. `smoke/` uses normal Core hosting and the official Client.

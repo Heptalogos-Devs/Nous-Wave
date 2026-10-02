@@ -23,7 +23,7 @@ corepack pnpm dev
 
 `just check-fast` 顺序执行格式、Proto、TypeScript/Oxlint 和 Clippy；`just check` 随后运行 Vitest 与 Rust tests。`just audit` 用于按需依赖/安全/重复审查；`just smoke` 运行正常 Core + official Client 的 Memory、Runtime/Episode、Model/Material/Resource 场景，也可用 `pnpm smoke:memory`、`smoke:runtime`、`smoke:model` 分别运行。
 
-Protobuf 的唯一来源是 `proto/`，修改后运行 `corepack pnpm generate`。Cargo `target/` 保留用于增量构建。
+Protobuf 的唯一来源是 `proto/`，修改后运行 `corepack pnpm generate`。
 
 ## Portable 与研究
 
@@ -32,6 +32,8 @@ Windows x64：`just release-prepare` 构建 shipping Kernel 并显式准备 noti
 Portable 不包含用户/开发配置。使用 `bin/nous.cmd init --home <instance>` 创建该实例配置，再编辑 `<instance>/config/nous.toml`；首次 serve 也可初始化，已有文件不会被覆盖。
 
 真实模型和语料实验使用 `pnpm research:gateway`、`research:retrieval-live`、`research:media-live`，方法与观测见 [Research](docs/research/README.md)。
+
+更换电脑时，保留的本地配置、语料与研究素材见 [开发环境迁移](docs/reference/DEVELOPMENT.md)。
 
 ## 导航
 

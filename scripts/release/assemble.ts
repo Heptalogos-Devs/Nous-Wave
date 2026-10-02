@@ -104,7 +104,7 @@ await promisify(execFile)(
   [
     "-NoProfile",
     "-File",
-    join(repo, "scripts/zip-runtime.ps1"),
+    join(repo, "scripts/release/zip.ps1"),
     "-SourceRoot",
     output,
     "-ArchivePath",

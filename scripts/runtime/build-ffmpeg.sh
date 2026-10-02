@@ -5,7 +5,7 @@ set -euo pipefail
 source_archive=$(realpath "$1")
 compiler_archive=$(realpath "$2")
 output=$(realpath -m "$3")
-notices_script=$(realpath "$(dirname "${BASH_SOURCE[0]}")/build-runtime-notices.sh")
+notices_script=$(realpath "$(dirname "${BASH_SOURCE[0]}")/build-notices.sh")
 test "$(sha256sum "$source_archive" | cut -d' ' -f1)" = 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
 test "$(sha256sum "$compiler_archive" | cut -d' ' -f1)" = bb7bb7654b33d5aa8712acb837c963b2e0c56352560c76105270a3268c665c21
 build=${4:-}

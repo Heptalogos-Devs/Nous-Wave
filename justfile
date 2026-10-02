@@ -35,7 +35,7 @@ research *args:
     corepack pnpm research:retrieval-live {{args}}
 
 release-prepare:
-    powershell -NoProfile -File scripts/build-windows-kernel.ps1
+    powershell -NoProfile -File scripts/release/build-kernel.ps1
     corepack pnpm release:notices
 
 release:

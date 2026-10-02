@@ -50,7 +50,7 @@ FFmpeg pack由 release pipeline 从精确 source构建；禁用 GPL、nonfree、
 
 Windows release verification在Git仓库外，使用任意CWD、无developer PATH和实际gateway/source，通过official Client完成 formation/embedding/rerank/NousQL/provenance/use/restart。验证共置、完全分离roots、搬移安装位置、missing-pack serve无acquisition、external override及cancel。检查结果对应实际平台与当前 artifact。
 
-2026-10-02 用户批准 Windows shipping Kernel 改用 LLVM-MinGW UCRT 与 `--target x86_64-pc-windows-gnullvm`；assembler 只读取此 target 的 release binary 和私有 `libc++.dll`/`libunwind.dll`。`scripts/build-windows-kernel.ps1` 设置独立 target C/C++/linker、C++17、source remap 与 post-link debug strip，复制精确 compiler runtime DLL。Rust MSVC source-tree 开发仍可运行，不再作为 shipping payload。以实际 PE import inventory 验证所有非系统依赖已归入 payload；系统 Win32/UCRT 不当作私有 pack。
+2026-10-02 用户批准 Windows shipping Kernel 改用 LLVM-MinGW UCRT 与 `--target x86_64-pc-windows-gnullvm`；assembler 只读取此 target 的 release binary 和私有 `libc++.dll`/`libunwind.dll`。`scripts/release/build-kernel.ps1` 设置独立 target C/C++/linker、C++17、source remap 与 post-link debug strip，复制精确 compiler runtime DLL。Rust MSVC source-tree 开发仍可运行，不再作为 shipping payload。以实际 PE import inventory 验证所有非系统依赖已归入 payload；系统 Win32/UCRT 不当作私有 pack。
 
 Release compiler 为 LLVM-MinGW20260922 UCRT Windows x64，官方 archive SHA256 `e3ad77d117a4bea19a7a3b333341824d79a5a371004a10e25b8504e7b3047666`；PostgreSQL/FFmpeg 使用同发行的 Linux-host cross tools。保留 LLVM/MinGW runtime notices，逐项核查 Rust GNU self-contained/native inputs，当前 payload 保存实际 native closure。正常 serve 不获取 compiler。
 

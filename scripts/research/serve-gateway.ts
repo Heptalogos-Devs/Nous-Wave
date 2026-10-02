@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 import { resolve } from "node:path";
-import { startResearchGateway } from "./research/gateway.js";
+import { startResearchGateway } from "./gateway.js";
 
 const { values } = parseArgs({
   options: {
