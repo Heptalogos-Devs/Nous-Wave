@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ContextCompiler } from "../src/cognition/context.js";
 import { ModelRuntime } from "../src/model/runtime.js";
 import { ProjectionPlanner } from "../src/cognition/projection.js";
@@ -73,7 +73,11 @@ describe("managed context synchronization", () => {
 });
 describe("projection authority boundaries", () => {
   it("rejects invented model refs and preserves deterministic source selection", async () => {
-    const model = new ModelRuntime(async () => ({ selectedIds: ["invented"] }));
+    const model = new ModelRuntime();
+    vi.spyOn(model.invocations, "profile").mockReturnValue({} as never);
+    vi.spyOn(model.invocations, "generate").mockResolvedValue({
+      value: { selectedIds: ["invented"] },
+    } as never);
     const result = await new ProjectionPlanner(
       new Map([["test", policy]]),
       model,
@@ -85,7 +89,7 @@ describe("projection authority boundaries", () => {
     const required = { ...policy, memory: "REQUIRED" as const };
     const planner = new ProjectionPlanner(
       new Map([["test", required]]),
-      new ModelRuntime(async () => ({ selectedIds: [] })),
+      new ModelRuntime(),
     );
     const result = await planner.build(projection(segment("a", "中文中文")), {
       maxItems: 1,

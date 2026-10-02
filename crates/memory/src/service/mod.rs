@@ -20,7 +20,8 @@ use chrono::{DateTime, Utc};
 use nous_core::*;
 use nous_object_store::ObjectStore;
 use nous_persistence::{
-    AuthorityStore, ProjectionInvalidation, database_error as db, lock_operation,
+    AuthorityStore, ProjectionInvalidation, check_receipt, commit_receipt, database_error as db,
+    lock_operation,
 };
 pub use nous_runtime::{ResidentView, ResourceUpsert, ResourceView, SessionView};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -131,13 +132,6 @@ pub struct ConsolidationResult {
     pub topology_changes: usize,
 }
 
-#[derive(Debug, Clone)]
-struct Receipt {
-    state: String,
-    result_ref: Option<String>,
-    result_revision: Option<Uuid>,
-}
-
 fn parse_enum<T: DeserializeOwned>(value: String, name: &str) -> Result<T> {
     serde_json::from_value(serde_json::Value::String(value))
         .map_err(|error| Error::Infrastructure(format!("invalid {name}: {error}")))
@@ -170,67 +164,6 @@ fn temporal_columns(
 
 fn operation_digest<T: Serialize>(kind: &str, subject: SubjectId, value: &T) -> Result<String> {
     canonical_request_digest(kind, subject, value)
-}
-
-async fn check_receipt(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-    kind: &str,
-    digest: &str,
-) -> Result<Option<Receipt>> {
-    let row = sqlx::query("SELECT state,result_ref,result_revision,request_digest FROM mutation_receipts WHERE subject_id=$1 AND operation_id=$2")
-        .bind(subject.0)
-        .bind(operation.0)
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(db)?;
-    if let Some(row) = row {
-        let existing: String = row.try_get("request_digest").map_err(db)?;
-        if existing != digest {
-            return Err(Error::Conflict(format!(
-                "{kind} operation_id was used with a different request"
-            )));
-        }
-        return Ok(Some(Receipt {
-            state: row.try_get("state").map_err(db)?,
-            result_ref: row.try_get("result_ref").map_err(db)?,
-            result_revision: row.try_get("result_revision").map_err(db)?,
-        }));
-    }
-    sqlx::query("INSERT INTO mutation_receipts(subject_id,operation_id,operation_kind,request_digest,state,created_at) VALUES($1,$2,$3,$4,'in_progress',$5)")
-        .bind(subject.0)
-        .bind(operation.0)
-        .bind(kind)
-        .bind(digest)
-        .bind(Utc::now())
-        .execute(&mut **tx)
-        .await
-        .map_err(db)?;
-    Ok(None)
-}
-
-async fn commit_receipt(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-    result_kind: &str,
-    result_ref: Option<&str>,
-    result_revision: Option<Uuid>,
-    result_epoch: Option<i64>,
-) -> Result<()> {
-    sqlx::query("UPDATE mutation_receipts SET state='committed',result_kind=$3,result_ref=$4,result_revision=$5,result_epoch=$6,committed_at=$7 WHERE subject_id=$1 AND operation_id=$2")
-        .bind(subject.0)
-        .bind(operation.0)
-        .bind(result_kind)
-        .bind(result_ref)
-        .bind(result_revision)
-        .bind(result_epoch)
-        .bind(Utc::now())
-        .execute(&mut **tx)
-        .await
-        .map_err(db)?;
-    Ok(())
 }
 
 impl MemoryService {

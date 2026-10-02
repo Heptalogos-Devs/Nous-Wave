@@ -1,7 +1,6 @@
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import type { KernelClient } from "../kernel-client.js";
 import { ModelRuntime } from "./runtime.js";
-import { invocationSummary } from "./summary.js";
 export class ModelMaterialPipeline {
   constructor(
     private readonly kernel: KernelClient,
@@ -18,7 +17,6 @@ export class ModelMaterialPipeline {
         Code.FailedPrecondition,
       );
     let committed = 0;
-    const invocations: ReturnType<typeof invocationSummary>[] = [];
     const batchSize =
       this.models.invocations.profile("query_embedding")?.embedding
         ?.max_batch_size ?? 64;
@@ -30,7 +28,6 @@ export class ModelMaterialPipeline {
           needs.config.model,
           options.signal ?? undefined,
         );
-        invocations.push(invocationSummary(vectors.evidence));
         for (const [index, need] of batch.entries()) {
           await this.kernel.modelMaterial.commitEmbedding(
             {
@@ -51,7 +48,6 @@ export class ModelMaterialPipeline {
         if (options.signal?.aborted) throw error;
         return {
           committed,
-          invocations,
           degradation: [
             {
               code: "embedding_batch_incomplete",
@@ -64,6 +60,6 @@ export class ModelMaterialPipeline {
         };
       }
     }
-    return { committed, degradation: [], invocations };
+    return { committed, degradation: [] };
   }
 }

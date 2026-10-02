@@ -12,6 +12,7 @@ pub mod model_material_service_server {
     /// Generated trait containing gRPC methods that should be implemented for use with ModelMaterialServiceServer.
     #[async_trait]
     pub trait ModelMaterialService: std::marker::Send + std::marker::Sync + 'static {
+        ///
         async fn segment_description(
             &self,
             request: tonic::Request<super::super::super::v1alpha1::ObjectRequest>,
@@ -68,6 +69,7 @@ pub mod model_material_service_server {
             tonic::Status,
         >;
     }
+    ///
     #[derive(Debug)]
     pub struct ModelMaterialServiceServer<T> {
         inner: Arc<T>,

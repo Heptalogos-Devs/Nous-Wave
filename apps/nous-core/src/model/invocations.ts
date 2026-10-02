@@ -1,6 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import {
-  embed,
   embedMany,
   generateText,
   Output,
@@ -12,7 +11,6 @@ import {
 import { z } from "zod";
 import { canonicalDigest } from "../digest.js";
 import { structuredOutputContract } from "./schemas/provider.js";
-import { performance } from "node:perf_hooks";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -57,9 +55,8 @@ function safeGenerationFailure(error: unknown) {
   return "validation_or_transport";
 }
 
-export type ModelInvocationEvidence = {
+export type ModelProducerMetadata = {
   implementation: string;
-  role: ModelRole;
   protocol: string;
   model: string;
   modelRevision?: string;
@@ -68,10 +65,6 @@ export type ModelInvocationEvidence = {
   promptDigest?: string;
   outputSchemaDigest?: string;
   configDigest: string;
-  latencyMs: number;
-  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
-  requestCount: number;
-  status: "success";
 };
 type ReadyRole = {
   name: ModelRole;
@@ -219,8 +212,8 @@ export class ModelInvocations {
           configDigest,
         });
         runtime.states.set(role, {
-          state: "UNAVAILABLE",
-          detail: "Client configured; live conformance remains unverified",
+          state: "READY",
+          detail: "Executable model configuration available",
         });
       } catch {
         runtime.states.set(role, {
@@ -334,39 +327,9 @@ export class ModelInvocations {
     if (!value) throw new Error(`Model role ${role} unavailable`);
     return value;
   }
-  private evidence(
-    role: ReadyRole,
-    start: number,
-    usage?: unknown,
-  ): ModelInvocationEvidence {
-    const raw =
-      usage && typeof usage === "object"
-        ? (usage as Record<string, unknown>)
-        : {};
-    const number = (value: unknown): number | undefined => {
-      const item =
-        value && typeof value === "object" && "total" in value
-          ? (value as { total: unknown }).total
-          : value;
-      return typeof item === "number" && Number.isSafeInteger(item) && item >= 0
-        ? item
-        : undefined;
-    };
-    const tokens =
-      role.name === "query_rerank"
-        ? {
-            inputTokens: number(raw.prompt_tokens),
-            outputTokens: number(raw.completion_tokens),
-            totalTokens: number(raw.total_tokens),
-          }
-        : {
-            inputTokens: number(raw.inputTokens ?? raw.tokens),
-            outputTokens: number(raw.outputTokens),
-            totalTokens: number(raw.totalTokens ?? raw.tokens),
-          };
+  private metadata(role: ReadyRole): ModelProducerMetadata {
     return {
       implementation: "ai-sdk@7.0.102/openai@4.0.67",
-      role: role.name,
       protocol: role.profile.protocol,
       model: role.profile.model,
       modelRevision: role.profile.model_revision,
@@ -374,10 +337,6 @@ export class ModelInvocations {
       promptId: role.prompt?.id,
       promptDigest: role.prompt?.digest,
       configDigest: role.configDigest,
-      latencyMs: performance.now() - start,
-      usage: tokens,
-      requestCount: 1,
-      status: "success",
     };
   }
   private signal(role: ReadyRole, signal?: AbortSignal) {
@@ -424,7 +383,6 @@ export class ModelInvocations {
     const output = schema ? structuredOutputContract(schema) : undefined;
     if (output && !role.profile.capabilities.includes("structured_output"))
       throw new Error("Strict structured output capability is unavailable");
-    const start = performance.now();
     let mediaStage = "admission";
     try {
       if (media) {
@@ -540,19 +498,10 @@ export class ModelInvocations {
           .parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
         const text = result.choices[0]!.message.content;
         const value = schema ? schema.parse(JSON.parse(text)) : text;
-        const usage = result.usage as Record<string, unknown> | undefined;
-        this.states.set(name, {
-          state: "READY",
-          detail: "Direct media invocation validated",
-        });
         return {
           value,
-          evidence: {
-            ...this.evidence(role, start, {
-              inputTokens: usage?.prompt_tokens,
-              outputTokens: usage?.completion_tokens,
-              totalTokens: usage?.total_tokens,
-            }),
+          producerMetadata: {
+            ...this.metadata(role),
             implementation: "gateway-chat-media-v1",
             outputSchemaDigest: output?.digest,
           },
@@ -578,22 +527,14 @@ export class ModelInvocations {
       if (schema && result.finishReason !== "stop")
         throw new ModelOutputError(`output_incomplete_${result.finishReason}`);
       const value = schema ? schema.parse(result.output) : result.text;
-      this.states.set(name, {
-        state: "READY",
-        detail: "Standard protocol invocation validated",
-      });
       return {
         value,
-        evidence: {
-          ...this.evidence(role, start, result.usage),
+        producerMetadata: {
+          ...this.metadata(role),
           outputSchemaDigest: output?.digest,
         },
       };
     } catch (error) {
-      this.states.set(name, {
-        state: "UNAVAILABLE",
-        detail: "Model invocation failed validation or transport",
-      });
       if (signal?.aborted) throw signal.reason;
       if (error instanceof MediaProtocolError) throw error;
       if (media)
@@ -602,42 +543,6 @@ export class ModelInvocations {
         );
       // Provider error bodies may echo headers, input material, or credentials.
       throw new GenerationFailure(name, safeGenerationFailure(error));
-    }
-  }
-  async embedding(text: string, model: string, signal?: AbortSignal) {
-    const role = this.require("query_embedding");
-    if (role.profile.model !== model || !role.profile.embedding)
-      throw new Error("Embedding profile disagrees with Kernel space");
-    const start = performance.now();
-    try {
-      const result = await embed({
-        model: role.provider.embeddingModel(model),
-        value: text,
-        maxRetries: 0,
-        abortSignal: this.signal(role, signal),
-      });
-      if (
-        result.embedding.length !== role.profile.embedding.dimension ||
-        result.embedding.some((v) => !Number.isFinite(v))
-      )
-        throw new Error("Invalid vector");
-      this.states.set("query_embedding", {
-        state: "READY",
-        detail: "Embedding invocation validated",
-      });
-      return {
-        value: result.embedding,
-        evidence: this.evidence(role, start, result.usage),
-      };
-    } catch {
-      this.states.set("query_embedding", {
-        state: "UNAVAILABLE",
-        detail: "Embedding invocation unavailable",
-      });
-      if (signal?.aborted) throw signal.reason;
-      throw new Error(
-        "Embedding invocation failed or vector violated the configured space",
-      );
     }
   }
   async embeddingBatch(texts: string[], model: string, signal?: AbortSignal) {
@@ -651,16 +556,13 @@ export class ModelInvocations {
         1048576
     )
       throw new Error("Embedding batch violates configured profile/bounds");
-    const start = performance.now();
     try {
       const embeddings: number[][] = [];
-      const calls: ModelInvocationEvidence[] = [];
       for (
         let offset = 0;
         offset < texts.length;
         offset += role.profile.embedding.max_batch_size
       ) {
-        const callStart = performance.now();
         const result = await embedMany({
           model: role.provider.embeddingModel(model),
           values: texts.slice(
@@ -672,7 +574,6 @@ export class ModelInvocations {
           abortSignal: this.signal(role, signal),
         });
         embeddings.push(...result.embeddings);
-        calls.push(this.evidence(role, callStart, result.usage));
       }
       if (
         embeddings.length !== texts.length ||
@@ -683,33 +584,9 @@ export class ModelInvocations {
         )
       )
         throw new Error("Invalid embedding batch output");
-      this.states.set("query_embedding", {
-        state: "READY",
-        detail: "Embedding batch validated",
-      });
       return {
         value: embeddings,
-        evidence: {
-          ...this.evidence(role, start),
-          requestCount: calls.length,
-          usage: {
-            inputTokens: calls.every(
-              (call) => call.usage?.inputTokens !== undefined,
-            )
-              ? calls.reduce((sum, call) => sum + call.usage!.inputTokens!, 0)
-              : undefined,
-            outputTokens: calls.every(
-              (call) => call.usage?.outputTokens !== undefined,
-            )
-              ? calls.reduce((sum, call) => sum + call.usage!.outputTokens!, 0)
-              : undefined,
-            totalTokens: calls.every(
-              (call) => call.usage?.totalTokens !== undefined,
-            )
-              ? calls.reduce((sum, call) => sum + call.usage!.totalTokens!, 0)
-              : undefined,
-          },
-        },
+        producerMetadata: this.metadata(role),
       };
     } catch (error) {
       if (signal?.aborted) throw signal.reason;
@@ -735,7 +612,6 @@ export class ModelInvocations {
     const role = fixed
       ? this.hydrate(fixed)
       : this.require("speech_transcription");
-    const start = performance.now();
     try {
       const result = await transcribe({
         model: role.provider.transcription(role.profile.model),
@@ -744,16 +620,8 @@ export class ModelInvocations {
         abortSignal: this.signal(role, signal),
       });
       if (!result.text.trim()) throw new Error("Empty transcript");
-      this.states.set("speech_transcription", {
-        state: "READY",
-        detail: "Transcription invocation validated",
-      });
-      return { value: result.text, evidence: this.evidence(role, start) };
+      return { value: result.text, producerMetadata: this.metadata(role) };
     } catch {
-      this.states.set("speech_transcription", {
-        state: "UNAVAILABLE",
-        detail: "Transcription invocation unavailable",
-      });
       if (signal?.aborted) throw signal.reason;
       throw new Error("Speech transcription invocation failed");
     }
@@ -774,7 +642,6 @@ export class ModelInvocations {
       Buffer.byteLength(JSON.stringify(documents)) > 2 * 1024 * 1024
     )
       throw new Error("Rerank request exceeds bounds");
-    const start = performance.now();
     try {
       const response = await fetch(`${role.baseURL}/rerank`, {
         method: "POST",
@@ -821,19 +688,11 @@ export class ModelInvocations {
         ),
         documents.length,
       );
-      this.states.set("query_rerank", {
-        state: "READY",
-        detail: "Rerank invocation validated",
-      });
       return {
         value: result.results,
-        evidence: this.evidence(role, start, result.usage),
+        producerMetadata: this.metadata(role),
       };
     } catch {
-      this.states.set("query_rerank", {
-        state: "UNAVAILABLE",
-        detail: "Rerank invocation unavailable",
-      });
       if (signal?.aborted) throw signal.reason;
       throw new Error(
         "Rerank invocation failed or response violated candidate mapping",

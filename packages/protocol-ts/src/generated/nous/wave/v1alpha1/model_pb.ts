@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Degradation, Memory, ModelInvocationSummary } from "./types_pb.js";
+import type { Degradation, Memory } from "./types_pb.js";
 import { file_nous_wave_v1alpha1_types } from "./types_pb.js";
 import type { DerivedRepresentation } from "./management_pb.js";
 import { file_nous_wave_v1alpha1_management } from "./management_pb.js";
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nous/wave/v1alpha1/model.proto.
  */
 export const file_nous_wave_v1alpha1_model: GenFile = /*@__PURE__*/
-  fileDesc("Ch5ub3VzL3dhdmUvdjFhbHBoYTEvbW9kZWwucHJvdG8SEm5vdXMud2F2ZS52MWFscGhhMSK9AQoQRm9ybWF0aW9uUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEhUKDW9jY3VycmVuY2VfaWQYAiABKAkSHgoRcmVwcmVzZW50YXRpb25faWQYAyABKAlIAIgBARIUCgxvcGVyYXRpb25faWQYBCABKAkSFgoOYWJvdXRuZXNzX21vZGUYBSABKAkSGgoSZXhwbGljaXRfYWJvdXRuZXNzGAYgAygJQhQKEl9yZXByZXNlbnRhdGlvbl9pZCKxAQoVRGVyaXZlTWF0ZXJpYWxSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSGAoQc291cmNlX3JlZ2lvbl9pZBgCIAEoCRIVCghzdHJhdGVneRgDIAEoCUgAiAEBEhMKBnRhcmdldBgEIAEoCUgBiAEBEhcKCnN1cGVyc2VkZXMYBSABKAlIAogBAUILCglfc3RyYXRlZ3lCCQoHX3RhcmdldEINCgtfc3VwZXJzZWRlcyK2AQoRRm9ybWF0aW9uUmVzcG9uc2USKgoGbWVtb3J5GAEgASgLMhoubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeRI0CgtkZWdyYWRhdGlvbhgCIAMoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5EZWdyYWRhdGlvbhI/CgtpbnZvY2F0aW9ucxgDIAMoCzIqLm5vdXMud2F2ZS52MWFscGhhMS5Nb2RlbEludm9jYXRpb25TdW1tYXJ5IpcCChJEZXJpdmF0aW9uUmVzcG9uc2USQgoPcmVwcmVzZW50YXRpb25zGAEgAygLMikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZWRSZXByZXNlbnRhdGlvbhInChpzZWxlY3RlZF9yZXByZXNlbnRhdGlvbl9pZBgCIAEoCUgAiAEBEjQKC2RlZ3JhZGF0aW9uGAMgAygLMh8ubm91cy53YXZlLnYxYWxwaGExLkRlZ3JhZGF0aW9uEj8KC2ludm9jYXRpb25zGAQgAygLMioubm91cy53YXZlLnYxYWxwaGExLk1vZGVsSW52b2NhdGlvblN1bW1hcnlCHQobX3NlbGVjdGVkX3JlcHJlc2VudGF0aW9uX2lkIj0KGFByZXBhcmVFbWJlZGRpbmdzUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEg0KBWxpbWl0GAIgASgNIqUBChlQcmVwYXJlRW1iZWRkaW5nc1Jlc3BvbnNlEhEKCWNvbW1pdHRlZBgBIAEoDRI0CgtkZWdyYWRhdGlvbhgCIAMoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5EZWdyYWRhdGlvbhI/CgtpbnZvY2F0aW9ucxgDIAMoCzIqLm5vdXMud2F2ZS52MWFscGhhMS5Nb2RlbEludm9jYXRpb25TdW1tYXJ5MskCCgxNb2RlbFNlcnZpY2USYgoTRm9ybUZyb21PYnNlcnZhdGlvbhIkLm5vdXMud2F2ZS52MWFscGhhMS5Gb3JtYXRpb25SZXF1ZXN0GiUubm91cy53YXZlLnYxYWxwaGExLkZvcm1hdGlvblJlc3BvbnNlEmMKDkRlcml2ZU1hdGVyaWFsEikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZU1hdGVyaWFsUmVxdWVzdBomLm5vdXMud2F2ZS52MWFscGhhMS5EZXJpdmF0aW9uUmVzcG9uc2UScAoRUHJlcGFyZUVtYmVkZGluZ3MSLC5ub3VzLndhdmUudjFhbHBoYTEuUHJlcGFyZUVtYmVkZGluZ3NSZXF1ZXN0Gi0ubm91cy53YXZlLnYxYWxwaGExLlByZXBhcmVFbWJlZGRpbmdzUmVzcG9uc2ViBnByb3RvMw", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management]);
+  fileDesc("Ch5ub3VzL3dhdmUvdjFhbHBoYTEvbW9kZWwucHJvdG8SEm5vdXMud2F2ZS52MWFscGhhMSK9AQoQRm9ybWF0aW9uUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEhUKDW9jY3VycmVuY2VfaWQYAiABKAkSHgoRcmVwcmVzZW50YXRpb25faWQYAyABKAlIAIgBARIUCgxvcGVyYXRpb25faWQYBCABKAkSFgoOYWJvdXRuZXNzX21vZGUYBSABKAkSGgoSZXhwbGljaXRfYWJvdXRuZXNzGAYgAygJQhQKEl9yZXByZXNlbnRhdGlvbl9pZCKxAQoVRGVyaXZlTWF0ZXJpYWxSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSGAoQc291cmNlX3JlZ2lvbl9pZBgCIAEoCRIVCghzdHJhdGVneRgDIAEoCUgAiAEBEhMKBnRhcmdldBgEIAEoCUgBiAEBEhcKCnN1cGVyc2VkZXMYBSABKAlIAogBAUILCglfc3RyYXRlZ3lCCQoHX3RhcmdldEINCgtfc3VwZXJzZWRlcyJ1ChFGb3JtYXRpb25SZXNwb25zZRIqCgZtZW1vcnkYASABKAsyGi5ub3VzLndhdmUudjFhbHBoYTEuTWVtb3J5EjQKC2RlZ3JhZGF0aW9uGAIgAygLMh8ubm91cy53YXZlLnYxYWxwaGExLkRlZ3JhZGF0aW9uItYBChJEZXJpdmF0aW9uUmVzcG9uc2USQgoPcmVwcmVzZW50YXRpb25zGAEgAygLMikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZWRSZXByZXNlbnRhdGlvbhInChpzZWxlY3RlZF9yZXByZXNlbnRhdGlvbl9pZBgCIAEoCUgAiAEBEjQKC2RlZ3JhZGF0aW9uGAMgAygLMh8ubm91cy53YXZlLnYxYWxwaGExLkRlZ3JhZGF0aW9uQh0KG19zZWxlY3RlZF9yZXByZXNlbnRhdGlvbl9pZCI9ChhQcmVwYXJlRW1iZWRkaW5nc1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRINCgVsaW1pdBgCIAEoDSJkChlQcmVwYXJlRW1iZWRkaW5nc1Jlc3BvbnNlEhEKCWNvbW1pdHRlZBgBIAEoDRI0CgtkZWdyYWRhdGlvbhgCIAMoCzIfLm5vdXMud2F2ZS52MWFscGhhMS5EZWdyYWRhdGlvbjLJAgoMTW9kZWxTZXJ2aWNlEmIKE0Zvcm1Gcm9tT2JzZXJ2YXRpb24SJC5ub3VzLndhdmUudjFhbHBoYTEuRm9ybWF0aW9uUmVxdWVzdBolLm5vdXMud2F2ZS52MWFscGhhMS5Gb3JtYXRpb25SZXNwb25zZRJjCg5EZXJpdmVNYXRlcmlhbBIpLm5vdXMud2F2ZS52MWFscGhhMS5EZXJpdmVNYXRlcmlhbFJlcXVlc3QaJi5ub3VzLndhdmUudjFhbHBoYTEuRGVyaXZhdGlvblJlc3BvbnNlEnAKEVByZXBhcmVFbWJlZGRpbmdzEiwubm91cy53YXZlLnYxYWxwaGExLlByZXBhcmVFbWJlZGRpbmdzUmVxdWVzdBotLm5vdXMud2F2ZS52MWFscGhhMS5QcmVwYXJlRW1iZWRkaW5nc1Jlc3BvbnNlYgZwcm90bzM", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management]);
 
 /**
  * @generated from message nous.wave.v1alpha1.FormationRequest
@@ -108,11 +108,6 @@ export type FormationResponse = Message<"nous.wave.v1alpha1.FormationResponse"> 
    * @generated from field: repeated nous.wave.v1alpha1.Degradation degradation = 2;
    */
   degradation: Degradation[];
-
-  /**
-   * @generated from field: repeated nous.wave.v1alpha1.ModelInvocationSummary invocations = 3;
-   */
-  invocations: ModelInvocationSummary[];
 };
 
 /**
@@ -140,11 +135,6 @@ export type DerivationResponse = Message<"nous.wave.v1alpha1.DerivationResponse"
    * @generated from field: repeated nous.wave.v1alpha1.Degradation degradation = 3;
    */
   degradation: Degradation[];
-
-  /**
-   * @generated from field: repeated nous.wave.v1alpha1.ModelInvocationSummary invocations = 4;
-   */
-  invocations: ModelInvocationSummary[];
 };
 
 /**
@@ -189,11 +179,6 @@ export type PrepareEmbeddingsResponse = Message<"nous.wave.v1alpha1.PrepareEmbed
    * @generated from field: repeated nous.wave.v1alpha1.Degradation degradation = 2;
    */
   degradation: Degradation[];
-
-  /**
-   * @generated from field: repeated nous.wave.v1alpha1.ModelInvocationSummary invocations = 3;
-   */
-  invocations: ModelInvocationSummary[];
 };
 
 /**

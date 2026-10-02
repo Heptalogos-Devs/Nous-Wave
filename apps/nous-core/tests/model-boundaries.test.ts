@@ -204,17 +204,29 @@ describe("model protocol and provenance boundaries", () => {
         },
       });
       const runtime = await ModelInvocations.create(config);
+      expect(
+        runtime.capabilities
+          .filter(
+            (c) =>
+              c.name === "model.memory_formation" ||
+              c.name === "model.query_embedding" ||
+              c.name === "model.query_rerank",
+          )
+          .every((c) => c.state === "READY"),
+      ).toBe(true);
       const formation = await runtime.generate(
         "memory_formation",
         "evidence",
         z.object({ value: z.string() }),
       );
       expect(formation.value).toEqual({ value: "faithful" });
-      expect(formation.evidence.promptDigest).toHaveLength(64);
+      expect(formation.producerMetadata.promptDigest).toHaveLength(64);
       const outputContract = structuredOutputContract(
         z.object({ value: z.string() }),
       );
-      expect(formation.evidence.outputSchemaDigest).toBe(outputContract.digest);
+      expect(formation.producerMetadata.outputSchemaDigest).toBe(
+        outputContract.digest,
+      );
       const format = requests[0]!.body.response_format as {
         type: string;
         json_schema: { strict: boolean; schema: unknown };
@@ -223,7 +235,7 @@ describe("model protocol and provenance boundaries", () => {
       expect(format.json_schema.strict).toBe(true);
       expect(format.json_schema.schema).toEqual(outputContract.providerSchema);
       expect(
-        (await runtime.embedding("evidence", "embedding-id")).value,
+        (await runtime.embeddingBatch(["evidence"], "embedding-id")).value[0],
       ).toEqual([0.2, 0.3]);
       expect(
         (await runtime.rerank("intent", ["a", "b"], 2)).value[0]?.index,
@@ -253,8 +265,9 @@ describe("model protocol and provenance boundaries", () => {
           { bytes: Uint8Array.of(1, 2, 3), mediaType },
         );
         expect(result.value).toEqual({ value: "faithful" });
-        expect(result.evidence.usage?.totalTokens).toBe(3);
-        expect(result.evidence.outputSchemaDigest).toBe(outputContract.digest);
+        expect(result.producerMetadata.outputSchemaDigest).toBe(
+          outputContract.digest,
+        );
         expect(requests.at(-1)!.body.response_format).toMatchObject({
           type: "json_schema",
           json_schema: { strict: true, schema: outputContract.providerSchema },
@@ -290,7 +303,7 @@ describe("model protocol and provenance boundaries", () => {
           ),
         ).rejects.toThrow("Rerank invocation failed");
       }
-      expect(JSON.stringify(formation.evidence)).not.toContain(
+      expect(JSON.stringify(formation.producerMetadata)).not.toContain(
         "fixture-secret",
       );
       config.model_profiles.chat!.model = "incomplete-chat";
@@ -302,6 +315,10 @@ describe("model protocol and provenance boundaries", () => {
           z.object({ value: z.string() }),
         ),
       ).rejects.toThrow("output_incomplete_length");
+      expect(
+        incomplete.capabilities.find((c) => c.name === "model.memory_formation")
+          ?.state,
+      ).toBe("READY");
       await expect(
         incomplete.generate(
           "memory_formation",

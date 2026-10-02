@@ -70,26 +70,6 @@ fn validate_results(
             .get(&response.action_id)
             .ok_or_else(|| Error::Invalid("unknown resource action identity".into()))?;
         if !seen.insert(response.action_id)
-            || !response.provider_evidence.latency_ms.is_finite()
-            || response.provider_evidence.latency_ms < 0.0
-            || response.provider_evidence.request_count > 65
-            || (!response.provider_evidence.profile_digest.is_empty()
-                && (response.provider_evidence.profile_digest.len() != 64
-                    || !response
-                        .provider_evidence
-                        .profile_digest
-                        .bytes()
-                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))))
-            || (response.provider_evidence.request_count > 0
-                && response.provider_evidence.profile_digest.is_empty())
-            || response.diagnostics.len() > 8
-            || response.diagnostics.iter().any(|code| {
-                code.is_empty()
-                    || code.len() > 64
-                    || !code
-                        .bytes()
-                        .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
-            })
             || response.resource_ref != action.resource
             || response.records.len() > action.limit
             || !matches!(
@@ -105,11 +85,7 @@ fn validate_results(
         let mut entries = HashSet::new();
         for record in &response.records {
             validate_record(record, action)?;
-            if record.reference.profile_digest != response.provider_evidence.profile_digest {
-                return Err(Error::Invalid(
-                    "external record provider evidence mismatch".into(),
-                ));
-            }
+
             if !entries.insert((
                 &record.reference.provider_resource_id,
                 &record.reference.entry_id,
@@ -169,22 +145,7 @@ impl CognitiveRuntimeService {
                 .map(descriptor_digest)
                 .transpose()?
                 .is_some_and(|digest| digest == action.descriptor_digest);
-            result.resource_invocations.push(ResourceInvocationSummary {
-                action_id: response.action_id,
-                resource_ref: response.resource_ref.clone(),
-                provider_profile: action.provider_profile.clone(),
-                status: if unchanged {
-                    response.status.clone()
-                } else {
-                    "discarded".into()
-                },
-                provider_evidence: response.provider_evidence,
-                diagnostics: if unchanged {
-                    response.diagnostics
-                } else {
-                    vec!["resource_descriptor_changed_during_query".into()]
-                },
-            });
+
             if !unchanged {
                 result.status = QueryStatus::Partial;
                 result.degradation.push(Degradation {

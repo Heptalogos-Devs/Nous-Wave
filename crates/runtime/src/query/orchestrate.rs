@@ -111,7 +111,6 @@ impl CognitiveRuntimeService {
             results: Vec::new(),
             resource_actions: Vec::new(),
             resource_records: Vec::new(),
-            resource_invocations: Vec::new(),
             degradation: Vec::new(),
             diagnostics: None,
         };

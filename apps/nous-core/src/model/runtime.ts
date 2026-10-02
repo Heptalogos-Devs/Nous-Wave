@@ -17,11 +17,6 @@ const proposalSchema = z.strictObject({
   selectedIds: z.array(z.string()).max(64),
   summary: z.string().max(8192).optional(),
 });
-type StewardProposal = z.infer<typeof proposalSchema>;
-export type ProposalGenerator = (
-  segments: Segment[],
-  signal?: AbortSignal,
-) => Promise<StewardProposal>;
 const formationSchema = z.strictObject({
   text: z.string().min(1).max(32768),
   semanticRole: z.string().min(1).max(128),
@@ -34,8 +29,6 @@ const interpretationSchema = z.strictObject({
 
 export class ModelRuntime {
   constructor(
-    private readonly generator?: ProposalGenerator,
-    private readonly producer = "deterministic",
     readonly invocations = new ModelInvocations(),
     readonly materialStrategy: ModelConfiguration["material_strategy"] = "description_only",
     readonly video = modelConfigurationSchema.parse({}).video,
@@ -54,27 +47,7 @@ export class ModelRuntime {
       promptRoot,
       overridePromptRoot,
     );
-    const steward = invocations.profile("projection_steward");
-    const generator: ProposalGenerator | undefined = steward
-      ? async (segments, signal) => {
-          const result = await invocations.generate(
-            "projection_steward",
-            JSON.stringify(
-              segments.map((s) => ({
-                id: s.segmentId,
-                role: s.semanticRole,
-                text: s.text,
-              })),
-            ),
-            proposalSchema,
-            signal,
-          );
-          return proposalSchema.parse(result.value);
-        }
-      : undefined;
     return new ModelRuntime(
-      generator,
-      invocations.identity("projection_steward") ?? "deterministic",
       invocations,
       config.material_strategy,
       config.video,
@@ -99,7 +72,7 @@ export class ModelRuntime {
     );
     return {
       ...formationSchema.parse(result.value),
-      evidence: result.evidence,
+      producerMetadata: result.producerMetadata,
     };
   }
   async interpret(
@@ -127,7 +100,7 @@ export class ModelRuntime {
     );
     return {
       text: interpretationSchema.parse({ text: result.value }).text,
-      evidence: result.evidence,
+      producerMetadata: result.producerMetadata,
     };
   }
   async structure(
@@ -176,13 +149,8 @@ export class ModelRuntime {
     );
     return {
       ...structuredMaterialResult(result.value, context),
-      evidence: result.evidence,
+      producerMetadata: result.producerMetadata,
     };
-  }
-  async embedding(text: string, model: string, signal?: AbortSignal) {
-    if (!this.embeddingModel || model !== this.embeddingModel)
-      throw new Error("Embedding model is not configured for the Kernel space");
-    return this.invocations.embedding(text, model, signal);
   }
   async describeMedia(
     bytes: Uint8Array,
@@ -207,7 +175,7 @@ export class ModelRuntime {
       ...(structured
         ? structuredMaterialResult(result.value, context!)
         : { text: interpretationSchema.parse({ text: result.value }).text }),
-      evidence: result.evidence,
+      producerMetadata: result.producerMetadata,
     };
   }
   async describeScene(
@@ -259,7 +227,7 @@ export class ModelRuntime {
       ...(structured
         ? structuredMaterialResult(result.value, context!)
         : { text: interpretationSchema.parse({ text: result.value }).text }),
-      evidence: result.evidence,
+      producerMetadata: result.producerMetadata,
     };
   }
 
@@ -267,7 +235,7 @@ export class ModelRuntime {
     segments: Segment[],
     signal?: AbortSignal,
   ): Promise<{ segments: Segment[]; degradation: Degradation[] }> {
-    if (!this.generator)
+    if (!this.invocations.profile("projection_steward"))
       return {
         segments,
         degradation: [
@@ -279,7 +247,20 @@ export class ModelRuntime {
       };
     try {
       const output = proposalSchema.parse(
-        await this.generator(segments, signal),
+        (
+          await this.invocations.generate(
+            "projection_steward",
+            JSON.stringify(
+              segments.map((s) => ({
+                id: s.segmentId,
+                role: s.semanticRole,
+                text: s.text,
+              })),
+            ),
+            proposalSchema,
+            signal,
+          )
+        ).value,
       );
       const ids = new Set(segments.map((s) => s.segmentId));
       if (
@@ -293,7 +274,13 @@ export class ModelRuntime {
         if (!sources.length)
           throw new Error("A Steward summary requires selected sources");
         const revision = createHash("sha256")
-          .update(JSON.stringify([this.producer, sources, output.summary]))
+          .update(
+            JSON.stringify([
+              this.invocations.identity("projection_steward"),
+              sources,
+              output.summary,
+            ]),
+          )
           .digest("hex");
         return {
           segments: [

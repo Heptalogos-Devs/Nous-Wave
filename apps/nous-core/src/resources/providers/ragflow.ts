@@ -8,7 +8,6 @@ import {
   type ResourceBinding,
   type StableExternalRef,
   type ResourceRecord,
-  type ResourceCallContext,
 } from "../adapter.js";
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
@@ -60,12 +59,10 @@ export class RagflowAdapter implements ExternalResourceAdapter {
     path: string,
     signal?: AbortSignal,
     body?: unknown,
-    context?: ResourceCallContext,
   ): Promise<unknown> {
     let response: Response;
     try {
       if (signal?.aborted) throw signal.reason;
-      context?.requestStarted();
       response = await fetch(`${this.profile.base_url}${path}`, {
         method: body === undefined ? "GET" : "POST",
         redirect: "error",
@@ -146,11 +143,7 @@ export class RagflowAdapter implements ExternalResourceAdapter {
       );
     return content;
   }
-  async describe(
-    binding: ResourceBinding,
-    signal?: AbortSignal,
-    context?: ResourceCallContext,
-  ) {
+  async describe(binding: ResourceBinding, signal?: AbortSignal) {
     const { dataset_ids } = this.selector(binding);
     const accessible: string[] = [];
     for (const dataset of dataset_ids) {
@@ -161,7 +154,6 @@ export class RagflowAdapter implements ExternalResourceAdapter {
             `/datasets?id=${encodeURIComponent(dataset)}&page_size=1`,
             signal,
             undefined,
-            context,
           ),
         );
       if (result.some((item) => item.id === dataset)) accessible.push(dataset);
@@ -176,7 +168,6 @@ export class RagflowAdapter implements ExternalResourceAdapter {
     question: string,
     limit: number,
     signal?: AbortSignal,
-    context?: ResourceCallContext,
   ): Promise<ResourceRecord[]> {
     const selector = this.selector(binding);
     if (
@@ -191,18 +182,13 @@ export class RagflowAdapter implements ExternalResourceAdapter {
         "Resource search intent or limit is invalid",
       );
     const data = z.object({ chunks: z.array(hitSchema).max(64) }).parse(
-      await this.call(
-        "/retrieval",
-        signal,
-        {
-          question,
-          ...selector,
-          page: 1,
-          page_size: limit,
-          highlight: false,
-        },
-        context,
-      ),
+      await this.call("/retrieval", signal, {
+        question,
+        ...selector,
+        page: 1,
+        page_size: limit,
+        highlight: false,
+      }),
     );
     if (data.chunks.length > limit)
       throw new ResourceProviderError(
@@ -256,11 +242,7 @@ export class RagflowAdapter implements ExternalResourceAdapter {
       };
     });
   }
-  private async inspect(
-    reference: StableExternalRef,
-    signal?: AbortSignal,
-    context?: ResourceCallContext,
-  ) {
+  private async inspect(reference: StableExternalRef, signal?: AbortSignal) {
     if (
       reference.providerKind !== "ragflow" ||
       reference.providerProfile !== this.name ||
@@ -290,7 +272,6 @@ export class RagflowAdapter implements ExternalResourceAdapter {
         `/datasets/${encodeURIComponent(locator.dataset)}/documents/${encodeURIComponent(locator.document)}/chunks/${encodeURIComponent(locator.chunk)}`,
         signal,
         undefined,
-        context,
       ),
     );
     if (chunk.id !== locator.chunk || chunk.doc_id !== locator.document)
@@ -310,12 +291,8 @@ export class RagflowAdapter implements ExternalResourceAdapter {
       checkedAt: new Date().toISOString(),
     };
   }
-  async materialize(
-    reference: StableExternalRef,
-    signal?: AbortSignal,
-    context?: ResourceCallContext,
-  ) {
-    const inspected = await this.inspect(reference, signal, context);
+  async materialize(reference: StableExternalRef, signal?: AbortSignal) {
+    const inspected = await this.inspect(reference, signal);
     if (!inspected.current)
       throw new ResourceProviderError(
         "stale",

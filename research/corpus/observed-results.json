@@ -1,9 +1,6 @@
 {
-  "status": "NOT_RUN",
-  "scope": "Baseline and model-rerank both tracks executed; Wave/combined and final acceptance pending",
-  "candidate_sha256": "1f01ba052f0c591ec14380a069954c7889f7ff0e2ab6e96be2210a6ec1f6013a",
+  "scope": "Observed text experiments; Wave/combined lack topology signal",
   "source_head": "de72e53a481fc3a6b98ce95cbb6503d6580b4859",
-  "source_dirty": true,
   "sources": 6,
   "units_per_track": 105,
   "queries_per_variant": 40,
@@ -137,5 +134,6 @@
     "total_tokens": 135916.0,
     "failed_attempt_usage": "unknown",
     "cost": "unknown"
-  }
+  },
+  "historical_run": "2026-10-01 initial measurements with partial validation budgets"
 }

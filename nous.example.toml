@@ -29,7 +29,7 @@ request_timeout_ms = 30000            # 可选；1–300000 毫秒，建议先�
 # protocol 选项：openai-chat / openai-responses / openai-embeddings /
 # openai-audio-transcription / rerank-v1。聊天选 chat，明确支持 Responses 时可改 responses。
 # capabilities 声明支持 text / image_input / structured_output / embedding /
-# audio_input / video_input / speech_transcription / rerank；实际调用验证前不会报告 READY。
+# audio_input / video_input / speech_transcription / rerank；可执行配置完整时报告 READY。
 [model_profiles.formation]
 gateway = "local"
 protocol = "openai-chat"

@@ -484,25 +484,6 @@ pub struct ExternalResourceResult {
     pub resource_ref: ResourceRef,
     pub status: String,
     pub records: Vec<ExternalResourceRecord>,
-    pub provider_evidence: ResourceProviderEvidence,
-    pub diagnostics: Vec<String>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ResourceProviderEvidence {
-    pub profile_digest: String,
-    pub request_count: u32,
-    pub latency_ms: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourceInvocationSummary {
-    pub action_id: Uuid,
-    pub resource_ref: ResourceRef,
-    pub provider_profile: String,
-    pub status: String,
-    pub provider_evidence: ResourceProviderEvidence,
-    pub diagnostics: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -523,7 +504,6 @@ pub struct CognitiveQueryResult {
     #[serde(default)]
     pub resource_actions: Vec<ResourceActionSuggestion>,
     pub resource_records: Vec<ExternalResourceRecord>,
-    pub resource_invocations: Vec<ResourceInvocationSummary>,
     #[serde(default)]
     pub degradation: Vec<Degradation>,
     pub diagnostics: Option<QueryDiagnostics>,

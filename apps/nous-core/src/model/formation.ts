@@ -1,15 +1,11 @@
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import {
-  FormMemoryRequestSchema,
-  ModelInvocationSummarySchema,
-} from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
+import { FormMemoryRequestSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import { type FormationRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
 import type { ModelRoleSnapshot } from "./invocations.js";
 import { canonicalDigest } from "../digest.js";
-import { invocationSummary } from "./summary.js";
 import { z } from "zod";
 
 const snapshotSchema = z.strictObject({
@@ -27,13 +23,11 @@ const snapshotSchema = z.strictObject({
 });
 const proposalSchema = z.strictObject({
   request: z.unknown(),
-  invocations: z.array(z.unknown()).max(1),
 });
 const outcomeSchema = z.union([
   z.strictObject({ purged: z.literal(true) }),
   z.strictObject({
     revisionId: z.string(),
-    invocations: z.array(z.unknown()).max(1),
   }),
 ]);
 
@@ -92,9 +86,6 @@ export async function formObservation(
     return {
       memory,
       degradation: [],
-      invocations: outcome.invocations.map((value) =>
-        fromJson(ModelInvocationSummarySchema, value as JsonValue),
-      ),
     };
   };
   const previous = await kernel.modelMaterial.findWorkflow(identity, options);
@@ -201,7 +192,7 @@ export async function formObservation(
       );
       const result = await models.form(
         JSON.stringify({
-          evidence: text,
+          producerMetadata: text,
           resolvedEntityCandidates: snapshot.candidates,
           aboutnessMode: mode,
         }),
@@ -252,15 +243,15 @@ export async function formObservation(
           },
           aboutness,
           producer: {
-            providerClass: result.evidence.protocol,
+            providerClass: result.producerMetadata.protocol,
             operation: "memory_formation_text",
             implementation: "ai-sdk@7.0.102/openai@4.0.67",
-            modelIdentity: result.evidence.model,
-            modelRevision: result.evidence.modelRevision,
-            outputSchemaDigest: result.evidence.outputSchemaDigest,
-            preprocessingIdentity: result.evidence.promptId!,
-            preprocessingRevision: result.evidence.promptDigest!,
-            configDigest: result.evidence.configDigest,
+            modelIdentity: result.producerMetadata.model,
+            modelRevision: result.producerMetadata.modelRevision,
+            outputSchemaDigest: result.producerMetadata.outputSchemaDigest,
+            preprocessingIdentity: result.producerMetadata.promptId!,
+            preprocessingRevision: result.producerMetadata.promptDigest!,
+            configDigest: result.producerMetadata.configDigest,
           },
           supports: [
             {
@@ -283,15 +274,6 @@ export async function formObservation(
       });
       proposed = {
         request: toJson(FormMemoryRequestSchema, request),
-        invocations: [
-          toJson(
-            ModelInvocationSummarySchema,
-            create(
-              ModelInvocationSummarySchema,
-              invocationSummary(result.evidence),
-            ),
-          ),
-        ],
       };
       await kernel.modelMaterial.saveWorkflow(
         { ...lease, proposalJson: JSON.stringify(proposed) },
@@ -308,7 +290,6 @@ export async function formObservation(
         ...lease,
         outcomeJson: JSON.stringify({
           revisionId: memory.revisionId,
-          invocations: proposed.invocations,
         }),
       },
       options,
@@ -316,9 +297,6 @@ export async function formObservation(
     return {
       memory,
       degradation: [],
-      invocations: proposed.invocations.map((value) =>
-        fromJson(ModelInvocationSummarySchema, value as JsonValue),
-      ),
     };
   } finally {
     await kernel.modelMaterial

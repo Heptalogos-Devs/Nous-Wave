@@ -4,7 +4,7 @@
 
 ## 产品与 owner
 
-一个 Nous Wave 产品按 OS/architecture 产生不同物理发布物。首轮完整 proof 是 Windows x64 portable ZIP；Linux/macOS 使用相同逻辑合同，仅声明实际验证的平台。宿主以 sidecar 方式启动、等待 READY、通过 official Client 使用并关闭实例。
+一个 Nous Wave 产品按 OS/architecture 产生不同物理发布物。当前 shipping assembly 为 Windows x64 portable ZIP，其他平台采用同一逻辑合同。宿主以 sidecar 方式启动、等待 READY、通过 official Client 使用并关闭实例。
 
 Core bootstrap 拥有路径解析、实例发现、应用启动和显式 runtime installation。Kernel 仍拥有 Authority/Serving，并管理 private PostgreSQL 的 cluster 生命周期；不增加领域、provider fleet、更新框架或第二套 persistence owner。
 
@@ -38,16 +38,18 @@ FFmpeg 解析：operator explicit executable → installed verified FFmpeg pack 
 
 FFmpeg pack由 release pipeline 从精确 source构建；禁用 GPL、nonfree、uncontrolled autodetect，携带对应 source archive/build flags/patches/license/native dependencies。之前的 Gyan GPL downloader不进入产品。PostgreSQL pack只包含server closure及必要工具/library/notices，不包含无关管理产品。
 
-## Assembly 与资格
+## Assembly
 
-发布物包含 compiled Core/CLI/official Client、release Kernel、protocol、Prompt、migration closure、private runtimes。运行不需要源码仓库、pnpm、tsx或开发工具。第三方 binary不提交Git；构建/缓存/qualification runtime data保持ignored。
+发布物包含 compiled Core/CLI/official Client、release Kernel、protocol、Prompt、migration closure、private runtimes。运行不需要源码仓库、pnpm、tsx或开发工具。第三方 binary不提交Git；构建/缓存/runtime data保持ignored。
 
-每个candidate生成 release/component/checksum manifests、SPDX SBOM、THIRD_PARTY_NOTICES与每个runtime的license/source/build references。Nous Wave-owned code保持MIT，各third-party组件独立标注实际许可，不能把GPL/nonfree FFmpeg误报为LGPL。
+当前 assembly 生成 release/component/checksum manifests、SPDX SBOM、THIRD_PARTY_NOTICES与每个runtime的license/source/build references。Nous Wave-owned code保持MIT，各third-party组件独立标注实际许可，不能把GPL/nonfree FFmpeg误报为LGPL。
 
-Windows source-less proof在Git仓库外，使用任意CWD、无developer PATH和实际gateway/source，通过official Client完成 formation/embedding/rerank/NousQL/provenance/use/restart。验证共置、完全分离roots、搬移安装位置、missing-pack serve无acquisition、external override及cancel。Result只有PASS/FAIL/NOT_RUN/BLOCKED，并记录payload digests；其他平台不得外推PASS。
+Windows release verification在Git仓库外，使用任意CWD、无developer PATH和实际gateway/source，通过official Client完成 formation/embedding/rerank/NousQL/provenance/use/restart。验证共置、完全分离roots、搬移安装位置、missing-pack serve无acquisition、external override及cancel。检查结果对应实际平台与当前 artifact。
 
-2026-10-02 用户批准 Windows shipping Kernel 改用 LLVM-MinGW UCRT 与 `--target x86_64-pc-windows-gnullvm`；assembler 只读取此 target 的 release binary 和私有 `libc++.dll`/`libunwind.dll`。`scripts/build-windows-kernel.ps1` 设置独立 target C/C++/linker、C++17、source remap 与 post-link debug strip，复制精确 compiler runtime DLL。Rust MSVC source-tree 开发仍可运行，不再作为 shipping candidate。以实际 PE import inventory 验证所有非系统依赖已归入 payload；系统 Win32/UCRT 不当作私有 pack。
+2026-10-02 用户批准 Windows shipping Kernel 改用 LLVM-MinGW UCRT 与 `--target x86_64-pc-windows-gnullvm`；assembler 只读取此 target 的 release binary 和私有 `libc++.dll`/`libunwind.dll`。`scripts/build-windows-kernel.ps1` 设置独立 target C/C++/linker、C++17、source remap 与 post-link debug strip，复制精确 compiler runtime DLL。Rust MSVC source-tree 开发仍可运行，不再作为 shipping payload。以实际 PE import inventory 验证所有非系统依赖已归入 payload；系统 Win32/UCRT 不当作私有 pack。
 
-Release compiler 为 LLVM-MinGW20260922 UCRT Windows x64，官方 archive SHA256 `e3ad77d117a4bea19a7a3b333341824d79a5a371004a10e25b8504e7b3047666`；PostgreSQL/FFmpeg 使用同发行的 Linux-host cross tools。保留 LLVM/MinGW runtime notices，逐项核查 Rust GNU self-contained/native inputs，不能以此前 MSVC narrow proof 代替新闭包验收。正常 serve 不获取 compiler。
+Release compiler 为 LLVM-MinGW20260922 UCRT Windows x64，官方 archive SHA256 `e3ad77d117a4bea19a7a3b333341824d79a5a371004a10e25b8504e7b3047666`；PostgreSQL/FFmpeg 使用同发行的 Linux-host cross tools。保留 LLVM/MinGW runtime notices，逐项核查 Rust GNU self-contained/native inputs，当前 payload 保存实际 native closure。正常 serve 不获取 compiler。
 
 Source remapping includes the checkout, Cargo registry/git sources and Rust toolchain roots. Audit the actual assembled binaries as well as source manifests; remapping only workspace paths leaves dependency panic locations tied to the development machine.
+
+应用 bundle、runtime packs 和 notices 分别缓存。网络 license/source preparation 为显式 `release:notices`；assembly 离线读取。默认输出 `dist/portable/windows-x64/current` 与 `current.zip`，先写 sibling staging，再替换 current；只有显式 archive 固化带 source SHA/payload digest 的发布物。

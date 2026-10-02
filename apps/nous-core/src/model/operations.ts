@@ -52,7 +52,6 @@ export function modelOperations(
           throw error;
         return {
           degradation: failure("memory_formation_failed", error),
-          invocations: [],
         };
       }
     },

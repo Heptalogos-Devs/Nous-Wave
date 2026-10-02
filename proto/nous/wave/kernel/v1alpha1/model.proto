@@ -14,7 +14,7 @@ message QueryEmbedding { string text = 1; string space_hash = 2; string producer
 message KernelQueryRequest { nous.wave.v1alpha1.QueryRequest query = 1; repeated QueryEmbedding embeddings = 2; optional uint32 validated_candidate_limit = 3; }
 message KernelQueryResponse { nous.wave.v1alpha1.QueryResponse response = 1; optional string validation_ticket = 2; }
 message RerankCandidate { nous.wave.v1alpha1.CognitiveRef reference = 1; double score = 2; }
-message ExternalResourceResult { string action_id = 1; string resource_ref = 2; string status = 3; repeated nous.wave.v1alpha1.ExternalResourceRecord records = 4; nous.wave.v1alpha1.ResourceProviderEvidence provider_evidence = 5; repeated string diagnostics = 6; }
+message ExternalResourceResult { string action_id = 1; string resource_ref = 2; string status = 3; repeated nous.wave.v1alpha1.ExternalResourceRecord records = 4; }
 message FinalizeQueryRequest { string subject_id = 1; string validation_ticket = 2; repeated RerankCandidate order = 3; repeated ExternalResourceResult external_results = 4; }
 message ReleaseQueryRequest { string subject_id = 1; string validation_ticket = 2; }
 message EmbeddingNeedsRequest { string subject_id = 1; uint32 limit = 2; }

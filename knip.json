@@ -6,7 +6,10 @@
         "scripts/dev.ts",
         "scripts/nous.ts",
         "scripts/pack-runtime.ts",
-        "scripts/assemble-portable.ts",
+        "scripts/dev-prepare.ts",
+        "scripts/release/*.ts",
+        "scripts/smoke/*.ts",
+        "scripts/research/*.ts",
         "scripts/research-gateway.ts!"
       ]
     },
@@ -14,21 +17,9 @@
       "entry": ["src/main.ts!", "src/launcher.ts!"]
     },
     "apps/nous-cli": {
-      "entry": [
-        "src/main.ts!",
-        "qualification-local.ts",
-        "qualification-portable.ts",
-        "research-live.ts",
-        "qualification-live.ts"
-      ]
+      "entry": ["src/main.ts!"]
     }
   },
-  "ignore": [
-    "apps/nous-core/official_client_closure.ts",
-    "apps/nous-core/qualification-config.ts",
-    "apps/nous-core/qualification_memory_reference.ts",
-    "apps/nous-core/qualification_cognitive_runtime_episode.ts"
-  ],
   "rules": {
     "files": "error",
     "dependencies": "error",

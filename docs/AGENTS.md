@@ -1,7 +1,5 @@
-# Current Repository Knowledge Instructions
+# Repository Knowledge
 
-Human-facing maintained docs use Chinese; AI-facing instructions use concise technical English. Architecture-Vault owns long-term Target Design, decisions, rationale, and research. This tree owns current implementation, current authorization, executable Specs, and executed Qualification evidence.
+Human-facing docs use Chinese; AI instructions use concise technical English. Architecture-Vault owns long-term design and accepted decisions. Current product contracts belong to `specs/`, code structure to `architecture/`, available/experimental/known/deferred facts to `current-state/`, and reusable experiments to `research/`.
 
-Keep each current fact owned once: `docs/INDEX.md` routes, `plans/active/` authorizes, `specs/active/` contracts, `architecture/` describes current code, `current-state/` summarizes verified capability, and `qualification/` records actual commands/results.
-
-Remove superseded current documents when Git history is sufficient. Do not document planned or historical behavior as current. When paths or owners change, update the relevant README/INDEX and run the repository Markdown link check plus `git diff --check`.
+`INDEX.md` owns navigation. Plans are reserved for sustained coordination; ordinary tasks use their contract and PR. Git preserves completed construction history. Update local links when moving documents.

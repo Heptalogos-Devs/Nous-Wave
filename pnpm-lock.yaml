@@ -169,9 +169,18 @@ importers:
       '@bufbuild/buf':
         specifier: 1.73.0
         version: 1.73.0
+      '@bufbuild/protobuf':
+        specifier: 2.15.0
+        version: 2.15.0
       '@bufbuild/protoc-gen-es':
         specifier: 2.15.0
         version: 2.15.0(@bufbuild/protobuf@2.15.0)(supports-color@7.2.0)
+      '@nous-wave/client':
+        specifier: workspace:*
+        version: link:packages/client
+      '@nous-wave/protocol':
+        specifier: workspace:*
+        version: link:packages/protocol-ts
       '@swc/core':
         specifier: 1.16.2
         version: 1.16.2
@@ -205,6 +214,9 @@ importers:
       sherif:
         specifier: 1.13.0
         version: 1.13.0
+      smol-toml:
+        specifier: 1.8.0
+        version: 1.8.0
       tsx:
         specifier: 4.23.13
         version: 4.23.13

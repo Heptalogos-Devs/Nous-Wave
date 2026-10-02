@@ -465,57 +465,6 @@ pub struct ExternalResourceRecord {
     pub access_status: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ResourceProviderEvidence {
-    #[prost(string, tag="1")]
-    pub profile_digest: ::prost::alloc::string::String,
-    #[prost(uint32, tag="2")]
-    pub request_count: u32,
-    #[prost(double, tag="3")]
-    pub latency_ms: f64,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ResourceInvocationSummary {
-    #[prost(string, tag="1")]
-    pub action_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub resource_ref: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
-    pub provider_profile: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
-    pub status: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="5")]
-    pub provider_evidence: ::core::option::Option<ResourceProviderEvidence>,
-    #[prost(string, repeated, tag="6")]
-    pub diagnostics: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ModelInvocationSummary {
-    #[prost(string, tag="1")]
-    pub role: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub protocol: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
-    pub model: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
-    pub profile_digest: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="5")]
-    pub prompt_digest: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(double, tag="6")]
-    pub latency_ms: f64,
-    #[prost(uint32, tag="7")]
-    pub request_count: u32,
-    #[prost(string, tag="8")]
-    pub status: ::prost::alloc::string::String,
-    #[prost(uint64, optional, tag="9")]
-    pub input_usage: ::core::option::Option<u64>,
-    #[prost(uint64, optional, tag="10")]
-    pub output_usage: ::core::option::Option<u64>,
-    #[prost(uint64, optional, tag="11")]
-    pub total_usage: ::core::option::Option<u64>,
-    #[prost(string, optional, tag="12")]
-    pub output_schema_digest: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryDiagnostics {
     #[prost(map="string, uint64", tag="1")]
     pub candidate_counts: ::std::collections::HashMap<::prost::alloc::string::String, u64>,
@@ -545,23 +494,6 @@ pub struct HitScore {
     #[prost(string, repeated, tag="8")]
     pub variants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct RerankMechanismSummary {
-    #[prost(string, tag="1")]
-    pub mechanism: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub status: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
-    pub reason: ::prost::alloc::string::String,
-    #[prost(uint32, tag="4")]
-    pub candidate_count: u32,
-    #[prost(uint32, tag="5")]
-    pub provider_results: u32,
-    #[prost(string, tag="6")]
-    pub protocol: ::prost::alloc::string::String,
-    #[prost(string, tag="7")]
-    pub model: ::prost::alloc::string::String,
-}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResponse {
     #[prost(string, tag="1")]
@@ -578,14 +510,8 @@ pub struct QueryResponse {
     pub bound_query: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag="7")]
     pub diagnostics: ::core::option::Option<QueryDiagnostics>,
-    #[prost(message, repeated, tag="8")]
-    pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
-    #[prost(message, optional, tag="9")]
-    pub rerank: ::core::option::Option<RerankMechanismSummary>,
     #[prost(message, repeated, tag="10")]
     pub resource_records: ::prost::alloc::vec::Vec<ExternalResourceRecord>,
-    #[prost(message, repeated, tag="11")]
-    pub resource_invocations: ::prost::alloc::vec::Vec<ResourceInvocationSummary>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReportUseRequest {
@@ -1920,8 +1846,6 @@ pub struct FormationResponse {
     pub memory: ::core::option::Option<Memory>,
     #[prost(message, repeated, tag="2")]
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
-    #[prost(message, repeated, tag="3")]
-    pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DerivationResponse {
@@ -1931,8 +1855,6 @@ pub struct DerivationResponse {
     pub selected_representation_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="3")]
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
-    #[prost(message, repeated, tag="4")]
-    pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct PrepareEmbeddingsRequest {
@@ -1947,8 +1869,6 @@ pub struct PrepareEmbeddingsResponse {
     pub committed: u32,
     #[prost(message, repeated, tag="2")]
     pub degradation: ::prost::alloc::vec::Vec<Degradation>,
-    #[prost(message, repeated, tag="3")]
-    pub invocations: ::prost::alloc::vec::Vec<ModelInvocationSummary>,
 }
 include!("nous.wave.v1alpha1.tonic.rs");
 // @@protoc_insertion_point(module)

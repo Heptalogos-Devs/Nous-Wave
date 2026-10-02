@@ -1,7 +1,9 @@
 use crate::*;
 use chrono::{DateTime, Utc};
 use nous_core::{CognitiveRef, OperationId, SubjectId};
-use nous_persistence::{database_error as db, lock_operation};
+use nous_persistence::{
+    MutationReceipt, check_receipt, commit_receipt, database_error as db, lock_operation,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::collections::BTreeSet;
@@ -108,7 +110,7 @@ impl CognitiveRuntimeService {
         )?;
         let mut tx = self.store.begin().await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
-        if let Some(existing) = receipt(
+        if let Some(existing) = check_receipt(
             &mut tx,
             input.subject,
             input.operation_id,
@@ -118,12 +120,9 @@ impl CognitiveRuntimeService {
         .await?
         {
             tx.commit().await.map_err(db)?;
-            return match existing {
-                Some(id) => self.work_context(input.subject, id).await,
-                None => Err(Error::Unavailable(
-                    "create WorkContext operation is already in progress".into(),
-                )),
-            };
+            return self
+                .work_context(input.subject, replay_context(existing)?)
+                .await;
         }
         let work_context_id = Uuid::now_v7();
         validate_refs_in_tx(&self.store, &mut tx, input.subject, &input.references).await?;
@@ -147,7 +146,10 @@ impl CognitiveRuntimeService {
             &mut tx,
             input.subject,
             input.operation_id,
+            "work_context",
             Some(&work_context_id.to_string()),
+            None,
+            None,
         )
         .await?;
         tx.commit().await.map_err(db)?;
@@ -216,7 +218,7 @@ impl CognitiveRuntimeService {
         )?;
         let mut tx = self.store.begin().await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
-        if let Some(existing) = receipt(
+        if let Some(existing) = check_receipt(
             &mut tx,
             input.subject,
             input.operation_id,
@@ -226,12 +228,9 @@ impl CognitiveRuntimeService {
         .await?
         {
             tx.commit().await.map_err(db)?;
-            return match existing {
-                Some(id) => self.work_context(input.subject, id).await,
-                None => Err(Error::Unavailable(
-                    "update WorkContext operation is already in progress".into(),
-                )),
-            };
+            return self
+                .work_context(input.subject, replay_context(existing)?)
+                .await;
         }
         let row = sqlx::query(
             "SELECT state,revision FROM work_contexts WHERE subject_id=$1 AND work_context_id=$2 FOR UPDATE",
@@ -276,7 +275,10 @@ impl CognitiveRuntimeService {
             &mut tx,
             input.subject,
             input.operation_id,
+            "work_context",
             Some(&input.work_context_id.to_string()),
+            None,
+            None,
         )
         .await?;
         tx.commit().await.map_err(db)?;
@@ -358,14 +360,10 @@ impl CognitiveRuntimeService {
         )?;
         let mut tx = self.store.begin().await?;
         lock_operation(&mut tx, subject, operation_id).await?;
-        if let Some(existing) = receipt(&mut tx, subject, operation_id, kind, &digest).await? {
+        if let Some(existing) = check_receipt(&mut tx, subject, operation_id, kind, &digest).await?
+        {
             tx.commit().await.map_err(db)?;
-            return match existing {
-                Some(id) => self.work_context(subject, id).await,
-                None => Err(Error::Unavailable(
-                    "WorkContext transition is already in progress".into(),
-                )),
-            };
+            return self.work_context(subject, replay_context(existing)?).await;
         }
         let row = sqlx::query(
             "SELECT state,revision FROM work_contexts WHERE subject_id=$1 AND work_context_id=$2 FOR UPDATE",
@@ -446,7 +444,10 @@ impl CognitiveRuntimeService {
             &mut tx,
             subject,
             operation_id,
+            "work_context",
             Some(&work_context_id.to_string()),
+            None,
+            None,
         )
         .await?;
         tx.commit().await.map_err(db)?;
@@ -472,7 +473,7 @@ impl CognitiveRuntimeService {
         )?;
         let mut tx = self.store.begin().await?;
         lock_operation(&mut tx, subject, operation_id).await?;
-        if let Some(existing) = receipt(
+        if let Some(existing) = check_receipt(
             &mut tx,
             subject,
             operation_id,
@@ -482,7 +483,7 @@ impl CognitiveRuntimeService {
         .await?
         {
             tx.commit().await.map_err(db)?;
-            if existing.is_none() {
+            if existing.state != "committed" {
                 return Err(Error::Unavailable(
                     "foreground WorkContext operation is already in progress".into(),
                 ));
@@ -534,7 +535,16 @@ impl CognitiveRuntimeService {
         .execute(&mut *tx)
         .await
         .map_err(db)?;
-        commit_receipt(&mut tx, subject, operation_id, None).await?;
+        commit_receipt(
+            &mut tx,
+            subject,
+            operation_id,
+            "work_context",
+            None,
+            None,
+            None,
+        )
+        .await?;
         tx.commit().await.map_err(db)?;
         self.session(subject, session).await
     }
@@ -746,70 +756,15 @@ fn request_digest<T: Serialize>(kind: &str, subject: SubjectId, value: &T) -> Re
     nous_core::canonical_request_digest(kind, subject, value)
 }
 
-async fn receipt(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-    kind: &str,
-    digest: &str,
-) -> Result<Option<Option<Uuid>>> {
-    let row = sqlx::query(
-        "SELECT operation_kind,request_digest,state,result_ref FROM mutation_receipts WHERE subject_id=$1 AND operation_id=$2",
-    )
-    .bind(subject.0)
-    .bind(operation.0)
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(db)?;
-    if let Some(row) = row {
-        let existing_kind: String = row.try_get("operation_kind").map_err(db)?;
-        let existing_digest: String = row.try_get("request_digest").map_err(db)?;
-        if existing_kind != kind || existing_digest != digest {
-            return Err(Error::Conflict(
-                "WorkContext operation_id was used with a different request".into(),
-            ));
-        }
-        let state: String = row.try_get("state").map_err(db)?;
-        if state != "committed" {
-            return Ok(Some(None));
-        }
-        let value: Option<String> = row.try_get("result_ref").map_err(db)?;
-        return Ok(Some(Some(
-            value
-                .ok_or_else(|| Error::Infrastructure("WorkContext receipt has no result".into()))?
-                .parse()
-                .map_err(|_| Error::Infrastructure("invalid WorkContext receipt".into()))?,
-        )));
+fn replay_context(receipt: MutationReceipt) -> Result<Uuid> {
+    if receipt.state != "committed" {
+        return Err(Error::Unavailable(
+            "WorkContext operation is already in progress".into(),
+        ));
     }
-    sqlx::query(
-        "INSERT INTO mutation_receipts(subject_id,operation_id,operation_kind,request_digest,state,created_at) VALUES($1,$2,$3,$4,'in_progress',$5)",
-    )
-    .bind(subject.0)
-    .bind(operation.0)
-    .bind(kind)
-    .bind(digest)
-    .bind(Utc::now())
-    .execute(&mut **tx)
-    .await
-    .map_err(db)?;
-    Ok(None)
-}
-
-async fn commit_receipt(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    subject: SubjectId,
-    operation: OperationId,
-    result_ref: Option<&str>,
-) -> Result<()> {
-    sqlx::query(
-        "UPDATE mutation_receipts SET state='committed',result_kind='work_context',result_ref=$3,committed_at=$4 WHERE subject_id=$1 AND operation_id=$2",
-    )
-    .bind(subject.0)
-    .bind(operation.0)
-    .bind(result_ref)
-    .bind(Utc::now())
-    .execute(&mut **tx)
-    .await
-    .map_err(db)?;
-    Ok(())
+    receipt
+        .result_ref
+        .ok_or_else(|| Error::Infrastructure("WorkContext receipt has no result".into()))?
+        .parse()
+        .map_err(|_| Error::Infrastructure("invalid WorkContext receipt".into()))
 }

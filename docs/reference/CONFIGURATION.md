@@ -30,7 +30,7 @@ Artifact upload 的唯一部署上限为 Kernel `[bootstrap.object_store].max_up
 
 ## 可选 External Resource
 
-`resource_profiles.<name>` 配置已有外部系统的 API；当前 `adapter_kind="ragflow"`，`base_url` 指向 `/api/v1` 根，`credential_env` 引用 SecretRoot/gateway.env 或进程环境中的 key。`enabled=false` 禁用 profile；timeout 与单条 material byte 上限是有界网络策略。Resource descriptor 的 `provider_profile` 引用该名称，`provider_locator` 保存 JSON selector（`dataset_ids` 与可选 `document_ids`）。Nous 不管理 RAGFlow dataset、模型、安装或 Docker 网络；它不属于默认 runtime 或 acceptance 依赖。直接交给 Nous 的本地材料使用原生 Material/Serving。
+`resource_profiles.<name>` 配置已有外部系统的 API；当前 `adapter_kind="ragflow"`，`base_url` 指向 `/api/v1` 根，`credential_env` 引用 SecretRoot/gateway.env 或进程环境中的 key。`enabled=false` 禁用 profile；timeout 与单条 material byte 上限是有界网络策略。Resource descriptor 的 `provider_profile` 引用该名称，`provider_locator` 保存 JSON selector（`dataset_ids` 与可选 `document_ids`）。Nous 不管理 RAGFlow dataset、模型、安装或 Docker 网络；它不属于默认 runtime 或 运行依赖。直接交给 Nous 的本地材料使用原生 Material/Serving。
 
 ## Direct audio/video and model-call budget
 

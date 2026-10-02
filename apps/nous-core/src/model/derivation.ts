@@ -3,7 +3,7 @@ import type { DeriveMaterialRequest } from "@nous-wave/protocol/nous/wave/v1alph
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
 import type {
-  ModelInvocationEvidence,
+  ModelProducerMetadata,
   ModelRoleSnapshot,
 } from "./invocations.js";
 import type { ModelRole } from "./configuration.js";
@@ -11,7 +11,6 @@ import { z } from "zod";
 import type { DerivedRepresentation } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { sampleVideo } from "./video.js";
 import { canonicalDigest } from "../digest.js";
-import { invocationSummary } from "./summary.js";
 import {
   materialInterpretationSchemaDigest,
   materialProjectionIdentity,
@@ -105,7 +104,6 @@ export async function deriveMaterial(
       ],
     };
   const representations: DerivedRepresentation[] = [];
-  const invocations: ReturnType<typeof invocationSummary>[] = [];
   const commit = async (
     text: string,
     kind: string,
@@ -114,12 +112,11 @@ export async function deriveMaterial(
       reference: { kind: string; value: string };
       role: string;
     }[],
-    evidence?: ModelInvocationEvidence,
+    producerMetadata?: ModelProducerMetadata,
     quality: Record<string, unknown> = {},
     preprocessingDigest?: string,
     structuredPayload?: JsonObject,
   ) => {
-    if (evidence) invocations.push(invocationSummary(evidence));
     const representation = await kernel.modelMaterial.commitInterpretation(
       {
         subjectId: request.subjectId,
@@ -131,19 +128,12 @@ export async function deriveMaterial(
         quality: JSON.parse(
           JSON.stringify({
             ...quality,
-            ...(evidence
-              ? {
-                  model_profile_digest: evidence.profileDigest,
-                  role_config_digest: evidence.configDigest,
-                  latency_ms: evidence.latencyMs,
-                }
-              : {}),
           }),
         ) as import("@bufbuild/protobuf").JsonObject,
         supersedes:
           representations.length === 0 ? request.supersedes : undefined,
         producer: {
-          providerClass: evidence?.protocol ?? "deterministic",
+          providerClass: producerMetadata?.protocol ?? "deterministic",
           operation:
             kind === "image_description" || kind === "scene_description"
               ? "image_interpretation"
@@ -152,24 +142,24 @@ export async function deriveMaterial(
                 : kind === "extracted_text"
                   ? "document_extraction"
                   : "text_interpretation",
-          implementation: evidence
-            ? evidence.implementation
+          implementation: producerMetadata
+            ? producerMetadata.implementation
             : "verified-utf8-decoding-v1",
-          modelIdentity: evidence?.model,
-          modelRevision: evidence?.modelRevision,
-          outputSchemaDigest: evidence?.outputSchemaDigest,
-          preprocessingIdentity: `${evidence ? (evidence.promptId ?? "standard-audio-transcription") : "verified-utf8"}/${strategy}`,
-          preprocessingRevision: evidence?.promptDigest ?? "1",
+          modelIdentity: producerMetadata?.model,
+          modelRevision: producerMetadata?.modelRevision,
+          outputSchemaDigest: producerMetadata?.outputSchemaDigest,
+          preprocessingIdentity: `${producerMetadata ? (producerMetadata.promptId ?? "standard-audio-transcription") : "verified-utf8"}/${strategy}`,
+          preprocessingRevision: producerMetadata?.promptDigest ?? "1",
           configDigest:
             preprocessingDigest || structuredPayload
               ? canonicalDigest({
-                  role: evidence?.configDigest,
+                  role: producerMetadata?.configDigest,
                   preprocessing: preprocessingDigest,
                   projection: structuredPayload
                     ? materialProjectionIdentity
                     : undefined,
                 })
-              : (evidence?.configDigest ?? "utf8-fatal-v1"),
+              : (producerMetadata?.configDigest ?? "utf8-fatal-v1"),
         },
       },
       options,
@@ -183,7 +173,7 @@ export async function deriveMaterial(
     role: ModelRole,
     invoke: (snapshot: ModelRoleSnapshot) => Promise<{
       text: string;
-      evidence: ModelInvocationEvidence;
+      producerMetadata: ModelProducerMetadata;
       structuredPayload?: JsonObject;
     }>,
     quality: Record<string, unknown> = {},
@@ -246,7 +236,7 @@ export async function deriveMaterial(
       let proposal = reservation.proposalJson
         ? (JSON.parse(reservation.proposalJson) as {
             text: string;
-            evidence: ModelInvocationEvidence;
+            producerMetadata: ModelProducerMetadata;
             structuredPayload?: JsonObject;
           })
         : undefined;
@@ -263,7 +253,7 @@ export async function deriveMaterial(
         proposal.text,
         kind,
         graph,
-        proposal.evidence,
+        proposal.producerMetadata,
         quality,
         preprocessingDigest,
         proposal.structuredPayload,
@@ -409,7 +399,6 @@ export async function deriveMaterial(
         await structureDescription(selected);
       return {
         representations,
-        invocations,
         selectedRepresentationId: representations.at(-1)!.representationId,
         degradation: [],
       };
@@ -440,7 +429,10 @@ export async function deriveMaterial(
                 signal,
                 snapshot,
               );
-              return { text: result.value, evidence: result.evidence };
+              return {
+                text: result.value,
+                producerMetadata: result.producerMetadata,
+              };
             },
             samples.quality,
             samples.preprocessingDigest,
@@ -500,7 +492,6 @@ export async function deriveMaterial(
       }
       return {
         representations,
-        invocations,
         selectedRepresentationId: representations.at(-1)!.representationId,
         degradation,
       };
@@ -522,7 +513,6 @@ export async function deriveMaterial(
       );
       return {
         representations,
-        invocations,
         selectedRepresentationId: structured.representationId,
         degradation: [],
       };
@@ -544,7 +534,10 @@ export async function deriveMaterial(
                 signal,
                 snapshot,
               );
-              return { text: result.value, evidence: result.evidence };
+              return {
+                text: result.value,
+                producerMetadata: result.producerMetadata,
+              };
             },
           )
         : await paid(
@@ -559,7 +552,6 @@ export async function deriveMaterial(
     }
     return {
       representations,
-      invocations,
       selectedRepresentationId: representations.at(-1)!.representationId,
       degradation: [],
     };
@@ -567,7 +559,6 @@ export async function deriveMaterial(
     if (signal?.aborted) throw error;
     return {
       representations,
-      invocations,
       selectedRepresentationId: representations[0]?.representationId,
       degradation: [
         {

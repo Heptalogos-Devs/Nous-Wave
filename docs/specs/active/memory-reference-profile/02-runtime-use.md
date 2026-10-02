@@ -23,7 +23,7 @@ UseEvent target 只接受 exact Memory/Schema revision，不接受 mutable Memor
 
 ## Accessibility
 
-Accessibility 是 query-time policy，不是 Memory truth、lifecycle 或 purge。当前 reference 参数为 `epsilon=0.02`、`tau_days=30`、`decay=0.5`、`formation_weight=1.0`；typed use weight 和 Normal/Deep/Explicit threshold 由实现和 Qualification 共同核对。
+Accessibility 是 query-time policy，不是 Memory truth、lifecycle 或 purge。当前 reference 参数为 `epsilon=0.02`、`tau_days=30`、`decay=0.5`、`formation_weight=1.0`；typed use weight 和 Normal/Deep/Explicit threshold 由 typed policy 固定。
 
 `auto`、`normal`、`deep`、`explicit` override 只决定当前普通 query 的可访问性。Exact explicit object/revision 与合法 provenance/management read 可绕过 auto level，但不得绕过 Subject ownership、suppression 或 purge。
 

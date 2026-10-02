@@ -34,11 +34,7 @@ it("finishes a Resource ticket without invoking required rerank for identity-onl
       rerank,
     },
   } as unknown as ModelRuntime;
-  const result = await new QueryOrchestrator(
-    kernel,
-    models,
-    {} as ResourceRegistry,
-  ).execute(
+  await new QueryOrchestrator(kernel, models, {} as ResourceRegistry).execute(
     create(QueryRequestSchema, {
       subjectId: "subject",
       expression: create(QueryExprSchema, { operation: "atom" }),
@@ -47,6 +43,4 @@ it("finishes a Resource ticket without invoking required rerank for identity-onl
   expect(rerank).not.toHaveBeenCalled();
   expect(finalize).toHaveBeenCalledOnce();
   expect(release).toHaveBeenCalledOnce();
-  expect(result.rerank?.status).toBe("NOT_RUN");
-  expect(result.rerank?.reason).toBe("no_positive_textual_intent");
 });

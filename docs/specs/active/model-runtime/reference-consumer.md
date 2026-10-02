@@ -4,15 +4,7 @@
 
 创建一个可以真正手工使用 Nous Wave 的第一方最小consumer。
 
-它不是：
-
-- Heptalogos adapter；
-- qualification script；
-- test runner；
-- admin dashboard；
-- chatbot UI。
-
-它用来证明 public API 对不知道内部实现的使用者真的可用。
+它支持从公开接口手工使用系统。
 
 ## Dependency rule
 
@@ -33,7 +25,7 @@ Kernel internal protocol
 Rust implementation
 persistence
 tests/*
-qualification_*.ts
+scripts/smoke/*
 ```
 
 ## Node Client artifact support
@@ -141,7 +133,7 @@ nous embeddings prepare
 
 - committed=0；
 - degradation；
-- caller max batch/call budget达到。
+- caller max batch budget达到。
 
 ### Query
 
@@ -162,7 +154,6 @@ nous query '<NousQL>'
 - text；
 - evidence families；
 - baseline/rerank/final score（可得时）；
-- model mechanism summary；
 - degradation；
 - lane/drop diagnostics摘要。
 
@@ -202,26 +193,3 @@ nous context end
 ```
 
 不为了CLI复刻完整产品。
-
-## Real usability acceptance
-
-fresh data root上必须人工/脚本真实执行：
-
-```text
-boot
-→ status
-→ create Subject
-→ open Session
-→ observe real public text
-→ live formation
-→ live embedding
-→ paraphrased NousQL
-→ correct Memory
-→ trace to real source
-→ meaningful UseEvent
-→ stop Core
-→ restart Core
-→ same query still recalls
-```
-
-这条vertical path是本轮核心proof。

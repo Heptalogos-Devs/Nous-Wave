@@ -7,12 +7,10 @@ import {
 import type {
   QueryExpr,
   QueryRequest,
-  QueryResponse,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import { ModelRuntime } from "../model/runtime.js";
 import { canonicalDigest } from "../digest.js";
-import { invocationSummary } from "../model/summary.js";
 
 import type { ResourceRegistry } from "../resources/registry.js";
 import { executeResourceActions } from "../resources/execute.js";
@@ -25,7 +23,6 @@ export class QueryOrchestrator {
   ) {}
   async execute(input: QueryRequest, options: CallOptions = {}) {
     const material: QueryEmbedding[] = [];
-    const invocations: ReturnType<typeof invocationSummary>[] = [];
     let failure: string | undefined;
     const texts = new Set<string>();
     const collect = (node: QueryExpr) => {
@@ -75,7 +72,6 @@ export class QueryOrchestrator {
             config.model,
             options.signal ?? undefined,
           );
-          invocations.push(invocationSummary(vectors.evidence));
           missing.forEach((text, index) =>
             this.queryVectors.set(keys.get(text)!, vectors.value[index]!),
           );
@@ -145,13 +141,7 @@ export class QueryOrchestrator {
         reference: NonNullable<(typeof candidates)[number]["reference"]>;
         score: number;
       }[] = [];
-      let status = "NOT_RUN",
-        reason = !intent
-          ? "no_positive_textual_intent"
-          : !profile
-            ? "role_not_configured"
-            : "fewer_than_two_textual_candidates",
-        providerResults = 0;
+      let rerankFailed = false;
       try {
         if (intent && profile && candidates.length >= 2) {
           try {
@@ -161,7 +151,6 @@ export class QueryOrchestrator {
               candidates.length,
               options.signal ?? undefined,
             );
-            invocations.push(invocationSummary(ranking.evidence));
             order = ranking.value.map((item) => {
               const reference = candidates[item.index]!.reference;
               if (!reference)
@@ -171,9 +160,6 @@ export class QueryOrchestrator {
                 );
               return { reference, score: item.relevance_score };
             });
-            status = "PASS";
-            reason = "";
-            providerResults = order.length;
           } catch (error) {
             if (options.signal?.aborted) throw error;
             if (
@@ -183,8 +169,7 @@ export class QueryOrchestrator {
                 "Required rerank invocation unavailable",
                 Code.FailedPrecondition,
               );
-            status = "FAIL";
-            reason = "validated_baseline_fallback";
+            rerankFailed = true;
           }
         }
         result = await this.kernel.authority.finalizeQuery(
@@ -200,17 +185,7 @@ export class QueryOrchestrator {
           },
           options,
         );
-        result.rerank = {
-          $typeName: "nous.wave.v1alpha1.RerankMechanismSummary",
-          mechanism: "model-order-with-baseline-tail-v1",
-          status,
-          reason,
-          candidateCount: candidates.length,
-          providerResults,
-          protocol: profile?.protocol ?? "",
-          model: profile?.model ?? "",
-        };
-        if (status === "FAIL") {
+        if (rerankFailed) {
           result.degradation.push({
             $typeName: "nous.wave.v1alpha1.Degradation",
             code: "query_rerank_unavailable",
@@ -226,20 +201,7 @@ export class QueryOrchestrator {
           )
           .catch(() => {});
       }
-    } else
-      result.rerank = skippedRerank(
-        intent
-          ? profile
-            ? "validation_pool_unavailable"
-            : "role_not_configured"
-          : "no_positive_textual_intent",
-      );
-    result.invocations.push(
-      ...invocations.map((summary) => ({
-        $typeName: "nous.wave.v1alpha1.ModelInvocationSummary" as const,
-        ...summary,
-      })),
-    );
+    }
     if (failure) {
       result.degradation.push({
         $typeName: "nous.wave.v1alpha1.Degradation",
@@ -264,16 +226,4 @@ function positiveIntent(node: QueryExpr): string {
   const children = node.children.map(positiveIntent).filter(Boolean);
   if (!children.length) return "";
   return `${node.operation === "all" ? "ALL OF" : "ANY OF"}: ${children.map((text) => `(${text})`).join("; ")}`;
-}
-function skippedRerank(reason: string): NonNullable<QueryResponse["rerank"]> {
-  return {
-    $typeName: "nous.wave.v1alpha1.RerankMechanismSummary",
-    mechanism: "model-order-with-baseline-tail-v1",
-    status: "NOT_RUN",
-    reason,
-    candidateCount: 0,
-    providerResults: 0,
-    protocol: "",
-    model: "",
-  };
 }

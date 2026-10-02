@@ -1,5 +1,7 @@
 //! PostgreSQL Authority repositories and migration ownership.
 mod identity;
+mod mutations;
+pub use mutations::{MutationReceipt, check_receipt, commit_receipt};
 mod model_workflow;
 pub use model_workflow::{WORKFLOW_VALUE_MAX_BYTES, WorkflowReservation};
 mod producer;

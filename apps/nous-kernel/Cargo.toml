@@ -1,5 +1,6 @@
 [package]
 name = "nous-kernel"
+default-run = "nous-kernel"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -42,7 +43,6 @@ sha2.workspace = true
 prost.workspace = true
 tonic-prost.workspace = true
 tempfile.workspace = true
-postgresql_embedded = { workspace = true, features = ["bundled"] }
 sqlx.workspace = true
 
 [lints]

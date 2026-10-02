@@ -1,64 +1,39 @@
 # Nous Wave
 
-Nous Wave 是一个 pre-production Subject cognition system。本仓库当前实现 Memory-only Reference Profile、WorkContext continuity 和 Memory-owned Episode foundation：TypeScript Core 提供 public host，Rust Kernel 持有认知 Authority、Runtime、Material、Memory 和可重建 Serving。
+Nous Wave 是 pre-production Subject cognition system。TypeScript Core 提供公共 API 与模型/资源编排；Rust Kernel 持有认知 Authority、Runtime、Material、Memory 与可重建 Serving。长期语义由 [Architecture-Vault](https://github.com/Heptalogos-Devs/Architecture-Vault) 持有。
 
-长期目标语义、已接受决定和研究由 [Architecture-Vault](https://github.com/Heptalogos-Devs/Architecture-Vault) 持有；本仓库维护当前实现与实际验证证据。
-
-## 当前可运行能力
-
-当前主线支持 Artifact/Observation → grounded Memory → public Query/Serving → meaningful UseEvent → restart/rebuild → suppression/restore/purge → provenance trace-back，并支持 WorkContext 跨 Session 延续和 Episode exact revision foundation。Self、Social、Motivation、Journal、Offline Cognition 和 Heptalogos live integration 不属于当前 executable scope。
+当前支持来源材料、Memory 形成/修订/检索/使用/生命周期、WorkContext 跨 Session 延续、Episode exact revision、结构化媒体派生和 optional External Resource。
 
 ## 最短运行路径
-
-安装依赖并构建 Kernel 后，显式准备固定版本的开发数据库运行时，再启动：
 
 ```text
 corepack pnpm install --frozen-lockfile
 cargo build -p nous-kernel
-cargo run -p nous-kernel --example qualification_postgres
+just dev-prepare
 corepack pnpm dev
 ```
 
-该命令生成 repo-owned dev 配置，选择当前平台的 Kernel binary，使用 private loopback/ephemeral Kernel port，并将 Core discovery 写入 `data/dev/run/core.json`。Kernel binary 不存在时会直接提示先运行 `cargo build -p nous-kernel`。
+开发配置和 discovery 位于 ignored `data/dev/`。`NOUS_WAVE_POSTGRES_RUNTIME` 可指定已准备的 PostgreSQL 安装。普通 serve 只使用已安装组件。
 
-数据库准备命令可显式获取固定 PostgreSQL18.6，默认安装至 ignored `data/dev/runtime/postgresql`，不升级已有其他版本。qualification 可用 `NOUS_WAVE_POSTGRES_RUNTIME` 指向独立安装；`just acceptance` 自行运行此准备步骤。普通产品 `serve` 仍只使用已安装 pack。
+另一个终端用 `corepack pnpm nous status` 连接实例，具体操作见 [Nous CLI](apps/nous-cli/README.md)。
 
-完整 acceptance：
+## 开发入口
 
-```text
-just acceptance
-```
+`just check-fast` 顺序执行格式、Proto、TypeScript/Oxlint 和 Clippy；`just check` 随后运行 Vitest 与 Rust tests。`just audit` 用于按需依赖/安全/重复审查；`just smoke` 运行正常 Core + official Client 的 Memory、Runtime/Episode、Model/Material/Resource 场景，也可用 `pnpm smoke:memory`、`smoke:runtime`、`smoke:model` 分别运行。
 
-该入口包含构建、协议、静态检查与 public qualification。其中 Memory proof 经过 Core 与官方 TypeScript Client，验证双 Session、Query、UseEvent retry、restart、生命周期和 provenance。
+Protobuf 的唯一来源是 `proto/`，修改后运行 `corepack pnpm generate`。Cargo `target/` 保留用于增量构建。
 
-Windows 便携发布构建使用固定 LLVM-MinGW UCRT compiler：运行 `scripts/build-windows-kernel.ps1` 后 `corepack pnpm assemble:portable --output <fresh-output-directory>`。安装 payload 携带私有 Node/PostgreSQL/FFmpeg 与官方 Client，使用 `bin/nous.cmd serve --home <instance>` 或 `--locator <bootstrap.toml>` 启动；普通启动不下载组件。路径、pack 与许可合同见 [Runtime Bundle Spec](docs/specs/active/deployment/runtime-bundle.md)，已执行的平台证据见 Qualification。
+## Portable 与研究
 
-手工使用实例：`corepack pnpm nous status`；Subject/Session、材料上传、NousQL 和 trace 的最短路径见 [Nous CLI](apps/nous-cli/README.md)。CLI 的无付费 public wiring qualification 为 `corepack pnpm qualification:real-consumer-local`，真实模型验收独立记录。
+Windows x64：`just release-prepare` 构建 shipping Kernel 并显式准备 notices；`just release` 离线组装 `dist/portable/windows-x64/current.zip`；`just release-verify` 检查当前包。应用 bundle、runtime pack 与 notice cache 可复用；普通构建替换 current。显式 `pnpm release:archive` 才保存不可变发布物。
 
-WorkContext 与 Episode public qualification：
-
-```text
-corepack pnpm qualification:cognitive-runtime-episode
-```
-
-## 开发与验证
-
-```text
-corepack pnpm typecheck
-corepack pnpm test
-corepack pnpm check
-just verify
-```
-
-`proto/` 是唯一 wire-contract source；Rust/TypeScript generated bindings 由 `corepack pnpm generate` 生成。Cargo `target/` 用于增量构建，不作为日常清理对象。
+真实模型和语料实验使用 `pnpm research:gateway`、`research:retrieval-live`、`research:media-live`，方法与观测见 [Research](docs/research/README.md)。
 
 ## 导航
 
 - [仓库地图](INDEX.md)
-- [实现文档目录](docs/INDEX.md)
+- [文档目录](docs/INDEX.md)
 - [当前实现架构](docs/architecture/current-implementation.md)
 - [当前状态](docs/current-state/CURRENT_STATE.md)
-- [当前计划](docs/plans/README.md)
-- [当前 Memory Reference Specs](docs/specs/active/memory-reference-profile/README.md)
-- [当前 Cognitive Runtime / Episode Specs](docs/specs/active/cognitive-runtime/work-context.md)
-- [Rust crate map](crates/INDEX.md)
+- [当前产品合同](docs/specs/README.md)
+- [Memory Reference 里程碑](docs/roadmap/2026-10-27-memory-reference-profile.md)

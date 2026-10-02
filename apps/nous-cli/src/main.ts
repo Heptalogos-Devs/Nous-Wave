@@ -26,7 +26,7 @@ const { values, positionals } = parseArgs({
     "aboutness-mode": { type: "string" },
     aboutness: { type: "string", multiple: true },
     "query-file": { type: "string" },
-    "max-calls": { type: "string", default: "16" },
+    "max-batches": { type: "string", default: "16" },
   },
 });
 const stateFile = values["instance-root"]
@@ -104,7 +104,7 @@ async function main() {
         "observe file <path>",
         "form <occurrence-id>",
         "derive <source-region-id> --strategy <strategy>",
-        "embeddings prepare --max-calls <n>",
+        "embeddings prepare --max-batches <n>",
         "query <NousQL>",
         "trace <canonical-or-lexical-ref>",
         "use <exact-revision-ref>",
@@ -218,43 +218,29 @@ async function main() {
     return { ...result, operationId };
   }
   if (command === "embeddings" && action === "prepare") {
-    const budget = Number(values["max-calls"]);
+    const budget = Number(values["max-batches"]);
     if (!Number.isInteger(budget) || budget < 1 || budget > 10_000)
-      throw new Error("--max-calls must be 1..10000");
+      throw new Error("--max-batches must be 1..10000");
     let committed = 0;
-    let calls = 0;
-    const invocations: Awaited<
-      ReturnType<typeof client.model.prepareEmbeddings>
-    >["invocations"] = [];
     for (let requests = 0; requests < budget; requests++) {
       const batch = await client.model.prepareEmbeddings({
         subjectId,
         limit: 64,
       });
       committed += batch.committed;
-      invocations.push(...batch.invocations);
-      calls += batch.invocations.reduce(
-        (total, invocation) => total + invocation.requestCount,
-        0,
-      );
       if (batch.committed === 0 || batch.degradation.length)
         return {
           committed,
-          calls,
           requests: requests + 1,
-          invocations,
           degradation: batch.degradation,
         };
-      if (calls >= budget) break;
     }
     return {
       committed,
-      calls,
-      invocations,
       degradation: [
         {
           code: "caller_budget_exhausted",
-          detail: "Embedding call budget reached",
+          detail: "Embedding batch budget reached",
         },
       ],
     };

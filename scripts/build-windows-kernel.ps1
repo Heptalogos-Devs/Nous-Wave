@@ -14,7 +14,7 @@ $env:CXXFLAGS_x86_64_pc_windows_gnullvm = "-std=c++17 -O2 -g0 -ffile-prefix-map=
 $env:RUSTFLAGS = "--remap-path-prefix=$repoRoot=. --remap-path-prefix=$cargoRoot=cargo --remap-path-prefix=$rustupRoot=rustup -C target-feature=+crt-static -C link-arg=-static"
 Push-Location -LiteralPath $repoRoot
 try {
-    cargo build -p nous-kernel --release --target x86_64-pc-windows-gnullvm
+    cargo build -p nous-kernel --bin nous-kernel --release --target x86_64-pc-windows-gnullvm
     if ($LASTEXITCODE -ne 0) { throw 'Windows Kernel build failed' }
     & (Join-Path $compiler 'llvm-strip.exe') --strip-debug 'target/x86_64-pc-windows-gnullvm/release/nous-kernel.exe'
     if ($LASTEXITCODE -ne 0) { throw 'Windows Kernel strip failed' }

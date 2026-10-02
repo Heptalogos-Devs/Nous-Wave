@@ -6,72 +6,45 @@ default:
 
 fmt:
     cargo fmt --all
+    corepack pnpm format
 
-fmt-check:
+check-fast:
     cargo fmt --all -- --check
+    corepack pnpm check:fast
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-clean-build:
-    cargo clean
+check: check-fast
+    corepack pnpm test
+    cargo test --workspace --all-features -- --test-threads=1
+
+audit:
+    cargo deny check
+    cargo shear --deny-warnings
+    corepack pnpm audit
+    cargo dupes check
+    osv-scanner scan source -r .
+
+dev-prepare:
+    corepack pnpm dev:prepare
+
+smoke:
+    cargo build -p nous-kernel
+    corepack pnpm smoke
+
+research *args:
+    corepack pnpm research:retrieval-live {{args}}
+
+release-prepare:
+    powershell -NoProfile -File scripts/build-windows-kernel.ps1
+    corepack pnpm release:notices
+
+release:
+    corepack pnpm assemble:portable
+
+release-verify:
+    corepack pnpm release:verify --bundle dist/portable/windows-x64/current.zip
+    corepack pnpm release:verify --bundle dist/portable/windows-x64/current.zip --layout colocated
+    corepack pnpm release:verify --bundle dist/portable/windows-x64/current.zip --layout locator --relocate
 
 clean-test-temp:
     powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1
-
-check:
-    cargo check --workspace --all-targets --all-features
-
-lint:
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
-
-test:
-    cargo test --workspace --all-features -- --test-threads=1
-
-nextest:
-    cargo nextest run --workspace --all-features --test-threads 1
-
-feature-check:
-    cargo hack check --workspace --each-feature --no-dev-deps
-
-lint-maintainability:
-    cargo clippy --no-deps --workspace --exclude nous-protocol --lib --bins --all-features -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::todo -D clippy::dbg_macro -D clippy::print_stdout -D clippy::print_stderr -D clippy::allow_attributes_without_reason -D warnings
-
-dupes:
-    cargo dupes check
-
-dupehound:
-    dupehound scan .
-
-typos:
-    typos
-
-osv:
-    osv-scanner scan source -r .
-
-coverage:
-    cargo llvm-cov --workspace --all-features --summary-only
-
-mutants path:
-    cargo mutants --file "{{path}}"
-
-deny:
-    cargo deny check
-
-deps:
-    cargo shear --deny-warnings
-
-verify: fmt-check check lint lint-maintainability test deny deps
-    @echo "Nous Wave verification passed."
-
-# Full deterministic acceptance. Paid models and private providers are manual.
-acceptance:
-    corepack pnpm generate
-    git diff --exit-code -- crates/protocol/src/generated packages/protocol-ts/src/generated
-    corepack pnpm check
-    just verify
-    just dupes
-    corepack pnpm lint:dupes
-    just osv
-    cargo build -p nous-kernel
-    cargo run -p nous-kernel --example qualification_postgres
-    corepack pnpm qualification:memory-reference
-    corepack pnpm qualification:cognitive-runtime-episode
-    corepack pnpm qualification:real-consumer-local
