@@ -33,4 +33,4 @@ Memory revision 的 `producerSignatureId` 可用 `client.material.producer` 读�
 
 ## 纵向维护角色
 
-`episode_segmentation`、`journal_synthesis`、`memory_consolidation` 使用 text + structured_output profile 和 canonical Zod schema。Core 的 `client.cognition.grantMaintenance({ subjectId, maxOperations, maxModelCalls, maxElapsedMs })` 执行有界机会，Rust owner 验证并提交模型 proposal。角色配置、Prompt 和超时沿用现有 ModelProfile/RoleBinding 机制。数据身份与重试语义见 [纵向认知合同](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
+`episode_segmentation`、`journal_synthesis`、`memory_consolidation` 使用 text + structured_output profile 和 canonical Zod schema。Core 的 `client.cognition.grantMaintenance({ subjectId, maxOperations, maxModelCalls, maxElapsedMs })` 执行有界机会，Rust owner 验证并提交模型 proposal。Core 在 claim 前只允许可执行角色对应的 maintenance kinds；未配置角色不取得 lease 或增加 attempt count。临时 provider 故障使用 Configuration Service 的有界指数退避。角色配置、Prompt 和超时沿用现有 ModelProfile/RoleBinding 机制。数据身份与重试语义见 [纵向认知合同](../specs/active/cognitive-runtime/longitudinal-cognition.md)。

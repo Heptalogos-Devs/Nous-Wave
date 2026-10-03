@@ -14,12 +14,14 @@ fn need_proto(value: MaintenanceNeed) -> k::MaintenanceNeed {
         scope_kind: value.scope_kind,
         scope_ref: value.scope_ref,
         trigger_authority_seq: value.trigger_authority_seq,
+        trigger_revision: value.trigger_revision,
         due_at: Some(timestamp(value.due_at)),
         priority: value.priority,
         state: value.state,
         lease_token: value.lease_token.map(|id| id.to_string()),
         lease_until: value.lease_until.map(timestamp),
         attempt_count: value.attempt_count,
+        retry_count: value.retry_count,
         last_problem_code: value.last_problem_code,
         created_at: Some(timestamp(value.created_at)),
         updated_at: Some(timestamp(value.updated_at)),
@@ -33,12 +35,14 @@ pub(super) fn need(value: k::MaintenanceNeed) -> Result<MaintenanceNeed> {
         scope_kind: value.scope_kind,
         scope_ref: value.scope_ref,
         trigger_authority_seq: value.trigger_authority_seq,
+        trigger_revision: value.trigger_revision,
         due_at: required(time(value.due_at)?, "due_at")?,
         priority: value.priority,
         state: value.state,
         lease_token: value.lease_token.as_deref().map(id).transpose()?,
         lease_until: time(value.lease_until)?,
         attempt_count: value.attempt_count,
+        retry_count: value.retry_count,
         last_problem_code: value.last_problem_code,
         created_at: required(time(value.created_at)?, "created_at")?,
         updated_at: required(time(value.updated_at)?, "updated_at")?,
@@ -91,6 +95,11 @@ impl KernelService {
             poll_interval_seconds: snapshot.get(nous_runtime::POLL_INTERVAL)? as u32,
             max_operations: snapshot.get(nous_runtime::MAX_OPERATIONS)? as u32,
             worker_lease_seconds: snapshot.get(nous_runtime::WORKER_LEASE)? as u32,
+            retry_initial_seconds: snapshot.get(nous_runtime::RETRY_INITIAL)? as u32,
+            retry_max_seconds: snapshot.get(nous_runtime::RETRY_MAX)? as u32,
+            retry_max_attempts: snapshot.get(nous_runtime::RETRY_ATTEMPTS)? as u32,
+            max_model_calls: snapshot.get(nous_runtime::MAX_MODEL_CALLS)? as u32,
+            max_elapsed_ms: snapshot.get(nous_runtime::MAX_ELAPSED)? as u32,
             cognitive_now: subject.map(|subject| timestamp(self.0.cognition.now(subject))),
         })
     }
@@ -108,6 +117,7 @@ impl KernelService {
                     &input.allowed_kinds,
                     input.limit,
                     input.lease_seconds,
+                    input.model_execution_digest.as_deref(),
                 )
                 .await?
                 .into_iter()
@@ -126,6 +136,13 @@ impl KernelService {
             "pending" => MaintenanceDisposition::Pending {
                 due_at: required(time(input.next_due)?, "next_due")?,
                 problem_code: input.problem_code,
+            },
+            "blocked" => MaintenanceDisposition::Blocked {
+                problem_code: required(input.problem_code, "problem_code")?,
+            },
+            "retry" => MaintenanceDisposition::Retry {
+                delay_seconds: input.retry_delay_seconds,
+                problem_code: required(input.problem_code, "problem_code")?,
             },
             _ => return Err(Error::Invalid("invalid maintenance disposition".into())),
         };

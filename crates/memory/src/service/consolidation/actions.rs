@@ -22,11 +22,7 @@ impl ConsolidationMemoryContent {
     }
 }
 impl ConsolidationSchemaContent {
-    fn input(
-        &self,
-        request: &LongitudinalConsolidationInput,
-        formed: DateTime<Utc>,
-    ) -> CreateSchemaInput {
+    fn input(&self, request: &LongitudinalConsolidationInput) -> CreateSchemaInput {
         CreateSchemaInput {
             operation_id: request.operation_id,
             subject: request.subject,
@@ -34,7 +30,6 @@ impl ConsolidationSchemaContent {
             structural_claim: self.structural_claim.clone(),
             applicability_scope: self.applicability_scope.clone(),
             boundary_definition: self.boundary_definition.clone(),
-            formed_at: formed,
             formation_kind: self.formation_kind,
             evidence_links: self.evidence_links.clone(),
         }
@@ -47,7 +42,6 @@ impl MemoryService {
         request: &LongitudinalConsolidationInput,
         action: &LongitudinalConsolidationAction,
         allowed: &BTreeSet<String>,
-        formed: DateTime<Utc>,
     ) -> Result<()> {
         let supports = match action {
             LongitudinalConsolidationAction::Skip { reason } => {
@@ -81,7 +75,7 @@ impl MemoryService {
                     &content.applicability_scope.aboutness,
                 )
                 .await?;
-                self.validate_schema_formation(&content.input(request, formed))
+                self.validate_schema_formation(&content.input(request))
                     .await?;
                 content
                     .evidence_links
@@ -185,7 +179,7 @@ impl MemoryService {
             }
             LongitudinalConsolidationAction::CreateSchema { content } => {
                 let (_, revision) = self
-                    .create_schema_in(tx, &content.input(request, formed), Some(producer))
+                    .create_schema_in(tx, &content.input(request), Some(producer), formed)
                     .await?;
                 CognitiveRef::CognitiveSchemaRevision(revision)
             }
@@ -247,7 +241,7 @@ impl MemoryService {
             ));
         }
         let schema_id = CognitiveSchemaId(row.get("schema_id"));
-        let input = content.input(request, formed);
+        let input = content.input(request);
         let supports: Vec<_> = input
             .evidence_links
             .iter()
@@ -271,6 +265,7 @@ impl MemoryService {
                 parent: Some(parent),
                 intent: Some(intent),
                 number: row.get::<i32, _>("revision_no") + 1,
+                formed_at: formed,
                 recorded_at: self.cognition.now(request.subject),
                 producer: Some(producer),
             },

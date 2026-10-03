@@ -252,7 +252,7 @@ impl MemoryService {
                 .bind(revision.to_string()).bind(subject.0).bind(self.cognition.now(subject)).execute(&mut *tx).await.map_err(db)?;
             let use_rows=sqlx::query("SELECT subject_id,consumer_ref,event_id,request_digest FROM cognitive_use_events WHERE ref_kind='memory_revision' AND ref_value=$1").bind(revision.to_string()).fetch_all(&mut *tx).await.map_err(db)?;
             for row in use_rows {
-                sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING").bind(row.try_get::<Uuid,_>("subject_id").map_err(db)?).bind(row.try_get::<String,_>("consumer_ref").map_err(db)?).bind(row.try_get::<Uuid,_>("event_id").map_err(db)?).bind(row.try_get::<String,_>("request_digest").map_err(db)?).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
+                sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING").bind(row.try_get::<Uuid,_>("subject_id").map_err(db)?).bind(row.try_get::<String,_>("consumer_ref").map_err(db)?).bind(row.try_get::<Uuid,_>("event_id").map_err(db)?).bind(row.try_get::<String,_>("request_digest").map_err(db)?).bind(self.cognition.now(subject)).execute(&mut *tx).await.map_err(db)?;
             }
             sqlx::query("DELETE FROM cognitive_use_events WHERE ref_kind='memory_revision' AND ref_value=$1").bind(revision.to_string()).execute(&mut *tx).await.map_err(db)?;
             sqlx::query("DELETE FROM association_evidence WHERE subject_id=$1 AND association_evidence_id IN (SELECT association_evidence_id FROM association_evidence_supports WHERE support_kind='memory_revision' AND support_ref=$2)")

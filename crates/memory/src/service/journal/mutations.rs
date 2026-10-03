@@ -99,6 +99,8 @@ impl MemoryService {
             )
             .await?;
         }
+        self.wake_journal_revalidation_in(&mut tx, input.subject, journal, sequence)
+            .await?;
         self.schedule_journal_consolidation_in(
             &mut tx,
             input.subject,

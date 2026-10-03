@@ -3,6 +3,8 @@ use nous_core::*;
 use sqlx::Row;
 use std::collections::BTreeMap;
 
+const MAINTENANCE_TEXT_SAFETY_BYTES: usize = 65536;
+
 impl KernelService {
     pub(super) async fn plan_maintenance(
         &self,
@@ -94,9 +96,15 @@ impl KernelService {
             }
         }
         plan.episodes = scope.episodes.into_iter().map(episode::view).collect();
-        plan.members = self
+        let (members, scope_exceeded) = self
             .maintenance_member_catalog(subject, &scope.occurrences)
             .await?;
+        plan.members = members;
+        if claimed.kind == "episode_resegment" && scope_exceeded {
+            plan.status = "blocked".into();
+            plan.problem_code = Some("historical_repair_scope_exceeded".into());
+            plan.next_due = None;
+        }
         plan.supports = catalog
             .into_iter()
             .map(|(key, support)| k::SupportCatalogEntry {
@@ -119,12 +127,13 @@ impl KernelService {
         &self,
         subject: SubjectId,
         occurrences: &[OccurrenceId],
-    ) -> Result<Vec<k::ExperienceMember>> {
+    ) -> Result<(Vec<k::ExperienceMember>, bool)> {
         let ids: Vec<uuid::Uuid> = occurrences.iter().map(|id| id.0).collect();
-        let rows=sqlx::query("SELECT o.*,e.recorded_seq,e.session_id,e.active_work_context_id,e.active_work_context_revision,d.derived_representation_id FROM observation_occurrences o LEFT JOIN experience_items e ON e.occurrence_id=o.occurrence_id AND e.subject_id=o.subject_id LEFT JOIN LATERAL (SELECT r.derived_representation_id FROM coverage_needs c JOIN source_regions s USING(source_region_id) JOIN derived_representations r ON r.derived_representation_id=c.current_representation_id WHERE c.subject_id=$1 AND s.artifact_id=o.artifact_id AND c.state='ready' AND r.payload_text IS NOT NULL ORDER BY r.created_at DESC,r.derived_representation_id LIMIT 1) d ON true WHERE o.subject_id=$1 AND o.occurrence_id=ANY($2::uuid[]) ORDER BY e.recorded_seq NULLS LAST,o.observed_at,o.occurrence_id")
+        let rows=sqlx::query("SELECT o.*,e.recorded_seq,e.session_id,e.active_work_context_id,e.active_work_context_revision,d.derived_representation_id FROM observation_occurrences o LEFT JOIN experience_items e ON e.occurrence_id=o.occurrence_id AND e.subject_id=o.subject_id LEFT JOIN LATERAL (SELECT r.derived_representation_id FROM coverage_needs c JOIN source_regions s USING(source_region_id) JOIN derived_representations r ON r.derived_representation_id=c.current_representation_id WHERE c.subject_id=$1 AND s.artifact_id=o.artifact_id AND c.state='ready' AND r.payload_text IS NOT NULL ORDER BY r.created_at DESC,r.derived_representation_id LIMIT 1) d ON true WHERE o.subject_id=$1 AND o.occurrence_id=ANY($2::uuid[]) ORDER BY o.observed_at,e.recorded_seq NULLS LAST,o.occurrence_id")
             .bind(subject.0).bind(ids).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
         let mut members = Vec::with_capacity(rows.len());
-        let mut remaining = 65536usize;
+        let mut remaining = MAINTENANCE_TEXT_SAFETY_BYTES;
+        let mut scope_exceeded = false;
         for row in rows {
             let occurrence: uuid::Uuid = row.get("occurrence_id");
             let derived: Option<uuid::Uuid> = row.get("derived_representation_id");
@@ -154,6 +163,7 @@ impl KernelService {
                     (String::new(), true)
                 }
             } else {
+                scope_exceeded = true;
                 (String::new(), true)
             };
             members.push(k::ExperienceMember {
@@ -176,7 +186,7 @@ impl KernelService {
                 occurred_time: Some(occurrence_time(&row)?),
             });
         }
-        Ok(members)
+        Ok((members, scope_exceeded))
     }
 }
 

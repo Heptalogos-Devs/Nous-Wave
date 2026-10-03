@@ -148,7 +148,7 @@ impl MemoryService {
         let mut results = Vec::with_capacity(input.actions.len());
         let mut changed = false;
         for action in &input.actions {
-            self.validate_consolidation_action(&input, action, &allowed, formed)
+            self.validate_consolidation_action(&input, action, &allowed)
                 .await?;
             let (result, mutation) = self
                 .apply_consolidation_action_in(&mut tx, &input, action, &results, formed, producer)

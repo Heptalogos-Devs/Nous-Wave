@@ -8,14 +8,12 @@ use nous_memory::{
 fn schema_input(
     subject: SubjectId,
     operation_id: OperationId,
-    value: p::CognitiveSchema,
+    value: p::CognitiveSchemaContent,
     evidence_links: Vec<p::SchemaEvidenceLink>,
 ) -> Result<CreateSchemaInput> {
     let scope = value
         .applicability_scope
         .ok_or_else(|| Error::Invalid("applicability_scope is required".into()))?;
-    let formed_at =
-        time(value.formed_at)?.ok_or_else(|| Error::Invalid("formed_at is required".into()))?;
     let formation_kind = if value.formation_kind.is_empty() {
         SchemaFormationKind::ExplicitImport
     } else {
@@ -41,7 +39,6 @@ fn schema_input(
             valid_time: temporal(scope.valid_time)?,
         },
         boundary_definition: value.boundary_definition,
-        formed_at,
         formation_kind,
         evidence_links: evidence_links
             .into_iter()
@@ -167,8 +164,6 @@ impl KernelService {
             .applicability_scope
             .clone()
             .ok_or_else(|| Error::Invalid("applicability_scope is required".into()))?;
-        let formed_at = time(schema.formed_at)?
-            .ok_or_else(|| Error::Invalid("formed_at is required".into()))?;
         let copy_link_ids = input
             .copy_link_ids
             .iter()
@@ -197,7 +192,6 @@ impl KernelService {
                 valid_time: temporal(scope.valid_time)?,
             },
             boundary_definition: schema.boundary_definition,
-            formed_at,
             copy_link_ids,
         };
         Ok(schema_view(

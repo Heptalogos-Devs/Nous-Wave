@@ -88,23 +88,33 @@ CREATE TABLE maintenance_needs (
     scope_kind text NOT NULL CHECK (scope_kind ~ '^[a-z][a-z0-9_]{0,63}$'),
     scope_ref text NOT NULL CHECK (octet_length(scope_ref) BETWEEN 1 AND 512),
     trigger_authority_seq bigint NOT NULL CHECK (trigger_authority_seq >= 0),
+    trigger_revision bigint NOT NULL DEFAULT 1 CHECK (trigger_revision > 0),
     due_at timestamptz NOT NULL,
     priority integer NOT NULL CHECK (priority BETWEEN 0 AND 100),
-    state text NOT NULL CHECK (state IN ('pending','leased','satisfied','obsolete')),
+    state text NOT NULL CHECK (state IN ('pending','leased','blocked','satisfied','obsolete')),
     lease_token uuid NULL,
     lease_until timestamptz NULL,
     last_ack_token uuid NULL,
     last_ack_digest text NULL CHECK (last_ack_digest IS NULL OR last_ack_digest ~ '^[0-9a-f]{64}$'),
     attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    retry_count integer NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
+    retry_not_before timestamptz NULL,
+    terminal_at timestamptz NULL,
+    blocked_config_digest text NULL,
+    model_execution_digest text NULL CHECK (model_execution_digest IS NULL OR model_execution_digest ~ '^[0-9a-f]{64}$'),
     last_problem_code text NULL,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
     CHECK ((state = 'leased') = (lease_token IS NOT NULL AND lease_until IS NOT NULL))
 );
 CREATE UNIQUE INDEX maintenance_active_scope ON maintenance_needs(subject_id,kind,scope_kind,scope_ref)
-    WHERE state IN ('pending','leased');
+    WHERE state IN ('pending','leased','blocked');
 CREATE INDEX maintenance_due ON maintenance_needs(subject_id,due_at,priority DESC)
     WHERE state IN ('pending','leased');
+
+ALTER TABLE model_workflow_operations ADD COLUMN maintenance_trigger_revision bigint NULL CHECK (maintenance_trigger_revision >= 0);
+ALTER TABLE model_workflow_operations ADD COLUMN maintenance_need_id uuid NULL REFERENCES maintenance_needs(need_id) ON DELETE CASCADE;
+CREATE INDEX maintenance_workflows ON model_workflow_operations(maintenance_need_id) WHERE maintenance_need_id IS NOT NULL;
 
 CREATE TABLE experience_items (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
@@ -127,7 +137,7 @@ CREATE TABLE episode_drafts (
     draft_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     track_key text NOT NULL CHECK (track_key ~ '^[a-z][a-z0-9_]{0,63}$'),
-    state text NOT NULL CHECK (state IN ('open','ready','committed','superseded')),
+    state text NOT NULL CHECK (state IN ('open','ready')),
     first_recorded_seq bigint NOT NULL,
     last_recorded_seq bigint NOT NULL,
     observed_start timestamptz NOT NULL,
@@ -135,10 +145,8 @@ CREATE TABLE episode_drafts (
     boundary_reason text NULL,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
-    committed_episode_revision_id uuid NULL REFERENCES episode_revisions(episode_revision_id),
     CHECK (first_recorded_seq <= last_recorded_seq),
-    CHECK (observed_start <= observed_end),
-    CHECK ((state = 'committed') = (committed_episode_revision_id IS NOT NULL))
+    CHECK (observed_start <= observed_end)
 );
 CREATE UNIQUE INDEX episode_open_draft ON episode_drafts(subject_id,track_key) WHERE state='open';
 CREATE TABLE episode_draft_members (
@@ -152,7 +160,7 @@ CREATE TABLE segmentation_cursors (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     track_key text NOT NULL CHECK (track_key ~ '^[a-z][a-z0-9_]{0,63}$'),
     last_recorded_seq bigint NOT NULL DEFAULT 0 CHECK (last_recorded_seq >= 0),
-    open_draft_id uuid NULL REFERENCES episode_drafts(draft_id),
+    open_draft_id uuid NULL REFERENCES episode_drafts(draft_id) ON DELETE SET NULL,
     updated_at timestamptz NOT NULL,
     PRIMARY KEY(subject_id,track_key)
 );

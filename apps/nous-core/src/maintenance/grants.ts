@@ -1,19 +1,70 @@
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
-import { timestampDate, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import type {
   MaintenanceGrantRequest,
   MaintenanceOperationResult,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/journal_pb.js";
+import type { MaintenancePolicy } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "../model/runtime.js";
+import { canonicalDigest } from "../digest.js";
 import { runModelMaintenance } from "./workflow.js";
 
-const modelKinds = [
-  "episode_resegment",
-  "journal_review",
-  "journal_revalidate",
-  "memory_consolidate",
-];
+const roles = {
+  episode_resegment: "episode_segmentation",
+  journal_review: "journal_synthesis",
+  journal_revalidate: "journal_synthesis",
+  memory_consolidate: "memory_consolidation",
+} as const;
+// Transport bounds, independent of operator maintenance policy.
+const RPC_TIMEOUT_MS = 10000;
+const ACK_TIMEOUT_MS = 5000;
+
+function allowedKinds(models: ModelRuntime, modelBudget: number) {
+  const ready = new Set(
+    models.invocations.capabilities
+      .filter((role) => role.state === "READY")
+      .map((role) => role.name),
+  );
+  return [
+    "episode_segment",
+    ...Object.entries(roles)
+      .filter(([, role]) => modelBudget > 0 && ready.has(`model.${role}`))
+      .map(([kind]) => kind),
+  ];
+}
+function problemClass(error: unknown) {
+  return error instanceof ConnectError
+    ? `transport_${Code[error.code]?.toLowerCase() ?? "unknown"}`
+    : "runtime_failure";
+}
+// Match the host's existing stderr diagnostics, without error messages or payloads.
+function reportFailure(
+  subject: string | undefined,
+  stage: string,
+  kind: string | undefined,
+  problem: string,
+  decision: string,
+  repetitions = 1,
+) {
+  console.error(
+    JSON.stringify({
+      event: "maintenance_failure",
+      subject,
+      stage,
+      kind,
+      problem,
+      decision,
+      repetitions,
+    }),
+  );
+}
+function retryDelay(policy: MaintenancePolicy, attempt: number) {
+  return Math.min(
+    policy.retryMaxSeconds,
+    policy.retryInitialSeconds * 2 ** Math.min(Math.max(0, attempt - 1), 31),
+  );
+}
+
 export async function grantMaintenance(
   kernel: KernelClient,
   models: ModelRuntime,
@@ -54,7 +105,23 @@ export async function grantMaintenance(
     const needs = await kernel.authority.claimMaintenance(
       {
         subjectId: input.subjectId,
-        allowedKinds: ["episode_segment", ...modelKinds],
+        allowedKinds: allowedKinds(models, input.maxModelCalls - modelCalls),
+        modelExecutionDigest: canonicalDigest(
+          Object.fromEntries(
+            Object.values(roles)
+              .filter((role) =>
+                models.invocations.capabilities.some(
+                  (capability) =>
+                    capability.name === `model.${role}` &&
+                    capability.state === "READY",
+                ),
+              )
+              .map((role) => [
+                role,
+                models.invocations.snapshot(role).configDigest,
+              ]),
+          ),
+        ),
         limit: 1,
         leaseSeconds: policy.workerLeaseSeconds,
       },
@@ -73,7 +140,7 @@ export async function grantMaintenance(
         );
         nextDue = organized.nextDue;
         status = nextDue
-          ? "blocked_dependency"
+          ? "deferred"
           : organized.episodes.length
             ? "committed"
             : "no_change";
@@ -105,41 +172,52 @@ export async function grantMaintenance(
         status = "rejected_invalid";
         problemCode = "proposal_invalid";
       } else {
-        status = "blocked_dependency";
-        problemCode =
-          error instanceof ConnectError && error.code === Code.ResourceExhausted
-            ? "grant_budget_exhausted"
-            : "model_or_transport_unavailable";
+        status = "retry";
+        problemCode = problemClass(error);
+        reportFailure(
+          need.subjectId,
+          "execute",
+          need.kind,
+          problemCode,
+          need.retryCount + 1 >= policy.retryMaxAttempts ? "blocked" : "retry",
+        );
       }
     }
-    if (status === "blocked_dependency" && !nextDue) {
-      const current = await kernel.authority.getMaintenancePolicy(
-        { subjectId: input.subjectId },
-        { timeoutMs: 5000 },
-      );
-      if (!current.cognitiveNow)
-        throw new ConnectError(
-          "Maintenance cognitive time unavailable",
-          Code.Internal,
-        );
-      nextDue = timestampFromDate(
-        new Date(timestampDate(current.cognitiveNow).getTime() + 30000),
-      );
+    if (status === "retry" && need.retryCount + 1 >= policy.retryMaxAttempts) {
+      status = "blocked_dependency";
+      problemCode = "maintenance_retry_exhausted";
     }
-    await kernel.authority.finishMaintenance(
-      {
-        claimed: need,
-        disposition:
-          status === "blocked_dependency"
-            ? "pending"
-            : status === "obsolete"
-              ? "obsolete"
-              : "satisfied",
-        nextDue,
-        problemCode,
-      },
-      { timeoutMs: 5000 },
-    );
+    try {
+      await kernel.authority.finishMaintenance(
+        {
+          claimed: need,
+          disposition:
+            status === "deferred"
+              ? "pending"
+              : status === "retry"
+                ? "retry"
+                : status === "blocked_dependency"
+                  ? "blocked"
+                  : status === "obsolete"
+                    ? "obsolete"
+                    : "satisfied",
+          nextDue,
+          problemCode,
+          retryDelaySeconds:
+            status === "retry" ? retryDelay(policy, need.retryCount + 1) : 0,
+        },
+        { timeoutMs: ACK_TIMEOUT_MS },
+      );
+    } catch (error) {
+      reportFailure(
+        need.subjectId,
+        "acknowledge",
+        need.kind,
+        problemClass(error),
+        "lease_recovery",
+      );
+      throw error;
+    }
     results.push({ needId: need.needId, kind: need.kind, status, problemCode });
   }
   return {
@@ -149,44 +227,141 @@ export async function grantMaintenance(
   };
 }
 
-export function startMaintenanceLoop(
+/** Core owns the continuation for standalone opportunities across poll ticks. */
+export class SubjectMaintenanceScheduler {
+  private pageToken = "";
+  private subjects: string[] = [];
+  private reachedEnd = false;
+  private subject: string | undefined;
+  private failures = 0;
+  private lastProblem = "";
+  constructor(
+    private readonly kernel: KernelClient,
+    private readonly models: ModelRuntime,
+  ) {}
+
+  async poll(signal: AbortSignal) {
+    const policy = await this.kernel.authority.getMaintenancePolicy(
+      { subjectId: "" },
+      { signal, timeoutMs: RPC_TIMEOUT_MS },
+    );
+    if (!policy.enabled) return policy.pollIntervalSeconds;
+    const started = performance.now();
+    const tickSignal = AbortSignal.any([
+      signal,
+      AbortSignal.timeout(policy.maxElapsedMs),
+    ]);
+    let operations = policy.maxOperations;
+    let modelCalls = policy.maxModelCalls;
+    const visited = new Set<string>();
+    while (operations > 0 && !tickSignal.aborted) {
+      if (!this.subjects.length) {
+        if (this.reachedEnd) {
+          this.pageToken = "";
+          this.reachedEnd = false;
+        }
+        try {
+          const page = await this.kernel.authority.listSubjects(
+            { status: "active", page: { pageToken: this.pageToken } },
+            { signal: tickSignal, timeoutMs: RPC_TIMEOUT_MS },
+          );
+          this.subjects = page.items
+            .filter((subject) => subject.capabilities?.memory)
+            .map((subject) => subject.subjectId);
+          this.pageToken = page.nextPageToken;
+          this.reachedEnd = !page.nextPageToken;
+          if (!this.subjects.length) {
+            if (this.reachedEnd) break;
+            continue;
+          }
+        } catch (error) {
+          if (
+            error instanceof ConnectError &&
+            error.code === Code.InvalidArgument &&
+            this.pageToken
+          ) {
+            this.pageToken = "";
+            this.reachedEnd = false;
+            continue;
+          }
+          throw error;
+        }
+      }
+      const subject = this.subjects[0]!;
+      // A full cycle with spare budget waits for the next poll. No Subject gets
+      // a second opportunity before the others in this rotation.
+      if (visited.has(subject)) break;
+      this.subjects.shift();
+      visited.add(subject);
+      this.subject = subject;
+      try {
+        const remainingMs = Math.floor(
+          policy.maxElapsedMs - (performance.now() - started),
+        );
+        if (remainingMs <= 0) break;
+        const result = await grantMaintenance(
+          this.kernel,
+          this.models,
+          {
+            $typeName: "nous.wave.v1alpha1.MaintenanceGrantRequest",
+            subjectId: subject,
+            maxOperations: 1,
+            maxModelCalls: modelCalls,
+            maxElapsedMs: remainingMs,
+          },
+          { signal: tickSignal },
+        );
+        operations -= result.results.length;
+        modelCalls -= result.modelCalls;
+        this.failures = 0;
+      } catch (error) {
+        if (signal.aborted) break;
+        if (error instanceof ConnectError && error.code === Code.NotFound)
+          continue;
+        this.report(error, "subject_opportunity");
+        operations--; // Failed execution also consumes this tick's opportunity.
+      }
+    }
+    this.subject = undefined;
+    return policy.pollIntervalSeconds;
+  }
+  report(error: unknown, stage: string) {
+    const problem = `${stage}:${problemClass(error)}`;
+    this.failures = problem === this.lastProblem ? this.failures + 1 : 1;
+    this.lastProblem = problem;
+    // Repeated identical failures aggregate at powers of two.
+    if ((this.failures & (this.failures - 1)) === 0)
+      reportFailure(
+        this.subject,
+        stage,
+        undefined,
+        problemClass(error),
+        "next_opportunity",
+        this.failures,
+      );
+  }
+}
+
+export async function startMaintenanceLoop(
   kernel: KernelClient,
   models: ModelRuntime,
 ) {
   const stopped = new AbortController();
+  const scheduler = new SubjectMaintenanceScheduler(kernel, models);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let active: Promise<void> | undefined;
+  const initial = await kernel.authority.getMaintenancePolicy(
+    { subjectId: "" },
+    { timeoutMs: RPC_TIMEOUT_MS },
+  );
+  let pollDelay = initial.pollIntervalSeconds * 1000;
   const tick = async () => {
-    let delay = 30000;
+    let delay = pollDelay;
     try {
-      const options = { signal: stopped.signal, timeoutMs: 10000 };
-      const policy = await kernel.authority.getMaintenancePolicy(
-        { subjectId: "" },
-        options,
-      );
-      delay = policy.pollIntervalSeconds * 1000;
-      if (policy.enabled) {
-        const subjects = await kernel.authority.listSubjects({}, options);
-        let remaining = policy.maxOperations;
-        for (const subject of subjects.items) {
-          if (remaining <= 0 || stopped.signal.aborted) break;
-          const result = await grantMaintenance(
-            kernel,
-            models,
-            {
-              $typeName: "nous.wave.v1alpha1.MaintenanceGrantRequest",
-              subjectId: subject.subjectId,
-              maxOperations: remaining,
-              maxModelCalls: remaining,
-              maxElapsedMs: 60000,
-            },
-            { signal: stopped.signal },
-          );
-          remaining -= result.results.length;
-        }
-      }
-    } catch {
-      // Due work and leases remain durable; the next opportunity retries acquisition.
+      delay = (await scheduler.poll(stopped.signal)) * 1000;
+      pollDelay = delay;
+    } catch (error) {
+      if (!stopped.signal.aborted) scheduler.report(error, "scheduler");
     } finally {
       if (!stopped.signal.aborted) {
         timer = setTimeout(() => {

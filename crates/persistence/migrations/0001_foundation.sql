@@ -20,7 +20,7 @@ CREATE TABLE artifacts (
 
 CREATE TABLE model_workflow_operations (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
-    owner text NOT NULL CHECK (owner IN ('memory','material')),
+    owner text NOT NULL CHECK (owner ~ '^[a-z][a-z0-9_]{0,63}$'),
     operation_key text NOT NULL CHECK (length(operation_key) BETWEEN 1 AND 256),
     semantic_digest text NOT NULL CHECK (length(semantic_digest) BETWEEN 1 AND 128),
     snapshot jsonb NOT NULL,

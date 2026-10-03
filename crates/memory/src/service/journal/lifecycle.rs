@@ -76,6 +76,8 @@ impl MemoryService {
             .map_err(db)?;
         let sequence =
             AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::text()).await?;
+        self.wake_journal_revalidation_in(&mut tx, subject, journal, sequence)
+            .await?;
         self.invalidate_object_dependents_in(
             &mut tx,
             subject,
@@ -131,6 +133,8 @@ impl MemoryService {
         }
         let sequence =
             AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::text()).await?;
+        self.wake_journal_revalidation_in(&mut tx, subject, journal, sequence)
+            .await?;
         self.invalidate_object_dependents_in(
             &mut tx,
             subject,

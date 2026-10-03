@@ -235,6 +235,20 @@ impl MemoryService {
             .get(nous_runtime::SETTLE_DELAY_KEY)?;
         let now = self.cognition.now(subject);
         let due_at = now + chrono::Duration::seconds(delay as i64);
+        self.cognition
+            .wake_blocked_maintenance_in(
+                tx,
+                &nous_runtime::MaintenanceRequest {
+                    subject,
+                    kind: "episode_resegment".into(),
+                    scope_kind: "track".into(),
+                    scope_ref: track.to_owned(),
+                    trigger_authority_seq: authority_seq,
+                    due_at,
+                    priority: 60,
+                },
+            )
+            .await?;
         let consolidation_due = now
             + chrono::Duration::seconds(
                 self.configuration

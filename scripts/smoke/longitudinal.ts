@@ -18,6 +18,16 @@ import { consolidationSchema } from "../../apps/nous-core/src/model/schemas/cons
 
 function proposalModels() {
   const models = new ModelRuntime();
+  Object.defineProperty(models.invocations, "capabilities", {
+    get: () =>
+      ["episode_segmentation", "journal_synthesis", "memory_consolidation"].map(
+        (role) => ({
+          name: `model.${role}`,
+          state: "READY",
+          detail: "Executable smoke proposal adapter",
+        }),
+      ),
+  });
   const calls = { episode: 0, journal: 0, consolidation: 0 };
   models.invocations.snapshot = (role) => ({
     role,

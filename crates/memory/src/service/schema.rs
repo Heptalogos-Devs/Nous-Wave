@@ -175,9 +175,6 @@ impl MemoryService {
         self.store.require_subject(input.subject).await?;
         validate_schema_content(&input)?;
         input.applicability_scope.valid_time.validate()?;
-        if input.formed_at > Utc::now() + chrono::Duration::minutes(5) {
-            return Err(Error::Invalid("formed_at is too far in the future".into()));
-        }
         for link in &input.evidence_links {
             self.validate_supports_for_subject(input.subject, std::slice::from_ref(&link.support))
                 .await?;
@@ -203,7 +200,7 @@ impl MemoryService {
         let digest = operation_digest(
             "create_cognitive_schema",
             input.subject,
-            &serde_json::json!({"title":input.title,"structural_claim":input.structural_claim,"scope":input.applicability_scope,"boundary_definition":input.boundary_definition,"formed_at":input.formed_at,"formation_kind":input.formation_kind,"evidence_links":input.evidence_links}),
+            &serde_json::json!({"title":input.title,"structural_claim":input.structural_claim,"scope":input.applicability_scope,"boundary_definition":input.boundary_definition,"formation_kind":input.formation_kind,"evidence_links":input.evidence_links}),
         )?;
         let mut tx = self.begin_mutation(input.subject).await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
@@ -236,7 +233,9 @@ impl MemoryService {
                 "schema operation is already in progress".into(),
             ));
         }
-        let (schema_id, revision_id) = self.create_schema_in(&mut tx, &input, None).await?;
+        let (schema_id, revision_id) = self
+            .create_schema_in(&mut tx, &input, None, self.cognition.now(input.subject))
+            .await?;
         AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
             .await?;
         commit_receipt(
@@ -394,9 +393,6 @@ impl MemoryService {
     pub async fn revise_schema(&self, input: ReviseSchemaInput) -> Result<SchemaView> {
         self.store.require_subject(input.subject).await?;
         validate_schema_revision_content(&input)?;
-        if input.formed_at > Utc::now() + chrono::Duration::minutes(5) {
-            return Err(Error::Invalid("formed_at is too far in the future".into()));
-        }
         let digest = operation_digest(
             "revise_cognitive_schema",
             input.subject,
@@ -408,7 +404,6 @@ impl MemoryService {
                 "structural_claim": input.structural_claim,
                 "applicability_scope": input.applicability_scope,
                 "boundary_definition": input.boundary_definition,
-                "formed_at": input.formed_at,
                 "copy_link_ids": input.copy_link_ids,
             }),
         )?;
@@ -499,7 +494,6 @@ impl MemoryService {
             structural_claim: input.structural_claim.clone(),
             applicability_scope: input.applicability_scope.clone(),
             boundary_definition: input.boundary_definition.clone(),
-            formed_at: input.formed_at,
             formation_kind: parse_enum(formation_kind, "Schema formation kind")?,
             evidence_links: copied_links,
         };
@@ -513,6 +507,7 @@ impl MemoryService {
                 parent: Some(parent),
                 intent: Some(input.intent),
                 number: revision_no,
+                formed_at: self.cognition.now(input.subject),
                 recorded_at: self.cognition.now(input.subject),
                 producer: None,
             },
@@ -633,7 +628,7 @@ impl MemoryService {
             }
             let child_id = CognitiveSchemaId::new();
             let child_revision = CognitiveSchemaRevisionId::new();
-            let now = Utc::now();
+            let now = self.cognition.now(subject);
             let (kind, start, end) = temporal_columns(&child.applicability_scope.valid_time);
             let aboutness = child
                 .applicability_scope
@@ -668,7 +663,7 @@ impl MemoryService {
             self.validate_supports_in_tx(&mut tx, subject, &child_supports)
                 .await?;
             sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)").bind(child_id.0).bind(subject.0).bind(child_revision.0).bind(now).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(child_revision.0).bind(child_id.0).bind(&child.title).bind(&child.structural_claim).bind(&child.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&child.boundary_definition).bind(child.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(child.formed_at).bind(now).execute(&mut *tx).await.map_err(db)?;
+            sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(child_revision.0).bind(child_id.0).bind(&child.title).bind(&child.structural_claim).bind(&child.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&child.boundary_definition).bind(child.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(now).bind(now).execute(&mut *tx).await.map_err(db)?;
             for link in child.evidence_links {
                 self.insert_schema_link(&mut tx, subject, child_revision, link)
                     .await?;
@@ -813,7 +808,7 @@ impl MemoryService {
             .await?;
         let new_id = CognitiveSchemaId::new();
         let new_revision = CognitiveSchemaRevisionId::new();
-        let now = Utc::now();
+        let now = self.cognition.now(subject);
         let (kind, start, end) = temporal_columns(&merged.applicability_scope.valid_time);
         let aboutness = merged
             .applicability_scope
@@ -828,7 +823,7 @@ impl MemoryService {
             .map(|v| v.0)
             .collect::<Vec<_>>();
         sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)").bind(new_id.0).bind(subject.0).bind(new_revision.0).bind(now).execute(&mut *tx).await.map_err(db)?;
-        sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(new_revision.0).bind(new_id.0).bind(&merged.title).bind(&merged.structural_claim).bind(&merged.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&merged.boundary_definition).bind(merged.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(merged.formed_at).bind(now).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(new_revision.0).bind(new_id.0).bind(&merged.title).bind(&merged.structural_claim).bind(&merged.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&merged.boundary_definition).bind(merged.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(now).bind(now).execute(&mut *tx).await.map_err(db)?;
         for link in merged_links.into_values() {
             self.insert_schema_link(&mut tx, subject, new_revision, link)
                 .await?;
@@ -965,6 +960,7 @@ pub(super) struct SchemaRevisionWrite {
     pub parent: Option<CognitiveSchemaRevisionId>,
     pub intent: Option<RevisionIntent>,
     pub number: i32,
+    pub formed_at: DateTime<Utc>,
     pub recorded_at: DateTime<Utc>,
     pub producer: Option<Uuid>,
 }
@@ -998,6 +994,7 @@ impl MemoryService {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         input: &CreateSchemaInput,
         producer: Option<Uuid>,
+        formed: DateTime<Utc>,
     ) -> Result<(CognitiveSchemaId, CognitiveSchemaRevisionId)> {
         let schema_id = CognitiveSchemaId::new();
         let revision_id = CognitiveSchemaRevisionId::new();
@@ -1020,6 +1017,7 @@ impl MemoryService {
                 parent: None,
                 intent: None,
                 number: 1,
+                formed_at: formed,
                 recorded_at: now,
                 producer,
             },
@@ -1047,7 +1045,7 @@ impl MemoryService {
             .map(|id| id.0)
             .collect();
         sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,parent_revision_id,revision_intent,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at,producer_signature_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)")
-            .bind(write.revision_id.0).bind(write.schema_id.0).bind(write.number).bind(write.parent.map(|id|id.0)).bind(write.intent.map(|intent|intent.as_str())).bind(&input.title).bind(&input.structural_claim).bind(&input.applicability_scope.description).bind(aboutness).bind(tags).bind(&input.boundary_definition).bind(input.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(input.formed_at).bind(write.recorded_at).bind(write.producer).execute(&mut **tx).await.map_err(db)?;
+            .bind(write.revision_id.0).bind(write.schema_id.0).bind(write.number).bind(write.parent.map(|id|id.0)).bind(write.intent.map(|intent|intent.as_str())).bind(&input.title).bind(&input.structural_claim).bind(&input.applicability_scope.description).bind(aboutness).bind(tags).bind(&input.boundary_definition).bind(input.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(write.formed_at).bind(write.recorded_at).bind(write.producer).execute(&mut **tx).await.map_err(db)?;
         for link in &input.evidence_links {
             self.insert_schema_link(tx, input.subject, write.revision_id, link.clone())
                 .await?;

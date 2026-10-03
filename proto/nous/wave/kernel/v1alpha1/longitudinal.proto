@@ -21,10 +21,12 @@ message MaintenanceNeed {
   optional string last_problem_code = 13;
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
+  uint32 retry_count = 16;
+  uint64 trigger_revision = 17;
 }
-message ClaimMaintenanceRequest { string subject_id = 1; repeated string allowed_kinds = 2; uint32 limit = 3; uint32 lease_seconds = 4; }
+message ClaimMaintenanceRequest { string subject_id = 1; repeated string allowed_kinds = 2; uint32 limit = 3; uint32 lease_seconds = 4; optional string model_execution_digest = 5; }
 message ClaimMaintenanceResponse { repeated MaintenanceNeed needs = 1; }
-message FinishMaintenanceRequest { MaintenanceNeed claimed = 1; string disposition = 2; google.protobuf.Timestamp next_due = 3; optional string problem_code = 4; }
+message FinishMaintenanceRequest { MaintenanceNeed claimed = 1; string disposition = 2; google.protobuf.Timestamp next_due = 3; optional string problem_code = 4; uint32 retry_delay_seconds = 5; }
 message OrganizeExperienceRequest { string subject_id = 1; uint32 limit = 2; bool close = 3; }
 message OrganizeExperienceResponse { uint32 processed_count = 1; repeated nous.wave.v1alpha1.Episode episodes = 2; google.protobuf.Timestamp next_due = 3; }
 message EpisodePartitionSource { string revision_id = 1; int64 expected_epoch = 2; }
@@ -57,6 +59,11 @@ message MaintenancePolicy {
   uint32 max_operations = 3;
   uint32 worker_lease_seconds = 4;
   google.protobuf.Timestamp cognitive_now = 5;
+  uint32 retry_initial_seconds = 6;
+  uint32 retry_max_seconds = 7;
+  uint32 retry_max_attempts = 8;
+  uint32 max_model_calls = 9;
+  uint32 max_elapsed_ms = 10;
 }
 message PlanMaintenanceRequest { MaintenanceNeed claimed = 1; }
 message ExperienceMember {

@@ -23,7 +23,7 @@ Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/Associati
 
 ## CognitiveSchema、Tag 与 AssociationEvidence
 
-- CognitiveSchema 属于 Memory owner，具有独立 object/revision、applicability、support、counterexample/boundary evidence 和 lifecycle。
+- CognitiveSchema 属于 Memory owner，具有独立 object/revision、applicability、support、counterexample/boundary evidence 和 lifecycle。create/revise/split/merge 使用 `CognitiveSchemaContent` 输入；formed/recorded time 由 owner 的 CognitiveClock 分配。
 - `explicit_import` 至少有一条有效 evidence；`synthesized` 需要至少两个 normalized inputs、至少两个 known independent provenance roots 和无 cycle；UnknownDependency 不增加独立 root。
 - synthesized Memory 与 CognitiveSchema 共用同一 provenance root traversal；同一 Artifact 的派生表示、同源重述、部分共享根和未知依赖均不能凑成两个独立根。
 - 增补/撤回 Schema evidence 改变 object epoch 和 projection invalidation，不伪造 content revision。

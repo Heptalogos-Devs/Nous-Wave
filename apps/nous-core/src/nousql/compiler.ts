@@ -32,7 +32,7 @@ function invalid(message: string): never {
 export async function compileNousQL(
   source: string,
   resolve: IdentityResolver,
-  now = new Date(),
+  now: Date,
 ) {
   const syntax = parse(source);
   const sourceCanonical = canonical(syntax);

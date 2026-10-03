@@ -11,7 +11,7 @@ import {
 import type { KernelClient } from "../kernel-client.js";
 import { ModelRuntime } from "../model/runtime.js";
 import type { ModelRoleSnapshot } from "../model/invocations.js";
-import { grantMaintenance } from "./grants.js";
+import { grantMaintenance, SubjectMaintenanceScheduler } from "./grants.js";
 import { maintenanceOperationId, runModelMaintenance } from "./workflow.js";
 
 const subject = "10000000-0000-4000-8000-000000000001";
@@ -205,36 +205,144 @@ describe("maintenance fixed workflow retry", () => {
     ).toBe("rejected_invalid");
     expect(invalid.commit).not.toHaveBeenCalled();
   });
-  it("keeps a blocked need pending when the host supplies no model-call budget", async () => {
+  it("does not lease model work without executable roles or model budget", async () => {
     const state = fixture();
-    const finish = vi.fn(async () => ({}));
+    let attempts = 0;
+    const claim = vi.fn(async (input: { allowedKinds: string[] }) => {
+      if (!input.allowedKinds.includes(need.kind)) return { needs: [] };
+      attempts++;
+      return { needs: [need] };
+    });
     Object.assign(state.kernel.authority, {
       getMaintenancePolicy: vi.fn(async () => ({
         enabled: true,
         maxOperations: 4,
         workerLeaseSeconds: 120,
-        cognitiveNow: timestampFromDate(new Date("2026-10-03T00:00:00Z")),
       })),
-      claimMaintenance: vi.fn(async () => ({ needs: [need] })),
-      finishMaintenance: finish,
+      claimMaintenance: claim,
+      finishMaintenance: vi.fn(),
     });
-    const result = await grantMaintenance(state.kernel, state.models, {
-      $typeName: "nous.wave.v1alpha1.MaintenanceGrantRequest",
+    const input = {
+      $typeName: "nous.wave.v1alpha1.MaintenanceGrantRequest" as const,
       subjectId: subject,
       maxOperations: 1,
-      maxModelCalls: 0,
+      maxModelCalls: 1,
       maxElapsedMs: 1000,
+    };
+    for (let tick = 0; tick < 10; tick++)
+      await grantMaintenance(state.kernel, state.models, input);
+    expect(attempts).toBe(0);
+    vi.spyOn(state.models.invocations, "capabilities", "get").mockReturnValue([
+      { name: "model.journal_synthesis", state: "READY", detail: "Configured" },
+    ]);
+    await grantMaintenance(state.kernel, state.models, {
+      ...input,
+      maxModelCalls: 0,
     });
-    expect(result.modelCalls).toBe(0);
-    expect(result.results[0]?.status).toBe("blocked_dependency");
+    expect(attempts).toBe(0);
     expect(state.synthesize).not.toHaveBeenCalled();
-    expect(finish).toHaveBeenCalledWith(
-      expect.objectContaining({
-        disposition: "pending",
-        problemCode: "grant_budget_exhausted",
-      }),
+  });
+  it("uses bounded exponential retry for provider failure and then blocks", async () => {
+    const state = fixture();
+    vi.spyOn(state.models.invocations, "capabilities", "get").mockReturnValue([
+      { name: "model.journal_synthesis", state: "READY", detail: "Configured" },
+    ]);
+    state.synthesize.mockRejectedValue(
+      new ConnectError("provider unavailable", Code.Unavailable),
+    );
+    let retryCount = 0;
+    const finish = vi.fn(async (input: { disposition: string }) => {
+      if (input.disposition === "retry") retryCount++;
+      return {};
+    });
+    Object.assign(state.kernel.authority, {
+      getMaintenancePolicy: vi.fn(async () => ({
+        enabled: true,
+        maxOperations: 4,
+        workerLeaseSeconds: 120,
+        retryInitialSeconds: 2,
+        retryMaxSeconds: 5,
+        retryMaxAttempts: 4,
+      })),
+      claimMaintenance: vi.fn(async () => ({
+        needs: [{ ...need, retryCount }],
+      })),
+      finishMaintenance: finish,
+    });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (let tick = 0; tick < 4; tick++)
+      await grantMaintenance(state.kernel, state.models, {
+        $typeName: "nous.wave.v1alpha1.MaintenanceGrantRequest",
+        subjectId: subject,
+        maxOperations: 1,
+        maxModelCalls: 1,
+        maxElapsedMs: 1000,
+      });
+    expect(finish.mock.calls.map(([input]) => input)).toMatchObject([
+      { disposition: "retry", retryDelaySeconds: 2 },
+      { disposition: "retry", retryDelaySeconds: 4 },
+      { disposition: "retry", retryDelaySeconds: 5 },
+      { disposition: "blocked", problemCode: "maintenance_retry_exhausted" },
+    ]);
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
+  it("continues through more than one Subject page under sustained due work", async () => {
+    const ids = Array.from({ length: 75 }, (_, index) => `subject-${index}`);
+    const opportunities: string[] = [];
+    const list = vi.fn(async (input: { page?: { pageToken?: string } }) => {
+      const offset = Number(input.page?.pageToken || 0);
+      const items = ids
+        .slice(offset, offset + 50)
+        .map((subjectId) => ({ subjectId, capabilities: { memory: true } }));
+      return {
+        items,
+        nextPageToken: offset + 50 < ids.length ? String(offset + 50) : "",
+      };
+    });
+    const kernel = {
+      authority: {
+        getMaintenancePolicy: vi.fn(async () => ({
+          enabled: true,
+          maxOperations: 4,
+          workerLeaseSeconds: 120,
+          maxModelCalls: 4,
+          maxElapsedMs: 60000,
+          pollIntervalSeconds: 30,
+        })),
+        listSubjects: list,
+        claimMaintenance: vi.fn(async (input: { subjectId: string }) => ({
+          needs: [
+            { ...need, subjectId: input.subjectId, kind: "episode_segment" },
+          ],
+        })),
+        organizeExperience: vi.fn(async (input: { subjectId: string }) => {
+          opportunities.push(input.subjectId);
+          return { episodes: [], nextDue: undefined };
+        }),
+        finishMaintenance: vi.fn(async () => ({})),
+      },
+    } as unknown as KernelClient;
+    const scheduler = new SubjectMaintenanceScheduler(
+      kernel,
+      new ModelRuntime(),
+    );
+    for (let tick = 0; tick < 20; tick++)
+      await scheduler.poll(new AbortController().signal);
+    expect(opportunities.slice(0, 75)).toEqual(ids);
+    expect(opportunities.slice(75)).toEqual(ids.slice(0, 5));
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ page: { pageToken: "50" } }),
       expect.anything(),
     );
+    list.mockRejectedValueOnce(
+      new ConnectError("expired page token", Code.InvalidArgument),
+    );
+    for (let tick = 0; tick < 40; tick++)
+      await scheduler.poll(new AbortController().signal);
+    expect(
+      opportunities.filter((id) => id === ids[74]).length,
+    ).toBeGreaterThanOrEqual(2);
   });
   it("executes consolidation through the typed owner and replays a no-change outcome", async () => {
     const state = fixture();

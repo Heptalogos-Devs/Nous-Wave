@@ -60,7 +60,7 @@ impl MaterialService {
                     .to_string(),
                 coordinate,
                 parent_derived_region_id: None,
-                created_at: Utc::now(),
+                created_at: self.cognition.now(subject),
             };
             region.derived_region_id = self.insert_derived_region_in_tx(&mut tx, &region).await?;
             segments.push(DescriptionSegment {

@@ -869,7 +869,7 @@ async fn synthesized_schema_requires_independent_known_roots() {
             structural_claim: "same root must reject".into(),
             applicability_scope: base(),
             boundary_definition: "none".into(),
-            formed_at: Utc::now(),
+
             formation_kind: SchemaFormationKind::Synthesized,
             evidence_links: vec![
                 link(first.occurrence.occurrence_id),
@@ -888,7 +888,7 @@ async fn synthesized_schema_requires_independent_known_roots() {
             structural_claim: "independent roots accept".into(),
             applicability_scope: base(),
             boundary_definition: "none".into(),
-            formed_at: Utc::now(),
+
             formation_kind: SchemaFormationKind::Synthesized,
             evidence_links: vec![
                 link(first.occurrence.occurrence_id),

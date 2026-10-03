@@ -8,15 +8,19 @@ Runtime 持有 CognitiveClock、Experience feed、segmentation cursor/draft 与 
 
 ## 时间与经验捕获
 
-正常运行使用 SystemCognitiveClock；内部测试和研究可注入按 Subject 单调推进的 ManualCognitiveClock。HTTP/DB timeout、重试和 worker lease 使用基础设施时间。公开 RPC 不提供 clock mutation。
+正常运行使用 SystemCognitiveClock；内部测试和研究可注入按 Subject 单调推进的 ManualCognitiveClock。HTTP/DB timeout、重试和 worker lease 使用基础设施时间。公开 RPC 不提供 clock mutation。Core 通过 private `GetCognitiveTime` 读取 Subject clock；NousQL 的相对时间窗口也使用该认知时间。
 
-Observation `observed_at` 可省略，缺省使用 CognitiveClock。发生时间保留调用方提供的已知或 unknown 语义。Memory、Episode、Journal 的 formation/recorded timestamps 由 owner 提交分配；工作流重放保留原 formation time。创建和修订协议不接受这三类对象的 caller `formed_at`。
+Observation `observed_at` 可省略，缺省使用 CognitiveClock。发生时间保留调用方提供的已知或 unknown 语义。Subject、Cognitive Seed、Material 来源、Memory、CognitiveSchema、Episode、Journal 及语义 lifecycle/UseEvent 的 timestamps 由 owner 提交分配；工作流重放保留原 formation time。Memory、CognitiveSchema、Episode、Journal 的创建和修订输入不接受 caller `formed_at`；Schema 使用 `CognitiveSchemaContent` 输入。
 
 Session-bound Observation 在 Material 提交事务内写入一个 ExperienceItem，复用现有 invalidation 返回的 Subject `authority_seq` 作为 `recorded_seq`。记录包含 Session、foreground WorkContext ID/revision 和边界上下文，并 upsert 到期的 `episode_segment` need。无 Session 的 Observation 保持普通 Material/Evidence，不进入自动分段。摄入过程中不调用模型。
 
 ## 初始 Episode 与语义 refinement
 
-初始自动 track 为 `interaction`。Runtime 按 recorded sequence 推进 durable cursor/draft；Session 变化本身保持连续。hard idle、结束的 WorkContext、多个上下文切换，或 soft idle 伴随上下文/Session 切换可关闭 draft。无新观察时，到期维护负责 idle closure。ready draft 使用稳定 operation identity 经 Memory 提交；ack 与 cursor/draft 保存使重启和重试保持连续。迟到观察排入有界局部 resegmentation。
+初始自动 track 为 `interaction`。Runtime 按 recorded sequence 推进 durable cursor/draft；Session 变化本身保持连续。hard idle、结束的 WorkContext、多个上下文切换，或 soft idle 伴随上下文/Session 切换可关闭 draft。无新观察时，到期维护负责 idle closure。ready draft 使用稳定 operation identity 经 Memory 提交；ack 验证对应 commit receipt 后删除 draft 和成员，cursor 不保留已删除 draft 的引用。Memory commit 后、ack 前崩溃时，ready draft 和稳定 operation identity 重放得到原 Episode，再完成 ack。迟到观察排入有界局部 resegmentation。
+
+`recorded_seq` 决定 exactly-once processing、durable cursor 和摄入顺序；experience chronology 使用 `(observed_at, recorded_seq)`。draft 最终成员、局部 repair、模型 partition input 与提交的 Episode 都按 experience chronology 排列，同 observed time 用 recorded sequence 确定顺序。
+
+历史 repair 以迟到 Observation 的 observed time 定位同 parent/track 的 overlapping current Episodes 和两侧最近邻，构建局部 partition 后加入迟到 occurrence。`episode.max_neighbor_span` 限制受影响 neighborhood 的 experience span；经历距今天的年龄不限制 repair。neighborhood 的 Episode 数、experience span 或 materialization safety budget 超界时进入 `historical_repair_scope_exceeded` blocked。
 
 `episode_segmentation` 接收精确、有序 member keys 和当前 Episode 组织，返回 `no_change` 或完整 partition。Memory 原子应用 N-to-M partition：1-to-1 修订同一对象；split/merge/general partition 创建替代对象并 withdraw sources，保留 exact lineage。缺失、重复、重排或虚构成员使整次提交失败。
 
@@ -24,9 +28,19 @@ Session-bound Observation 在 Material 提交事务内写入一个 ExperienceIte
 
 MaintenanceNeed 在 active scope 内合并 trigger，due time 使用 CognitiveClock。并发 claim 使用数据库 row locking；基础设施 lease 与 token fence 控制 worker，过期 lease 可重新 claim。finish 保留执行期间新增的 trigger。
 
-公开 `GrantMaintenance` 接收 `max_operations`、`max_model_calls`、`max_elapsed_ms`。Core standalone loop 定期提供机会；Kernel 没有自主认知 cron。维护种类为 `episode_segment`、`episode_resegment`、`journal_review`、`journal_revalidate`、`memory_consolidate`。结果区分 committed、no_change、obsolete、rejected_invalid 和 blocked_dependency；settling 或缺少模型可留下后续 due work。
+公开 `GrantMaintenance` 接收 `max_operations`、`max_model_calls`、`max_elapsed_ms`。Core standalone loop 完整使用 active Subject pagination，保存跨 poll tick 的 continuation；每个 Subject 每次获得至多一个操作机会，耗尽 tick budget 后从停止处继续，列表尾部 wrap。删除、停用或失效 page token 会跳过或重新建立 cursor。Core restart 可以从稳定列表起点开始。全局 operation/model/elapsed budgets 限制每次 tick；Kernel 没有自主认知 cron，只持有 durable needs、claim、lease 与 owner semantics。
 
-Core 复用 `model_workflow_operations` 保存固定 model/plan snapshot、proposal 与 outcome。operation identity 由 need/trigger 生成，proposal 在 owner commit 前持久化；重试复用已存 proposal/outcome。owner 验证 Subject、head、epoch、lifecycle、来源 catalog 和 authority sequence；变化返回 stale 并刷新维护计划。
+维护种类为 `episode_segment`、`episode_resegment`、`journal_review`、`journal_revalidate`、`memory_consolidate`。Core 根据当前可执行角色构造 claim 的 allowed kinds：resegment 需要 `episode_segmentation`，Journal review/revalidate 需要 `journal_synthesis`，consolidation 需要 `memory_consolidation`；初始 segmentation 无需模型。未就绪角色的 needs 保持 durable、无 worker lease、attempt count 不增长。角色配置按当前 Core model runtime 的 restart 生效合同处理。
+
+MaintenanceNeed 状态为 `pending / leased / blocked / satisfied / obsolete`。deferred 表示时间推进或已知未来事件能够改变条件，保留带 next due 的 pending work。blocked 表示依赖、配置或输入需要实际改变，不参与普通 due-time lease。来源 revision/lifecycle、显式 maintenance refresh 或有效配置快照变化可重新激活 blocked need；retry exhaustion 还可由当前 executable model configuration digest 的变化唤醒。真实 provider/network 故障使用配置的指数退避，等待基础设施时间；连续失败达到 retry attempt 上限后 blocked。新 trigger 重置 retry 状态，每个 need 的 trigger revision 随真实 trigger 或配置唤醒推进；执行期间的新 trigger revision 保留为 pending work。
+
+unexpected scheduler/runtime failures 输出 Subject、stage、已知 need kind、稳定 problem class 和 retry/blocked decision；相同 scheduler failures 按重复次数聚合。凭据、配置值和原始 model payload 不进入诊断。正常 blocked 或未配置角色无需 exception 日志。
+
+Episode/Journal/Memory/Schema revisions 是 durable cognition history；Observation/ExperienceItem 是 durable experience；EpisodeDraft、MaintenanceNeed 和 model workflow 是 temporary runtime work state。terminal need 按 `maintenance.terminal_retention_seconds` 保留短期 finish replay，再在 claim/ack 路径删除；pending、leased、blocked 不被 terminal housekeeping 删除。
+
+Core 的 `model_workflow_operations` 保存固定 model/plan snapshot、proposal 与 outcome。operation identity 由 need、trigger authority sequence 和 trigger revision 生成，proposal 在 owner commit 前持久化；重试复用已存 proposal/outcome。maintenance workflow 显式绑定 need 和 trigger；ack 成功后删除已完成的关联 workflow。新 trigger 已替代的旧 workflow 在执行 lease 释放/过期后回收。显式 Memory formation、Material workflow 和仍需 retry 的当前 workflow 保持自身合同。owner 验证 Subject、head、epoch、lifecycle、来源 catalog 和 authority sequence；变化返回 stale 并刷新维护计划。
+
+Workflow owner 是 1..64 字节的 semantic identifier，格式为 `[a-z][a-z0-9_]*`；Persistence 不枚举认知领域。private Kernel API 仅接受已实现的 `memory / material` 调用路径；Longitudinal 的 Memory-domain operations 使用 `memory`。
 
 ## Journal
 
@@ -34,7 +48,7 @@ JournalId 是稳定对象，JournalRevisionId 是不可变 exact narrative。每
 
 创建、修订、get/exact revision、history/list、suppress/restore、withdraw/reaccept 与 purge 均归 Memory。source revision/lifecycle/purge 变化使当前 Journal `revalidation_required`，排入 `journal_revalidate`；重建提交新的 revision，scope 消失可 withdraw。Journal provenance 展开原来源 lineage，Journal 不增加独立 evidence root。
 
-Journal 重验证等待全部当前来源稳定后再规划完整集合；来源数量或时间跨度超出有界范围时延后处理。新 Journal review 可按边界选择已稳定的前缀。
+Journal 重验证等待全部当前来源稳定后再规划完整集合。来源数量或时间跨度超界时，Journal 保持 `revalidation_required`，need 分别进入 `journal_scope_bound_exceeded` 或 `journal_scope_span_exceeded` blocked；时间推进不重新运行。相关来源/Journal 变化、配置 bound 变化或显式 refresh 可以唤醒。重验证覆盖声明的完整 source scope；新 Journal review 可按边界选择已稳定的前缀。
 
 ## Consolidation
 

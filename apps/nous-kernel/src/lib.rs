@@ -82,8 +82,12 @@ impl NousRuntime {
         let process_capabilities = process_capabilities(&system_snapshot)?;
         let resident_limit = system_snapshot.get(nous_runtime::RESIDENT_LIMIT_KEY)?;
         let objects = ObjectStore::open(&options.object_root).await?;
-        let subjects =
-            SubjectCoreService::new(store.clone(), objects.clone(), configuration.clone());
+        let subjects = SubjectCoreService::with_clock(
+            store.clone(),
+            objects.clone(),
+            configuration.clone(),
+            clock.clone(),
+        );
         let cognition = CognitiveRuntimeService::with_clock(
             store.clone(),
             resident_limit,

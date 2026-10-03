@@ -12,6 +12,7 @@ import {
   type ServiceImpl,
 } from "@connectrpc/connect";
 import { create } from "@bufbuild/protobuf";
+import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 import {
@@ -194,6 +195,10 @@ export async function createCore(settings: CoreOptions) {
             "Supply either NousQL or typed expression",
             Code.InvalidArgument,
           );
+        const cognitiveTime = await kernel.authority.getCognitiveTime(
+          { subjectId: r.subjectId },
+          options(c),
+        );
         const compiled = await compileNousQL(
           r.nousql,
           async (kind, locator) => {
@@ -220,6 +225,7 @@ export async function createCore(settings: CoreOptions) {
               lexicalRef: result.candidates[0].lexicalRef,
             };
           },
+          timestampDate(cognitiveTime),
         );
         r.expression = compiled.expression;
         r.nousql = undefined;
