@@ -12,6 +12,7 @@ const modelKinds = [
   "episode_resegment",
   "journal_review",
   "journal_revalidate",
+  "memory_consolidate",
 ];
 export async function grantMaintenance(
   kernel: KernelClient,

@@ -1,6 +1,7 @@
 syntax = "proto3";
 package nous.wave.kernel.v1alpha1;
 import "nous/wave/v1alpha1/types.proto";
+import "nous/wave/kernel/v1alpha1/consolidation.proto";
 import "nous/wave/v1alpha1/journal.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -71,6 +72,7 @@ message ExperienceMember {
   string source_class = 10;
   string text = 11;
   bool text_partial = 12;
+  nous.wave.v1alpha1.TemporalExtent occurred_time = 13;
 }
 message SupportCatalogEntry { string key = 1; nous.wave.v1alpha1.RevisionSupport support = 2; }
 message MaintenancePlan {
@@ -86,5 +88,17 @@ message MaintenancePlan {
   nous.wave.v1alpha1.JournalRevision journal = 10;
   google.protobuf.Timestamp next_due = 11;
   optional string problem_code = 12;
+  ExpectedCognition consolidation_source = 13;
+  repeated ConsolidationCandidate candidates = 14;
+  repeated ConsolidationEntity entities = 15;
+  repeated ProvenanceRoot provenance_roots = 16;
+  uint32 max_consolidation_actions = 17;
+  bool support_catalog_partial = 18;
+  bool provenance_roots_partial = 19;
 }
 message RefreshMaintenanceRequest { MaintenanceNeed claimed = 1; }
+
+message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; string text = 3; string cognitive_role = 4; string formation_mode = 5; repeated string entity_refs = 6; repeated UseSummary use = 7; nous.wave.v1alpha1.TemporalExtent valid_time = 8; google.protobuf.Timestamp formed_at = 9; google.protobuf.Timestamp recorded_at = 10; }
+message ConsolidationEntity { string key = 1; string entity_ref = 2; }
+message ProvenanceRoot { string key = 1; string certainty = 2; }
+message UseSummary { string kind = 1; uint64 count = 2; google.protobuf.Timestamp last_used_at = 3; }

@@ -1,3 +1,5 @@
+import type { CommitLongitudinalConsolidationRequest } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
+import { ExpectedCognitionSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
 import { describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { create } from "@bufbuild/protobuf";
@@ -233,5 +235,79 @@ describe("maintenance fixed workflow retry", () => {
       }),
       expect.anything(),
     );
+  });
+  it("executes consolidation through the typed owner and replays a no-change outcome", async () => {
+    const state = fixture();
+    const consolidationNeed = {
+      ...need,
+      kind: "memory_consolidate",
+      scopeKind: "episode_revision",
+      scopeRef: revision,
+    };
+    const consolidationPlan = create(MaintenancePlanSchema, {
+      ...plan,
+      consolidationSource: create(ExpectedCognitionSchema, {
+        reference: { kind: "episode_revision", value: revision },
+        expectedEpoch: 1n,
+      }),
+      maxConsolidationActions: 8,
+    });
+    state.getPlan.mockResolvedValue(consolidationPlan);
+    const model = vi.spyOn(state.models, "consolidate").mockResolvedValue({
+      value: {
+        actions: [
+          {
+            action: "skip",
+            reason: "The source adds no reusable cognition.",
+          },
+        ],
+      },
+      producerMetadata: {
+        implementation: "semantic-stub",
+        protocol: "openai-chat",
+        model: "stub",
+        profileDigest: "a".repeat(64),
+        promptId: "program/memory/consolidation.md",
+        promptDigest: "b".repeat(64),
+        outputSchemaDigest: "c".repeat(64),
+        configDigest: "d".repeat(64),
+      },
+    });
+    const commit = vi.fn(
+      async (_request: CommitLongitudinalConsolidationRequest) => ({
+        status: "no_change",
+        authoritySeq: 4n,
+        results: [],
+      }),
+    );
+    Object.assign(state.kernel.authority, {
+      commitLongitudinalConsolidation: commit,
+    });
+    expect(
+      (
+        await runModelMaintenance(
+          state.kernel,
+          state.models,
+          consolidationNeed,
+          {},
+          () => {},
+        )
+      ).status,
+    ).toBe("no_change");
+    expect(commit.mock.calls[0]![0].source?.expectedEpoch).toBe(1n);
+    expect(commit.mock.calls[0]![0].actions[0]?.action.case).toBe("skip");
+    expect(
+      (
+        await runModelMaintenance(
+          state.kernel,
+          state.models,
+          consolidationNeed,
+          {},
+          () => {},
+        )
+      ).status,
+    ).toBe("no_change");
+    expect(model).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledTimes(1);
   });
 });

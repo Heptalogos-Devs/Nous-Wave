@@ -350,6 +350,8 @@ pub struct ExperienceMember {
     pub text: ::prost::alloc::string::String,
     #[prost(bool, tag="12")]
     pub text_partial: bool,
+    #[prost(message, optional, tag="13")]
+    pub occurred_time: ::core::option::Option<super::super::v1alpha1::TemporalExtent>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SupportCatalogEntry {
@@ -384,11 +386,71 @@ pub struct MaintenancePlan {
     pub next_due: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, optional, tag="12")]
     pub problem_code: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="13")]
+    pub consolidation_source: ::core::option::Option<ExpectedCognition>,
+    #[prost(message, repeated, tag="14")]
+    pub candidates: ::prost::alloc::vec::Vec<ConsolidationCandidate>,
+    #[prost(message, repeated, tag="15")]
+    pub entities: ::prost::alloc::vec::Vec<ConsolidationEntity>,
+    #[prost(message, repeated, tag="16")]
+    pub provenance_roots: ::prost::alloc::vec::Vec<ProvenanceRoot>,
+    #[prost(uint32, tag="17")]
+    pub max_consolidation_actions: u32,
+    #[prost(bool, tag="18")]
+    pub support_catalog_partial: bool,
+    #[prost(bool, tag="19")]
+    pub provenance_roots_partial: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RefreshMaintenanceRequest {
     #[prost(message, optional, tag="1")]
     pub claimed: ::core::option::Option<MaintenanceNeed>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConsolidationCandidate {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub target: ::core::option::Option<ExpectedCognition>,
+    #[prost(string, tag="3")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub cognitive_role: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub formation_mode: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="6")]
+    pub entity_refs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="7")]
+    pub r#use: ::prost::alloc::vec::Vec<UseSummary>,
+    #[prost(message, optional, tag="8")]
+    pub valid_time: ::core::option::Option<super::super::v1alpha1::TemporalExtent>,
+    #[prost(message, optional, tag="9")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="10")]
+    pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConsolidationEntity {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub entity_ref: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ProvenanceRoot {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub certainty: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UseSummary {
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(uint64, tag="2")]
+    pub count: u64,
+    #[prost(message, optional, tag="3")]
+    pub last_used_at: ::core::option::Option<::prost_types::Timestamp>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingConfig {

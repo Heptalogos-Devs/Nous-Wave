@@ -35,7 +35,17 @@ impl KernelService {
                     .plan_journal_review(subject, &claimed.kind, &claimed.scope_ref)
                     .await?
             }
+            "memory_consolidate" => {
+                memory
+                    .plan_consolidation_scope(subject, &claimed.scope_kind, &claimed.scope_ref)
+                    .await?
+            }
             _ => return Err(Error::Invalid("maintenance kind has no model plan".into())),
+        };
+        let source = if claimed.kind == "memory_consolidate" {
+            consolidation_source(&scope)
+        } else {
+            None
         };
         let mut plan = k::MaintenancePlan {
             subject_id: subject.0.to_string(),
@@ -46,6 +56,7 @@ impl KernelService {
             problem_code: scope.problem,
             ..Default::default()
         };
+        plan.consolidation_source = source;
         if let Some(journal) = scope.journal {
             plan.target = Some(k::JournalTarget {
                 journal_id: journal.object.journal_id.0.to_string(),
@@ -93,6 +104,9 @@ impl KernelService {
                 support: Some(support_proto(support)),
             })
             .collect();
+        if claimed.kind == "memory_consolidate" && plan.status == "ready" {
+            self.consolidation_context(&mut plan).await?;
+        }
         if self.0.store.authority_seq(subject).await? != sequence {
             return Err(Error::Conflict(
                 "maintenance source snapshot changed during planning".into(),
@@ -107,7 +121,7 @@ impl KernelService {
         occurrences: &[OccurrenceId],
     ) -> Result<Vec<k::ExperienceMember>> {
         let ids: Vec<uuid::Uuid> = occurrences.iter().map(|id| id.0).collect();
-        let rows=sqlx::query("SELECT e.*,d.derived_representation_id FROM experience_items e JOIN observation_occurrences o USING(occurrence_id) LEFT JOIN LATERAL (SELECT r.derived_representation_id FROM coverage_needs c JOIN source_regions s USING(source_region_id) JOIN derived_representations r ON r.derived_representation_id=c.current_representation_id WHERE c.subject_id=$1 AND s.artifact_id=o.artifact_id AND c.state='ready' AND r.payload_text IS NOT NULL ORDER BY r.created_at DESC,r.derived_representation_id LIMIT 1) d ON true WHERE e.subject_id=$1 AND e.occurrence_id=ANY($2::uuid[]) ORDER BY e.recorded_seq")
+        let rows=sqlx::query("SELECT e.*,o.occurred_time_kind,o.occurred_time_start,o.occurred_time_end,d.derived_representation_id FROM experience_items e JOIN observation_occurrences o USING(occurrence_id) LEFT JOIN LATERAL (SELECT r.derived_representation_id FROM coverage_needs c JOIN source_regions s USING(source_region_id) JOIN derived_representations r ON r.derived_representation_id=c.current_representation_id WHERE c.subject_id=$1 AND s.artifact_id=o.artifact_id AND c.state='ready' AND r.payload_text IS NOT NULL ORDER BY r.created_at DESC,r.derived_representation_id LIMIT 1) d ON true WHERE e.subject_id=$1 AND e.occurrence_id=ANY($2::uuid[]) ORDER BY e.recorded_seq")
             .bind(subject.0).bind(ids).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
         let mut members = Vec::with_capacity(rows.len());
         let mut remaining = 65536usize;
@@ -159,8 +173,45 @@ impl KernelService {
                 source_class: row.get("source_class"),
                 text,
                 text_partial: partial,
+                occurred_time: Some(occurrence_time(&row)?),
             });
         }
         Ok(members)
     }
+}
+
+fn consolidation_source(scope: &nous_memory::MaintenanceScope) -> Option<k::ExpectedCognition> {
+    if let Some(journal) = &scope.journal {
+        return Some(k::ExpectedCognition {
+            reference: Some(to_ref(CognitiveRef::JournalRevision(
+                journal.revision.journal_revision_id,
+            ))),
+            expected_epoch: journal.object.object_epoch,
+        });
+    }
+    scope.episodes.first().map(|episode| k::ExpectedCognition {
+        reference: Some(to_ref(CognitiveRef::EpisodeRevision(
+            episode.revision.episode_revision_id,
+        ))),
+        expected_epoch: episode.object.object_epoch,
+    })
+}
+
+fn occurrence_time(row: &sqlx::postgres::PgRow) -> Result<p::TemporalExtent> {
+    let kind: String = row.get("occurred_time_kind");
+    let start: Option<chrono::DateTime<chrono::Utc>> = row.get("occurred_time_start");
+    let end: Option<chrono::DateTime<chrono::Utc>> = row.get("occurred_time_end");
+    let time = match kind.as_str() {
+        "instant" => TemporalExtent::Instant {
+            at: required(start, "occurred instant")?,
+        },
+        "interval" => TemporalExtent::Interval { start, end },
+        "unknown" => TemporalExtent::Unknown,
+        _ => {
+            return Err(Error::Infrastructure(
+                "invalid occurrence temporal kind".into(),
+            ));
+        }
+    };
+    Ok(temporal_proto(&time))
 }

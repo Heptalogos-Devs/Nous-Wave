@@ -18,6 +18,8 @@ import {
   journalSynthesisSchema,
 } from "./schemas/longitudinal.js";
 
+import { consolidationSchema } from "./schemas/consolidation.js";
+
 const proposalSchema = z.strictObject({
   selectedIds: z.array(z.string()).max(64),
   summary: z.string().max(8192).optional(),
@@ -89,6 +91,20 @@ export class ModelRuntime {
       "journal_synthesis",
       input,
       journalSynthesisSchema,
+      signal,
+      undefined,
+      snapshot,
+    );
+  }
+  async consolidate(
+    input: string,
+    signal?: AbortSignal,
+    snapshot?: ModelRoleSnapshot,
+  ) {
+    return this.invocations.generate(
+      "memory_consolidation",
+      input,
+      consolidationSchema,
       signal,
       undefined,
       snapshot,

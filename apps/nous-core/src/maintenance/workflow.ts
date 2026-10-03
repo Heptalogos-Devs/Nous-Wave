@@ -1,3 +1,6 @@
+import { consolidationRequest } from "./consolidation.js";
+import { consolidationSchema } from "../model/schemas/consolidation.js";
+import { CommitLongitudinalConsolidationRequestSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
 import { createHash } from "node:crypto";
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
@@ -45,6 +48,7 @@ const snapshotSchema = z.strictObject({
 const proposalSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("partition"), request: z.unknown() }),
   z.strictObject({ action: z.literal("journal"), request: z.unknown() }),
+  z.strictObject({ action: z.literal("consolidation"), request: z.unknown() }),
   z.strictObject({
     action: z.literal("withdraw"),
     journalId: z.string().uuid(),
@@ -120,7 +124,9 @@ export async function runModelMaintenance(
     const role =
       need.kind === "episode_resegment"
         ? "episode_segmentation"
-        : "journal_synthesis";
+        : need.kind === "memory_consolidate"
+          ? "memory_consolidation"
+          : "journal_synthesis";
     const model =
       plan.status === "withdraw" ? null : models.invocations.snapshot(role);
     snapshotJson = JSON.stringify({
@@ -234,6 +240,28 @@ export async function runModelMaintenance(
               request,
             );
           }
+        } else if (need.kind === "memory_consolidate") {
+          const result = await models.consolidate(
+            JSON.stringify(snapshot.plan),
+            options.signal ?? undefined,
+            snapshot.model as ModelRoleSnapshot,
+          );
+          const request = consolidationRequest(
+            plan,
+            consolidationSchema.parse(result.value),
+            operationId,
+            create(
+              ProducerSignatureSchema,
+              producer(result.producerMetadata, "memory_consolidation_text"),
+            ),
+          );
+          proposed = {
+            action: "consolidation",
+            request: toJson(
+              CommitLongitudinalConsolidationRequestSchema,
+              request,
+            ),
+          };
         } else {
           const result = await models.synthesizeJournal(
             JSON.stringify(snapshot.plan),
@@ -322,7 +350,26 @@ export async function runModelMaintenance(
         fromJson(CommitJournalRequestSchema, proposed.request as JsonValue),
         options,
       );
-    else if (proposed.action === "withdraw")
+    else if (proposed.action === "consolidation") {
+      const result = await kernel.authority.commitLongitudinalConsolidation(
+        fromJson(
+          CommitLongitudinalConsolidationRequestSchema,
+          proposed.request as JsonValue,
+        ),
+        options,
+      );
+      const outcome = {
+        status:
+          result.status === "no_change"
+            ? ("no_change" as const)
+            : ("committed" as const),
+      };
+      await kernel.modelMaterial.saveWorkflow(
+        { ...lease, outcomeJson: JSON.stringify(outcome) },
+        options,
+      );
+      return outcome;
+    } else if (proposed.action === "withdraw")
       await kernel.authority.withdrawJournal(
         {
           operationId,

@@ -41,6 +41,7 @@ pub use accessibility::{
 pub use consolidation::*;
 pub use episode::*;
 pub use journal::*;
+pub use longitudinal_policy::CONSOLIDATION_MAX_ACTIONS;
 pub use maintenance_planning::MaintenanceScope;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
 

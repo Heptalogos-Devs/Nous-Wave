@@ -35,16 +35,29 @@ impl MemoryService {
         }
         Ok(())
     }
-    pub(super) async fn consolidation_support_catalog(
+    pub(crate) async fn consolidation_support_catalog(
         &self,
         input: &LongitudinalConsolidationInput,
     ) -> Result<BTreeSet<String>> {
-        let mut allowed = BTreeSet::new();
-        let mut visited = BTreeSet::new();
-        let mut pending: Vec<_> = std::iter::once(&input.source)
+        let scopes: Vec<_> = std::iter::once(&input.source)
             .chain(&input.context)
             .map(|value| value.reference.clone())
             .collect();
+        Ok(self
+            .consolidation_catalog_supports(input.subject, &scopes)
+            .await?
+            .into_iter()
+            .map(|support| support.canonical_key())
+            .collect())
+    }
+    pub async fn consolidation_catalog_supports(
+        &self,
+        subject: SubjectId,
+        scopes: &[CognitiveRef],
+    ) -> Result<Vec<RevisionSupport>> {
+        let mut allowed = std::collections::BTreeMap::new();
+        let mut visited = BTreeSet::new();
+        let mut pending = scopes.to_vec();
         while let Some(reference) = pending.pop() {
             if !visited.insert(reference.to_string()) {
                 continue;
@@ -53,15 +66,21 @@ impl MemoryService {
                 target_revision: reference.clone(),
                 support_role: SupportRole::Direct,
             });
-            allowed.insert(direct.canonical_key());
+            allowed.insert(direct.canonical_key(), direct);
             let supports = match reference {
                 CognitiveRef::EpisodeRevision(id) => {
-                    let episode = self.episode_revision(input.subject, id).await?;
-                    allowed.extend(episode.members.iter().filter_map(member_evidence_key));
+                    let episode = self.episode_revision(subject, id).await?;
+                    allowed.extend(
+                        episode
+                            .members
+                            .iter()
+                            .filter_map(member_support)
+                            .map(|support| (support.canonical_key(), support)),
+                    );
                     episode.supports
                 }
                 CognitiveRef::JournalRevision(id) => self
-                    .journal_revision(input.subject, id)
+                    .journal_revision(subject, id)
                     .await?
                     .points
                     .into_iter()
@@ -69,7 +88,7 @@ impl MemoryService {
                     .collect(),
                 CognitiveRef::MemoryRevision(id) => self.load_supports(id).await?,
                 CognitiveRef::CognitiveSchemaRevision(id) => self
-                    .schema_links(input.subject, id)
+                    .schema_links(subject, id)
                     .await?
                     .into_iter()
                     .map(|link| link.support)
@@ -81,13 +100,13 @@ impl MemoryService {
                 }
             };
             for support in supports {
-                allowed.insert(support.canonical_key());
+                allowed.insert(support.canonical_key(), support.clone());
                 if let RevisionSupport::CognitionDependency(dependency) = support {
                     pending.push(dependency.target_revision);
                 }
             }
         }
-        Ok(allowed)
+        Ok(allowed.into_values().collect())
     }
 }
 pub(super) async fn validate_current_cognition_in(
@@ -139,16 +158,13 @@ pub(super) async fn validate_current_cognition_in(
     Ok(())
 }
 
-fn member_evidence_key(member: &EpisodeMember) -> Option<String> {
+fn member_support(member: &EpisodeMember) -> Option<RevisionSupport> {
     match member.reference {
-        CognitiveRef::Occurrence(id) => Some(
-            RevisionSupport::Evidence(EvidenceRef {
-                occurrence_id: id,
-                locator: EvidenceLocator::WholeOccurrence,
-                support_role: SupportRole::Direct,
-            })
-            .canonical_key(),
-        ),
+        CognitiveRef::Occurrence(id) => Some(RevisionSupport::Evidence(EvidenceRef {
+            occurrence_id: id,
+            locator: EvidenceLocator::WholeOccurrence,
+            support_role: SupportRole::Direct,
+        })),
         _ => None,
     }
 }

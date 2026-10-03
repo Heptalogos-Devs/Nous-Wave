@@ -24,6 +24,63 @@ impl MaintenanceScope {
 }
 
 impl MemoryService {
+    pub async fn plan_consolidation_scope(
+        &self,
+        subject: SubjectId,
+        kind: &str,
+        scope: &str,
+    ) -> Result<MaintenanceScope> {
+        let mut result = MaintenanceScope::empty("ready");
+        match kind {
+            "episode_revision" => {
+                let revision =
+                    EpisodeRevisionId(scope.parse().map_err(|_| {
+                        Error::Invalid("invalid Episode consolidation scope".into())
+                    })?);
+                let episode = match self.episode_revision(subject, revision).await {
+                    Ok(value) => value,
+                    Err(Error::NotFound(_)) => return Ok(MaintenanceScope::empty("obsolete")),
+                    Err(error) => return Err(error),
+                };
+                if episode.object.current_revision_id != revision || !episode_eligible(&episode) {
+                    return Ok(MaintenanceScope::empty("obsolete"));
+                }
+                result.episodes.push(episode);
+            }
+            "journal_revision" => {
+                let revision =
+                    JournalRevisionId(scope.parse().map_err(|_| {
+                        Error::Invalid("invalid Journal consolidation scope".into())
+                    })?);
+                let journal = match self.journal_revision(subject, revision).await {
+                    Ok(value) => value,
+                    Err(Error::NotFound(_)) => return Ok(MaintenanceScope::empty("obsolete")),
+                    Err(error) => return Err(error),
+                };
+                if journal.object.current_revision_id != revision
+                    || journal.object.acceptance_state != AcceptanceState::Accepted
+                    || journal.object.integrity_state != IntegrityState::Valid
+                    || journal.object.suppression_state != SuppressionState::Normal
+                    || journal.object.purge_state != PurgeState::Normal
+                {
+                    return Ok(MaintenanceScope::empty("obsolete"));
+                }
+                for source in &journal.sources {
+                    if let CognitiveRef::EpisodeRevision(id) = source {
+                        result
+                            .episodes
+                            .push(self.episode_revision(subject, *id).await?);
+                    }
+                }
+                result.journal = Some(journal);
+            }
+            _ => return Err(Error::Invalid("invalid consolidation source kind".into())),
+        }
+        result.occurrences = self
+            .ordered_scope_occurrences(subject, &result.episodes, None)
+            .await?;
+        Ok(result)
+    }
     pub async fn plan_episode_review(
         &self,
         subject: SubjectId,

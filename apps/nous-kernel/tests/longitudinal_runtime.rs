@@ -936,7 +936,7 @@ async fn assert_maintenance_planning(
     use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
     let service = nous_kernel::transport::KernelService(rt.clone());
     clock.advance_by(subject, Duration::seconds(300)).unwrap();
-    for kind in ["episode_resegment", "journal_review"] {
+    for kind in ["episode_resegment", "journal_review", "memory_consolidate"] {
         let claim = service
             .claim_maintenance(tonic::Request::new(k::ClaimMaintenanceRequest {
                 subject_id: subject.0.to_string(),
@@ -962,6 +962,11 @@ async fn assert_maintenance_planning(
         assert!(plan.members[0].recorded_seq < plan.members[1].recorded_seq);
         assert_eq!(plan.members[0].text, "object:source-a");
         assert!(plan.supports.len() >= 3);
+        if kind == "memory_consolidate" {
+            assert!(plan.consolidation_source.is_some());
+            assert_eq!(plan.provenance_roots.len(), 2);
+            assert_eq!(plan.max_consolidation_actions, 8);
+        }
         let finish = k::FinishMaintenanceRequest {
             claimed: Some(claimed),
             disposition: "satisfied".into(),
