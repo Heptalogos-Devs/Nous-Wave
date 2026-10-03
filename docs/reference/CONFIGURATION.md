@@ -68,11 +68,9 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 `consumers` 按 consumer id/revision 保存 Memory、Runtime、Resource contribution requirements 与 item/text budgets。Consumer policy 为一次调用限定各 owner 可贡献的内容和预算；领域 Authority 仍由对应 owner 持有。
 
-[返回 Reference](README.md)
-
 ## 纵向认知配置
 
-这些 typed settings 由 Runtime/Memory registry 定义，支持 registry 声明的 live scope override；实际生效快照由 Configuration Service 读取。
+这些 typed settings 由 Runtime/Memory registry 定义，支持 registry 声明的 scope override 与 apply mode；实际生效快照由 Configuration Service 读取。
 
 | Setting | 默认值 | 单位/含义 |
 | --- | --- | --- |
@@ -101,10 +99,12 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `consolidation.max_actions` | 8 | 一个原子整合 proposal 的 action 数 |
 | `consolidation.context` | longitudinal-v1 | Developer：query cue/candidate text 字符预算、candidate/support/provenance/entity 数上限；运行开始解析一次 |
 
-`GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`poll_interval`、`worker_lease_seconds` 和新增的 retention/retry/tick budget 设置均由 `cognitive-runtime` owner 注册，使用 Developer exposure、SystemOnly scope、Live apply mode 和 Operational semantic effect。其他以上设置允许 Subject override。retry 延迟为 `min(retry_max_seconds, retry_initial_seconds × 2^(连续失败次数−1))`。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
+`GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`maintenance.poll_interval_seconds`、`maintenance.worker_lease_seconds`、experience batch、member text、retention/retry/tick budget 设置均由 `cognitive-runtime` owner 注册，使用 Developer exposure、SystemOnly scope、Live apply mode 和 Operational semantic effect。其他以上设置允许 Subject override。retry 延迟为 `min(retry_max_seconds, retry_initial_seconds × 2^(连续失败次数−1))`。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
 
 `material.inputs` 是 Developer 运行输入预算：`formation_source_max_bytes` 默认 32768，`derivation_source_max_bytes` 默认 1048576。超界 source 必须选择 bounded representation/region；预算不允许截断完整来源后仍声明完整支持。Memory formation workflow 保存首次采用的 source budget，retry 使用该快照。
 
 `retrieval.query.default_result_limit` 默认 12，作用于未声明 result limit 的公开 Query。`core_execution.public_rpc_response_max_bytes` 默认 4194304；公开 RPC request 预算使用 `http_body_limit_bytes`。
 
 `video.frame_end_margin_seconds` 默认 0.1；frame sampling 将最后一个采样点留在该 configured end margin 之前。
+
+[返回 Reference](README.md)
