@@ -104,6 +104,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
     ) -> std::result::Result<Response<k::FoundWorkflow>, Status> {
         let input = request.into_inner();
         let result:Result<_>=async {
+            private_workflow_owner(&input.owner)?;
             let row=sqlx::query("SELECT semantic_digest,snapshot,proposal,outcome FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(id(&input.subject_id)?).bind(&input.owner).bind(&input.operation_key).fetch_optional(self.0.store.pool()).await.map_err(db)?;
             let Some(row)=row else{return Ok(k::FoundWorkflow{found:false,snapshot_json:None,proposal_json:None,outcome_json:None});};
             if row.try_get::<String,_>("semantic_digest").map_err(db)?!=input.semantic_digest{return Err(Error::Conflict("model operation identity has different semantic input".into()));}
@@ -137,7 +138,30 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                     return Err(Error::Unavailable("Memory owner unavailable".into()));
                 }
             }
+            private_workflow_owner(&input.owner)?;
             let mut snapshot = workflow_json(&input.snapshot_json)?;
+            if let Some(need_id) = &input.maintenance_need_id {
+                if input.owner != "memory" {
+                    return Err(Error::Invalid(
+                        "maintenance workflow route requires Memory".into(),
+                    ));
+                }
+                let token = required(
+                    input.maintenance_lease_token.clone(),
+                    "maintenance_lease_token",
+                )?;
+                snapshot
+                    .as_object_mut()
+                    .ok_or_else(|| Error::Invalid("workflow snapshot must be an object".into()))?
+                    .insert(
+                        "maintenance_claim".into(),
+                        serde_json::json!({"need_id":need_id,"lease_token":token}),
+                    );
+            } else if snapshot.get("maintenance_claim").is_some() {
+                return Err(Error::Invalid(
+                    "maintenance binding requires typed claim".into(),
+                ));
+            }
             if input.owner == "memory" {
                 let object = snapshot
                     .as_object_mut()
@@ -175,6 +199,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
     ) -> std::result::Result<Response<()>, Status> {
         let input = request.into_inner();
         let result: Result<_> = async {
+            private_workflow_owner(&input.owner)?;
             let proposal = input
                 .proposal_json
                 .as_deref()
@@ -205,6 +230,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
         request: Request<k::ReleaseWorkflowRequest>,
     ) -> std::result::Result<Response<()>, Status> {
         let input = request.into_inner();
+        private_workflow_owner(&input.owner).map_err(status)?;
         self.0
             .store
             .release_model_workflow(
@@ -258,7 +284,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                     payload_json: input.structured_payload.map(|value| object(Some(value))),
                     payload_artifact_id: None,
                     quality: object(input.quality),
-                    created_at: chrono::Utc::now(),
+                    created_at: self.0.cognition.now(subject),
                     supersedes: input
                         .supersedes
                         .as_deref()
@@ -338,4 +364,15 @@ fn workflow_json(value: &str) -> Result<serde_json::Value> {
         return Err(Error::Invalid("workflow value exceeds bound".into()));
     }
     serde_json::from_str(value).map_err(|_| Error::Invalid("workflow JSON is invalid".into()))
+}
+
+fn private_workflow_owner(owner: &str) -> Result<()> {
+    nous_persistence::WorkflowOwner::new(owner)?;
+    if ["memory", "material"].contains(&owner) {
+        Ok(())
+    } else {
+        Err(Error::Invalid(
+            "workflow owner has no private execution route".into(),
+        ))
+    }
 }

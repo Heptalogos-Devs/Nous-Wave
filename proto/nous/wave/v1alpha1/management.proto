@@ -24,12 +24,13 @@ message RebindEntityRequest { string subject_id = 1; string mention_id = 2; opti
 message SchemaScope { string description = 1; repeated string aboutness = 2; repeated string tags = 3; TemporalExtent valid_time = 4; }
 message SchemaEvidenceLink { string link_id = 1; string role = 2; RevisionSupport support = 3; }
 message CognitiveSchema { string schema_id = 1; string subject_id = 2; string current_revision_id = 3; int64 object_epoch = 4; string acceptance_state = 5; string integrity_state = 6; string suppression_state = 7; string purge_state = 8; string title = 9; string structural_claim = 10; SchemaScope applicability_scope = 11; string boundary_definition = 12; repeated SchemaEvidenceLink evidence_links = 13; google.protobuf.Timestamp formed_at = 14; google.protobuf.Timestamp recorded_at = 15; string formation_kind = 16; optional string producer_signature_id = 17; }
-message CreateCognitiveSchemaRequest { string operation_id = 1; string subject_id = 2; CognitiveSchema schema = 3; repeated SchemaEvidenceLink evidence_links = 4; }
+message CognitiveSchemaContent { string title = 1; string structural_claim = 2; SchemaScope applicability_scope = 3; string boundary_definition = 4; string formation_kind = 5; repeated SchemaEvidenceLink evidence_links = 6; }
+message CreateCognitiveSchemaRequest { string operation_id = 1; string subject_id = 2; CognitiveSchemaContent schema = 3; repeated SchemaEvidenceLink evidence_links = 4; }
 message GetCognitiveSchemaRequest { string subject_id = 1; string schema_id = 2; }
 message AddSchemaEvidenceRequest { string operation_id = 1; string subject_id = 2; string schema_id = 3; int64 expected_object_epoch = 4; SchemaEvidenceLink link = 5; }
-message ReviseCognitiveSchemaRequest { string operation_id = 1; string subject_id = 2; string schema_id = 3; int64 expected_object_epoch = 4; string intent = 5; CognitiveSchema schema = 6; repeated string copy_link_ids = 7; }
-message SplitCognitiveSchemaRequest { string operation_id = 1; string subject_id = 2; string schema_id = 3; int64 expected_object_epoch = 4; repeated CognitiveSchema children = 5; }
-message MergeCognitiveSchemasRequest { string operation_id = 1; string subject_id = 2; repeated string schema_ids = 3; repeated int64 expected_object_epochs = 4; CognitiveSchema merged = 5; }
+message ReviseCognitiveSchemaRequest { string operation_id = 1; string subject_id = 2; string schema_id = 3; int64 expected_object_epoch = 4; string intent = 5; CognitiveSchemaContent schema = 6; repeated string copy_link_ids = 7; }
+message SplitCognitiveSchemaRequest { string operation_id = 1; string subject_id = 2; string schema_id = 3; int64 expected_object_epoch = 4; repeated CognitiveSchemaContent children = 5; }
+message MergeCognitiveSchemasRequest { string operation_id = 1; string subject_id = 2; repeated string schema_ids = 3; repeated int64 expected_object_epochs = 4; CognitiveSchemaContent merged = 5; }
 message SplitCognitiveSchemaResponse { repeated CognitiveSchema children = 1; }
 
 message TopologyTagChange { optional string existing_tag_id = 1; Tag tag = 2; repeated string attach_to_revision_ids = 3; }

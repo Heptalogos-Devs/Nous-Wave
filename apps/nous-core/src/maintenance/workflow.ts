@@ -44,6 +44,7 @@ const snapshotSchema = z.strictObject({
   plan: z.unknown(),
   model: z.unknown(),
   cognitive_formed_at: z.string(),
+  maintenance_claim: z.unknown().optional(),
 });
 const proposalSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("partition"), request: z.unknown() }),
@@ -115,9 +116,12 @@ export async function runModelMaintenance(
       options,
     );
     if (plan.status === "obsolete") return { status: "obsolete" as const };
-    if (plan.status === "deferred")
+    if (plan.status === "blocked" || plan.status === "deferred")
       return {
-        status: "blocked_dependency" as const,
+        status:
+          plan.status === "blocked"
+            ? ("blocked_dependency" as const)
+            : ("deferred" as const),
         problemCode: plan.problemCode ?? "source_not_settled",
         nextDue: plan.nextDue,
       };
@@ -135,13 +139,18 @@ export async function runModelMaintenance(
     });
   }
   const reservation = await kernel.modelMaterial.reserveWorkflow(
-    { ...identity, snapshotJson },
+    {
+      ...identity,
+      snapshotJson,
+      maintenanceNeedId: need.needId,
+      maintenanceLeaseToken: need.leaseToken,
+    },
     options,
   );
   if (reservation.outcomeJson) return readOutcome(reservation.outcomeJson);
   if (reservation.busy || !reservation.leaseToken)
     return {
-      status: "blocked_dependency" as const,
+      status: "retry" as const,
       problemCode: "workflow_busy",
     };
   const lease = {
@@ -426,8 +435,6 @@ export async function runModelMaintenance(
     }
     throw error;
   } finally {
-    await kernel.modelMaterial
-      .releaseWorkflow(lease, { timeoutMs: 5000 })
-      .catch(() => {});
+    await kernel.modelMaterial.releaseWorkflow(lease, { timeoutMs: 5000 });
   }
 }

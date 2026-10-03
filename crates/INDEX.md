@@ -7,7 +7,7 @@
 | `persistence` | PostgreSQL pool, transactions, fresh schema, receipts and projection watermarks | `crates/persistence/src/lib.rs` | sqlx, core | Changing durable persistence mechanics |
 | `object-store` | Immutable blob/object storage mechanism | `crates/object-store/src/lib.rs` | OpenDAL | Changing artifact storage |
 | `configuration` | Typed registry, snapshots, overrides and configuration receipts | `crates/configuration/src/lib.rs` | persistence, core | Changing configuration resolution |
-| `subject` | Subject identity, capability and Cognitive Seed adoption | `crates/subject/src/lib.rs` | persistence, configuration, object-store | Changing Subject lifecycle or seed source |
+| `subject` | Subject identity, capability and Cognitive Seed adoption | `crates/subject/src/lib.rs` | persistence, configuration, runtime, object-store | Changing Subject lifecycle or seed source |
 | `material` | Artifact/Observation/DerivedRepresentation semantics and operations | `crates/material/src/lib.rs` | persistence, runtime, object-store | Changing evidence admission or materialization |
 | `memory` | Memory, CognitiveSchema, Episode, Tag, AssociationEvidence and Authority/query operations | `crates/memory/src/lib.rs` | persistence, runtime | Changing cognitive Authority, Episode or Memory query |
 | `runtime` | Session, ResidentSet, WorkContext, UseEvent, QueryPlan, lane contract and fixed fusion | `crates/runtime/src/lib.rs` | persistence, configuration, core | Changing Runtime or query semantics |

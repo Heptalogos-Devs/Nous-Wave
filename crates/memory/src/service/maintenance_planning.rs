@@ -1,6 +1,8 @@
 use super::*;
 use std::collections::BTreeSet;
 
+const MAX_REPAIR_MEMBERS: usize = 2048;
+
 #[derive(Debug)]
 pub struct MaintenanceScope {
     pub status: String,
@@ -86,7 +88,6 @@ impl MemoryService {
         scope: &str,
         trigger: i64,
     ) -> Result<MaintenanceScope> {
-        let now = self.cognition.now(subject);
         let config = self.configuration.snapshot_for_subject(subject)?;
         let max_neighbors = config.get(nous_runtime::EPISODE_MAX_NEIGHBORS)? as i64;
         let neighbor_span =
@@ -125,14 +126,15 @@ impl MemoryService {
         let Some(anchor) = anchor else {
             return Ok(MaintenanceScope::empty("obsolete"));
         };
-        if late.is_some() && anchor < now - neighbor_span {
-            let mut result = MaintenanceScope::empty("deferred");
-            result.problem = Some("historical_repair_required".into());
-            result.next_due = Some(now + chrono::Duration::days(1));
+        // The local partition contains overlapping Episodes and the immediate
+        // neighbors on either side. Age relative to today's clock is irrelevant.
+        let ids: Vec<Uuid> = sqlx::query_scalar("WITH eligible AS (SELECT o.current_revision_id AS id,r.experience_time_start AS start_at,COALESCE(r.experience_time_end,r.experience_time_start) AS end_at FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.track_key=$2 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' AND r.parent_episode_revision_id IS NOT DISTINCT FROM $3::uuid), neighborhood AS (SELECT id FROM eligible WHERE start_at<=$4 AND end_at>=$4 UNION SELECT id FROM (SELECT id FROM eligible WHERE end_at<$4 ORDER BY end_at DESC,id LIMIT 1) preceding UNION SELECT id FROM (SELECT id FROM eligible WHERE start_at>$4 ORDER BY start_at,id LIMIT 1) following) SELECT id FROM neighborhood LIMIT $5")
+            .bind(subject.0).bind(&track).bind(parent).bind(anchor).bind(max_neighbors+1).fetch_all(self.store.pool()).await.map_err(db)?;
+        if ids.len() as i64 > max_neighbors {
+            let mut result = MaintenanceScope::empty("blocked");
+            result.problem = Some("historical_repair_scope_exceeded".into());
             return Ok(result);
         }
-        let ids: Vec<Uuid> = sqlx::query_scalar("SELECT o.current_revision_id FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.track_key=$2 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' AND r.parent_episode_revision_id IS NOT DISTINCT FROM $6::uuid AND r.experience_time_start BETWEEN $3 AND $4 ORDER BY ABS(EXTRACT(EPOCH FROM r.experience_time_start-$7::timestamptz)),o.episode_id LIMIT $5")
-            .bind(subject.0).bind(&track).bind(anchor-neighbor_span/2).bind(anchor+neighbor_span/2).bind(max_neighbors).bind(parent).bind(anchor).fetch_all(self.store.pool()).await.map_err(db)?;
         let mut result = MaintenanceScope::empty("ready");
         for id in ids {
             result.episodes.push(
@@ -155,20 +157,29 @@ impl MemoryService {
                 .episodes
                 .last()
                 .and_then(|episode| extent_end(&episode.revision.experience_time)),
-        ) && last - first > neighbor_span
+        ) && last.max(anchor) - first.min(anchor) > neighbor_span
         {
-            result.status = "deferred".into();
-            result.problem = Some("episode_neighborhood_span_exceeded".into());
-            result.next_due = Some(now + neighbor_span);
+            result.status = "blocked".into();
+            result.problem = Some("historical_repair_scope_exceeded".into());
+            return Ok(result);
+        }
+        let member_count: usize = result
+            .episodes
+            .iter()
+            .map(|episode| episode.members.len())
+            .sum::<usize>()
+            + usize::from(late.is_some());
+        if member_count > MAX_REPAIR_MEMBERS {
+            result.status = "blocked".into();
+            result.problem = Some("historical_repair_scope_exceeded".into());
             return Ok(result);
         }
         result.occurrences = self
             .ordered_scope_occurrences(subject, &result.episodes, late)
             .await?;
         if result.episodes.is_empty() {
-            result.status = "deferred".into();
+            result.status = "blocked".into();
             result.problem = Some("episode_neighborhood_unavailable".into());
-            result.next_due = Some(now + chrono::Duration::hours(1));
         }
         Ok(result)
     }
@@ -221,9 +232,8 @@ impl MemoryService {
                 .bind(subject.0).bind(scope).bind(max_count).fetch_all(self.store.pool()).await.map_err(db)?
         };
         if ids.len() as i64 > max_count {
-            result.status = "deferred".into();
+            result.status = "blocked".into();
             result.problem = Some("journal_scope_bound_exceeded".into());
-            result.next_due = Some(now + delay);
             return Ok(result);
         }
         for id in ids {
@@ -244,13 +254,9 @@ impl MemoryService {
                 extent_end(&episode.revision.experience_time),
             ) && end - start > span
             {
-                result.problem = Some("journal_source_span_exceeded".into());
-                result.next_due = Some(now + delay);
-                if result.journal.is_some() {
-                    result.status = "deferred".into();
-                    return Ok(result);
-                }
-                break;
+                result.status = "blocked".into();
+                result.problem = Some("journal_scope_span_exceeded".into());
+                return Ok(result);
             }
             if let Some(first) = result.episodes.first()
                 && let (Some(start), Some(end)) = (
@@ -260,9 +266,8 @@ impl MemoryService {
                 && end - start > span
             {
                 if result.journal.is_some() {
-                    result.status = "deferred".into();
+                    result.status = "blocked".into();
                     result.problem = Some("journal_scope_span_exceeded".into());
-                    result.next_due = Some(now + delay);
                     return Ok(result);
                 }
                 break;
@@ -310,7 +315,7 @@ impl MemoryService {
             ));
         }
         let ids: Vec<Uuid> = occurrences.into_iter().collect();
-        let ordered: Vec<Uuid>=sqlx::query_scalar("SELECT occurrence_id FROM experience_items WHERE subject_id=$1 AND occurrence_id=ANY($2::uuid[]) ORDER BY recorded_seq")
+        let ordered: Vec<Uuid>=sqlx::query_scalar("SELECT occurrence_id FROM experience_items WHERE subject_id=$1 AND occurrence_id=ANY($2::uuid[]) ORDER BY observed_at,recorded_seq")
             .bind(subject.0).bind(&ids).fetch_all(self.store.pool()).await.map_err(db)?;
         if ordered.len() != ids.len() {
             return Err(Error::Invalid(

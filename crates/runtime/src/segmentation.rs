@@ -80,7 +80,7 @@ impl CognitiveRuntimeService {
                         .await?;
                 }
             } else {
-                let prior_end: Option<DateTime<Utc>> = sqlx::query_scalar("SELECT max(observed_end) FROM episode_drafts WHERE subject_id=$1 AND track_key=$2 AND state IN ('ready','committed')")
+                let prior_end: Option<DateTime<Utc>> = sqlx::query_scalar("SELECT max(end_at) FROM (SELECT observed_end AS end_at FROM episode_drafts WHERE subject_id=$1 AND track_key=$2 AND state='ready' UNION ALL SELECT COALESCE(r.experience_time_end,r.experience_time_start) FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.track_key=$2 AND o.acceptance_state='accepted') prior")
                     .bind(subject.0).bind(track).fetch_one(&mut *tx).await.map_err(db)?;
                 late = prior_end.is_some_and(|end| at <= end);
             }
@@ -160,20 +160,26 @@ impl CognitiveRuntimeService {
         revision: EpisodeRevisionId,
     ) -> Result<()> {
         let mut tx = self.store.begin().await?;
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM episode_revisions WHERE subject_id=$1 AND episode_revision_id=$2)")
-            .bind(subject.0).bind(revision.0).fetch_one(&mut *tx).await.map_err(db)?;
+        let operation = Uuid::new_v5(
+            &Uuid::NAMESPACE_OID,
+            format!("episode-draft:{draft}").as_bytes(),
+        );
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM mutation_receipts WHERE subject_id=$1 AND operation_id=$3 AND operation_kind='create_episode' AND state='committed' AND result_revision=$2)")
+            .bind(subject.0).bind(revision.0).bind(operation).fetch_one(&mut *tx).await.map_err(db)?;
         if !exists {
             return Err(Error::FailedPrecondition(
                 "committed Episode revision is foreign or missing".into(),
             ));
         }
-        let changed = sqlx::query("UPDATE episode_drafts SET state='committed',committed_episode_revision_id=$3,updated_at=$4 WHERE subject_id=$1 AND draft_id=$2 AND (state='ready' OR (state='committed' AND committed_episode_revision_id=$3))")
-            .bind(subject.0).bind(draft).bind(revision.0).bind(self.now(subject)).execute(&mut *tx).await.map_err(db)?;
-        if changed.rows_affected() == 0 {
-            return Err(Error::Conflict(
-                "draft is not ready or binds another Episode".into(),
-            ));
-        }
+        let _changed = sqlx::query(
+            "DELETE FROM episode_drafts WHERE subject_id=$1 AND draft_id=$2 AND state='ready'",
+        )
+        .bind(subject.0)
+        .bind(draft)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+
         tx.commit().await.map_err(db)
     }
 }
@@ -204,7 +210,7 @@ async fn ready_drafts(
     subject: SubjectId,
     track: &str,
 ) -> Result<Vec<EpisodeDraft>> {
-    let rows = sqlx::query("SELECT d.*,array_agg(m.occurrence_id ORDER BY m.recorded_seq) AS members FROM episode_drafts d JOIN episode_draft_members m USING(draft_id) WHERE d.subject_id=$1 AND d.track_key=$2 AND d.state='ready' GROUP BY d.draft_id ORDER BY d.first_recorded_seq LIMIT 128")
+    let rows = sqlx::query("SELECT d.*,array_agg(m.occurrence_id ORDER BY e.observed_at,m.recorded_seq) AS members FROM episode_drafts d JOIN episode_draft_members m USING(draft_id) JOIN experience_items e ON e.subject_id=d.subject_id AND e.recorded_seq=m.recorded_seq WHERE d.subject_id=$1 AND d.track_key=$2 AND d.state='ready' GROUP BY d.draft_id ORDER BY d.first_recorded_seq LIMIT 128")
         .bind(subject.0).bind(track).fetch_all(&mut **tx).await.map_err(db)?;
     rows.into_iter()
         .map(|row| {

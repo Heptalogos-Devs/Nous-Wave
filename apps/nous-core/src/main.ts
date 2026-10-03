@@ -70,7 +70,7 @@ async function main() {
     });
     const endpoint = await app.listen({ host: "127.0.0.1", port: config.port });
     await instance.publish(endpoint, token);
-    stopMaintenance = startMaintenanceLoop(kernel.client, models);
+    stopMaintenance = await startMaintenanceLoop(kernel.client, models);
     console.log(JSON.stringify({ endpoint, discovery: instance.path }));
     await new Promise<void>((stopped) => {
       process.once("SIGINT", stopped);

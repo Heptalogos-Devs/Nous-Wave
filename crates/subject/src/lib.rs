@@ -23,6 +23,7 @@ pub struct SubjectCoreService {
     pub store: AuthorityStore,
     pub objects: ObjectStore,
     pub configuration: ConfigurationService,
+    pub(crate) clock: std::sync::Arc<dyn nous_runtime::CognitiveClock>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +52,22 @@ impl SubjectCoreService {
         objects: ObjectStore,
         configuration: ConfigurationService,
     ) -> Self {
+        Self::with_clock(
+            store,
+            objects,
+            configuration,
+            std::sync::Arc::new(nous_runtime::SystemCognitiveClock),
+        )
+    }
+
+    pub fn with_clock(
+        store: AuthorityStore,
+        objects: ObjectStore,
+        configuration: ConfigurationService,
+        clock: std::sync::Arc<dyn nous_runtime::CognitiveClock>,
+    ) -> Self {
         Self {
+            clock,
             store,
             objects,
             configuration,
@@ -78,7 +94,7 @@ impl SubjectCoreService {
         let mut tx = self.store.begin().await?;
         sqlx::query("INSERT INTO subjects(subject_id,created_at,metadata) VALUES($1,$2,$3)")
             .bind(subject.0)
-            .bind(Utc::now())
+            .bind(self.clock.now(subject))
             .bind(input.metadata)
             .execute(&mut *tx)
             .await
@@ -97,6 +113,7 @@ impl SubjectCoreService {
             hash,
             SeedAdoptionKind::Initial,
             &nous_core::canonical_request_digest("subject.create", subject, &input.operation_id)?,
+            self.clock.now(subject),
         )
         .await?;
         tx.commit()

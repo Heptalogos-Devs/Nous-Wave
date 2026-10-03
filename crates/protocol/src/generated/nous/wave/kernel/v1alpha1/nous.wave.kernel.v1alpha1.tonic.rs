@@ -20,6 +20,7 @@ pub mod model_material_service_server {
             tonic::Response<super::DescriptionSegments>,
             tonic::Status,
         >;
+        ///
         async fn find_workflow(
             &self,
             request: tonic::Request<super::FindWorkflowRequest>,

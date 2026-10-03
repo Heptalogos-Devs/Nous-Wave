@@ -119,8 +119,17 @@ impl SubjectCoreService {
             &(&operation_id, &kind, &input),
         )?;
         let mut tx = self.store.begin().await?;
-        let adoption =
-            insert_seed(&mut tx, subject, operation_id, input, hash, kind, &digest).await?;
+        let adoption = insert_seed(
+            &mut tx,
+            subject,
+            operation_id,
+            input,
+            hash,
+            kind,
+            &digest,
+            self.clock.now(subject),
+        )
+        .await?;
         tx.commit().await.map_err(db)?;
         drop(guard);
         self.cognitive_seed(subject, adoption).await
@@ -190,6 +199,7 @@ pub(super) async fn insert_seed(
     hash: String,
     kind: SeedAdoptionKind,
     digest: &str,
+    now: DateTime<Utc>,
 ) -> Result<Uuid> {
     sqlx::query("SELECT subject_id FROM subjects WHERE subject_id=$1 FOR UPDATE")
         .bind(subject.0)
@@ -216,7 +226,7 @@ pub(super) async fn insert_seed(
         .bind(input.text.len() as i64)
         .bind("application/toml")
         .bind(format!("{}/{}", &hash[..2], hash))
-        .bind(Utc::now())
+        .bind(now)
         .fetch_one(&mut **tx)
         .await
         .map_err(db)?;
@@ -227,7 +237,7 @@ pub(super) async fn insert_seed(
         .bind(&input.format)
         .bind(input.provenance)
         .bind(&hash)
-        .bind(Utc::now())
+        .bind(now)
         .fetch_one(&mut **tx)
         .await
         .map_err(db)?;
@@ -239,7 +249,7 @@ pub(super) async fn insert_seed(
         .bind(kind.as_str())
         .bind(operation_id.0)
         .bind(digest)
-        .bind(Utc::now())
+        .bind(now)
         .execute(&mut **tx)
         .await
         .map_err(db)?;

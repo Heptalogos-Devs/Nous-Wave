@@ -516,7 +516,6 @@ pub struct CreateSchemaInput {
     pub structural_claim: String,
     pub applicability_scope: SchemaScope,
     pub boundary_definition: String,
-    pub formed_at: DateTime<Utc>,
     #[serde(default)]
     pub formation_kind: SchemaFormationKind,
     pub evidence_links: Vec<SchemaEvidenceLinkInput>,
@@ -539,7 +538,6 @@ pub struct ReviseSchemaInput {
     pub structural_claim: String,
     pub applicability_scope: SchemaScope,
     pub boundary_definition: String,
-    pub formed_at: DateTime<Utc>,
     pub copy_link_ids: Vec<SchemaEvidenceLinkId>,
 }
 

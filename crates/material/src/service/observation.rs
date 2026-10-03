@@ -352,7 +352,7 @@ impl MaterialService {
             .objects
             .put_chunks(chunks, self.max_upload_bytes)
             .await?;
-        let now = Utc::now();
+        let now = self.cognition.now(subject);
         if !self.store.subject_exists(subject).await? {
             drop(guard);
             return Err(Error::NotFound("subject not found".into()));

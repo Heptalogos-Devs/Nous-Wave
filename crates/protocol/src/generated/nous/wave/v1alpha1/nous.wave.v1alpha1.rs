@@ -1669,13 +1669,28 @@ pub struct CognitiveSchema {
     pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CognitiveSchemaContent {
+    #[prost(string, tag="1")]
+    pub title: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub structural_claim: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub applicability_scope: ::core::option::Option<SchemaScope>,
+    #[prost(string, tag="4")]
+    pub boundary_definition: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub formation_kind: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="6")]
+    pub evidence_links: ::prost::alloc::vec::Vec<SchemaEvidenceLink>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateCognitiveSchemaRequest {
     #[prost(string, tag="1")]
     pub operation_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub subject_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
-    pub schema: ::core::option::Option<CognitiveSchema>,
+    pub schema: ::core::option::Option<CognitiveSchemaContent>,
     #[prost(message, repeated, tag="4")]
     pub evidence_links: ::prost::alloc::vec::Vec<SchemaEvidenceLink>,
 }
@@ -1712,7 +1727,7 @@ pub struct ReviseCognitiveSchemaRequest {
     #[prost(string, tag="5")]
     pub intent: ::prost::alloc::string::String,
     #[prost(message, optional, tag="6")]
-    pub schema: ::core::option::Option<CognitiveSchema>,
+    pub schema: ::core::option::Option<CognitiveSchemaContent>,
     #[prost(string, repeated, tag="7")]
     pub copy_link_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
@@ -1727,7 +1742,7 @@ pub struct SplitCognitiveSchemaRequest {
     #[prost(int64, tag="4")]
     pub expected_object_epoch: i64,
     #[prost(message, repeated, tag="5")]
-    pub children: ::prost::alloc::vec::Vec<CognitiveSchema>,
+    pub children: ::prost::alloc::vec::Vec<CognitiveSchemaContent>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MergeCognitiveSchemasRequest {
@@ -1740,7 +1755,7 @@ pub struct MergeCognitiveSchemasRequest {
     #[prost(int64, repeated, tag="4")]
     pub expected_object_epochs: ::prost::alloc::vec::Vec<i64>,
     #[prost(message, optional, tag="5")]
-    pub merged: ::core::option::Option<CognitiveSchema>,
+    pub merged: ::core::option::Option<CognitiveSchemaContent>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SplitCognitiveSchemaResponse {
