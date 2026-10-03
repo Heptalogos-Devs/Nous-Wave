@@ -8,45 +8,40 @@ impl MemoryService {
         self.store.require_subject(input.subject).await?;
         let started = self.cognition.now(input.subject);
         let digest = operation_digest("journal_commit", input.subject, &input)?;
-        let mut tx = self.begin_mutation(input.subject).await?;
-        lock_operation(&mut tx, input.subject, input.operation_id).await?;
-        if let Some(receipt) = check_receipt(
-            &mut tx,
-            input.subject,
-            input.operation_id,
-            "journal_commit",
-            &digest,
-        )
-        .await?
+        let mut mutation = match self
+            .start_mutation(input.subject, input.operation_id, "journal_commit", &digest)
+            .await?
         {
-            if receipt.state != "committed" {
-                return Err(Error::Unavailable("Journal commit is in progress".into()));
+            MutationStart::Replay(receipt) => {
+                if receipt.state != "committed" {
+                    return Err(Error::Unavailable("Journal commit is in progress".into()));
+                }
+                let revision = JournalRevisionId(
+                    receipt
+                        .result_revision
+                        .ok_or_else(|| Error::NotFound("Journal result was purged".into()))?,
+                );
+                return self.journal_revision(input.subject, revision).await;
             }
-            let revision = JournalRevisionId(
-                receipt
-                    .result_revision
-                    .ok_or_else(|| Error::NotFound("Journal result was purged".into()))?,
-            );
-            tx.commit().await.map_err(db)?;
-            return self.journal_revision(input.subject, revision).await;
-        }
-        let source_extent = validate_sources_in(&mut tx, &input).await?;
+            MutationStart::Active(mutation) => mutation,
+        };
+        let source_extent = validate_sources_in(mutation.tx(), &input).await?;
         let watermark: i64 =
             sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1 FOR UPDATE")
                 .bind(input.subject.0)
-                .fetch_one(&mut *tx)
+                .fetch_one(&mut **mutation.tx())
                 .await
                 .map_err(db)?;
         if watermark != input.expected_authority_seq {
             return Err(Error::Conflict("Journal input snapshot is stale".into()));
         }
-        let (journal, parent, revision_no) = journal_target_in(&mut tx, &input).await?;
+        let (journal, parent, revision_no) = journal_target_in(mutation.tx(), &input).await?;
         let supports: Vec<_> = input
             .points
             .iter()
             .flat_map(|point| point.supports.clone())
             .collect();
-        self.validate_supports_in_tx(&mut tx, input.subject, &supports)
+        self.validate_supports_in_tx(mutation.tx(), input.subject, &supports)
             .await?;
         if let Some(target) = &input.target {
             self.validate_object_dependency_cycle(
@@ -57,7 +52,7 @@ impl MemoryService {
             .await?;
         }
         let formed = self
-            .formation_time_in(&mut tx, input.subject, input.operation_id, started)
+            .formation_time_in(mutation.tx(), input.subject, input.operation_id, started)
             .await?;
         let recorded = self.cognition.now(input.subject);
         let producer = if let Some(signature) = &input.producer {
@@ -66,31 +61,29 @@ impl MemoryService {
                     "Journal requires a synthesis producer".into(),
                 ));
             }
-            Some(AuthorityStore::register_producer_in(&mut tx, signature).await?)
+            Some(AuthorityStore::register_producer_in(mutation.tx(), signature).await?)
         } else {
             None
         };
         let revision = JournalRevisionId::new();
         if parent.is_none() {
             sqlx::query("INSERT INTO journal_objects(journal_id,subject_id,current_revision_id,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,'accepted','valid','normal','normal',$4)")
-                .bind(journal.0).bind(input.subject.0).bind(revision.0).bind(recorded).execute(&mut *tx).await.map_err(db)?;
+                .bind(journal.0).bind(input.subject.0).bind(revision.0).bind(recorded).execute(&mut **mutation.tx()).await.map_err(db)?;
         }
         let (kind, start, end) = temporal_columns(&source_extent);
         sqlx::query("INSERT INTO journal_revisions(journal_revision_id,journal_id,subject_id,revision_no,parent_revision_id,revision_intent,title,temporal_scope_kind,temporal_scope_start,temporal_scope_end,narrative,formed_at,recorded_at,producer_signature_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)")
-            .bind(revision.0).bind(journal.0).bind(input.subject.0).bind(revision_no).bind(parent.map(|id|id.0)).bind(input.target.as_ref().map(|target|&target.intent)).bind(&input.title).bind(kind).bind(start).bind(end).bind(&input.narrative).bind(formed).bind(recorded).bind(producer).execute(&mut *tx).await.map_err(db)?;
-        insert_journal_points(&mut tx, revision, &input.points).await?;
+            .bind(revision.0).bind(journal.0).bind(input.subject.0).bind(revision_no).bind(parent.map(|id|id.0)).bind(input.target.as_ref().map(|target|&target.intent)).bind(&input.title).bind(kind).bind(start).bind(end).bind(&input.narrative).bind(formed).bind(recorded).bind(producer).execute(&mut **mutation.tx()).await.map_err(db)?;
+        insert_journal_points(mutation.tx(), revision, &input.points).await?;
         for source in &input.sources {
             sqlx::query("INSERT INTO journal_revision_sources(journal_revision_id,ref_kind,ref_value,source_epoch) VALUES($1,'episode_revision',$2,$3)")
-                .bind(revision.0).bind(source.revision.0.to_string()).bind(source.expected_epoch).execute(&mut *tx).await.map_err(db)?;
+                .bind(revision.0).bind(source.revision.0.to_string()).bind(source.expected_epoch).execute(&mut **mutation.tx()).await.map_err(db)?;
         }
         sqlx::query("UPDATE journal_objects SET current_revision_id=$2,object_epoch=object_epoch+CASE WHEN $3 THEN 1 ELSE 0 END,integrity_state='valid' WHERE journal_id=$1")
-            .bind(journal.0).bind(revision.0).bind(parent.is_some()).execute(&mut *tx).await.map_err(db)?;
-        let sequence =
-            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::text())
-                .await?;
+            .bind(journal.0).bind(revision.0).bind(parent.is_some()).execute(&mut **mutation.tx()).await.map_err(db)?;
+        let sequence = mutation.invalidate(ProjectionInvalidation::text()).await?;
         if parent.is_some() {
             self.invalidate_object_dependents_in(
-                &mut tx,
+                mutation.tx(),
                 input.subject,
                 "journal",
                 &[journal.0],
@@ -99,27 +92,25 @@ impl MemoryService {
             )
             .await?;
         }
-        self.wake_journal_revalidation_in(&mut tx, input.subject, journal, sequence)
+        self.wake_journal_revalidation_in(mutation.tx(), input.subject, journal, sequence)
             .await?;
         self.schedule_journal_consolidation_in(
-            &mut tx,
+            mutation.tx(),
             input.subject,
             revision,
             sequence,
             recorded,
         )
         .await?;
-        commit_receipt(
-            &mut tx,
-            input.subject,
-            input.operation_id,
-            "journal",
-            Some(&journal.0.to_string()),
-            Some(revision.0),
-            None,
-        )
-        .await?;
-        tx.commit().await.map_err(db)?;
+
+        mutation
+            .commit(
+                "journal",
+                Some(&journal.0.to_string()),
+                Some(revision.0),
+                None,
+            )
+            .await?;
         self.journal(input.subject, journal, Some(revision)).await
     }
     async fn schedule_journal_consolidation_in(

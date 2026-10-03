@@ -97,29 +97,29 @@ impl MemoryService {
         self.store.require_subject(input.subject).await?;
         let started = self.cognition.now(input.subject);
         let digest = operation_digest("longitudinal_consolidation", input.subject, &input)?;
-        let mut tx = self.begin_mutation(input.subject).await?;
-        lock_operation(&mut tx, input.subject, input.operation_id).await?;
-        if let Some(receipt) = check_receipt(
-            &mut tx,
-            input.subject,
-            input.operation_id,
-            "longitudinal_consolidation",
-            &digest,
-        )
-        .await?
+        let mut mutation = match self
+            .start_mutation(
+                input.subject,
+                input.operation_id,
+                "longitudinal_consolidation",
+                &digest,
+            )
+            .await?
         {
-            if receipt.state != "committed" {
-                return Err(Error::Unavailable("Consolidation is in progress".into()));
+            MutationStart::Replay(receipt) => {
+                if receipt.state != "committed" {
+                    return Err(Error::Unavailable("Consolidation is in progress".into()));
+                }
+                let outcome = serde_json::from_str(&receipt.result_ref.ok_or_else(|| {
+                    Error::Infrastructure("Consolidation receipt has no result".into())
+                })?)
+                .map_err(|error| {
+                    Error::Infrastructure(format!("invalid consolidation receipt: {error}"))
+                })?;
+                return Ok(outcome);
             }
-            let outcome = serde_json::from_str(&receipt.result_ref.ok_or_else(|| {
-                Error::Infrastructure("Consolidation receipt has no result".into())
-            })?)
-            .map_err(|error| {
-                Error::Infrastructure(format!("invalid consolidation receipt: {error}"))
-            })?;
-            tx.commit().await.map_err(db)?;
-            return Ok(outcome);
-        }
+            MutationStart::Active(mutation) => mutation,
+        };
         let max_actions =
             self.configuration
                 .snapshot_for_subject(input.subject)?
@@ -129,12 +129,12 @@ impl MemoryService {
                 "Consolidation action count exceeds policy".into(),
             ));
         }
-        self.validate_consolidation_scope_in(&mut tx, &input)
+        self.validate_consolidation_scope_in(mutation.tx(), &input)
             .await?;
         let sequence: i64 =
             sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1 FOR UPDATE")
                 .bind(input.subject.0)
-                .fetch_one(&mut *tx)
+                .fetch_one(&mut **mutation.tx())
                 .await
                 .map_err(db)?;
         if sequence != input.expected_authority_seq {
@@ -142,28 +142,34 @@ impl MemoryService {
         }
         let allowed = self.consolidation_support_catalog(&input).await?;
         let formed = self
-            .formation_time_in(&mut tx, input.subject, input.operation_id, started)
+            .formation_time_in(mutation.tx(), input.subject, input.operation_id, started)
             .await?;
-        let producer = AuthorityStore::register_producer_in(&mut tx, &input.producer).await?;
+        let producer = AuthorityStore::register_producer_in(mutation.tx(), &input.producer).await?;
         let mut results = Vec::with_capacity(input.actions.len());
         let mut changed = false;
         for action in &input.actions {
             self.validate_consolidation_action(&input, action, &allowed)
                 .await?;
             let (result, mutation) = self
-                .apply_consolidation_action_in(&mut tx, &input, action, &results, formed, producer)
+                .apply_consolidation_action_in(
+                    mutation.tx(),
+                    &input,
+                    action,
+                    &results,
+                    formed,
+                    producer,
+                )
                 .await?;
             results.push(result);
             changed |= mutation;
         }
         let authority_seq = if changed {
-            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
-                .await?
+            mutation.invalidate(ProjectionInvalidation::all()).await?
         } else {
             sequence
         };
         if changed {
-            self.invalidate_consolidation_targets_in(&mut tx, &input, authority_seq)
+            self.invalidate_consolidation_targets_in(mutation.tx(), &input, authority_seq)
                 .await?;
         }
         let outcome = LongitudinalConsolidationOutcome {
@@ -173,17 +179,10 @@ impl MemoryService {
         };
         let json = serde_json::to_string(&outcome)
             .map_err(|error| Error::Infrastructure(error.to_string()))?;
-        commit_receipt(
-            &mut tx,
-            input.subject,
-            input.operation_id,
-            "longitudinal_consolidation",
-            Some(&json),
-            None,
-            None,
-        )
-        .await?;
-        tx.commit().await.map_err(db)?;
+
+        mutation
+            .commit("longitudinal_consolidation", Some(&json), None, None)
+            .await?;
         Ok(outcome)
     }
     async fn invalidate_consolidation_targets_in(

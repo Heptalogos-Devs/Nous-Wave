@@ -1,5 +1,5 @@
-//! Subject-scoped mutation receipt mechanics. Callers hold lock_operation in the same transaction.
-use crate::database_error as db;
+//! Subject-scoped mutation envelopes and receipt mechanics.
+use crate::{AuthorityStore, ProjectionInvalidation, database_error as db, lock_operation};
 use chrono::Utc;
 use nous_core::{Error, OperationId, Result, SubjectId};
 use sqlx::Row;
@@ -71,4 +71,136 @@ pub async fn commit_receipt(
         .await
         .map_err(db)?;
     Ok(())
+}
+
+/// The semantic owner chooses its Subject serialization boundary.
+#[derive(Clone, Copy)]
+pub struct OwnerLock(pub &'static str);
+
+pub enum MutationStart<'a> {
+    Replay(MutationReceipt),
+    Active(MutationEnvelope<'a>),
+}
+
+/// Transaction, identity, receipt and projection mechanics shared by semantic owners.
+pub struct MutationEnvelope<'a> {
+    tx: sqlx::Transaction<'a, sqlx::Postgres>,
+    subject: SubjectId,
+    operation: OperationId,
+    invalidation: ProjectionInvalidation,
+    sequence: Option<i64>,
+}
+
+impl<'a> MutationEnvelope<'a> {
+    pub async fn begin(
+        store: &'a AuthorityStore,
+        subject: SubjectId,
+        operation: OperationId,
+        kind: &str,
+        digest: &str,
+        owner: Option<OwnerLock>,
+    ) -> Result<MutationStart<'a>> {
+        Self::start(store, subject, operation, kind, digest, owner, false).await
+    }
+
+    /// Resume an intentional checkpoint while committed results still replay.
+    pub async fn resume(
+        store: &'a AuthorityStore,
+        subject: SubjectId,
+        operation: OperationId,
+        kind: &str,
+        digest: &str,
+        owner: Option<OwnerLock>,
+    ) -> Result<MutationStart<'a>> {
+        Self::start(store, subject, operation, kind, digest, owner, true).await
+    }
+
+    async fn start(
+        store: &'a AuthorityStore,
+        subject: SubjectId,
+        operation: OperationId,
+        kind: &str,
+        digest: &str,
+        owner: Option<OwnerLock>,
+        resume: bool,
+    ) -> Result<MutationStart<'a>> {
+        let mut tx = store.begin().await?;
+        if let Some(owner) = owner {
+            sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+                .bind(format!("{}:{}", owner.0, subject.0))
+                .execute(&mut *tx)
+                .await
+                .map_err(db)?;
+        }
+        lock_operation(&mut tx, subject, operation).await?;
+        if let Some(receipt) = check_receipt(&mut tx, subject, operation, kind, digest).await?
+            && (!resume || receipt.state == "committed")
+        {
+            tx.commit().await.map_err(db)?;
+            return Ok(MutationStart::Replay(receipt));
+        }
+        Ok(MutationStart::Active(Self {
+            tx,
+            subject,
+            operation,
+            invalidation: ProjectionInvalidation::default(),
+            sequence: None,
+        }))
+    }
+
+    pub fn tx(&mut self) -> &mut sqlx::Transaction<'a, sqlx::Postgres> {
+        &mut self.tx
+    }
+
+    /// Accumulate owner-selected families; allocate one Authority sequence for this transaction.
+    pub async fn invalidate(&mut self, changes: ProjectionInvalidation) -> Result<i64> {
+        self.invalidation.merge(changes);
+        if let Some(sequence) = self.sequence {
+            return Ok(sequence);
+        }
+        let sequence = sqlx::query_scalar("UPDATE subjects SET authority_seq=authority_seq+1 WHERE subject_id=$1 RETURNING authority_seq")
+            .bind(self.subject.0).fetch_one(&mut *self.tx).await.map_err(db)?;
+        self.sequence = Some(sequence);
+        Ok(sequence)
+    }
+
+    async fn apply_invalidation(&mut self) -> Result<()> {
+        if let Some(sequence) = self.sequence {
+            AuthorityStore::mark_projection_families_in(
+                &mut self.tx,
+                self.subject,
+                sequence,
+                std::mem::take(&mut self.invalidation),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn commit(
+        mut self,
+        result_kind: &str,
+        result_ref: Option<&str>,
+        result_revision: Option<Uuid>,
+        result_epoch: Option<i64>,
+    ) -> Result<()> {
+        self.apply_invalidation().await?;
+        commit_receipt(
+            &mut self.tx,
+            self.subject,
+            self.operation,
+            result_kind,
+            result_ref,
+            result_revision,
+            result_epoch,
+        )
+        .await?;
+        self.tx.commit().await.map_err(db)
+    }
+
+    /// Persist an intentional multi-phase operation without acknowledging completion.
+    pub async fn checkpoint(mut self) -> Result<()> {
+        self.apply_invalidation().await?;
+        self.tx.commit().await.map_err(db)
+    }
 }

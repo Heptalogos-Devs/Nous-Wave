@@ -34,35 +34,35 @@ impl MemoryService {
         validate_partition(&input)?;
         let started = self.cognition.now(input.subject);
         let digest = operation_digest("episode_partition", input.subject, &input)?;
-        let mut tx = self.begin_mutation(input.subject).await?;
-        lock_operation(&mut tx, input.subject, input.operation_id).await?;
-        if let Some(receipt) = check_receipt(
-            &mut tx,
-            input.subject,
-            input.operation_id,
-            "episode_partition",
-            &digest,
-        )
-        .await?
+        let mut mutation = match self
+            .start_mutation(
+                input.subject,
+                input.operation_id,
+                "episode_partition",
+                &digest,
+            )
+            .await?
         {
-            if receipt.state != "committed" {
-                return Err(Error::Unavailable(
-                    "Episode partition is in progress".into(),
-                ));
+            MutationStart::Replay(receipt) => {
+                if receipt.state != "committed" {
+                    return Err(Error::Unavailable(
+                        "Episode partition is in progress".into(),
+                    ));
+                }
+                let revisions: Vec<EpisodeRevisionId> =
+                    serde_json::from_str(&receipt.result_ref.ok_or_else(|| {
+                        Error::Infrastructure("partition receipt has no revisions".into())
+                    })?)
+                    .map_err(|error| Error::Infrastructure(error.to_string()))?;
+                return self.partition_views(input.subject, revisions).await;
             }
-            let revisions: Vec<EpisodeRevisionId> =
-                serde_json::from_str(&receipt.result_ref.ok_or_else(|| {
-                    Error::Infrastructure("partition receipt has no revisions".into())
-                })?)
-                .map_err(|error| Error::Infrastructure(error.to_string()))?;
-            tx.commit().await.map_err(db)?;
-            return self.partition_views(input.subject, revisions).await;
-        }
-        let sources = lock_sources(&mut tx, &input).await?;
+            MutationStart::Active(mutation) => mutation,
+        };
+        let sources = lock_sources(mutation.tx(), &input).await?;
         let watermark: i64 =
             sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1 FOR UPDATE")
                 .bind(input.subject.0)
-                .fetch_one(&mut *tx)
+                .fetch_one(&mut **mutation.tx())
                 .await
                 .map_err(db)?;
         if watermark != input.expected_authority_seq {
@@ -72,38 +72,31 @@ impl MemoryService {
         }
         let first = &sources[0];
         let track: String = first.try_get("track_key").map_err(db)?;
-        let occurrences = validate_partition_occurrences(&mut tx, &input).await?;
+        let occurrences = validate_partition_occurrences(mutation.tx(), &input).await?;
         let formed_at = self
-            .formation_time_in(&mut tx, input.subject, input.operation_id, started)
+            .formation_time_in(mutation.tx(), input.subject, input.operation_id, started)
             .await?;
         let recorded_at = self.cognition.now(input.subject);
         let one_to_one = input.sources.len() == 1 && input.segments.len() == 1;
-        if one_to_one && unchanged_partition(&mut tx, &input, first).await? {
+        if one_to_one && unchanged_partition(mutation.tx(), &input, first).await? {
             let outputs = vec![input.sources[0].revision];
             let result = serde_json::to_string(&outputs)
                 .map_err(|error| Error::Infrastructure(error.to_string()))?;
-            commit_receipt(
-                &mut tx,
-                input.subject,
-                input.operation_id,
-                "episode_partition",
-                Some(&result),
-                None,
-                None,
-            )
-            .await?;
-            tx.commit().await.map_err(db)?;
+
+            mutation
+                .commit("episode_partition", Some(&result), None, None)
+                .await?;
             return self.partition_views(input.subject, outputs).await;
         }
         if !one_to_one {
             let ids: Vec<Uuid> = sources.iter().map(|row| row.get("episode_id")).collect();
             sqlx::query("UPDATE episode_objects SET acceptance_state='withdrawn',object_epoch=object_epoch+1 WHERE subject_id=$1 AND episode_id=ANY($2::uuid[])")
-                .bind(input.subject.0).bind(&ids).execute(&mut *tx).await.map_err(db)?;
+                .bind(input.subject.0).bind(&ids).execute(&mut **mutation.tx()).await.map_err(db)?;
         }
-        let producer_id = partition_producer_in(&mut tx, input.producer.as_ref()).await?;
+        let producer_id = partition_producer_in(mutation.tx(), input.producer.as_ref()).await?;
         let outputs = self
             .write_partition_segments_in(
-                &mut tx,
+                mutation.tx(),
                 &input,
                 first,
                 &occurrences,
@@ -112,12 +105,10 @@ impl MemoryService {
                 producer_id,
             )
             .await?;
-        let sequence =
-            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::text())
-                .await?;
+        let sequence = mutation.invalidate(ProjectionInvalidation::text()).await?;
         let source_objects: Vec<Uuid> = sources.iter().map(|row| row.get("episode_id")).collect();
         self.invalidate_object_dependents_in(
-            &mut tx,
+            mutation.tx(),
             input.subject,
             "episode",
             &source_objects,
@@ -126,22 +117,22 @@ impl MemoryService {
         )
         .await?;
         for revision in &outputs {
-            self.schedule_episode_in(&mut tx, input.subject, *revision, &track, sequence, false)
-                .await?;
+            self.schedule_episode_in(
+                mutation.tx(),
+                input.subject,
+                *revision,
+                &track,
+                sequence,
+                false,
+            )
+            .await?;
         }
         let result = serde_json::to_string(&outputs)
             .map_err(|error| Error::Infrastructure(error.to_string()))?;
-        commit_receipt(
-            &mut tx,
-            input.subject,
-            input.operation_id,
-            "episode_partition",
-            Some(&result),
-            None,
-            None,
-        )
-        .await?;
-        tx.commit().await.map_err(db)?;
+
+        mutation
+            .commit("episode_partition", Some(&result), None, None)
+            .await?;
         self.partition_views(input.subject, outputs).await
     }
 
