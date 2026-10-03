@@ -1,0 +1,29 @@
+syntax = "proto3";
+package nous.wave.kernel.v1alpha1;
+import "nous/wave/kernel/v1alpha1/model.proto";
+import "nous/wave/kernel/v1alpha1/longitudinal.proto";
+import "nous/wave/kernel/v1alpha1/consolidation.proto";
+import "nous/wave/v1alpha1/types.proto";
+import "nous/wave/v1alpha1/journal.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+service KernelQueryService {
+  rpc GetCognitiveTime(nous.wave.v1alpha1.SubjectRequest) returns (google.protobuf.Timestamp);
+  rpc Query(KernelQueryRequest) returns (KernelQueryResponse);
+  rpc FinalizeQuery(FinalizeQueryRequest) returns (nous.wave.v1alpha1.QueryResponse);
+  rpc ReleaseQuery(ReleaseQueryRequest) returns (google.protobuf.Empty);
+}
+service KernelMaintenanceService {
+  rpc CommitLongitudinalConsolidation(CommitLongitudinalConsolidationRequest) returns (CommitLongitudinalConsolidationResponse);
+  rpc RefreshMaintenance(RefreshMaintenanceRequest) returns (google.protobuf.Empty);
+  rpc PlanMaintenance(PlanMaintenanceRequest) returns (MaintenancePlan);
+  rpc GetMaintenancePolicy(nous.wave.v1alpha1.SubjectRequest) returns (MaintenancePolicy);
+  rpc ClaimMaintenance(ClaimMaintenanceRequest) returns (ClaimMaintenanceResponse);
+  rpc FinishMaintenance(FinishMaintenanceRequest) returns (google.protobuf.Empty);
+  rpc OrganizeExperience(OrganizeExperienceRequest) returns (OrganizeExperienceResponse);
+  rpc ApplyEpisodePartition(ApplyEpisodePartitionRequest) returns (ApplyEpisodePartitionResponse);
+  rpc CommitJournal(CommitJournalRequest) returns (nous.wave.v1alpha1.JournalResponse);
+}
+service KernelProjectionService {
+  rpc BuildContributionBatch(nous.wave.v1alpha1.ProjectionRequest) returns (nous.wave.v1alpha1.Projection);
+}

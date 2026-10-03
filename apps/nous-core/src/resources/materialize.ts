@@ -46,7 +46,7 @@ export async function materializeResource(
       },
     }),
   };
-  const reservation = await kernel.modelMaterial.reserveWorkflow(
+  const reservation = await kernel.modelWorkflow.reserveWorkflow(
     { ...identity, snapshotJson: JSON.stringify({ reference }) },
     options,
   );
@@ -67,7 +67,7 @@ export async function materializeResource(
     leaseToken: reservation.leaseToken,
   };
   try {
-    const descriptor = await kernel.authority.getResource(
+    const descriptor = await kernel.resourceRegistry.getResource(
       { subjectId: request.subjectId, id: reference.resourceRef },
       options,
     );
@@ -100,12 +100,12 @@ export async function materializeResource(
         options.signal ?? undefined,
       );
       proposal = { content: material.content, mediaType: material.mediaType };
-      await kernel.modelMaterial.saveWorkflow(
+      await kernel.modelWorkflow.saveWorkflow(
         { ...lease, proposalJson: JSON.stringify(proposal) },
         options,
       );
     }
-    const observation = await kernel.authority.recordObservation(
+    const observation = await kernel.runtime.recordObservation(
       create(ObservationInputSchema, {
         subjectId: request.subjectId,
         requestId: request.operationId,
@@ -128,7 +128,7 @@ export async function materializeResource(
       content: proposal.content,
       mediaType: proposal.mediaType,
     });
-    await kernel.modelMaterial.saveWorkflow(
+    await kernel.modelWorkflow.saveWorkflow(
       {
         ...lease,
         outcomeJson: JSON.stringify(
@@ -147,7 +147,7 @@ export async function materializeResource(
       );
     throw error;
   } finally {
-    await kernel.modelMaterial
+    await kernel.modelWorkflow
       .releaseWorkflow(lease, {
         timeoutMs: kernel.execution.workflow_ack_timeout_ms,
       })

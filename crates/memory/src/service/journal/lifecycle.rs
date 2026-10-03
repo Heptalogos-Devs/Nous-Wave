@@ -21,28 +21,29 @@ impl MemoryService {
             subject,
             &serde_json::json!({"journal":journal,"epoch":expected_epoch,"action":action}),
         )?;
-        let mut tx = self.begin_mutation(subject).await?;
-        lock_operation(&mut tx, subject, operation).await?;
-        if let Some(receipt) =
-            check_receipt(&mut tx, subject, operation, "journal_lifecycle", &digest).await?
+        let mut mutation = match self
+            .start_mutation(subject, operation, "journal_lifecycle", &digest)
+            .await?
         {
-            if receipt.state != "committed" {
-                return Err(Error::Unavailable(
-                    "Journal lifecycle is in progress".into(),
-                ));
+            MutationStart::Replay(receipt) => {
+                if receipt.state != "committed" {
+                    return Err(Error::Unavailable(
+                        "Journal lifecycle is in progress".into(),
+                    ));
+                }
+                return self
+                    .journal(
+                        subject,
+                        journal,
+                        receipt.result_revision.map(JournalRevisionId),
+                    )
+                    .await;
             }
-            tx.commit().await.map_err(db)?;
-            return self
-                .journal(
-                    subject,
-                    journal,
-                    receipt.result_revision.map(JournalRevisionId),
-                )
-                .await;
-        }
+            MutationStart::Active(mutation) => mutation,
+        };
         sqlx::query("SELECT subject_id FROM subjects WHERE subject_id=$1 FOR UPDATE")
             .bind(subject.0)
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut **mutation.tx())
             .await
             .map_err(db)?;
         let row = sqlx::query(
@@ -50,14 +51,13 @@ impl MemoryService {
         )
         .bind(subject.0)
         .bind(journal.0)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **mutation.tx())
         .await
         .map_err(db)?
         .ok_or_else(|| Error::NotFound("Journal not found".into()))?;
-        if row.get::<i64, _>("object_epoch") != expected_epoch {
-            return Err(Error::Conflict("Journal epoch is stale".into()));
-        }
-        if row.get::<String, _>(field) != from || row.get::<String, _>("purge_state") != "normal" {
+        fence_epoch(row.get("object_epoch"), expected_epoch)?;
+        require_transition(&row.get::<String, _>(field), from)?;
+        if row.get::<String, _>("purge_state") != "normal" {
             return Err(Error::FailedPrecondition(
                 "Journal lifecycle transition is invalid".into(),
             ));
@@ -71,15 +71,14 @@ impl MemoryService {
             .bind(subject.0)
             .bind(journal.0)
             .bind(to)
-            .execute(&mut *tx)
+            .execute(&mut **mutation.tx())
             .await
             .map_err(db)?;
-        let sequence =
-            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::text()).await?;
-        self.wake_journal_revalidation_in(&mut tx, subject, journal, sequence)
+        let sequence = mutation.invalidate(ProjectionInvalidation::text()).await?;
+        self.wake_journal_revalidation_in(mutation.tx(), subject, journal, sequence)
             .await?;
         self.invalidate_object_dependents_in(
-            &mut tx,
+            mutation.tx(),
             subject,
             "journal",
             &[journal.0],
@@ -88,17 +87,15 @@ impl MemoryService {
         )
         .await?;
         let revision: Uuid = row.get("current_revision_id");
-        commit_receipt(
-            &mut tx,
-            subject,
-            operation,
-            "journal",
-            Some(&journal.0.to_string()),
-            Some(revision),
-            None,
-        )
-        .await?;
-        tx.commit().await.map_err(db)?;
+
+        mutation
+            .commit(
+                "journal",
+                Some(&journal.0.to_string()),
+                Some(revision),
+                None,
+            )
+            .await?;
         self.journal(subject, journal, Some(JournalRevisionId(revision)))
             .await
     }
@@ -115,28 +112,28 @@ impl MemoryService {
             subject,
             &serde_json::json!({"journal":journal,"epoch":expected_epoch}),
         )?;
-        let mut tx = self.begin_mutation(subject).await?;
-        lock_operation(&mut tx, subject, operation).await?;
-        if let Some(receipt) =
-            check_receipt(&mut tx, subject, operation, "journal_purge", &digest).await?
+        let mut mutation = match self
+            .start_mutation(subject, operation, "journal_purge", &digest)
+            .await?
         {
-            if receipt.state != "committed" {
-                return Err(Error::Unavailable("Journal purge is in progress".into()));
+            MutationStart::Replay(receipt) => {
+                if receipt.state != "committed" {
+                    return Err(Error::Unavailable("Journal purge is in progress".into()));
+                }
+                return Ok(());
             }
-            tx.commit().await.map_err(db)?;
-            return Ok(());
-        }
+            MutationStart::Active(mutation) => mutation,
+        };
         let epoch:Option<i64>=sqlx::query_scalar("SELECT object_epoch FROM journal_objects WHERE subject_id=$1 AND journal_id=$2 FOR UPDATE")
-            .bind(subject.0).bind(journal.0).fetch_optional(&mut *tx).await.map_err(db)?;
+            .bind(subject.0).bind(journal.0).fetch_optional(&mut **mutation.tx()).await.map_err(db)?;
         if epoch != Some(expected_epoch) {
             return Err(Error::Conflict("Journal purge epoch is stale".into()));
         }
-        let sequence =
-            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::text()).await?;
-        self.wake_journal_revalidation_in(&mut tx, subject, journal, sequence)
+        let sequence = mutation.invalidate(ProjectionInvalidation::text()).await?;
+        self.wake_journal_revalidation_in(mutation.tx(), subject, journal, sequence)
             .await?;
         self.invalidate_object_dependents_in(
-            &mut tx,
+            mutation.tx(),
             subject,
             "journal",
             &[journal.0],
@@ -145,36 +142,29 @@ impl MemoryService {
         )
         .await?;
         let mut refs:Vec<String>=sqlx::query_scalar("SELECT journal_revision_id::text FROM journal_revisions WHERE subject_id=$1 AND journal_id=$2")
-            .bind(subject.0).bind(journal.0).fetch_all(&mut *tx).await.map_err(db)?;
+            .bind(subject.0).bind(journal.0).fetch_all(&mut **mutation.tx()).await.map_err(db)?;
         refs.push(journal.0.to_string());
-        self.purge_workflow_content_in(&mut tx, subject, &refs)
+        self.purge_workflow_content_in(mutation.tx(), subject, &refs)
             .await?;
         sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) SELECT e.subject_id,e.consumer_ref,e.event_id,e.request_digest,$3 FROM cognitive_use_events e JOIN journal_revisions r ON r.journal_revision_id::text=e.ref_value WHERE e.subject_id=$1 AND e.ref_kind='journal_revision' AND r.journal_id=$2 ON CONFLICT DO NOTHING")
-            .bind(subject.0).bind(journal.0).bind(self.cognition.now(subject)).execute(&mut *tx).await.map_err(db)?;
+            .bind(subject.0).bind(journal.0).bind(self.cognition.now(subject)).execute(&mut **mutation.tx()).await.map_err(db)?;
         sqlx::query("DELETE FROM cognitive_use_events e USING journal_revisions r WHERE e.subject_id=$1 AND e.ref_kind='journal_revision' AND e.ref_value=r.journal_revision_id::text AND r.journal_id=$2")
-            .bind(subject.0).bind(journal.0).execute(&mut *tx).await.map_err(db)?;
+            .bind(subject.0).bind(journal.0).execute(&mut **mutation.tx()).await.map_err(db)?;
         sqlx::query("DELETE FROM resident_refs rr USING journal_revisions r WHERE rr.ref_kind='journal_revision' AND rr.ref_value=r.journal_revision_id::text AND r.subject_id=$1 AND r.journal_id=$2")
-            .bind(subject.0).bind(journal.0).execute(&mut *tx).await.map_err(db)?;
+            .bind(subject.0).bind(journal.0).execute(&mut **mutation.tx()).await.map_err(db)?;
         sqlx::query("DELETE FROM work_context_refs wr USING journal_revisions r WHERE wr.ref_kind='journal_revision' AND wr.ref_value=r.journal_revision_id::text AND r.subject_id=$1 AND r.journal_id=$2")
-            .bind(subject.0).bind(journal.0).execute(&mut *tx).await.map_err(db)?;
+            .bind(subject.0).bind(journal.0).execute(&mut **mutation.tx()).await.map_err(db)?;
         sqlx::query("UPDATE model_workflow_operations SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE subject_id=$1 AND owner='memory' AND lower(operation_key) IN (SELECT operation_id::text FROM mutation_receipts WHERE subject_id=$1 AND result_kind='journal' AND result_ref=$2)")
-            .bind(subject.0).bind(journal.0.to_string()).execute(&mut *tx).await.map_err(db)?;
+            .bind(subject.0).bind(journal.0.to_string()).execute(&mut **mutation.tx()).await.map_err(db)?;
         sqlx::query("DELETE FROM journal_objects WHERE subject_id=$1 AND journal_id=$2")
             .bind(subject.0)
             .bind(journal.0)
-            .execute(&mut *tx)
+            .execute(&mut **mutation.tx())
             .await
             .map_err(db)?;
-        commit_receipt(
-            &mut tx,
-            subject,
-            operation,
-            "purged",
-            Some(&journal.0.to_string()),
-            None,
-            None,
-        )
-        .await?;
-        tx.commit().await.map_err(db)
+
+        mutation
+            .commit("purged", Some(&journal.0.to_string()), None, None)
+            .await
     }
 }

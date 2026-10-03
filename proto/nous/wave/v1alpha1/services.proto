@@ -6,14 +6,12 @@ import "nous/wave/v1alpha1/management.proto";
 import "nous/wave/v1alpha1/types.proto";
 
 service SubjectService { rpc CreateSubject(CreateSubjectRequest) returns (Subject); rpc GetSubject(SubjectRequest) returns (Subject); rpc ListSubjects(ListRequest) returns (ListSubjectsResponse); rpc GetCognitiveSeed(SubjectRequest) returns (CognitiveSeedVersion); rpc AdoptCognitiveSeed(AdoptCognitiveSeedRequest) returns (CognitiveSeedVersion); }
-service CognitionService {
-  rpc GrantMaintenance(MaintenanceGrantRequest) returns (MaintenanceGrantResponse);
+service RuntimeService {
   rpc OpenSession(SubjectRequest) returns (Session);
   rpc GetSession(ObjectRequest) returns (Session);
   rpc ListSessions(ListRequest) returns (ListSessionsResponse);
   rpc CloseSession(ObjectRequest) returns (Session);
   rpc RecordObservation(ObservationInput) returns (AcceptedObservation);
-  rpc Query(QueryRequest) returns (QueryResponse);
   rpc ReportUse(ReportUseRequest) returns (ReportUseResponse);
   rpc CreateWorkContext(CreateWorkContextRequest) returns (WorkContextResponse);
   rpc GetWorkContext(GetWorkContextRequest) returns (WorkContextResponse);
@@ -23,6 +21,10 @@ service CognitionService {
   rpc ResumeWorkContext(WorkContextMutationRequest) returns (WorkContextResponse);
   rpc EndWorkContext(WorkContextMutationRequest) returns (WorkContextResponse);
   rpc SetActiveWorkContext(SetActiveWorkContextRequest) returns (Session);
+}
+service CognitionService {
+  rpc GrantMaintenance(MaintenanceGrantRequest) returns (MaintenanceGrantResponse);
+  rpc Query(QueryRequest) returns (QueryResponse);
   rpc BuildProjection(ProjectionRequest) returns (Projection);
   rpc BuildManagedContext(ManagedContextRequest) returns (ManagedContextResponse);
 }

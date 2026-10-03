@@ -1,15 +1,26 @@
+import { KernelProjectionService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_pb.js";
+import { KernelMaintenanceService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_pb.js";
+import { KernelQueryService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_pb.js";
+import { SystemService } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
+import { ResourceRegistryService } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
+import { RuntimeService } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
+import { IdentityService } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
+import { TopologyService } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
+import { MemoryService } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
+import { SubjectService } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
+import { MaterialService } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import {
   coreExecutionSchema,
   type CoreExecutionPolicy,
 } from "./configuration-catalog.js";
 import { createClient, type Transport } from "@connectrpc/connect";
 import { createGrpcTransport } from "@connectrpc/connect-node";
-import {
-  AuthorityService,
-  ArtifactStreamService,
-} from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/kernel_pb.js";
+import { ArtifactStreamService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/kernel_pb.js";
 import { Health } from "@nous-wave/protocol/grpc/health/v1/health_pb.js";
-import { ModelMaterialService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/model_pb.js";
+import {
+  KernelModelWorkflowService,
+  KernelMaterialWorkflowService,
+} from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/model_pb.js";
 
 import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 
@@ -17,12 +28,24 @@ import { KernelConfigurationService } from "@nous-wave/protocol/nous/wave/kernel
 const MAX_WORKFLOW_RPC_BYTES = 8 * 1024 * 1024 + 65536;
 
 export class KernelClient {
+  readonly modelWorkflow;
+  readonly materialWorkflow;
   readonly hostRuntime;
+  readonly projection;
+  readonly maintenance;
+  readonly queryWorkflow;
+  readonly system;
+  readonly resourceRegistry;
+  readonly runtime;
   readonly configuration;
-  readonly authority;
+
+  readonly identity;
+  readonly topology;
+  readonly memory;
+  readonly subjects;
+  readonly material;
   readonly artifacts;
   readonly health;
-  readonly modelMaterial;
 
   constructor(
     transport: Transport,
@@ -30,12 +53,26 @@ export class KernelClient {
       undefined,
     ),
   ) {
+    this.runtime = createClient(RuntimeService, transport);
+    this.resourceRegistry = createClient(ResourceRegistryService, transport);
+    this.system = createClient(SystemService, transport);
+    this.queryWorkflow = createClient(KernelQueryService, transport);
+    this.maintenance = createClient(KernelMaintenanceService, transport);
+    this.projection = createClient(KernelProjectionService, transport);
+    this.modelWorkflow = createClient(KernelModelWorkflowService, transport);
+    this.materialWorkflow = createClient(
+      KernelMaterialWorkflowService,
+      transport,
+    );
     this.hostRuntime = createClient(KernelConfigurationService, transport);
     this.configuration = createClient(ConfigurationService, transport);
-    this.authority = createClient(AuthorityService, transport);
+    this.material = createClient(MaterialService, transport);
+    this.subjects = createClient(SubjectService, transport);
+    this.memory = createClient(MemoryService, transport);
+    this.topology = createClient(TopologyService, transport);
+    this.identity = createClient(IdentityService, transport);
     this.artifacts = createClient(ArtifactStreamService, transport);
     this.health = createClient(Health, transport);
-    this.modelMaterial = createClient(ModelMaterialService, transport);
   }
 
   static connect(

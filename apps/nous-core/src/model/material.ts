@@ -7,7 +7,7 @@ export class ModelMaterialPipeline {
     private readonly models: ModelRuntime,
   ) {}
   async prepare(subjectId: string, limit: number, options: CallOptions = {}) {
-    const needs = await this.kernel.modelMaterial.listEmbeddingNeeds(
+    const needs = await this.kernel.materialWorkflow.listEmbeddingNeeds(
       { subjectId, limit },
       options,
     );
@@ -29,7 +29,7 @@ export class ModelMaterialPipeline {
           options.signal ?? undefined,
         );
         for (const [index, need] of batch.entries()) {
-          await this.kernel.modelMaterial.commitEmbedding(
+          await this.kernel.materialWorkflow.commitEmbedding(
             {
               subjectId,
               reference: need.reference,

@@ -84,7 +84,7 @@ export async function grantMaintenance(
     ? AbortSignal.any([options.signal, AbortSignal.timeout(input.maxElapsedMs)])
     : AbortSignal.timeout(input.maxElapsedMs);
   const calls = { ...options, signal };
-  const policy = await kernel.authority.getMaintenancePolicy(
+  const policy = await kernel.maintenance.getMaintenancePolicy(
     { subjectId: input.subjectId },
     calls,
   );
@@ -98,7 +98,7 @@ export async function grantMaintenance(
     };
   const limit = Math.min(input.maxOperations, policy.maxOperations);
   for (let index = 0; index < limit && !signal.aborted; index++) {
-    const needs = await kernel.authority.claimMaintenance(
+    const needs = await kernel.maintenance.claimMaintenance(
       {
         subjectId: input.subjectId,
         allowedKinds: allowedKinds(models, input.maxModelCalls - modelCalls),
@@ -130,7 +130,7 @@ export async function grantMaintenance(
     let nextDue;
     try {
       if (need.kind === "episode_segment") {
-        const organized = await kernel.authority.organizeExperience(
+        const organized = await kernel.maintenance.organizeExperience(
           {
             subjectId: need.subjectId,
             limit: policy.experienceBatchSize,
@@ -188,7 +188,7 @@ export async function grantMaintenance(
       problemCode = "maintenance_retry_exhausted";
     }
     try {
-      await kernel.authority.finishMaintenance(
+      await kernel.maintenance.finishMaintenance(
         {
           claimed: need,
           disposition:
@@ -241,7 +241,7 @@ export class SubjectMaintenanceScheduler {
   ) {}
 
   async poll(signal: AbortSignal) {
-    const policy = await this.kernel.authority.getMaintenancePolicy(
+    const policy = await this.kernel.maintenance.getMaintenancePolicy(
       { subjectId: "" },
       { signal, timeoutMs: this.kernel.execution.maintenance_rpc_timeout_ms },
     );
@@ -261,7 +261,7 @@ export class SubjectMaintenanceScheduler {
           this.reachedEnd = false;
         }
         try {
-          const page = await this.kernel.authority.listSubjects(
+          const page = await this.kernel.subjects.listSubjects(
             { status: "active", page: { pageToken: this.pageToken } },
             {
               signal: tickSignal,
@@ -353,7 +353,7 @@ export async function startMaintenanceLoop(
   const scheduler = new SubjectMaintenanceScheduler(kernel, models);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let active: Promise<void> | undefined;
-  const initial = await kernel.authority.getMaintenancePolicy(
+  const initial = await kernel.maintenance.getMaintenancePolicy(
     { subjectId: "" },
     { timeoutMs: kernel.execution.maintenance_rpc_timeout_ms },
   );

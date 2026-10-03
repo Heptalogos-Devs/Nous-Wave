@@ -1,22 +1,12 @@
 use clap::Parser;
 use nous_core::{Error, Result};
-use nous_kernel::transport::KernelService;
-use nous_protocol::kernel::kernel_configuration_service_server::KernelConfigurationServiceServer;
-use nous_protocol::kernel::{
-    artifact_stream_service_server::ArtifactStreamServiceServer,
-    authority_service_server::AuthorityServiceServer,
-    model_material_service_server::ModelMaterialServiceServer,
-};
-use nous_protocol::public::configuration_service_server::ConfigurationServiceServer;
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio_stream::wrappers::TcpListenerStream;
-use tonic::{Request, Status};
 mod bootstrap;
 
 const BOOTSTRAP_CREDENTIAL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const MAX_BOOTSTRAP_CREDENTIAL_LINE_BYTES: u64 = 130;
-const WORKFLOW_PROTOCOL_ENVELOPE_BYTES: usize = 65536;
 
 #[derive(Parser)]
 struct Cli {
@@ -78,59 +68,8 @@ async fn run() -> Result<()> {
     let endpoint = listener
         .local_addr()
         .map_err(|e| Error::Infrastructure(e.to_string()))?;
-    let auth = move |request: Request<()>| -> std::result::Result<Request<()>, Status> {
-        let value = request
-            .metadata()
-            .get("authorization")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default();
-        let expected = format!("Bearer {token}");
-        if value.len() != expected.len()
-            || value
-                .bytes()
-                .zip(expected.bytes())
-                .fold(0u8, |a, (x, y)| a | (x ^ y))
-                != 0
-        {
-            return Err(Status::unauthenticated("invalid Kernel credential"));
-        }
-        Ok(request)
-    };
-    let service = KernelService(runtime.clone());
-    let (reporter, health) = tonic_health::server::health_reporter();
-    reporter
-        .set_serving::<AuthorityServiceServer<KernelService>>()
-        .await;
-    let server = tonic::transport::Server::builder()
-        .add_service(KernelConfigurationServiceServer::with_interceptor(
-            service.clone(),
-            auth.clone(),
-        ))
-        .add_service(ConfigurationServiceServer::with_interceptor(
-            service.clone(),
-            auth.clone(),
-        ))
-        .add_service(AuthorityServiceServer::with_interceptor(
-            service.clone(),
-            auth.clone(),
-        ))
-        .add_service(tonic::service::interceptor::InterceptedService::new(
-            ModelMaterialServiceServer::new(service.clone())
-                .max_decoding_message_size(
-                    nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES,
-                )
-                .max_encoding_message_size(
-                    nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES,
-                ),
-            auth.clone(),
-        ))
-        .add_service(ArtifactStreamServiceServer::with_interceptor(
-            service,
-            auth.clone(),
-        ))
-        .add_service(tonic::service::interceptor::InterceptedService::new(
-            health, auth,
-        ))
+    let server = nous_kernel::transport::router(runtime.clone(), token)
+        .await
         .serve_with_incoming(TcpListenerStream::new(listener));
     println!(
         "{}",

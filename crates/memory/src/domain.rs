@@ -624,9 +624,9 @@ mod tests {
     }
 
     #[test]
-    fn formation_mode_is_revision_level() {
+    fn grounded_formation_binds_its_declared_occurrence() {
         let occurrence = OccurrenceId::new();
-        let input = ExplicitMemoryInput {
+        let mut input = ExplicitMemoryInput {
             producer: None,
             operation_id: OperationId::new(),
             subject: SubjectId::new(),
@@ -644,6 +644,8 @@ mod tests {
             epistemic_class: EpistemicClass::Reported,
         };
         assert!(input.validate().is_ok());
+        input.grounding_occurrence_id = Some(OccurrenceId::new());
+        assert!(input.validate().is_err());
     }
 
     #[test]

@@ -17,6 +17,7 @@ import {
 import {
   SubjectService,
   CognitionService,
+  RuntimeService,
   MemoryService,
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
@@ -40,6 +41,7 @@ export function webSource(value: string) {
 }
 import {
   ResourceService,
+  ResourceRegistryService,
   TopologyService,
   SystemService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
@@ -112,10 +114,12 @@ export interface ConfigurationOverride {
 export function createNousClient(transport: Transport) {
   const subjects = createClient(SubjectService, transport);
   const cognition = createClient(CognitionService, transport);
+  const runtime = createClient(RuntimeService, transport);
   const memory = createClient(MemoryService, transport);
   const material = createClient(MaterialService, transport);
   const identity = createClient(IdentityService, transport);
   const resources = createClient(ResourceService, transport);
+  const registry = createClient(ResourceRegistryService, transport);
   const topology = createClient(TopologyService, transport);
   const system = createClient(SystemService, transport);
   const model = createClient(ModelService, transport);
@@ -187,10 +191,10 @@ export function createNousClient(transport: Transport) {
     },
     resources: {
       materialize: call(resources.materializeResource),
-      put: call(resources.putResource),
-      get: call(resources.getResource),
-      list: call(resources.listResources),
-      remove: call(resources.removeResource),
+      put: call(registry.putResource),
+      get: call(registry.getResource),
+      list: call(registry.listResources),
+      remove: call(registry.removeResource),
     },
     topology: {
       createTag: call(topology.createTag),
@@ -220,13 +224,13 @@ export function createNousClient(transport: Transport) {
       adoptSeed: call(subjects.adoptCognitiveSeed),
     },
     cognition: {
-      openSession: call(cognition.openSession),
-      getSession: call(cognition.getSession),
-      listSessions: call(cognition.listSessions),
-      closeSession: call(cognition.closeSession),
-      observe: call(cognition.recordObservation),
+      openSession: call(runtime.openSession),
+      getSession: call(runtime.getSession),
+      listSessions: call(runtime.listSessions),
+      closeSession: call(runtime.closeSession),
+      observe: call(runtime.recordObservation),
       query: call(cognition.query),
-      reportUse: call(cognition.reportUse),
+      reportUse: call(runtime.reportUse),
       grantMaintenance: call(cognition.grantMaintenance),
       recall: async (
         subjectId: string,
@@ -235,14 +239,14 @@ export function createNousClient(transport: Transport) {
       ) => {
         return call(cognition.query)({ subjectId, nousql }, options);
       },
-      createWorkContext: call(cognition.createWorkContext),
-      getWorkContext: call(cognition.getWorkContext),
-      listWorkContexts: call(cognition.listWorkContexts),
-      updateWorkContext: call(cognition.updateWorkContext),
-      pauseWorkContext: call(cognition.pauseWorkContext),
-      resumeWorkContext: call(cognition.resumeWorkContext),
-      endWorkContext: call(cognition.endWorkContext),
-      setActiveWorkContext: call(cognition.setActiveWorkContext),
+      createWorkContext: call(runtime.createWorkContext),
+      getWorkContext: call(runtime.getWorkContext),
+      listWorkContexts: call(runtime.listWorkContexts),
+      updateWorkContext: call(runtime.updateWorkContext),
+      pauseWorkContext: call(runtime.pauseWorkContext),
+      resumeWorkContext: call(runtime.resumeWorkContext),
+      endWorkContext: call(runtime.endWorkContext),
+      setActiveWorkContext: call(runtime.setActiveWorkContext),
       project: call(cognition.buildProjection),
       managedContext: call(cognition.buildManagedContext),
     },

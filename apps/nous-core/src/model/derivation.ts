@@ -43,11 +43,11 @@ export async function deriveMaterial(
     (request.target === "structured" && strategy === "description_only")
   )
     throw new Error("Derivation target conflicts with strategy");
-  const region = await kernel.authority.getSourceRegion(
+  const region = await kernel.material.getSourceRegion(
     { subjectId: request.subjectId, id: request.sourceRegionId },
     options,
   );
-  const artifact = await kernel.authority.getArtifact(
+  const artifact = await kernel.material.getArtifact(
     { subjectId: request.subjectId, id: region.artifactId },
     options,
   );
@@ -85,7 +85,7 @@ export async function deriveMaterial(
       partial: false,
     };
   } else
-    source = await kernel.authority.materializeEvidence(
+    source = await kernel.material.materializeEvidence(
       {
         subjectId: request.subjectId,
         reference: { kind: "source_region", value: request.sourceRegionId },
@@ -117,7 +117,7 @@ export async function deriveMaterial(
     preprocessingDigest?: string,
     structuredPayload?: JsonObject,
   ) => {
-    const representation = await kernel.modelMaterial.commitInterpretation(
+    const representation = await kernel.materialWorkflow.commitInterpretation(
       {
         subjectId: request.subjectId,
         text,
@@ -209,7 +209,7 @@ export async function deriveMaterial(
       operationKey: key,
       semanticDigest: key,
     };
-    const reservation = await kernel.modelMaterial.reserveWorkflow(
+    const reservation = await kernel.modelWorkflow.reserveWorkflow(
       { ...identity, snapshotJson: JSON.stringify(model) },
       options,
     );
@@ -217,7 +217,7 @@ export async function deriveMaterial(
       const outcome = z
         .strictObject({ representationId: z.string().uuid() })
         .parse(JSON.parse(reservation.outcomeJson));
-      const representation = await kernel.authority.getDerivedRepresentation(
+      const representation = await kernel.material.getDerivedRepresentation(
         { subjectId: request.subjectId, id: outcome.representationId },
         options,
       );
@@ -244,7 +244,7 @@ export async function deriveMaterial(
         proposal = await invoke(
           JSON.parse(reservation.snapshotJson) as ModelRoleSnapshot,
         );
-        await kernel.modelMaterial.saveWorkflow(
+        await kernel.modelWorkflow.saveWorkflow(
           { ...lease, proposalJson: JSON.stringify(proposal) },
           options,
         );
@@ -258,7 +258,7 @@ export async function deriveMaterial(
         preprocessingDigest,
         proposal.structuredPayload,
       );
-      await kernel.modelMaterial.saveWorkflow(
+      await kernel.modelWorkflow.saveWorkflow(
         {
           ...lease,
           outcomeJson: JSON.stringify({
@@ -269,7 +269,7 @@ export async function deriveMaterial(
       );
       return representation;
     } finally {
-      await kernel.modelMaterial
+      await kernel.modelWorkflow
         .releaseWorkflow(lease, {
           timeoutMs: kernel.execution.workflow_ack_timeout_ms,
         })
@@ -292,7 +292,7 @@ export async function deriveMaterial(
   };
   const signal = options.signal ?? undefined;
   const structureDescription = async (description: DerivedRepresentation) => {
-    const { segments } = await kernel.modelMaterial.segmentDescription(
+    const { segments } = await kernel.materialWorkflow.segmentDescription(
       { subjectId: request.subjectId, id: description.representationId },
       options,
     );

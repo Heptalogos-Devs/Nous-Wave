@@ -56,6 +56,24 @@ impl ProjectionInvalidation {
         }
     }
 
+    pub(crate) fn merge(&mut self, other: Self) {
+        self.exact |= other.exact;
+        self.lexical |= other.lexical;
+        self.topology |= other.topology;
+        self.synopsis |= other.synopsis;
+        self.dense = match (std::mem::take(&mut self.dense), other.dense) {
+            (DenseInvalidation::All, _) | (_, DenseInvalidation::All) => DenseInvalidation::All,
+            (DenseInvalidation::None, right) => right,
+            (left, DenseInvalidation::None) => left,
+            (DenseInvalidation::Spaces(mut left), DenseInvalidation::Spaces(right)) => {
+                left.extend(right);
+                left.sort();
+                left.dedup();
+                DenseInvalidation::Spaces(left)
+            }
+        };
+    }
+
     fn families(&self) -> Vec<(&'static str, String)> {
         let mut result = Vec::new();
         for (family, changed) in [

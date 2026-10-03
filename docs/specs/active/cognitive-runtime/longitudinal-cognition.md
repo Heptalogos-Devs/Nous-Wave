@@ -8,7 +8,7 @@ Runtime 持有 CognitiveClock、Experience feed、segmentation cursor/draft 与 
 
 ## 时间与经验捕获
 
-正常运行使用 SystemCognitiveClock；内部测试和研究可注入按 Subject 单调推进的 ManualCognitiveClock。HTTP/DB timeout、重试和 worker lease 使用基础设施时间。公开 RPC 不提供 clock mutation。Core 通过 private `GetCognitiveTime` 读取 Subject clock；NousQL 的相对时间窗口也使用该认知时间。
+正常运行使用 SystemCognitiveClock；内部测试和研究可注入按 Subject 单调推进的 ManualCognitiveClock。HTTP/DB timeout、重试和 worker lease 使用基础设施时间。公开 RPC 不提供 clock mutation。Core 通过 private `KernelQueryService.GetCognitiveTime` 读取 Subject clock；NousQL 的相对时间窗口也使用该认知时间。
 
 Observation `observed_at` 可省略，缺省使用 CognitiveClock。发生时间保留调用方提供的已知或 unknown 语义。Subject、Cognitive Seed、Material 来源、Memory、CognitiveSchema、Episode、Journal 及语义 lifecycle/UseEvent 的 timestamps 由 owner 提交分配；工作流重放保留原 formation time。Memory、CognitiveSchema、Episode、Journal 的创建和修订输入不接受 caller `formed_at`；Schema 使用 `CognitiveSchemaContent` 输入。
 
@@ -25,6 +25,8 @@ Session-bound Observation 在 Material 提交事务内写入一个 ExperienceIte
 `episode_segmentation` 接收精确、有序 member keys 和当前 Episode 组织，返回 `no_change` 或完整 partition。Memory 原子应用 N-to-M partition：1-to-1 修订同一对象；split/merge/general partition 创建替代对象并 withdraw sources，保留 exact lineage。缺失、重复、重排或虚构成员使整次提交失败。
 
 ## Maintenance 与工作流
+
+`RuntimeService` 承载 canonical Session、WorkContext、Observation 和 Use 操作；Core 的 `CognitionService` 提供公开维护 grant 与查询/投影编排。Core 通过 private `KernelMaintenanceService` 调用 durable need 和 longitudinal owner commit，通过 `KernelModelWorkflowService` 管理模型执行重放状态。
 
 MaintenanceNeed 在 active scope 内合并 trigger，due time 使用 CognitiveClock。并发 claim 使用数据库 row locking；基础设施 lease 与 token fence 控制 worker，过期 lease 可重新 claim。finish 保留执行期间新增的 trigger。
 

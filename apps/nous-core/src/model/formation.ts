@@ -81,7 +81,7 @@ export async function formObservation(
     const outcome = outcomeSchema.parse(JSON.parse(text));
     if ("purged" in outcome)
       throw new ConnectError("Formation outcome was purged", Code.NotFound);
-    const memory = await kernel.authority.getMemoryRevision(
+    const memory = await kernel.memory.getMemoryRevision(
       { subjectId: r.subjectId, id: outcome.revisionId },
       options,
     );
@@ -90,18 +90,18 @@ export async function formObservation(
       degradation: [],
     };
   };
-  const previous = await kernel.modelMaterial.findWorkflow(identity, options);
+  const previous = await kernel.modelWorkflow.findWorkflow(identity, options);
   if (previous.outcomeJson) return replay(previous.outcomeJson);
   let snapshotText = previous.snapshotJson;
   if (!snapshotText) {
     const model = models.invocations.snapshot("memory_formation");
-    const occurrence = await kernel.authority.getOccurrence(
+    const occurrence = await kernel.material.getOccurrence(
       { subjectId: r.subjectId, id: r.occurrenceId },
       options,
     );
     let representationId = r.representationId;
     if (!representationId && occurrence.artifactId) {
-      const artifact = await kernel.authority.getArtifact(
+      const artifact = await kernel.material.getArtifact(
         { subjectId: r.subjectId, id: occurrence.artifactId },
         options,
       );
@@ -115,7 +115,7 @@ export async function formObservation(
           : mime.startsWith("video/")
             ? "scene_description"
             : "extracted_text";
-      const available = await kernel.authority.listDerivedRepresentations(
+      const available = await kernel.material.listDerivedRepresentations(
         {
           subjectId: r.subjectId,
           artifactId: occurrence.artifactId,
@@ -129,7 +129,7 @@ export async function formObservation(
     const candidates =
       mode === "select_from_resolved_mentions"
         ? (
-            await kernel.modelMaterial.getResolvedMentions(
+            await kernel.materialWorkflow.getResolvedMentions(
               { subjectId: r.subjectId, occurrenceId: r.occurrenceId },
               options,
             )
@@ -146,7 +146,7 @@ export async function formObservation(
       sourceMaxBytes: models.materialInputs.formation_source_max_bytes,
     });
   }
-  const reservation = await kernel.modelMaterial.reserveWorkflow(
+  const reservation = await kernel.modelWorkflow.reserveWorkflow(
     { ...identity, snapshotJson: snapshotText },
     options,
   );
@@ -170,7 +170,7 @@ export async function formObservation(
       const snapshot = snapshotSchema.parse(
         JSON.parse(reservation.snapshotJson),
       );
-      const source = await kernel.authority.materializeEvidence(
+      const source = await kernel.material.materializeEvidence(
         {
           subjectId: r.subjectId,
           reference: snapshot.representationId
@@ -277,7 +277,7 @@ export async function formObservation(
       proposed = {
         request: toJson(FormMemoryRequestSchema, request),
       };
-      await kernel.modelMaterial.saveWorkflow(
+      await kernel.modelWorkflow.saveWorkflow(
         { ...lease, proposalJson: JSON.stringify(proposed) },
         options,
       );
@@ -286,8 +286,8 @@ export async function formObservation(
       FormMemoryRequestSchema,
       proposed.request as JsonValue,
     );
-    const memory = await kernel.authority.formMemory(request, options);
-    await kernel.modelMaterial.saveWorkflow(
+    const memory = await kernel.memory.formMemory(request, options);
+    await kernel.modelWorkflow.saveWorkflow(
       {
         ...lease,
         outcomeJson: JSON.stringify({
@@ -301,7 +301,7 @@ export async function formObservation(
       degradation: [],
     };
   } finally {
-    await kernel.modelMaterial
+    await kernel.modelWorkflow
       .releaseWorkflow(lease, {
         timeoutMs: kernel.execution.workflow_ack_timeout_ms,
       })

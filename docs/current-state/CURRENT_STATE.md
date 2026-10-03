@@ -7,6 +7,7 @@
 - Runtime：Session、ResidentSet、UseEvent、WorkContext durable checkpoint 和跨 Session continuity；Runtime 同事务捕获 Session Experience、持久化分段 cursor/draft 和 MaintenanceNeed；Memory owner 提供 Episode/Journal revision、history、provenance 与 lifecycle。
 - 纵向认知：自动 interaction Episode、模型局部 N-to-M partition、supported Journal 和有界 host-granted Memory/Schema consolidation；CognitiveClock 支持内部确定性时间注入。
 - Query/Serving：QueryExpr、exact read、lexical/dense/runtime lanes、固定 fusion、可选 model rerank、final Authority revalidation 和可重建 generation。
+- Authority mutation：Persistence envelope 统一 owner/operation locks、receipt replay、transaction 与合并 projection invalidation；领域 owner 保持独立数据模型和 mutation/lifecycle 验证。
 - Core 与官方 Client/CLI：Gateway/ModelProfile/RoleBinding、Prompt identity、media derivation、可选 External Resource/RAGFlow、trace 与流式材料上传。
 - Windows x64 source-less portable package 的 assembly 与 runtime installation path。
 

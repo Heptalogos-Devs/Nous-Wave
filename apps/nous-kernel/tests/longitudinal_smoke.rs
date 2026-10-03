@@ -2,11 +2,7 @@ mod test_support;
 
 use chrono::{Duration, TimeZone, Utc};
 use nous_core::SubjectId;
-use nous_kernel::{NousRuntime, RuntimeOptions, transport::KernelService};
-use nous_protocol::kernel::{
-    authority_service_server::AuthorityServiceServer,
-    model_material_service_server::ModelMaterialServiceServer,
-};
+use nous_kernel::{NousRuntime, RuntimeOptions};
 use nous_retrieval::ServingOptions;
 use nous_runtime::ManualCognitiveClock;
 use serde::Deserialize;
@@ -16,7 +12,6 @@ use tokio::{
     sync::oneshot,
 };
 use tokio_stream::wrappers::TcpListenerStream;
-use tonic::{Request, Status};
 
 struct Server {
     runtime: NousRuntime,
@@ -37,27 +32,10 @@ impl Server {
         },clock).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
-        let token = format!("Bearer {token}");
-        let auth = move |request: Request<()>| -> std::result::Result<Request<()>, Status> {
-            if request
-                .metadata()
-                .get("authorization")
-                .and_then(|value| value.to_str().ok())
-                != Some(&token)
-            {
-                return Err(Status::unauthenticated("invalid smoke Kernel credential"));
-            }
-            Ok(request)
-        };
-        let service = KernelService(runtime.clone());
         let (stop, stopped) = oneshot::channel();
         let task = tokio::spawn(
-            tonic::transport::Server::builder()
-                .add_service(AuthorityServiceServer::with_interceptor(
-                    service.clone(),
-                    auth.clone(),
-                ))
-                .add_service(ModelMaterialServiceServer::with_interceptor(service, auth))
+            nous_kernel::transport::router(runtime.clone(), token.to_owned())
+                .await
                 .serve_with_incoming_shutdown(TcpListenerStream::new(listener), async {
                     let _ = stopped.await;
                 }),
