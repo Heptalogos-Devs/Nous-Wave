@@ -21,7 +21,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"journal":journal,"epoch":expected_epoch,"action":action}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation).await?;
         if let Some(receipt) =
             check_receipt(&mut tx, subject, operation, "journal_lifecycle", &digest).await?
@@ -103,7 +103,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"journal":journal,"epoch":expected_epoch}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation).await?;
         if let Some(receipt) =
             check_receipt(&mut tx, subject, operation, "journal_purge", &digest).await?

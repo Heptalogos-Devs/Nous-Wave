@@ -302,7 +302,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"memory_id":memory,"expected_object_epoch":expected_object_epoch,"mode":mode}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) =
             check_receipt(&mut tx, subject, operation_id, "set_accessibility", &digest).await?

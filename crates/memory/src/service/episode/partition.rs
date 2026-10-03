@@ -34,7 +34,7 @@ impl MemoryService {
         validate_partition(&input)?;
         let started = self.cognition.now(input.subject);
         let digest = operation_digest("episode_partition", input.subject, &input)?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(input.subject).await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,

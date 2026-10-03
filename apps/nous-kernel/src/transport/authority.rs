@@ -2,6 +2,16 @@ use super::*;
 
 #[tonic::async_trait]
 impl k::authority_service_server::AuthorityService for KernelService {
+    async fn commit_longitudinal_consolidation(
+        &self,
+        request: Request<k::CommitLongitudinalConsolidationRequest>,
+    ) -> std::result::Result<Response<k::CommitLongitudinalConsolidationResponse>, Status> {
+        rpc_reply(KernelService::commit_longitudinal_consolidation(
+            self,
+            request.into_inner(),
+        ))
+        .await
+    }
     async fn refresh_maintenance(
         &self,
         request: Request<k::RefreshMaintenanceRequest>,

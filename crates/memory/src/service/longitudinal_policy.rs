@@ -4,6 +4,8 @@ pub const JOURNAL_MAX_EPISODES: ConfigKey<u64> = ConfigKey::new("journal.max_epi
 pub const JOURNAL_MAX_SPAN: ConfigKey<u64> = ConfigKey::new("journal.max_span");
 pub const CONSOLIDATION_DELAY: ConfigKey<u64> = ConfigKey::new("consolidation.settle_delay");
 
+pub const CONSOLIDATION_MAX_ACTIONS: ConfigKey<u64> = ConfigKey::new("consolidation.max_actions");
+
 pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     registry.register(
         JOURNAL_MAX_EPISODES,
@@ -58,6 +60,25 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
             } else {
                 Err(Error::Invalid(
                     "Consolidation delay must be 1..86400 seconds".into(),
+                ))
+            }
+        },
+    )?;
+    registry.register(
+        CONSOLIDATION_MAX_ACTIONS,
+        "memory",
+        "Maximum actions in one atomic longitudinal consolidation proposal.",
+        8,
+        ConfigExposure::Advanced,
+        ConfigScopePolicy::SubjectOverrideAllowed,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::AuthorityFormation,
+        |value| {
+            if (1..=16).contains(value) {
+                Ok(())
+            } else {
+                Err(Error::Invalid(
+                    "Consolidation must contain 1..16 actions".into(),
                 ))
             }
         },

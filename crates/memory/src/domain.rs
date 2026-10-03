@@ -451,6 +451,7 @@ pub struct CognitiveSchemaRevision {
     pub formation_kind: SchemaFormationKind,
     pub formed_at: DateTime<Utc>,
     pub recorded_at: DateTime<Utc>,
+    pub producer_signature_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

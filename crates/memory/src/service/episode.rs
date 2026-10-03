@@ -128,7 +128,7 @@ impl MemoryService {
                 "supports": input.supports,
             }),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(input.subject).await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,
@@ -426,7 +426,7 @@ impl MemoryService {
                 "supports": input.supports,
             }),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(input.subject).await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,
@@ -578,7 +578,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"from":from,"to":to,"relation":relation}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,
@@ -706,7 +706,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"episode":episode,"expected":expected,"field":field,"from":from,"to":to}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) =
             check_receipt(&mut tx, subject, operation_id, "episode_lifecycle", &digest).await?
@@ -796,7 +796,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"episode":episode,"expected":expected}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) =
             check_receipt(&mut tx, subject, operation_id, "purge_episode", &digest).await?

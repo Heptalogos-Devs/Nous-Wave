@@ -93,7 +93,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"memory_id":memory,"expected_object_epoch":expected_object_epoch,"from":from,"to":to}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) = check_receipt(&mut tx, subject, operation_id, field, &digest).await?
         {
@@ -167,7 +167,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"memory_id":memory,"expected_object_epoch":expected_object_epoch}),
         )?;
-        let mut phase1 = self.store.begin().await?;
+        let mut phase1 = self.begin_mutation(subject).await?;
         lock_operation(&mut phase1, subject, operation_id).await?;
         if let Some(receipt) =
             check_receipt(&mut phase1, subject, operation_id, "purge_memory", &digest).await?
@@ -200,7 +200,7 @@ impl MemoryService {
         memory: MemoryId,
         operation_id: OperationId,
     ) -> Result<()> {
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         let receipt=sqlx::query("SELECT state,request_digest FROM mutation_receipts WHERE subject_id=$1 AND operation_id=$2 FOR UPDATE").bind(subject.0).bind(operation_id.0).fetch_optional(&mut *tx).await.map_err(db)?.ok_or_else(||Error::NotFound("purge receipt not found".into()))?;
         if receipt.try_get::<String, _>("state").map_err(db)? == "committed" {
@@ -263,7 +263,7 @@ impl MemoryService {
         subject: SubjectId,
         refs: &[String],
     ) -> Result<()> {
-        sqlx::query("UPDATE model_workflow_operations w SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE w.subject_id=$1 AND w.owner='memory' AND (jsonb_path_query_array(w.snapshot,'$.**') ?| $2::text[] OR jsonb_path_query_array(w.proposal,'$.**') ?| $2::text[] OR lower(w.operation_key) IN (SELECT r.operation_id::text FROM mutation_receipts r WHERE r.subject_id=$1 AND (r.result_revision::text=ANY($2::text[]) OR r.result_ref=ANY($2::text[]) OR CASE WHEN r.result_kind='episode_partition' THEN r.result_ref::jsonb ?| $2::text[] ELSE false END)))")
+        sqlx::query("UPDATE model_workflow_operations w SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE w.subject_id=$1 AND w.owner='memory' AND (jsonb_path_query_array(w.snapshot,'$.**') ?| $2::text[] OR jsonb_path_query_array(w.proposal,'$.**') ?| $2::text[] OR lower(w.operation_key) IN (SELECT r.operation_id::text FROM mutation_receipts r WHERE r.subject_id=$1 AND (r.result_revision::text=ANY($2::text[]) OR r.result_ref=ANY($2::text[]) OR CASE WHEN r.result_kind IN ('episode_partition','longitudinal_consolidation') THEN jsonb_path_query_array(r.result_ref::jsonb,'$.**') ?| $2::text[] ELSE false END)))")
             .bind(subject.0).bind(refs).execute(&mut **tx).await.map_err(db)?;
         Ok(())
     }

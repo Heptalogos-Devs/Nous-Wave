@@ -1664,6 +1664,8 @@ pub struct CognitiveSchema {
     pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, tag="16")]
     pub formation_kind: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="17")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateCognitiveSchemaRequest {

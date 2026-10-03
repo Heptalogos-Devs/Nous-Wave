@@ -30,7 +30,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"support_class":input.support_class,"supports":input.supports,"producer_signature_id":input.producer_signature_id,"valid_time":input.valid_time}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, input.operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,
@@ -311,7 +311,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"association_id": association}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,

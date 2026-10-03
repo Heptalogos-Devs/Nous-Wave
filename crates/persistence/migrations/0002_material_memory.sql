@@ -135,6 +135,7 @@ CREATE TABLE cognitive_schema_revisions (
     valid_time_end timestamptz NULL,
     formed_at timestamptz NOT NULL,
     recorded_at timestamptz NOT NULL,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
     UNIQUE(schema_id, revision_no),
     CHECK (valid_time_kind <> 'interval'
         OR valid_time_start IS NULL
@@ -150,7 +151,7 @@ CREATE TABLE cognitive_schema_evidence_links (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     schema_revision_id uuid NOT NULL REFERENCES cognitive_schema_revisions(schema_revision_id) ON DELETE CASCADE,
     role text NOT NULL CHECK (role IN ('support','counterexample','boundary_case')),
-    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision')),
+    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision','episode_revision','journal_revision')),
     support_ref text NOT NULL,
     support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
     occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,

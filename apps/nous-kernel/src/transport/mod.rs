@@ -1,5 +1,6 @@
 //! Private protocol adapters. Domain owners remain the semantic boundary.
 mod authority;
+mod consolidation;
 mod convert;
 mod episode;
 mod evidence;

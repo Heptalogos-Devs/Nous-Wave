@@ -673,6 +673,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     assert_eq!(replay.revision.recorded_at, journal.revision.recorded_at);
     let revised = assert_journal_revalidation(&rt, input, &episode, &invalidated).await;
     assert_journal_protocol(&rt, subject, &revised).await;
+    assert_journal_consolidation(&rt, subject, &episode, &revised).await;
     let uses = assert_longitudinal_use(&rt, subject, &episode, &revised).await;
     memory
         .purge_journal(
@@ -1058,5 +1059,361 @@ async fn ended_work_context_wakes_and_closes_experience_before_idle_deadline() {
     assert_eq!(
         closed.episodes[0].revision.boundary_explanation,
         "work_context_ended"
+    );
+}
+
+fn consolidation_producer() -> nous_core::ProducerSignature {
+    nous_core::ProducerSignature {
+        signature_hash: String::new(),
+        provider_class: "semantic-stub".into(),
+        operation: nous_core::CapabilityOperation::MemoryConsolidationText,
+        implementation: "longitudinal-owner-test".into(),
+        model_identity: Some("stub".into()),
+        model_revision: None,
+        output_schema_digest: Some("a".repeat(64)),
+        preprocessing_identity: "memory/consolidation.md".into(),
+        preprocessing_revision: "b".repeat(64),
+        config_digest: "c".repeat(64),
+    }
+}
+fn consolidation_memory(episode: &EpisodeView) -> nous_memory::ConsolidationMemoryContent {
+    let nous_core::CognitiveRef::Occurrence(occurrence) = episode.members[0].reference else {
+        panic!("expected occurrence")
+    };
+    nous_memory::ConsolidationMemoryContent {
+        cognitive_role: nous_memory::CognitiveRole::Declarative,
+        formation_mode: nous_memory::FormationMode::Grounded,
+        grounding_occurrence_id: Some(occurrence),
+        semantic_role: "statement".into(),
+        representation_text: "A reusable observed fact.".into(),
+        title: None,
+        supports: vec![nous_core::RevisionSupport::Evidence(
+            nous_core::EvidenceRef {
+                occurrence_id: occurrence,
+                locator: nous_core::EvidenceLocator::WholeOccurrence,
+                support_role: nous_core::SupportRole::Direct,
+            },
+        )],
+        aboutness: vec![],
+        valid_time: TemporalExtent::Unknown,
+        epistemic_class: nous_core::EpistemicClass::Derived,
+    }
+}
+fn consolidation_schema(episode: &EpisodeView) -> nous_memory::ConsolidationSchemaContent {
+    nous_memory::ConsolidationSchemaContent {
+        title: Some("Recurring pattern".into()),
+        structural_claim: "Two independent sources describe a recurring pattern.".into(),
+        applicability_scope: nous_memory::SchemaScope {
+            description: "The observed contexts".into(),
+            aboutness: vec![],
+            tags: vec![],
+            valid_time: TemporalExtent::Unknown,
+        },
+        boundary_definition: "Applies to these observed contexts.".into(),
+        formation_kind: nous_memory::SchemaFormationKind::Synthesized,
+        evidence_links: episode
+            .supports
+            .iter()
+            .cloned()
+            .map(|support| nous_memory::SchemaEvidenceLinkInput {
+                role: nous_memory::SchemaEvidenceRole::Support,
+                support,
+            })
+            .collect(),
+    }
+}
+
+#[tokio::test]
+async fn longitudinal_consolidation_is_atomic_stale_fenced_and_replayable() {
+    use nous_core::{CognitiveRef, OperationId};
+    use nous_memory::{
+        ConsolidationResultRef, ExpectedCognition, LongitudinalConsolidationAction as Action,
+        LongitudinalConsolidationInput,
+    };
+    let (root, url, _postgres) = database().await;
+    let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
+    let rt = runtime_with_clock(&url, &root, clock.clone()).await;
+    let subject = create_subject(&rt).await;
+    let episode = journal_source_episode(&rt, &clock, subject).await;
+    let memory = rt.require_memory().unwrap();
+    let input = LongitudinalConsolidationInput {
+        operation_id: OperationId::new(),
+        subject,
+        expected_authority_seq: rt.store.authority_seq(subject).await.unwrap(),
+        source: ExpectedCognition {
+            reference: CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
+            expected_epoch: episode.object.object_epoch,
+        },
+        context: vec![],
+        producer: consolidation_producer(),
+        actions: vec![
+            Action::CreateMemory {
+                content: consolidation_memory(&episode),
+            },
+            Action::CreateMemory {
+                content: consolidation_memory(&episode),
+            },
+            Action::CreateSchema {
+                content: consolidation_schema(&episode),
+            },
+            Action::LinkRelation {
+                from: ConsolidationResultRef::Action { index: 0 },
+                to: ConsolidationResultRef::Action { index: 1 },
+                relation: nous_memory::MemoryRelation::Elaborates,
+            },
+        ],
+    };
+    let committed = memory
+        .commit_longitudinal_consolidation(input.clone())
+        .await
+        .unwrap();
+    assert_eq!(committed.status, "committed");
+    assert_eq!(committed.results.len(), 4);
+    assert_eq!(committed.authority_seq, input.expected_authority_seq + 1);
+    let Some(CognitiveRef::MemoryRevision(revision)) = committed.results[0] else {
+        panic!("expected Memory result")
+    };
+    let object = rt
+        .store
+        .bind_exact_reference(subject, &CognitiveRef::MemoryRevision(revision))
+        .await
+        .unwrap();
+    assert_eq!(object.1, Some(1));
+    let Some(CognitiveRef::CognitiveSchemaRevision(schema_revision)) = committed.results[2] else {
+        panic!("expected Schema result")
+    };
+    let schema_id: uuid::Uuid = sqlx::query_scalar(
+        "SELECT schema_id FROM cognitive_schema_revisions WHERE schema_revision_id=$1",
+    )
+    .bind(schema_revision.0)
+    .fetch_one(rt.store.pool())
+    .await
+    .unwrap();
+    let schema = memory
+        .schema(subject, nous_core::CognitiveSchemaId(schema_id))
+        .await
+        .unwrap();
+    assert!(schema.revision.producer_signature_id.is_some());
+    let producer: String = sqlx::query_scalar(
+        "SELECT operation FROM producer_signatures WHERE producer_signature_id=$1",
+    )
+    .bind(schema.revision.producer_signature_id.unwrap())
+    .fetch_one(rt.store.pool())
+    .await
+    .unwrap();
+    assert_eq!(producer, "memory.consolidation.text");
+    clock.advance_by(subject, Duration::days(1)).unwrap();
+    let replay = memory
+        .commit_longitudinal_consolidation(input.clone())
+        .await
+        .unwrap();
+    assert_eq!(replay.results, committed.results);
+    assert_eq!(
+        rt.store.authority_seq(subject).await.unwrap(),
+        committed.authority_seq
+    );
+    assert_consolidation_rollback(&rt, &input, &episode).await;
+    assert_consolidation_revisions(&rt, &input, &episode, &committed.results).await;
+    memory
+        .suppress_episode(
+            subject,
+            episode.object.episode_id,
+            OperationId::new(),
+            episode.object.object_epoch,
+        )
+        .await
+        .unwrap();
+    let mut stale = input.clone();
+    stale.operation_id = OperationId::new();
+    stale.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
+    assert!(
+        memory
+            .commit_longitudinal_consolidation(stale)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        memory
+            .commit_longitudinal_consolidation(input)
+            .await
+            .unwrap()
+            .results,
+        committed.results
+    );
+}
+
+async fn assert_consolidation_rollback(
+    rt: &NousRuntime,
+    input: &nous_memory::LongitudinalConsolidationInput,
+    episode: &EpisodeView,
+) {
+    use nous_memory::LongitudinalConsolidationAction as Action;
+    let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM memory_objects WHERE subject_id=$1")
+        .bind(input.subject.0)
+        .fetch_one(rt.store.pool())
+        .await
+        .unwrap();
+    let mut invalid = input.clone();
+    invalid.operation_id = nous_core::OperationId::new();
+    invalid.expected_authority_seq = rt.store.authority_seq(input.subject).await.unwrap();
+    let mut bad_schema = consolidation_schema(episode);
+    bad_schema.boundary_definition = String::new();
+    invalid.actions = vec![
+        Action::CreateMemory {
+            content: consolidation_memory(episode),
+        },
+        Action::CreateSchema {
+            content: bad_schema,
+        },
+    ];
+    assert!(
+        rt.require_memory()
+            .unwrap()
+            .commit_longitudinal_consolidation(invalid.clone())
+            .await
+            .is_err()
+    );
+    let after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM memory_objects WHERE subject_id=$1")
+        .bind(input.subject.0)
+        .fetch_one(rt.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(before, after);
+    assert_eq!(
+        rt.store.authority_seq(input.subject).await.unwrap(),
+        invalid.expected_authority_seq
+    );
+    let receipts: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM mutation_receipts WHERE subject_id=$1 AND operation_id=$2",
+    )
+    .bind(input.subject.0)
+    .bind(invalid.operation_id.0)
+    .fetch_one(rt.store.pool())
+    .await
+    .unwrap();
+    assert_eq!(receipts, 0);
+}
+async fn assert_consolidation_revisions(
+    rt: &NousRuntime,
+    input: &nous_memory::LongitudinalConsolidationInput,
+    episode: &EpisodeView,
+    results: &[Option<nous_core::CognitiveRef>],
+) {
+    use nous_memory::{
+        ExpectedCognition, LongitudinalConsolidationAction as Action, RevisionIntent,
+    };
+    let mut revised = input.clone();
+    revised.operation_id = nous_core::OperationId::new();
+    revised.expected_authority_seq = rt.store.authority_seq(input.subject).await.unwrap();
+    let memory = ExpectedCognition {
+        reference: results[0].clone().unwrap(),
+        expected_epoch: 1,
+    };
+    let schema = ExpectedCognition {
+        reference: results[2].clone().unwrap(),
+        expected_epoch: 1,
+    };
+    revised.context = vec![memory.clone(), schema.clone()];
+    let mut content = consolidation_memory(episode);
+    content.representation_text = "A corrected reusable fact.".into();
+    revised.actions = vec![
+        Action::ReviseMemory {
+            target: memory,
+            intent: RevisionIntent::Correct,
+            content,
+        },
+        Action::ReviseSchema {
+            target: schema,
+            intent: RevisionIntent::Rephrase,
+            content: consolidation_schema(episode),
+        },
+    ];
+    let outcome = rt
+        .require_memory()
+        .unwrap()
+        .commit_longitudinal_consolidation(revised.clone())
+        .await
+        .unwrap();
+    assert_ne!(outcome.results[0], results[0]);
+    assert_ne!(outcome.results[1], results[2]);
+    for reference in outcome.results.iter().flatten() {
+        assert_eq!(
+            rt.store
+                .bind_exact_reference(input.subject, reference)
+                .await
+                .unwrap()
+                .1,
+            Some(2)
+        );
+    }
+    assert_eq!(
+        rt.require_memory()
+            .unwrap()
+            .commit_longitudinal_consolidation(revised.clone())
+            .await
+            .unwrap()
+            .results,
+        outcome.results
+    );
+    revised.operation_id = nous_core::OperationId::new();
+    revised.expected_authority_seq = outcome.authority_seq;
+    assert!(
+        rt.require_memory()
+            .unwrap()
+            .commit_longitudinal_consolidation(revised)
+            .await
+            .is_err()
+    );
+}
+
+async fn assert_journal_consolidation(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    episode: &EpisodeView,
+    journal: &nous_memory::JournalView,
+) {
+    use nous_memory::{
+        ExpectedCognition, LongitudinalConsolidationAction, LongitudinalConsolidationInput,
+    };
+    let input = LongitudinalConsolidationInput {
+        operation_id: nous_core::OperationId::new(),
+        subject,
+        expected_authority_seq: rt.store.authority_seq(subject).await.unwrap(),
+        source: ExpectedCognition {
+            reference: nous_core::CognitiveRef::JournalRevision(
+                journal.revision.journal_revision_id,
+            ),
+            expected_epoch: journal.object.object_epoch,
+        },
+        context: vec![],
+        producer: consolidation_producer(),
+        actions: vec![LongitudinalConsolidationAction::CreateSchema {
+            content: consolidation_schema(episode),
+        }],
+    };
+    let outcome = rt
+        .require_memory()
+        .unwrap()
+        .commit_longitudinal_consolidation(input)
+        .await
+        .unwrap();
+    let Some(nous_core::CognitiveRef::CognitiveSchemaRevision(revision)) = outcome.results[0]
+    else {
+        panic!("expected Schema revision")
+    };
+    let row = sqlx::query(
+        "SELECT formed_at,recorded_at FROM cognitive_schema_revisions WHERE schema_revision_id=$1",
+    )
+    .bind(revision.0)
+    .fetch_one(rt.store.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        row.get::<chrono::DateTime<Utc>, _>("formed_at"),
+        rt.cognition.now(subject)
+    );
+    assert_eq!(
+        row.get::<chrono::DateTime<Utc>, _>("recorded_at"),
+        rt.cognition.now(subject)
     );
 }
