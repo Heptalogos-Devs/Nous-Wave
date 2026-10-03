@@ -11,15 +11,17 @@ import {
   Code,
   ConnectError,
   type HandlerContext,
+  type Client,
   type ServiceImpl,
 } from "@connectrpc/connect";
-import { create } from "@bufbuild/protobuf";
+import { create, type DescService } from "@bufbuild/protobuf";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 import {
   SubjectService,
   CognitionService,
+  RuntimeService,
   MemoryService,
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
@@ -29,6 +31,7 @@ import {
 } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
 import {
   ResourceService,
+  ResourceRegistryService,
   TopologyService,
   SystemService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
@@ -59,6 +62,25 @@ const options = (context: HandlerContext) => ({
   signal: context.signal,
   timeoutMs: context.timeoutMs(),
 });
+// Canonical owner RPCs preserve the incoming cancellation/deadline at the Core hop.
+function forward<S extends DescService>(
+  service: S,
+  client: Client<S>,
+): ServiceImpl<S> {
+  return Object.fromEntries(
+    service.methods.map((method) => {
+      const invoke = client[method.localName] as (
+        input: unknown,
+        callOptions: ReturnType<typeof options>,
+      ) => unknown;
+      return [
+        method.localName,
+        (input: unknown, context: HandlerContext) =>
+          invoke(input, options(context)),
+      ];
+    }),
+  ) as ServiceImpl<S>;
+}
 export async function createCore(settings: CoreOptions) {
   if (settings.token.length < 32)
     throw new Error("Core credential must contain at least 32 characters");
@@ -99,12 +121,12 @@ export async function createCore(settings: CoreOptions) {
         .send({ code: "unauthenticated", message: "Core credential required" });
   });
   async function project(
-    input: Parameters<typeof kernel.authority.buildContributionBatch>[0],
+    input: Parameters<typeof kernel.projection.buildContributionBatch>[0],
     context: HandlerContext,
   ) {
     const policy = planner.policy(input.consumerId ?? "");
     const request = create(ProjectionRequestSchema, input);
-    const snapshot = await kernel.authority.getSession(
+    const snapshot = await kernel.runtime.getSession(
       { subjectId: request.subjectId, id: request.sessionId },
       { signal: context.signal },
     );
@@ -141,7 +163,7 @@ export async function createCore(settings: CoreOptions) {
       queryDegradation.push(...query.degradation);
       request.query = undefined;
     }
-    const batch = await kernel.authority.buildContributionBatch(
+    const batch = await kernel.projection.buildContributionBatch(
       request,
       options(context),
     );
@@ -177,7 +199,7 @@ export async function createCore(settings: CoreOptions) {
       request,
       context.signal,
     );
-    const after = await kernel.authority.getSession(
+    const after = await kernel.runtime.getSession(
       { subjectId: request.subjectId, id: request.sessionId },
       { signal: context.signal },
     );
@@ -188,12 +210,6 @@ export async function createCore(settings: CoreOptions) {
   const cognition: ServiceImpl<typeof CognitionService> = {
     grantMaintenance: (r, c) =>
       grantMaintenance(kernel, modelRuntime, r, options(c)),
-    openSession: (r, c) => kernel.authority.openSession(r, options(c)),
-    getSession: (r, c) => kernel.authority.getSession(r, options(c)),
-    listSessions: (r, c) => kernel.authority.listSessions(r, options(c)),
-    closeSession: (r, c) => kernel.authority.closeSession(r, options(c)),
-    recordObservation: (r, c) =>
-      kernel.authority.recordObservation(r, options(c)),
     query: async (r, c) => {
       let boundQuery: string | undefined;
       if (r.nousql !== undefined) {
@@ -202,7 +218,7 @@ export async function createCore(settings: CoreOptions) {
             "Supply either NousQL or typed expression",
             Code.InvalidArgument,
           );
-        const cognitiveTime = await kernel.authority.getCognitiveTime(
+        const cognitiveTime = await kernel.queryWorkflow.getCognitiveTime(
           { subjectId: r.subjectId },
           options(c),
         );
@@ -261,21 +277,6 @@ export async function createCore(settings: CoreOptions) {
       result.boundQuery = boundQuery;
       return result;
     },
-    reportUse: (r, c) => kernel.authority.reportUse(r, options(c)),
-    createWorkContext: (r, c) =>
-      kernel.authority.createWorkContext(r, options(c)),
-    getWorkContext: (r, c) => kernel.authority.getWorkContext(r, options(c)),
-    listWorkContexts: (r, c) =>
-      kernel.authority.listWorkContexts(r, options(c)),
-    updateWorkContext: (r, c) =>
-      kernel.authority.updateWorkContext(r, options(c)),
-    pauseWorkContext: (r, c) =>
-      kernel.authority.pauseWorkContext(r, options(c)),
-    resumeWorkContext: (r, c) =>
-      kernel.authority.resumeWorkContext(r, options(c)),
-    endWorkContext: (r, c) => kernel.authority.endWorkContext(r, options(c)),
-    setActiveWorkContext: (r, c) =>
-      kernel.authority.setActiveWorkContext(r, options(c)),
     buildProjection: async (r, c) =>
       create(ProjectionSchema, await project(r, c)),
     buildManagedContext: async (r, c) => {
@@ -285,7 +286,7 @@ export async function createCore(settings: CoreOptions) {
           Code.InvalidArgument,
         );
       const projection = await project(r.projection, c);
-      const session = await kernel.authority.getSession(
+      const session = await kernel.runtime.getSession(
         { subjectId: r.projection.subjectId, id: r.projection.sessionId },
         options(c),
       );
@@ -312,111 +313,14 @@ export async function createCore(settings: CoreOptions) {
       );
     },
   };
-  const subjects: ServiceImpl<typeof SubjectService> = {
-    createSubject: (r, c) => kernel.subjects.createSubject(r, options(c)),
-    getSubject: (r, c) => kernel.subjects.getSubject(r, options(c)),
-    listSubjects: (r, c) => kernel.subjects.listSubjects(r, options(c)),
-    getCognitiveSeed: (r, c) => kernel.subjects.getCognitiveSeed(r, options(c)),
-    adoptCognitiveSeed: (r, c) =>
-      kernel.subjects.adoptCognitiveSeed(r, options(c)),
-  };
-  const memories: ServiceImpl<typeof MemoryService> = {
-    setAccessibility: (r, c) => kernel.memory.setAccessibility(r, options(c)),
-    linkRevisions: (r, c) => kernel.memory.linkRevisions(r, options(c)),
-    consolidateMemory: (r, c) => kernel.memory.consolidateMemory(r, options(c)),
-    getMemory: (r, c) => kernel.memory.getMemory(r, options(c)),
-    listMemories: (r, c) => kernel.memory.listMemories(r, options(c)),
-    getMemoryRevision: (r, c) => kernel.memory.getMemoryRevision(r, options(c)),
-    listMemoryRevisions: (r, c) =>
-      kernel.memory.listMemoryRevisions(r, options(c)),
-    formMemory: (r, c) => kernel.memory.formMemory(r, options(c)),
-    reviseMemory: (r, c) => kernel.memory.reviseMemory(r, options(c)),
-    suppressMemory: (r, c) => kernel.memory.suppressMemory(r, options(c)),
-    restoreMemory: (r, c) => kernel.memory.restoreMemory(r, options(c)),
-    withdrawMemory: (r, c) => kernel.memory.withdrawMemory(r, options(c)),
-    reacceptMemory: (r, c) => kernel.memory.reacceptMemory(r, options(c)),
-    purgeMemory: (r, c) => kernel.memory.purgeMemory(r, options(c)),
-    createEpisode: (r, c) => kernel.memory.createEpisode(r, options(c)),
-    getEpisode: (r, c) => kernel.memory.getEpisode(r, options(c)),
-    getEpisodeRevision: (r, c) =>
-      kernel.memory.getEpisodeRevision(r, options(c)),
-    listEpisodes: (r, c) => kernel.memory.listEpisodes(r, options(c)),
-    listEpisodeRevisions: (r, c) =>
-      kernel.memory.listEpisodeRevisions(r, options(c)),
-    reviseEpisode: (r, c) => kernel.memory.reviseEpisode(r, options(c)),
-    linkEpisodeRevisions: (r, c) =>
-      kernel.memory.linkEpisodeRevisions(r, options(c)),
-    suppressEpisode: (r, c) => kernel.memory.suppressEpisode(r, options(c)),
-    restoreEpisode: (r, c) => kernel.memory.restoreEpisode(r, options(c)),
-    withdrawEpisode: (r, c) => kernel.memory.withdrawEpisode(r, options(c)),
-    reacceptEpisode: (r, c) => kernel.memory.reacceptEpisode(r, options(c)),
-    purgeEpisode: (r, c) => kernel.memory.purgeEpisode(r, options(c)),
-    getJournal: (r, c) => kernel.memory.getJournal(r, options(c)),
-    getJournalRevision: (r, c) =>
-      kernel.memory.getJournalRevision(r, options(c)),
-    listJournals: (r, c) => kernel.memory.listJournals(r, options(c)),
-    listJournalRevisions: (r, c) =>
-      kernel.memory.listJournalRevisions(r, options(c)),
-    suppressJournal: (r, c) => kernel.memory.suppressJournal(r, options(c)),
-    restoreJournal: (r, c) => kernel.memory.restoreJournal(r, options(c)),
-    withdrawJournal: (r, c) => kernel.memory.withdrawJournal(r, options(c)),
-    reacceptJournal: (r, c) => kernel.memory.reacceptJournal(r, options(c)),
-    purgeJournal: (r, c) => kernel.memory.purgeJournal(r, options(c)),
-  };
-  const material: ServiceImpl<typeof MaterialService> = {
-    getDerivedRegion: (r, c) => kernel.material.getDerivedRegion(r, options(c)),
-    getProducer: (r, c) => kernel.material.getProducer(r, options(c)),
-    listDerivedRepresentations: (r, c) =>
-      kernel.material.listDerivedRepresentations(r, options(c)),
-    getLimits: (r, c) => kernel.material.getLimits(r, options(c)),
-    getOccurrence: (r, c) => kernel.material.getOccurrence(r, options(c)),
-    getSourceRegion: (r, c) => kernel.material.getSourceRegion(r, options(c)),
-    getDerivedRepresentation: (r, c) =>
-      kernel.material.getDerivedRepresentation(r, options(c)),
-    getArtifact: (r, c) => kernel.material.getArtifact(r, options(c)),
-    listArtifacts: (r, c) => kernel.material.listArtifacts(r, options(c)),
-    materializeEvidence: (r, c) =>
-      kernel.material.materializeEvidence(r, options(c)),
-  };
-  const identities: ServiceImpl<typeof IdentityService> = {
-    bindIdentity: (r, c) => kernel.identity.bindIdentity(r, options(c)),
-    resolveIdentity: (r, c) => kernel.identity.resolveIdentity(r, options(c)),
-  };
   const resources: ServiceImpl<typeof ResourceService> = {
     materializeResource: (r, c) =>
       materializeResource(kernel, resourceRegistry, r, options(c)),
-    putResource: (r, c) => kernel.authority.putResource(r, options(c)),
-    getResource: (r, c) => kernel.authority.getResource(r, options(c)),
-    listResources: (r, c) => kernel.authority.listResources(r, options(c)),
-    removeResource: (r, c) => kernel.authority.removeResource(r, options(c)),
-  };
-  const topology: ServiceImpl<typeof TopologyService> = {
-    createTag: (r, c) => kernel.topology.createTag(r, options(c)),
-    getTag: (r, c) => kernel.topology.getTag(r, options(c)),
-    listTags: (r, c) => kernel.topology.listTags(r, options(c)),
-    createAssociation: (r, c) =>
-      kernel.topology.createAssociation(r, options(c)),
-    revokeAssociation: (r, c) =>
-      kernel.topology.revokeAssociation(r, options(c)),
-    getNeighborhood: (r, c) => kernel.topology.getNeighborhood(r, options(c)),
-    rebindEntity: (r, c) => kernel.topology.rebindEntity(r, options(c)),
-    createCognitiveSchema: (r, c) =>
-      kernel.topology.createCognitiveSchema(r, options(c)),
-    getCognitiveSchema: (r, c) =>
-      kernel.topology.getCognitiveSchema(r, options(c)),
-    addSchemaEvidence: (r, c) =>
-      kernel.topology.addSchemaEvidence(r, options(c)),
-    reviseCognitiveSchema: (r, c) =>
-      kernel.topology.reviseCognitiveSchema(r, options(c)),
-    splitCognitiveSchema: (r, c) =>
-      kernel.topology.splitCognitiveSchema(r, options(c)),
-    mergeCognitiveSchemas: (r, c) =>
-      kernel.topology.mergeCognitiveSchemas(r, options(c)),
   };
   const system: ServiceImpl<typeof SystemService> = {
     getStatus: async (r, c) => {
       try {
-        return await kernel.authority.getStatus(r, options(c));
+        return await kernel.system.getStatus(r, options(c));
       } catch (error) {
         if (c.signal.aborted) throw error;
         return {
@@ -431,7 +335,7 @@ export async function createCore(settings: CoreOptions) {
       }
     },
     getCapabilities: async (r, c) => {
-      const status = await kernel.authority.getStatus(r, options(c));
+      const status = await kernel.system.getStatus(r, options(c));
       return {
         components: [
           ...status.components,
@@ -440,34 +344,36 @@ export async function createCore(settings: CoreOptions) {
       };
     },
     getProjectionStatus: (r, c) =>
-      kernel.authority.getProjectionStatus(r, options(c)),
+      kernel.system.getProjectionStatus(r, options(c)),
   };
   await app.register(fastifyConnectPlugin, {
     routes: (router) => {
-      router.service(SubjectService, subjects);
+      router.service(SubjectService, forward(SubjectService, kernel.subjects));
       router.service(CognitionService, cognition);
-      router.service(MemoryService, memories);
-      router.service(MaterialService, material);
-      router.service(IdentityService, identities);
+      router.service(MemoryService, forward(MemoryService, kernel.memory));
+      router.service(
+        MaterialService,
+        forward(MaterialService, kernel.material),
+      );
+      router.service(
+        IdentityService,
+        forward(IdentityService, kernel.identity),
+      );
       router.service(ResourceService, resources);
-      router.service(TopologyService, topology);
+      router.service(
+        TopologyService,
+        forward(TopologyService, kernel.topology),
+      );
       router.service(SystemService, system);
-      router.service(ConfigurationService, {
-        listConfigDescriptors: (r, c) =>
-          kernel.configuration.listConfigDescriptors(r, options(c)),
-        getConfigDescriptor: (r, c) =>
-          kernel.configuration.getConfigDescriptor(r, options(c)),
-        getConfiguration: (r, c) =>
-          kernel.configuration.getConfiguration(r, options(c)),
-        setSystemOverride: (r, c) =>
-          kernel.configuration.setSystemOverride(r, options(c)),
-        clearSystemOverride: (r, c) =>
-          kernel.configuration.clearSystemOverride(r, options(c)),
-        setSubjectOverride: (r, c) =>
-          kernel.configuration.setSubjectOverride(r, options(c)),
-        clearSubjectOverride: (r, c) =>
-          kernel.configuration.clearSubjectOverride(r, options(c)),
-      });
+      router.service(
+        ConfigurationService,
+        forward(ConfigurationService, kernel.configuration),
+      );
+      router.service(RuntimeService, forward(RuntimeService, kernel.runtime));
+      router.service(
+        ResourceRegistryService,
+        forward(ResourceRegistryService, kernel.resourceRegistry),
+      );
       router.service(ModelService, modelOperations(kernel, modelRuntime));
     },
     grpc: false,

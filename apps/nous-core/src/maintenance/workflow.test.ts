@@ -83,12 +83,12 @@ function fixture() {
   const getPlan = vi.fn(async () => plan);
   const kernel = {
     execution: coreExecutionSchema.parse(undefined),
-    authority: {
+    maintenance: {
       planMaintenance: getPlan,
       commitJournal: commit,
       refreshMaintenance: refresh,
     },
-    modelMaterial: {
+    modelWorkflow: {
       findWorkflow: vi.fn(async () => ({
         found: !!snapshotJson,
         snapshotJson,
@@ -215,7 +215,7 @@ describe("maintenance fixed workflow retry", () => {
       attempts++;
       return { needs: [need] };
     });
-    Object.assign(state.kernel.authority, {
+    Object.assign(state.kernel.maintenance, {
       getMaintenancePolicy: vi.fn(async () => ({
         enabled: true,
         maxOperations: 4,
@@ -258,7 +258,7 @@ describe("maintenance fixed workflow retry", () => {
       if (input.disposition === "retry") retryCount++;
       return {};
     });
-    Object.assign(state.kernel.authority, {
+    Object.assign(state.kernel.maintenance, {
       getMaintenancePolicy: vi.fn(async () => ({
         enabled: true,
         maxOperations: 4,
@@ -307,7 +307,7 @@ describe("maintenance fixed workflow retry", () => {
     const kernel = {
       execution: coreExecutionSchema.parse(undefined),
       subjects: { listSubjects: list },
-      authority: {
+      maintenance: {
         getMaintenancePolicy: vi.fn(async () => ({
           enabled: true,
           maxOperations: 4,
@@ -335,7 +335,7 @@ describe("maintenance fixed workflow retry", () => {
     );
     for (let tick = 0; tick < 20; tick++)
       await scheduler.poll(new AbortController().signal);
-    expect(kernel.authority.organizeExperience).toHaveBeenCalledWith(
+    expect(kernel.maintenance.organizeExperience).toHaveBeenCalledWith(
       expect.objectContaining({ limit: 7 }),
       expect.anything(),
     );
@@ -398,7 +398,7 @@ describe("maintenance fixed workflow retry", () => {
         results: [],
       }),
     );
-    Object.assign(state.kernel.authority, {
+    Object.assign(state.kernel.maintenance, {
       commitLongitudinalConsolidation: commit,
     });
     expect(

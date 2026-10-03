@@ -1,13 +1,6 @@
 syntax = "proto3";
 package nous.wave.kernel.v1alpha1;
-import "nous/wave/kernel/v1alpha1/consolidation.proto";
-import "nous/wave/kernel/v1alpha1/longitudinal.proto";
-import "nous/wave/v1alpha1/journal.proto";
 import "nous/wave/v1alpha1/types.proto";
-import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
-import "nous/wave/v1alpha1/management.proto";
-import "nous/wave/kernel/v1alpha1/model.proto";
 
 message UploadHeader { string subject_id = 1; string media_type = 2; }
 message UploadChunk { oneof part { UploadHeader header = 1; bytes content = 2; } }
@@ -18,40 +11,3 @@ service ArtifactStreamService {
   rpc DownloadArtifact(DownloadRequest) returns (stream DownloadChunk);
 }
 
-service AuthorityService {
-  rpc GetCognitiveTime(nous.wave.v1alpha1.SubjectRequest) returns (google.protobuf.Timestamp);
-  rpc CommitLongitudinalConsolidation(CommitLongitudinalConsolidationRequest) returns (CommitLongitudinalConsolidationResponse);
-  rpc RefreshMaintenance(RefreshMaintenanceRequest) returns (google.protobuf.Empty);
-  rpc PlanMaintenance(PlanMaintenanceRequest) returns (MaintenancePlan);
-  rpc GetMaintenancePolicy(nous.wave.v1alpha1.SubjectRequest) returns (MaintenancePolicy);
-  rpc ClaimMaintenance(ClaimMaintenanceRequest) returns (ClaimMaintenanceResponse);
-  rpc FinishMaintenance(FinishMaintenanceRequest) returns (google.protobuf.Empty);
-  rpc OrganizeExperience(OrganizeExperienceRequest) returns (OrganizeExperienceResponse);
-  rpc ApplyEpisodePartition(ApplyEpisodePartitionRequest) returns (ApplyEpisodePartitionResponse);
-  rpc CommitJournal(CommitJournalRequest) returns (nous.wave.v1alpha1.JournalResponse);
-  rpc CreateWorkContext(nous.wave.v1alpha1.CreateWorkContextRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
-  rpc GetWorkContext(nous.wave.v1alpha1.GetWorkContextRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
-  rpc ListWorkContexts(nous.wave.v1alpha1.ListWorkContextsRequest) returns (nous.wave.v1alpha1.ListWorkContextsResponse);
-  rpc UpdateWorkContext(nous.wave.v1alpha1.UpdateWorkContextRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
-  rpc PauseWorkContext(nous.wave.v1alpha1.WorkContextMutationRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
-  rpc ResumeWorkContext(nous.wave.v1alpha1.WorkContextMutationRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
-  rpc EndWorkContext(nous.wave.v1alpha1.WorkContextMutationRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
-  rpc SetActiveWorkContext(nous.wave.v1alpha1.SetActiveWorkContextRequest) returns (nous.wave.v1alpha1.Session);
-  rpc PutResource(nous.wave.v1alpha1.PutResourceRequest) returns (nous.wave.v1alpha1.ResourceDescriptor);
-  rpc GetResource(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.ResourceDescriptor);
-  rpc ListResources(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListResourcesResponse);
-  rpc RemoveResource(nous.wave.v1alpha1.ObjectRequest) returns (google.protobuf.Empty);
-  rpc GetStatus(google.protobuf.Empty) returns (nous.wave.v1alpha1.SystemStatus);
-  rpc GetProjectionStatus(nous.wave.v1alpha1.SubjectRequest) returns (nous.wave.v1alpha1.ProjectionStatus);
-
-  rpc BuildContributionBatch(nous.wave.v1alpha1.ProjectionRequest) returns (nous.wave.v1alpha1.Projection);
-  rpc OpenSession(nous.wave.v1alpha1.SubjectRequest) returns (nous.wave.v1alpha1.Session);
-  rpc GetSession(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Session);
-  rpc ListSessions(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListSessionsResponse);
-  rpc CloseSession(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Session);
-  rpc RecordObservation(nous.wave.v1alpha1.ObservationInput) returns (nous.wave.v1alpha1.AcceptedObservation);
-  rpc Query(KernelQueryRequest) returns (KernelQueryResponse);
-  rpc FinalizeQuery(FinalizeQueryRequest) returns (nous.wave.v1alpha1.QueryResponse);
-  rpc ReleaseQuery(ReleaseQueryRequest) returns (google.protobuf.Empty);
-  rpc ReportUse(nous.wave.v1alpha1.ReportUseRequest) returns (nous.wave.v1alpha1.ReportUseResponse);
-}

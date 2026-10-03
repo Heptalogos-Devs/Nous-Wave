@@ -2,8 +2,8 @@ use super::*;
 use nous_protocol::kernel::kernel_configuration_service_server::KernelConfigurationServiceServer;
 use nous_protocol::kernel::{
     artifact_stream_service_server::ArtifactStreamServiceServer,
-    authority_service_server::AuthorityServiceServer,
-    model_material_service_server::ModelMaterialServiceServer,
+    kernel_material_workflow_service_server::KernelMaterialWorkflowServiceServer,
+    kernel_model_workflow_service_server::KernelModelWorkflowServiceServer,
 };
 use nous_protocol::public::configuration_service_server::ConfigurationServiceServer;
 
@@ -31,7 +31,7 @@ pub async fn router(runtime: NousRuntime, token: String) -> tonic::transport::se
     let service = KernelService(runtime);
     let (reporter, health) = tonic_health::server::health_reporter();
     reporter
-        .set_serving::<AuthorityServiceServer<KernelService>>()
+        .set_serving::<nous_protocol::kernel::kernel_query_service_server::KernelQueryServiceServer<KernelService>>()
         .await;
     tonic::transport::Server::builder()
         .add_service(KernelConfigurationServiceServer::with_interceptor(
@@ -68,16 +68,19 @@ pub async fn router(runtime: NousRuntime, token: String) -> tonic::transport::se
                 auth.clone(),
             ),
         )
+        .add_service(nous_protocol::public::runtime_service_server::RuntimeServiceServer::with_interceptor(service.clone(),auth.clone()))
+        .add_service(nous_protocol::public::resource_registry_service_server::ResourceRegistryServiceServer::with_interceptor(service.clone(),auth.clone()))
+        .add_service(nous_protocol::public::system_service_server::SystemServiceServer::with_interceptor(service.clone(),auth.clone()))
+        .add_service(nous_protocol::kernel::kernel_query_service_server::KernelQueryServiceServer::with_interceptor(service.clone(),auth.clone()))
+        .add_service(nous_protocol::kernel::kernel_maintenance_service_server::KernelMaintenanceServiceServer::with_interceptor(service.clone(),auth.clone()))
+        .add_service(nous_protocol::kernel::kernel_projection_service_server::KernelProjectionServiceServer::with_interceptor(service.clone(),auth.clone()))
+        .add_service(KernelMaterialWorkflowServiceServer::with_interceptor(service.clone(),auth.clone()))
         .add_service(ConfigurationServiceServer::with_interceptor(
             service.clone(),
             auth.clone(),
         ))
-        .add_service(AuthorityServiceServer::with_interceptor(
-            service.clone(),
-            auth.clone(),
-        ))
         .add_service(tonic::service::interceptor::InterceptedService::new(
-            ModelMaterialServiceServer::new(service.clone())
+            KernelModelWorkflowServiceServer::new(service.clone())
                 .max_decoding_message_size(
                     nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES,
                 )

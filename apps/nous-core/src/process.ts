@@ -104,7 +104,7 @@ export async function startKernel(
     const endpointURL = await endpoint;
     const client = KernelClient.connect(endpointURL, token);
     const health = await client.health.check({
-      service: "nous.wave.kernel.v1alpha1.AuthorityService",
+      service: "nous.wave.kernel.v1alpha1.KernelQueryService",
     });
     if (health.status !== HealthCheckResponse_ServingStatus.SERVING)
       throw new Error("Kernel is not serving");

@@ -23,7 +23,7 @@ it("finishes a Resource ticket without invoking required rerank for identity-onl
   });
   const kernel = {
     execution: coreExecutionSchema.parse(undefined),
-    authority: {
+    queryWorkflow: {
       query: async () => ({ response, validationTicket: "resource-ticket" }),
       finalizeQuery: finalize,
       releaseQuery: release,

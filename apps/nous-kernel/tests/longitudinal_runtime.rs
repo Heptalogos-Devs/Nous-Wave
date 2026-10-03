@@ -949,7 +949,9 @@ async fn assert_journal_protocol(
     subject: nous_core::SubjectId,
     journal: &nous_memory::JournalView,
 ) {
-    use nous_protocol::{kernel::authority_service_server::AuthorityService, public as p};
+    use nous_protocol::{
+        kernel::kernel_maintenance_service_server::KernelMaintenanceService, public as p,
+    };
     let service = nous_kernel::transport::KernelService(rt.clone());
     let current = service
         .get_journal(tonic::Request::new(p::ObjectRequest {
@@ -1037,7 +1039,9 @@ async fn assert_maintenance_planning(
     clock: &ManualCognitiveClock,
     subject: nous_core::SubjectId,
 ) {
-    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    use nous_protocol::{
+        kernel as k, kernel::kernel_maintenance_service_server::KernelMaintenanceService,
+    };
     let service = nous_kernel::transport::KernelService(rt.clone());
     clock.advance_by(subject, Duration::seconds(300)).unwrap();
     for kind in ["episode_resegment", "journal_review", "memory_consolidate"] {
@@ -1623,7 +1627,7 @@ async fn assert_longitudinal_query_protocol(
     subject: nous_core::SubjectId,
     refs: &[nous_core::CognitiveRef; 2],
 ) {
-    use k::authority_service_server::AuthorityService as Kernel;
+    use k::kernel_query_service_server::KernelQueryService as Kernel;
     use nous_protocol::{kernel as k, public as p};
     let service = nous_kernel::transport::KernelService(rt.clone());
     for (domain, text, expected) in [
@@ -2097,7 +2101,9 @@ async fn assert_consolidation_context(
     subject: nous_core::SubjectId,
     results: &[Option<nous_core::CognitiveRef>],
 ) {
-    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    use nous_protocol::{
+        kernel as k, kernel::kernel_maintenance_service_server::KernelMaintenanceService,
+    };
     rt.cognition
         .use_feedback(nous_runtime::UseFeedback {
             subject,
@@ -2193,7 +2199,9 @@ async fn assert_consolidation_policy(
     service: &nous_kernel::transport::KernelService,
     need: &nous_protocol::kernel::MaintenanceNeed,
 ) {
-    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    use nous_protocol::{
+        kernel as k, kernel::kernel_maintenance_service_server::KernelMaintenanceService,
+    };
     let mut policy = rt
         .configuration
         .snapshot_for_subject(subject)
@@ -2322,7 +2330,9 @@ async fn assert_manual_consolidation_plans(
     first: &EpisodeView,
     second: &EpisodeView,
 ) {
-    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    use nous_protocol::{
+        kernel as k, kernel::kernel_maintenance_service_server::KernelMaintenanceService,
+    };
     clock.advance_by(subject, Duration::seconds(300)).unwrap();
     let service = nous_kernel::transport::KernelService(rt.clone());
     let claims = service
@@ -2475,7 +2485,9 @@ async fn manual_episode_planning_and_complete_journal_revalidation() {
 )]
 async fn late_experience_uses_chronology_and_repairs_old_local_partitions() {
     use nous_core::CognitiveRef;
-    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    use nous_protocol::{
+        kernel as k, kernel::kernel_maintenance_service_server::KernelMaintenanceService,
+    };
     let (root, url, _postgres) = database().await;
     let historical = chrono::DateTime::parse_from_rfc3339("2024-01-01T10:00:00Z")
         .unwrap()

@@ -50,7 +50,7 @@ export class QueryOrchestrator {
             "Query embedding role unavailable",
             Code.FailedPrecondition,
           );
-        const config = await this.kernel.modelMaterial.getEmbeddingConfig(
+        const config = await this.kernel.materialWorkflow.getEmbeddingConfig(
           {},
           options,
         );
@@ -115,7 +115,7 @@ export class QueryOrchestrator {
         "Required query rerank role unavailable",
         Code.FailedPrecondition,
       );
-    const prepared = await this.kernel.authority.query(
+    const prepared = await this.kernel.queryWorkflow.query(
       {
         query: input,
         embeddings: material,
@@ -179,7 +179,7 @@ export class QueryOrchestrator {
             rerankFailed = true;
           }
         }
-        result = await this.kernel.authority.finalizeQuery(
+        result = await this.kernel.queryWorkflow.finalizeQuery(
           {
             subjectId: input.subjectId,
             validationTicket: ticket,
@@ -201,7 +201,7 @@ export class QueryOrchestrator {
           if (result.status === "complete") result.status = "degraded";
         }
       } finally {
-        await this.kernel.authority
+        await this.kernel.queryWorkflow
           .releaseQuery(
             { subjectId: input.subjectId, validationTicket: ticket },
             { timeoutMs: this.kernel.execution.workflow_ack_timeout_ms },

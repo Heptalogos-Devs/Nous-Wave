@@ -166,6 +166,44 @@ pub struct CommitLongitudinalConsolidationResponse {
     pub results: ::prost::alloc::vec::Vec<ConsolidationActionResult>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UploadHeader {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub media_type: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UploadChunk {
+    #[prost(oneof="upload_chunk::Part", tags="1, 2")]
+    pub part: ::core::option::Option<upload_chunk::Part>,
+}
+/// Nested message and enum types in `UploadChunk`.
+pub mod upload_chunk {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Part {
+        #[prost(message, tag="1")]
+        Header(super::UploadHeader),
+        #[prost(bytes, tag="2")]
+        Content(::prost::alloc::vec::Vec<u8>),
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DownloadRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub artifact_id: ::prost::alloc::string::String,
+    #[prost(uint64, optional, tag="3")]
+    pub start: ::core::option::Option<u64>,
+    #[prost(uint64, optional, tag="4")]
+    pub end: ::core::option::Option<u64>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DownloadChunk {
+    #[prost(bytes="vec", tag="1")]
+    pub content: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MaintenanceNeed {
     #[prost(string, tag="1")]
     pub need_id: ::prost::alloc::string::String,
@@ -722,44 +760,6 @@ pub struct FoundWorkflow {
     pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="4")]
     pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct UploadHeader {
-    #[prost(string, tag="1")]
-    pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub media_type: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct UploadChunk {
-    #[prost(oneof="upload_chunk::Part", tags="1, 2")]
-    pub part: ::core::option::Option<upload_chunk::Part>,
-}
-/// Nested message and enum types in `UploadChunk`.
-pub mod upload_chunk {
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
-    pub enum Part {
-        #[prost(message, tag="1")]
-        Header(super::UploadHeader),
-        #[prost(bytes, tag="2")]
-        Content(::prost::alloc::vec::Vec<u8>),
-    }
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct DownloadRequest {
-    #[prost(string, tag="1")]
-    pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub artifact_id: ::prost::alloc::string::String,
-    #[prost(uint64, optional, tag="3")]
-    pub start: ::core::option::Option<u64>,
-    #[prost(uint64, optional, tag="4")]
-    pub end: ::core::option::Option<u64>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct DownloadChunk {
-    #[prost(bytes="vec", tag="1")]
-    pub content: ::prost::alloc::vec::Vec<u8>,
 }
 include!("nous.wave.kernel.v1alpha1.tonic.rs");
 // @@protoc_insertion_point(module)

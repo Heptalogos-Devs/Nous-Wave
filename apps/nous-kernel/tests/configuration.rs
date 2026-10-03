@@ -215,14 +215,13 @@ async fn rebuild_policy_and_provisioning_defaults_preserve_adopted_subject_state
         .await
         .unwrap();
     assert_eq!(change.apply_mode, ConfigApplyMode::ServingRebuild);
-    let stale =
-        nous_protocol::kernel::authority_service_server::AuthorityService::get_projection_status(
-            &service,
-            status_request(),
-        )
-        .await
-        .unwrap()
-        .into_inner();
+    let stale = nous_protocol::public::system_service_server::SystemService::get_projection_status(
+        &service,
+        status_request(),
+    )
+    .await
+    .unwrap()
+    .into_inner();
     let stale = stale
         .families
         .iter()
@@ -252,14 +251,13 @@ async fn rebuild_policy_and_provisioning_defaults_preserve_adopted_subject_state
         before.metadata["config_digest"],
         after.metadata["config_digest"]
     );
-    let ready =
-        nous_protocol::kernel::authority_service_server::AuthorityService::get_projection_status(
-            &service,
-            status_request(),
-        )
-        .await
-        .unwrap()
-        .into_inner();
+    let ready = nous_protocol::public::system_service_server::SystemService::get_projection_status(
+        &service,
+        status_request(),
+    )
+    .await
+    .unwrap()
+    .into_inner();
     let ready = ready
         .families
         .iter()

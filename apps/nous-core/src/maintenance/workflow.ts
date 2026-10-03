@@ -110,11 +110,11 @@ export async function runModelMaintenance(
       scopeRef: need.scopeRef,
     }),
   };
-  const previous = await kernel.modelMaterial.findWorkflow(identity, options);
+  const previous = await kernel.modelWorkflow.findWorkflow(identity, options);
   if (previous.outcomeJson) return readOutcome(previous.outcomeJson);
   let snapshotJson = previous.snapshotJson;
   if (!snapshotJson) {
-    const plan = await kernel.authority.planMaintenance(
+    const plan = await kernel.maintenance.planMaintenance(
       { claimed: need },
       options,
     );
@@ -141,7 +141,7 @@ export async function runModelMaintenance(
       model,
     });
   }
-  const reservation = await kernel.modelMaterial.reserveWorkflow(
+  const reservation = await kernel.modelWorkflow.reserveWorkflow(
     {
       ...identity,
       snapshotJson,
@@ -346,13 +346,13 @@ export async function runModelMaintenance(
           }
         }
       }
-      await kernel.modelMaterial.saveWorkflow(
+      await kernel.modelWorkflow.saveWorkflow(
         { ...lease, proposalJson: JSON.stringify(proposed) },
         options,
       );
     }
     if (proposed.action === "partition")
-      await kernel.authority.applyEpisodePartition(
+      await kernel.maintenance.applyEpisodePartition(
         fromJson(
           ApplyEpisodePartitionRequestSchema,
           proposed.request as JsonValue,
@@ -360,12 +360,12 @@ export async function runModelMaintenance(
         options,
       );
     else if (proposed.action === "journal")
-      await kernel.authority.commitJournal(
+      await kernel.maintenance.commitJournal(
         fromJson(CommitJournalRequestSchema, proposed.request as JsonValue),
         options,
       );
     else if (proposed.action === "consolidation") {
-      const result = await kernel.authority.commitLongitudinalConsolidation(
+      const result = await kernel.maintenance.commitLongitudinalConsolidation(
         fromJson(
           CommitLongitudinalConsolidationRequestSchema,
           proposed.request as JsonValue,
@@ -378,7 +378,7 @@ export async function runModelMaintenance(
             ? ("no_change" as const)
             : ("committed" as const),
       };
-      await kernel.modelMaterial.saveWorkflow(
+      await kernel.modelWorkflow.saveWorkflow(
         { ...lease, outcomeJson: JSON.stringify(outcome) },
         options,
       );
@@ -397,14 +397,14 @@ export async function runModelMaintenance(
       (proposed.action === "partition" && need.scopeKind === "track") ||
       (proposed.action === "journal" && need.kind === "journal_review")
     )
-      await kernel.authority.refreshMaintenance({ claimed: need }, options);
+      await kernel.maintenance.refreshMaintenance({ claimed: need }, options);
     const outcome = {
       status:
         proposed.action === "no_change"
           ? ("no_change" as const)
           : ("committed" as const),
     };
-    await kernel.modelMaterial.saveWorkflow(
+    await kernel.modelWorkflow.saveWorkflow(
       { ...lease, outcomeJson: JSON.stringify(outcome) },
       options,
     );
@@ -420,7 +420,7 @@ export async function runModelMaintenance(
         status: "rejected_invalid" as const,
         problemCode: "proposal_invalid",
       };
-      await kernel.modelMaterial.saveWorkflow(
+      await kernel.modelWorkflow.saveWorkflow(
         { ...lease, outcomeJson: JSON.stringify(outcome) },
         options,
       );
@@ -431,16 +431,16 @@ export async function runModelMaintenance(
       [Code.Aborted, Code.NotFound].includes(error.code)
     ) {
       const outcome = { status: "obsolete" as const };
-      await kernel.modelMaterial.saveWorkflow(
+      await kernel.modelWorkflow.saveWorkflow(
         { ...lease, outcomeJson: JSON.stringify(outcome) },
         options,
       );
-      await kernel.authority.refreshMaintenance({ claimed: need }, options);
+      await kernel.maintenance.refreshMaintenance({ claimed: need }, options);
       return outcome;
     }
     throw error;
   } finally {
-    await kernel.modelMaterial.releaseWorkflow(lease, {
+    await kernel.modelWorkflow.releaseWorkflow(lease, {
       timeoutMs: kernel.execution.workflow_ack_timeout_ms,
     });
   }

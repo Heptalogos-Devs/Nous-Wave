@@ -32,13 +32,15 @@ message CommitInterpretationRequest {
   google.protobuf.Struct quality = 12;
   google.protobuf.Struct structured_payload = 13;
 }
-service ModelMaterialService {
-  rpc SegmentDescription(nous.wave.v1alpha1.ObjectRequest) returns (DescriptionSegments);
+service KernelModelWorkflowService {
   rpc FindWorkflow(FindWorkflowRequest) returns (FoundWorkflow);
-  rpc GetResolvedMentions(ResolvedMentionsRequest) returns (ResolvedMentionsResponse);
   rpc ReserveWorkflow(ReserveWorkflowRequest) returns (WorkflowReservation);
   rpc SaveWorkflow(SaveWorkflowRequest) returns (google.protobuf.Empty);
   rpc ReleaseWorkflow(ReleaseWorkflowRequest) returns (google.protobuf.Empty);
+}
+service KernelMaterialWorkflowService {
+  rpc SegmentDescription(nous.wave.v1alpha1.ObjectRequest) returns (DescriptionSegments);
+  rpc GetResolvedMentions(ResolvedMentionsRequest) returns (ResolvedMentionsResponse);
   rpc GetEmbeddingConfig(google.protobuf.Empty) returns (EmbeddingConfig);
   rpc ListEmbeddingNeeds(EmbeddingNeedsRequest) returns (EmbeddingNeedsResponse);
   rpc CommitEmbedding(CommitEmbeddingRequest) returns (google.protobuf.Empty);
