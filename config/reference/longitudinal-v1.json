@@ -11,6 +11,14 @@
     "journal.max_episode_count": 12,
     "journal.max_span_seconds": 86400,
     "consolidation.settle_delay_seconds": 300,
-    "consolidation.max_actions": 8
+    "consolidation.max_actions": 8,
+    "consolidation.context": {
+      "query_cue_chars": 2048,
+      "candidate_text_chars": 4096,
+      "candidate_limit": 16,
+      "support_limit": 512,
+      "provenance_root_limit": 512,
+      "entity_limit": 128
+    }
   }
 }

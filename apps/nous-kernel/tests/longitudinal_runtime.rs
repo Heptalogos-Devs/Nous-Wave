@@ -2098,6 +2098,7 @@ async fn assert_consolidation_context(
             "memory_revision" | "cognitive_schema_revision"
         )
     }));
+    assert_consolidation_policy(rt, subject, &service, &need).await;
     service
         .finish_maintenance(tonic::Request::new(k::FinishMaintenanceRequest {
             claimed: Some(need),
@@ -2107,6 +2108,50 @@ async fn assert_consolidation_context(
         }))
         .await
         .unwrap();
+}
+
+async fn assert_consolidation_policy(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    service: &nous_kernel::transport::KernelService,
+    need: &nous_protocol::kernel::MaintenanceNeed,
+) {
+    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    let mut policy = rt
+        .configuration
+        .snapshot_for_subject(subject)
+        .unwrap()
+        .get(nous_memory::CONSOLIDATION_CONTEXT)
+        .unwrap();
+    policy.candidate_text_chars = 64;
+    policy.support_limit = 1;
+    policy.provenance_root_limit = 1;
+    rt.configuration
+        .set_subject_override(
+            nous_core::OperationId::new(),
+            subject,
+            nous_memory::CONSOLIDATION_CONTEXT.path(),
+            serde_json::to_value(policy).unwrap(),
+        )
+        .await
+        .unwrap();
+    let bounded = service
+        .plan_maintenance(tonic::Request::new(k::PlanMaintenanceRequest {
+            claimed: Some(need.clone()),
+        }))
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(!bounded.candidates.is_empty());
+    assert!(
+        bounded
+            .candidates
+            .iter()
+            .all(|c| c.text.chars().count() <= 64)
+    );
+    assert_eq!(bounded.supports.len(), 1);
+    assert!(bounded.support_catalog_partial);
+    assert!(bounded.provenance_roots.len() <= 1);
 }
 
 async fn manual_episode_sources(

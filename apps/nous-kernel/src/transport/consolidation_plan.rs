@@ -6,6 +6,8 @@ use std::collections::BTreeSet;
 impl KernelService {
     pub(super) async fn consolidation_context(&self, plan: &mut k::MaintenancePlan) -> Result<()> {
         let subject = SubjectId(id(&plan.subject_id)?);
+        let snapshot = self.0.configuration.snapshot_for_subject(subject)?;
+        let policy = snapshot.get(nous_memory::CONSOLIDATION_CONTEXT)?;
         let source = from_ref(required(
             required(plan.consolidation_source.clone(), "source")?.reference,
             "source reference",
@@ -16,8 +18,8 @@ impl KernelService {
             .map(|journal| journal.narrative.as_str())
             .or_else(|| plan.members.first().map(|member| member.text.as_str()))
             .unwrap_or("");
-        let cue: String = text.chars().take(2048).collect();
-        let query = consolidation_query(subject, cue);
+        let cue: String = text.chars().take(policy.query_cue_chars).collect();
+        let query = consolidation_query(subject, cue, policy.candidate_limit);
         let result = Box::pin(self.0.query(query)).await?;
         let schema_ids: Vec<uuid::Uuid> = result
             .results
@@ -82,7 +84,7 @@ impl KernelService {
             } else {
                 hit.formation_mode.unwrap_or_default()
             };
-            let text: String = text.chars().take(4096).collect();
+            let text: String = text.chars().take(policy.candidate_text_chars).collect();
             let uses = use_summaries
                 .remove(&reference.to_string())
                 .unwrap_or_default();
@@ -106,7 +108,9 @@ impl KernelService {
                 recorded_at: hit.freshness.recorded_at.map(timestamp),
             });
         }
-        self.finish_consolidation_catalog(plan, subject, &scopes, entities)
+        plan.max_consolidation_actions =
+            snapshot.get(nous_memory::CONSOLIDATION_MAX_ACTIONS)? as u32;
+        self.finish_consolidation_catalog(plan, subject, &scopes, entities, &policy)
             .await
     }
 
@@ -116,18 +120,19 @@ impl KernelService {
         subject: SubjectId,
         scopes: &[CognitiveRef],
         entities: BTreeSet<String>,
+        policy: &nous_memory::ConsolidationContextPolicy,
     ) -> Result<()> {
         let memory = self.require_memory()?;
         let supports = memory
             .consolidation_catalog_supports(subject, scopes)
             .await?;
         let provenance = memory.provenance_summary(subject, &supports).await?;
-        plan.support_catalog_partial = supports.len() > 512;
-        plan.provenance_roots_partial = provenance.roots.len() > 512;
+        plan.support_catalog_partial = supports.len() > policy.support_limit;
+        plan.provenance_roots_partial = provenance.roots.len() > policy.provenance_root_limit;
         plan.provenance_roots = provenance
             .roots
             .into_iter()
-            .take(512)
+            .take(policy.provenance_root_limit)
             .map(|root| k::ProvenanceRoot {
                 key: root.root_key,
                 certainty: enum_name(root.certainty),
@@ -144,7 +149,7 @@ impl KernelService {
                     .into_iter()
                     .filter(|support| support.canonical_key() != source_key),
             )
-            .take(512);
+            .take(policy.support_limit);
         plan.supports = bounded
             .map(|support| k::SupportCatalogEntry {
                 key: support.canonical_key(),
@@ -153,18 +158,13 @@ impl KernelService {
             .collect();
         plan.entities = entities
             .into_iter()
-            .take(128)
+            .take(policy.entity_limit)
             .enumerate()
             .map(|(index, entity_ref)| k::ConsolidationEntity {
                 key: format!("entity{index}"),
                 entity_ref,
             })
             .collect();
-        plan.max_consolidation_actions =
-            self.0
-                .configuration
-                .snapshot_for_subject(subject)?
-                .get(nous_memory::CONSOLIDATION_MAX_ACTIONS)? as u32;
         Ok(())
     }
     async fn consolidation_use_summaries(
@@ -192,7 +192,7 @@ impl KernelService {
     }
 }
 
-fn consolidation_query(subject: SubjectId, cue: String) -> CognitiveQuery {
+fn consolidation_query(subject: SubjectId, cue: String, limit: usize) -> CognitiveQuery {
     let constraints = QueryConstraints::default();
     CognitiveQuery {
         api_version: 1,
@@ -208,7 +208,7 @@ fn consolidation_query(subject: SubjectId, cue: String) -> CognitiveQuery {
         exploration: Default::default(),
         resources: Default::default(),
         result_need: ResultNeed {
-            limit: 16,
+            limit,
             ..Default::default()
         },
         effort: CognitiveEffort::Light,

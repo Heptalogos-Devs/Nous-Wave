@@ -7,6 +7,7 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
+schemars.workspace = true
 nous-persistence.workspace = true
 nous-runtime.workspace = true
 nous-core.workspace = true

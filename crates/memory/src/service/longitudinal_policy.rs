@@ -7,10 +7,41 @@ pub const CONSOLIDATION_DELAY: ConfigKey<u64> =
 
 pub const CONSOLIDATION_MAX_ACTIONS: ConfigKey<u64> = ConfigKey::new("consolidation.max_actions");
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ConsolidationContextPolicy {
+    #[schemars(range(min = 1, max = 8192))]
+    pub query_cue_chars: usize,
+    #[schemars(range(min = 1, max = 16384))]
+    pub candidate_text_chars: usize,
+    #[schemars(range(min = 1, max = 64))]
+    pub candidate_limit: usize,
+    #[schemars(range(min = 1, max = 512))]
+    pub support_limit: usize,
+    #[schemars(range(min = 1, max = 512))]
+    pub provenance_root_limit: usize,
+    #[schemars(range(min = 1, max = 128))]
+    pub entity_limit: usize,
+}
+pub const CONSOLIDATION_CONTEXT: ConfigKey<ConsolidationContextPolicy> =
+    ConfigKey::new("consolidation.context");
+
 pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     let reference = ReferenceProfile::parse(include_str!(
         "../../../../config/reference/longitudinal-v1.json"
     ))?;
+    registry.register(
+        CONSOLIDATION_CONTEXT,
+        "memory",
+        "Longitudinal consolidation retrieval and model input budgets.",
+        reference.get(CONSOLIDATION_CONTEXT)?,
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SubjectOverrideAllowed,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::AuthorityFormation,
+        |_: &ConsolidationContextPolicy| Ok(()),
+    )?;
+    reference.tag(registry, CONSOLIDATION_CONTEXT.path())?;
     registry.register(
         JOURNAL_MAX_EPISODES,
         "memory",

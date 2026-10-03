@@ -96,5 +96,6 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `journal.max_span_seconds` | 86400 | Journal scope 的认知秒 |
 | `consolidation.settle_delay_seconds` | 300 | 整合前的认知秒 |
 | `consolidation.max_actions` | 8 | 一个原子整合 proposal 的 action 数 |
+| `consolidation.context` | longitudinal-v1 | Developer：query cue/candidate text 字符预算、candidate/support/provenance/entity 数上限；运行开始解析一次 |
 
 `GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`poll_interval`、`worker_lease_seconds` 和新增的 retention/retry/tick budget 设置均由 `cognitive-runtime` owner 注册，使用 Developer exposure、SystemOnly scope、Live apply mode 和 Operational semantic effect。其他以上设置允许 Subject override。retry 延迟为 `min(retry_max_seconds, retry_initial_seconds × 2^(连续失败次数−1))`。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
