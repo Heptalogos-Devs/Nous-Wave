@@ -10,7 +10,10 @@ import {
 } from "ai";
 import { z } from "zod";
 import { canonicalDigest } from "../digest.js";
-import { structuredOutputContract } from "./schemas/provider.js";
+import {
+  providerContractForRole,
+  type ModelGenerationOutput,
+} from "./schemas/contracts.js";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -24,6 +27,7 @@ import {
   modelConfigurationSchema,
 } from "./configuration.js";
 import { PromptRegistry, type PromptAsset } from "./prompts.js";
+import { modelRoleIdentity, invocationConfigDigest } from "./identity.js";
 
 class MediaProtocolError extends Error {}
 class ModelOutputError extends Error {}
@@ -198,20 +202,12 @@ export class ModelInvocations {
       }
       try {
         const prompt = await prompts.load(role, binding.prompt);
-        const profileDigest = canonicalDigest({
+        const { profileDigest, configDigest } = modelRoleIdentity(
           profile,
-          destination: gateway.base_url,
-        });
-        const configDigest = canonicalDigest({
-          binding: {
-            ...binding,
-            max_output_tokens: binding.max_output_tokens,
-            timeout_ms: binding.timeout_ms ?? gateway.request_timeout_ms,
-          },
-          adapter: "ai-sdk@7.0.102/openai@4.0.67",
-          profileDigest,
-          prompt: prompt ? { id: prompt.id, digest: prompt.digest } : undefined,
-        });
+          gateway,
+          binding,
+          prompt,
+        );
         const provider = createOpenAI({
           baseURL: gateway.base_url,
           apiKey: credential,
@@ -290,17 +286,12 @@ export class ModelInvocations {
       const prompt = await this.prompts?.load(name, path);
       if (!prompt) throw new Error("Strategy prompt unavailable");
       snapshot.prompt = prompt;
-      snapshot.configDigest = canonicalDigest({
-        binding: snapshot.configDigest,
-        promptId: prompt.id,
-        promptDigest: prompt.digest,
-      });
     }
-    if (adapter)
-      snapshot.configDigest = canonicalDigest({
-        binding: snapshot.configDigest,
-        adapter,
-      });
+    snapshot.configDigest = invocationConfigDigest(
+      snapshot.configDigest,
+      path ? snapshot.prompt : undefined,
+      adapter,
+    );
     return snapshot;
   }
   private hydrate(input: ModelRoleSnapshot): ReadyRole {
@@ -364,10 +355,9 @@ export class ModelInvocations {
       ? AbortSignal.any([signal, AbortSignal.timeout(role.timeout)])
       : AbortSignal.timeout(role.timeout);
   }
-  async generate<T>(
-    name: ModelRole,
+  async generate<R extends ModelRole>(
+    name: R,
     content: UserContent,
-    schema?: z.ZodType<T>,
     signal?: AbortSignal,
     promptRole?: ModelRole | { role: ModelRole; path: string },
     fixed?: ModelRoleSnapshot,
@@ -400,7 +390,8 @@ export class ModelInvocations {
       role.profile.protocol !== "openai-responses"
     )
       throw new Error("Role is not a text generation protocol");
-    const output = schema ? structuredOutputContract(schema) : undefined;
+    const output = providerContractForRole(name);
+    const schema = output?.owner;
     if (output && !role.profile.capabilities.includes("structured_output"))
       throw new Error("Strict structured output capability is unavailable");
     let mediaStage = "admission";
@@ -468,7 +459,7 @@ export class ModelInvocations {
                   response_format: {
                     type: "json_schema",
                     json_schema: {
-                      name: "material",
+                      name: output!.providerName,
                       strict: true,
                       schema: output!.providerSchema,
                     },
@@ -519,7 +510,7 @@ export class ModelInvocations {
         const text = result.choices[0]!.message.content;
         const value = schema ? schema.parse(JSON.parse(text)) : text;
         return {
-          value,
+          value: value as ModelGenerationOutput<R>,
           producerMetadata: {
             ...this.metadata(role),
             implementation: "gateway-chat-media-v1",
@@ -535,7 +526,10 @@ export class ModelInvocations {
         system: role.prompt?.text,
         messages: [{ role: "user", content }],
         output: output
-          ? Output.object({ schema: output.sdkSchema })
+          ? Output.object({
+              schema: output.sdkSchema,
+              name: output.providerName,
+            })
           : undefined,
         temperature: role.binding.temperature,
         topP: role.binding.top_p,
@@ -548,7 +542,7 @@ export class ModelInvocations {
         throw new ModelOutputError(`output_incomplete_${result.finishReason}`);
       const value = schema ? schema.parse(result.output) : result.text;
       return {
-        value,
+        value: value as ModelGenerationOutput<R>,
         producerMetadata: {
           ...this.metadata(role),
           outputSchemaDigest: output?.digest,

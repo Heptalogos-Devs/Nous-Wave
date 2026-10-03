@@ -97,12 +97,52 @@ impl KernelService {
                     source_revision: Some(reference.to_string()),
                 }),
         );
+        let mut remaining = input.max_text_bytes as usize;
+        let mut degradation = Vec::new();
+        for segment in &mut segments {
+            let Some(reference) = segment.source_refs.first() else {
+                continue;
+            };
+            let reference = from_ref(reference.clone())?;
+            if !matches!(
+                reference,
+                nous_core::CognitiveRef::Memory(_) | nous_core::CognitiveRef::MemoryRevision(_)
+            ) {
+                continue;
+            }
+            match nous_runtime::ContextResolver::context_source(
+                &self.0, subject, &reference, remaining, true,
+            )
+            .await
+            {
+                Ok(source) => {
+                    segment.text = source.text.unwrap_or_default();
+                    remaining = remaining.saturating_sub(segment.text.len());
+                    segment.evidence = source
+                        .evidence
+                        .into_iter()
+                        .map(|evidence| p::Evidence {
+                            reference: Some(to_ref(evidence.reference)),
+                            support_role: evidence.support_role,
+                        })
+                        .collect();
+                    segment.source_revision = source
+                        .source_revision
+                        .map(|revision| revision.0.to_string());
+                    segment.authority = "subject_cognition".into();
+                }
+                Err(_) => degradation.push(p::Degradation {
+                    code: "projection_source_unavailable".into(),
+                    detail: reference.to_string(),
+                }),
+            }
+        }
         Ok(p::Projection {
             projection_id: uuid::Uuid::now_v7().to_string(),
             consumer_id: input.consumer_id,
             source_runtime_revision: runtime.runtime_revision,
             segments,
-            degradation: Vec::new(),
+            degradation,
         })
     }
 }

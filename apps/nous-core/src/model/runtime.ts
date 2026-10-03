@@ -1,8 +1,6 @@
 import { createHash } from "node:crypto";
-import { z } from "zod";
 import type { UserContent } from "ai";
 import {
-  materialInterpretationSchema,
   structuredMaterialResult,
   type StructuredMaterialContext,
 } from "./schemas/material-interpretation.js";
@@ -13,26 +11,9 @@ import {
   type ModelConfiguration,
 } from "./configuration.js";
 
-import {
-  episodePartitionSchema,
-  journalSynthesisSchema,
-} from "./schemas/longitudinal.js";
-
-import { consolidationSchema } from "./schemas/consolidation.js";
-
-const proposalSchema = z.strictObject({
-  selectedIds: z.array(z.string()).max(64),
-  summary: z.string().max(8192).optional(),
-});
-const formationSchema = z.strictObject({
-  text: z.string().min(1).max(32768),
-  semanticRole: z.string().min(1).max(128),
-  title: z.string().max(256).optional(),
-  selectedEntityKeys: z.array(z.string().max(128)).max(128).default([]),
-});
-const interpretationSchema = z.strictObject({
-  text: z.string().min(1).max(65536),
-});
+import { formationSchema } from "./schemas/formation.js";
+import { projectionStewardSchema as proposalSchema } from "./schemas/projection.js";
+import { descriptionSchema as interpretationSchema } from "./schemas/description.js";
 
 export class ModelRuntime {
   constructor(
@@ -79,7 +60,6 @@ export class ModelRuntime {
     return this.invocations.generate(
       "episode_segmentation",
       input,
-      episodePartitionSchema,
       signal,
       undefined,
       snapshot,
@@ -93,7 +73,6 @@ export class ModelRuntime {
     return this.invocations.generate(
       "journal_synthesis",
       input,
-      journalSynthesisSchema,
       signal,
       undefined,
       snapshot,
@@ -107,7 +86,6 @@ export class ModelRuntime {
     return this.invocations.generate(
       "memory_consolidation",
       input,
-      consolidationSchema,
       signal,
       undefined,
       snapshot,
@@ -117,7 +95,6 @@ export class ModelRuntime {
     const result = await this.invocations.generate(
       "memory_formation",
       text,
-      formationSchema,
       signal,
       undefined,
       snapshot,
@@ -145,7 +122,6 @@ export class ModelRuntime {
     const result = await this.invocations.generate(
       "material_description",
       content,
-      undefined,
       signal,
       undefined,
       fixed,
@@ -175,9 +151,16 @@ export class ModelRuntime {
     const content: UserContent =
       typeof input === "string"
         ? JSON.stringify({
-            source_text: input,
+            evidence_text: input,
+            evidence_kind: context.sourceText
+              ? "original_text"
+              : "committed_representation",
             support_catalog: Object.keys(context.catalog),
-            modalities: { visual: context.visual, audio: context.audio },
+            modalities: {
+              visual: context.visual,
+              audio: context.audio,
+              source_text: context.sourceText,
+            },
           })
         : [
             {
@@ -194,7 +177,6 @@ export class ModelRuntime {
     const result = await this.invocations.generate(
       role,
       content,
-      materialInterpretationSchema,
       signal,
       undefined,
       fixed,
@@ -217,7 +199,6 @@ export class ModelRuntime {
     const result = await this.invocations.generate(
       structured ? "material_direct_structuring" : "material_description",
       `Input media type: ${mediaType}. The attached material is the input evidence. Support catalog: ${JSON.stringify(Object.keys(context?.catalog ?? {}))}.`,
-      structured ? materialInterpretationSchema : undefined,
       signal,
       undefined,
       fixed,
@@ -266,7 +247,6 @@ export class ModelRuntime {
     const result = await this.invocations.generate(
       structured ? "material_direct_structuring" : "material_description",
       content,
-      structured ? materialInterpretationSchema : undefined,
       signal,
       fixed
         ? undefined
@@ -309,7 +289,6 @@ export class ModelRuntime {
                 text: s.text,
               })),
             ),
-            proposalSchema,
             signal,
           )
         ).value,

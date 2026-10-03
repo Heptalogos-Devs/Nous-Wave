@@ -21,7 +21,7 @@ export const consumersSchema = z
   .max(64)
   .prefault([{ consumer_id: "default" }]);
 const executionTimeout = z.number().int().min(1).max(600000);
-export const hostFields = {
+const hostFields = {
   port: z.number().int().min(0).max(65535).default(9470),
   dotenv_file: z.string().min(1).default("gateway.env"),
   kernel_executable: z.string().min(1).nullable().default(null),
@@ -59,7 +59,7 @@ export const coreExecutionSchema = z
   .prefault({});
 export type CoreExecutionPolicy = z.infer<typeof coreExecutionSchema>;
 
-export const databaseSchema = z
+const databaseSchema = z
   .strictObject({
     mode: z.enum(["managed_private", "external"]).default("managed_private"),
     url_env: z
@@ -186,7 +186,7 @@ const owners = [
 }[];
 
 /** Owner Zod schemas are the sole TypeScript type/JSON Schema source. */
-export function coreDescriptors() {
+function coreDescriptors() {
   return owners.map((owner) => ({
     path: owner.path,
     owner: owner.owner,

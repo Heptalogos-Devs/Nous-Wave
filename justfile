@@ -20,7 +20,7 @@ check: check-fast
 audit:
     cargo deny --config .config/deny.toml check
     cargo shear --deny-warnings
-    corepack pnpm audit
+    corepack pnpm run audit
     cargo dupes check
     osv-scanner scan source -r .
 

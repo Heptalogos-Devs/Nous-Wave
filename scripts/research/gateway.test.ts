@@ -41,6 +41,7 @@ it("counts real forwarded attempts including failure and preserves the run cap a
     port: 0,
     ledger: join(root, "calls.json"),
     maxCalls: 3,
+    traceRoot: join(root, "traces"),
   };
   let proxy = await startResearchGateway(options);
   const invoke = (path: string) =>
@@ -93,6 +94,23 @@ it("counts real forwarded attempts including failure and preserves the run cap a
       total_tokens: 5,
     });
     expect(JSON.stringify(records)).not.toContain("fixture-only");
+    const trace = await readFile(
+      join(options.traceRoot, "1/response.json"),
+      "utf8",
+    );
+    expect(trace).toContain('"total_tokens": 5');
+    expect(trace).not.toContain("fixture-only");
+    expect(trace).not.toContain('"credential"');
+    expect(
+      JSON.parse(
+        await readFile(join(options.traceRoot, "1/request.json"), "utf8"),
+      ),
+    ).toEqual({ model: "fixture" });
+    const meta = JSON.parse(
+      await readFile(join(options.traceRoot, "2/meta.json"), "utf8"),
+    ) as { status: number; response_complete: boolean };
+    expect(meta.status).toBe(503);
+    expect(meta.response_complete).toBe(true);
     proxy = await startResearchGateway(options);
   } finally {
     await proxy.close();

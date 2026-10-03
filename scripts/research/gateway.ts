@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { appendFile } from "node:fs/promises";
 import { remoteEndpointSchema } from "../../apps/nous-core/src/remote-endpoint.js";
 import { ResearchModelCallGuard } from "./model-call-guard.js";
+import { TraceBody, traceSecrets, writeGatewayTrace } from "./gateway-trace.js";
 
 /** Run-owned accounting at the wire boundary, including failed/retried requests. */
 export async function startResearchGateway(options: {
@@ -11,6 +12,7 @@ export async function startResearchGateway(options: {
   ledger: string;
   maxCalls: number;
   port: number;
+  traceRoot?: string;
 }) {
   const upstream = new URL(remoteEndpointSchema.parse(options.upstream));
   const guard = new ResearchModelCallGuard(options.ledger, options.maxCalls);
@@ -50,27 +52,45 @@ export async function startResearchGateway(options: {
         upstream.protocol === "https:" ? httpsRequest : httpRequest;
       const started = performance.now();
       let recorded = false;
+      const requestCapture = new TraceBody(
+        options.traceRoot ? 96 * 1024 * 1024 : 0,
+      );
+      const responseCapture = new TraceBody(1024 * 1024);
+      const secrets = traceSecrets(incoming.headers);
+      incoming.on("data", (chunk: Buffer) => requestCapture.add(chunk));
       const record = (
         status: number | null,
         usage: Record<string, number> = {},
+        responseComplete = false,
       ) => {
         if (recorded) return;
         recorded = true;
         const latencyMs = performance.now() - started;
-        telemetry = telemetry.then(() =>
-          appendFile(
+        telemetry = telemetry.then(async () => {
+          const meta = {
+            endpoint: target.pathname.slice(basePath.length),
+            status,
+            latencyMs,
+            usage,
+            cost: "unknown",
+            request_complete: incoming.complete,
+            response_complete: responseComplete,
+          };
+          await appendFile(
             options.ledger + ".telemetry.jsonl",
-            JSON.stringify({
-              attempt,
-              endpoint: target.pathname.slice(basePath.length),
-              status,
-              latencyMs,
-              usage,
-              cost: "unknown",
-            }) + "\n",
+            JSON.stringify({ attempt, ...meta }) + "\n",
             { mode: 0o600 },
-          ),
-        );
+          );
+          if (options.traceRoot)
+            await writeGatewayTrace(
+              options.traceRoot,
+              attempt,
+              meta,
+              requestCapture,
+              responseCapture,
+              secrets,
+            );
+        });
         // close() propagates an unavailable research telemetry sink to the runner.
         void telemetry.catch(() => {});
       };
@@ -82,19 +102,15 @@ export async function startResearchGateway(options: {
           timeout: 300000,
         },
         (response) => {
-          const chunks: Buffer[] = [];
-          let size = 0;
           response.on("data", (chunk: Buffer) => {
-            size += chunk.length;
-            if (size <= 1048576) chunks.push(chunk);
-            else chunks.length = 0;
+            responseCapture.add(chunk);
           });
           response.on("end", () => {
             const usage: Record<string, number> = {};
-            if (size <= 1048576) {
+            if (!responseCapture.truncated) {
               try {
                 const result: unknown = JSON.parse(
-                  Buffer.concat(chunks).toString("utf8"),
+                  responseCapture.bytes().toString("utf8"),
                 );
                 if (
                   result &&
@@ -124,7 +140,7 @@ export async function startResearchGateway(options: {
                 /* Usage is unknown for non-JSON or truncated responses. */
               }
             }
-            record(response.statusCode ?? null, usage);
+            record(response.statusCode ?? null, usage, true);
           });
           response.on("aborted", () => record(response.statusCode ?? null));
           outgoing.writeHead(response.statusCode ?? 502, response.headers);

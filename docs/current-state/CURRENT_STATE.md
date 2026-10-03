@@ -15,11 +15,11 @@
 
 Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential ranking。当前检索语料没有真实 topology signal。
 
-纵向模型质量尚无真实人工标注 trace/corpus 测量；手动 proposal 研究入口见 [Research](../research/README.md)。
+真实 New API 验证已覆盖七个 Structured Output 角色、四类代表性媒体的三种派生策略、六篇个人博客的 formation/query，以及 Episode/Journal/consolidation proposal。稳定结论与剩余质量范围见 [Research 观测](../research/observations.md#2026-10-04-真实-new-api-验证)。大样本分段边界与 Schema 泛化质量仍未测量。
 
 ## Known Issues
 
-- 真实媒体派生可能遗漏乐器或底噪，也可能提出输入中不存在的视觉内容；结构校验拒绝非法输出，两阶段流程保留已提交描述。
+- 真实模型可提出非法 selector 或无支持的 modality；owner 验证拒绝提交，两阶段保留已提交描述。当前代表性 case 的已发现问题已修复并重跑；NASA 低信号音频仅作为 research negative controls，不能泛化成产品语义缺陷。
 
 ## Deferred
 

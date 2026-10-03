@@ -1,20 +1,9 @@
 import { z } from "zod";
 import { remoteEndpointSchema } from "../remote-endpoint.js";
+import { structuredContractForRole } from "./schemas/contracts.js";
 
-export const roleNames = [
-  "projection_steward",
-  "memory_formation",
-  "episode_segmentation",
-  "journal_synthesis",
-  "memory_consolidation",
-  "material_description",
-  "material_structuring",
-  "material_direct_structuring",
-  "query_embedding",
-  "query_rerank",
-  "speech_transcription",
-] as const;
-export type ModelRole = (typeof roleNames)[number];
+import { roleNames, type ModelRole } from "./roles.js";
+export { roleNames, type ModelRole } from "./roles.js";
 const nonempty = z.string().min(1).max(512);
 const boundedTimeout = z.number().int().min(1).max(300_000);
 const gatewaySchema = z.strictObject({
@@ -188,11 +177,7 @@ export function modelRoleProblem(
   )
     return "Role protocol/capability mismatch";
   if (
-    [
-      "episode_segmentation",
-      "journal_synthesis",
-      "memory_consolidation",
-    ].includes(role) &&
+    structuredContractForRole(role as ModelRole) &&
     !model.capabilities.includes("structured_output")
   )
     return "Role requires structured_output";

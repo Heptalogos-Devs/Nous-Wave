@@ -131,17 +131,22 @@ const provider = createServer((request, response) => {
     );
     const key = JSON.stringify(body.messages).match(/D\d{3}/)?.[0] ?? "S000";
     const result = {
-      summary: "Local protocol continuity marker.",
+      summary: {
+        content: "Local protocol continuity marker.",
+        support_keys: [key],
+      },
       coverage: {
         visual: "not_available",
         audio: "not_available",
-        embedded_text: "observed",
+        embedded_text: "not_available",
+        source_text: "observed",
       },
       observations: [
         {
           kind: "text",
           content: "Local protocol continuity marker.",
           basis: "direct",
+          certainty: "clear",
           start_ms: null,
           end_ms: null,
           support_keys: [key],
@@ -149,6 +154,7 @@ const provider = createServer((request, response) => {
       ],
       mentions: [],
       embedded_text: [],
+      source_text: [],
       speech: [],
       interpretations: [],
       uncertainties: [],
@@ -345,6 +351,7 @@ try {
       kind: "text",
       content: "Local protocol continuity marker.",
       basis: "direct",
+      certainty: "clear",
       start_ms: null,
       end_ms: null,
       supports: [

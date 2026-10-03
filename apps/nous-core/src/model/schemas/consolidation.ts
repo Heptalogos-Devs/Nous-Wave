@@ -1,5 +1,9 @@
 import { z } from "zod";
-const key = z.string().min(1).max(256);
+const key = z
+  .string()
+  .min(1)
+  .max(256)
+  .describe("Exact invocation-local key from the relevant supplied catalog.");
 const time = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("unknown") }),
   z.strictObject({ kind: z.literal("instant"), at: z.iso.datetime() }),
@@ -16,13 +20,32 @@ const memory = z.strictObject({
     "procedural_experience",
   ]),
   formationMode: z.enum(["grounded", "synthesized"]),
-  groundingMemberKey: key.nullable(),
+  groundingMemberKey: key
+    .describe(
+      "Exact members[].key for grounded formation, or null for synthesis.",
+    )
+    .nullable(),
   semanticRole: z.string().min(1).max(128),
   text: z.string().min(1).max(32768),
   title: z.string().max(8192).nullable(),
-  supportKeys: z.array(key).min(1).max(128),
-  entityKeys: z.array(key).max(128),
-  validTime: time,
+  supportKeys: z
+    .array(
+      key.describe(
+        "Exact supports[].key; member and candidate keys are not support selectors.",
+      ),
+    )
+    .min(1)
+    .max(128),
+  entityKeys: z
+    .array(
+      key.describe(
+        "Exact entities[].key, not an entity reference or display name.",
+      ),
+    )
+    .max(128),
+  validTime: time.describe(
+    "World-valid time of this claim, distinct from publication, observation and formation time.",
+  ),
   epistemicClass: z.enum([
     "observed",
     "reported",
@@ -35,16 +58,36 @@ const memory = z.strictObject({
 const schema = z.strictObject({
   title: z.string().max(8192).nullable(),
   structuralClaim: z.string().min(1).max(16384),
-  applicability: z.string().min(1).max(16384),
-  boundaryDefinition: z.string().min(1).max(16384),
+  applicability: z
+    .string()
+    .min(1)
+    .max(16384)
+    .describe(
+      "Conditions under which the generalized structural claim applies.",
+    ),
+  boundaryDefinition: z
+    .string()
+    .min(1)
+    .max(16384)
+    .describe("Limits and exceptions of the proposed generalization."),
   formationKind: z.enum(["explicit_import", "synthesized"]),
-  entityKeys: z.array(key).max(128),
-  validTime: time,
+  entityKeys: z
+    .array(
+      key.describe(
+        "Exact entities[].key, not an entity reference or display name.",
+      ),
+    )
+    .max(128),
+  validTime: time.describe(
+    "World-valid time of this claim, distinct from publication, observation and formation time.",
+  ),
   evidence: z
     .array(
       z.strictObject({
         role: z.enum(["support", "counterexample", "boundary_case"]),
-        supportKey: key,
+        supportKey: key.describe(
+          "Exact supports[].key grounding this evidence role.",
+        ),
       }),
     )
     .min(1)
@@ -52,13 +95,18 @@ const schema = z.strictObject({
 });
 const intent = z.enum(["correct", "rephrase", "reinterpret"]);
 const endpoint = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("candidate"), key }),
+  z.strictObject({
+    kind: z.literal("candidate"),
+    key: key.describe(
+      "Exact candidates[].key for a Memory or CognitiveSchema; source context is not a candidate.",
+    ),
+  }),
   z.strictObject({
     kind: z.literal("action"),
     index: z.number().int().min(0).max(15),
   }),
 ]);
-export const consolidationActionSchema = z.discriminatedUnion("action", [
+const consolidationActionSchema = z.discriminatedUnion("action", [
   z.strictObject({
     action: z.literal("skip"),
     reason: z.string().min(1).max(8192),
@@ -66,14 +114,18 @@ export const consolidationActionSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("create_memory"), content: memory }),
   z.strictObject({
     action: z.literal("revise_memory"),
-    targetKey: key,
+    targetKey: key.describe(
+      "Exact candidates[].key for the current object being revised.",
+    ),
     intent,
     content: memory,
   }),
   z.strictObject({ action: z.literal("create_schema"), content: schema }),
   z.strictObject({
     action: z.literal("revise_schema"),
-    targetKey: key,
+    targetKey: key.describe(
+      "Exact candidates[].key for the current object being revised.",
+    ),
     intent,
     content: schema,
   }),
@@ -90,7 +142,19 @@ export const consolidationActionSchema = z.discriminatedUnion("action", [
     ]),
   }),
 ]);
-export const consolidationSchema = z.strictObject({
-  actions: z.array(consolidationActionSchema).min(1).max(16),
-});
+export const consolidationSchema = z
+  .strictObject({
+    actions: z
+      .array(consolidationActionSchema)
+      .min(1)
+      .max(16)
+      .describe(
+        "Ordered proposals; action endpoints use zero-based indices in this array.",
+      ),
+  })
+  .meta({
+    title: "Memory consolidation",
+    description:
+      "Source-grounded proposals to create or revise Memory and CognitiveSchema and relate legitimate objects.",
+  });
 export type ConsolidationProposal = z.infer<typeof consolidationSchema>;

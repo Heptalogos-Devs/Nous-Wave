@@ -199,7 +199,7 @@ export async function formObservation(
       );
       const result = await models.form(
         JSON.stringify({
-          producerMetadata: text,
+          evidenceText: text,
           resolvedEntityCandidates: snapshot.candidates,
           aboutnessMode: mode,
         }),
@@ -241,7 +241,7 @@ export async function formObservation(
           groundingOccurrenceId: r.occurrenceId,
           semanticRole: result.semanticRole,
           text: result.text,
-          title: result.title,
+          title: result.title ?? undefined,
           epistemicClass: "derived",
           aboutness,
           producer: {

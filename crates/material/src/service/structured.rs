@@ -4,10 +4,16 @@ use std::collections::HashSet;
 
 fn requested_supports(payload: &serde_json::Value) -> Result<HashSet<CognitiveRef>> {
     let mut requested = HashSet::new();
+    let summary = payload
+        .get("summary")
+        .filter(|value| value.is_object())
+        .ok_or_else(|| Error::Invalid("structured summary missing".into()))?;
+    let mut fields = vec![summary];
     for group in [
         "observations",
         "mentions",
         "embedded_text",
+        "source_text",
         "speech",
         "interpretations",
         "uncertainties",
@@ -23,35 +29,41 @@ fn requested_supports(payload: &serde_json::Value) -> Result<HashSet<CognitiveRe
                 "structured interpretation field count exceeded".into(),
             ));
         }
-        for item in items {
-            if item.get("support_keys").is_some() {
-                return Err(Error::Invalid(
-                    "invocation-local support keys cannot be persisted".into(),
-                ));
-            }
-            let supports = item
-                .get("supports")
-                .and_then(serde_json::Value::as_array)
-                .ok_or_else(|| Error::Invalid("structured field lacks stable supports".into()))?;
-            if supports.len() > 16
-                || (item.get("basis").and_then(serde_json::Value::as_str) == Some("direct")
-                    && supports.is_empty())
-            {
-                return Err(Error::Invalid(
-                    "structured field support bounds invalid".into(),
-                ));
-            }
-            for support in supports {
-                let kind = support
-                    .get("kind")
-                    .and_then(serde_json::Value::as_str)
-                    .ok_or_else(|| Error::Invalid("invalid support kind".into()))?;
-                let value = support
-                    .get("value")
-                    .and_then(serde_json::Value::as_str)
-                    .ok_or_else(|| Error::Invalid("invalid support identity".into()))?;
-                requested.insert(nous_core::parse_reference(kind, value)?);
-            }
+        fields.extend(items);
+    }
+    for item in fields {
+        if item.get("support_keys").is_some() {
+            return Err(Error::Invalid(
+                "invocation-local support keys cannot be persisted".into(),
+            ));
+        }
+        let supports = item
+            .get("supports")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| Error::Invalid("structured field lacks stable supports".into()))?;
+        if supports.len() > 16
+            || ((item.get("basis").and_then(serde_json::Value::as_str) == Some("direct")
+                || (std::ptr::eq(item, summary)
+                    && summary
+                        .get("content")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|text| !text.trim().is_empty())))
+                && supports.is_empty())
+        {
+            return Err(Error::Invalid(
+                "structured field support bounds invalid".into(),
+            ));
+        }
+        for support in supports {
+            let kind = support
+                .get("kind")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| Error::Invalid("invalid support kind".into()))?;
+            let value = support
+                .get("value")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| Error::Invalid("invalid support identity".into()))?;
+            requested.insert(nous_core::parse_reference(kind, value)?);
         }
     }
     Ok(requested)
