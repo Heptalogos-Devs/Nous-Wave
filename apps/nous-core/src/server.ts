@@ -68,7 +68,7 @@ export async function createCore(settings: CoreOptions) {
       .http_body_limit_bytes,
   });
   const kernel = settings.kernel;
-  const materialLimits = await kernel.authority.getMaterialLimits({});
+  const materialLimits = await kernel.material.getLimits({});
   const maxUploadBytes = Number(materialLimits.maxUploadBytes);
   if (!Number.isSafeInteger(maxUploadBytes) || maxUploadBytes < 1)
     throw new Error(
@@ -368,20 +368,19 @@ export async function createCore(settings: CoreOptions) {
     purgeJournal: (r, c) => kernel.authority.purgeJournal(r, options(c)),
   };
   const material: ServiceImpl<typeof MaterialService> = {
-    getDerivedRegion: (r, c) =>
-      kernel.authority.getDerivedRegion(r, options(c)),
-    getProducer: (r, c) => kernel.authority.getProducer(r, options(c)),
+    getDerivedRegion: (r, c) => kernel.material.getDerivedRegion(r, options(c)),
+    getProducer: (r, c) => kernel.material.getProducer(r, options(c)),
     listDerivedRepresentations: (r, c) =>
-      kernel.authority.listDerivedRepresentations(r, options(c)),
-    getLimits: (r, c) => kernel.authority.getMaterialLimits(r, options(c)),
-    getOccurrence: (r, c) => kernel.authority.getOccurrence(r, options(c)),
-    getSourceRegion: (r, c) => kernel.authority.getSourceRegion(r, options(c)),
+      kernel.material.listDerivedRepresentations(r, options(c)),
+    getLimits: (r, c) => kernel.material.getLimits(r, options(c)),
+    getOccurrence: (r, c) => kernel.material.getOccurrence(r, options(c)),
+    getSourceRegion: (r, c) => kernel.material.getSourceRegion(r, options(c)),
     getDerivedRepresentation: (r, c) =>
-      kernel.authority.getDerivedRepresentation(r, options(c)),
-    getArtifact: (r, c) => kernel.authority.getArtifact(r, options(c)),
-    listArtifacts: (r, c) => kernel.authority.listArtifacts(r, options(c)),
+      kernel.material.getDerivedRepresentation(r, options(c)),
+    getArtifact: (r, c) => kernel.material.getArtifact(r, options(c)),
+    listArtifacts: (r, c) => kernel.material.listArtifacts(r, options(c)),
     materializeEvidence: (r, c) =>
-      kernel.authority.materializeEvidence(r, options(c)),
+      kernel.material.materializeEvidence(r, options(c)),
   };
   const identities: ServiceImpl<typeof IdentityService> = {
     bindIdentity: (r, c) => kernel.authority.bindIdentity(r, options(c)),
@@ -536,7 +535,7 @@ export async function createCore(settings: CoreOptions) {
   app.get<{ Params: { subjectId: string; artifactId: string } }>(
     "/artifacts/:subjectId/:artifactId",
     async (request, reply) => {
-      const meta = await kernel.authority.getArtifact({
+      const meta = await kernel.material.getArtifact({
         subjectId: request.params.subjectId,
         id: request.params.artifactId,
       });

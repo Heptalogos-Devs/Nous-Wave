@@ -30,10 +30,6 @@ service AuthorityService {
   rpc OrganizeExperience(OrganizeExperienceRequest) returns (OrganizeExperienceResponse);
   rpc ApplyEpisodePartition(ApplyEpisodePartitionRequest) returns (ApplyEpisodePartitionResponse);
   rpc CommitJournal(CommitJournalRequest) returns (nous.wave.v1alpha1.JournalResponse);
-  rpc GetMaterialLimits(google.protobuf.Empty) returns (nous.wave.v1alpha1.MaterialLimits);
-  rpc ListDerivedRepresentations(nous.wave.v1alpha1.RepresentationListRequest) returns (nous.wave.v1alpha1.RepresentationListResponse);
-  rpc GetProducer(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.ProducerSignature);
-  rpc GetDerivedRegion(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.DerivedRegion);
   rpc CreateWorkContext(nous.wave.v1alpha1.CreateWorkContextRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
   rpc GetWorkContext(nous.wave.v1alpha1.GetWorkContextRequest) returns (nous.wave.v1alpha1.WorkContextResponse);
   rpc ListWorkContexts(nous.wave.v1alpha1.ListWorkContextsRequest) returns (nous.wave.v1alpha1.ListWorkContextsResponse);
@@ -85,9 +81,6 @@ service AuthorityService {
   rpc GetStatus(google.protobuf.Empty) returns (nous.wave.v1alpha1.SystemStatus);
   rpc GetProjectionStatus(nous.wave.v1alpha1.SubjectRequest) returns (nous.wave.v1alpha1.ProjectionStatus);
   rpc ConsolidateMemory(nous.wave.v1alpha1.ConsolidateMemoryRequest) returns (nous.wave.v1alpha1.ConsolidationResponse);
-  rpc GetOccurrence(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Occurrence);
-  rpc GetSourceRegion(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.SourceRegion);
-  rpc GetDerivedRepresentation(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.DerivedRepresentation);
 
   rpc BindIdentity(nous.wave.v1alpha1.BindIdentityRequest) returns (nous.wave.v1alpha1.IdentityBinding);
   rpc ResolveIdentity(nous.wave.v1alpha1.ResolveIdentityRequest) returns (nous.wave.v1alpha1.ResolveIdentityResponse);
@@ -117,7 +110,4 @@ service AuthorityService {
   rpc PurgeMemory(nous.wave.v1alpha1.MemoryMutationRequest) returns (google.protobuf.Empty);
   rpc WithdrawMemory(nous.wave.v1alpha1.MemoryMutationRequest) returns (nous.wave.v1alpha1.Memory);
   rpc ReacceptMemory(nous.wave.v1alpha1.MemoryMutationRequest) returns (nous.wave.v1alpha1.Memory);
-  rpc GetArtifact(nous.wave.v1alpha1.ObjectRequest) returns (nous.wave.v1alpha1.Artifact);
-  rpc ListArtifacts(nous.wave.v1alpha1.ListRequest) returns (nous.wave.v1alpha1.ListArtifactsResponse);
-  rpc MaterializeEvidence(nous.wave.v1alpha1.MaterializeRequest) returns (nous.wave.v1alpha1.MaterializedEvidence);
 }

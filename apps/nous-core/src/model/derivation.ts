@@ -43,11 +43,11 @@ export async function deriveMaterial(
     (request.target === "structured" && strategy === "description_only")
   )
     throw new Error("Derivation target conflicts with strategy");
-  const region = await kernel.authority.getSourceRegion(
+  const region = await kernel.material.getSourceRegion(
     { subjectId: request.subjectId, id: request.sourceRegionId },
     options,
   );
-  const artifact = await kernel.authority.getArtifact(
+  const artifact = await kernel.material.getArtifact(
     { subjectId: request.subjectId, id: region.artifactId },
     options,
   );
@@ -85,7 +85,7 @@ export async function deriveMaterial(
       partial: false,
     };
   } else
-    source = await kernel.authority.materializeEvidence(
+    source = await kernel.material.materializeEvidence(
       {
         subjectId: request.subjectId,
         reference: { kind: "source_region", value: request.sourceRegionId },
@@ -217,7 +217,7 @@ export async function deriveMaterial(
       const outcome = z
         .strictObject({ representationId: z.string().uuid() })
         .parse(JSON.parse(reservation.outcomeJson));
-      const representation = await kernel.authority.getDerivedRepresentation(
+      const representation = await kernel.material.getDerivedRepresentation(
         { subjectId: request.subjectId, id: outcome.representationId },
         options,
       );

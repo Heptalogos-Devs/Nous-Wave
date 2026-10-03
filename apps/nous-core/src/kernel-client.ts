@@ -1,3 +1,4 @@
+import { MaterialService } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import {
   coreExecutionSchema,
   type CoreExecutionPolicy,
@@ -20,6 +21,7 @@ export class KernelClient {
   readonly hostRuntime;
   readonly configuration;
   readonly authority;
+  readonly material;
   readonly artifacts;
   readonly health;
   readonly modelMaterial;
@@ -32,6 +34,7 @@ export class KernelClient {
   ) {
     this.hostRuntime = createClient(KernelConfigurationService, transport);
     this.configuration = createClient(ConfigurationService, transport);
+    this.material = createClient(MaterialService, transport);
     this.authority = createClient(AuthorityService, transport);
     this.artifacts = createClient(ArtifactStreamService, transport);
     this.health = createClient(Health, transport);

@@ -95,13 +95,13 @@ export async function formObservation(
   let snapshotText = previous.snapshotJson;
   if (!snapshotText) {
     const model = models.invocations.snapshot("memory_formation");
-    const occurrence = await kernel.authority.getOccurrence(
+    const occurrence = await kernel.material.getOccurrence(
       { subjectId: r.subjectId, id: r.occurrenceId },
       options,
     );
     let representationId = r.representationId;
     if (!representationId && occurrence.artifactId) {
-      const artifact = await kernel.authority.getArtifact(
+      const artifact = await kernel.material.getArtifact(
         { subjectId: r.subjectId, id: occurrence.artifactId },
         options,
       );
@@ -115,7 +115,7 @@ export async function formObservation(
           : mime.startsWith("video/")
             ? "scene_description"
             : "extracted_text";
-      const available = await kernel.authority.listDerivedRepresentations(
+      const available = await kernel.material.listDerivedRepresentations(
         {
           subjectId: r.subjectId,
           artifactId: occurrence.artifactId,
@@ -170,7 +170,7 @@ export async function formObservation(
       const snapshot = snapshotSchema.parse(
         JSON.parse(reservation.snapshotJson),
       );
-      const source = await kernel.authority.materializeEvidence(
+      const source = await kernel.material.materializeEvidence(
         {
           subjectId: r.subjectId,
           reference: snapshot.representationId

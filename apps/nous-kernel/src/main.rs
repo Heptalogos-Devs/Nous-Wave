@@ -106,6 +106,12 @@ async fn run() -> Result<()> {
             service.clone(),
             auth.clone(),
         ))
+        .add_service(
+            nous_protocol::public::material_service_server::MaterialServiceServer::with_interceptor(
+                service.clone(),
+                auth.clone(),
+            ),
+        )
         .add_service(ConfigurationServiceServer::with_interceptor(
             service.clone(),
             auth.clone(),
