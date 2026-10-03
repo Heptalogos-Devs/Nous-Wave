@@ -42,6 +42,11 @@ Episode/Journal 使用 current lifecycle 与适用的 hard constraints，不参�
 
 Episode/Journal 的文本 projection 支持 exact、lexical、dense；它们不进入 topology。
 
+Episode canonical text 包含 title、boundary explanation、experience time，以及前 16 个成员中 occurrence 的有界文本片段。文本 Artifact 读取至多 2 KiB 的完整 UTF-8 前缀；媒体 occurrence 选择同 Artifact 的 ready coverage 派生文本，按 created time 与精确 representation ID 确定顺序，每段同样限制为 2 KiB。Serving 和查询正文共用该成员输入；描述更新使文本 projection 失效，不修改 Episode Authority。查询 evidence 保留所用派生描述的 exact ref 与 interpretation role，独立根仍由来源 lineage 决定。
+
+Journal canonical text 包含 title、narrative 和按序 points；查询正文最多 64 KiB，截断保持完整 UTF-8 字符。
+
+
 Topology/Wave/Residual/EPA 只作为显式实验 lane；默认 Reference Query 不因 effort 自动开启 topology。实验结果不改变 baseline fusion、Authority eligibility 或 lifecycle。
 
 [返回文档目录](../../INDEX.md)

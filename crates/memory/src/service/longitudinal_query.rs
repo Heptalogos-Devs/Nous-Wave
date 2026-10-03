@@ -45,7 +45,7 @@ pub(super) async fn materialize_longitudinal(
             .map_err(db)?;
         let ids: Vec<Uuid> = rows.iter().map(|row| row.get("revision_id")).collect();
         let evidence = longitudinal_evidence(service, kind, &ids).await?;
-        let mut renderings = longitudinal_renderings(service, kind, &ids).await?;
+        let mut renderings = longitudinal_renderings(service, subject, kind, &ids).await?;
         let mut metadata = longitudinal_metadata(service, subject, kind, &ids).await?;
         for row in rows {
             let revision: Uuid = row.get("revision_id");
@@ -116,15 +116,28 @@ fn longitudinal_hit(
     row: &sqlx::postgres::PgRow,
     kind: &str,
     exact: CognitiveRef,
-    evidence: Vec<EvidenceHandle>,
-    rendering: String,
+    mut evidence: Vec<EvidenceHandle>,
+    rendering: LongitudinalRendering,
     metadata: LongitudinalMetadata,
 ) -> CognitiveHit {
+    if !evidence.is_empty() {
+        for reference in rendering.sources {
+            if !evidence
+                .iter()
+                .any(|support| support.reference == reference)
+            {
+                evidence.push(EvidenceHandle {
+                    reference,
+                    support_role: "interpretation".into(),
+                });
+            }
+        }
+    }
     let mut text = format!(
         "{}\n{}\n{}",
         row.get::<Option<String>, _>("title").unwrap_or_default(),
         row.get::<String, _>("text"),
-        rendering
+        rendering.text
     );
     if text.len() > 65536 {
         let mut end = 65536;
@@ -280,45 +293,58 @@ async fn longitudinal_evidence(
     Ok(result)
 }
 
+#[derive(Default)]
+struct LongitudinalRendering {
+    text: String,
+    sources: Vec<CognitiveRef>,
+}
+
 async fn longitudinal_renderings(
     service: &MemoryService,
+    subject: SubjectId,
     kind: &str,
     ids: &[Uuid],
-) -> Result<BTreeMap<Uuid, String>> {
-    let mut result = BTreeMap::<Uuid, String>::new();
+) -> Result<BTreeMap<Uuid, LongitudinalRendering>> {
+    let mut result = BTreeMap::<Uuid, LongitudinalRendering>::new();
     if kind == "journal" {
         let rows = sqlx::query("SELECT journal_revision_id,text FROM journal_revision_points WHERE journal_revision_id=ANY($1::uuid[]) ORDER BY journal_revision_id,ordinal")
             .bind(ids).fetch_all(service.store.pool()).await.map_err(db)?;
         for row in rows {
             append_rendering(
-                result.entry(row.get("journal_revision_id")).or_default(),
+                &mut result
+                    .entry(row.get("journal_revision_id"))
+                    .or_default()
+                    .text,
                 &row.get::<String, _>("text"),
             );
         }
     } else {
-        let rows = sqlx::query("SELECT m.episode_revision_id,a.content_hash,a.byte_length FROM episode_revision_members m JOIN observation_occurrences o ON m.ref_kind='occurrence' AND m.ref_value=o.occurrence_id::text JOIN artifacts a USING(artifact_id) WHERE m.episode_revision_id=ANY($1::uuid[]) AND m.ordinal<16 AND (a.media_type LIKE 'text/%' OR a.media_type='application/json') ORDER BY m.episode_revision_id,m.ordinal")
-            .bind(ids).fetch_all(service.store.pool()).await.map_err(db)?;
-        for row in rows {
-            let bytes = service
-                .objects
-                .read_range(
-                    &row.get::<String, _>("content_hash"),
-                    0,
-                    (row.get::<i64, _>("byte_length") as u64).min(2048),
-                )
-                .await?;
-            let text = match std::str::from_utf8(&bytes) {
-                Ok(text) => text,
-                Err(error) if error.error_len().is_none() => {
-                    std::str::from_utf8(&bytes[..error.valid_up_to()])
-                        .map_err(|error| Error::Invalid(error.to_string()))?
+        let fragments = service
+            .store
+            .episode_member_text_input(subject, ids)
+            .await?;
+        for (revision, members) in fragments {
+            for member in members {
+                let text = match member {
+                    nous_persistence::TextProjectionFragment::Text { text, reference } => {
+                        result.entry(revision).or_default().sources.push(reference);
+                        Some(text)
+                    }
+                    nous_persistence::TextProjectionFragment::Artifact {
+                        content_hash,
+                        byte_length,
+                        ..
+                    } => {
+                        service
+                            .objects
+                            .read_text_prefix(&content_hash, byte_length, 2048)
+                            .await?
+                    }
+                };
+                if let Some(text) = text {
+                    append_rendering(&mut result.entry(revision).or_default().text, &text);
                 }
-                Err(_) => continue,
-            };
-            append_rendering(
-                result.entry(row.get("episode_revision_id")).or_default(),
-                text,
-            );
+            }
         }
     }
     Ok(result)

@@ -22,9 +22,17 @@ pub struct TextProjectionSource {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TextProjectionFragment {
-    pub content_hash: String,
-    pub byte_length: u64,
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TextProjectionFragment {
+    Text {
+        reference: CognitiveRef,
+        text: String,
+    },
+    Artifact {
+        reference: CognitiveRef,
+        content_hash: String,
+        byte_length: u64,
+    },
 }
 
 pub struct TextProjectionInput {
@@ -281,19 +289,8 @@ async fn longitudinal_sources(
         .iter()
         .map(|row| row.get("episode_revision_id"))
         .collect();
-    let fragments=sqlx::query("SELECT m.episode_revision_id,m.ordinal,a.content_hash,a.byte_length FROM episode_revision_members m JOIN observation_occurrences obs ON m.ref_kind='occurrence' AND m.ref_value=obs.occurrence_id::text JOIN artifacts a USING(artifact_id) WHERE m.episode_revision_id=ANY($1::uuid[]) AND m.ordinal<16 AND (a.media_type LIKE 'text/%' OR a.media_type='application/json') ORDER BY m.episode_revision_id,m.ordinal")
-        .bind(ids).fetch_all(&mut **tx).await.map_err(db)?;
     let mut member_fragments =
-        std::collections::BTreeMap::<Uuid, Vec<TextProjectionFragment>>::new();
-    for row in fragments {
-        member_fragments
-            .entry(row.get("episode_revision_id"))
-            .or_default()
-            .push(TextProjectionFragment {
-                content_hash: row.get("content_hash"),
-                byte_length: row.get::<i64, _>("byte_length") as u64,
-            });
-    }
+        crate::episode_text::episode_member_text_input_in(tx, subject, &ids).await?;
     let mut sources = Vec::with_capacity(episodes.len());
     for row in episodes {
         let revision: Uuid = row.get("episode_revision_id");

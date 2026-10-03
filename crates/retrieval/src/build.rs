@@ -1,5 +1,5 @@
 use crate::{artifacts::*, *};
-use nous_persistence::TextProjectionSource;
+use nous_persistence::{TextProjectionFragment, TextProjectionSource};
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DenseManifest {
@@ -132,20 +132,22 @@ impl ServingService {
                 continue;
             };
             for fragment in source.member_fragments {
-                let bytes = self
-                    .objects
-                    .read_range(&fragment.content_hash, 0, fragment.byte_length.min(2048))
-                    .await?;
-                let member = match std::str::from_utf8(&bytes) {
-                    Ok(member) => member,
-                    Err(error) if error.error_len().is_none() => {
-                        std::str::from_utf8(&bytes[..error.valid_up_to()])
-                            .map_err(|error| Error::Invalid(error.to_string()))?
+                let member = match fragment {
+                    TextProjectionFragment::Text { text, .. } => Some(text),
+                    TextProjectionFragment::Artifact {
+                        content_hash,
+                        byte_length,
+                        ..
+                    } => {
+                        self.objects
+                            .read_text_prefix(&content_hash, byte_length, 2048)
+                            .await?
                     }
-                    Err(_) => continue,
                 };
-                text.push('\n');
-                text.push_str(member);
+                if let Some(member) = member {
+                    text.push('\n');
+                    text.push_str(&member);
+                }
             }
             documents.push(LexicalDocument {
                 serving_doc_id: documents.len() as u64,
@@ -339,7 +341,7 @@ fn is_text(media: &str) -> bool {
 
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
-        "lexical" | "dense" | "exact" => 3,
+        "lexical" | "dense" | "exact" => 4,
         _ => 1,
     }
 }

@@ -194,6 +194,25 @@ impl ObjectStore {
             .map_err(storage_error)
     }
 
+    /// Keep complete UTF-8 characters when a bounded read ends inside a character.
+    pub async fn read_text_prefix(
+        &self,
+        hash: &str,
+        byte_length: u64,
+        limit: u64,
+    ) -> Result<Option<String>> {
+        let bytes = self.read_range(hash, 0, byte_length.min(limit)).await?;
+        let text = match std::str::from_utf8(&bytes) {
+            Ok(text) => text,
+            Err(error) if byte_length > limit && error.error_len().is_none() => {
+                std::str::from_utf8(&bytes[..error.valid_up_to()])
+                    .map_err(|error| Error::Invalid(error.to_string()))?
+            }
+            Err(_) => return Ok(None),
+        };
+        Ok(Some(text.to_owned()))
+    }
+
     /// Read CAS bytes in bounded chunks and verify integrity at end of stream.
     pub async fn stream(
         &self,

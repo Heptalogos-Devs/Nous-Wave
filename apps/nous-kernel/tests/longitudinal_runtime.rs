@@ -1816,3 +1816,168 @@ async fn assert_journal_purge(
     assert_eq!(rt.store.authority_seq(subject).await.unwrap(), before + 1);
     assert_invalidated_dependents(rt, subject, &fresh_dependencies).await;
 }
+
+#[tokio::test]
+async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authority() {
+    use nous_core::CognitiveRef;
+    let (root, url, _postgres) = database().await;
+    let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
+    let rt = runtime_with_clock_serving(&url, &root, clock, true).await;
+    let subject = create_subject(&rt).await;
+    let session = rt
+        .cognition
+        .open_session(subject, serde_json::json!({}))
+        .await
+        .unwrap();
+    let artifact = rt
+        .material
+        .upload_stream(
+            subject,
+            nous_material::UploadMetadata {
+                media_type: "image/png".into(),
+                metadata: serde_json::json!({}),
+            },
+            futures::stream::iter([Ok(vec![137, 80, 78, 71, 13, 10, 26, 10])]),
+        )
+        .await
+        .unwrap();
+    let mut input = observation(subject, Some(session.session_id));
+    input.material = ObservationMaterial::ArtifactRef {
+        artifact_id: artifact.artifact_id,
+    };
+    let observed = rt.material.record_observation(input).await.unwrap();
+    let region = observed.source_region.unwrap().source_region_id;
+    let episode = rt
+        .organize_experience(subject, 128, true)
+        .await
+        .unwrap()
+        .episodes
+        .remove(0);
+    sqlx::query("INSERT INTO coverage_needs(coverage_need_id,subject_id,source_region_id,representation_kind,capability_operation,requirement,state,updated_at) VALUES($1,$2,$3,'image_description','image_interpretation','preferred','missing',$4)")
+        .bind(uuid::Uuid::new_v4()).bind(subject.0).bind(region.0).bind(rt.cognition.now(subject)).execute(rt.store.pool()).await.unwrap();
+    let query = media_episode_query(subject, "cobalt");
+    assert!(rt.query(query.clone()).await.unwrap().results.is_empty());
+    let synopsis = format!(
+        "cobalt harbor {}界",
+        "x".repeat(2047 - "cobalt harbor ".len())
+    );
+    let first = persist_media_synopsis(&rt, subject, region, &synopsis, None, "1").await;
+    let results = rt.query(query.clone()).await.unwrap().results;
+    assert_eq!(results.len(), 1);
+    assert_eq!(
+        results[0].reference,
+        CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id)
+    );
+    let text = results[0].representation.as_ref().unwrap();
+    assert!(text.contains("cobalt harbor"));
+    assert!(!text.contains('界'));
+    assert!(results[0].evidence.iter().any(|support| support.reference
+        == CognitiveRef::DerivedRepresentation(first)
+        && support.support_role == "interpretation"));
+    let fragments = rt
+        .store
+        .episode_member_text_input(subject, &[episode.revision.episode_revision_id.0])
+        .await
+        .unwrap();
+    assert!(
+        matches!(&fragments[&episode.revision.episode_revision_id.0][0], nous_persistence::TextProjectionFragment::Text { reference:CognitiveRef::DerivedRepresentation(id),text } if *id==first && text.len()==2047)
+    );
+    persist_media_synopsis(&rt, subject, region, "amber inlet", Some(first), "2").await;
+    assert!(rt.query(query).await.unwrap().results.is_empty());
+    let result = rt
+        .query(media_episode_query(subject, "amber"))
+        .await
+        .unwrap();
+    assert_eq!(
+        result.results[0].reference,
+        CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id)
+    );
+    assert!(
+        result.results[0]
+            .representation
+            .as_ref()
+            .unwrap()
+            .contains("amber inlet")
+    );
+    let current = rt
+        .require_memory()
+        .unwrap()
+        .episode(subject, episode.object.episode_id, None)
+        .await
+        .unwrap();
+    assert_eq!(current.object.object_epoch, episode.object.object_epoch);
+    assert_eq!(
+        current.revision.episode_revision_id,
+        episode.revision.episode_revision_id
+    );
+    assert_eq!(
+        rt.require_memory()
+            .unwrap()
+            .provenance_summary(subject, &current.supports)
+            .await
+            .unwrap()
+            .roots
+            .len(),
+        1
+    );
+}
+
+fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::CognitiveQuery {
+    use nous_core::{CognitiveQuery, CognitiveQueryExpr, Cue, QueryTarget, TextCue};
+    let mut query = CognitiveQuery {
+        api_version: nous_core::API_VERSION,
+        subject,
+        session: None,
+        situation: Default::default(),
+        expression: CognitiveQueryExpr {
+            targets: vec![QueryTarget::Episode],
+            cues: vec![Cue::Text(TextCue { text: text.into() })],
+            ..Default::default()
+        },
+        exploration: Default::default(),
+        resources: Default::default(),
+        result_need: Default::default(),
+        effort: Default::default(),
+        capabilities: Default::default(),
+        diagnostics: Default::default(),
+    };
+    query.capabilities.text_embedding = nous_core::RequirementStrength::Forbidden;
+    query
+}
+
+async fn persist_media_synopsis(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    region: nous_core::SourceRegionId,
+    text: &str,
+    supersedes: Option<nous_core::DerivedRepresentationId>,
+    model_revision: &str,
+) -> nous_core::DerivedRepresentationId {
+    let mut producer = consolidation_producer();
+    producer.operation = nous_core::CapabilityOperation::ImageInterpretation;
+    producer.implementation = "longitudinal-media-test".into();
+    producer.model_revision = Some(model_revision.into());
+    rt.material
+        .persist_derived_representation(nous_material::DerivedRepresentation {
+            derived_representation_id: nous_core::DerivedRepresentationId::new(),
+            subject_id: subject,
+            inputs: vec![nous_material::DerivationInput {
+                ordinal: 0,
+                reference: nous_core::CognitiveRef::SourceRegion(region),
+                role: "source".into(),
+            }],
+            strategy: "direct_multimodal".into(),
+            representation_kind: nous_core::RepresentationKind::ImageDescription,
+            producer,
+            revision: 1,
+            payload_text: Some(text.into()),
+            payload_json: None,
+            payload_artifact_id: None,
+            quality: serde_json::json!({}),
+            created_at: Utc::now(),
+            supersedes,
+        })
+        .await
+        .unwrap()
+        .derived_representation_id
+}
