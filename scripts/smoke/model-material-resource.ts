@@ -551,7 +551,7 @@ try {
       semanticRole: "fact",
       text: "Local consumer wiring marker: protocol continuity.",
       epistemicClass: "observed",
-      formedAt: { seconds: BigInt(Math.floor(Date.now() / 1000)), nanos: 0 },
+
       supports: [
         {
           support: {

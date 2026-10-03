@@ -124,7 +124,7 @@ impl CognitiveRuntimeService {
             .expression
             .targets
             .iter()
-            .any(|target| matches!(target, QueryTarget::Memory))
+            .any(QueryTarget::is_cognition_domain)
         {
             return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
         }
@@ -144,7 +144,12 @@ impl CognitiveRuntimeService {
             || query.expression.targets.iter().any(|target| {
                 matches!(
                     target,
-                    QueryTarget::AnyRelevantCognition | QueryTarget::Memory | QueryTarget::Evidence
+                    QueryTarget::AnyRelevantCognition
+                        | QueryTarget::Memory
+                        | QueryTarget::Schema
+                        | QueryTarget::Episode
+                        | QueryTarget::Journal
+                        | QueryTarget::Evidence
                 )
             });
         if runtime_allowed && let Some(session) = query.session {
@@ -209,45 +214,11 @@ impl CognitiveRuntimeService {
                 entry.variants.extend(candidate.variants.clone());
             }
         }
-        let memory_only = query
-            .expression
-            .targets
-            .iter()
-            .any(|target| matches!(target, QueryTarget::Memory))
-            && !query.expression.targets.iter().any(|target| {
-                matches!(
-                    target,
-                    QueryTarget::AnyRelevantCognition
-                        | QueryTarget::Evidence
-                        | QueryTarget::Resource
-                )
-            });
-        let resource_only = query
-            .expression
-            .targets
-            .iter()
-            .any(|target| matches!(target, QueryTarget::Resource))
-            && !query.expression.targets.iter().any(|target| {
-                matches!(
-                    target,
-                    QueryTarget::AnyRelevantCognition | QueryTarget::Memory | QueryTarget::Evidence
-                )
-            });
-        if memory_only || resource_only {
-            let before = candidates.len();
-            candidates.retain(|reference, _| {
-                if resource_only {
-                    matches!(reference, CognitiveRef::Resource(_))
-                } else {
-                    contributors
-                        .memory
-                        .is_some_and(|owner| owner.owns(reference))
-                }
-            });
-            let dropped = before - candidates.len();
-            if dropped > 0 {
-                *lane_drops.entry("domain_ineligible".into()).or_default() += dropped;
-            }
+        let before = candidates.len();
+        candidates.retain(|reference, _| query.expression.allows_reference(reference));
+        let dropped = before - candidates.len();
+        if dropped > 0 {
+            *lane_drops.entry("domain_ineligible".into()).or_default() += dropped;
         }
         let rank_inputs = candidates.into_values().collect::<Vec<_>>();
         let ranked = rank_candidates_with_policy(
@@ -438,6 +409,8 @@ fn is_persistent_cognition(reference: &CognitiveRef) -> bool {
             | CognitiveRef::MemoryRevision(_)
             | CognitiveRef::Episode(_)
             | CognitiveRef::EpisodeRevision(_)
+            | CognitiveRef::Journal(_)
+            | CognitiveRef::JournalRevision(_)
             | CognitiveRef::CognitiveSchema(_)
             | CognitiveRef::CognitiveSchemaRevision(_)
     )
@@ -497,6 +470,8 @@ fn reference_hit(
         | CognitiveRef::MemoryRevision(_)
         | CognitiveRef::Episode(_)
         | CognitiveRef::EpisodeRevision(_)
+        | CognitiveRef::Journal(_)
+        | CognitiveRef::JournalRevision(_)
         | CognitiveRef::Tag(_)
         | CognitiveRef::CognitiveSchema(_)
         | CognitiveRef::CognitiveSchemaRevision(_)

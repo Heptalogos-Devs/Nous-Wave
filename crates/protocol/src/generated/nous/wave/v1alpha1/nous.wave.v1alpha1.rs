@@ -303,6 +303,7 @@ pub mod cue {
         ExternalObjectRef(::prost::alloc::string::String),
     }
 }
+/// Domains: memory, schema, episode, journal, evidence, resource. Empty selects all available local domains.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryModifiers {
     #[prost(string, repeated, tag="1")]
@@ -624,8 +625,6 @@ pub struct MemoryContent {
     pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, optional, tag="10")]
     pub valid_time: ::core::option::Option<TemporalExtent>,
-    #[prost(message, optional, tag="11")]
-    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, tag="12")]
     pub epistemic_class: ::prost::alloc::string::String,
 }
@@ -1171,8 +1170,6 @@ pub struct CreateEpisodeRequest {
     pub experience_time: ::core::option::Option<TemporalExtent>,
     #[prost(string, tag="7")]
     pub boundary_explanation: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="8")]
-    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, optional, tag="9")]
     pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="10")]
@@ -1200,8 +1197,6 @@ pub struct ReviseEpisodeRequest {
     pub experience_time: ::core::option::Option<TemporalExtent>,
     #[prost(string, tag="9")]
     pub boundary_explanation: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="10")]
-    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, optional, tag="11")]
     pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="12")]
@@ -1312,6 +1307,143 @@ pub struct ResolveIdentityResponse {
     pub candidates: ::prost::alloc::vec::Vec<IdentityBinding>,
     #[prost(string, tag="2")]
     pub status: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct JournalPoint {
+    #[prost(int32, tag="1")]
+    pub ordinal: i32,
+    #[prost(string, tag="2")]
+    pub role: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct JournalRevision {
+    #[prost(string, tag="1")]
+    pub journal_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub journal_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(int32, tag="4")]
+    pub revision_no: i32,
+    #[prost(string, optional, tag="5")]
+    pub parent_revision_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub revision_intent: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="8")]
+    pub temporal_scope: ::core::option::Option<TemporalExtent>,
+    #[prost(string, tag="9")]
+    pub narrative: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="10")]
+    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="11")]
+    pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, optional, tag="12")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="13")]
+    pub points: ::prost::alloc::vec::Vec<JournalPoint>,
+    #[prost(message, repeated, tag="14")]
+    pub sources: ::prost::alloc::vec::Vec<CognitiveRef>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Journal {
+    #[prost(string, tag="1")]
+    pub journal_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub current_revision_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub object_epoch: i64,
+    #[prost(string, tag="5")]
+    pub acceptance_state: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub integrity_state: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub suppression_state: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub purge_state: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="9")]
+    pub created_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="10")]
+    pub current_revision: ::core::option::Option<JournalRevision>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct JournalResponse {
+    #[prost(message, optional, tag="1")]
+    pub journal: ::core::option::Option<Journal>,
+    #[prost(message, repeated, tag="2")]
+    pub degradation: ::prost::alloc::vec::Vec<Degradation>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct JournalMutationRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub journal_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListJournalsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<Journal>,
+    #[prost(string, tag="2")]
+    pub next_page_token: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListJournalRevisionsRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub journal_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub page: ::core::option::Option<Page>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListJournalRevisionsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<JournalRevision>,
+    #[prost(string, tag="2")]
+    pub next_page_token: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MaintenanceGrantRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub max_operations: u32,
+    #[prost(uint32, tag="3")]
+    pub max_model_calls: u32,
+    #[prost(uint32, tag="4")]
+    pub max_elapsed_ms: u32,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MaintenanceOperationResult {
+    #[prost(string, tag="1")]
+    pub need_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="4")]
+    pub problem_code: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MaintenanceGrantResponse {
+    #[prost(message, repeated, tag="1")]
+    pub results: ::prost::alloc::vec::Vec<MaintenanceOperationResult>,
+    #[prost(uint32, tag="2")]
+    pub model_calls: u32,
+    #[prost(uint32, tag="3")]
+    pub elapsed_ms: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResourceDescriptor {
@@ -1533,6 +1665,8 @@ pub struct CognitiveSchema {
     pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(string, tag="16")]
     pub formation_kind: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="17")]
+    pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateCognitiveSchemaRequest {
@@ -1648,8 +1782,6 @@ pub struct ConsolidateMemoryRequest {
     pub text: ::prost::alloc::string::String,
     #[prost(string, tag="6")]
     pub semantic_role: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="7")]
-    pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag="8")]
     pub topology: ::core::option::Option<TopologyChanges>,
 }

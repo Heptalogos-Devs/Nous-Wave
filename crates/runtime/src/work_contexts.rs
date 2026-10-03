@@ -126,7 +126,7 @@ impl CognitiveRuntimeService {
         }
         let work_context_id = Uuid::now_v7();
         validate_refs_in_tx(&self.store, &mut tx, input.subject, &input.references).await?;
-        let now = Utc::now();
+        let now = self.now(input.subject);
         sqlx::query(
             "INSERT INTO work_contexts(work_context_id,subject_id,state,purpose,unresolved_questions,constraints,resume_conditions,budget_summary,revision,created_at,updated_at) VALUES($1,$2,'open',$3,$4,$5,$6,$7,1,$8,$8)",
         )
@@ -250,7 +250,7 @@ impl CognitiveRuntimeService {
             return Err(Error::Conflict("WorkContext revision is stale".into()));
         }
         validate_refs_in_tx(&self.store, &mut tx, input.subject, &input.references).await?;
-        let now = Utc::now();
+        let now = self.now(input.subject);
         sqlx::query(
             "UPDATE work_contexts SET purpose=$3,unresolved_questions=$4,constraints=$5,resume_conditions=$6,budget_summary=$7,revision=revision+1,updated_at=$8 WHERE subject_id=$1 AND work_context_id=$2",
         )
@@ -422,24 +422,28 @@ impl CognitiveRuntimeService {
                 )
                 .bind(subject.0)
                 .bind(session)
-                .bind(Utc::now())
+                .bind(self.now(subject))
                 .execute(&mut *tx)
                 .await
                 .map_err(db)?;
             }
         }
-        let ended_at = (next == "ended").then(Utc::now);
+        let ended_at = (next == "ended").then(|| self.now(subject));
         sqlx::query(
             "UPDATE work_contexts SET state=$3,revision=revision+1,updated_at=$4,ended_at=$5 WHERE subject_id=$1 AND work_context_id=$2",
         )
         .bind(subject.0)
         .bind(work_context_id)
         .bind(next)
-        .bind(Utc::now())
+        .bind(self.now(subject))
         .bind(ended_at)
         .execute(&mut *tx)
         .await
         .map_err(db)?;
+        if next == "ended" {
+            self.wake_ended_context_in(&mut tx, subject, work_context_id)
+                .await?;
+        }
         commit_receipt(
             &mut tx,
             subject,
@@ -531,7 +535,7 @@ impl CognitiveRuntimeService {
         .bind(subject.0)
         .bind(session.0)
         .bind(work_context_id)
-        .bind(Utc::now())
+        .bind(self.now(subject))
         .execute(&mut *tx)
         .await
         .map_err(db)?;
@@ -689,6 +693,7 @@ fn validate_payload(
                 | CognitiveRef::CognitiveSchemaRevision(_)
                 | CognitiveRef::Occurrence(_)
                 | CognitiveRef::EpisodeRevision(_)
+                | CognitiveRef::JournalRevision(_)
         ) {
             return Err(Error::Invalid(
                 "WorkContext references must be exact continuation refs".into(),
@@ -767,4 +772,34 @@ fn replay_context(receipt: MutationReceipt) -> Result<Uuid> {
         .ok_or_else(|| Error::Infrastructure("WorkContext receipt has no result".into()))?
         .parse()
         .map_err(|_| Error::Infrastructure("invalid WorkContext receipt".into()))
+}
+
+impl CognitiveRuntimeService {
+    async fn wake_ended_context_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        context: Uuid,
+    ) -> Result<()> {
+        let sequence:Option<i64>=sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1 AND EXISTS(SELECT 1 FROM experience_items WHERE subject_id=$1 AND active_work_context_id=$2)")
+            .bind(subject.0).bind(context).fetch_optional(&mut **tx).await.map_err(db)?;
+        if let Some(sequence) = sequence {
+            for kind in ["episode_segment", "journal_review"] {
+                self.enqueue_maintenance_in(
+                    tx,
+                    &MaintenanceRequest {
+                        subject,
+                        kind: kind.into(),
+                        scope_kind: "track".into(),
+                        scope_ref: "interaction".into(),
+                        trigger_authority_seq: sequence,
+                        due_at: self.now(subject),
+                        priority: 60,
+                    },
+                )
+                .await?;
+            }
+        }
+        Ok(())
+    }
 }

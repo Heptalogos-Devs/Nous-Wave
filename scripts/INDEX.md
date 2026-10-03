@@ -28,6 +28,7 @@
 | [release/zip.ps1](release/zip.ps1)                                           | 将指定目录压缩为 ZIP                  |
 | [research/gateway.test.ts](research/gateway.test.ts)                         | 预算、并发调用和代理 telemetry 合同   |
 | [research/gateway.ts](research/gateway.ts)                                   | run-owned 代理及调用计数实现          |
+| [research/longitudinal.ts](research/longitudinal.ts) | 纵向认知模型 proposal 人工研究 |
 | [research/media.ts](research/media.ts)                                       | 媒体导入、派生和检索实验              |
 | [research/model-call-guard.test.ts](research/model-call-guard.test.ts)       | 预算恢复与耗尽合同                    |
 | [research/model-call-guard.ts](research/model-call-guard.ts)                 | 持久化实验调用预算                    |
@@ -40,6 +41,7 @@
 | [runtime/postgresql-llvm-setjmp.patch](runtime/postgresql-llvm-setjmp.patch) | PostgreSQL LLVM-MinGW setjmp 构建修正 |
 | [smoke/memory.ts](smoke/memory.ts)                                           | Memory/restart/lifecycle public 场景  |
 | [smoke/model-material-resource.ts](smoke/model-material-resource.ts)         | 模型/素材/资源 public 场景            |
+| [smoke/longitudinal.ts](smoke/longitudinal.ts) | 纵向认知确定性 public 场景 |
 | [smoke/runtime-episode.ts](smoke/runtime-episode.ts)                         | WorkContext/Episode public 场景       |
 | [smoke/support.ts](smoke/support.ts)                                         | 共享临时实例与 Core 启动              |
 

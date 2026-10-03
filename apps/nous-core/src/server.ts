@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { grantMaintenance } from "./maintenance/grants.js";
 import { ResourceRegistry } from "./resources/registry.js";
 import { QueryOrchestrator } from "./query/orchestrator.js";
 import { materializeResource } from "./resources/materialize.js";
@@ -177,6 +178,8 @@ export async function createCore(settings: CoreOptions) {
     return projection;
   }
   const cognition: ServiceImpl<typeof CognitionService> = {
+    grantMaintenance: (r, c) =>
+      grantMaintenance(kernel, modelRuntime, r, options(c)),
     openSession: (r, c) => kernel.authority.openSession(r, options(c)),
     getSession: (r, c) => kernel.authority.getSession(r, options(c)),
     listSessions: (r, c) => kernel.authority.listSessions(r, options(c)),
@@ -339,6 +342,17 @@ export async function createCore(settings: CoreOptions) {
     withdrawEpisode: (r, c) => kernel.authority.withdrawEpisode(r, options(c)),
     reacceptEpisode: (r, c) => kernel.authority.reacceptEpisode(r, options(c)),
     purgeEpisode: (r, c) => kernel.authority.purgeEpisode(r, options(c)),
+    getJournal: (r, c) => kernel.authority.getJournal(r, options(c)),
+    getJournalRevision: (r, c) =>
+      kernel.authority.getJournalRevision(r, options(c)),
+    listJournals: (r, c) => kernel.authority.listJournals(r, options(c)),
+    listJournalRevisions: (r, c) =>
+      kernel.authority.listJournalRevisions(r, options(c)),
+    suppressJournal: (r, c) => kernel.authority.suppressJournal(r, options(c)),
+    restoreJournal: (r, c) => kernel.authority.restoreJournal(r, options(c)),
+    withdrawJournal: (r, c) => kernel.authority.withdrawJournal(r, options(c)),
+    reacceptJournal: (r, c) => kernel.authority.reacceptJournal(r, options(c)),
+    purgeJournal: (r, c) => kernel.authority.purgeJournal(r, options(c)),
   };
   const material: ServiceImpl<typeof MaterialService> = {
     getDerivedRegion: (r, c) =>

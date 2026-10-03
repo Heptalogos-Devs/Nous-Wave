@@ -35,7 +35,11 @@ impl SharedLaneProvider for ServingService {
                 output.status = LaneStatus::Ready;
                 output.generation_ref = Some(index.generation_id);
                 output.candidates = index
-                    .search(&query_text, plan.lane_budget(EvidenceFamily::Lexical))?
+                    .search_with_domains(
+                        &query_text,
+                        plan.lane_budget(EvidenceFamily::Lexical),
+                        &bound.source_query.expression.domain_names(),
+                    )?
                     .into_iter()
                     .enumerate()
                     .filter_map(|(index, item)| {
@@ -82,14 +86,14 @@ impl SharedLaneProvider for ServingService {
                                     continue;
                                 }
                                 output.generation_ref = Some(generation.generation_id);
-                                for (rank, item) in generation
-                                    .search(
-                                        &embedding.vector,
-                                        plan.lane_budget(EvidenceFamily::Dense),
-                                    )?
-                                    .into_iter()
-                                    .enumerate()
-                                {
+                                let limit = plan.lane_budget(EvidenceFamily::Dense);
+                                let matches = domain_dense_matches(
+                                    generation,
+                                    &embedding.vector,
+                                    limit,
+                                    &bound.source_query.expression,
+                                )?;
+                                for (rank, item) in matches.into_iter().enumerate() {
                                     let Some(record) = item.record else {
                                         continue;
                                     };
@@ -144,4 +148,21 @@ impl SharedLaneProvider for ServingService {
 
         Ok(outputs)
     }
+}
+
+fn domain_dense_matches(
+    generation: &DenseGeneration,
+    vector: &[f32],
+    limit: usize,
+    expression: &nous_core::CognitiveQueryExpr,
+) -> Result<Vec<DenseMatch>> {
+    if expression.domain_names().is_empty() {
+        return generation.search(vector, limit);
+    }
+    let allowed = generation
+        .records()
+        .filter(|record| expression.allows_reference(&record.reference))
+        .filter_map(|record| u32::try_from(record.serving_doc_id).ok())
+        .collect::<roaring::RoaringBitmap>();
+    generation.search_filtered(vector, limit, &allowed)
 }

@@ -237,11 +237,7 @@ try {
       semanticRole: "fact",
       text: "Synthetic portable wiring: stable source identity.",
       epistemicClass: "observed",
-      formedAt: {
-        $typeName: "google.protobuf.Timestamp",
-        seconds: BigInt(Math.floor(Date.now() / 1000)),
-        nanos: 0,
-      },
+
       supports: [
         {
           support: {

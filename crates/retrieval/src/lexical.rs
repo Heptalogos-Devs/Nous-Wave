@@ -1,10 +1,10 @@
-use nous_core::{CognitiveRef, Error, Result, ServingGenerationId};
+use nous_core::{CognitiveRef, Error, Result, ServingGenerationId, reference_query_domain};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tantivy::{
     Index, IndexReader, IndexWriter, TantivyDocument, Term,
     collector::TopDocs,
-    query::{BooleanQuery, Occur, Query, TermQuery},
+    query::{BooleanQuery, ConstScoreQuery, Occur, Query, TermQuery},
     schema::{
         Field, IndexRecordOption, STORED, STRING, Schema, TEXT, TextFieldIndexing, TextOptions,
         Value,
@@ -42,6 +42,7 @@ pub struct LexicalGeneration {
     tag_ids: Field,
     schema_ids: Field,
     source_class: Field,
+    domain: Field,
 }
 
 impl LexicalGeneration {
@@ -63,6 +64,9 @@ impl LexicalGeneration {
             schema_ids,
             source_class,
         ) = schema();
+        let domain = schema
+            .get_field("domain")
+            .map_err(|error| Error::Infrastructure(error.to_string()))?;
         let index = Index::create_in_ram(schema);
         let reader = index
             .reader()
@@ -79,6 +83,7 @@ impl LexicalGeneration {
             tag_ids,
             schema_ids,
             source_class,
+            domain,
         })
     }
 
@@ -110,6 +115,9 @@ impl LexicalGeneration {
         let source_class = schema
             .get_field("source_class")
             .map_err(|_| Error::Infrastructure("Tantivy source_class field missing".into()))?;
+        let domain = schema
+            .get_field("domain")
+            .map_err(|error| Error::Infrastructure(error.to_string()))?;
         let reader = index
             .reader()
             .map_err(|error| Error::Infrastructure(format!("Tantivy reader: {error}")))?;
@@ -125,6 +133,7 @@ impl LexicalGeneration {
             tag_ids,
             schema_ids,
             source_class,
+            domain,
         })
     }
 
@@ -142,6 +151,7 @@ impl LexicalGeneration {
             indexed.add_text(self.title, title);
             indexed.add_text(self.reference, document.serving_doc_id.to_string());
             indexed.add_text(self.metadata, metadata);
+            indexed.add_text(self.domain, reference_query_domain(&document.reference));
             for value in &document.entity_refs {
                 indexed.add_text(self.entity_refs, value);
             }
@@ -171,6 +181,15 @@ impl LexicalGeneration {
     }
 
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<LexicalMatch>> {
+        self.search_with_domains(query, limit, &[])
+    }
+
+    pub fn search_with_domains(
+        &self,
+        query: &str,
+        limit: usize,
+        domains: &[&str],
+    ) -> Result<Vec<LexicalMatch>> {
         if query.trim().is_empty() || limit == 0 {
             return Ok(Vec::new());
         }
@@ -197,9 +216,37 @@ impl LexicalGeneration {
                 }
             }
         }
-        let parsed = BooleanQuery::new(terms);
+        let text: Box<dyn Query> = Box::new(BooleanQuery::new(terms));
+        let parsed: Box<dyn Query> = if domains.is_empty() {
+            text
+        } else {
+            let domains = BooleanQuery::new(
+                domains
+                    .iter()
+                    .map(|domain| {
+                        (
+                            Occur::Should,
+                            Box::new(TermQuery::new(
+                                Term::from_field_text(self.domain, domain),
+                                IndexRecordOption::Basic,
+                            )) as Box<dyn Query>,
+                        )
+                    })
+                    .collect(),
+            );
+            Box::new(BooleanQuery::new(vec![
+                (Occur::Must, text),
+                (
+                    Occur::Must,
+                    Box::new(ConstScoreQuery::new(Box::new(domains), 0.0)),
+                ),
+            ]))
+        };
         let hits = searcher
-            .search(&parsed, &TopDocs::with_limit(limit).order_by_score())
+            .search(
+                parsed.as_ref(),
+                &TopDocs::with_limit(limit).order_by_score(),
+            )
             .map_err(|error| Error::Infrastructure(format!("Tantivy search: {error}")))?;
         hits.into_iter()
             .map(|(score, address)| {
@@ -262,6 +309,7 @@ fn schema() -> (
     let tag_ids = builder.add_text_field("tag_ids", keyword.clone());
     let schema_ids = builder.add_text_field("schema_ids", keyword.clone());
     let source_class = builder.add_text_field("source_class", keyword);
+    builder.add_text_field("domain", STRING);
     (
         builder.build(),
         body,

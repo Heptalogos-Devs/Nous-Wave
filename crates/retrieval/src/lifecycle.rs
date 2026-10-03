@@ -1,6 +1,6 @@
 use crate::{
     artifacts::*,
-    build::{DenseManifest, implementation},
+    build::{DenseManifest, implementation, implementation_revision},
     *,
 };
 use sqlx::Row;
@@ -233,7 +233,7 @@ impl ServingService {
                 .metadata
                 .get("implementation_revision")
                 .and_then(|v| v.as_u64())
-                == Some(1);
+                == Some(implementation_revision(&record.family));
         identity
             && self
                 .config_digest(record.subject, &record.family, snapshot)

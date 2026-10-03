@@ -81,7 +81,7 @@ impl KernelService {
                             .map(ObjectRef::new)
                             .transpose()?,
                         occurred_time: temporal(input.occurred_time)?,
-                        observed_at: required(time(input.observed_at)?, "observed_at")?,
+                        observed_at: time(input.observed_at)?,
                         conversation_ref: input.conversation_ref,
                         actor_entity_ref: input.actor_entity_ref.map(EntityRef::new).transpose()?,
                         context: object(input.context),

@@ -10,7 +10,7 @@ WorkContext 是 Runtime owner 的 Subject 级 durable checkpoint。它可以跨 
 
 - stable `WorkContextId`、`subject_id`、`state`、`purpose`、bounded questions/constraints/resume conditions/budget、`revision`、timestamps；
 - state 只有 `open`、`paused`、`ended`；`ended` terminal；
-- exact continuation refs 只能是 `MemoryRevision`、`CognitiveSchemaRevision`、`Occurrence` 或 `EpisodeRevision`；
+- exact continuation refs 只能是 `MemoryRevision`、`CognitiveSchemaRevision`、`Occurrence`、`EpisodeRevision` 或 `JournalRevision`；
 - mutable object id 不能作为 continuation ref；
 - Session 只保存 optional foreground binding 和 runtime revision。
 

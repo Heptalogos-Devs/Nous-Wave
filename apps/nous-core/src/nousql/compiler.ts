@@ -165,6 +165,9 @@ function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
   };
   switch (d.name) {
     case "memory":
+    case "schema":
+    case "episode":
+    case "journal":
     case "evidence":
     case "resource":
       noArguments();

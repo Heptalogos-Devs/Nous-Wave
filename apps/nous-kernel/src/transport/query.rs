@@ -241,6 +241,9 @@ fn compile_expression(
     for domain in modifiers.domains {
         node.targets.push(match domain.as_str() {
             "memory" => QueryTarget::Memory,
+            "schema" => QueryTarget::Schema,
+            "episode" => QueryTarget::Episode,
+            "journal" => QueryTarget::Journal,
             "evidence" => QueryTarget::Evidence,
             "resource" => QueryTarget::Resource,
             _ => return Err(Error::Invalid("unsupported cognitive query domain".into())),

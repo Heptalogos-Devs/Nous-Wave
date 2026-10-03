@@ -80,13 +80,17 @@ just smoke
 corepack pnpm smoke:memory
 corepack pnpm smoke:runtime
 corepack pnpm smoke:model
+corepack pnpm smoke:longitudinal
 ```
 
-`just smoke` 先构建 Kernel，再顺序执行三个场景；单独调用要求 debug Kernel 和 PostgreSQL runtime 已准备。
+`just smoke` 先构建 Kernel，再顺序执行四个场景；单独调用要求 debug Kernel 和 PostgreSQL runtime 已准备。
 
 - memory：Memory 创建、检索、使用、重启与生命周期。
 - runtime：WorkContext/Session 延续与 Episode exact revision。
 - model：本地模型/资源 host 下的 Model、Material、External Resource 组合。
+- longitudinal：Session Observation → automatic Episode → Journal → Memory consolidation，随后重开服务、exact/lexical 查询、WorkContext continuation 和 meaningful UseEvent 重试。模型 proposal 使用确定性 stub；该场景检查编排与 Authority 语义。
+
+`smoke:longitudinal` 调用 Rust test harness 启动临时 PostgreSQL 和真实 Kernel gRPC；TypeScript 场景托管真实 Core HTTP 并使用官方 Client。ManualCognitiveClock 通过测试子进程的 stdin/stdout 控制，未增加产品 RPC。该测试也由 `just check` 的 workspace tests 执行。
 
 场景创建临时实例，通过正常 Core 与官方 Client 操作。`NOUS_WAVE_KERNEL_EXECUTABLE` 可指定 Kernel；`NOUS_WAVE_POSTGRES_RUNTIME` 可指定 PostgreSQL 安装。`support.ts` 是共享启动 helper。
 
@@ -106,9 +110,9 @@ corepack pnpm research:retrieval-live run --run-root <实例run目录> --client-
 corepack pnpm research:media-live --run-root <实例run目录> --client-module <分发client模块>
 ```
 
-Retrieval 子命令为 `import`、`run`、`audit-formation`；track 为 `controlled` 或 `end-to-end`，variant 为 `baseline`、`model-rerank`、`wave`、`combined`。默认读取 `research/corpus/manifest.json`、`queries.json`、`data/research/corpus/unit-texts.json`，状态位于 `data/research/runs/corpus-state.json`。可用 `--manifest`、`--queries`、`--texts`、`--state`、`--output` 改路径；`--limit` 默认 0 表示全部，`--concurrency` 默认 4。导入可用 `--embedding-batch`（默认 64）、`--embedding-interval-ms`（默认 0）控制批次。
+Retrieval 子命令为 `import`、`run`、`audit-formation`；track 为 `controlled` 或 `end-to-end`，variant 为 `baseline`、`model-rerank`、`wave`、`combined`。默认读取 `docs/research/corpus/manifest.json`、`queries.json`、`data/research/corpus/unit-texts.json`，状态位于 `data/research/runs/corpus-state.json`。可用 `--manifest`、`--queries`、`--texts`、`--state`、`--output` 改路径；`--limit` 默认 0 表示全部，`--concurrency` 默认 4。导入可用 `--embedding-batch`（默认 64）、`--embedding-interval-ms`（默认 0）控制批次。
 
-Media 默认读取 `research/corpus/media.json` 与 `data/research/corpus/raw`，将处理状态写到 `data/research/runs/media-state.json`；用 `--manifest`、`--raw-root`、`--state` 覆盖。状态文件用于继续已有实验，不会从头重复已完成操作。
+Media 默认读取 `docs/research/corpus/media.json` 与 `data/research/corpus/raw`，将处理状态写到 `data/research/runs/media-state.json`；用 `--manifest`、`--raw-root`、`--state` 覆盖。状态文件用于继续已有实验，不会从头重复已完成操作。
 
 ## 维护
 
@@ -122,3 +126,13 @@ powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1 -W
 PostgreSQL 清理只处理`data/temp/tests/` 中具有 PostgreSQL cluster 标记的孤立测试根，跳过运行中的 PostgreSQL。省略 `-WhatIf` 执行删除；`-MinimumAgeHours <小时>` 限制最小年龄，默认 0。它不清理语料、手写配置或开发实例。
 
 [返回仓库地图](../INDEX.md)
+
+### Longitudinal model research
+
+```text
+corepack pnpm research:longitudinal --config data/config/apps/nous.toml --input data/research/longitudinal/plan.json --role journal_synthesis --output data/research/longitudinal/journal-proposal.json
+```
+
+`--input` 使用 Kernel `PlanMaintenance` 返回的 ProtoJSON `MaintenancePlan`：包含当前 Subject、exact source revisions、ordered member keys、support/entity/candidate catalogs 和 owner snapshot。输入必须为 `ready` 且不超过 256 KiB；适用的调用方从私有 Kernel 请求取得该快照。`--role` 为 `episode_segmentation`、`journal_synthesis` 或 `memory_consolidation`。配置使用当前 `nous.toml`；gateway credential 来自已设置的配置指定环境变量。`--prompt-root` 默认 `prompts`，`--override-prompt-root` 可选择本地 prompt override。
+
+Runner 通过真实配置角色和 canonical Structured Output 生成一次 proposal，校验 catalog keys，将来源计划、proposal、producer identity 与人工审阅项目写入新的本地文件；已有 output 文件会报错。研究产物放在 ignored `data/research/`。人工审阅使用真实 trace、来源事实和 boundary annotations，分别评估分段边界、Journal point 支持与省略、整合身份和 Schema 泛化。确定性 `smoke:longitudinal` 检查编排与 Authority 合同；质量研究使用这个手动入口。

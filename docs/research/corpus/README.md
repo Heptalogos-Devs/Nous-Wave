@@ -6,6 +6,6 @@
 - [audio-negative-controls.json](audio-negative-controls.json)：两段 NASA 音频的人工听辨事实。
 - [observed-results.json](observed-results.json)：2026-10-01 初始文本检索测量。
 
-2026-10-02 文本检索及当前媒体观测见 [Research](../../docs/research/observations.md)。原始来源内容、媒体、逐条输出和运行日志位于 ignored 的 `data/research/`。
+2026-10-02 文本检索及当前媒体观测见 [Research](../observations.md)。原始来源内容、媒体、逐条输出和运行日志位于 ignored 的 `data/research/`。
 
-[返回 Research 入口](../../docs/research/README.md)
+[返回 Research 入口](../README.md)

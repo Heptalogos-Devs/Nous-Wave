@@ -1,17 +1,30 @@
 //! Model-independent Session continuity, consumer context and query orchestration.
 
+mod clock;
+mod episode_policy;
+mod experience;
+mod maintenance;
+mod maintenance_policy;
 mod query;
 mod resources;
+mod segmentation;
 mod sessions;
 mod types;
 mod use_feedback;
 mod work_contexts;
 mod working_set;
+pub use clock::{CognitiveClock, ManualCognitiveClock, SystemCognitiveClock};
+pub use episode_policy::SETTLE_DELAY_KEY;
+pub use episode_policy::{EpisodePolicy, ExperienceContext};
+pub use experience::ExperienceInput;
+pub use maintenance::*;
+pub use maintenance_policy::*;
 pub use query::{
     BoundQuery, CognitiveContributor, CognitiveContributors, LaneCandidate, LaneOutput, LaneStatus,
     QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
     register_retrieval_configuration,
 };
+pub use segmentation::{EpisodeDraft, SegmentationProgress};
 pub use work_contexts::*;
 pub use working_set::*;
 
@@ -47,6 +60,8 @@ pub fn register_configuration(
             }
         },
     )?;
+    episode_policy::register_episode_configuration(registry)?;
+    maintenance_policy::register_maintenance_configuration(registry)?;
     register_retrieval_configuration(registry)
 }
 
@@ -55,6 +70,7 @@ pub struct CognitiveRuntimeService {
     pub store: AuthorityStore,
     pub resident_limit: usize,
     pub configuration: nous_configuration::ConfigurationService,
+    clock: std::sync::Arc<dyn CognitiveClock>,
     pending_queries: std::sync::Arc<
         std::sync::Mutex<std::collections::HashMap<Uuid, query::prepared::PendingQuery>>,
     >,
@@ -66,6 +82,20 @@ impl CognitiveRuntimeService {
         resident_limit: usize,
         configuration: nous_configuration::ConfigurationService,
     ) -> Result<Self> {
+        Self::with_clock(
+            store,
+            resident_limit,
+            configuration,
+            std::sync::Arc::new(SystemCognitiveClock),
+        )
+    }
+
+    pub fn with_clock(
+        store: AuthorityStore,
+        resident_limit: usize,
+        configuration: nous_configuration::ConfigurationService,
+        clock: std::sync::Arc<dyn CognitiveClock>,
+    ) -> Result<Self> {
         if resident_limit == 0 {
             return Err(Error::Invalid("resident_limit must be positive".into()));
         }
@@ -73,8 +103,13 @@ impl CognitiveRuntimeService {
             store,
             resident_limit,
             configuration,
+            clock,
             pending_queries: Default::default(),
         })
+    }
+
+    pub fn now(&self, subject: SubjectId) -> DateTime<Utc> {
+        self.clock.now(subject)
     }
 
     pub async fn require_subject(&self, subject: SubjectId) -> Result<()> {

@@ -6,6 +6,8 @@ pub fn reference_parts(reference: &CognitiveRef) -> (String, String) {
         CognitiveRef::MemoryRevision(id) => ("memory_revision".into(), id.0.to_string()),
         CognitiveRef::Episode(id) => ("episode".into(), id.0.to_string()),
         CognitiveRef::EpisodeRevision(id) => ("episode_revision".into(), id.0.to_string()),
+        CognitiveRef::Journal(id) => ("journal".into(), id.0.to_string()),
+        CognitiveRef::JournalRevision(id) => ("journal_revision".into(), id.0.to_string()),
         CognitiveRef::CognitiveSchema(id) => ("cognitive_schema".into(), id.0.to_string()),
         CognitiveRef::CognitiveSchemaRevision(id) => {
             ("cognitive_schema_revision".into(), id.0.to_string())
@@ -49,6 +51,16 @@ pub fn parse_reference(kind: &str, value: &str) -> Result<CognitiveRef> {
             value
                 .parse()
                 .map_err(|_| Error::Invalid("invalid episode revision ref".into()))?,
+        )),
+        "journal" => CognitiveRef::Journal(JournalId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Journal ref".into()))?,
+        )),
+        "journal_revision" => CognitiveRef::JournalRevision(JournalRevisionId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Journal revision ref".into()))?,
         )),
         "cognitive_schema" => CognitiveRef::CognitiveSchema(CognitiveSchemaId(
             value

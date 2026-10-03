@@ -5,11 +5,45 @@ use super::*;
 pub enum QueryTarget {
     AnyRelevantCognition,
     Memory,
+    Schema,
+    Episode,
+    Journal,
     Evidence,
     EntityNeighborhood { entity_ref: EntityRef },
     SchemaNeighborhood { schema: CognitiveSchemaId },
     Resource,
     Exact { reference: CognitiveRef },
+}
+
+impl QueryTarget {
+    pub fn domain_name(&self) -> Option<&'static str> {
+        match self {
+            Self::Memory => Some("memory"),
+            Self::Schema => Some("schema"),
+            Self::Episode => Some("episode"),
+            Self::Journal => Some("journal"),
+            Self::Evidence => Some("evidence"),
+            Self::Resource => Some("resource"),
+            _ => None,
+        }
+    }
+    pub fn is_cognition_domain(&self) -> bool {
+        matches!(
+            self,
+            Self::Memory | Self::Schema | Self::Episode | Self::Journal
+        )
+    }
+}
+
+pub fn reference_query_domain(reference: &CognitiveRef) -> &'static str {
+    match reference {
+        CognitiveRef::Memory(_) | CognitiveRef::MemoryRevision(_) => "memory",
+        CognitiveRef::CognitiveSchema(_) | CognitiveRef::CognitiveSchemaRevision(_) => "schema",
+        CognitiveRef::Episode(_) | CognitiveRef::EpisodeRevision(_) => "episode",
+        CognitiveRef::Journal(_) | CognitiveRef::JournalRevision(_) => "journal",
+        CognitiveRef::Resource(_) => "resource",
+        _ => "evidence",
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -213,6 +247,26 @@ pub struct CognitiveQueryExpr {
     pub children: Vec<CognitiveQueryExpr>,
     #[serde(default)]
     pub preferences: Vec<QueryPreference>,
+}
+
+impl CognitiveQueryExpr {
+    pub fn domain_names(&self) -> Vec<&'static str> {
+        if self
+            .targets
+            .iter()
+            .any(|target| matches!(target, QueryTarget::AnyRelevantCognition))
+        {
+            return vec![];
+        }
+        self.targets
+            .iter()
+            .filter_map(QueryTarget::domain_name)
+            .collect()
+    }
+    pub fn allows_reference(&self, reference: &CognitiveRef) -> bool {
+        let domains = self.domain_names();
+        domains.is_empty() || domains.contains(&reference_query_domain(reference))
+    }
 }
 
 impl Default for CognitiveQueryExpr {

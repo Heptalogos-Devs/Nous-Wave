@@ -1,4 +1,3 @@
-use chrono::Utc;
 use nous_core::{EpistemicClass, OccurrenceId, OperationId, SubjectId, TemporalExtent};
 use nous_memory::{
     CognitiveRole, EvidenceLocator, EvidenceRef, ExplicitMemoryInput, FormationMode,
@@ -25,7 +24,7 @@ fn grounded_input() -> ExplicitMemoryInput {
         aboutness: Vec::new(),
         tags: Vec::new(),
         valid_time: TemporalExtent::Unknown,
-        formed_at: Utc::now(),
+
         epistemic_class: EpistemicClass::Observed,
     }
 }

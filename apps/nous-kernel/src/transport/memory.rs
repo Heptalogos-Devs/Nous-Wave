@@ -64,8 +64,6 @@ fn memory_input(
     operation_id: OperationId,
     content: p::MemoryContent,
 ) -> Result<ExplicitMemoryInput> {
-    let formed_at =
-        time(content.formed_at)?.ok_or_else(|| Error::Invalid("formed_at is required".into()))?;
     Ok(ExplicitMemoryInput {
         producer: content.producer.map(from_producer).transpose()?,
         operation_id,
@@ -97,7 +95,6 @@ fn memory_input(
             .map(|value| Ok(nous_core::TagId(id(&value)?)))
             .collect::<Result<_>>()?,
         valid_time: temporal(content.valid_time)?,
-        formed_at,
         epistemic_class: enum_value(&content.epistemic_class)?,
     })
 }
@@ -151,8 +148,6 @@ impl KernelService {
                     target: enum_value(&input.target)?,
                     representation_text: (!input.text.is_empty()).then_some(input.text),
                     semantic_role: (!input.semantic_role.is_empty()).then_some(input.semantic_role),
-                    formed_at: time(input.formed_at)?
-                        .ok_or_else(|| Error::Invalid("formed_at is required".into()))?,
                     topology: None,
                 },
             )
@@ -253,7 +248,7 @@ impl KernelService {
                     supports: parsed.supports,
                     aboutness: parsed.aboutness,
                     valid_time: parsed.valid_time,
-                    formed_at: parsed.formed_at,
+
                     epistemic_class: parsed.epistemic_class,
                 })
                 .await?,

@@ -98,11 +98,22 @@ impl AuthorityStore {
     ) -> Result<i64> {
         let revision = sqlx::query_scalar::<_, i64>("UPDATE subjects SET authority_seq=authority_seq+1 WHERE subject_id=$1 RETURNING authority_seq")
             .bind(subject.0).fetch_one(&mut **tx).await.map_err(db)?;
+        Self::mark_projection_families_in(tx, subject, revision, changes).await?;
+        Ok(revision)
+    }
+
+    /// Extend the affected families of the same Authority transaction.
+    pub async fn mark_projection_families_in(
+        tx: &mut Transaction<'_, Postgres>,
+        subject: SubjectId,
+        revision: i64,
+        changes: ProjectionInvalidation,
+    ) -> Result<()> {
         for (family, space) in changes.families() {
-            sqlx::query("INSERT INTO projection_watermarks(subject_id,family,space_signature,desired_authority_seq) VALUES($1,$2,$3,$4) ON CONFLICT(subject_id,family,space_signature) DO UPDATE SET desired_authority_seq=excluded.desired_authority_seq")
+            sqlx::query("INSERT INTO projection_watermarks(subject_id,family,space_signature,desired_authority_seq) VALUES($1,$2,$3,$4) ON CONFLICT(subject_id,family,space_signature) DO UPDATE SET desired_authority_seq=GREATEST(projection_watermarks.desired_authority_seq,excluded.desired_authority_seq)")
                 .bind(subject.0).bind(family).bind(space).bind(revision)
                 .execute(&mut **tx).await.map_err(db)?;
         }
-        Ok(revision)
+        Ok(())
     }
 }

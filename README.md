@@ -2,7 +2,7 @@
 
 Nous Wave 是一个 pre-production Subject cognition system。TypeScript Core 负责公共 API、模型与资源编排；Rust Kernel 负责认知 Authority、Runtime、Material、Memory 与可重建 Serving。长期认知语义和已接受的设计决定由 [Architecture-Vault](https://github.com/Heptalogos-Devs/Architecture-Vault) 持有。
 
-当前实现提供 Memory-only Subject、材料观察与派生、Memory 形成和生命周期、WorkContext、Episode 基础、Query/Serving、官方 Client/CLI，以及可选 External Resource。能力状态见[当前状态](docs/current-state/CURRENT_STATE.md)。
+当前实现提供 Memory-only Subject、材料观察与派生、Memory 形成和生命周期、WorkContext、自动 Episode、Journal、有界 Maintenance/Offline Cognition 与整合、Query/Serving、官方 Client/CLI，以及可选 External Resource。能力状态见[当前状态](docs/current-state/CURRENT_STATE.md)。
 
 ## 本地开发
 

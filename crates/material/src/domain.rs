@@ -253,8 +253,8 @@ pub struct OccurrenceDescriptor {
     pub source_class: SourceClass,
     pub external_object_ref: Option<ObjectRef>,
     pub occurred_time: TemporalExtent,
-    #[serde(default = "Utc::now")]
-    pub observed_at: DateTime<Utc>,
+    #[serde(default)]
+    pub observed_at: Option<DateTime<Utc>>,
     pub conversation_ref: Option<String>,
     pub actor_entity_ref: Option<EntityRef>,
     #[serde(default)]

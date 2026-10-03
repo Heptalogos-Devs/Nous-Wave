@@ -61,7 +61,7 @@ impl MaterialService {
                 return Ok(accepted);
             }
         }
-        let now = Utc::now();
+        let now = self.cognition.now(input.subject);
         let object_guard = if matches!(
             &input.material,
             ObservationMaterial::InlineText { .. } | ObservationMaterial::StructuredJson { .. }
@@ -91,7 +91,7 @@ impl MaterialService {
                 }
             }),
             occurred_time: input.occurrence.occurred_time.clone(),
-            observed_at: input.occurrence.observed_at,
+            observed_at: input.occurrence.observed_at.unwrap_or(now),
             conversation_ref: input.occurrence.conversation_ref.clone(),
             actor_entity_ref: input.occurrence.actor_entity_ref.clone(),
             context: input.occurrence.context.clone(),
@@ -182,12 +182,37 @@ impl MaterialService {
             sqlx::query("INSERT INTO coverage_needs(coverage_need_id,subject_id,source_region_id,representation_kind,capability_operation,requirement,state,updated_at) VALUES($1,$2,$3,'extracted_text','document_extraction','preferred',$4,$5) ON CONFLICT(subject_id,source_region_id,representation_kind,capability_operation) DO UPDATE SET updated_at=excluded.updated_at")
                 .bind(Uuid::now_v7()).bind(input.subject.0).bind(region.source_region_id.0).bind(if matches!(input.material, ObservationMaterial::InlineText{..}){"ready"}else{"missing"}).bind(now).execute(&mut *tx).await.map_err(db)?;
         }
-        nous_persistence::AuthorityStore::invalidate_in(
+        let recorded_seq = nous_persistence::AuthorityStore::invalidate_in(
             &mut tx,
             input.subject,
             ProjectionInvalidation::text(),
         )
         .await?;
+        if let Some(session) = input.session {
+            if occurrence.observed_at > now + chrono::Duration::minutes(5) {
+                return Err(Error::Invalid(
+                    "observed_at is too far in the future".into(),
+                ));
+            }
+            self.cognition
+                .capture_experience_in(
+                    &mut tx,
+                    nous_runtime::ExperienceInput {
+                        subject: input.subject,
+                        recorded_seq,
+                        occurrence: occurrence_id,
+                        session,
+                        observed_at: occurrence.observed_at,
+                        source_class: occurrence.source_class.as_str().into(),
+                        conversation_ref: occurrence.conversation_ref.clone(),
+                        actor_entity_ref: occurrence
+                            .actor_entity_ref
+                            .as_ref()
+                            .map(|value| value.as_str().into()),
+                    },
+                )
+                .await?;
+        }
         let accepted = AcceptedObservation {
             artifact,
             occurrence,

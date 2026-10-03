@@ -13,115 +13,74 @@ impl AuthorityStore {
         subject: SubjectId,
         reference: &CognitiveRef,
     ) -> Result<(CognitiveRef, Option<i64>, bool)> {
-        let bound = match reference {
-            CognitiveRef::Memory(memory) => {
-                let row = sqlx::query(
-                    "SELECT current_revision_id,object_epoch FROM memory_objects WHERE subject_id=$1 AND memory_id=$2",
-                )
-                .bind(subject.0)
-                .bind(memory.0)
-                .fetch_optional(self.pool())
-                .await
-                .map_err(db)?
-                .ok_or_else(|| Error::NotFound("memory exact target not found".into()))?;
-                (
-                    CognitiveRef::MemoryRevision(MemoryRevisionId(
-                        row.try_get("current_revision_id").map_err(db)?,
-                    )),
-                    Some(row.try_get("object_epoch").map_err(db)?),
-                    true,
-                )
-            }
-            CognitiveRef::MemoryRevision(revision) => {
-                let row = sqlx::query(
-                    "SELECT o.object_epoch FROM memory_revisions r JOIN memory_objects o USING(memory_id) WHERE r.subject_id=$1 AND r.memory_revision_id=$2",
-                )
-                .bind(subject.0)
-                .bind(revision.0)
-                .fetch_optional(self.pool())
-                .await
-                .map_err(db)?
-                .ok_or_else(|| Error::NotFound("memory revision exact target not found".into()))?;
-                (
-                    reference.clone(),
-                    Some(row.try_get("object_epoch").map_err(db)?),
-                    false,
-                )
-            }
-            CognitiveRef::Episode(episode) => {
-                let row = sqlx::query(
-                    "SELECT current_revision_id,object_epoch FROM episode_objects WHERE subject_id=$1 AND episode_id=$2",
-                )
-                .bind(subject.0)
-                .bind(episode.0)
-                .fetch_optional(self.pool())
-                .await
-                .map_err(db)?
-                .ok_or_else(|| Error::NotFound("episode exact target not found".into()))?;
-                (
-                    CognitiveRef::EpisodeRevision(EpisodeRevisionId(
-                        row.try_get("current_revision_id").map_err(db)?,
-                    )),
-                    Some(row.try_get("object_epoch").map_err(db)?),
-                    true,
-                )
-            }
-            CognitiveRef::EpisodeRevision(revision) => {
-                let row = sqlx::query(
-                    "SELECT o.object_epoch FROM episode_revisions r JOIN episode_objects o USING(episode_id) WHERE r.subject_id=$1 AND r.episode_revision_id=$2",
-                )
-                .bind(subject.0)
-                .bind(revision.0)
-                .fetch_optional(self.pool())
-                .await
-                .map_err(db)?
-                .ok_or_else(|| Error::NotFound("episode revision exact target not found".into()))?;
-                (
-                    reference.clone(),
-                    Some(row.try_get("object_epoch").map_err(db)?),
-                    false,
-                )
-            }
-            CognitiveRef::CognitiveSchema(schema) => {
-                let row = sqlx::query(
-                    "SELECT current_revision_id,object_epoch FROM cognitive_schemas WHERE subject_id=$1 AND schema_id=$2",
-                )
-                .bind(subject.0)
-                .bind(schema.0)
-                .fetch_optional(self.pool())
-                .await
-                .map_err(db)?
-                .ok_or_else(|| Error::NotFound("schema exact target not found".into()))?;
-                (
-                    CognitiveRef::CognitiveSchemaRevision(CognitiveSchemaRevisionId(
-                        row.try_get("current_revision_id").map_err(db)?,
-                    )),
-                    Some(row.try_get("object_epoch").map_err(db)?),
-                    true,
-                )
-            }
-            CognitiveRef::CognitiveSchemaRevision(revision) => {
-                let row = sqlx::query(
-                    "SELECT s.object_epoch FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND r.schema_revision_id=$2",
-                )
-                .bind(subject.0)
-                .bind(revision.0)
-                .fetch_optional(self.pool())
-                .await
-                .map_err(db)?
-                .ok_or_else(|| Error::NotFound("schema revision exact target not found".into()))?;
-                (
-                    reference.clone(),
-                    Some(row.try_get("object_epoch").map_err(db)?),
-                    false,
-                )
-            }
+        let (query, id, mutable) = match reference {
+            CognitiveRef::Memory(id) => (
+                "SELECT current_revision_id,object_epoch FROM memory_objects WHERE subject_id=$1 AND memory_id=$2",
+                id.0,
+                true,
+            ),
+            CognitiveRef::MemoryRevision(id) => (
+                "SELECT r.memory_revision_id AS current_revision_id,o.object_epoch FROM memory_revisions r JOIN memory_objects o USING(memory_id) WHERE r.subject_id=$1 AND r.memory_revision_id=$2",
+                id.0,
+                false,
+            ),
+            CognitiveRef::Episode(id) => (
+                "SELECT current_revision_id,object_epoch FROM episode_objects WHERE subject_id=$1 AND episode_id=$2",
+                id.0,
+                true,
+            ),
+            CognitiveRef::EpisodeRevision(id) => (
+                "SELECT r.episode_revision_id AS current_revision_id,o.object_epoch FROM episode_revisions r JOIN episode_objects o USING(episode_id) WHERE r.subject_id=$1 AND r.episode_revision_id=$2",
+                id.0,
+                false,
+            ),
+            CognitiveRef::Journal(id) => (
+                "SELECT current_revision_id,object_epoch FROM journal_objects WHERE subject_id=$1 AND journal_id=$2",
+                id.0,
+                true,
+            ),
+            CognitiveRef::JournalRevision(id) => (
+                "SELECT r.journal_revision_id AS current_revision_id,o.object_epoch FROM journal_revisions r JOIN journal_objects o USING(journal_id) WHERE r.subject_id=$1 AND r.journal_revision_id=$2",
+                id.0,
+                false,
+            ),
+            CognitiveRef::CognitiveSchema(id) => (
+                "SELECT current_revision_id,object_epoch FROM cognitive_schemas WHERE subject_id=$1 AND schema_id=$2",
+                id.0,
+                true,
+            ),
+            CognitiveRef::CognitiveSchemaRevision(id) => (
+                "SELECT r.schema_revision_id AS current_revision_id,s.object_epoch FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND r.schema_revision_id=$2",
+                id.0,
+                false,
+            ),
             _ => {
                 self.validate_reference(subject, reference).await?;
-                (reference.clone(), None, false)
+                return Ok((reference.clone(), None, false));
             }
         };
-        Ok(bound)
+        let row = sqlx::query(query)
+            .bind(subject.0)
+            .bind(id)
+            .fetch_optional(self.pool())
+            .await
+            .map_err(db)?
+            .ok_or_else(|| Error::NotFound("cognition exact target not found".into()))?;
+        let revision = row.try_get("current_revision_id").map_err(db)?;
+        let exact = match reference {
+            CognitiveRef::Memory(_) => CognitiveRef::MemoryRevision(MemoryRevisionId(revision)),
+            CognitiveRef::Episode(_) => CognitiveRef::EpisodeRevision(EpisodeRevisionId(revision)),
+            CognitiveRef::Journal(_) => CognitiveRef::JournalRevision(JournalRevisionId(revision)),
+            CognitiveRef::CognitiveSchema(_) => {
+                CognitiveRef::CognitiveSchemaRevision(CognitiveSchemaRevisionId(revision))
+            }
+            _ => reference.clone(),
+        };
+        Ok((
+            exact,
+            Some(row.try_get("object_epoch").map_err(db)?),
+            mutable,
+        ))
     }
 
     pub async fn require_subject(&self, subject: SubjectId) -> Result<()> {
@@ -188,6 +147,22 @@ impl AuthorityStore {
             .map_err(db)?,
             CognitiveRef::EpisodeRevision(id) => sqlx::query_scalar(
                 "SELECT EXISTS(SELECT 1 FROM episode_revisions r JOIN episode_objects o USING(episode_id) WHERE o.subject_id=$1 AND r.episode_revision_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(executor)
+            .await
+            .map_err(db)?,
+            CognitiveRef::Journal(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM journal_objects WHERE subject_id=$1 AND journal_id=$2)",
+            )
+            .bind(subject.0)
+            .bind(id.0)
+            .fetch_one(executor)
+            .await
+            .map_err(db)?,
+            CognitiveRef::JournalRevision(id) => sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM journal_revisions r JOIN journal_objects o USING(journal_id) WHERE o.subject_id=$1 AND r.journal_revision_id=$2)",
             )
             .bind(subject.0)
             .bind(id.0)

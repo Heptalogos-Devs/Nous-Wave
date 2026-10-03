@@ -93,7 +93,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"memory_id":memory,"expected_object_epoch":expected_object_epoch,"from":from,"to":to}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) = check_receipt(&mut tx, subject, operation_id, field, &digest).await?
         {
@@ -140,7 +140,17 @@ impl MemoryService {
             _ => return Err(Error::Internal("unsupported lifecycle state".into())),
         }.bind(subject.0).bind(memory.0).bind(to).execute(&mut *tx).await.map_err(db)?;
         sqlx::query("DELETE FROM resident_refs WHERE ref_kind='memory_revision' AND ref_value IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$1)").bind(memory.0).execute(&mut *tx).await.map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "memory",
+            &[memory.0],
+            sequence,
+            "source_lifecycle_changed",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             subject,
@@ -167,7 +177,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"memory_id":memory,"expected_object_epoch":expected_object_epoch}),
         )?;
-        let mut phase1 = self.store.begin().await?;
+        let mut phase1 = self.begin_mutation(subject).await?;
         lock_operation(&mut phase1, subject, operation_id).await?;
         if let Some(receipt) =
             check_receipt(&mut phase1, subject, operation_id, "purge_memory", &digest).await?
@@ -185,8 +195,21 @@ impl MemoryService {
             }
             if purge_state != "purging" {
                 sqlx::query("UPDATE memory_objects SET purge_state='purging',object_epoch=object_epoch+1 WHERE subject_id=$1 AND memory_id=$2").bind(subject.0).bind(memory.0).execute(&mut *phase1).await.map_err(db)?;
-                AuthorityStore::invalidate_in(&mut phase1, subject, ProjectionInvalidation::all())
-                    .await?;
+                let sequence = AuthorityStore::invalidate_in(
+                    &mut phase1,
+                    subject,
+                    ProjectionInvalidation::all(),
+                )
+                .await?;
+                self.invalidate_object_dependents_in(
+                    &mut phase1,
+                    subject,
+                    "memory",
+                    &[memory.0],
+                    sequence,
+                    "support_purged",
+                )
+                .await?;
             }
             sqlx::query("DELETE FROM resident_refs WHERE ref_kind='memory_revision' AND ref_value IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$1)").bind(memory.0).execute(&mut *phase1).await.map_err(db)?;
             phase1.commit().await.map_err(db)?;
@@ -200,7 +223,7 @@ impl MemoryService {
         memory: MemoryId,
         operation_id: OperationId,
     ) -> Result<()> {
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         let receipt=sqlx::query("SELECT state,request_digest FROM mutation_receipts WHERE subject_id=$1 AND operation_id=$2 FOR UPDATE").bind(subject.0).bind(operation_id.0).fetch_optional(&mut *tx).await.map_err(db)?.ok_or_else(||Error::NotFound("purge receipt not found".into()))?;
         if receipt.try_get::<String, _>("state").map_err(db)? == "committed" {
@@ -215,16 +238,18 @@ impl MemoryService {
         .fetch_all(&mut *tx)
         .await
         .map_err(db)?;
+        let mut workflow_refs = revisions
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        workflow_refs.push(memory.0.to_string());
+        self.purge_workflow_content_in(&mut tx, subject, &workflow_refs)
+            .await?;
+        sqlx::query("DELETE FROM work_context_refs WHERE ref_kind='memory_revision' AND ref_value=ANY($1::text[])")
+            .bind(&workflow_refs).execute(&mut *tx).await.map_err(db)?;
         for revision in &revisions {
-            sqlx::query("INSERT INTO cognition_dependency_invalidations(subject_id,dependent_kind,dependent_ref,invalidated_by_kind,invalidated_by_ref,reason,created_at) SELECT $1,'memory_revision',memory_revision_id::text,'memory_revision',$2,'support_purged',$3 FROM memory_revision_dependencies WHERE target_ref_kind='memory_revision' AND target_ref=$2 ON CONFLICT DO NOTHING")
-                .bind(subject.0).bind(revision.to_string()).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query("INSERT INTO cognition_dependency_invalidations(subject_id,dependent_kind,dependent_ref,invalidated_by_kind,invalidated_by_ref,reason,created_at) SELECT $1,'cognitive_schema_revision',schema_revision_id::text,'memory_revision',$2,'support_purged',$3 FROM cognitive_schema_evidence_links WHERE support_kind='memory_revision' AND support_ref=$2 AND revoked_at IS NULL ON CONFLICT DO NOTHING")
-                .bind(subject.0).bind(revision.to_string()).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query("UPDATE cognitive_schemas SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE schema_id IN (SELECT schema_id FROM cognitive_schema_revisions r JOIN cognitive_schema_evidence_links l ON l.schema_revision_id=r.schema_revision_id WHERE l.support_kind='memory_revision' AND l.support_ref=$1 AND l.revoked_at IS NULL) AND purge_state='normal'")
-                .bind(revision.to_string()).execute(&mut *tx).await.map_err(db)?;
             sqlx::query("UPDATE cognitive_schema_evidence_links SET revoked_at=COALESCE(revoked_at,$3) WHERE support_kind='memory_revision' AND support_ref=$1 AND revoked_at IS NULL AND subject_id=$2")
-                .bind(revision.to_string()).bind(subject.0).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query("UPDATE memory_objects SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE memory_id IN (SELECT r.memory_id FROM memory_revision_dependencies d JOIN memory_revisions r ON r.memory_revision_id=d.memory_revision_id WHERE d.target_ref_kind='memory_revision' AND d.target_ref=$1) AND memory_id<>$2").bind(revision.to_string()).bind(memory.0).execute(&mut *tx).await.map_err(db)?;
+                .bind(revision.to_string()).bind(subject.0).bind(self.cognition.now(subject)).execute(&mut *tx).await.map_err(db)?;
             let use_rows=sqlx::query("SELECT subject_id,consumer_ref,event_id,request_digest FROM cognitive_use_events WHERE ref_kind='memory_revision' AND ref_value=$1").bind(revision.to_string()).fetch_all(&mut *tx).await.map_err(db)?;
             for row in use_rows {
                 sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING").bind(row.try_get::<Uuid,_>("subject_id").map_err(db)?).bind(row.try_get::<String,_>("consumer_ref").map_err(db)?).bind(row.try_get::<Uuid,_>("event_id").map_err(db)?).bind(row.try_get::<String,_>("request_digest").map_err(db)?).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
@@ -234,7 +259,6 @@ impl MemoryService {
                 .bind(subject.0).bind(revision.to_string()).execute(&mut *tx).await.map_err(db)?;
         }
         sqlx::query("DELETE FROM association_evidence WHERE subject_id=$1 AND ((from_ref_kind='memory_revision' AND from_ref IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$2)) OR (to_ref_kind='memory_revision' AND to_ref IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$2)))").bind(subject.0).bind(memory.0).execute(&mut *tx).await.map_err(db)?;
-        sqlx::query("UPDATE model_workflow_operations SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=now() WHERE subject_id=$1 AND owner='memory' AND lower(operation_key) IN (SELECT operation_id::text FROM mutation_receipts WHERE subject_id=$1 AND result_kind='memory' AND result_ref=$2)").bind(subject.0).bind(memory.0.to_string()).execute(&mut *tx).await.map_err(db)?;
         sqlx::query("DELETE FROM memory_objects WHERE subject_id=$1 AND memory_id=$2")
             .bind(subject.0)
             .bind(memory.0)
@@ -253,5 +277,18 @@ impl MemoryService {
         )
         .await?;
         tx.commit().await.map_err(db)
+    }
+}
+
+impl MemoryService {
+    pub(crate) async fn purge_workflow_content_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        refs: &[String],
+    ) -> Result<()> {
+        sqlx::query("UPDATE model_workflow_operations w SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE w.subject_id=$1 AND w.owner='memory' AND (jsonb_path_query_array(w.snapshot,'$.**') ?| $2::text[] OR jsonb_path_query_array(w.proposal,'$.**') ?| $2::text[] OR lower(w.operation_key) IN (SELECT r.operation_id::text FROM mutation_receipts r WHERE r.subject_id=$1 AND (r.result_revision::text=ANY($2::text[]) OR r.result_ref=ANY($2::text[]) OR CASE WHEN r.result_kind IN ('episode_partition','longitudinal_consolidation') THEN jsonb_path_query_array(r.result_ref::jsonb,'$.**') ?| $2::text[] ELSE false END)))")
+            .bind(subject.0).bind(refs).execute(&mut **tx).await.map_err(db)?;
+        Ok(())
     }
 }

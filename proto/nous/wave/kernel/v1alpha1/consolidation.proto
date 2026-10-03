@@ -1,0 +1,54 @@
+syntax = "proto3";
+package nous.wave.kernel.v1alpha1;
+import "nous/wave/v1alpha1/types.proto";
+import "nous/wave/v1alpha1/management.proto";
+
+message ExpectedCognition { nous.wave.v1alpha1.CognitiveRef reference = 1; int64 expected_epoch = 2; }
+message ConsolidationMemoryContent {
+  string cognitive_role = 1;
+  string formation_mode = 2;
+  optional string grounding_occurrence_id = 3;
+  string semantic_role = 4;
+  string text = 5;
+  optional string title = 6;
+  repeated nous.wave.v1alpha1.RevisionSupport supports = 7;
+  repeated string aboutness = 8;
+  nous.wave.v1alpha1.TemporalExtent valid_time = 9;
+  string epistemic_class = 10;
+}
+message ConsolidationSchemaContent {
+  optional string title = 1;
+  string structural_claim = 2;
+  nous.wave.v1alpha1.SchemaScope applicability_scope = 3;
+  string boundary_definition = 4;
+  string formation_kind = 5;
+  repeated nous.wave.v1alpha1.SchemaEvidenceLink evidence_links = 6;
+}
+message ConsolidationResultRef { oneof target { nous.wave.v1alpha1.CognitiveRef reference = 1; uint32 action_index = 2; } }
+message SkipConsolidationAction { string reason = 1; }
+message CreateMemoryConsolidationAction { ConsolidationMemoryContent content = 1; }
+message ReviseMemoryConsolidationAction { ExpectedCognition target = 1; string intent = 2; ConsolidationMemoryContent content = 3; }
+message CreateSchemaConsolidationAction { ConsolidationSchemaContent content = 1; }
+message ReviseSchemaConsolidationAction { ExpectedCognition target = 1; string intent = 2; ConsolidationSchemaContent content = 3; }
+message LinkRelationConsolidationAction { ConsolidationResultRef from = 1; ConsolidationResultRef to = 2; string relation = 3; }
+message LongitudinalConsolidationAction {
+  oneof action {
+    SkipConsolidationAction skip = 1;
+    CreateMemoryConsolidationAction create_memory = 2;
+    ReviseMemoryConsolidationAction revise_memory = 3;
+    CreateSchemaConsolidationAction create_schema = 4;
+    ReviseSchemaConsolidationAction revise_schema = 5;
+    LinkRelationConsolidationAction link_relation = 6;
+  }
+}
+message CommitLongitudinalConsolidationRequest {
+  string operation_id = 1;
+  string subject_id = 2;
+  int64 expected_authority_seq = 3;
+  ExpectedCognition source = 4;
+  repeated ExpectedCognition context = 5;
+  nous.wave.v1alpha1.ProducerSignature producer = 6;
+  repeated LongitudinalConsolidationAction actions = 7;
+}
+message ConsolidationActionResult { uint32 action_index = 1; nous.wave.v1alpha1.CognitiveRef reference = 2; }
+message CommitLongitudinalConsolidationResponse { string status = 1; int64 authority_seq = 2; repeated ConsolidationActionResult results = 3; }

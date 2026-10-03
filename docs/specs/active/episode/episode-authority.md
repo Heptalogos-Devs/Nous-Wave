@@ -21,7 +21,7 @@ Known comparable sibling spans under the same parent and track are non-overlappi
 
 Accepted relation kinds are `split_from`, `merged_from`, `temporal_successor`, and `derived_from`, and always connect exact EpisodeRevision IDs.
 
-Automatic Episode segmentation, automatic split/merge, ranked Episode retrieval and Journal generation are not implemented.
+Automatic segmentation and atomic N-to-M refinement follow [Longitudinal Cognition](../cognitive-runtime/longitudinal-cognition.md). EpisodeRevision contributes exact, lexical and dense text Serving; topology participation is disabled. Owner commits assign formed/recorded timestamps.
 
 ## Lifecycle
 

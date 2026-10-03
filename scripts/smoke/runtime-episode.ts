@@ -104,7 +104,7 @@ async function main() {
           text: "runtime continuity",
           supports: [evidence(observed.occurrenceId)],
           validTime: create(TemporalExtentSchema, {}),
-          formedAt: instant,
+
           epistemicClass: "observed",
         }),
       }),
@@ -199,7 +199,7 @@ async function main() {
         trackKey: "interaction",
         boundaryExplanation: "one bounded interaction",
         experienceTime: create(TemporalExtentSchema, {}),
-        formedAt: instant,
+
         members: [
           create(EpisodeMemberSchema, {
             reference: create(CognitiveRefSchema, {
@@ -225,7 +225,7 @@ async function main() {
       intent: "resegment",
       boundaryExplanation: "resegmented interaction",
       experienceTime: create(TemporalExtentSchema, {}),
-      formedAt: instant,
+
       members: [
         create(EpisodeMemberSchema, {
           reference: create(CognitiveRefSchema, {

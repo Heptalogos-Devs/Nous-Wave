@@ -141,6 +141,7 @@ export function createNousClient(transport: Transport) {
       observe: call(cognition.recordObservation),
       query: call(cognition.query),
       reportUse: call(cognition.reportUse),
+      grantMaintenance: call(cognition.grantMaintenance),
       recall: async (
         subjectId: string,
         nousql: string,
@@ -186,6 +187,15 @@ export function createNousClient(transport: Transport) {
       withdrawEpisode: call(memory.withdrawEpisode),
       reacceptEpisode: call(memory.reacceptEpisode),
       purgeEpisode: call(memory.purgeEpisode),
+      getJournal: call(memory.getJournal),
+      getJournalRevision: call(memory.getJournalRevision),
+      listJournals: call(memory.listJournals),
+      listJournalRevisions: call(memory.listJournalRevisions),
+      suppressJournal: call(memory.suppressJournal),
+      restoreJournal: call(memory.restoreJournal),
+      withdrawJournal: call(memory.withdrawJournal),
+      reacceptJournal: call(memory.reacceptJournal),
+      purgeJournal: call(memory.purgeJournal),
     },
     material: {
       derivedRegion: call(material.getDerivedRegion),

@@ -478,7 +478,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
             supports: first.supports.clone(),
             aboutness: first.aboutness.clone(),
             valid_time: TemporalExtent::Unknown,
-            formed_at: Utc::now(),
+
             epistemic_class: EpistemicClass::Observed,
         })
         .await
@@ -771,7 +771,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         })],
         aboutness: Vec::new(),
         valid_time: Default::default(),
-        formed_at: Utc::now(),
+
         epistemic_class: EpistemicClass::Observed,
     };
     let _current = runtime
@@ -998,7 +998,7 @@ async fn stale_lexical_generation_cannot_return_old_revision() {
             })],
             aboutness: Vec::new(),
             valid_time: TemporalExtent::Unknown,
-            formed_at: Utc::now(),
+
             epistemic_class: EpistemicClass::Reported,
         })
         .await
@@ -1126,7 +1126,7 @@ async fn memory_revision_identity_guard_rejects_disjoint_aboutness() {
             supports: revision.supports,
             aboutness: revision.aboutness,
             valid_time: revision.valid_time,
-            formed_at: revision.formed_at,
+
             epistemic_class: revision.epistemic_class,
         })
         .await;

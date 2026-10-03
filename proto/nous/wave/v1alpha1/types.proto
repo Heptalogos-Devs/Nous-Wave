@@ -75,6 +75,7 @@ message Cue {
     string external_object_ref = 8;
   }
 }
+// Domains: memory, schema, episode, journal, evidence, resource. Empty selects all available local domains.
 message QueryModifiers { repeated string domains = 1; QueryConstraints constraints = 2; string effort = 3; optional uint32 limit = 4; string exploration = 5; string current_authority = 6; bool materialize = 7; string diagnostics = 8; repeated Preference preferences = 9; }
 message Preference { bool negative = 1; Cue cue = 2; string key = 3; }
 message QueryExpr { string operation = 1; repeated Cue cues = 2; repeated QueryExpr children = 3; QueryModifiers modifiers = 4; }
@@ -127,7 +128,6 @@ message MemoryContent {
   repeated string aboutness = 8;
   repeated string tags = 9;
   TemporalExtent valid_time = 10;
-  google.protobuf.Timestamp formed_at = 11;
   string epistemic_class = 12;
 }
 message Memory {
@@ -278,7 +278,6 @@ message CreateEpisodeRequest {
   optional string parent_episode_revision_id = 5;
   TemporalExtent experience_time = 6;
   string boundary_explanation = 7;
-  google.protobuf.Timestamp formed_at = 8;
   optional string producer_signature_id = 9;
   repeated EpisodeMember members = 10;
   repeated RevisionSupport supports = 11;
@@ -293,7 +292,6 @@ message ReviseEpisodeRequest {
   optional string parent_episode_revision_id = 7;
   TemporalExtent experience_time = 8;
   string boundary_explanation = 9;
-  google.protobuf.Timestamp formed_at = 10;
   optional string producer_signature_id = 11;
   repeated EpisodeMember members = 12;
   repeated RevisionSupport supports = 13;

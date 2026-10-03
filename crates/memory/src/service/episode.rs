@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::collections::BTreeSet;
 use uuid::Uuid;
+mod partition;
+pub use partition::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EpisodeMemberInput {
@@ -22,7 +24,7 @@ pub struct EpisodeInput {
     pub parent_episode_revision_id: Option<EpisodeRevisionId>,
     pub experience_time: TemporalExtent,
     pub boundary_explanation: String,
-    pub formed_at: DateTime<Utc>,
+
     pub producer_signature_id: Option<Uuid>,
     pub members: Vec<EpisodeMemberInput>,
     pub supports: Vec<RevisionSupport>,
@@ -39,7 +41,7 @@ pub struct ReviseEpisodeInput {
     pub parent_episode_revision_id: Option<EpisodeRevisionId>,
     pub experience_time: TemporalExtent,
     pub boundary_explanation: String,
-    pub formed_at: DateTime<Utc>,
+
     pub producer_signature_id: Option<Uuid>,
     pub members: Vec<EpisodeMemberInput>,
     pub supports: Vec<RevisionSupport>,
@@ -102,6 +104,7 @@ pub struct EpisodeView {
 
 impl MemoryService {
     pub async fn create_episode(&self, input: EpisodeInput) -> Result<EpisodeView> {
+        let started_at = self.cognition.now(input.subject);
         validate_episode_input(
             &input.track_key,
             &input.title,
@@ -120,13 +123,12 @@ impl MemoryService {
                 "parent": input.parent_episode_revision_id,
                 "experience_time": input.experience_time,
                 "boundary_explanation": input.boundary_explanation,
-                "formed_at": input.formed_at,
                 "producer_signature_id": input.producer_signature_id,
                 "members": input.members,
                 "supports": input.supports,
             }),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(input.subject).await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,
@@ -144,7 +146,13 @@ impl MemoryService {
                     .ok_or_else(|| Error::Infrastructure("Episode receipt has no result".into()))?
                     .parse()
                     .map_err(|_| Error::Infrastructure("invalid Episode receipt".into()))?;
-                return self.episode(input.subject, EpisodeId(id), None).await;
+                return self
+                    .episode(
+                        input.subject,
+                        EpisodeId(id),
+                        receipt.result_revision.map(EpisodeRevisionId),
+                    )
+                    .await;
             }
             return Err(Error::Unavailable(
                 "create Episode operation is already in progress".into(),
@@ -164,7 +172,10 @@ impl MemoryService {
         .await?;
         let episode_id = EpisodeId::new();
         let revision_id = EpisodeRevisionId::new();
-        let now = Utc::now();
+        let formed_at = self
+            .formation_time_in(&mut tx, input.subject, input.operation_id, started_at)
+            .await?;
+        let now = self.cognition.now(input.subject);
         let (time_kind, time_start, time_end) = temporal_columns(&input.experience_time);
         sqlx::query("INSERT INTO episode_objects(episode_id,subject_id,track_key,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,$4,1,'accepted','valid','normal','normal',$5)")
             .bind(episode_id.0).bind(input.subject.0).bind(&input.track_key).bind(revision_id.0).bind(now)
@@ -179,6 +190,7 @@ impl MemoryService {
             time_kind,
             time_start,
             time_end,
+            formed_at,
             now,
         )
         .await?;
@@ -192,10 +204,79 @@ impl MemoryService {
             Some(1),
         )
         .await?;
-        AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
-            .await?;
+        let authority_seq =
+            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::text())
+                .await?;
+        self.schedule_episode_in(
+            &mut tx,
+            input.subject,
+            revision_id,
+            &input.track_key,
+            authority_seq,
+            true,
+        )
+        .await?;
         tx.commit().await.map_err(db)?;
         self.episode(input.subject, episode_id, None).await
+    }
+
+    async fn schedule_episode_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        revision: EpisodeRevisionId,
+        track: &str,
+        authority_seq: i64,
+        semantic_review: bool,
+    ) -> Result<()> {
+        let delay = self
+            .configuration
+            .snapshot_for_subject(subject)?
+            .get(nous_runtime::SETTLE_DELAY_KEY)?;
+        let now = self.cognition.now(subject);
+        let due_at = now + chrono::Duration::seconds(delay as i64);
+        let consolidation_due = now
+            + chrono::Duration::seconds(
+                self.configuration
+                    .snapshot_for_subject(subject)?
+                    .get(super::longitudinal_policy::CONSOLIDATION_DELAY)? as i64,
+            );
+        for (kind, scope_kind, scope_ref) in [
+            (
+                "episode_resegment",
+                "episode_revision",
+                revision.0.to_string(),
+            ),
+            ("journal_review", "track", track.to_owned()),
+            (
+                "memory_consolidate",
+                "episode_revision",
+                revision.0.to_string(),
+            ),
+        ] {
+            if kind == "episode_resegment" && !semantic_review {
+                continue;
+            }
+            self.cognition
+                .enqueue_maintenance_in(
+                    tx,
+                    &nous_runtime::MaintenanceRequest {
+                        subject,
+                        kind: kind.into(),
+                        scope_kind: scope_kind.into(),
+                        scope_ref,
+                        trigger_authority_seq: authority_seq,
+                        due_at: if kind == "memory_consolidate" {
+                            consolidation_due
+                        } else {
+                            due_at
+                        },
+                        priority: 30,
+                    },
+                )
+                .await?;
+        }
+        Ok(())
     }
 
     pub async fn episode(
@@ -318,6 +399,7 @@ impl MemoryService {
         reason = "Episode revision keeps fencing, hierarchy, members, supports, and receipt commit together"
     )]
     pub async fn revise_episode(&self, input: ReviseEpisodeInput) -> Result<EpisodeView> {
+        let started_at = self.cognition.now(input.subject);
         validate_episode_input(
             "",
             &input.title,
@@ -340,12 +422,11 @@ impl MemoryService {
                 "parent": input.parent_episode_revision_id,
                 "experience_time": input.experience_time,
                 "boundary_explanation": input.boundary_explanation,
-                "formed_at": input.formed_at,
                 "members": input.members,
                 "supports": input.supports,
             }),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(input.subject).await?;
         lock_operation(&mut tx, input.subject, input.operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,
@@ -407,7 +488,10 @@ impl MemoryService {
         .await
         .map_err(db)?;
         let revision_id = EpisodeRevisionId::new();
-        let now = Utc::now();
+        let formed_at = self
+            .formation_time_in(&mut tx, input.subject, input.operation_id, started_at)
+            .await?;
+        let now = self.cognition.now(input.subject);
         let (kind, start, end) = temporal_columns(&input.experience_time);
         let create = EpisodeInput {
             operation_id: input.operation_id,
@@ -417,7 +501,7 @@ impl MemoryService {
             parent_episode_revision_id: input.parent_episode_revision_id,
             experience_time: input.experience_time,
             boundary_explanation: input.boundary_explanation,
-            formed_at: input.formed_at,
+
             producer_signature_id: input.producer_signature_id,
             members: input.members,
             supports: input.supports,
@@ -433,13 +517,33 @@ impl MemoryService {
             kind,
             start,
             end,
+            formed_at,
             now,
         )
         .await?;
         sqlx::query("UPDATE episode_objects SET current_revision_id=$3,object_epoch=object_epoch+1,integrity_state='valid' WHERE subject_id=$1 AND episode_id=$2")
             .bind(input.subject.0).bind(input.episode_id.0).bind(revision_id.0).execute(&mut *tx).await.map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
-            .await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
+                .await?;
+        self.schedule_episode_in(
+            &mut tx,
+            input.subject,
+            revision_id,
+            &create.track_key,
+            sequence,
+            true,
+        )
+        .await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            input.subject,
+            "episode",
+            &[input.episode_id.0],
+            sequence,
+            "source_revised",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             input.subject,
@@ -475,7 +579,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"from":from,"to":to,"relation":relation}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) = check_receipt(
             &mut tx,
@@ -501,7 +605,7 @@ impl MemoryService {
             }
         }
         sqlx::query("INSERT INTO episode_revision_relations(from_revision_id,to_revision_id,relation,created_at) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING")
-            .bind(from.0).bind(to.0).bind(&relation).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
+            .bind(from.0).bind(to.0).bind(&relation).bind(self.cognition.now(subject)).execute(&mut *tx).await.map_err(db)?;
         commit_receipt(
             &mut tx,
             subject,
@@ -603,7 +707,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"episode":episode,"expected":expected,"field":field,"from":from,"to":to}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) =
             check_receipt(&mut tx, subject, operation_id, "episode_lifecycle", &digest).await?
@@ -634,6 +738,9 @@ impl MemoryService {
                 "Episode is not in {from} state"
             )));
         }
+        if field == "acceptance_state" && to == "accepted" {
+            validate_episode_reaccept_in(&mut tx, subject, episode).await?;
+        }
         let query = match field {
             "suppression_state" => sqlx::query(
                 "UPDATE episode_objects SET suppression_state=$3,object_epoch=object_epoch+1 WHERE subject_id=$1 AND episode_id=$2",
@@ -654,7 +761,17 @@ impl MemoryService {
             .execute(&mut *tx)
             .await
             .map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "episode",
+            &[episode.0],
+            sequence,
+            "source_lifecycle_changed",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             subject,
@@ -681,7 +798,7 @@ impl MemoryService {
             subject,
             &serde_json::json!({"episode":episode,"expected":expected}),
         )?;
-        let mut tx = self.store.begin().await?;
+        let mut tx = self.begin_mutation(subject).await?;
         lock_operation(&mut tx, subject, operation_id).await?;
         if let Some(receipt) =
             check_receipt(&mut tx, subject, operation_id, "purge_episode", &digest).await?
@@ -700,13 +817,25 @@ impl MemoryService {
                 "expected Episode object epoch is stale".into(),
             ));
         }
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "episode",
+            &[episode.0],
+            sequence,
+            "source_purged",
+        )
+        .await?;
+        self.purge_episode_runtime_refs_in(&mut tx, subject, episode)
+            .await?;
         sqlx::query("DELETE FROM episode_objects WHERE subject_id=$1 AND episode_id=$2")
             .bind(subject.0)
             .bind(episode.0)
             .execute(&mut *tx)
             .await
             .map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
         commit_receipt(
             &mut tx,
             subject,
@@ -718,6 +847,33 @@ impl MemoryService {
         )
         .await?;
         tx.commit().await.map_err(db)
+    }
+}
+
+impl MemoryService {
+    async fn purge_episode_runtime_refs_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        episode: EpisodeId,
+    ) -> Result<()> {
+        let refs: Vec<String> = sqlx::query_scalar("SELECT episode_revision_id::text FROM episode_revisions WHERE subject_id=$1 AND episode_id=$2")
+            .bind(subject.0).bind(episode.0).fetch_all(&mut **tx).await.map_err(db)?;
+        let mut workflow_refs = refs.clone();
+        workflow_refs.push(episode.0.to_string());
+        self.purge_workflow_content_in(tx, subject, &workflow_refs)
+            .await?;
+        sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) SELECT subject_id,consumer_ref,event_id,request_digest,$3 FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind='episode_revision' AND ref_value=ANY($2::text[]) ON CONFLICT DO NOTHING")
+            .bind(subject.0).bind(&refs).bind(self.cognition.now(subject)).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("DELETE FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind='episode_revision' AND ref_value=ANY($2::text[])")
+            .bind(subject.0).bind(&refs).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("DELETE FROM resident_refs WHERE ref_kind='episode_revision' AND ref_value=ANY($1::text[])")
+            .bind(&refs).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("DELETE FROM work_context_refs WHERE ref_kind='episode_revision' AND ref_value=ANY($1::text[])")
+            .bind(&refs).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("UPDATE model_workflow_operations SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE subject_id=$1 AND owner='memory' AND lower(operation_key) IN (SELECT operation_id::text FROM mutation_receipts WHERE subject_id=$1 AND result_kind='episode' AND result_ref=$2)")
+            .bind(subject.0).bind(episode.0.to_string()).execute(&mut **tx).await.map_err(db)?;
+        Ok(())
     }
 }
 
@@ -862,7 +1018,7 @@ async fn validate_parent_and_overlap(
             ));
         }
     }
-    let rows = sqlx::query("SELECT r.experience_time_kind,r.experience_time_start,r.experience_time_end FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.track_key=$2 AND r.parent_episode_revision_id IS NOT DISTINCT FROM $3 AND ($4::uuid IS NULL OR o.episode_id<>$4)").bind(subject.0).bind(track).bind(parent.map(|value| value.0)).bind(exclude).fetch_all(&mut **tx).await.map_err(db)?;
+    let rows = sqlx::query("SELECT r.experience_time_kind,r.experience_time_start,r.experience_time_end FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.track_key=$2 AND o.acceptance_state='accepted' AND r.parent_episode_revision_id IS NOT DISTINCT FROM $3 AND ($4::uuid IS NULL OR o.episode_id<>$4)").bind(subject.0).bind(track).bind(parent.map(|value| value.0)).bind(exclude).fetch_all(&mut **tx).await.map_err(db)?;
     for row in rows {
         let sibling = temporal_from_columns(
             row.try_get("experience_time_kind").map_err(db)?,
@@ -876,6 +1032,31 @@ async fn validate_parent_and_overlap(
         }
     }
     Ok(())
+}
+
+async fn validate_episode_reaccept_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    subject: SubjectId,
+    episode: EpisodeId,
+) -> Result<()> {
+    let row = sqlx::query("SELECT o.track_key,r.parent_episode_revision_id,r.experience_time_kind,r.experience_time_start,r.experience_time_end FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.episode_id=$2")
+        .bind(subject.0).bind(episode.0).fetch_one(&mut **tx).await.map_err(db)?;
+    let time = temporal_from_columns(
+        row.try_get("experience_time_kind").map_err(db)?,
+        row.try_get("experience_time_start").map_err(db)?,
+        row.try_get("experience_time_end").map_err(db)?,
+    )?;
+    validate_parent_and_overlap(
+        tx,
+        subject,
+        &row.try_get::<String, _>("track_key").map_err(db)?,
+        row.try_get::<Option<Uuid>, _>("parent_episode_revision_id")
+            .map_err(db)?
+            .map(EpisodeRevisionId),
+        &time,
+        Some(episode.0),
+    )
+    .await
 }
 
 async fn ensure_no_parent_cycle(
@@ -926,6 +1107,7 @@ async fn insert_episode_revision(
     kind: &str,
     start: Option<DateTime<Utc>>,
     end: Option<DateTime<Utc>>,
+    formed_at: DateTime<Utc>,
     recorded_at: DateTime<Utc>,
 ) -> Result<()> {
     insert_episode_revision_with_intent(
@@ -939,6 +1121,7 @@ async fn insert_episode_revision(
         kind,
         start,
         end,
+        formed_at,
         recorded_at,
     )
     .await
@@ -959,10 +1142,11 @@ async fn insert_episode_revision_with_intent(
     kind: &str,
     start: Option<DateTime<Utc>>,
     end: Option<DateTime<Utc>>,
+    formed_at: DateTime<Utc>,
     recorded_at: DateTime<Utc>,
 ) -> Result<()> {
     sqlx::query("INSERT INTO episode_revisions(episode_revision_id,episode_id,subject_id,revision_no,parent_revision_id,revision_intent,title,parent_episode_revision_id,experience_time_kind,experience_time_start,experience_time_end,boundary_explanation,formed_at,recorded_at,producer_signature_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)")
-        .bind(revision.0).bind(episode.0).bind(input.subject.0).bind(revision_no).bind(parent_revision.map(|value| value.0)).bind(intent).bind(&input.title).bind(input.parent_episode_revision_id.map(|value| value.0)).bind(kind).bind(start).bind(end).bind(&input.boundary_explanation).bind(input.formed_at).bind(recorded_at).bind(input.producer_signature_id).execute(&mut **tx).await.map_err(db)?;
+        .bind(revision.0).bind(episode.0).bind(input.subject.0).bind(revision_no).bind(parent_revision.map(|value| value.0)).bind(intent).bind(&input.title).bind(input.parent_episode_revision_id.map(|value| value.0)).bind(kind).bind(start).bind(end).bind(&input.boundary_explanation).bind(formed_at).bind(recorded_at).bind(input.producer_signature_id).execute(&mut **tx).await.map_err(db)?;
     for (ordinal, member) in input.members.iter().enumerate() {
         let (kind, value) = reference_parts(&member.reference);
         sqlx::query("INSERT INTO episode_revision_members(episode_revision_id,ordinal,ref_kind,ref_value,role) VALUES($1,$2,$3,$4,$5)").bind(revision.0).bind(ordinal as i32).bind(kind).bind(value).bind(&member.role).execute(&mut **tx).await.map_err(db)?;

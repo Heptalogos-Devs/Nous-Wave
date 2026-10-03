@@ -9,6 +9,7 @@ import { canonicalDigest } from "../digest.js";
 import { z } from "zod";
 
 const snapshotSchema = z.strictObject({
+  cognitive_formed_at: z.string(),
   model: z.unknown(),
   representationId: z.string().optional(),
   candidates: z
@@ -225,7 +226,6 @@ export async function formObservation(
                     .map((candidate) => candidate.entityRef),
                 ),
               ];
-      const now = new Date();
       const request = create(FormMemoryRequestSchema, {
         operationId: r.operationId,
         subjectId: r.subjectId,
@@ -237,10 +237,6 @@ export async function formObservation(
           text: result.text,
           title: result.title,
           epistemicClass: "derived",
-          formedAt: {
-            seconds: BigInt(Math.floor(now.getTime() / 1000)),
-            nanos: now.getMilliseconds() * 1000000,
-          },
           aboutness,
           producer: {
             providerClass: result.producerMetadata.protocol,

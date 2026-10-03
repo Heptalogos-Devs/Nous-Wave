@@ -164,6 +164,9 @@ impl DenseGeneration {
         allowed: &RoaringBitmap,
     ) -> Result<Vec<DenseMatch>> {
         validate_vector(&self.space, vector)?;
+        if limit == 0 || allowed.is_empty() {
+            return Ok(vec![]);
+        }
         let matches = self
             .index
             .filtered_search(vector, limit, |key| {

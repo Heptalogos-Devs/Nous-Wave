@@ -57,7 +57,7 @@ CREATE TABLE memory_revision_evidence (
 
 CREATE TABLE memory_revision_dependencies (
     memory_revision_id uuid NOT NULL REFERENCES memory_revisions(memory_revision_id) ON DELETE CASCADE,
-    target_ref_kind text NOT NULL CHECK (target_ref_kind IN ('memory_revision','cognitive_schema_revision')),
+    target_ref_kind text NOT NULL CHECK (target_ref_kind IN ('memory_revision','cognitive_schema_revision','episode_revision','journal_revision')),
     target_ref text NOT NULL,
     support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
     PRIMARY KEY(memory_revision_id, target_ref_kind, target_ref, support_role)
@@ -135,6 +135,7 @@ CREATE TABLE cognitive_schema_revisions (
     valid_time_end timestamptz NULL,
     formed_at timestamptz NOT NULL,
     recorded_at timestamptz NOT NULL,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
     UNIQUE(schema_id, revision_no),
     CHECK (valid_time_kind <> 'interval'
         OR valid_time_start IS NULL
@@ -150,7 +151,7 @@ CREATE TABLE cognitive_schema_evidence_links (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     schema_revision_id uuid NOT NULL REFERENCES cognitive_schema_revisions(schema_revision_id) ON DELETE CASCADE,
     role text NOT NULL CHECK (role IN ('support','counterexample','boundary_case')),
-    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision')),
+    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision','episode_revision','journal_revision')),
     support_ref text NOT NULL,
     support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
     occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,
@@ -267,3 +268,59 @@ CREATE TABLE episode_revision_relations (
     created_at timestamptz NOT NULL,
     PRIMARY KEY(from_revision_id, to_revision_id, relation)
 );
+
+CREATE TABLE journal_objects (
+    journal_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    current_revision_id uuid NOT NULL,
+    object_epoch bigint NOT NULL DEFAULT 1 CHECK (object_epoch > 0),
+    acceptance_state text NOT NULL CHECK (acceptance_state IN ('accepted','withdrawn')),
+    integrity_state text NOT NULL CHECK (integrity_state IN ('valid','revalidation_required')),
+    suppression_state text NOT NULL CHECK (suppression_state IN ('normal','suppressed')),
+    purge_state text NOT NULL CHECK (purge_state IN ('normal','purging')),
+    created_at timestamptz NOT NULL,
+    UNIQUE(subject_id,journal_id)
+);
+CREATE TABLE journal_revisions (
+    journal_revision_id uuid PRIMARY KEY,
+    journal_id uuid NOT NULL REFERENCES journal_objects(journal_id) ON DELETE CASCADE,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    revision_no integer NOT NULL CHECK (revision_no > 0),
+    parent_revision_id uuid NULL REFERENCES journal_revisions(journal_revision_id),
+    revision_intent text NULL CHECK (revision_intent IN ('revalidate','reinterpret','reframe')),
+    title text NULL CHECK (title IS NULL OR octet_length(title) <= 8192),
+    temporal_scope_kind text NOT NULL CHECK (temporal_scope_kind IN ('unknown','instant','interval')),
+    temporal_scope_start timestamptz NULL,
+    temporal_scope_end timestamptz NULL,
+    narrative text NOT NULL CHECK (octet_length(narrative) BETWEEN 1 AND 131072),
+    formed_at timestamptz NOT NULL,
+    recorded_at timestamptz NOT NULL,
+    producer_signature_id uuid NULL REFERENCES producer_signatures(producer_signature_id),
+    UNIQUE(journal_id,revision_no),
+    CHECK (temporal_scope_kind<>'interval' OR temporal_scope_start IS NULL OR temporal_scope_end IS NULL OR temporal_scope_start<temporal_scope_end)
+);
+ALTER TABLE journal_objects ADD CONSTRAINT journal_current_revision_fk
+    FOREIGN KEY(current_revision_id) REFERENCES journal_revisions(journal_revision_id) DEFERRABLE INITIALLY DEFERRED;
+CREATE TABLE journal_revision_points (
+    journal_revision_id uuid NOT NULL REFERENCES journal_revisions(journal_revision_id) ON DELETE CASCADE,
+    ordinal integer NOT NULL CHECK (ordinal BETWEEN 0 AND 127),
+    role text NOT NULL CHECK (role IN ('summary','outcome','change','decision','open_question','salient_event','reflection')),
+    text text NOT NULL CHECK (octet_length(text) BETWEEN 1 AND 8192),
+    PRIMARY KEY(journal_revision_id,ordinal)
+);
+CREATE TABLE journal_point_supports (
+    journal_revision_id uuid NOT NULL,
+    ordinal integer NOT NULL,
+    support_no integer NOT NULL CHECK (support_no BETWEEN 0 AND 15),
+    support jsonb NOT NULL CHECK (jsonb_typeof(support)='object'),
+    PRIMARY KEY(journal_revision_id,ordinal,support_no),
+    FOREIGN KEY(journal_revision_id,ordinal) REFERENCES journal_revision_points(journal_revision_id,ordinal) ON DELETE CASCADE
+);
+CREATE TABLE journal_revision_sources (
+    journal_revision_id uuid NOT NULL REFERENCES journal_revisions(journal_revision_id) ON DELETE CASCADE,
+    ref_kind text NOT NULL CHECK (ref_kind IN ('occurrence','memory_revision','cognitive_schema_revision','episode_revision','journal_revision')),
+    ref_value text NOT NULL,
+    source_epoch bigint NULL CHECK (source_epoch IS NULL OR source_epoch>0),
+    PRIMARY KEY(journal_revision_id,ref_kind,ref_value)
+);
+CREATE INDEX journal_dependency_source ON journal_revision_sources(ref_kind,ref_value);

@@ -37,7 +37,7 @@ const { values } = parseArgs({
   options: {
     "run-root": { type: "string" },
     "client-module": { type: "string" },
-    manifest: { type: "string", default: "research/corpus/media.json" },
+    manifest: { type: "string", default: "docs/research/corpus/media.json" },
     "raw-root": {
       type: "string",
       default: resolve(workspacePaths.research, "corpus/raw"),

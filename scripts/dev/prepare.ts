@@ -5,6 +5,10 @@ import { repositoryRoot as repo, workspacePaths } from "../workspace.js";
 import { readFile, stat } from "node:fs/promises";
 import { resolveLocations } from "../../apps/nous-core/src/locations.js";
 import { installRuntime } from "../../apps/nous-core/src/runtime-packs.js";
+import {
+  installPostgresXmlLibrary,
+  preparePostgresXmlLibrary,
+} from "./postgres-linux.js";
 
 const installation =
   process.env.NOUS_WAVE_POSTGRES_RUNTIME ??
@@ -54,18 +58,37 @@ if (await stat(executable).catch(() => undefined)) {
     join(workspacePaths.runtime, "packs", pack.archive),
   );
 } else {
-  await promisify(execFile)(
-    "cargo",
-    [
-      "run",
-      "-p",
-      "nous-kernel",
-      "--features",
-      "dev-runtime",
-      "--bin",
-      "dev-prepare",
-    ],
-    { cwd: repo, maxBuffer: 1024 * 1024 },
-  );
+  const prepare = (env: NodeJS.ProcessEnv = process.env) =>
+    promisify(execFile)(
+      "cargo",
+      [
+        "run",
+        "-p",
+        "nous-kernel",
+        "--features",
+        "dev-runtime",
+        "--bin",
+        "dev-prepare",
+      ],
+      { cwd: repo, maxBuffer: 1024 * 1024, env },
+    );
+  try {
+    await prepare();
+  } catch (error) {
+    const detail = error as Error & { stderr?: string };
+    if (
+      process.platform !== "linux" ||
+      !detail.stderr?.includes("libxml2.so.2")
+    )
+      throw error;
+    const libraryRoot = await preparePostgresXmlLibrary();
+    await prepare({
+      ...process.env,
+      LD_LIBRARY_PATH: [libraryRoot, process.env.LD_LIBRARY_PATH]
+        .filter(Boolean)
+        .join(":"),
+    });
+    await installPostgresXmlLibrary(installation, libraryRoot);
+  }
 }
 console.log("Developer PostgreSQL runtime ready");

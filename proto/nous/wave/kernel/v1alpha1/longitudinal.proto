@@ -1,0 +1,104 @@
+syntax = "proto3";
+package nous.wave.kernel.v1alpha1;
+import "nous/wave/v1alpha1/types.proto";
+import "nous/wave/kernel/v1alpha1/consolidation.proto";
+import "nous/wave/v1alpha1/journal.proto";
+import "google/protobuf/timestamp.proto";
+
+message MaintenanceNeed {
+  string need_id = 1;
+  string subject_id = 2;
+  string kind = 3;
+  string scope_kind = 4;
+  string scope_ref = 5;
+  int64 trigger_authority_seq = 6;
+  google.protobuf.Timestamp due_at = 7;
+  int32 priority = 8;
+  string state = 9;
+  optional string lease_token = 10;
+  google.protobuf.Timestamp lease_until = 11;
+  int32 attempt_count = 12;
+  optional string last_problem_code = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+message ClaimMaintenanceRequest { string subject_id = 1; repeated string allowed_kinds = 2; uint32 limit = 3; uint32 lease_seconds = 4; }
+message ClaimMaintenanceResponse { repeated MaintenanceNeed needs = 1; }
+message FinishMaintenanceRequest { MaintenanceNeed claimed = 1; string disposition = 2; google.protobuf.Timestamp next_due = 3; optional string problem_code = 4; }
+message OrganizeExperienceRequest { string subject_id = 1; uint32 limit = 2; bool close = 3; }
+message OrganizeExperienceResponse { uint32 processed_count = 1; repeated nous.wave.v1alpha1.Episode episodes = 2; google.protobuf.Timestamp next_due = 3; }
+message EpisodePartitionSource { string revision_id = 1; int64 expected_epoch = 2; }
+message EpisodePartitionSegment { repeated uint32 member_indices = 1; optional string title = 2; string boundary_explanation = 3; }
+message ApplyEpisodePartitionRequest {
+  string operation_id = 1;
+  string subject_id = 2;
+  int64 expected_authority_seq = 3;
+  repeated EpisodePartitionSource sources = 4;
+  repeated string ordered_occurrences = 5;
+  repeated EpisodePartitionSegment segments = 6;
+  nous.wave.v1alpha1.ProducerSignature producer = 7;
+}
+message ApplyEpisodePartitionResponse { repeated nous.wave.v1alpha1.Episode episodes = 1; }
+message JournalTarget { string journal_id = 1; string expected_revision_id = 2; int64 expected_epoch = 3; string intent = 4; }
+message CommitJournalRequest {
+  string operation_id = 1;
+  string subject_id = 2;
+  int64 expected_authority_seq = 3;
+  JournalTarget target = 4;
+  repeated EpisodePartitionSource sources = 5;
+  optional string title = 6;
+  string narrative = 7;
+  repeated nous.wave.v1alpha1.JournalPoint points = 8;
+  nous.wave.v1alpha1.ProducerSignature producer = 9;
+}
+message MaintenancePolicy {
+  bool enabled = 1;
+  uint32 poll_interval_seconds = 2;
+  uint32 max_operations = 3;
+  uint32 worker_lease_seconds = 4;
+  google.protobuf.Timestamp cognitive_now = 5;
+}
+message PlanMaintenanceRequest { MaintenanceNeed claimed = 1; }
+message ExperienceMember {
+  string key = 1;
+  string occurrence_id = 2;
+  optional int64 recorded_seq = 3;
+  google.protobuf.Timestamp observed_at = 4;
+  optional string session_id = 5;
+  optional string work_context_id = 6;
+  optional int64 work_context_revision = 7;
+  optional string conversation_ref = 8;
+  optional string actor_entity_ref = 9;
+  string source_class = 10;
+  string text = 11;
+  bool text_partial = 12;
+  nous.wave.v1alpha1.TemporalExtent occurred_time = 13;
+}
+message SupportCatalogEntry { string key = 1; nous.wave.v1alpha1.RevisionSupport support = 2; }
+message MaintenancePlan {
+  string subject_id = 1;
+  int64 authority_seq = 2;
+  google.protobuf.Timestamp cognitive_now = 3;
+  string status = 4;
+  repeated EpisodePartitionSource sources = 5;
+  repeated nous.wave.v1alpha1.Episode episodes = 6;
+  repeated ExperienceMember members = 7;
+  repeated SupportCatalogEntry supports = 8;
+  JournalTarget target = 9;
+  nous.wave.v1alpha1.JournalRevision journal = 10;
+  google.protobuf.Timestamp next_due = 11;
+  optional string problem_code = 12;
+  ExpectedCognition consolidation_source = 13;
+  repeated ConsolidationCandidate candidates = 14;
+  repeated ConsolidationEntity entities = 15;
+  repeated ProvenanceRoot provenance_roots = 16;
+  uint32 max_consolidation_actions = 17;
+  bool support_catalog_partial = 18;
+  bool provenance_roots_partial = 19;
+}
+message RefreshMaintenanceRequest { MaintenanceNeed claimed = 1; }
+
+message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; string text = 3; string cognitive_role = 4; string formation_mode = 5; repeated string entity_refs = 6; repeated UseSummary use = 7; nous.wave.v1alpha1.TemporalExtent valid_time = 8; google.protobuf.Timestamp formed_at = 9; google.protobuf.Timestamp recorded_at = 10; }
+message ConsolidationEntity { string key = 1; string entity_ref = 2; }
+message ProvenanceRoot { string key = 1; string certainty = 2; }
+message UseSummary { string kind = 1; uint64 count = 2; google.protobuf.Timestamp last_used_at = 3; }

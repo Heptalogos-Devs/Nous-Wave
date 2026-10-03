@@ -97,6 +97,7 @@ fn schema_view(value: SchemaView) -> p::CognitiveSchema {
         formed_at: Some(timestamp(revision.formed_at)),
         recorded_at: Some(timestamp(revision.recorded_at)),
         formation_kind: enum_name(revision.formation_kind),
+        producer_signature_id: revision.producer_signature_id.map(|id| id.to_string()),
     }
 }
 
