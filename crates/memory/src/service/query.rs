@@ -30,6 +30,8 @@ impl CognitiveContributor for MemoryService {
                 | CognitiveRef::MemoryRevision(_)
                 | CognitiveRef::Episode(_)
                 | CognitiveRef::EpisodeRevision(_)
+                | CognitiveRef::Journal(_)
+                | CognitiveRef::JournalRevision(_)
                 | CognitiveRef::CognitiveSchema(_)
                 | CognitiveRef::CognitiveSchemaRevision(_)
         )
@@ -63,16 +65,6 @@ impl CognitiveContributor for MemoryService {
                 matches!(
                     reference,
                     CognitiveRef::Memory(_) | CognitiveRef::MemoryRevision(_)
-                )
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-        let episode_references = references
-            .iter()
-            .filter(|reference| {
-                matches!(
-                    reference,
-                    CognitiveRef::Episode(_) | CognitiveRef::EpisodeRevision(_)
                 )
             })
             .cloned()
@@ -138,22 +130,11 @@ impl CognitiveContributor for MemoryService {
                 .extend(source_objects.get(&revision.0).cloned().unwrap_or_default());
             hits.push(hit);
         }
-        for reference in episode_references {
-            let episode = match reference {
-                CognitiveRef::Episode(id) => self.episode(subject, id, None).await?,
-                CognitiveRef::EpisodeRevision(id) => self.episode_revision(subject, id).await?,
-                _ => continue,
-            };
-            if !matches!(episode.object.purge_state, PurgeState::Normal)
-                || (!matches!(episode.object.acceptance_state, AcceptanceState::Accepted)
-                    || !matches!(episode.object.integrity_state, IntegrityState::Valid)
-                    || !matches!(episode.object.suppression_state, SuppressionState::Normal))
-            {
-                increment_drop(&mut drops, "episode_unavailable");
-                continue;
-            }
-            let hit_reference = CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id);
-            hits.push(episode_to_hit(&bound.source_query, &episode, hit_reference));
+        let (longitudinal_hits, longitudinal_drops) =
+            super::longitudinal_query::materialize_longitudinal(self, bound, references).await?;
+        hits.extend(longitudinal_hits);
+        for (reason, count) in longitudinal_drops {
+            *drops.entry(reason).or_default() += count;
         }
         let (schema_hits, schema_drops) =
             materialize_schema_revisions(self, bound, references).await?;
@@ -386,66 +367,4 @@ async fn temporal_lane(
         });
     }
     Ok(output)
-}
-
-fn episode_to_hit(
-    query: &CognitiveQuery,
-    episode: &EpisodeView,
-    reference: CognitiveRef,
-) -> CognitiveHit {
-    CognitiveHit {
-        authority_epoch: Some(episode.object.object_epoch),
-        preference_refs: Vec::new(),
-        reference,
-        revision: Some(CognitiveRef::EpisodeRevision(
-            episode.revision.episode_revision_id,
-        )),
-        semantic_role: Some("episode".into()),
-        cognitive_role: None,
-        formation_mode: None,
-        representation: Some(
-            episode
-                .revision
-                .title
-                .clone()
-                .unwrap_or_else(|| episode.revision.boundary_explanation.clone()),
-        ),
-        authority: AuthorityClass::SubjectCognition,
-        freshness: FreshnessDescriptor {
-            occurred: Vec::new(),
-            observed_at: None,
-            valid_time: TemporalExtent::Unknown,
-            formed_at: Some(episode.revision.formed_at),
-            recorded_at: Some(episode.revision.recorded_at),
-        },
-        entity_refs: Vec::new(),
-        evidence: if query.result_need.need_evidence {
-            episode
-                .supports
-                .iter()
-                .map(|support| EvidenceHandle {
-                    reference: match support {
-                        RevisionSupport::Evidence(value) => value.cognitive_ref(),
-                        RevisionSupport::CognitionDependency(value) => {
-                            value.target_revision.clone()
-                        }
-                        RevisionSupport::Seed(value) => {
-                            CognitiveRef::CognitiveSeedVersion(value.seed_version_id)
-                        }
-                    },
-                    support_role: match support {
-                        RevisionSupport::Evidence(value) => value.support_role.as_str().into(),
-                        RevisionSupport::CognitionDependency(value) => {
-                            value.support_role.as_str().into()
-                        }
-                        RevisionSupport::Seed(_) => "seed".into(),
-                    },
-                })
-                .collect()
-        } else {
-            Vec::new()
-        },
-        match_evidence: MatchEvidence::default(),
-        materialization: Vec::new(),
-    }
 }

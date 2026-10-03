@@ -45,6 +45,7 @@ impl ServingService {
         std::fs::rename(staging.path(), &target).map_err(io)?;
         let implementation_id = implementation(family).to_owned();
         let config_digest = self.config_digest(subject, family, snapshot).await?;
+        let implementation_revision = implementation_revision(family);
         let record = ServingRecord {
             generation_id: id,
             subject,
@@ -52,12 +53,12 @@ impl ServingService {
             space: space.into(),
             authority_watermark: watermark,
             implementation_id: implementation_id.clone(),
-            implementation_revision: "1".into(),
+            implementation_revision: implementation_revision.to_string(),
             config_digest: config_digest.clone(),
             artifact_location: target.to_string_lossy().into_owned(),
             artifact_hash: hash,
             built_at: chrono::Utc::now(),
-            metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": 1, "config_digest": config_digest, "checksums": sums }),
+            metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": implementation_revision, "config_digest": config_digest, "checksums": sums }),
         };
         self.store.publish_generation(record).await
     }
@@ -120,7 +121,7 @@ impl ServingService {
     ) -> Result<Vec<LexicalDocument>> {
         let mut documents = Vec::new();
         for source in sources {
-            let text = if let Some(text) = source.text {
+            let mut text = if let Some(text) = source.text {
                 text
             } else if is_text(&source.media_type)
                 && let Some(hash) = &source.content_hash
@@ -130,6 +131,22 @@ impl ServingService {
             } else {
                 continue;
             };
+            for fragment in source.member_fragments {
+                let bytes = self
+                    .objects
+                    .read_range(&fragment.content_hash, 0, fragment.byte_length.min(2048))
+                    .await?;
+                let member = match std::str::from_utf8(&bytes) {
+                    Ok(member) => member,
+                    Err(error) if error.error_len().is_none() => {
+                        std::str::from_utf8(&bytes[..error.valid_up_to()])
+                            .map_err(|error| Error::Invalid(error.to_string()))?
+                    }
+                    Err(_) => continue,
+                };
+                text.push('\n');
+                text.push_str(member);
+            }
             documents.push(LexicalDocument {
                 serving_doc_id: documents.len() as u64,
                 reference: source.reference,
@@ -318,4 +335,11 @@ pub(crate) fn implementation(family: &str) -> &'static str {
 
 fn is_text(media: &str) -> bool {
     media.starts_with("text/") || media.contains("json") || media.contains("xml")
+}
+
+pub(crate) fn implementation_revision(family: &str) -> u64 {
+    match family {
+        "lexical" | "dense" | "exact" => 2,
+        _ => 1,
+    }
 }

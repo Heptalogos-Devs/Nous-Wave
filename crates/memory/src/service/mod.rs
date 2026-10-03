@@ -8,6 +8,7 @@ mod journal;
 mod lane;
 mod lifecycle;
 mod longitudinal_policy;
+mod longitudinal_query;
 mod maintenance_planning;
 mod provenance;
 mod query;

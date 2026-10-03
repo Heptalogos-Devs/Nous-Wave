@@ -606,12 +606,13 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
         narrative: "Two sources contributed.".into(),
         points: vec![JournalPoint {
             role: JournalPointRole::Summary,
-            text: "Two sources contributed.".into(),
+            text: "Point-only detail: two independent sources.".into(),
             supports: vec![support],
         }],
         producer: None,
     };
     let journal = memory.commit_journal(input.clone()).await.unwrap();
+    let recall = assert_longitudinal_materialization(&rt, subject, &episode, &journal).await;
     let support = RevisionSupport::CognitionDependency(CognitionDependency {
         target_revision: CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
         support_role: SupportRole::Direct,
@@ -622,17 +623,6 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
         .unwrap();
     assert_eq!(provenance.roots.len(), 2);
     assert_eq!(provenance.normalized_inputs.len(), 1);
-    let bound = rt
-        .store
-        .bind_exact_reference(subject, &CognitiveRef::Journal(journal.object.journal_id))
-        .await
-        .unwrap();
-    assert_eq!(
-        bound.0,
-        CognitiveRef::JournalRevision(journal.revision.journal_revision_id)
-    );
-    assert_eq!(bound.1, Some(journal.object.object_epoch));
-    assert!(bound.2);
     let mut invalid = input.clone();
     invalid.operation_id = OperationId::new();
     invalid.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
@@ -660,6 +650,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
         journal.object.object_epoch + 1
     );
     assert_eq!(invalidated.revision.narrative, journal.revision.narrative);
+    assert!(rt.query(recall).await.unwrap().results.is_empty());
     let needs = rt.cognition.maintenance_needs(subject).await.unwrap();
     assert!(needs.iter().any(|need| need.kind == "journal_revalidate"
         && need.scope_ref == journal.object.journal_id.0.to_string()));
@@ -699,6 +690,104 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     assert_eq!(rt.cognition.use_feedback(uses).await.unwrap().1, 2);
 }
 
+async fn assert_longitudinal_materialization(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    episode: &EpisodeView,
+    journal: &nous_memory::JournalView,
+) -> nous_core::CognitiveQuery {
+    use nous_core::{
+        CognitiveQuery, CognitiveQueryExpr, CognitiveRef, QueryOperation, QueryTarget, ResultNeed,
+    };
+    let bound = rt
+        .store
+        .bind_exact_reference(subject, &CognitiveRef::Journal(journal.object.journal_id))
+        .await
+        .unwrap();
+    assert_eq!(
+        bound.0,
+        CognitiveRef::JournalRevision(journal.revision.journal_revision_id)
+    );
+    assert_eq!(bound.1, Some(journal.object.object_epoch));
+    assert!(bound.2);
+    let refs = [
+        CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
+        CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
+    ];
+    let query = CognitiveQuery {
+        api_version: nous_core::API_VERSION,
+        subject,
+        session: None,
+        situation: Default::default(),
+        expression: CognitiveQueryExpr {
+            operation: QueryOperation::Atom,
+            targets: refs
+                .iter()
+                .cloned()
+                .map(|reference| QueryTarget::Exact { reference })
+                .collect(),
+            cues: vec![],
+            constraints: Default::default(),
+            preferences: vec![],
+            children: vec![],
+        },
+        exploration: Default::default(),
+        resources: Default::default(),
+        result_need: ResultNeed {
+            limit: 8,
+            need_evidence: true,
+            ..Default::default()
+        },
+        effort: Default::default(),
+        capabilities: Default::default(),
+        diagnostics: Default::default(),
+    };
+    let result = rt.query(query.clone()).await.unwrap();
+    assert_eq!(result.results.len(), 2);
+    for reference in &refs {
+        let hit = result
+            .results
+            .iter()
+            .find(|hit| &hit.reference == reference)
+            .unwrap();
+        assert_eq!(hit.revision.as_ref(), Some(reference));
+        assert!(!hit.evidence.is_empty());
+        let text = hit.representation.as_ref().unwrap();
+        assert!(text.len() <= 65536);
+        if reference == &refs[0] {
+            assert!(text.contains(&"x".repeat(2032)));
+            assert!(text.contains("object:source-b"));
+            assert!(!text.contains('界'));
+        } else {
+            assert!(text.contains("Two sources contributed."));
+            assert!(text.contains("Point-only detail: two independent sources."));
+        }
+    }
+    let mut filtered = query.clone();
+    filtered.expression.constraints.source_classes_include = vec![SourceClass::Message];
+    assert_eq!(rt.query(filtered.clone()).await.unwrap().results.len(), 2);
+    filtered.expression.constraints.source_classes_exclude = vec![SourceClass::Message];
+    assert!(rt.query(filtered).await.unwrap().results.is_empty());
+    let projection = rt
+        .store
+        .text_projection_input(subject, "lexical", "", true)
+        .await
+        .unwrap();
+    assert!(refs.iter().all(|reference| {
+        projection
+            .sources
+            .iter()
+            .any(|source| &source.reference == reference)
+    }));
+    let source = projection
+        .sources
+        .iter()
+        .find(|source| source.reference == refs[1])
+        .unwrap();
+    assert!(source.text.as_ref().unwrap().contains("Point-only detail"));
+    query
+}
+
 async fn journal_source_episode(
     rt: &NousRuntime,
     clock: &ManualCognitiveClock,
@@ -712,7 +801,11 @@ async fn journal_source_episode(
     for source in ["object:source-a", "object:source-b"] {
         let mut input = observation(subject, Some(session.session_id));
         input.material = ObservationMaterial::InlineText {
-            text: source.into(),
+            text: if source == "object:source-a" {
+                format!("{source}{}界", "x".repeat(2047 - source.len()))
+            } else {
+                source.into()
+            },
             media_type: "text/plain".into(),
         };
         input.occurrence.external_object_ref = Some(nous_core::ObjectRef::new(source).unwrap());
@@ -960,7 +1053,9 @@ async fn assert_maintenance_planning(
         assert_eq!(plan.sources.len(), 1);
         assert_eq!(plan.members.len(), 2);
         assert!(plan.members[0].recorded_seq < plan.members[1].recorded_seq);
-        assert_eq!(plan.members[0].text, "object:source-a");
+        assert!(plan.members[0].text.starts_with("object:source-a"));
+        assert_eq!(plan.members[0].text.len(), 2047);
+        assert!(!plan.members[0].text.contains(char::REPLACEMENT_CHARACTER));
         assert!(plan.supports.len() >= 3);
         if kind == "memory_consolidate" {
             assert!(plan.consolidation_source.is_some());

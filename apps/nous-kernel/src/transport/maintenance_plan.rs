@@ -148,10 +148,8 @@ impl KernelService {
                 if source.media_type.starts_with("text/") || source.media_type == "application/json"
                 {
                     remaining = remaining.saturating_sub(source.bytes.len());
-                    (
-                        String::from_utf8_lossy(&source.bytes).into_owned(),
-                        source.partial,
-                    )
+                    let text = experience_text_prefix(&source.bytes, source.partial)?;
+                    (text.to_owned(), source.partial)
                 } else {
                     (String::new(), true)
                 }
@@ -214,4 +212,15 @@ fn occurrence_time(row: &sqlx::postgres::PgRow) -> Result<p::TemporalExtent> {
         }
     };
     Ok(temporal_proto(&time))
+}
+
+fn experience_text_prefix(bytes: &[u8], partial: bool) -> Result<&str> {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => Ok(text),
+        Err(error) if partial && error.error_len().is_none() => {
+            std::str::from_utf8(&bytes[..error.valid_up_to()])
+                .map_err(|error| Error::Invalid(error.to_string()))
+        }
+        Err(error) => Err(Error::Invalid(format!("experience text encoding: {error}"))),
+    }
 }

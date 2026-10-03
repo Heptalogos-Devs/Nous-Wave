@@ -11,6 +11,7 @@ pub struct TextProjectionSource {
     pub revision: Option<CognitiveRef>,
     pub text: Option<String>,
     pub content_hash: Option<String>,
+    pub member_fragments: Vec<TextProjectionFragment>,
     pub title: Option<String>,
     pub media_type: String,
     pub source_class: Option<String>,
@@ -18,6 +19,12 @@ pub struct TextProjectionSource {
     pub entity_refs: Vec<String>,
     pub tag_ids: Vec<String>,
     pub schema_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TextProjectionFragment {
+    pub content_hash: String,
+    pub byte_length: u64,
 }
 
 pub struct TextProjectionInput {
@@ -62,6 +69,7 @@ impl AuthorityStore {
         let mut sources = material_sources(&mut tx, subject).await?;
         if memory_enabled {
             sources.extend(memory_sources(&mut tx, subject).await?);
+            sources.extend(longitudinal_sources(&mut tx, subject).await?);
         }
         sources.sort_by_key(|source| source.reference.to_string());
         tx.commit().await.map_err(db)?;
@@ -89,6 +97,7 @@ pub(crate) async fn memory_sources(
             revision: Some(CognitiveRef::MemoryRevision(MemoryRevisionId(revision))),
             text: Some(row.try_get("representation_text").map_err(db)?),
             content_hash: None,
+            member_fragments: Vec::new(),
             title: row.try_get("title").map_err(db)?,
             media_type: "text/plain".into(),
             source_class: None,
@@ -134,6 +143,7 @@ pub(crate) async fn memory_sources(
                 reference,
                 text: Some(row.try_get("label").map_err(db)?),
                 content_hash: None,
+                member_fragments: Vec::new(),
                 title: None,
                 media_type: "text/plain".into(),
                 source_class: None,
@@ -165,6 +175,7 @@ async fn material_sources(
             revision: None,
             text: None,
             content_hash: row.try_get("content_hash").map_err(db)?,
+            member_fragments: Vec::new(),
             title: None,
             media_type: row
                 .try_get::<Option<String>, _>("media_type")
@@ -190,6 +201,7 @@ async fn material_sources(
             revision: None,
             text: None,
             content_hash: Some(row.try_get("content_hash").map_err(db)?),
+            member_fragments: Vec::new(),
             title: None,
             media_type: row.try_get("media_type").map_err(db)?,
             source_class: row.try_get("source_class").map_err(db)?,
@@ -217,6 +229,7 @@ async fn material_sources(
             },
             text,
             content_hash: row.try_get("content_hash").map_err(db)?,
+            member_fragments: Vec::new(),
             title: Some(row.try_get("representation_kind").map_err(db)?),
             source_class: Some("derived".into()),
             source_region: None,
@@ -246,6 +259,7 @@ async fn material_sources(
             },
             text,
             content_hash: row.try_get("content_hash").map_err(db)?,
+            member_fragments: Vec::new(),
             title: Some(row.try_get("representation_kind").map_err(db)?),
             source_class: Some("derived".into()),
             source_region: None,
@@ -255,4 +269,94 @@ async fn material_sources(
         });
     }
     Ok(sources)
+}
+
+async fn longitudinal_sources(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+) -> Result<Vec<TextProjectionSource>> {
+    let episodes=sqlx::query("SELECT r.episode_revision_id,r.title,r.boundary_explanation,r.experience_time_kind,r.experience_time_start,r.experience_time_end FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' ORDER BY o.episode_id")
+        .bind(subject.0).fetch_all(&mut **tx).await.map_err(db)?;
+    let ids: Vec<Uuid> = episodes
+        .iter()
+        .map(|row| row.get("episode_revision_id"))
+        .collect();
+    let fragments=sqlx::query("SELECT m.episode_revision_id,m.ordinal,a.content_hash,a.byte_length FROM episode_revision_members m JOIN observation_occurrences obs ON m.ref_kind='occurrence' AND m.ref_value=obs.occurrence_id::text JOIN artifacts a USING(artifact_id) WHERE m.episode_revision_id=ANY($1::uuid[]) AND m.ordinal<16 AND (a.media_type LIKE 'text/%' OR a.media_type='application/json') ORDER BY m.episode_revision_id,m.ordinal")
+        .bind(ids).fetch_all(&mut **tx).await.map_err(db)?;
+    let mut member_fragments =
+        std::collections::BTreeMap::<Uuid, Vec<TextProjectionFragment>>::new();
+    for row in fragments {
+        member_fragments
+            .entry(row.get("episode_revision_id"))
+            .or_default()
+            .push(TextProjectionFragment {
+                content_hash: row.get("content_hash"),
+                byte_length: row.get::<i64, _>("byte_length") as u64,
+            });
+    }
+    let mut sources = Vec::with_capacity(episodes.len());
+    for row in episodes {
+        let revision: Uuid = row.get("episode_revision_id");
+        let title: Option<String> = row.get("title");
+        let start: Option<chrono::DateTime<chrono::Utc>> = row.get("experience_time_start");
+        let end: Option<chrono::DateTime<chrono::Utc>> = row.get("experience_time_end");
+        sources.push(TextProjectionSource {
+            reference: CognitiveRef::EpisodeRevision(EpisodeRevisionId(revision)),
+            revision: Some(CognitiveRef::EpisodeRevision(EpisodeRevisionId(revision))),
+            text: Some(format!(
+                "{}\n{}\nExperience {} {:?} {:?}",
+                title.as_deref().unwrap_or_default(),
+                row.get::<String, _>("boundary_explanation"),
+                row.get::<String, _>("experience_time_kind"),
+                start,
+                end
+            )),
+            content_hash: None,
+            member_fragments: member_fragments.remove(&revision).unwrap_or_default(),
+            title,
+            media_type: "text/plain".into(),
+            source_class: None,
+            source_region: None,
+            entity_refs: vec![],
+            tag_ids: vec![],
+            schema_ids: vec![],
+        });
+    }
+    let journals=sqlx::query("SELECT r.journal_revision_id,r.title,r.narrative,COALESCE((SELECT string_agg(text,E'\n' ORDER BY ordinal) FROM journal_revision_points WHERE journal_revision_id=r.journal_revision_id),'') AS points FROM journal_objects o JOIN journal_revisions r ON r.journal_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' ORDER BY o.journal_id")
+        .bind(subject.0).fetch_all(&mut **tx).await.map_err(db)?;
+    for row in journals {
+        let revision: Uuid = row.get("journal_revision_id");
+        let title: Option<String> = row.get("title");
+        let mut text = format!(
+            "{}\n{}\n{}",
+            title.as_deref().unwrap_or_default(),
+            row.get::<String, _>("narrative"),
+            row.get::<String, _>("points")
+        );
+        truncate_text(&mut text, 65536);
+        sources.push(TextProjectionSource {
+            reference: CognitiveRef::JournalRevision(JournalRevisionId(revision)),
+            revision: Some(CognitiveRef::JournalRevision(JournalRevisionId(revision))),
+            text: Some(text),
+            content_hash: None,
+            member_fragments: vec![],
+            title,
+            media_type: "text/plain".into(),
+            source_class: None,
+            source_region: None,
+            entity_refs: vec![],
+            tag_ids: vec![],
+            schema_ids: vec![],
+        });
+    }
+    Ok(sources)
+}
+fn truncate_text(text: &mut String, limit: usize) {
+    if text.len() > limit {
+        let mut end = limit;
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        text.truncate(end);
+    }
 }

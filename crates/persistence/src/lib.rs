@@ -11,7 +11,7 @@ mod references;
 pub use identity::{IdentityBinding, lexical_prefix, validate_lexical};
 mod serving;
 mod topology_input;
-pub use projection_input::{TextProjectionInput, TextProjectionSource};
+pub use projection_input::{TextProjectionFragment, TextProjectionInput, TextProjectionSource};
 pub use projections::{DenseInvalidation, ProjectionInvalidation};
 pub use serving::ServingRecord;
 pub use topology_input::{TopologyEdgeSource, TopologyProjectionInput};
