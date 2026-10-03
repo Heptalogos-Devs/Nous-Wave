@@ -126,3 +126,13 @@ powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1 -W
 PostgreSQL 清理只处理`data/temp/tests/` 中具有 PostgreSQL cluster 标记的孤立测试根，跳过运行中的 PostgreSQL。省略 `-WhatIf` 执行删除；`-MinimumAgeHours <小时>` 限制最小年龄，默认 0。它不清理语料、手写配置或开发实例。
 
 [返回仓库地图](../INDEX.md)
+
+### Longitudinal model research
+
+```text
+corepack pnpm research:longitudinal --config data/config/apps/nous.toml --input data/research/longitudinal/plan.json --role journal_synthesis --output data/research/longitudinal/journal-proposal.json
+```
+
+`--input` 使用 Kernel `PlanMaintenance` 返回的 ProtoJSON `MaintenancePlan`：包含当前 Subject、exact source revisions、ordered member keys、support/entity/candidate catalogs 和 owner snapshot。输入必须为 `ready` 且不超过 256 KiB；适用的调用方从私有 Kernel 请求取得该快照。`--role` 为 `episode_segmentation`、`journal_synthesis` 或 `memory_consolidation`。配置使用当前 `nous.toml`；gateway credential 来自已设置的配置指定环境变量。`--prompt-root` 默认 `prompts`，`--override-prompt-root` 可选择本地 prompt override。
+
+Runner 通过真实配置角色和 canonical Structured Output 生成一次 proposal，校验 catalog keys，将来源计划、proposal、producer identity 与人工审阅项目写入新的本地文件；已有 output 文件会报错。研究产物放在 ignored `data/research/`。人工审阅使用真实 trace、来源事实和 boundary annotations，分别评估分段边界、Journal point 支持与省略、整合身份和 Schema 泛化。确定性 `smoke:longitudinal` 检查编排与 Authority 合同；质量研究使用这个手动入口。
