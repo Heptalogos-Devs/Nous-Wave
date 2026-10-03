@@ -80,13 +80,17 @@ just smoke
 corepack pnpm smoke:memory
 corepack pnpm smoke:runtime
 corepack pnpm smoke:model
+corepack pnpm smoke:longitudinal
 ```
 
-`just smoke` 先构建 Kernel，再顺序执行三个场景；单独调用要求 debug Kernel 和 PostgreSQL runtime 已准备。
+`just smoke` 先构建 Kernel，再顺序执行四个场景；单独调用要求 debug Kernel 和 PostgreSQL runtime 已准备。
 
 - memory：Memory 创建、检索、使用、重启与生命周期。
 - runtime：WorkContext/Session 延续与 Episode exact revision。
 - model：本地模型/资源 host 下的 Model、Material、External Resource 组合。
+- longitudinal：Session Observation → automatic Episode → Journal → Memory consolidation，随后重开服务、exact/lexical 查询、WorkContext continuation 和 meaningful UseEvent 重试。模型 proposal 使用确定性 stub；该场景检查编排与 Authority 语义。
+
+`smoke:longitudinal` 调用 Rust test harness 启动临时 PostgreSQL 和真实 Kernel gRPC；TypeScript 场景托管真实 Core HTTP 并使用官方 Client。ManualCognitiveClock 通过测试子进程的 stdin/stdout 控制，未增加产品 RPC。该测试也由 `just check` 的 workspace tests 执行。
 
 场景创建临时实例，通过正常 Core 与官方 Client 操作。`NOUS_WAVE_KERNEL_EXECUTABLE` 可指定 Kernel；`NOUS_WAVE_POSTGRES_RUNTIME` 可指定 PostgreSQL 安装。`support.ts` 是共享启动 helper。
 

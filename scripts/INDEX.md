@@ -40,6 +40,7 @@
 | [runtime/postgresql-llvm-setjmp.patch](runtime/postgresql-llvm-setjmp.patch) | PostgreSQL LLVM-MinGW setjmp 构建修正 |
 | [smoke/memory.ts](smoke/memory.ts)                                           | Memory/restart/lifecycle public 场景  |
 | [smoke/model-material-resource.ts](smoke/model-material-resource.ts)         | 模型/素材/资源 public 场景            |
+| [smoke/longitudinal.ts](smoke/longitudinal.ts) | 纵向认知确定性 public 场景 |
 | [smoke/runtime-episode.ts](smoke/runtime-episode.ts)                         | WorkContext/Episode public 场景       |
 | [smoke/support.ts](smoke/support.ts)                                         | 共享临时实例与 Core 启动              |
 

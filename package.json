@@ -32,9 +32,10 @@
     "check:fast": "pnpm format:check && pnpm proto:check && pnpm typecheck && pnpm lint:ts",
     "audit": "pnpm lint:knip && pnpm lint:deps && pnpm lint:sherif && pnpm lint:dupes",
     "smoke:memory": "tsx scripts/smoke/memory.ts",
+    "smoke:longitudinal": "tsx scripts/smoke/longitudinal.ts",
     "smoke:runtime": "tsx scripts/smoke/runtime-episode.ts",
     "smoke:model": "tsx scripts/smoke/model-material-resource.ts",
-    "smoke": "pnpm smoke:memory && pnpm smoke:runtime && pnpm smoke:model",
+    "smoke": "pnpm smoke:memory && pnpm smoke:runtime && pnpm smoke:model && pnpm smoke:longitudinal",
     "research:media-live": "tsx scripts/research/media.ts",
     "dev:portable": "tsx scripts/dev/portable.ts"
   },
