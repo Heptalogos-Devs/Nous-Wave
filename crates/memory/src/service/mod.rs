@@ -3,6 +3,7 @@
 mod accessibility;
 mod batch;
 mod consolidation;
+mod dependencies;
 mod episode;
 mod journal;
 mod lane;
@@ -810,8 +811,18 @@ impl MemoryService {
             .formation_time_in(&mut tx, input.subject, input.operation_id, started_at)
             .await?;
         let (revision_id, epoch) = self.revise_memory_in(&mut tx, &input, formed_at).await?;
-        AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
-            .await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
+                .await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            input.subject,
+            "memory",
+            &[input.memory_id.0],
+            sequence,
+            "source_revised",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             input.subject,

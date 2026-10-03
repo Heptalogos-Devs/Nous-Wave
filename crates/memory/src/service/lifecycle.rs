@@ -140,7 +140,17 @@ impl MemoryService {
             _ => return Err(Error::Internal("unsupported lifecycle state".into())),
         }.bind(subject.0).bind(memory.0).bind(to).execute(&mut *tx).await.map_err(db)?;
         sqlx::query("DELETE FROM resident_refs WHERE ref_kind='memory_revision' AND ref_value IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$1)").bind(memory.0).execute(&mut *tx).await.map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "memory",
+            &[memory.0],
+            sequence,
+            "source_lifecycle_changed",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             subject,
@@ -185,8 +195,21 @@ impl MemoryService {
             }
             if purge_state != "purging" {
                 sqlx::query("UPDATE memory_objects SET purge_state='purging',object_epoch=object_epoch+1 WHERE subject_id=$1 AND memory_id=$2").bind(subject.0).bind(memory.0).execute(&mut *phase1).await.map_err(db)?;
-                AuthorityStore::invalidate_in(&mut phase1, subject, ProjectionInvalidation::all())
-                    .await?;
+                let sequence = AuthorityStore::invalidate_in(
+                    &mut phase1,
+                    subject,
+                    ProjectionInvalidation::all(),
+                )
+                .await?;
+                self.invalidate_object_dependents_in(
+                    &mut phase1,
+                    subject,
+                    "memory",
+                    &[memory.0],
+                    sequence,
+                    "support_purged",
+                )
+                .await?;
             }
             sqlx::query("DELETE FROM resident_refs WHERE ref_kind='memory_revision' AND ref_value IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$1)").bind(memory.0).execute(&mut *phase1).await.map_err(db)?;
             phase1.commit().await.map_err(db)?;
@@ -216,15 +239,8 @@ impl MemoryService {
         .await
         .map_err(db)?;
         for revision in &revisions {
-            sqlx::query("INSERT INTO cognition_dependency_invalidations(subject_id,dependent_kind,dependent_ref,invalidated_by_kind,invalidated_by_ref,reason,created_at) SELECT $1,'memory_revision',memory_revision_id::text,'memory_revision',$2,'support_purged',$3 FROM memory_revision_dependencies WHERE target_ref_kind='memory_revision' AND target_ref=$2 ON CONFLICT DO NOTHING")
-                .bind(subject.0).bind(revision.to_string()).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query("INSERT INTO cognition_dependency_invalidations(subject_id,dependent_kind,dependent_ref,invalidated_by_kind,invalidated_by_ref,reason,created_at) SELECT $1,'cognitive_schema_revision',schema_revision_id::text,'memory_revision',$2,'support_purged',$3 FROM cognitive_schema_evidence_links WHERE support_kind='memory_revision' AND support_ref=$2 AND revoked_at IS NULL ON CONFLICT DO NOTHING")
-                .bind(subject.0).bind(revision.to_string()).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query("UPDATE cognitive_schemas SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE schema_id IN (SELECT schema_id FROM cognitive_schema_revisions r JOIN cognitive_schema_evidence_links l ON l.schema_revision_id=r.schema_revision_id WHERE l.support_kind='memory_revision' AND l.support_ref=$1 AND l.revoked_at IS NULL) AND purge_state='normal'")
-                .bind(revision.to_string()).execute(&mut *tx).await.map_err(db)?;
             sqlx::query("UPDATE cognitive_schema_evidence_links SET revoked_at=COALESCE(revoked_at,$3) WHERE support_kind='memory_revision' AND support_ref=$1 AND revoked_at IS NULL AND subject_id=$2")
-                .bind(revision.to_string()).bind(subject.0).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;
-            sqlx::query("UPDATE memory_objects SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE memory_id IN (SELECT r.memory_id FROM memory_revision_dependencies d JOIN memory_revisions r ON r.memory_revision_id=d.memory_revision_id WHERE d.target_ref_kind='memory_revision' AND d.target_ref=$1) AND memory_id<>$2").bind(revision.to_string()).bind(memory.0).execute(&mut *tx).await.map_err(db)?;
+                .bind(revision.to_string()).bind(subject.0).bind(self.cognition.now(subject)).execute(&mut *tx).await.map_err(db)?;
             let use_rows=sqlx::query("SELECT subject_id,consumer_ref,event_id,request_digest FROM cognitive_use_events WHERE ref_kind='memory_revision' AND ref_value=$1").bind(revision.to_string()).fetch_all(&mut *tx).await.map_err(db)?;
             for row in use_rows {
                 sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING").bind(row.try_get::<Uuid,_>("subject_id").map_err(db)?).bind(row.try_get::<String,_>("consumer_ref").map_err(db)?).bind(row.try_get::<Uuid,_>("event_id").map_err(db)?).bind(row.try_get::<String,_>("request_digest").map_err(db)?).bind(Utc::now()).execute(&mut *tx).await.map_err(db)?;

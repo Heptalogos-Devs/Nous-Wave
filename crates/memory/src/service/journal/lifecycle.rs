@@ -74,7 +74,17 @@ impl MemoryService {
             .execute(&mut *tx)
             .await
             .map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::text()).await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::text()).await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "journal",
+            &[journal.0],
+            sequence,
+            "source_lifecycle_changed",
+        )
+        .await?;
         let revision: Uuid = row.get("current_revision_id");
         commit_receipt(
             &mut tx,
@@ -119,6 +129,17 @@ impl MemoryService {
         if epoch != Some(expected_epoch) {
             return Err(Error::Conflict("Journal purge epoch is stale".into()));
         }
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::text()).await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "journal",
+            &[journal.0],
+            sequence,
+            "source_purged",
+        )
+        .await?;
         let mut refs:Vec<String>=sqlx::query_scalar("SELECT journal_revision_id::text FROM journal_revisions WHERE subject_id=$1 AND journal_id=$2")
             .bind(subject.0).bind(journal.0).fetch_all(&mut *tx).await.map_err(db)?;
         refs.push(journal.0.to_string());
@@ -140,7 +161,6 @@ impl MemoryService {
             .execute(&mut *tx)
             .await
             .map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::text()).await?;
         commit_receipt(
             &mut tx,
             subject,

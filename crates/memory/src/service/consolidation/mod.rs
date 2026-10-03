@@ -162,6 +162,10 @@ impl MemoryService {
         } else {
             sequence
         };
+        if changed {
+            self.invalidate_consolidation_targets_in(&mut tx, &input, authority_seq)
+                .await?;
+        }
         let outcome = LongitudinalConsolidationOutcome {
             status: if changed { "committed" } else { "no_change" }.into(),
             authority_seq,
@@ -181,5 +185,38 @@ impl MemoryService {
         .await?;
         tx.commit().await.map_err(db)?;
         Ok(outcome)
+    }
+    async fn invalidate_consolidation_targets_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        input: &LongitudinalConsolidationInput,
+        sequence: i64,
+    ) -> Result<()> {
+        for action in &input.actions {
+            let reference = match action {
+                LongitudinalConsolidationAction::ReviseMemory { target, .. }
+                | LongitudinalConsolidationAction::ReviseSchema { target, .. } => &target.reference,
+                _ => continue,
+            };
+            let (kind, revision) = match reference {
+                CognitiveRef::MemoryRevision(id) => ("memory_revision", id.0),
+                CognitiveRef::CognitiveSchemaRevision(id) => ("cognitive_schema_revision", id.0),
+                _ => {
+                    return Err(Error::Infrastructure(
+                        "invalid consolidation revised target".into(),
+                    ));
+                }
+            };
+            self.invalidate_cognition_dependents_in(
+                tx,
+                input.subject,
+                kind,
+                &[revision],
+                sequence,
+                "source_revised",
+            )
+            .await?;
+        }
+        Ok(())
     }
 }

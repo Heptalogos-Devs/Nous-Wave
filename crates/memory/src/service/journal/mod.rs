@@ -1,7 +1,6 @@
 //! Supported narrative Authority over settled Episode organization.
 
 use super::*;
-mod invalidation;
 mod lifecycle;
 mod mutations;
 

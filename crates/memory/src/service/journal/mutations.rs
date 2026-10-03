@@ -88,26 +88,25 @@ impl MemoryService {
         let sequence =
             AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::text())
                 .await?;
-        self.cognition
-            .enqueue_maintenance_in(
+        if parent.is_some() {
+            self.invalidate_object_dependents_in(
                 &mut tx,
-                &nous_runtime::MaintenanceRequest {
-                    subject: input.subject,
-                    kind: "memory_consolidate".into(),
-                    scope_kind: "journal_revision".into(),
-                    scope_ref: revision.0.to_string(),
-                    trigger_authority_seq: sequence,
-                    due_at: recorded
-                        + chrono::Duration::seconds(
-                            self.configuration
-                                .snapshot_for_subject(input.subject)?
-                                .get(super::super::longitudinal_policy::CONSOLIDATION_DELAY)?
-                                as i64,
-                        ),
-                    priority: 40,
-                },
+                input.subject,
+                "journal",
+                &[journal.0],
+                sequence,
+                "source_revised",
             )
             .await?;
+        }
+        self.schedule_journal_consolidation_in(
+            &mut tx,
+            input.subject,
+            revision,
+            sequence,
+            recorded,
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             input.subject,
@@ -120,6 +119,36 @@ impl MemoryService {
         .await?;
         tx.commit().await.map_err(db)?;
         self.journal(input.subject, journal, Some(revision)).await
+    }
+    async fn schedule_journal_consolidation_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        revision: JournalRevisionId,
+        sequence: i64,
+        recorded: DateTime<Utc>,
+    ) -> Result<()> {
+        self.cognition
+            .enqueue_maintenance_in(
+                tx,
+                &nous_runtime::MaintenanceRequest {
+                    subject,
+                    kind: "memory_consolidate".into(),
+                    scope_kind: "journal_revision".into(),
+                    scope_ref: revision.0.to_string(),
+                    trigger_authority_seq: sequence,
+                    due_at: recorded
+                        + chrono::Duration::seconds(
+                            self.configuration
+                                .snapshot_for_subject(subject)?
+                                .get(super::super::longitudinal_policy::CONSOLIDATION_DELAY)?
+                                as i64,
+                        ),
+                    priority: 40,
+                },
+            )
+            .await?;
+        Ok(())
     }
 }
 

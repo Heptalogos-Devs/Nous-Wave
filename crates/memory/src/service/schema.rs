@@ -361,7 +361,18 @@ impl MemoryService {
         )
         .await?;
         sqlx::query("UPDATE cognitive_schemas SET object_epoch=object_epoch+1 WHERE subject_id=$1 AND schema_id=$2").bind(subject.0).bind(schema_id.0).execute(&mut *tx).await.map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::topology()).await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::topology())
+                .await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "schema",
+            &[schema_id.0],
+            sequence,
+            "source_support_changed",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             subject,
@@ -514,8 +525,18 @@ impl MemoryService {
             .execute(&mut *tx)
             .await
             .map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
-            .await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::all())
+                .await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            input.subject,
+            "schema",
+            &[input.schema_id.0],
+            sequence,
+            "source_revised",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             input.subject,
@@ -656,7 +677,17 @@ impl MemoryService {
             ids.push(child_id);
         }
         sqlx::query("UPDATE cognitive_schemas SET acceptance_state='withdrawn',object_epoch=object_epoch+1 WHERE subject_id=$1 AND schema_id=$2").bind(subject.0).bind(schema_id.0).execute(&mut *tx).await.map_err(db)?;
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "schema",
+            &[schema_id.0],
+            sequence,
+            "source_split",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             subject,
@@ -806,7 +837,17 @@ impl MemoryService {
             sqlx::query("UPDATE cognitive_schemas SET acceptance_state='withdrawn',object_epoch=object_epoch+1 WHERE subject_id=$1 AND schema_id=$2").bind(subject.0).bind(id.0).execute(&mut *tx).await.map_err(db)?;
             sqlx::query("INSERT INTO cognitive_schema_lineage(from_revision_id,to_revision_id,relation) VALUES($1,$2,'schema_merged_from')").bind(new_revision.0).bind(source_revision.0).execute(&mut *tx).await.map_err(db)?;
         }
-        AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        let sequence =
+            AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
+        self.invalidate_object_dependents_in(
+            &mut tx,
+            subject,
+            "schema",
+            &source_ids.iter().map(|id| id.0).collect::<Vec<_>>(),
+            sequence,
+            "source_merged",
+        )
+        .await?;
         commit_receipt(
             &mut tx,
             subject,

@@ -2,7 +2,7 @@
 
 ## Owner
 
-Memory (crates/memory) owns Memory/CognitiveSchema/Tag/AssociationEvidence Authority, provenance and lifecycle. Subject and Material provide the referenced identities and source records.
+Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/AssociationEvidence Authority, provenance and lifecycle. Subject and Material provide the referenced identities and source records.
 
 ## 身份与来源
 
@@ -35,6 +35,10 @@ Memory (crates/memory) owns Memory/CognitiveSchema/Tag/AssociationEvidence Autho
 ## Lifecycle、幂等和 purge
 
 普通 cognition 读取只接受 accepted/valid/normal/not-purging。Suppression、restore、revalidation 和 purge 是独立 lifecycle 操作，不创建虚假 content revision。
+
+来源对象的 revision、lifecycle、support set 或 purge 变化在同一 Authority 事务中沿当前 exact dependency 传播到 Memory、CognitiveSchema、Journal。当前 dependent 标记为 `revalidation_required`；同一失效传播中，多个路径到达同一对象只增加一次 epoch。Journal 排入 `journal_revalidate`，来源恢复或重建不会将 dependent 自动改回 valid。重新提交支持经过验证的新 revision 后，该对象恢复 valid。
+
+传播记录保留精确 dependent/source revision 和当前失效原因；immutable 正文及支持引用保持原样。Memory 进入 purging 时就标记下游完整性；完成清除后，指向被清 Memory 的 Schema evidence link 撤回。Serving 的相关 family watermark 共用该事务已分配的 authority sequence，传播到 Memory/Schema 时覆盖其 projection family。
 
 同一 operation/event identity 携带相同 canonical digest 时返回相同语义结果；相同 identity 携带不同 digest 时返回 conflict。Purge 后保留不含认知正文的幂等 receipt，不能用 receipt 恢复被清内容。
 

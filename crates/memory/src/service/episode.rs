@@ -535,9 +535,10 @@ impl MemoryService {
             true,
         )
         .await?;
-        self.invalidate_episode_journals_in(
+        self.invalidate_object_dependents_in(
             &mut tx,
             input.subject,
+            "episode",
             &[input.episode_id.0],
             sequence,
             "source_revised",
@@ -762,9 +763,10 @@ impl MemoryService {
             .map_err(db)?;
         let sequence =
             AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
-        self.invalidate_episode_journals_in(
+        self.invalidate_object_dependents_in(
             &mut tx,
             subject,
+            "episode",
             &[episode.0],
             sequence,
             "source_lifecycle_changed",
@@ -817,9 +819,10 @@ impl MemoryService {
         }
         let sequence =
             AuthorityStore::invalidate_in(&mut tx, subject, ProjectionInvalidation::all()).await?;
-        self.invalidate_episode_journals_in(
+        self.invalidate_object_dependents_in(
             &mut tx,
             subject,
+            "episode",
             &[episode.0],
             sequence,
             "source_purged",

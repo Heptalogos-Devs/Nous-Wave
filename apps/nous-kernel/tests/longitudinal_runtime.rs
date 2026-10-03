@@ -623,6 +623,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     let journal = memory.commit_journal(input.clone()).await.unwrap();
     let recall =
         assert_longitudinal_materialization(&rt, &clock, subject, &episode, &journal).await;
+    let dependencies = create_journal_dependents(&rt, subject, &episode, &journal).await;
     let support = RevisionSupport::CognitionDependency(CognitionDependency {
         target_revision: CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
         support_role: SupportRole::Direct,
@@ -661,6 +662,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     );
     assert_eq!(invalidated.revision.narrative, journal.revision.narrative);
     assert!(rt.query(recall).await.unwrap().results.is_empty());
+    assert_invalidated_dependents(&rt, subject, &dependencies).await;
     let needs = rt.cognition.maintenance_needs(subject).await.unwrap();
     assert!(needs.iter().any(|need| need.kind == "journal_revalidate"
         && need.scope_ref == journal.object.journal_id.0.to_string()));
@@ -676,28 +678,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     assert_journal_protocol(&rt, subject, &revised).await;
     assert_journal_consolidation(&rt, subject, &episode, &revised).await;
     let uses = assert_longitudinal_use(&rt, subject, &episode, &revised).await;
-    memory
-        .purge_journal(
-            subject,
-            journal.object.journal_id,
-            OperationId::new(),
-            revised.object.object_epoch,
-        )
-        .await
-        .unwrap();
-    assert!(
-        memory
-            .journal(subject, journal.object.journal_id, None)
-            .await
-            .is_err()
-    );
-    assert!(
-        memory
-            .episode_revision(subject, episode.revision.episode_revision_id)
-            .await
-            .is_ok()
-    );
-    assert_eq!(rt.cognition.use_feedback(uses).await.unwrap().1, 2);
+    assert_journal_purge(&rt, subject, &revised, &episode, uses, &dependencies).await;
 }
 
 async fn assert_longitudinal_materialization(
@@ -1664,4 +1645,174 @@ async fn assert_longitudinal_query_protocol(
             expected.to_string()
         );
     }
+}
+
+async fn create_journal_dependents(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    episode: &EpisodeView,
+    journal: &nous_memory::JournalView,
+) -> Vec<nous_core::CognitiveRef> {
+    use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
+    use nous_memory::{
+        ExpectedCognition, FormationMode, LongitudinalConsolidationAction as Action,
+        LongitudinalConsolidationInput,
+    };
+    let journal_ref = CognitiveRef::JournalRevision(journal.revision.journal_revision_id);
+    let mut content = consolidation_memory(episode);
+    content.formation_mode = FormationMode::Synthesized;
+    content.grounding_occurrence_id = None;
+    content.supports = [
+        journal_ref.clone(),
+        CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
+    ]
+    .into_iter()
+    .map(|target_revision| {
+        RevisionSupport::CognitionDependency(CognitionDependency {
+            target_revision,
+            support_role: SupportRole::Direct,
+        })
+    })
+    .collect();
+    let mut input = LongitudinalConsolidationInput {
+        operation_id: OperationId::new(),
+        subject,
+        expected_authority_seq: rt.store.authority_seq(subject).await.unwrap(),
+        source: ExpectedCognition {
+            reference: journal_ref,
+            expected_epoch: journal.object.object_epoch,
+        },
+        context: vec![],
+        producer: consolidation_producer(),
+        actions: vec![
+            Action::CreateMemory {
+                content: content.clone(),
+            },
+            Action::CreateMemory { content },
+        ],
+    };
+    let memory = rt.require_memory().unwrap();
+    let outcome = memory
+        .commit_longitudinal_consolidation(input.clone())
+        .await
+        .unwrap();
+    let mut refs: Vec<_> = outcome.results.into_iter().flatten().collect();
+    let mut schema = consolidation_schema(episode);
+    schema.evidence_links = refs
+        .iter()
+        .cloned()
+        .map(|target_revision| nous_memory::SchemaEvidenceLinkInput {
+            role: nous_memory::SchemaEvidenceRole::Support,
+            support: RevisionSupport::CognitionDependency(CognitionDependency {
+                target_revision,
+                support_role: SupportRole::Direct,
+            }),
+        })
+        .collect();
+    input.operation_id = OperationId::new();
+    input.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
+    input.context = refs
+        .iter()
+        .cloned()
+        .map(|reference| ExpectedCognition {
+            reference,
+            expected_epoch: 1,
+        })
+        .collect();
+    input.actions = vec![Action::CreateSchema { content: schema }];
+    refs.extend(
+        memory
+            .commit_longitudinal_consolidation(input)
+            .await
+            .unwrap()
+            .results
+            .into_iter()
+            .flatten(),
+    );
+    refs
+}
+
+async fn assert_invalidated_dependents(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    refs: &[nous_core::CognitiveRef],
+) {
+    for reference in refs {
+        let query = match reference {
+            nous_core::CognitiveRef::MemoryRevision(_) => {
+                "SELECT o.integrity_state,o.object_epoch FROM memory_objects o JOIN memory_revisions r USING(memory_id) WHERE o.subject_id=$1 AND r.memory_revision_id=$2"
+            }
+            nous_core::CognitiveRef::CognitiveSchemaRevision(_) => {
+                "SELECT o.integrity_state,o.object_epoch FROM cognitive_schemas o JOIN cognitive_schema_revisions r USING(schema_id) WHERE o.subject_id=$1 AND r.schema_revision_id=$2"
+            }
+            _ => panic!("unexpected dependency kind"),
+        };
+        let id = reference
+            .to_string()
+            .split_once(':')
+            .unwrap()
+            .1
+            .parse::<uuid::Uuid>()
+            .unwrap();
+        let row = sqlx::query(query)
+            .bind(subject.0)
+            .bind(id)
+            .fetch_one(rt.store.pool())
+            .await
+            .unwrap();
+        assert_eq!(
+            row.get::<String, _>("integrity_state"),
+            "revalidation_required"
+        );
+        assert_eq!(row.get::<i64, _>("object_epoch"), 2);
+    }
+    let schemas = refs
+        .iter()
+        .filter_map(|reference| match reference {
+            nous_core::CognitiveRef::CognitiveSchemaRevision(id) => Some(id.0.to_string()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let edges: i64 = sqlx::query_scalar("SELECT count(*) FROM cognition_dependency_invalidations WHERE subject_id=$1 AND dependent_kind='cognitive_schema_revision' AND dependent_ref=ANY($2::text[]) AND invalidated_by_kind='memory_revision'")
+        .bind(subject.0).bind(schemas).fetch_one(rt.store.pool()).await.unwrap();
+    assert_eq!(edges, 2);
+}
+
+async fn assert_journal_purge(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    journal: &nous_memory::JournalView,
+    episode: &EpisodeView,
+    uses: nous_runtime::UseFeedback,
+    dependencies: &[nous_core::CognitiveRef],
+) {
+    use nous_core::OperationId;
+    let memory = rt.require_memory().unwrap();
+    let fresh_dependencies = create_journal_dependents(rt, subject, episode, journal).await;
+    let before = rt.store.authority_seq(subject).await.unwrap();
+    memory
+        .purge_journal(
+            subject,
+            journal.object.journal_id,
+            OperationId::new(),
+            journal.object.object_epoch,
+        )
+        .await
+        .unwrap();
+    assert!(
+        memory
+            .journal(subject, journal.object.journal_id, None)
+            .await
+            .is_err()
+    );
+    assert!(
+        memory
+            .episode_revision(subject, episode.revision.episode_revision_id)
+            .await
+            .is_ok()
+    );
+    assert_eq!(rt.cognition.use_feedback(uses).await.unwrap().1, 2);
+    assert_invalidated_dependents(rt, subject, dependencies).await;
+    assert_eq!(rt.store.authority_seq(subject).await.unwrap(), before + 1);
+    assert_invalidated_dependents(rt, subject, &fresh_dependencies).await;
 }

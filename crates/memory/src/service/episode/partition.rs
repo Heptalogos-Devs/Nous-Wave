@@ -116,9 +116,10 @@ impl MemoryService {
             AuthorityStore::invalidate_in(&mut tx, input.subject, ProjectionInvalidation::text())
                 .await?;
         let source_objects: Vec<Uuid> = sources.iter().map(|row| row.get("episode_id")).collect();
-        self.invalidate_episode_journals_in(
+        self.invalidate_object_dependents_in(
             &mut tx,
             input.subject,
+            "episode",
             &source_objects,
             sequence,
             "source_repartitioned",

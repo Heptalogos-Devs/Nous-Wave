@@ -17,3 +17,11 @@ CREATE INDEX observation_occurrences_subject_occurred_idx
 
 CREATE INDEX observation_occurrences_subject_observed_asc_idx
     ON observation_occurrences(subject_id, observed_at);
+CREATE INDEX memory_dependency_source_idx
+    ON memory_revision_dependencies(target_ref_kind,target_ref,memory_revision_id);
+CREATE INDEX schema_dependency_source_idx
+    ON cognitive_schema_evidence_links(support_kind,support_ref,schema_revision_id)
+    WHERE revoked_at IS NULL;
+CREATE INDEX journal_point_dependency_source_idx
+    ON journal_point_supports((support#>>'{value,target_revision,kind}'),(support#>>'{value,target_revision,id}'),journal_revision_id)
+    WHERE support->>'kind'='cognition_dependency';
