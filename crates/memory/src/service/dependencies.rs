@@ -65,6 +65,7 @@ impl MemoryService {
         let mut seen = BTreeSet::new();
         let now = self.cognition.now(subject);
         let mut affects_memory = false;
+        let mut affects_journal = false;
         while let Some((kind, source)) = pending.pop_front() {
             if !seen.insert((kind.clone(), source)) {
                 continue;
@@ -125,6 +126,7 @@ ORDER BY kind,object_id")
                     .rows_affected()
                     > 0;
                 affects_memory |= changed && dependent_kind != "journal_revision";
+                affects_journal |= changed && dependent_kind == "journal_revision";
                 if dependent_kind == "journal_revision" {
                     self.cognition
                         .enqueue_maintenance_in(
@@ -144,14 +146,13 @@ ORDER BY kind,object_id")
                 pending.push_back((dependent_kind, revision));
             }
         }
-        if affects_memory {
-            AuthorityStore::mark_projection_families_in(
-                tx,
-                subject,
-                sequence,
-                ProjectionInvalidation::all(),
-            )
-            .await?;
+        if affects_memory || affects_journal {
+            let families = if affects_memory {
+                ProjectionInvalidation::all()
+            } else {
+                ProjectionInvalidation::text()
+            };
+            AuthorityStore::mark_projection_families_in(tx, subject, sequence, families).await?;
         }
         Ok(())
     }
