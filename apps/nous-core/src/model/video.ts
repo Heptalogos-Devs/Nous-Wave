@@ -99,7 +99,8 @@ export async function sampleVideo(
       const at =
         policy.max_frames === 1
           ? 0
-          : (ordinal * Math.max(0, bounded - 0.1)) / (policy.max_frames - 1);
+          : (ordinal * Math.max(0, bounded - policy.frame_end_margin_seconds)) /
+            (policy.max_frames - 1);
       requested.push(at);
       const output = join(root, `frame-${ordinal}.jpg`);
       const info = await run([

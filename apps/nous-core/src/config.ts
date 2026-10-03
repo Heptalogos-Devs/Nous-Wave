@@ -82,6 +82,7 @@ export function parseEffectiveConfiguration(values: Record<string, unknown>) {
     audio: values.audio,
     video: values.video,
     material_strategy: values["material.strategy"],
+    material_inputs: values["material.inputs"],
   });
   const consumers = consumersSchema.parse(values.consumers);
   if (new Set(consumers.map((c) => c.consumer_id)).size !== consumers.length)

@@ -477,8 +477,8 @@ export async function createCore(settings: CoreOptions) {
     },
     grpc: false,
     grpcWeb: false,
-    readMaxBytes: 2 * 1024 * 1024,
-    writeMaxBytes: 4 * 1024 * 1024,
+    readMaxBytes: kernel.execution.http_body_limit_bytes,
+    writeMaxBytes: kernel.execution.public_rpc_response_max_bytes,
   });
   await app.register(multipart, {
     limits: {

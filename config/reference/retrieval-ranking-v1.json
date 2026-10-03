@@ -37,6 +37,7 @@
     "retrieval.query.resource_limit.light": 1,
     "retrieval.query.resource_limit.normal": 4,
     "retrieval.query.resource_limit.deep": 8,
-    "retrieval.query.resource_limit.maximum": 16
+    "retrieval.query.resource_limit.maximum": 16,
+    "retrieval.query.default_result_limit": 12
   }
 }

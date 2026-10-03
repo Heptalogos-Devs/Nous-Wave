@@ -10,6 +10,9 @@ use nous_persistence::database_error as db;
 use std::pin::Pin;
 use uuid::Uuid;
 
+const MAX_UNARY_MATERIAL_BYTES: u64 = 1_048_576;
+const MAX_ARTIFACT_STREAM_CHUNK_BYTES: u64 = 262_144;
+
 fn artifact(value: nous_material::Artifact) -> p::Artifact {
     p::Artifact {
         artifact_id: value.artifact_id.0.to_string(),
@@ -154,7 +157,7 @@ impl KernelService {
         &self,
         input: p::MaterializeRequest,
     ) -> Result<p::MaterializedEvidence> {
-        if input.max_bytes > 1_048_576 {
+        if input.max_bytes > MAX_UNARY_MATERIAL_BYTES {
             return Err(Error::Invalid(
                 "unary materialization exceeds 1 MiB; use stream".into(),
             ));
@@ -264,7 +267,7 @@ impl k::artifact_stream_service_server::ArtifactStreamService for KernelService 
                 if offset == end {
                     return Ok(None);
                 }
-                let next = (offset + 262_144).min(end);
+                let next = (offset + MAX_ARTIFACT_STREAM_CHUNK_BYTES).min(end);
                 let result = material
                     .materialize(
                         subject,
@@ -274,7 +277,7 @@ impl k::artifact_stream_service_server::ArtifactStreamService for KernelService 
                                 start: offset,
                                 end: next,
                             }),
-                            max_bytes: 262_144,
+                            max_bytes: MAX_ARTIFACT_STREAM_CHUNK_BYTES,
                             resource_handle: None,
                             resource: None,
                         },

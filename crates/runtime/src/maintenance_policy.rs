@@ -11,6 +11,10 @@ pub const RETRY_INITIAL: ConfigKey<u64> = ConfigKey::new("maintenance.retry_init
 pub const RETRY_MAX: ConfigKey<u64> = ConfigKey::new("maintenance.retry_max_seconds");
 pub const RETRY_ATTEMPTS: ConfigKey<u64> = ConfigKey::new("maintenance.retry_max_attempts");
 pub const MAX_MODEL_CALLS: ConfigKey<u64> = ConfigKey::new("maintenance.max_model_calls_per_tick");
+pub const MEMBER_TEXT_MAX_BYTES: ConfigKey<u64> =
+    ConfigKey::new("maintenance.member_text_max_bytes");
+pub const EXPERIENCE_BATCH_SIZE: ConfigKey<u64> =
+    ConfigKey::new("maintenance.experience_batch_size");
 pub const MAX_ELAPSED: ConfigKey<u64> = ConfigKey::new("maintenance.max_elapsed_ms_per_tick");
 
 pub const EPISODE_MAX_NEIGHBORS: ConfigKey<u64> = ConfigKey::new("episode.max_neighbor_episodes");
@@ -147,7 +151,19 @@ fn register_work_state_configuration(registry: &mut ConfigRegistryBuilder) -> Re
             8,
             32,
         ),
+        (
+            MEMBER_TEXT_MAX_BYTES,
+            "Maintenance experience member text byte budget.",
+            2048,
+            65536,
+        ),
         (MAX_MODEL_CALLS, "Standalone tick model call budget.", 4, 32),
+        (
+            EXPERIENCE_BATCH_SIZE,
+            "Experience ingestion batch per maintenance operation.",
+            256,
+            256,
+        ),
         (
             MAX_ELAPSED,
             "Standalone tick elapsed budget in infrastructure milliseconds.",

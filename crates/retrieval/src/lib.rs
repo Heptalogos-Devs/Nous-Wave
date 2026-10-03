@@ -23,6 +23,9 @@ use std::{
     sync::Arc,
 };
 
+const EPISODE_SYNOPSIS: nous_configuration::ConfigKey<nous_persistence::EpisodeTextBudget> =
+    nous_configuration::ConfigKey::new("episode.synopsis");
+
 pub const LEXICAL_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
     nous_configuration::ConfigKey::new("serving.lexical.enabled");
 pub const DENSE_ENABLED_KEY: nous_configuration::ConfigKey<bool> =

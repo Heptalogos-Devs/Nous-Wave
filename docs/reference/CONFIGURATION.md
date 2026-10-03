@@ -20,7 +20,7 @@ Overrideable 值按 reference default → deployment TOML → persisted system o
 
 Core 先解析 `config_revision`、`host` 和 `database` bootstrap，通过私有 JSON bundle 交付 Core descriptors 与 deployment document。Kernel finalize Catalog 并加载持久覆盖后，Core 从 active snapshot 构造 model/resource/consumer runtime。凭据值只从 SecretRoot/environment 加载；Catalog 保存 credential reference。
 
-Live 修改作用于后续 operation；在途 operation 保留固定快照。RestartProcess 修改 desired snapshot 并返回 restart effect，active snapshot 在重启前不变。Core model/gateway/role/media/resource/consumer 与 `core_execution` 结构使用 RestartProcess。`core_execution` 拥有 Kernel RPC、maintenance RPC、workflow ack 的毫秒 timeout 、HTTP body byte budget 和 managed context track 上限（默认 256）、Query embedding cache entries（默认 128）及 rerank candidate 上限（默认 64）；host startup/shutdown timeout 和 runtime download timeout（默认 300000 ms）是 deployment-only bootstrap 参数。NewSubjectsOnly 更新供给默认，已有 Subject 保存已采用的 typed capability set。ServingRebuild 返回 owner rebuild effect；Serving 在下一次需要该 family 的 prepare 或显式 refresh 中构建并原子替换 generation。Projection status 按 family/space 返回 generation ID、Authority watermark、实际配置 digest 和当前所需 digest；Authority 或配置落后时为 STALE。
+Live 修改作用于后续 operation；在途 operation 保留固定快照。RestartProcess 修改 desired snapshot 并返回 restart effect，active snapshot 在重启前不变。Core model/gateway/role/media/resource/consumer、`material.inputs` 与 `core_execution` 结构使用 RestartProcess。`core_execution` 拥有 Kernel RPC、maintenance RPC、workflow ack 的毫秒 timeout 、HTTP body byte budget 和 managed context track 上限（默认 256）、Query embedding cache entries（默认 128）及 rerank candidate 上限（默认 64）；host startup/shutdown timeout 和 runtime download timeout（默认 300000 ms）是 deployment-only bootstrap 参数。NewSubjectsOnly 更新供给默认，已有 Subject 保存已采用的 typed capability set。ServingRebuild 返回 owner rebuild effect；Serving 在下一次需要该 family 的 prepare 或显式 refresh 中构建并原子替换 generation。Projection status 按 family/space 返回 generation ID、Authority watermark、实际配置 digest 和当前所需 digest；Authority 或配置落后时为 STALE。
 
 Query、Authority formation 和 Serving build 使用固定 snapshot；影响输出语义的 key subset digest 包含对应 schema 与 reference profile identity。retrieval ranking/budgets、Memory accessibility、topology wave、EPA basis 和 longitudinal 参数的参考族位于 `config/reference/` 的版本化 JSON，owner 从目录快照解析 typed policy。
 
@@ -80,6 +80,8 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `maintenance.poll_interval_seconds` | 30 | standalone loop 的基础设施秒 |
 | `maintenance.worker_lease_seconds` | 120 | worker lease 的基础设施秒 |
 | `maintenance.max_operations_per_grant` | 4 | 每次机会/standalone tick 的操作数上限 |
+| `maintenance.experience_batch_size` | 256 | Developer：每次 Episode segmentation processing operation 的 ExperienceItem batch，范围 1..256 |
+| `maintenance.member_text_max_bytes` | 2048 | Developer：每个 maintenance Experience member 的输入 byte 预算；共同 materialization safety ceiling 由实现持有 |
 | `maintenance.terminal_retention_seconds` | 86400 | terminal need finish replay 的基础设施秒，范围 1..604800 |
 | `maintenance.retry_initial_seconds` | 30 | transient retry 初始基础设施秒，范围 1..3600 |
 | `maintenance.retry_max_seconds` | 3600 | transient retry 延迟上限秒，范围 1..86400 |
@@ -87,6 +89,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `maintenance.max_model_calls_per_tick` | 4 | standalone tick 全局模型调用预算，范围 1..32 |
 | `maintenance.max_elapsed_ms_per_tick` | 60000 | standalone tick 全局 elapsed 毫秒预算，范围 1..300000 |
 | `episode.context_switch_count` | 2 | 形成边界所需变化的 context dimensions，范围 1..4 |
+| `episode.synopsis` | longitudinal-v1 | Developer：Episode member text synopsis 的 member/fragment/total byte 预算；同一 policy 用于 Query rendering 与 lexical/dense generation |
 | `episode.soft_idle_seconds` | 300 | 认知秒 |
 | `episode.hard_idle_seconds` | 1800 | 认知秒 |
 | `episode.settle_delay_seconds` | 300 | semantic review 的认知秒 |
@@ -99,3 +102,9 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `consolidation.context` | longitudinal-v1 | Developer：query cue/candidate text 字符预算、candidate/support/provenance/entity 数上限；运行开始解析一次 |
 
 `GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`poll_interval`、`worker_lease_seconds` 和新增的 retention/retry/tick budget 设置均由 `cognitive-runtime` owner 注册，使用 Developer exposure、SystemOnly scope、Live apply mode 和 Operational semantic effect。其他以上设置允许 Subject override。retry 延迟为 `min(retry_max_seconds, retry_initial_seconds × 2^(连续失败次数−1))`。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
+
+`material.inputs` 是 Developer 运行输入预算：`formation_source_max_bytes` 默认 32768，`derivation_source_max_bytes` 默认 1048576。超界 source 必须选择 bounded representation/region；预算不允许截断完整来源后仍声明完整支持。Memory formation workflow 保存首次采用的 source budget，retry 使用该快照。
+
+`retrieval.query.default_result_limit` 默认 12，作用于未声明 result limit 的公开 Query。`core_execution.public_rpc_response_max_bytes` 默认 4194304；公开 RPC request 预算使用 `http_body_limit_bytes`。
+
+`video.frame_end_margin_seconds` 默认 0.1；frame sampling 将最后一个采样点留在该 configured end margin 之前。

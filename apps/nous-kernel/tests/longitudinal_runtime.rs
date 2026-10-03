@@ -768,7 +768,17 @@ async fn assert_longitudinal_materialization(
     assert_longitudinal_lanes(rt, &query, &refs).await;
     let projection = rt
         .store
-        .text_projection_input(subject, "lexical", "", true)
+        .text_projection_input(
+            subject,
+            "lexical",
+            "",
+            true,
+            rt.configuration
+                .snapshot_for_subject(subject)
+                .unwrap()
+                .get(nous_memory::EPISODE_SYNOPSIS)
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert!(refs.iter().all(|reference| {
@@ -1909,12 +1919,21 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
         && support.support_role == "interpretation"));
     let fragments = rt
         .store
-        .episode_member_text_input(subject, &[episode.revision.episode_revision_id.0])
+        .episode_member_text_input(
+            subject,
+            &[episode.revision.episode_revision_id.0],
+            rt.configuration
+                .snapshot_for_subject(subject)
+                .unwrap()
+                .get(nous_memory::EPISODE_SYNOPSIS)
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert!(
         matches!(&fragments[&episode.revision.episode_revision_id.0][0], nous_persistence::TextProjectionFragment::Text { reference:CognitiveRef::DerivedRepresentation(id),text } if *id==first && text.len()==2047)
     );
+    assert_synopsis_policy(&rt, subject).await;
     persist_media_synopsis(&rt, subject, region, "amber inlet", Some(first), "2").await;
     assert!(rt.query(query).await.unwrap().results.is_empty());
     let result = rt
@@ -1950,6 +1969,61 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
             .await
             .unwrap()
             .roots
+            .len(),
+        1
+    );
+}
+
+async fn assert_synopsis_policy(rt: &NousRuntime, subject: nous_core::SubjectId) {
+    let mut budget = rt
+        .configuration
+        .snapshot_for_subject(subject)
+        .unwrap()
+        .get(nous_memory::EPISODE_SYNOPSIS)
+        .unwrap();
+    budget.fragment_max_bytes = 7;
+    rt.configuration
+        .set_subject_override(
+            nous_core::OperationId::new(),
+            subject,
+            nous_memory::EPISODE_SYNOPSIS.path(),
+            serde_json::to_value(budget).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        rt.query(media_episode_query(subject, "harbor"))
+            .await
+            .unwrap()
+            .results
+            .is_empty()
+    );
+    let results = rt
+        .query(media_episode_query(subject, "cobalt"))
+        .await
+        .unwrap()
+        .results;
+    assert_eq!(results.len(), 1);
+    assert!(
+        !results[0]
+            .representation
+            .as_ref()
+            .unwrap()
+            .contains("harbor")
+    );
+    rt.configuration
+        .clear_subject_override(
+            nous_core::OperationId::new(),
+            subject,
+            nous_memory::EPISODE_SYNOPSIS.path(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        rt.query(media_episode_query(subject, "harbor"))
+            .await
+            .unwrap()
+            .results
             .len(),
         1
     );

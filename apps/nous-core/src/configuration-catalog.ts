@@ -43,6 +43,12 @@ export const coreExecutionSchema = z
       .max(65536)
       .default(128),
     query_rerank_candidate_limit: z.number().int().min(2).max(64).default(64),
+    public_rpc_response_max_bytes: z
+      .number()
+      .int()
+      .min(1024)
+      .max(33554432)
+      .default(4194304),
     http_body_limit_bytes: z
       .number()
       .int()
@@ -148,6 +154,13 @@ const owners = [
     default: "description_only",
     owner: "core-material",
     exposure: "standard",
+  },
+  {
+    path: "material.inputs",
+    schema: modelConfigurationShape.material_inputs,
+    default: modelConfigurationShape.material_inputs.parse(undefined),
+    owner: "core-material",
+    exposure: "developer",
   },
   {
     path: "resource_profiles",

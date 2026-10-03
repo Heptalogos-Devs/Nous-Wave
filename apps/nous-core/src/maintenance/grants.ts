@@ -131,7 +131,11 @@ export async function grantMaintenance(
     try {
       if (need.kind === "episode_segment") {
         const organized = await kernel.authority.organizeExperience(
-          { subjectId: need.subjectId, limit: 256, close: false },
+          {
+            subjectId: need.subjectId,
+            limit: policy.experienceBatchSize,
+            close: false,
+          },
           calls,
         );
         nextDue = organized.nextDue;

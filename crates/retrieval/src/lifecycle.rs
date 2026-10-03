@@ -35,8 +35,8 @@ impl ServingService {
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
         }
         let keys: &[&str] = match family {
-            "lexical" => &["serving.lexical.enabled"],
-            "dense" => &["serving.dense.enabled", "retrieval.epa"],
+            "lexical" => &["serving.lexical.enabled", "episode.synopsis"],
+            "dense" => &["serving.dense.enabled", "retrieval.epa", "episode.synopsis"],
             "topology" => &[
                 "topology.wave.hub_beta",
                 "topology.wave.hub_penalty_min",

@@ -28,25 +28,12 @@ impl ServingService {
                     .await?
             }
             "dense" => {
-                self.build_dense(
-                    subject,
-                    id,
-                    space,
-                    staging.path(),
-                    capabilities,
-                    snapshot.get(crate::EPA_POLICY)?,
-                )
-                .await?
+                self.build_dense(subject, id, space, staging.path(), capabilities, snapshot)
+                    .await?
             }
             "lexical" | "exact" => {
-                self.build_text(
-                    subject,
-                    family,
-                    staging.path(),
-                    capabilities,
-                    snapshot.get(crate::LEXICAL_WRITER_BYTES)?,
-                )
-                .await?
+                self.build_text(subject, family, staging.path(), capabilities, snapshot)
+                    .await?
             }
             _ => return Err(Error::Invalid("unknown serving family".into())),
         };
@@ -82,11 +69,13 @@ impl ServingService {
         family: &str,
         dir: &std::path::Path,
         capabilities: ProjectionCapabilities,
-        writer_bytes: usize,
+        snapshot: &nous_configuration::ConfigSnapshot,
     ) -> Result<i64> {
+        let writer_bytes = snapshot.get(crate::LEXICAL_WRITER_BYTES)?;
+        let budget = snapshot.get(crate::EPISODE_SYNOPSIS)?;
         let input = self
             .store
-            .text_projection_input(subject, family, "", capabilities.memory)
+            .text_projection_input(subject, family, "", capabilities.memory, budget)
             .await?;
         if family == "exact" {
             let mut postings = ExactPostings::default();
@@ -117,7 +106,7 @@ impl ServingService {
             }
             write_json(&dir.join("postings.json"), &postings)?;
         } else {
-            let documents = self.documents(input.sources).await?;
+            let documents = self.documents(input.sources, budget).await?;
             let directory = dir.to_path_buf();
             tokio::task::spawn_blocking(move || {
                 let mut lexical = LexicalGeneration::create(directory)?;
@@ -132,6 +121,7 @@ impl ServingService {
     pub(crate) async fn documents(
         &self,
         sources: Vec<TextProjectionSource>,
+        budget: nous_persistence::EpisodeTextBudget,
     ) -> Result<Vec<LexicalDocument>> {
         let mut documents = Vec::new();
         for source in sources {
@@ -145,6 +135,7 @@ impl ServingService {
             } else {
                 continue;
             };
+            let mut member_bytes = 0;
             for fragment in source.member_fragments {
                 let member = match fragment {
                     TextProjectionFragment::Text { text, .. } => Some(text),
@@ -154,14 +145,25 @@ impl ServingService {
                         ..
                     } => {
                         self.objects
-                            .read_text_prefix(&content_hash, byte_length, 2048)
+                            .read_text_prefix(
+                                &content_hash,
+                                byte_length,
+                                budget.fragment_max_bytes as u64,
+                            )
                             .await?
                     }
                 };
-                if let Some(member) = member {
-                    text.push('\n');
-                    text.push_str(&member);
+                let Some(mut member) = member else {
+                    continue;
+                };
+                let remaining = budget.total_max_bytes.saturating_sub(member_bytes + 1);
+                if remaining == 0 {
+                    break;
                 }
+                member.truncate(member.floor_char_boundary(remaining.min(member.len())));
+                member_bytes += member.len() + 1;
+                text.push('\n');
+                text.push_str(&member);
             }
             documents.push(LexicalDocument {
                 serving_doc_id: documents.len() as u64,
@@ -245,8 +247,10 @@ impl ServingService {
         space_key: &str,
         dir: &std::path::Path,
         capabilities: ProjectionCapabilities,
-        epa_policy: EpaPolicy,
+        snapshot: &nous_configuration::ConfigSnapshot,
     ) -> Result<i64> {
+        let budget = snapshot.get(crate::EPISODE_SYNOPSIS)?;
+        let epa_policy = snapshot.get(crate::EPA_POLICY)?;
         let provider = self
             .embedding()
             .ok_or_else(|| Error::Unavailable("text embedding provider is unavailable".into()))?;
@@ -258,14 +262,14 @@ impl ServingService {
         }
         let input = self
             .store
-            .text_projection_input(subject, "dense", space_key, capabilities.memory)
+            .text_projection_input(subject, "dense", space_key, capabilities.memory, budget)
             .await?;
         let source_regions: std::collections::HashMap<_, _> = input
             .sources
             .iter()
             .map(|source| (source.reference.clone(), source.source_region))
             .collect();
-        let documents = self.documents(input.sources).await?;
+        let documents = self.documents(input.sources, budget).await?;
         let mut vectors = Vec::new();
         for document in documents {
             let output = provider

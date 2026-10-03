@@ -219,6 +219,7 @@ describe("maintenance fixed workflow retry", () => {
       getMaintenancePolicy: vi.fn(async () => ({
         enabled: true,
         maxOperations: 4,
+        experienceBatchSize: 256,
         workerLeaseSeconds: 120,
       })),
       claimMaintenance: claim,
@@ -261,6 +262,7 @@ describe("maintenance fixed workflow retry", () => {
       getMaintenancePolicy: vi.fn(async () => ({
         enabled: true,
         maxOperations: 4,
+        experienceBatchSize: 256,
         workerLeaseSeconds: 120,
         retryInitialSeconds: 2,
         retryMaxSeconds: 5,
@@ -308,6 +310,7 @@ describe("maintenance fixed workflow retry", () => {
         getMaintenancePolicy: vi.fn(async () => ({
           enabled: true,
           maxOperations: 4,
+          experienceBatchSize: 7,
           workerLeaseSeconds: 120,
           maxModelCalls: 4,
           maxElapsedMs: 60000,
@@ -332,6 +335,10 @@ describe("maintenance fixed workflow retry", () => {
     );
     for (let tick = 0; tick < 20; tick++)
       await scheduler.poll(new AbortController().signal);
+    expect(kernel.authority.organizeExperience).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 7 }),
+      expect.anything(),
+    );
     expect(opportunities.slice(0, 75)).toEqual(ids);
     expect(opportunities.slice(75)).toEqual(ids.slice(0, 5));
     expect(list).toHaveBeenCalledWith(

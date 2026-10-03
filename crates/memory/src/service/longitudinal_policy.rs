@@ -23,6 +23,8 @@ pub struct ConsolidationContextPolicy {
     #[schemars(range(min = 1, max = 128))]
     pub entity_limit: usize,
 }
+pub const EPISODE_SYNOPSIS: ConfigKey<nous_persistence::EpisodeTextBudget> =
+    ConfigKey::new("episode.synopsis");
 pub const CONSOLIDATION_CONTEXT: ConfigKey<ConsolidationContextPolicy> =
     ConfigKey::new("consolidation.context");
 
@@ -30,6 +32,18 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
     let reference = ReferenceProfile::parse(include_str!(
         "../../../../config/reference/longitudinal-v1.json"
     ))?;
+    registry.register(
+        EPISODE_SYNOPSIS,
+        "memory",
+        "Episode readable synopsis and Serving member text budgets.",
+        reference.get(EPISODE_SYNOPSIS)?,
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SubjectOverrideAllowed,
+        ConfigApplyMode::ServingRebuild,
+        ConfigSemanticEffect::ServingProjection,
+        |_: &nous_persistence::EpisodeTextBudget| Ok(()),
+    )?;
+    reference.tag(registry, EPISODE_SYNOPSIS.path())?;
     registry.register(
         CONSOLIDATION_CONTEXT,
         "memory",

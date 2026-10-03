@@ -19,6 +19,11 @@
       "support_limit": 512,
       "provenance_root_limit": 512,
       "entity_limit": 128
+    },
+    "episode.synopsis": {
+      "max_members": 16,
+      "fragment_max_bytes": 2048,
+      "total_max_bytes": 65536
     }
   }
 }

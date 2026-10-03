@@ -67,6 +67,7 @@ impl AuthorityStore {
         family: &str,
         space: &str,
         memory_enabled: bool,
+        episode_budget: crate::EpisodeTextBudget,
     ) -> Result<TextProjectionInput> {
         let mut tx = self.begin().await?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -77,7 +78,7 @@ impl AuthorityStore {
         let mut sources = material_sources(&mut tx, subject).await?;
         if memory_enabled {
             sources.extend(memory_sources(&mut tx, subject).await?);
-            sources.extend(longitudinal_sources(&mut tx, subject).await?);
+            sources.extend(longitudinal_sources(&mut tx, subject, episode_budget).await?);
         }
         sources.sort_by_key(|source| source.reference.to_string());
         tx.commit().await.map_err(db)?;
@@ -282,6 +283,7 @@ async fn material_sources(
 async fn longitudinal_sources(
     tx: &mut Transaction<'_, Postgres>,
     subject: SubjectId,
+    episode_budget: crate::EpisodeTextBudget,
 ) -> Result<Vec<TextProjectionSource>> {
     let episodes=sqlx::query("SELECT r.episode_revision_id,r.title,r.boundary_explanation,r.experience_time_kind,r.experience_time_start,r.experience_time_end FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' ORDER BY o.episode_id")
         .bind(subject.0).fetch_all(&mut **tx).await.map_err(db)?;
@@ -290,7 +292,8 @@ async fn longitudinal_sources(
         .map(|row| row.get("episode_revision_id"))
         .collect();
     let mut member_fragments =
-        crate::episode_text::episode_member_text_input_in(tx, subject, &ids).await?;
+        crate::episode_text::episode_member_text_input_in(tx, subject, &ids, episode_budget)
+            .await?;
     let mut sources = Vec::with_capacity(episodes.len());
     for row in episodes {
         let revision: Uuid = row.get("episode_revision_id");

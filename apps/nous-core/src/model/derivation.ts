@@ -89,7 +89,7 @@ export async function deriveMaterial(
       {
         subjectId: request.subjectId,
         reference: { kind: "source_region", value: request.sourceRegionId },
-        maxBytes: 1048576n,
+        maxBytes: BigInt(models.materialInputs.derivation_source_max_bytes),
       },
       options,
     );

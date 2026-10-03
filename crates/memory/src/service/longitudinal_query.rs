@@ -45,7 +45,16 @@ pub(super) async fn materialize_longitudinal(
             .map_err(db)?;
         let ids: Vec<Uuid> = rows.iter().map(|row| row.get("revision_id")).collect();
         let evidence = longitudinal_evidence(service, kind, &ids).await?;
-        let mut renderings = longitudinal_renderings(service, subject, kind, &ids).await?;
+        let mut renderings = longitudinal_renderings(
+            service,
+            subject,
+            kind,
+            &ids,
+            bound
+                .config_snapshot
+                .get(super::longitudinal_policy::EPISODE_SYNOPSIS)?,
+        )
+        .await?;
         let mut metadata = longitudinal_metadata(service, subject, kind, &ids).await?;
         for row in rows {
             let revision: Uuid = row.get("revision_id");
@@ -304,6 +313,7 @@ async fn longitudinal_renderings(
     subject: SubjectId,
     kind: &str,
     ids: &[Uuid],
+    budget: nous_persistence::EpisodeTextBudget,
 ) -> Result<BTreeMap<Uuid, LongitudinalRendering>> {
     let mut result = BTreeMap::<Uuid, LongitudinalRendering>::new();
     if kind == "journal" {
@@ -316,12 +326,13 @@ async fn longitudinal_renderings(
                     .or_default()
                     .text,
                 &row.get::<String, _>("text"),
+                budget.total_max_bytes,
             );
         }
     } else {
         let fragments = service
             .store
-            .episode_member_text_input(subject, ids)
+            .episode_member_text_input(subject, ids, budget)
             .await?;
         for (revision, members) in fragments {
             for member in members {
@@ -337,12 +348,20 @@ async fn longitudinal_renderings(
                     } => {
                         service
                             .objects
-                            .read_text_prefix(&content_hash, byte_length, 2048)
+                            .read_text_prefix(
+                                &content_hash,
+                                byte_length,
+                                budget.fragment_max_bytes as u64,
+                            )
                             .await?
                     }
                 };
                 if let Some(text) = text {
-                    append_rendering(&mut result.entry(revision).or_default().text, &text);
+                    append_rendering(
+                        &mut result.entry(revision).or_default().text,
+                        &text,
+                        budget.total_max_bytes,
+                    );
                 }
             }
         }
@@ -350,8 +369,8 @@ async fn longitudinal_renderings(
     Ok(result)
 }
 
-fn append_rendering(output: &mut String, text: &str) {
-    let remaining = 65536_usize.saturating_sub(output.len() + 1);
+fn append_rendering(output: &mut String, text: &str, maximum: usize) {
+    let remaining = maximum.saturating_sub(output.len() + 1);
     if remaining == 0 {
         return;
     }

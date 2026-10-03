@@ -343,6 +343,8 @@ pub struct MaintenancePolicy {
     pub max_model_calls: u32,
     #[prost(uint32, tag="10")]
     pub max_elapsed_ms: u32,
+    #[prost(uint32, tag="11")]
+    pub experience_batch_size: u32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct PlanMaintenanceRequest {

@@ -14,6 +14,8 @@ import { ModelMaterialService } from "@nous-wave/protocol/nous/wave/kernel/v1alp
 import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 
 import { KernelConfigurationService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/configuration_pb.js";
+const MAX_WORKFLOW_RPC_BYTES = 8 * 1024 * 1024 + 65536;
+
 export class KernelClient {
   readonly hostRuntime;
   readonly configuration;
@@ -45,8 +47,8 @@ export class KernelClient {
       createGrpcTransport({
         baseUrl: endpoint,
         defaultTimeoutMs: execution.kernel_rpc_timeout_ms,
-        readMaxBytes: 8 * 1024 * 1024 + 65536,
-        writeMaxBytes: 8 * 1024 * 1024 + 65536,
+        readMaxBytes: MAX_WORKFLOW_RPC_BYTES,
+        writeMaxBytes: MAX_WORKFLOW_RPC_BYTES,
         interceptors: [
           (next) => async (request) => {
             request.header.set("authorization", "Bearer " + token);

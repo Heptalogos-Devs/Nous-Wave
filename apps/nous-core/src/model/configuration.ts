@@ -103,6 +103,22 @@ export function resolveRoleBinding(
 }
 
 export const modelConfigurationShape = {
+  material_inputs: z
+    .strictObject({
+      formation_source_max_bytes: z
+        .number()
+        .int()
+        .min(1)
+        .max(1048576)
+        .default(32768),
+      derivation_source_max_bytes: z
+        .number()
+        .int()
+        .min(1)
+        .max(1048576)
+        .default(1048576),
+    })
+    .prefault({}),
   video: z
     .strictObject({
       input_mode: z.enum(["direct", "frames"]).default("direct"),
@@ -115,6 +131,7 @@ export const modelConfigurationShape = {
         .default(16777216),
       max_video_seconds: z.number().positive().max(3600).default(60),
       max_frames: z.number().int().min(1).max(16).default(8),
+      frame_end_margin_seconds: z.number().min(0).max(1).default(0.1),
       max_frame_bytes: z.number().int().min(1024).max(1048576).default(262144),
       max_audio_bytes: z.number().int().min(44).max(16777216).default(4194304),
       process_timeout_ms: boundedTimeout.default(30000),

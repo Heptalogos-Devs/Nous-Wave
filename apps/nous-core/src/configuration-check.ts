@@ -30,6 +30,9 @@ export async function checkConfiguration(
     );
     const { models } = parseEffectiveConfiguration({
       ...document,
+      "material.inputs": (
+        document.material as Record<string, unknown> | undefined
+      )?.inputs,
       "material.strategy": (
         document.material as Record<string, unknown> | undefined
       )?.strategy,

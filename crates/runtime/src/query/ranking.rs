@@ -42,6 +42,8 @@ pub const QUERY_VALIDATION_MULTIPLIER: ConfigKey<usize> =
 pub const QUERY_VALIDATION_MIN: ConfigKey<usize> = ConfigKey::new("retrieval.query.validation_min");
 pub const QUERY_VALIDATION_MAX: ConfigKey<usize> = ConfigKey::new("retrieval.query.validation_max");
 
+pub const DEFAULT_RESULT_LIMIT: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.default_result_limit");
 pub const LANE_MIN_KEY: ConfigKey<usize> = ConfigKey::new("retrieval.query.lane_min");
 pub const TOPOLOGY_HOPS_LIGHT_KEY: ConfigKey<usize> =
     ConfigKey::new("retrieval.query.topology_hops.light");
@@ -235,6 +237,7 @@ fn register_query_allocations(
     reference: &nous_configuration::ReferenceProfile,
 ) -> Result<()> {
     for key in [
+        DEFAULT_RESULT_LIMIT,
         LANE_MIN_KEY,
         TOPOLOGY_HOPS_LIGHT_KEY,
         TOPOLOGY_HOPS_NORMAL_KEY,
@@ -268,6 +271,12 @@ fn register_query_allocations(
         )?;
         registry.bounds(key, 1, 65536, Some("items"))?;
     }
+    registry.bounds(
+        DEFAULT_RESULT_LIMIT,
+        1,
+        nous_core::MAX_QUERY_RESULT_ITEMS,
+        Some("items"),
+    )?;
     Ok(())
 }
 

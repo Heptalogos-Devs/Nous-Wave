@@ -44,7 +44,7 @@ pub use consolidation::*;
 pub use episode::*;
 pub use journal::*;
 pub use longitudinal_policy::{
-    CONSOLIDATION_CONTEXT, CONSOLIDATION_MAX_ACTIONS, ConsolidationContextPolicy,
+    CONSOLIDATION_CONTEXT, CONSOLIDATION_MAX_ACTIONS, ConsolidationContextPolicy, EPISODE_SYNOPSIS,
 };
 pub use maintenance_planning::MaintenanceScope;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
