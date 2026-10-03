@@ -18,7 +18,7 @@ openai-audio-transcription
 rerank-v1
 ```
 
-Capabilities 包括 text、image_input、audio_input、video_input、structured_output、embedding、speech_transcription 与 rerank。角色绑定 model profile、Prompt、generation parameters、timeout 与 `optional | preferred | required` requirement。角色包括 projection_steward、memory_formation、material_description、material_structuring、material_direct_structuring、query_embedding、query_rerank 与 speech_transcription。全局 temperature 或 max-token override 不存在。
+Capabilities 包括 text、image_input、audio_input、video_input、structured_output、embedding、speech_transcription 与 rerank。角色绑定 model profile、Prompt、generation parameters、timeout 与 `optional | preferred | required` requirement。角色包括 projection_steward、memory_formation、material_description、material_structuring、material_direct_structuring、query_embedding、query_rerank、speech_transcription、episode_segmentation、journal_synthesis 与 memory_consolidation。全局 temperature 或 max-token override 不存在。
 
 角色只有在其 profile、gateway、credential reference、Prompt 和本地 prerequisites 足以发起调用时才为 READY。未完整配置为 NOT_CONFIGURED；缺少本地 prerequisite 为 UNAVAILABLE。HTTP、timeout、cancellation 与输出校验结果由对应 operation 返回。optional/preferred fallback 由该 operation 定义；required role 不可用时 operation 失败。
 

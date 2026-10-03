@@ -30,3 +30,7 @@ Memory revision 的 `producerSignatureId` 可用 `client.material.producer` 读�
 完整配置与语义合同见 [Gateway/model/Prompt Spec](../specs/active/model-runtime/gateway-model-and-prompts.md)、[Material Spec](../specs/active/model-runtime/material-derivation.md)。
 
 [返回文档目录](../INDEX.md)
+
+## 纵向维护角色
+
+`episode_segmentation`、`journal_synthesis`、`memory_consolidation` 使用 text + structured_output profile 和 canonical Zod schema。Core 的 `client.cognition.grantMaintenance({ subjectId, maxOperations, maxModelCalls, maxElapsedMs })` 执行有界机会，Rust owner 验证并提交模型 proposal。角色配置、Prompt 和超时沿用现有 ModelProfile/RoleBinding 机制。数据身份与重试语义见 [纵向认知合同](../specs/active/cognitive-runtime/longitudinal-cognition.md)。

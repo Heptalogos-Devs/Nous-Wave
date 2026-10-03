@@ -26,7 +26,7 @@ Bootstrap 部分提供数据库模式、外部数据库 credential reference、p
 
 `model_profiles` 描述 gateway、标准 protocol、model identifier、能力和可选 revision。Embedding profile 同时声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics，组成 EmbeddingSpaceSignature。角色通过 `roles` 绑定 model profile、Prompt、generation parameters、timeout 与 `optional | preferred | required` requirement。
 
-当前 role 包括 projection steward、Memory formation、material description/structuring/direct structuring、query embedding/rerank 和 speech transcription。Supported protocol 是 `openai-chat`、`openai-responses`、`openai-embeddings`、`openai-audio-transcription` 与 `rerank-v1`。
+当前 role 包括 projection steward、Memory formation、material description/structuring/direct structuring、query embedding/rerank、speech transcription、episode segmentation、Journal synthesis 和 Memory consolidation。Supported protocol 是 `openai-chat`、`openai-responses`、`openai-embeddings`、`openai-audio-transcription` 与 `rerank-v1`。
 
 Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前缀引用 ConfigurationRoot/prompts 下的文件。Prompt 必须是 UTF-8、位于所属 root 内且不超过 128 KiB。Producer identity 包含 Prompt 与 role config digest；token 不进入 ProducerSignature。
 
@@ -41,3 +41,25 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 `consumers` 按 consumer id/revision 保存 Memory、Runtime、Resource contribution requirements 与 item/text budgets。Consumer policy 为一次调用限定各 owner 可贡献的内容和预算；领域 Authority 仍由对应 owner 持有。
 
 [返回 Reference](README.md)
+
+## 纵向认知配置
+
+这些 typed settings 由 Runtime/Memory registry 定义，支持 registry 声明的 live scope override；实际生效快照由 Configuration Service 读取。
+
+| Setting | 默认值 | 单位/含义 |
+| --- | --- | --- |
+| `maintenance.enabled` | true | host maintenance 开关 |
+| `maintenance.poll_interval` | 30 | standalone loop 的基础设施秒 |
+| `maintenance.worker_lease_seconds` | 120 | worker lease 的基础设施秒 |
+| `maintenance.max_operations_per_grant` | 4 | 每次机会的操作数上限 |
+| `episode.soft_idle` | 300 | 认知秒 |
+| `episode.hard_idle` | 1800 | 认知秒 |
+| `episode.settle_delay` | 300 | semantic review 的认知秒 |
+| `episode.max_neighbor_episodes` | 8 | 局部 repair 的 Episode 数 |
+| `episode.max_neighbor_span` | 86400 | 局部 repair 的认知秒 |
+| `journal.max_episode_count` | 12 | 一次 Journal synthesis 的 Episode 数 |
+| `journal.max_span` | 86400 | Journal scope 的认知秒 |
+| `consolidation.settle_delay` | 300 | 整合前的认知秒 |
+| `consolidation.max_actions` | 8 | 一个原子整合 proposal 的 action 数 |
+
+`GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`poll_interval` 与 `worker_lease_seconds` 为 system-only，其他以上设置允许 Subject override。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。

@@ -42,7 +42,7 @@ Core 解析 model profiles 与 Prompts，调用 embedding、rerank、media deriv
 
 ## 当前边界
 
-当前可供给的认知能力组合为 Memory-only。Episode authority 归 Memory；Episode API 支持显式组织与修订，automatic segmentation 属于后续目标。
+当前可供给的认知能力组合为 Memory-only。Episode authority 归 Memory；Runtime 自动组织 Session Experience；Memory 持有 Episode/Journal Authority；Core 提供有界维护机会、模型 refinement、Journal synthesis 和 Memory/Schema consolidation。具体合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
 
 Windows x64 portable assembly 使用 LLVM-MinGW UCRT 生成 shipping Kernel，并携带所需私有运行时 DLL。独立运行目录、配置、数据和第三方 runtime 布局见 [Runtime Bundle Spec](../specs/active/deployment/runtime-bundle.md)。
 

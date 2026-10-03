@@ -19,7 +19,9 @@ ReportUse batch 先按 key 分组：同 key/same digest 的同批输入 coalesce
 
 只有 newly accepted events 改变 Session/ResidentSet。`presented` 可写 durable event 并更新 activity，但不进入 ResidentSet；`referenced`、`acted_on`、`result_supported`、`result_refuted`、`corrected`、`pinned` 等 meaningful use 才刷新 exact resident ref 与 meaningful-use time。duplicate-only request 不改变 activity、resident 或 runtime revision；同一 batch 的多个新 event 只推进一次 runtime revision。
 
-UseEvent target 只接受 exact Memory/Schema revision，不接受 mutable Memory/Schema id。Context 仅保存受限 metadata，不保存 prompt、正文或 raw artifact。
+UseEvent target 只接受 exact Memory/Schema/Episode/Journal revision，不接受 mutable object id。Context 仅保存受限 metadata，不保存 prompt、正文或 raw artifact。
+
+Episode/Journal meaningful use 可进入 ResidentSet，检索命中本身不增加 residency；其访问使用 current lifecycle，年龄衰减仅用于 Memory/Schema。
 
 ## Accessibility
 
