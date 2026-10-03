@@ -103,7 +103,8 @@ it("rejects stale configuration semantics and checks examples and explicit refer
     });
     const initialized = await initializeConfiguration(locations);
     const text = `config_revision = ${CONFIG_REVISION}\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.local]\nbase_url = "http://127.0.0.1:3000/v1"\ncredential_env = "NOUS_OFFLINE_CHECK_TOKEN"\n[model_profiles.local]\ngateway = "local"\nprotocol = "openai-chat"\nmodel = "local"\ncapabilities = ["text"]\n[roles.memory_formation]\nmodel = "local"\nprompt = "config-prompts/missing.md"\n`;
-    await writeFile(initialized.path, text);
+    const missingKernel = `\n[host]\nkernel_executable = ${JSON.stringify(join(root, "missing-kernel"))}\n`;
+    await writeFile(initialized.path, text + missingKernel);
     const result = await checkConfiguration(locations, true);
     expect(result.issues).toContainEqual(
       expect.objectContaining({
@@ -111,7 +112,13 @@ it("rejects stale configuration semantics and checks examples and explicit refer
         code: "invalid_reference",
       }),
     );
-    expect(await readFile(initialized.path, "utf8")).toBe(text);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        path: "host.kernel_executable",
+        code: "validator_unavailable",
+      }),
+    );
+    expect(await readFile(initialized.path, "utf8")).toBe(text + missingKernel);
     expect(process.env.NOUS_OFFLINE_CHECK_TOKEN).toBeUndefined();
   } finally {
     await rm(root, { recursive: true, force: true });

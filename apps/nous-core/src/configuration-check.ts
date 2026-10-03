@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { configurationBundle } from "./configuration-catalog.js";
@@ -27,18 +28,6 @@ export async function checkConfiguration(
       locations,
       development,
     );
-    const bundle = configurationBundle(document);
-    await mkdir(locations.temp, { recursive: true });
-    const bundlePath = join(locations.temp, `config-check-${process.pid}.json`);
-    try {
-      await writeFile(bundlePath, JSON.stringify(bundle), { mode: 0o600 });
-      await promisify(execFile)(
-        kernelExecutable(locations, development, config.host.kernel_executable),
-        ["--check-configuration", bundlePath],
-      );
-    } finally {
-      await rm(bundlePath, { force: true });
-    }
     const { models } = parseEffectiveConfiguration({
       ...document,
       "material.strategy": (
@@ -112,6 +101,31 @@ export async function checkConfiguration(
           code: "invalid_reference",
           message: "Configured executable must refer to an existing file",
         });
+    }
+    const bundle = configurationBundle(document);
+    await mkdir(locations.temp, { recursive: true });
+    const bundlePath = join(
+      locations.temp,
+      `config-check-${randomUUID()}.json`,
+    );
+    try {
+      await writeFile(bundlePath, JSON.stringify(bundle), { mode: 0o600 });
+      await promisify(execFile)(
+        kernelExecutable(locations, development, config.host.kernel_executable),
+        ["--check-configuration", bundlePath],
+      );
+    } catch (error) {
+      const unavailable =
+        error instanceof Error && "code" in error && error.code === "ENOENT";
+      issues.push({
+        path: unavailable ? "host.kernel_executable" : "catalog",
+        code: unavailable ? "validator_unavailable" : "invalid_configuration",
+        message: unavailable
+          ? "Kernel Catalog validator executable is unavailable"
+          : "Configuration document failed Kernel Catalog validation",
+      });
+    } finally {
+      await rm(bundlePath, { force: true });
     }
   } catch (error) {
     if (error instanceof ConfigurationError) issues.push(...error.issues);
