@@ -6,7 +6,10 @@ import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { MaintenancePlanSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import { ProducerSignatureSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import { create } from "@bufbuild/protobuf";
-import { parseConfiguration } from "../../apps/nous-core/src/config.js";
+import {
+  parseConfiguration,
+  parseEffectiveConfiguration,
+} from "../../apps/nous-core/src/config.js";
 import { ModelRuntime } from "../../apps/nous-core/src/model/runtime.js";
 import {
   episodePartitionSchema,
@@ -67,10 +70,16 @@ async function run() {
     throw new Error(
       "Input must be a ready bounded MaintenancePlan with an exact Subject/source catalog",
     );
-  const { models: configuration } = parseConfiguration(
+  const { document } = parseConfiguration(
     await readFile(resolve(values.config), "utf8"),
     true,
   );
+  const { models: configuration } = parseEffectiveConfiguration({
+    ...document,
+    "material.strategy": (
+      document.material as Record<string, unknown> | undefined
+    )?.strategy,
+  });
   const models = await ModelRuntime.fromConfig(
     configuration,
     resolve(values["prompt-root"]!),

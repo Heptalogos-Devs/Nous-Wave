@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 nous-core.workspace = true
+nous-configuration.workspace = true
 nous-persistence.workspace = true
 nous-object-store.workspace = true
 nous-runtime.workspace = true

@@ -1,3 +1,10 @@
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import { ValueSchema } from "@bufbuild/protobuf/wkt";
+export {
+  ConfigExposure,
+  ConfigurationView,
+} from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
+import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import {
   createClient,
   ConnectError,
@@ -88,7 +95,17 @@ export function createNousClient(transport: Transport) {
   const topology = createClient(TopologyService, transport);
   const system = createClient(SystemService, transport);
   const model = createClient(ModelService, transport);
+  const configuration = createClient(ConfigurationService, transport);
   return {
+    configuration: {
+      list: call(configuration.listConfigDescriptors),
+      describe: call(configuration.getConfigDescriptor),
+      get: call(configuration.getConfiguration),
+      setSystem: call(configuration.setSystemOverride),
+      clearSystem: call(configuration.clearSystemOverride),
+      setSubject: call(configuration.setSubjectOverride),
+      clearSubject: call(configuration.clearSubjectOverride),
+    },
     identity: {
       bind: call(identity.bindIdentity),
       resolve: call(identity.resolveIdentity),
@@ -123,7 +140,6 @@ export function createNousClient(transport: Transport) {
     system: {
       status: call(system.getStatus),
       capabilities: call(system.getCapabilities),
-      config: call(system.getEffectiveConfig),
       projections: call(system.getProjectionStatus),
     },
     subjects: {
@@ -212,3 +228,8 @@ export function createNousClient(transport: Transport) {
   };
 }
 export type NousClient = ReturnType<typeof createNousClient>;
+
+/** CLI and management callers use one JSON syntax for scalar and structured values. */
+export function configurationValue(text: string) {
+  return fromJson(ValueSchema, JSON.parse(text) as JsonValue);
+}

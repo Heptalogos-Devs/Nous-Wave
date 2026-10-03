@@ -1,9 +1,14 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { configurationBundle } from "./configuration-catalog.js";
 import { join, resolve } from "node:path";
-import { stat } from "node:fs/promises";
+import { stat, mkdir, writeFile, rm } from "node:fs/promises";
 import {
   CONFIG_REVISION,
   ConfigurationError,
   readConfiguration,
+  parseEffectiveConfiguration,
+  kernelExecutable,
 } from "./config.js";
 import type { RuntimeLocations } from "./locations.js";
 import { PromptRegistry } from "./model/prompts.js";
@@ -17,7 +22,28 @@ export async function checkConfiguration(
   const configuration = join(locations.config, "nous.toml");
   const issues: { path: string; code: string; message: string }[] = [];
   try {
-    const { config, models } = await readConfiguration(locations, development);
+    const { config, document } = await readConfiguration(
+      locations,
+      development,
+    );
+    const bundle = configurationBundle(document);
+    await mkdir(locations.temp, { recursive: true });
+    const bundlePath = join(locations.temp, `config-check-${process.pid}.json`);
+    try {
+      await writeFile(bundlePath, JSON.stringify(bundle), { mode: 0o600 });
+      await promisify(execFile)(
+        kernelExecutable(locations, development, config.host.kernel_executable),
+        ["--check-configuration", bundlePath],
+      );
+    } finally {
+      await rm(bundlePath, { force: true });
+    }
+    const { models } = parseEffectiveConfiguration({
+      ...document,
+      "material.strategy": (
+        document.material as Record<string, unknown> | undefined
+      )?.strategy,
+    });
     const prompts = new PromptRegistry(
       join(locations.program, "prompts"),
       join(locations.config, "prompts"),
@@ -51,14 +77,14 @@ export async function checkConfiguration(
     for (const [key, path] of [
       [
         "video.ffmpeg_executable",
-        config.video.ffmpeg_executable
-          ? resolve(locations.config, config.video.ffmpeg_executable)
+        models.video.ffmpeg_executable
+          ? resolve(locations.config, models.video.ffmpeg_executable)
           : undefined,
       ],
       [
         "kernel_executable",
-        config.kernel_executable
-          ? resolve(locations.program, config.kernel_executable)
+        config.host.kernel_executable
+          ? resolve(locations.program, config.host.kernel_executable)
           : undefined,
       ],
     ]) {
@@ -74,8 +100,8 @@ export async function checkConfiguration(
     else
       issues.push({
         path: "nous.toml",
-        code: "unreadable_file",
-        message: "Configuration file could not be read",
+        code: "invalid_configuration",
+        message: "Configuration file or Catalog validation failed",
       });
   }
   return {

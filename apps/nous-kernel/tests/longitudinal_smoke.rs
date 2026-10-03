@@ -28,10 +28,11 @@ impl Server {
     async fn open(url: &str, root: &Path, clock: Arc<ManualCognitiveClock>, token: &str) -> Self {
         let runtime = NousRuntime::open_with_clock(RuntimeOptions {
             postgres_url:url.into(),max_connections:8,
-            object_root:root.join("objects").to_string_lossy().into_owned(),max_upload_bytes:1048576,
+            object_root:root.join("objects").to_string_lossy().into_owned(),
             serving_options:ServingOptions { root:root.join("serving"),lexical:true,dense:false,topology:false,memory_enabled:true },
             embedding:None,stored_embedding:None,
-            deployment_settings:serde_json::json!({"settings":{"serving":{"lexical":{"enabled":true},"dense":{"enabled":false},"topology":{"enabled":false}}}}),
+            core_descriptors: vec![],
+        deployment_document:serde_json::json!({"serving":{"lexical":{"enabled":true},"dense":{"enabled":false},"topology":{"enabled":false}}}),
         },clock).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());

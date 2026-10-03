@@ -1,3 +1,8 @@
+import {
+  ConfigExposure,
+  ConfigurationView,
+  configurationValue,
+} from "@nous-wave/client";
 import { connectNousInstance } from "@nous-wave/client/node";
 import { webSource } from "@nous-wave/client";
 import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
@@ -26,6 +31,10 @@ const { values, positionals } = parseArgs({
     "aboutness-mode": { type: "string" },
     aboutness: { type: "string", multiple: true },
     "query-file": { type: "string" },
+    subject: { type: "string" },
+    desired: { type: "boolean" },
+    advanced: { type: "boolean" },
+    developer: { type: "boolean" },
     "max-batches": { type: "string", default: "16" },
   },
 });
@@ -98,6 +107,7 @@ async function main() {
     return {
       commands: [
         "status",
+        "config list|describe|get|set|clear|check [path] [JSON value] [--subject id] [--desired] [--advanced|--developer]",
         "subject create|list|use <id>",
         "session open|show|close",
         "observe text --text <text> --source <url>",
@@ -119,6 +129,46 @@ async function main() {
     runRoot: resolve(values["run-root"]),
   });
   const state = await selection();
+  if (command === "config") {
+    const exposureCeiling = values.developer
+      ? ConfigExposure.DEVELOPER
+      : values.advanced
+        ? ConfigExposure.ADVANCED
+        : ConfigExposure.STANDARD;
+    if (action === "list")
+      return client.configuration.list({ exposureCeiling });
+    const path = required(argument, "Configuration path");
+    if (action === "describe") return client.configuration.describe({ path });
+    if (action === "get")
+      return client.configuration.get({
+        paths: [path],
+        subjectId: values.subject,
+        view: values.desired
+          ? ConfigurationView.DESIRED
+          : ConfigurationView.ACTIVE,
+      });
+    const operationId = values["operation-id"] ?? crypto.randomUUID();
+    if (action === "set") {
+      const value = configurationValue(required(positionals[3], "JSON value"));
+      return values.subject
+        ? client.configuration.setSubject({
+            operationId,
+            path,
+            value,
+            subjectId: values.subject,
+          })
+        : client.configuration.setSystem({ operationId, path, value });
+    }
+    if (action === "clear")
+      return values.subject
+        ? client.configuration.clearSubject({
+            operationId,
+            path,
+            subjectId: values.subject,
+          })
+        : client.configuration.clearSystem({ operationId, path });
+    throw new Error("Use config list|describe|get|set|clear|check");
+  }
   if (command === "status")
     return {
       status: await client.system.status({}),

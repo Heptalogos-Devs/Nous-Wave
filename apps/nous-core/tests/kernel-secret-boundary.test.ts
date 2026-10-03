@@ -23,11 +23,9 @@ it("keeps the configured gateway credential in Core and excludes it from the Ker
   const old = process.env[name];
   process.env[name] = "fixture-bearer";
   try {
-    await expect(
-      startKernel("kernel", "config", {
-        credentialEnvironments: [name.toLowerCase()],
-      }),
-    ).rejects.toThrow("capture launch boundary");
+    await expect(startKernel("kernel", "config")).rejects.toThrow(
+      "capture launch boundary",
+    );
     expect(observed.inherited).toBe(false);
     expect(process.env[name]).toBe("fixture-bearer");
   } finally {

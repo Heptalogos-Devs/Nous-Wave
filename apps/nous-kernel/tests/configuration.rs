@@ -1,7 +1,7 @@
 #[path = "test_support/mod.rs"]
 mod test_support;
 
-use nous_configuration::{ConfigActorTier, ConfigKey, SUBJECT_DEFAULT_MEMORY};
+use nous_configuration::{ConfigKey, SUBJECT_DEFAULT_MEMORY};
 use nous_core::OperationId;
 use nous_subject::{CognitiveSeedInput, CreateSubject};
 use serde_json::json;
@@ -40,12 +40,7 @@ async fn configuration_precedence_permissions_and_restart_state_are_explicit() {
         0.02
     );
     service
-        .set_system_override(
-            OperationId::new(),
-            EPSILON.path(),
-            json!(0.04),
-            ConfigActorTier::Developer,
-        )
+        .set_system_override(OperationId::new(), EPSILON.path(), json!(0.04))
         .await
         .expect("system override");
     assert_eq!(
@@ -57,13 +52,7 @@ async fn configuration_precedence_permissions_and_restart_state_are_explicit() {
         0.04
     );
     service
-        .set_subject_override(
-            OperationId::new(),
-            subject,
-            EPSILON.path(),
-            json!(0.08),
-            ConfigActorTier::AdvancedUser,
-        )
+        .set_subject_override(OperationId::new(), subject, EPSILON.path(), json!(0.08))
         .await
         .expect("subject override");
     assert_eq!(
@@ -74,27 +63,9 @@ async fn configuration_precedence_permissions_and_restart_state_are_explicit() {
             .unwrap(),
         0.08
     );
-    assert!(
-        service
-            .set_subject_override(
-                OperationId::new(),
-                subject,
-                EPSILON.path(),
-                json!(0.09),
-                ConfigActorTier::StandardUser,
-            )
-            .await
-            .is_err()
-    );
-
     let active = service.active_system_snapshot().unwrap();
     let outcome = service
-        .set_system_override(
-            OperationId::new(),
-            "runtime.resident_limit",
-            json!(512),
-            ConfigActorTier::Developer,
-        )
+        .set_system_override(OperationId::new(), "runtime.resident_limit", json!(512))
         .await
         .expect("restart override");
     assert!(outcome.pending_restart);
@@ -142,13 +113,7 @@ async fn configuration_receipts_freeze_subject_scope_and_replay_outcomes() {
     let service = &runtime.configuration;
     let first_id = OperationId::new();
     let first = service
-        .set_subject_override(
-            first_id,
-            subject,
-            EPSILON.path(),
-            json!(0.08),
-            ConfigActorTier::AdvancedUser,
-        )
+        .set_subject_override(first_id, subject, EPSILON.path(), json!(0.08))
         .await
         .expect("first subject override");
     assert_eq!(
@@ -165,23 +130,11 @@ async fn configuration_receipts_freeze_subject_scope_and_replay_outcomes() {
     );
 
     let later = service
-        .set_subject_override(
-            OperationId::new(),
-            subject,
-            EPSILON.path(),
-            json!(0.09),
-            ConfigActorTier::AdvancedUser,
-        )
+        .set_subject_override(OperationId::new(), subject, EPSILON.path(), json!(0.09))
         .await
         .expect("later subject override");
     let replay = service
-        .set_subject_override(
-            first_id,
-            subject,
-            EPSILON.path(),
-            json!(0.08),
-            ConfigActorTier::AdvancedUser,
-        )
+        .set_subject_override(first_id, subject, EPSILON.path(), json!(0.08))
         .await
         .expect("replay original subject override");
     assert_eq!(replay.revision, first.revision);
@@ -190,13 +143,7 @@ async fn configuration_receipts_freeze_subject_scope_and_replay_outcomes() {
     assert_ne!(later.active_digest, replay.active_digest);
     assert!(matches!(
         service
-            .set_subject_override(
-                first_id,
-                subject,
-                EPSILON.path(),
-                json!(0.1),
-                ConfigActorTier::AdvancedUser,
-            )
+            .set_subject_override(first_id, subject, EPSILON.path(), json!(0.1),)
             .await,
         Err(nous_core::Error::Conflict(_))
     ));
@@ -210,18 +157,8 @@ async fn concurrent_configuration_mutations_publish_one_complete_snapshot() {
     let first_id = OperationId::new();
     let second_id = OperationId::new();
     let (first, second) = tokio::join!(
-        service.set_system_override(
-            first_id,
-            EPSILON.path(),
-            json!(0.11),
-            ConfigActorTier::Developer,
-        ),
-        service.set_system_override(
-            second_id,
-            TAU_DAYS.path(),
-            json!(42.0),
-            ConfigActorTier::Developer,
-        )
+        service.set_system_override(first_id, EPSILON.path(), json!(0.11),),
+        service.set_system_override(second_id, TAU_DAYS.path(), json!(42.0),)
     );
     first.expect("epsilon mutation");
     second.expect("tau mutation");
@@ -230,12 +167,7 @@ async fn concurrent_configuration_mutations_publish_one_complete_snapshot() {
     assert_eq!(snapshot.get(TAU_DAYS).expect("tau"), 42.0);
     assert!(
         service
-            .set_system_override(
-                first_id,
-                EPSILON.path(),
-                json!(0.12),
-                ConfigActorTier::Developer,
-            )
+            .set_system_override(first_id, EPSILON.path(), json!(0.12),)
             .await
             .is_err()
     );

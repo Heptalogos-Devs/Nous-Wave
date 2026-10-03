@@ -117,8 +117,7 @@ impl ServingService {
         }
         self.store.require_subject(subject).await?;
         let provider = self
-            .embedding
-            .as_ref()
+            .embedding()
             .ok_or_else(|| Error::Unavailable("embedding space not configured".into()))?;
         let config = provider.space();
         let producer = provider.producer();
@@ -158,8 +157,7 @@ impl ServingService {
     ) -> Result<()> {
         self.store.validate_reference(subject, &reference).await?;
         let configured = self
-            .embedding
-            .as_ref()
+            .embedding()
             .ok_or_else(|| Error::Unavailable("embedding not configured".into()))?;
         if configured.space().space_hash != space
             || configured.producer().signature_hash != producer

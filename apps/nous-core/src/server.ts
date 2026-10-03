@@ -1,3 +1,4 @@
+import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import Fastify from "fastify";
 import { grantMaintenance } from "./maintenance/grants.js";
 import { ResourceRegistry } from "./resources/registry.js";
@@ -439,16 +440,6 @@ export async function createCore(settings: CoreOptions) {
     },
     getProjectionStatus: (r, c) =>
       kernel.authority.getProjectionStatus(r, options(c)),
-    getEffectiveConfig: () => ({
-      entries: settings.consumers.map((p) => ({
-        key: `consumer.${p.consumerId}`,
-        value: JSON.stringify(p),
-        source: "CONFIG",
-        owner: "host",
-        restartRequired: true,
-        editable: false,
-      })),
-    }),
   };
   await app.register(fastifyConnectPlugin, {
     routes: (router) => {
@@ -460,6 +451,22 @@ export async function createCore(settings: CoreOptions) {
       router.service(ResourceService, resources);
       router.service(TopologyService, topology);
       router.service(SystemService, system);
+      router.service(ConfigurationService, {
+        listConfigDescriptors: (r, c) =>
+          kernel.configuration.listConfigDescriptors(r, options(c)),
+        getConfigDescriptor: (r, c) =>
+          kernel.configuration.getConfigDescriptor(r, options(c)),
+        getConfiguration: (r, c) =>
+          kernel.configuration.getConfiguration(r, options(c)),
+        setSystemOverride: (r, c) =>
+          kernel.configuration.setSystemOverride(r, options(c)),
+        clearSystemOverride: (r, c) =>
+          kernel.configuration.clearSystemOverride(r, options(c)),
+        setSubjectOverride: (r, c) =>
+          kernel.configuration.setSubjectOverride(r, options(c)),
+        clearSubjectOverride: (r, c) =>
+          kernel.configuration.clearSubjectOverride(r, options(c)),
+      });
       router.service(ModelService, modelOperations(kernel, modelRuntime));
     },
     grpc: false,

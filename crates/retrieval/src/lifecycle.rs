@@ -27,7 +27,7 @@ impl ServingService {
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
         }
         if family == "dense"
-            && let Some(provider) = &self.embedding
+            && let Some(provider) = self.embedding()
         {
             config["space"] = serde_json::to_value(provider.space())
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
@@ -112,7 +112,7 @@ impl ServingService {
             requested.push(("topology", String::new()));
         }
         if need.dense && self.options.dense {
-            if let Some(provider) = &self.embedding {
+            if let Some(provider) = self.embedding() {
                 requested.push(("dense", provider.space().space_hash));
             } else {
                 requested.extend(

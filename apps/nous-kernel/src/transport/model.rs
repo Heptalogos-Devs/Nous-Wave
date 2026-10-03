@@ -9,8 +9,7 @@ impl KernelService {
         let provider = self
             .0
             .serving
-            .embedding
-            .as_ref()
+            .embedding()
             .ok_or_else(|| Error::Unavailable("embedding space not configured".into()))?;
         let space = provider.space();
         Ok(k::EmbeddingConfig {
@@ -32,8 +31,7 @@ impl KernelService {
             let provider = self
                 .0
                 .serving
-                .embedding
-                .as_ref()
+                .embedding()
                 .ok_or_else(|| Error::Unavailable("embedding space not configured".into()))?;
             let space = provider.space();
             let producer = provider.producer();

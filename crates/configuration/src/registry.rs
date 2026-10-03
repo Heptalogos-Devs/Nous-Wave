@@ -1,81 +1,146 @@
 use crate::key::*;
 use nous_core::{Error, Result};
-use serde::{Serialize, de::DeserializeOwned};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::{collections::BTreeMap, sync::Arc};
 
+pub const CONFIG_SCHEMA_DIALECT: &str = "https://json-schema.org/draft/2020-12/schema";
 pub type ConfigValidator = Arc<dyn Fn(&Value) -> Result<()> + Send + Sync>;
 
-#[derive(Clone)]
+/// Language-independent contract published by a semantic configuration owner.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigDescriptor {
     pub path: String,
     pub owner: String,
-    pub human_description: String,
-    pub value_type_name: String,
-    pub reference_default_json: Value,
+    pub title: String,
+    pub description: String,
+    pub category: String,
+    pub json_schema: Value,
+    pub reference_default: Value,
     pub exposure: ConfigExposure,
     pub scope_policy: ConfigScopePolicy,
+    pub storage_policy: ConfigStoragePolicy,
     pub apply_mode: ConfigApplyMode,
     pub semantic_effect: ConfigSemanticEffect,
-    validator: ConfigValidator,
+    pub unit: Option<String>,
+    pub sensitivity: ConfigSensitivity,
+    pub reference_profile: Option<String>,
 }
 
-impl ConfigDescriptor {
-    pub fn validate(&self, value: &Value) -> Result<()> {
-        (self.validator)(value)
+#[derive(Clone)]
+struct RegisteredDescriptor {
+    descriptor: ConfigDescriptor,
+    schema: Arc<jsonschema::Validator>,
+    owner_validator: Option<ConfigValidator>,
+}
+
+impl RegisteredDescriptor {
+    fn validate(&self, value: &Value) -> Result<()> {
+        self.schema.validate(value).map_err(|error| {
+            // Diagnostics expose schema location, never a possibly sensitive value.
+            Error::Invalid(format!(
+                "invalid configuration {} at {}",
+                self.descriptor.path,
+                error.instance_path()
+            ))
+        })?;
+        if let Some(validator) = &self.owner_validator {
+            validator(value)?;
+        }
+        Ok(())
     }
 }
 
 #[derive(Clone)]
 pub struct ConfigRegistry {
-    descriptors: Arc<BTreeMap<String, ConfigDescriptor>>,
+    descriptors: Arc<BTreeMap<String, RegisteredDescriptor>>,
     digest: String,
 }
 
 impl ConfigRegistry {
     pub fn descriptor(&self, path: &str) -> Option<&ConfigDescriptor> {
-        self.descriptors.get(path)
+        self.descriptors.get(path).map(|entry| &entry.descriptor)
+    }
+
+    pub fn validate(&self, path: &str, value: &Value) -> Result<()> {
+        self.descriptors
+            .get(path)
+            .ok_or_else(|| Error::Invalid(format!("unknown configuration path: {path}")))?
+            .validate(value)
     }
 
     pub fn descriptors(&self) -> impl Iterator<Item = &ConfigDescriptor> {
-        self.descriptors.values()
+        self.descriptors.values().map(|entry| &entry.descriptor)
     }
 
     pub fn digest(&self) -> &str {
         &self.digest
     }
-
     pub fn paths(&self) -> impl Iterator<Item = &str> {
         self.descriptors.keys().map(String::as_str)
     }
-}
 
-pub struct ConfigRegistryBuilder {
-    descriptors: BTreeMap<String, ConfigDescriptor>,
-}
-
-impl Default for ConfigRegistryBuilder {
-    fn default() -> Self {
-        Self::new()
+    /// Consume a structured value at the first owning descriptor, including maps.
+    pub fn deployment_values(&self, document: &Value) -> Result<BTreeMap<String, Value>> {
+        let mut output = BTreeMap::new();
+        self.visit("", document, &mut output)?;
+        Ok(output)
     }
+
+    fn visit(&self, path: &str, value: &Value, output: &mut BTreeMap<String, Value>) -> Result<()> {
+        if self.descriptor(path).is_some() {
+            self.validate(path, value)?;
+            output.insert(path.to_owned(), value.clone());
+        } else if let Value::Object(children) = value {
+            // Even an empty unknown table is an unknown configuration path.
+            if !path.is_empty() && !self.paths().any(|key| key.starts_with(&format!("{path}."))) {
+                return Err(Error::Invalid(format!(
+                    "unknown configuration path: {path}"
+                )));
+            }
+            for (name, child) in children {
+                let child_path = if path.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{path}.{name}")
+                };
+                if name.contains('.') || !valid_key_path(&child_path) {
+                    return Err(Error::Invalid(format!(
+                        "invalid configuration path: {child_path}"
+                    )));
+                }
+                self.visit(&child_path, child, output)?;
+            }
+        } else {
+            return Err(Error::Invalid(format!(
+                "unknown configuration path: {path}"
+            )));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct ConfigRegistryBuilder {
+    descriptors: BTreeMap<String, RegisteredDescriptor>,
 }
 
 impl ConfigRegistryBuilder {
     pub fn new() -> Self {
-        Self {
-            descriptors: BTreeMap::new(),
-        }
+        Self::default()
     }
 
     #[expect(
         clippy::too_many_arguments,
-        reason = "registration keeps the complete descriptor contract at the owner boundary"
+        reason = "owner registration declares the complete policy contract"
     )]
     pub fn register<T>(
         &mut self,
         key: ConfigKey<T>,
         owner: impl Into<String>,
-        human_description: impl Into<String>,
+        description: impl Into<String>,
         default: T,
         exposure: ConfigExposure,
         scope_policy: ConfigScopePolicy,
@@ -84,65 +149,133 @@ impl ConfigRegistryBuilder {
         validator: impl Fn(&T) -> Result<()> + Send + Sync + 'static,
     ) -> Result<()>
     where
-        T: Clone + Serialize + DeserializeOwned + Send + Sync + 'static,
+        T: Clone + Serialize + DeserializeOwned + JsonSchema + Send + Sync + 'static,
     {
         let path = key.path();
-        if !valid_key_path(path) {
-            return Err(Error::Invalid(format!("invalid configuration key: {path}")));
-        }
-        if self.descriptors.contains_key(path) {
-            return Err(Error::Conflict(format!(
-                "configuration key is registered twice: {path}"
-            )));
-        }
-        let default_json = serde_json::to_value(&default)
-            .map_err(|error| Error::Invalid(format!("default value for {path}: {error}")))?;
         validator(&default)?;
-        let type_name = std::any::type_name::<T>().to_owned();
-        let validator = Arc::new(move |value: &Value| {
+        let reference_default =
+            serde_json::to_value(default).map_err(|error| Error::Invalid(error.to_string()))?;
+        let json_schema = serde_json::to_value(
+            schemars::generate::SchemaSettings::draft2020_12()
+                .into_generator()
+                .into_root_schema_for::<T>(),
+        )
+        .map_err(|error| Error::Internal(error.to_string()))?;
+        let descriptor = ConfigDescriptor {
+            path: path.to_owned(),
+            owner: owner.into(),
+            title: path.to_owned(),
+            description: description.into(),
+            category: path.split('.').next().unwrap_or(path).to_owned(),
+            json_schema,
+            reference_default,
+            exposure,
+            scope_policy,
+            storage_policy: ConfigStoragePolicy::Overrideable,
+            apply_mode,
+            semantic_effect,
+            unit: None,
+            sensitivity: ConfigSensitivity::Normal,
+            reference_profile: None,
+        };
+        let owner_validator: ConfigValidator = Arc::new(move |value| {
             let parsed: T = serde_json::from_value(value.clone())
-                .map_err(|error| Error::Invalid(format!("invalid value for {path}: {error}")))?;
+                .map_err(|_| Error::Invalid(format!("invalid configuration {path}")))?;
             validator(&parsed)
         });
-        self.descriptors.insert(
-            path.to_owned(),
-            ConfigDescriptor {
-                path: path.to_owned(),
-                owner: owner.into(),
-                human_description: human_description.into(),
-                value_type_name: type_name,
-                reference_default_json: default_json,
-                exposure,
-                scope_policy,
-                apply_mode,
-                semantic_effect,
-                validator,
-            },
-        );
+        self.insert(descriptor, Some(owner_validator))
+    }
+
+    /// Startup-only import; there is no live registration/plugin protocol.
+    pub fn import(&mut self, descriptor: ConfigDescriptor) -> Result<()> {
+        self.insert(descriptor, None)
+    }
+
+    /// Owner metadata/schema bounds are finalized and revalidated before publication.
+    pub fn describe(
+        &mut self,
+        path: &str,
+        update: impl FnOnce(&mut ConfigDescriptor),
+    ) -> Result<()> {
+        let entry = self
+            .descriptors
+            .remove(path)
+            .ok_or_else(|| Error::Invalid(format!("unknown configuration path: {path}")))?;
+        let mut descriptor = entry.descriptor;
+        update(&mut descriptor);
+        if descriptor.path != path {
+            return Err(Error::Invalid("descriptor identity cannot change".into()));
+        }
+        self.insert(descriptor, entry.owner_validator)
+    }
+
+    fn insert(
+        &mut self,
+        descriptor: ConfigDescriptor,
+        owner_validator: Option<ConfigValidator>,
+    ) -> Result<()> {
+        let path = &descriptor.path;
+        if !valid_key_path(path) || descriptor.owner.is_empty() || descriptor.category.is_empty() {
+            return Err(Error::Invalid(format!(
+                "invalid configuration descriptor: {path}"
+            )));
+        }
+        if self.descriptors.keys().any(|key| {
+            key == path
+                || key.starts_with(&format!("{path}."))
+                || path.starts_with(&format!("{key}."))
+        }) {
+            return Err(Error::Conflict(format!(
+                "overlapping configuration descriptor: {path}"
+            )));
+        }
+        if descriptor.storage_policy == ConfigStoragePolicy::DeploymentOnly
+            && (descriptor.scope_policy != ConfigScopePolicy::SystemOnly
+                || descriptor.apply_mode != ConfigApplyMode::RestartProcess)
+        {
+            return Err(Error::Invalid(format!(
+                "deployment-only descriptor must be system/restart: {path}"
+            )));
+        }
+        if descriptor
+            .json_schema
+            .get("$schema")
+            .and_then(Value::as_str)
+            != Some(CONFIG_SCHEMA_DIALECT)
+        {
+            return Err(Error::Invalid(format!(
+                "configuration schema must use Draft 2020-12: {path}"
+            )));
+        }
+        jsonschema::draft202012::meta::validate(&descriptor.json_schema)
+            .map_err(|_| Error::Invalid(format!("invalid configuration schema: {path}")))?;
+        let schema = jsonschema::draft202012::new(&descriptor.json_schema)
+            .map_err(|_| Error::Invalid(format!("cannot compile configuration schema: {path}")))?;
+        let entry = RegisteredDescriptor {
+            descriptor,
+            schema: Arc::new(schema),
+            owner_validator,
+        };
+        entry.validate(&entry.descriptor.reference_default)?;
+        self.descriptors
+            .insert(entry.descriptor.path.clone(), entry);
         Ok(())
     }
 
     pub fn finish(self) -> Result<ConfigRegistry> {
-        let digest_input = self
+        let identity = self
             .descriptors
             .values()
-            .map(|descriptor| {
-                serde_json::json!({
-                    "key": descriptor.path,
-                    "value_type_name": descriptor.value_type_name,
-                    "reference_default_json": descriptor.reference_default_json,
-                    "owner": descriptor.owner,
-                    "exposure": descriptor.exposure,
-                    "scope_policy": descriptor.scope_policy,
-                    "apply_mode": descriptor.apply_mode,
-                    "semantic_effect": descriptor.semantic_effect,
-                })
+            .map(|entry| {
+                let mut value = serde_json::to_value(&entry.descriptor).expect("descriptor JSON");
+                let object = value.as_object_mut().expect("descriptor object");
+                object.remove("title");
+                object.remove("description");
+                value
             })
             .collect::<Vec<_>>();
         let digest = blake3::hash(
-            serde_json::to_string(&digest_input)
-                .map_err(|error| Error::Internal(error.to_string()))?
-                .as_bytes(),
+            &serde_json::to_vec(&identity).map_err(|error| Error::Internal(error.to_string()))?,
         )
         .to_hex()
         .to_string();
@@ -153,39 +286,22 @@ impl ConfigRegistryBuilder {
     }
 }
 
-pub fn flatten_settings(value: &Value) -> Result<BTreeMap<String, Value>> {
-    let settings = value
-        .get("settings")
-        .cloned()
-        .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
-    let Value::Object(settings) = settings else {
-        return Err(Error::Invalid("[settings] must be a table".into()));
-    };
-    let mut output = BTreeMap::new();
-    flatten_object("", &settings, &mut output)?;
-    Ok(output)
+/// Private startup handoff; descriptors and deployment values contain references only.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConfigurationBootstrapBundle {
+    pub bundle_revision: u32,
+    pub core_descriptors: Vec<ConfigDescriptor>,
+    pub deployment_document: Value,
 }
 
-fn flatten_object(
-    prefix: &str,
-    object: &serde_json::Map<String, Value>,
-    output: &mut BTreeMap<String, Value>,
-) -> Result<()> {
-    for (name, value) in object {
-        if name.is_empty() || name.contains('.') {
-            return Err(Error::Invalid(format!("invalid settings key: {name}")));
+impl ConfigurationBootstrapBundle {
+    pub fn validate_revision(&self) -> Result<()> {
+        if self.bundle_revision != 1 {
+            return Err(Error::Invalid(
+                "unsupported configuration bundle revision".into(),
+            ));
         }
-        let path = if prefix.is_empty() {
-            name.clone()
-        } else {
-            format!("{prefix}.{name}")
-        };
-        match value {
-            Value::Object(child) => flatten_object(&path, child, output)?,
-            _ => {
-                output.insert(path, value.clone());
-            }
-        }
+        Ok(())
     }
-    Ok(())
 }

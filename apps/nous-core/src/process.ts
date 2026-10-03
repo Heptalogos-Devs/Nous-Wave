@@ -15,16 +15,27 @@ export async function startKernel(
   configPath: string,
   options: {
     timeoutMs?: number;
-    credentialEnvironments?: readonly string[];
   } = {},
 ): Promise<KernelProcess> {
   const timeoutMs = options.timeoutMs ?? 120_000;
-  const secretNames = new Set(
-    (options.credentialEnvironments ?? []).map((name) => name.toUpperCase()),
-  );
+  const inheritedNames = new Set([
+    "path",
+    "home",
+    "user",
+    "logname",
+    "temp",
+    "tmp",
+    "tmpdir",
+    "systemroot",
+    "systemdrive",
+    "windir",
+    "comspec",
+    "pathext",
+    "rust_log",
+  ]);
   const environment: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(process.env))
-    if (!secretNames.has(name.toUpperCase())) environment[name] = value;
+    if (inheritedNames.has(name.toLowerCase())) environment[name] = value;
   const token = randomBytes(32).toString("hex");
   const child = spawn(executable, ["--config", configPath], {
     stdio: "pipe",

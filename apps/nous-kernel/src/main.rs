@@ -1,11 +1,13 @@
 use clap::Parser;
 use nous_core::{Error, Result};
 use nous_kernel::transport::KernelService;
+use nous_protocol::kernel::kernel_configuration_service_server::KernelConfigurationServiceServer;
 use nous_protocol::kernel::{
     artifact_stream_service_server::ArtifactStreamServiceServer,
     authority_service_server::AuthorityServiceServer,
     model_material_service_server::ModelMaterialServiceServer,
 };
+use nous_protocol::public::configuration_service_server::ConfigurationServiceServer;
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio_stream::wrappers::TcpListenerStream;
@@ -15,7 +17,9 @@ mod bootstrap;
 #[derive(Parser)]
 struct Cli {
     #[arg(long)]
-    config: PathBuf,
+    config: Option<PathBuf>,
+    #[arg(long)]
+    check_configuration: Option<PathBuf>,
 }
 #[tokio::main]
 async fn main() {
@@ -35,6 +39,19 @@ async fn main() {
 )]
 async fn run() -> Result<()> {
     let cli = Cli::parse();
+    if let Some(path) = &cli.check_configuration {
+        let bundle = bootstrap::read_bundle(path).await?;
+        let catalog = nous_kernel::configuration_catalog(bundle.core_descriptors)?;
+        catalog.deployment_values(&bundle.deployment_document)?;
+        println!(
+            "{}",
+            serde_json::json!({"valid":true,"catalog_digest":catalog.digest()})
+        );
+        return Ok(());
+    }
+    let config = cli
+        .config
+        .ok_or_else(|| Error::Invalid("--config is required".into()))?;
     let mut input = BufReader::new(tokio::io::stdin());
     let mut token = String::new();
     tokio::time::timeout(
@@ -48,7 +65,7 @@ async fn run() -> Result<()> {
     if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(Error::Invalid("invalid Kernel bootstrap credential".into()));
     }
-    let (runtime, managed) = bootstrap::open(&cli.config).await?;
+    let (runtime, managed) = bootstrap::open(&config).await?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| Error::Infrastructure(e.to_string()))?;
@@ -79,6 +96,14 @@ async fn run() -> Result<()> {
         .set_serving::<AuthorityServiceServer<KernelService>>()
         .await;
     let server = tonic::transport::Server::builder()
+        .add_service(KernelConfigurationServiceServer::with_interceptor(
+            service.clone(),
+            auth.clone(),
+        ))
+        .add_service(ConfigurationServiceServer::with_interceptor(
+            service.clone(),
+            auth.clone(),
+        ))
         .add_service(AuthorityServiceServer::with_interceptor(
             service.clone(),
             auth.clone(),

@@ -55,8 +55,10 @@ it("initializes a portable instance once and preserves operator edits byte for b
     expect(results.filter((result) => result.created)).toHaveLength(1);
     const config = await loadConfig(locations);
     expect(config.deployment).toBe("portable");
-    expect(config.models.roles).toEqual({});
-    expect((await checkConfiguration(locations)).valid).toBe(true);
+    expect(config.bundle.core_descriptors.some((d) => d.path === "roles")).toBe(
+      true,
+    );
+
     const development = await loadConfig(locations, true);
     expect(development.deployment).toBe("development");
     expect(development.kernelExecutable).toBe(

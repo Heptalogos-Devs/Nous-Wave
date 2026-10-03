@@ -233,8 +233,7 @@ impl ServingService {
         capabilities: ProjectionCapabilities,
     ) -> Result<i64> {
         let provider = self
-            .embedding
-            .as_ref()
+            .embedding()
             .ok_or_else(|| Error::Unavailable("text embedding provider is unavailable".into()))?;
         let space = provider.space();
         if space_key != space.space_hash {

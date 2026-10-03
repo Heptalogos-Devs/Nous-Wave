@@ -80,7 +80,7 @@ pub struct ServingService {
     pub configuration: nous_configuration::ConfigurationService,
     pub publisher: ServingPublisher,
     pub options: ServingOptions,
-    pub embedding: Option<Arc<dyn TextEmbeddingProvider>>,
+    embedding: Arc<std::sync::OnceLock<Arc<dyn TextEmbeddingProvider>>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -92,6 +92,18 @@ pub struct ProjectionStatus {
 }
 
 impl ServingService {
+    pub fn embedding(&self) -> Option<&Arc<dyn TextEmbeddingProvider>> {
+        self.embedding.get()
+    }
+
+    /// Host material binding is established once during process startup.
+    pub fn initialize_embedding(&self, config: StoredEmbeddingConfig) -> Result<()> {
+        let provider = Arc::new(StoredEmbeddingProvider::new(self.store.clone(), config)?);
+        self.embedding
+            .set(provider)
+            .map_err(|_| Error::Conflict("host embedding already initialized".into()))
+    }
+
     pub fn new(
         store: AuthorityStore,
         objects: ObjectStore,
@@ -105,7 +117,13 @@ impl ServingService {
             objects,
             configuration,
             options,
-            embedding,
+            embedding: {
+                let slot = std::sync::OnceLock::new();
+                if let Some(provider) = embedding {
+                    let _ = slot.set(provider);
+                }
+                Arc::new(slot)
+            },
             publisher: ServingPublisher::default(),
         })
     }

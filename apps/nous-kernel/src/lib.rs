@@ -34,11 +34,11 @@ pub struct RuntimeOptions {
     pub postgres_url: String,
     pub max_connections: u32,
     pub object_root: String,
-    pub max_upload_bytes: u64,
     pub serving_options: ServingOptions,
     pub embedding: Option<Arc<dyn TextEmbeddingProvider>>,
     pub stored_embedding: Option<nous_retrieval::StoredEmbeddingConfig>,
-    pub deployment_settings: serde_json::Value,
+    pub deployment_document: serde_json::Value,
+    pub core_descriptors: Vec<nous_configuration::ConfigDescriptor>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,18 +66,10 @@ impl NousRuntime {
     ) -> Result<Self> {
         let store = AuthorityStore::connect(&options.postgres_url, options.max_connections).await?;
         store.migrate().await?;
-        let mut registry = ConfigRegistryBuilder::new();
-        nous_configuration::register_configuration(&mut registry)?;
-        nous_runtime::register_configuration(&mut registry)?;
-        nous_memory::register_configuration(&mut registry)?;
-        nous_retrieval::register_configuration(&mut registry)?;
-        nous_retrieval::register_wave_configuration(&mut registry)?;
-        let configuration = ConfigurationService::open(
-            store.clone(),
-            registry.finish()?,
-            options.deployment_settings,
-        )
-        .await?;
+        let registry = configuration_catalog(options.core_descriptors)?;
+        let configuration =
+            ConfigurationService::open(store.clone(), registry, options.deployment_document)
+                .await?;
         let system_snapshot = configuration.active_system_snapshot()?;
         let process_capabilities = process_capabilities(&system_snapshot)?;
         let resident_limit = system_snapshot.get(nous_runtime::RESIDENT_LIMIT_KEY)?;
@@ -98,7 +90,7 @@ impl NousRuntime {
             store.clone(),
             objects.clone(),
             cognition.clone(),
-            options.max_upload_bytes,
+            system_snapshot.get(nous_material::MAX_UPLOAD_BYTES)?,
         )?;
         let mut serving_options = options.serving_options;
         serving_options.memory_enabled = process_capabilities.memory;
@@ -159,11 +151,7 @@ impl NousRuntime {
         pool_limit: Option<usize>,
     ) -> Result<nous_runtime::QueryExecution> {
         let mut bound = self.cognition.bind_query(query).await?;
-        bound.selected_embedding_space = self
-            .serving
-            .embedding
-            .as_ref()
-            .map(|provider| provider.space());
+        bound.selected_embedding_space = self.serving.embedding().map(|provider| provider.space());
         let plan = nous_runtime::QueryPlan::for_bound_query(&bound);
         let subject_capabilities = self
             .subjects
@@ -247,4 +235,21 @@ impl NousRuntime {
             capabilities,
         }
     }
+}
+
+/// Finalize the catalog through the same path for startup and offline validation.
+pub fn configuration_catalog(
+    core_descriptors: Vec<nous_configuration::ConfigDescriptor>,
+) -> Result<nous_configuration::ConfigRegistry> {
+    let mut registry = ConfigRegistryBuilder::new();
+    nous_configuration::register_configuration(&mut registry)?;
+    nous_runtime::register_configuration(&mut registry)?;
+    nous_memory::register_configuration(&mut registry)?;
+    nous_material::register_configuration(&mut registry)?;
+    nous_retrieval::register_configuration(&mut registry)?;
+    nous_retrieval::register_wave_configuration(&mut registry)?;
+    for descriptor in core_descriptors {
+        registry.import(descriptor)?;
+    }
+    registry.finish()
 }

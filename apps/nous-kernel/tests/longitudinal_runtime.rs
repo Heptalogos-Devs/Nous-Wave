@@ -53,10 +53,10 @@ async fn runtime_with_clock_serving(
     NousRuntime::open_with_clock(RuntimeOptions {
         postgres_url: url.into(), max_connections: 8,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
-        max_upload_bytes: 1024 * 1024,
         serving_options: ServingOptions { root: root.path().join("serving"), lexical: serving, dense: serving, topology: false, memory_enabled: true },
         embedding: serving.then(|| Arc::new(LongitudinalEmbedding) as Arc<dyn nous_retrieval::TextEmbeddingProvider>), stored_embedding: None,
-        deployment_settings: serde_json::json!({"settings":{"serving":{"lexical":{"enabled":serving},"dense":{"enabled":serving},"topology":{"enabled":false}}}}),
+        core_descriptors: vec![],
+        deployment_document: serde_json::json!({"serving":{"lexical":{"enabled":serving},"dense":{"enabled":serving},"topology":{"enabled":false}}}),
     }, clock).await.expect("open clock-injected runtime")
 }
 
@@ -2824,7 +2824,6 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
     reason = "one regression covers blocked source scopes and their event-driven recovery"
 )]
 async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
-    use nous_configuration::ConfigActorTier;
     use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
     use nous_memory::{JournalInput, JournalPoint, JournalPointRole};
     let (root, url, _postgres) = database().await;
@@ -2916,7 +2915,6 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "journal.max_episode_count",
             serde_json::json!(1),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();
@@ -2970,7 +2968,6 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "journal.max_episode_count",
             serde_json::json!(2),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();
@@ -2995,7 +2992,6 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "journal.max_span",
             serde_json::json!(60),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();
@@ -3055,7 +3051,6 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "episode.max_neighbor_span",
             serde_json::json!(60),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();
@@ -3111,7 +3106,6 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "episode.max_neighbor_span",
             serde_json::json!(86400),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();

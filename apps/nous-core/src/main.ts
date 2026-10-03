@@ -1,6 +1,15 @@
+import { toJson, type JsonObject } from "@bufbuild/protobuf";
+import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import { ConfigExposure } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
+import { resolvedEmbedding } from "./model/embedding-profile.js";
 import { parseArgs } from "node:util";
 import { randomBytes } from "node:crypto";
-import { loadConfig } from "./config.js";
+import {
+  loadConfig,
+  parseEffectiveConfiguration,
+  loadCredentials,
+  resolveMediaExecutables,
+} from "./config.js";
 import { claimInstance } from "./discovery.js";
 import { startKernel } from "./process.js";
 import { createCore } from "./server.js";
@@ -8,7 +17,7 @@ import { ModelRuntime } from "./model/runtime.js";
 import { resolveLocations } from "./locations.js";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFile } from "node:fs/promises";
+import { writeFile, rename } from "node:fs/promises";
 import { stringify } from "smol-toml";
 import { verifyRuntime } from "./runtime-packs.js";
 import { startMaintenanceLoop } from "./maintenance/grants.js";
@@ -33,7 +42,6 @@ async function main() {
     await verifyRuntime(locations, "node");
     if (config.kernelBootstrap.bootstrap.database.mode === "managed_private")
       await verifyRuntime(locations, "postgresql");
-    if (!config.externalFfmpeg) await verifyRuntime(locations, "ffmpeg");
   }
   const instance = await claimInstance(locations);
   let kernel: Awaited<ReturnType<typeof startKernel>> | undefined;
@@ -44,19 +52,45 @@ async function main() {
     await writeFile(kernelConfig, stringify(config.kernelBootstrap), {
       mode: 0o600,
     });
-    kernel = await startKernel(config.kernelExecutable, kernelConfig, {
-      credentialEnvironments: [
-        ...Object.values(config.models.gateway_profiles).map(
-          (gateway) => gateway.credential_env,
-        ),
-        ...Object.values(config.resourceProfiles).map(
-          (profile) => profile.credential_env,
-        ),
-      ],
+    const bundlePath = config.kernelBootstrap.configuration_bundle;
+    await writeFile(`${bundlePath}.tmp`, JSON.stringify(config.bundle), {
+      mode: 0o600,
+    });
+    await rename(`${bundlePath}.tmp`, bundlePath);
+    kernel = await startKernel(config.kernelExecutable, kernelConfig);
+    const snapshot = await kernel.client.configuration.getConfiguration({
+      exposureCeiling: ConfigExposure.DEVELOPER,
+    });
+    const effective = parseEffectiveConfiguration(
+      Object.fromEntries(
+        snapshot.entries.map((entry) => [
+          entry.path,
+          entry.value ? toJson(ValueSchema, entry.value) : null,
+        ]),
+      ),
+    );
+    await loadCredentials(locations, config.dotenvFile, [
+      ...Object.values(effective.models.gateway_profiles).map(
+        (g) => g.credential_env,
+      ),
+      ...Object.values(effective.resourceProfiles).map((p) => p.credential_env),
+    ]);
+    const externalFfmpeg = await resolveMediaExecutables(
+      locations,
+      effective.models,
+    );
+    if (config.deployment === "portable" && !externalFfmpeg)
+      await verifyRuntime(locations, "ffmpeg");
+    const embedding = resolvedEmbedding(effective.models);
+    await kernel.client.hostRuntime.initializeHostRuntime({
+      configurationDigest: snapshot.effectiveDigest,
+      resolvedEmbedding: embedding
+        ? (JSON.parse(JSON.stringify(embedding)) as JsonObject)
+        : undefined,
     });
     const token = randomBytes(32).toString("hex");
     const models = await ModelRuntime.fromConfig(
-      config.models,
+      effective.models,
       join(locations.program, "prompts"),
       join(locations.config, "prompts"),
       locations.temp,
@@ -64,8 +98,8 @@ async function main() {
     app = await createCore({
       kernel: kernel.client,
       token,
-      consumers: config.consumers,
-      resources: new ResourceRegistry(config.resourceProfiles),
+      consumers: effective.consumers,
+      resources: new ResourceRegistry(effective.resourceProfiles),
       models,
     });
     const endpoint = await app.listen({ host: "127.0.0.1", port: config.port });
