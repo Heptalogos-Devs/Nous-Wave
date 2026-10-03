@@ -7,17 +7,7 @@ pub struct ResidualConfig {
     pub top_k_per_level: usize,
     pub stop_ratio: f64,
     pub collinear_epsilon: f64,
-}
-
-impl Default for ResidualConfig {
-    fn default() -> Self {
-        Self {
-            max_levels: 3,
-            top_k_per_level: 12,
-            stop_ratio: 0.10,
-            collinear_epsilon: 1e-6,
-        }
-    }
+    pub candidate_oversampling: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -202,7 +192,9 @@ mod tests {
             ResidualConfig {
                 max_levels: 3,
                 stop_ratio: 0.01,
-                ..Default::default()
+                top_k_per_level: 12,
+                collinear_epsilon: 1e-6,
+                candidate_oversampling: 4,
             },
         )
         .unwrap();

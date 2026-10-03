@@ -14,7 +14,7 @@ pub(crate) enum OpenArtifact {
 }
 
 impl ServingService {
-    pub(crate) async fn config_digest(
+    pub async fn config_digest(
         &self,
         subject: SubjectId,
         family: &str,
@@ -36,7 +36,7 @@ impl ServingService {
         }
         let keys: &[&str] = match family {
             "lexical" => &["serving.lexical.enabled"],
-            "dense" => &["serving.dense.enabled"],
+            "dense" => &["serving.dense.enabled", "retrieval.epa"],
             "topology" => &[
                 "topology.wave.hub_beta",
                 "topology.wave.hub_penalty_min",

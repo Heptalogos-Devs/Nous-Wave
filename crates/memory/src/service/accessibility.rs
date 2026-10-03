@@ -211,94 +211,86 @@ pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()
             ))
         }
     };
-    macro_rules! register {
-        ($key:expr, $default:expr, $description:expr, $validator:expr) => {
-            registry.register(
-                $key,
-                "memory-service",
-                $description,
-                $default,
-                ConfigExposure::Developer,
-                ConfigScopePolicy::SubjectOverrideAllowed,
-                ConfigApplyMode::Live,
-                ConfigSemanticEffect::Operational,
-                $validator,
-            )?;
-        };
+    for (key, description, validator) in [
+        (
+            EPSILON,
+            "Accessibility epsilon.",
+            positive as fn(&f64) -> Result<()>,
+        ),
+        (
+            TAU_DAYS,
+            "Accessibility decay time constant in days.",
+            positive,
+        ),
+        (DECAY, "Accessibility power decay.", positive),
+        (
+            FORMATION_WEIGHT,
+            "Initial formation contribution.",
+            nonnegative,
+        ),
+        (
+            REFERENCED_WEIGHT,
+            "Meaningful referenced-use weight.",
+            nonnegative,
+        ),
+        (
+            ACTED_ON_WEIGHT,
+            "Meaningful acted-on-use weight.",
+            nonnegative,
+        ),
+        (
+            RESULT_SUPPORTED_WEIGHT,
+            "Result-supported-use weight.",
+            nonnegative,
+        ),
+        (
+            RESULT_REFUTED_WEIGHT,
+            "Result-refuted-use weight.",
+            nonnegative,
+        ),
+        (CORRECTED_WEIGHT, "Corrected-use weight.", nonnegative),
+        (PINNED_WEIGHT, "Pinned-use weight.", nonnegative),
+        (
+            NORMAL_THRESHOLD,
+            "Normal accessibility threshold.",
+            threshold,
+        ),
+        (DEEP_THRESHOLD, "Deep accessibility threshold.", threshold),
+    ] {
+        registry.register(
+            key,
+            "memory-service",
+            description,
+            reference.get(key)?,
+            ConfigExposure::Developer,
+            ConfigScopePolicy::SubjectOverrideAllowed,
+            ConfigApplyMode::Live,
+            ConfigSemanticEffect::Operational,
+            validator,
+        )?;
     }
-    register!(
-        EPSILON,
-        reference.get(EPSILON)?,
-        "Accessibility epsilon.",
-        positive
-    );
-    register!(
-        TAU_DAYS,
-        reference.get(TAU_DAYS)?,
-        "Accessibility decay time constant in days.",
-        positive
-    );
-    register!(
-        DECAY,
-        reference.get(DECAY)?,
-        "Accessibility power decay.",
-        positive
-    );
-    register!(
-        FORMATION_WEIGHT,
-        reference.get(FORMATION_WEIGHT)?,
-        "Initial formation contribution.",
-        nonnegative
-    );
-    register!(
-        REFERENCED_WEIGHT,
-        reference.get(REFERENCED_WEIGHT)?,
-        "Meaningful referenced-use weight.",
-        nonnegative
-    );
-    register!(
-        ACTED_ON_WEIGHT,
-        reference.get(ACTED_ON_WEIGHT)?,
-        "Meaningful acted-on-use weight.",
-        nonnegative
-    );
-    register!(
-        RESULT_SUPPORTED_WEIGHT,
-        reference.get(RESULT_SUPPORTED_WEIGHT)?,
-        "Result-supported-use weight.",
-        nonnegative
-    );
-    register!(
-        RESULT_REFUTED_WEIGHT,
-        reference.get(RESULT_REFUTED_WEIGHT)?,
-        "Result-refuted-use weight.",
-        nonnegative
-    );
-    register!(
-        CORRECTED_WEIGHT,
-        reference.get(CORRECTED_WEIGHT)?,
-        "Corrected-use weight.",
-        nonnegative
-    );
-    register!(
-        PINNED_WEIGHT,
-        reference.get(PINNED_WEIGHT)?,
-        "Pinned-use weight.",
-        nonnegative
-    );
-    register!(
-        NORMAL_THRESHOLD,
-        reference.get(NORMAL_THRESHOLD)?,
-        "Normal accessibility threshold.",
-        threshold
-    );
-    register!(
-        DEEP_THRESHOLD,
-        reference.get(DEEP_THRESHOLD)?,
-        "Deep accessibility threshold.",
-        threshold
-    );
     super::longitudinal_policy::register_longitudinal_configuration(registry)?;
+    for key in [EPSILON, TAU_DAYS, DECAY] {
+        registry.describe(key.path(), |d| {
+            d.json_schema["exclusiveMinimum"] = serde_json::json!(0);
+        })?;
+    }
+    for key in [
+        FORMATION_WEIGHT,
+        REFERENCED_WEIGHT,
+        ACTED_ON_WEIGHT,
+        RESULT_SUPPORTED_WEIGHT,
+        RESULT_REFUTED_WEIGHT,
+        CORRECTED_WEIGHT,
+        PINNED_WEIGHT,
+    ] {
+        registry.describe(key.path(), |d| {
+            d.json_schema["minimum"] = serde_json::json!(0);
+        })?;
+    }
+    registry.describe(TAU_DAYS.path(), |d| {
+        d.unit = Some("days".into());
+    })?;
     reference.describe(registry)?;
     Ok(())
 }

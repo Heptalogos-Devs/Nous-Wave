@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import {
   roleNames,
   resolveRoleBinding,
+  modelRoleProblem,
   type ModelConfiguration,
   type ModelProfile,
   type ModelRole,
@@ -170,6 +171,11 @@ export class ModelInvocations {
           state: "NOT_CONFIGURED",
           detail: "Model identifier is unset",
         });
+        continue;
+      }
+      const problem = modelRoleProblem(role, configuredBinding!, profile);
+      if (problem) {
+        runtime.states.set(role, { state: "UNAVAILABLE", detail: problem });
         continue;
       }
       const gateway = config.gateway_profiles[profile.gateway]!;

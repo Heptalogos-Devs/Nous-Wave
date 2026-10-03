@@ -46,7 +46,17 @@ message RepresentationListResponse { repeated DerivedRepresentation items = 1; b
 message DerivedRegion { string derived_region_id = 1; string subject_id = 2; string representation_id = 3; string coordinate_kind = 4; google.protobuf.Struct coordinate = 5; string coordinate_hash = 6; optional string parent_derived_region_id = 7; }
 message ComponentStatus { string name = 1; string state = 2; optional string detail = 3; }
 message SystemStatus { repeated ComponentStatus components = 1; }
-message ProjectionStatus { repeated ComponentStatus families = 1; }
+message ProjectionFamilyStatus {
+  string name = 1;
+  string state = 2;
+  string space_signature = 3;
+  int64 desired_authority_seq = 4;
+  optional int64 authority_watermark = 5;
+  optional string generation_id = 6;
+  optional string config_digest = 7;
+  string desired_config_digest = 8;
+}
+message ProjectionStatus { repeated ProjectionFamilyStatus families = 1; }
 
 message MaterializeResourceRequest { string subject_id = 1; string operation_id = 2; StableExternalRef reference = 3; google.protobuf.Timestamp observed_at = 4; }
 message ResourceMaterialization { StableExternalRef reference = 1; AcceptedObservation observation = 2; string content = 3; string media_type = 4; }

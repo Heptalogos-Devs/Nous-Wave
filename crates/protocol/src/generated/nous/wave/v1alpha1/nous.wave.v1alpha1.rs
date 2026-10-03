@@ -2119,10 +2119,29 @@ pub struct SystemStatus {
     #[prost(message, repeated, tag="1")]
     pub components: ::prost::alloc::vec::Vec<ComponentStatus>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ProjectionFamilyStatus {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub state: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub space_signature: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub desired_authority_seq: i64,
+    #[prost(int64, optional, tag="5")]
+    pub authority_watermark: ::core::option::Option<i64>,
+    #[prost(string, optional, tag="6")]
+    pub generation_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub config_digest: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="8")]
+    pub desired_config_digest: ::prost::alloc::string::String,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ProjectionStatus {
     #[prost(message, repeated, tag="1")]
-    pub families: ::prost::alloc::vec::Vec<ComponentStatus>,
+    pub families: ::prost::alloc::vec::Vec<ProjectionFamilyStatus>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MaterializeResourceRequest {

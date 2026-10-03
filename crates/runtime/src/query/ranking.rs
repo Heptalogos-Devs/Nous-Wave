@@ -42,6 +42,31 @@ pub const QUERY_VALIDATION_MULTIPLIER: ConfigKey<usize> =
 pub const QUERY_VALIDATION_MIN: ConfigKey<usize> = ConfigKey::new("retrieval.query.validation_min");
 pub const QUERY_VALIDATION_MAX: ConfigKey<usize> = ConfigKey::new("retrieval.query.validation_max");
 
+pub const LANE_MIN_KEY: ConfigKey<usize> = ConfigKey::new("retrieval.query.lane_min");
+pub const TOPOLOGY_HOPS_LIGHT_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.topology_hops.light");
+pub const TOPOLOGY_HOPS_NORMAL_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.topology_hops.normal");
+pub const TOPOLOGY_HOPS_DEEP_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.topology_hops.deep");
+pub const TOPOLOGY_HOPS_MAXIMUM_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.topology_hops.maximum");
+pub const TOPOLOGY_STATES_LIGHT_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.topology_states.light");
+pub const TOPOLOGY_STATES_NORMAL_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.topology_states.normal");
+pub const TOPOLOGY_STATES_DEEP_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.topology_states.deep");
+pub const TOPOLOGY_STATES_MAXIMUM_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.topology_states.maximum");
+pub const RESOURCE_LIMIT_LIGHT_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.resource_limit.light");
+pub const RESOURCE_LIMIT_NORMAL_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.resource_limit.normal");
+pub const RESOURCE_LIMIT_DEEP_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.resource_limit.deep");
+pub const RESOURCE_LIMIT_MAXIMUM_KEY: ConfigKey<usize> =
+    ConfigKey::new("retrieval.query.resource_limit.maximum");
 #[derive(Debug, Clone)]
 pub struct RetrievalPolicy {
     pub rrf_k: f64,
@@ -51,6 +76,10 @@ pub struct RetrievalPolicy {
     pub weights: BTreeMap<EvidenceFamily, f64>,
     pub effort_multipliers: [usize; 4],
     pub per_lane_max: [usize; 4],
+    pub lane_min: usize,
+    pub topology_hops: [usize; 4],
+    pub topology_states: [usize; 4],
+    pub resource_limits: [usize; 4],
     pub validation_multiplier: usize,
     pub validation_min: usize,
     pub validation_max: usize,
@@ -89,6 +118,11 @@ impl RetrievalPolicy {
                 .values()
                 .any(|value| !value.is_finite() || *value <= 0.0)
             || self.effort_multipliers.contains(&0)
+            || self.lane_min == 0
+            || self.per_lane_max.iter().any(|max| *max < self.lane_min)
+            || self.topology_hops.contains(&0)
+            || self.topology_states.contains(&0)
+            || self.resource_limits.contains(&0)
             || self.per_lane_max.contains(&0)
             || self.validation_multiplier == 0
             || self.validation_min == 0
@@ -185,6 +219,7 @@ pub fn register_retrieval_configuration(registry: &mut ConfigRegistryBuilder) ->
             d.unit = Some("items".into());
         })?;
     }
+    register_query_allocations(registry, &reference)?;
     reference.describe(registry)?;
     registry.describe(PREFERENCE_RECENCY_KEY.path(), |d| {
         d.unit = Some("cognitive_seconds".into());
@@ -192,6 +227,47 @@ pub fn register_retrieval_configuration(registry: &mut ConfigRegistryBuilder) ->
     registry.describe(PREFERENCE_CAP_KEY.path(), |d| {
         d.json_schema["maximum"] = serde_json::json!(1);
     })?;
+    Ok(())
+}
+
+fn register_query_allocations(
+    registry: &mut ConfigRegistryBuilder,
+    reference: &nous_configuration::ReferenceProfile,
+) -> Result<()> {
+    for key in [
+        LANE_MIN_KEY,
+        TOPOLOGY_HOPS_LIGHT_KEY,
+        TOPOLOGY_HOPS_NORMAL_KEY,
+        TOPOLOGY_HOPS_DEEP_KEY,
+        TOPOLOGY_HOPS_MAXIMUM_KEY,
+        TOPOLOGY_STATES_LIGHT_KEY,
+        TOPOLOGY_STATES_NORMAL_KEY,
+        TOPOLOGY_STATES_DEEP_KEY,
+        TOPOLOGY_STATES_MAXIMUM_KEY,
+        RESOURCE_LIMIT_LIGHT_KEY,
+        RESOURCE_LIMIT_NORMAL_KEY,
+        RESOURCE_LIMIT_DEEP_KEY,
+        RESOURCE_LIMIT_MAXIMUM_KEY,
+    ] {
+        registry.register(
+            key,
+            "runtime",
+            "Query lane and execution allocation budget.",
+            reference.get(key)?,
+            ConfigExposure::Developer,
+            ConfigScopePolicy::SystemOnly,
+            ConfigApplyMode::Live,
+            ConfigSemanticEffect::QueryPolicy,
+            |value| {
+                if *value > 0 && *value <= 65536 {
+                    Ok(())
+                } else {
+                    Err(Error::Invalid("query allocation must be 1..65536".into()))
+                }
+            },
+        )?;
+        registry.bounds(key, 1, 65536, Some("items"))?;
+    }
     Ok(())
 }
 
@@ -225,6 +301,25 @@ pub fn resolve_retrieval_policy(snapshot: &ConfigSnapshot) -> Result<RetrievalPo
             snapshot.get(QUERY_NORMAL_MAX)?,
             snapshot.get(QUERY_DEEP_MAX)?,
             snapshot.get(QUERY_MAXIMUM_MAX)?,
+        ],
+        lane_min: snapshot.get(LANE_MIN_KEY)?,
+        topology_hops: [
+            snapshot.get(TOPOLOGY_HOPS_LIGHT_KEY)?,
+            snapshot.get(TOPOLOGY_HOPS_NORMAL_KEY)?,
+            snapshot.get(TOPOLOGY_HOPS_DEEP_KEY)?,
+            snapshot.get(TOPOLOGY_HOPS_MAXIMUM_KEY)?,
+        ],
+        topology_states: [
+            snapshot.get(TOPOLOGY_STATES_LIGHT_KEY)?,
+            snapshot.get(TOPOLOGY_STATES_NORMAL_KEY)?,
+            snapshot.get(TOPOLOGY_STATES_DEEP_KEY)?,
+            snapshot.get(TOPOLOGY_STATES_MAXIMUM_KEY)?,
+        ],
+        resource_limits: [
+            snapshot.get(RESOURCE_LIMIT_LIGHT_KEY)?,
+            snapshot.get(RESOURCE_LIMIT_NORMAL_KEY)?,
+            snapshot.get(RESOURCE_LIMIT_DEEP_KEY)?,
+            snapshot.get(RESOURCE_LIMIT_MAXIMUM_KEY)?,
         ],
         validation_multiplier: snapshot.get(QUERY_VALIDATION_MULTIPLIER)?,
         validation_min: snapshot.get(QUERY_VALIDATION_MIN)?,

@@ -20,9 +20,9 @@ Overrideable 值按 reference default → deployment TOML → persisted system o
 
 Core 先解析 `config_revision`、`host` 和 `database` bootstrap，通过私有 JSON bundle 交付 Core descriptors 与 deployment document。Kernel finalize Catalog 并加载持久覆盖后，Core 从 active snapshot 构造 model/resource/consumer runtime。凭据值只从 SecretRoot/environment 加载；Catalog 保存 credential reference。
 
-Live 修改作用于后续 operation；在途 operation 保留固定快照。RestartProcess 修改 desired snapshot 并返回 restart effect，active snapshot 在重启前不变。Core model/gateway/role/media/resource/consumer 结构使用 RestartProcess。NewSubjectsOnly 更新供给默认，已有 Subject 保存已采用的 typed capability set。ServingRebuild 返回 owner rebuild effect，Serving generation 保存实际配置 digest。
+Live 修改作用于后续 operation；在途 operation 保留固定快照。RestartProcess 修改 desired snapshot 并返回 restart effect，active snapshot 在重启前不变。Core model/gateway/role/media/resource/consumer 与 `core_execution` 结构使用 RestartProcess。`core_execution` 拥有 Kernel RPC、maintenance RPC、workflow ack 的毫秒 timeout 、HTTP body byte budget 和 managed context track 上限（默认 256）、Query embedding cache entries（默认 128）及 rerank candidate 上限（默认 64）；host startup/shutdown timeout 和 runtime download timeout（默认 300000 ms）是 deployment-only bootstrap 参数。NewSubjectsOnly 更新供给默认，已有 Subject 保存已采用的 typed capability set。ServingRebuild 返回 owner rebuild effect；Serving 在下一次需要该 family 的 prepare 或显式 refresh 中构建并原子替换 generation。Projection status 按 family/space 返回 generation ID、Authority watermark、实际配置 digest 和当前所需 digest；Authority 或配置落后时为 STALE。
 
-Query、Authority formation 和 Serving build 使用固定 snapshot；影响输出语义的 key subset digest 包含对应 schema 与 reference profile identity。算法参考族位于 `config/reference/` 的版本化 JSON，owner 从目录快照解析 typed policy。
+Query、Authority formation 和 Serving build 使用固定 snapshot；影响输出语义的 key subset digest 包含对应 schema 与 reference profile identity。retrieval ranking/budgets、Memory accessibility、topology wave、EPA basis 和 longitudinal 参数的参考族位于 `config/reference/` 的版本化 JSON，owner 从目录快照解析 typed policy。
 
 Artifact 上传预算为 `object_store.max_upload_bytes`，归 Material owner；Core multipart receiver 和 official Client 读取同一 active limit。Description segmentation 使用 `material.description_segment_bytes`，默认 2048 UTF-8 bytes，范围 4..65536；1 MiB input 与 512 region 是代码拥有的 hard safety ceilings。
 
@@ -86,6 +86,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `maintenance.retry_max_attempts` | 8 | 连续 transient failure 上限，范围 1..32；达到后 blocked |
 | `maintenance.max_model_calls_per_tick` | 4 | standalone tick 全局模型调用预算，范围 1..32 |
 | `maintenance.max_elapsed_ms_per_tick` | 60000 | standalone tick 全局 elapsed 毫秒预算，范围 1..300000 |
+| `episode.context_switch_count` | 2 | 形成边界所需变化的 context dimensions，范围 1..4 |
 | `episode.soft_idle_seconds` | 300 | 认知秒 |
 | `episode.hard_idle_seconds` | 1800 | 认知秒 |
 | `episode.settle_delay_seconds` | 300 | semantic review 的认知秒 |

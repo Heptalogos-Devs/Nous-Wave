@@ -12,7 +12,7 @@ import {
 } from "./config.js";
 import type { RuntimeLocations } from "./locations.js";
 import { PromptRegistry } from "./model/prompts.js";
-import { roleNames } from "./model/configuration.js";
+import { roleNames, modelRoleProblem } from "./model/configuration.js";
 
 /** Offline inspection: no environment mutation, runtime startup or provider calls. */
 export async function checkConfiguration(
@@ -21,6 +21,7 @@ export async function checkConfiguration(
 ) {
   const configuration = join(locations.config, "nous.toml");
   const issues: { path: string; code: string; message: string }[] = [];
+  const diagnostics: { role: string; state: string; detail: string }[] = [];
   try {
     const { config, document } = await readConfiguration(
       locations,
@@ -51,6 +52,23 @@ export async function checkConfiguration(
     for (const role of roleNames) {
       const binding = models.roles[role];
       if (!binding) continue;
+      const profile = models.model_profiles[binding.model];
+      const problem = profile
+        ? modelRoleProblem(role, binding, profile)
+        : "Model profile is absent";
+      const gateway = profile
+        ? models.gateway_profiles[profile.gateway]
+        : undefined;
+      if (problem || !gateway || !profile?.model.trim())
+        diagnostics.push({
+          role,
+          state: problem && profile ? "UNAVAILABLE" : "NOT_CONFIGURED",
+          detail:
+            problem ??
+            (!gateway
+              ? "Gateway profile is absent"
+              : "Model identifier is unset"),
+        });
       try {
         await prompts.load(role, binding.prompt);
       } catch {
@@ -109,5 +127,6 @@ export async function checkConfiguration(
     config_revision: CONFIG_REVISION,
     configuration,
     issues,
+    diagnostics,
   };
 }

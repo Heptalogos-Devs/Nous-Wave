@@ -34,42 +34,41 @@ const embeddingSchema = z.strictObject({
   normalization: nonempty,
   output_semantics: nonempty,
 });
-const modelSchema = z
-  .strictObject({
-    gateway: nonempty,
+const modelBaseSchema = z.strictObject({
+  gateway: nonempty,
+  model: z.string().max(512).default(""),
+  capabilities: z
+    .array(
+      z.enum([
+        "text",
+        "image_input",
+        "audio_input",
+        "video_input",
+        "structured_output",
+        "embedding",
+        "speech_transcription",
+        "rerank",
+      ]),
+    )
+    .min(1),
+  model_revision: nonempty.optional(),
+});
+// The protocol/embedding contract is native Zod, including the exported JSON Schema.
+const modelSchema = z.discriminatedUnion("protocol", [
+  modelBaseSchema.extend({
+    protocol: z.literal("openai-embeddings"),
+    embedding: embeddingSchema,
+  }),
+  modelBaseSchema.extend({
     protocol: z.enum([
       "openai-chat",
       "openai-responses",
-      "openai-embeddings",
       "openai-audio-transcription",
       "rerank-v1",
     ]),
-    model: z.string().max(512).default(""),
-    capabilities: z
-      .array(
-        z.enum([
-          "text",
-          "image_input",
-          "audio_input",
-          "video_input",
-          "structured_output",
-          "embedding",
-          "speech_transcription",
-          "rerank",
-        ]),
-      )
-      .min(1),
-    model_revision: nonempty.optional(),
-    embedding: embeddingSchema.optional(),
-  })
-  .superRefine((model, ctx) => {
-    if ((model.protocol === "openai-embeddings") !== Boolean(model.embedding))
-      ctx.addIssue({
-        code: "custom",
-        message:
-          "Embedding protocol requires an explicit space profile; other protocols cannot declare one",
-      });
-  });
+    embedding: z.never().optional(),
+  }),
+]);
 const generationTokensSchema = z
   .number()
   .int()
@@ -140,77 +139,62 @@ export const modelConfigurationShape = {
   model_profiles: z.record(z.string(), modelSchema).default({}),
   roles: z.partialRecord(z.enum(roleNames), bindingSchema).default({}),
 };
-export const modelConfigurationSchema = z
-  .strictObject(modelConfigurationShape)
-  .superRefine((config, ctx) => {
-    for (const [role, binding] of Object.entries(config.roles)) {
-      const model = config.model_profiles[binding.model];
-      if (!model) continue;
-      const protocol =
-        role === "query_embedding"
-          ? "openai-embeddings"
-          : role === "query_rerank"
-            ? "rerank-v1"
-            : role === "speech_transcription"
-              ? "openai-audio-transcription"
-              : undefined;
-      const capability =
-        role === "query_embedding"
-          ? "embedding"
-          : role === "query_rerank"
-            ? "rerank"
-            : role === "speech_transcription"
-              ? "speech_transcription"
-              : "text";
-      if (
-        (protocol
-          ? model.protocol !== protocol
-          : !["openai-chat", "openai-responses"].includes(model.protocol)) ||
-        !model.capabilities.includes(capability)
-      )
-        ctx.addIssue({
-          code: "custom",
-          message: `Protocol/capability mismatch for role ${role}`,
-        });
-      if (
-        [
-          "episode_segmentation",
-          "journal_synthesis",
-          "memory_consolidation",
-        ].includes(role) &&
-        !model.capabilities.includes("structured_output")
-      )
-        ctx.addIssue({
-          code: "custom",
-          message: `Role ${role} requires structured_output`,
-        });
-      if (protocol && binding.prompt)
-        ctx.addIssue({
-          code: "custom",
-          message: `Role ${role} does not consume a system prompt`,
-        });
-      if (
-        role === "material_direct_structuring" &&
-        (!model.capabilities.includes("image_input") ||
-          !model.capabilities.includes("structured_output"))
-      )
-        ctx.addIssue({
-          code: "custom",
-          message:
-            "Direct structuring requires image_input and structured_output",
-        });
-      if (
-        protocol &&
-        (binding.temperature !== undefined ||
-          binding.top_p !== undefined ||
-          binding.max_output_tokens !== undefined)
-      )
-        ctx.addIssue({
-          code: "custom",
-          message: `Role ${role} does not consume generation parameters`,
-        });
-    }
-  });
+export const modelConfigurationSchema = z.strictObject(modelConfigurationShape);
+
+/** Cross-profile graph readiness is an owner diagnostic, not a second Catalog validator. */
+export function modelRoleProblem(
+  role: string,
+  binding: z.infer<typeof bindingSchema>,
+  model: z.infer<typeof modelSchema>,
+): string | undefined {
+  const protocol =
+    role === "query_embedding"
+      ? "openai-embeddings"
+      : role === "query_rerank"
+        ? "rerank-v1"
+        : role === "speech_transcription"
+          ? "openai-audio-transcription"
+          : undefined;
+  const capability =
+    role === "query_embedding"
+      ? "embedding"
+      : role === "query_rerank"
+        ? "rerank"
+        : role === "speech_transcription"
+          ? "speech_transcription"
+          : "text";
+  if (
+    (protocol
+      ? model.protocol !== protocol
+      : !["openai-chat", "openai-responses"].includes(model.protocol)) ||
+    !model.capabilities.includes(capability)
+  )
+    return "Role protocol/capability mismatch";
+  if (
+    [
+      "episode_segmentation",
+      "journal_synthesis",
+      "memory_consolidation",
+    ].includes(role) &&
+    !model.capabilities.includes("structured_output")
+  )
+    return "Role requires structured_output";
+  if (protocol && binding.prompt)
+    return "Role does not consume a system prompt";
+  if (
+    role === "material_direct_structuring" &&
+    (!model.capabilities.includes("image_input") ||
+      !model.capabilities.includes("structured_output"))
+  )
+    return "Direct structuring requires image_input and structured_output";
+  if (
+    protocol &&
+    (binding.temperature !== undefined ||
+      binding.top_p !== undefined ||
+      binding.max_output_tokens !== undefined)
+  )
+    return "Role does not consume generation parameters";
+}
 export type ModelConfiguration = z.infer<typeof modelConfigurationSchema>;
 export type ModelProfile = z.infer<typeof modelSchema>;
 export type RoleBinding = z.infer<typeof bindingSchema>;

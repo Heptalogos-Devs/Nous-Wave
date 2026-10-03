@@ -14,6 +14,10 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{Request, Status};
 mod bootstrap;
 
+const BOOTSTRAP_CREDENTIAL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+const MAX_BOOTSTRAP_CREDENTIAL_LINE_BYTES: u64 = 130;
+const WORKFLOW_PROTOCOL_ENVELOPE_BYTES: usize = 65536;
+
 #[derive(Parser)]
 struct Cli {
     #[arg(long)]
@@ -55,8 +59,10 @@ async fn run() -> Result<()> {
     let mut input = BufReader::new(tokio::io::stdin());
     let mut token = String::new();
     tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        (&mut input).take(130).read_line(&mut token),
+        BOOTSTRAP_CREDENTIAL_TIMEOUT,
+        (&mut input)
+            .take(MAX_BOOTSTRAP_CREDENTIAL_LINE_BYTES)
+            .read_line(&mut token),
     )
     .await
     .map_err(|_| Error::Invalid("Kernel bootstrap timed out".into()))?
@@ -110,8 +116,12 @@ async fn run() -> Result<()> {
         ))
         .add_service(tonic::service::interceptor::InterceptedService::new(
             ModelMaterialServiceServer::new(service.clone())
-                .max_decoding_message_size(nous_persistence::WORKFLOW_VALUE_MAX_BYTES + 65536)
-                .max_encoding_message_size(nous_persistence::WORKFLOW_VALUE_MAX_BYTES + 65536),
+                .max_decoding_message_size(
+                    nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES,
+                )
+                .max_encoding_message_size(
+                    nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES,
+                ),
             auth.clone(),
         ))
         .add_service(ArtifactStreamServiceServer::with_interceptor(

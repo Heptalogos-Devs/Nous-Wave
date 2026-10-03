@@ -2117,6 +2117,7 @@ dependencies = [
  "nous-persistence",
  "nous-runtime",
  "roaring",
+ "schemars",
  "serde",
  "serde_json",
  "sqlx",

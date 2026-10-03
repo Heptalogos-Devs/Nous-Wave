@@ -137,10 +137,14 @@ impl LexicalGeneration {
         })
     }
 
-    pub fn add_documents(&mut self, documents: &[LexicalDocument]) -> Result<()> {
+    pub fn add_documents(
+        &mut self,
+        documents: &[LexicalDocument],
+        writer_bytes: usize,
+    ) -> Result<()> {
         let mut writer: IndexWriter = self
             .index
-            .writer(15_000_000)
+            .writer(writer_bytes)
             .map_err(|error| Error::Infrastructure(format!("Tantivy writer: {error}")))?;
         for document in documents {
             let metadata = serde_json::to_string(document)
@@ -331,17 +335,20 @@ mod tests {
     fn natural_language_is_literal_not_search_syntax() {
         let mut index = LexicalGeneration::in_memory().unwrap();
         index
-            .add_documents(&[LexicalDocument {
-                serving_doc_id: 1,
-                reference: CognitiveRef::MemoryRevision(nous_core::MemoryRevisionId::new()),
-                representation_text:
-                    "Apple's on-device language model has three billion parameters".into(),
-                title: None,
-                entity_refs: Vec::new(),
-                tag_ids: Vec::new(),
-                schema_ids: Vec::new(),
-                source_class: None,
-            }])
+            .add_documents(
+                &[LexicalDocument {
+                    serving_doc_id: 1,
+                    reference: CognitiveRef::MemoryRevision(nous_core::MemoryRevisionId::new()),
+                    representation_text:
+                        "Apple's on-device language model has three billion parameters".into(),
+                    title: None,
+                    entity_refs: Vec::new(),
+                    tag_ids: Vec::new(),
+                    schema_ids: Vec::new(),
+                    source_class: None,
+                }],
+                crate::MINIMUM_LEXICAL_WRITER_BYTES,
+            )
             .unwrap();
         for cue in [
             "How large is Apple's on-device language model?",

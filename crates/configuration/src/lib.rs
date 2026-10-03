@@ -190,7 +190,9 @@ mod catalog_tests {
         assert!(ConfigRegistryBuilder::new().import(invalid).is_err());
         let mut invalid = descriptor;
         invalid.reference_default = json!(42);
-        assert!(ConfigRegistryBuilder::new().import(invalid).is_err());
+        let mut builder = ConfigRegistryBuilder::new();
+        builder.import(invalid).unwrap();
+        assert!(builder.finish().is_err());
     }
 
     #[test]

@@ -1,3 +1,4 @@
+import { hostSchema } from "./configuration-catalog.js";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rename, rm, stat } from "node:fs/promises";
@@ -8,6 +9,9 @@ import { open as openZip, type Entry, type ZipFile } from "yauzl";
 import { z } from "zod";
 import type { RuntimeLocations } from "./locations.js";
 
+const MAX_RUNTIME_ARCHIVE_BYTES = 512 * 1024 * 1024;
+const MAX_RUNTIME_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_RUNTIME_ARCHIVE_ENTRIES = 10000;
 const component = z.enum(["node", "postgresql", "ffmpeg"]);
 const checksum = z.string().regex(/^[a-f0-9]{64}$/);
 const relativePath = z
@@ -40,7 +44,7 @@ const packSchema = z.strictObject({
   license: z.string().min(1),
   source: z.string().min(1),
   required_executables: z.array(relativePath).min(1).max(16),
-  files: z.array(inventoryEntry).min(1).max(10000),
+  files: z.array(inventoryEntry).min(1).max(MAX_RUNTIME_ARCHIVE_ENTRIES),
 });
 const catalogSchema = z.strictObject({
   packs: z
@@ -193,6 +197,7 @@ export async function installRuntime(
   name: string,
   localArchive?: string,
   signal?: AbortSignal,
+  downloadTimeoutMs = hostSchema.parse(undefined).runtime_download_timeout_ms,
 ) {
   const selected = component.parse(name);
   const catalog = catalogSchema.parse(
@@ -256,7 +261,7 @@ export async function installRuntime(
         url.hash
       )
         throw new Error("Unsafe runtime download URL");
-      const timeout = AbortSignal.timeout(300000);
+      const timeout = AbortSignal.timeout(downloadTimeoutMs);
       const response = await fetch(url, {
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       });
@@ -272,7 +277,7 @@ export async function installRuntime(
           transform(chunk: Buffer, _encoding, callback) {
             length += chunk.length;
             callback(
-              length > 536870912
+              length > MAX_RUNTIME_ARCHIVE_BYTES
                 ? new Error("Runtime archive exceeds bound")
                 : null,
               chunk,
@@ -283,12 +288,12 @@ export async function installRuntime(
       );
     }
     if (
-      (await stat(archive)).size > 536870912 ||
+      (await stat(archive)).size > MAX_RUNTIME_ARCHIVE_BYTES ||
       (await hashFile(archive)) !== entry.sha256
     )
       throw new Error("Runtime archive checksum/bound failed");
     const zip = await zipArchive(archive);
-    if (zip.entryCount > 10000) {
+    if (zip.entryCount > MAX_RUNTIME_ARCHIVE_ENTRIES) {
       zip.close();
       throw new Error("Runtime archive entry bound exceeded");
     }
@@ -306,7 +311,10 @@ export async function installRuntime(
           throw new Error("Invalid/duplicate runtime archive entry");
         names.add(safe.toLowerCase());
         total += file.uncompressedSize;
-        if (file.uncompressedSize > 536870912 || total > 2147483648)
+        if (
+          file.uncompressedSize > MAX_RUNTIME_ARCHIVE_BYTES ||
+          total > MAX_RUNTIME_EXTRACTED_BYTES
+        )
           throw new Error("Runtime extraction exceeds bound");
         const target = resolve(content, safe);
         if (!target.startsWith(content + sep))

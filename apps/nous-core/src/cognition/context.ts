@@ -12,7 +12,7 @@ const digest = (value: unknown) =>
 
 export class ContextCompiler {
   private readonly tracks = new Map<string, Track>();
-  constructor(private readonly maxTracks = 256) {}
+  constructor(private readonly maxTracks: number) {}
 
   compile(
     key: {

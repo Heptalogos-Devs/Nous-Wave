@@ -78,7 +78,7 @@ export async function createCore(settings: CoreOptions) {
     new Map(settings.consumers.map((p) => [p.consumerId, p])),
     settings.models,
   );
-  const contexts = new ContextCompiler();
+  const contexts = new ContextCompiler(kernel.execution.context_track_limit);
   const modelRuntime = settings.models ?? new ModelRuntime();
   const resourceRegistry = settings.resources ?? new ResourceRegistry({});
   const queries = new QueryOrchestrator(kernel, modelRuntime, resourceRegistry);

@@ -1,4 +1,6 @@
 //! Immutable on-disk serving generations shared by runtime and cognitive contributors.
+mod epa_policy;
+pub use epa_policy::{EPA_POLICY, EpaPolicy};
 mod mechanisms;
 pub use mechanisms::*;
 mod artifacts;
@@ -28,9 +30,15 @@ pub const DENSE_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
 pub const TOPOLOGY_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
     nous_configuration::ConfigKey::new("serving.topology.enabled");
 
+pub const LEXICAL_WRITER_BYTES: nous_configuration::ConfigKey<usize> =
+    nous_configuration::ConfigKey::new("serving.lexical.writer_memory_bytes");
+pub const MINIMUM_LEXICAL_WRITER_BYTES: usize = 15_000_000;
+pub const ABSOLUTE_LEXICAL_WRITER_BYTES: usize = 512 * 1024 * 1024;
+
 pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
+    epa_policy::register_configuration(registry)?;
     for (key, description, default) in [
         (
             LEXICAL_ENABLED_KEY,
@@ -56,6 +64,32 @@ pub fn register_configuration(
             |_: &bool| Ok(()),
         )?;
     }
+    use nous_configuration::*;
+    registry.register(
+        LEXICAL_WRITER_BYTES,
+        "serving",
+        "Lexical build writer memory budget.",
+        MINIMUM_LEXICAL_WRITER_BYTES,
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SystemOnly,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::Operational,
+        |value| {
+            if (MINIMUM_LEXICAL_WRITER_BYTES..=ABSOLUTE_LEXICAL_WRITER_BYTES).contains(value) {
+                Ok(())
+            } else {
+                Err(Error::Invalid(
+                    "lexical writer memory exceeds supported bounds".into(),
+                ))
+            }
+        },
+    )?;
+    registry.bounds(
+        LEXICAL_WRITER_BYTES,
+        MINIMUM_LEXICAL_WRITER_BYTES,
+        ABSOLUTE_LEXICAL_WRITER_BYTES,
+        Some("bytes"),
+    )?;
     Ok(())
 }
 

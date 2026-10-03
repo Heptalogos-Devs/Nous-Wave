@@ -52,6 +52,7 @@ async fn runtime_with_clock_serving(
 ) -> NousRuntime {
     NousRuntime::open_with_clock(RuntimeOptions {
         postgres_url: url.into(), max_connections: 8,
+        acquire_timeout_ms: 15000,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
         serving_options: ServingOptions { root: root.path().join("serving"), lexical: serving, dense: serving, topology: false, memory_enabled: true },
         embedding: serving.then(|| Arc::new(LongitudinalEmbedding) as Arc<dyn nous_retrieval::TextEmbeddingProvider>), stored_embedding: None,

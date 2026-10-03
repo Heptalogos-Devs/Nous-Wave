@@ -28,6 +28,7 @@ impl Server {
     async fn open(url: &str, root: &Path, clock: Arc<ManualCognitiveClock>, token: &str) -> Self {
         let runtime = NousRuntime::open_with_clock(RuntimeOptions {
             postgres_url:url.into(),max_connections:8,
+            acquire_timeout_ms: 15000,
             object_root:root.join("objects").to_string_lossy().into_owned(),
             serving_options:ServingOptions { root:root.join("serving"),lexical:true,dense:false,topology:false,memory_enabled:true },
             embedding:None,stored_embedding:None,

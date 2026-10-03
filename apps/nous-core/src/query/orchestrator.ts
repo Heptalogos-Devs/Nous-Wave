@@ -14,6 +14,7 @@ import { canonicalDigest } from "../digest.js";
 
 import type { ResourceRegistry } from "../resources/registry.js";
 import { executeResourceActions } from "../resources/execute.js";
+const MAX_QUERY_EMBEDDING_MATERIALS = 64;
 export class QueryOrchestrator {
   private readonly queryVectors = new Map<string, number[]>();
   constructor(
@@ -37,7 +38,7 @@ export class QueryOrchestrator {
       node.children.forEach(collect);
     };
     if (input.expression) collect(input.expression);
-    if (texts.size > 64)
+    if (texts.size > MAX_QUERY_EMBEDDING_MATERIALS)
       throw new ConnectError(
         "Query material bound exceeded",
         Code.ResourceExhausted,
@@ -85,7 +86,10 @@ export class QueryOrchestrator {
               vector: this.queryVectors.get(keys.get(text)!)!,
             }),
           );
-        while (this.queryVectors.size > 128)
+        while (
+          this.queryVectors.size >
+          this.kernel.execution.query_embedding_cache_entries
+        )
           this.queryVectors.delete(this.queryVectors.keys().next().value!);
       } catch (error) {
         if (options.signal?.aborted) throw error;
@@ -115,7 +119,10 @@ export class QueryOrchestrator {
       {
         query: input,
         embeddings: material,
-        validatedCandidateLimit: intent && profile ? 64 : undefined,
+        validatedCandidateLimit:
+          intent && profile
+            ? this.kernel.execution.query_rerank_candidate_limit
+            : undefined,
       },
       options,
     );
@@ -136,7 +143,7 @@ export class QueryOrchestrator {
     if (ticket) {
       const candidates = result.hits
         .filter((hit) => hit.text?.trim())
-        .slice(0, 64);
+        .slice(0, this.kernel.execution.query_rerank_candidate_limit);
       let order: {
         reference: NonNullable<(typeof candidates)[number]["reference"]>;
         score: number;
@@ -197,7 +204,7 @@ export class QueryOrchestrator {
         await this.kernel.authority
           .releaseQuery(
             { subjectId: input.subjectId, validationTicket: ticket },
-            { timeoutMs: 5000 },
+            { timeoutMs: this.kernel.execution.workflow_ack_timeout_ms },
           )
           .catch(() => {});
       }

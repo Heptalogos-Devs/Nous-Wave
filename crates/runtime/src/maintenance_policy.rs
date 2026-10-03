@@ -18,6 +18,9 @@ pub const EPISODE_NEIGHBOR_SPAN: ConfigKey<u64> =
     ConfigKey::new("episode.max_neighbor_span_seconds");
 
 pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    let reference = ReferenceProfile::parse(include_str!(
+        "../../../config/reference/longitudinal-v1.json"
+    ))?;
     registry.register(
         MAINTENANCE_ENABLED,
         "cognitive-runtime",
@@ -74,7 +77,7 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
         EPISODE_MAX_NEIGHBORS,
         "cognitive-runtime",
         "Maximum Episodes in semantic local repair.",
-        8,
+        reference.get(EPISODE_MAX_NEIGHBORS)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -93,7 +96,7 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
         EPISODE_NEIGHBOR_SPAN,
         "cognitive-runtime",
         "Maximum semantic Episode neighborhood span in cognitive seconds.",
-        86400,
+        reference.get(EPISODE_NEIGHBOR_SPAN)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -113,6 +116,8 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
     registry.bounds(MAX_OPERATIONS, 1, 32, Some("items"))?;
     registry.bounds(EPISODE_MAX_NEIGHBORS, 1, 8, Some("items"))?;
     registry.bounds(EPISODE_NEIGHBOR_SPAN, 1, 86400, Some("cognitive_seconds"))?;
+    reference.tag(registry, EPISODE_MAX_NEIGHBORS.path())?;
+    reference.tag(registry, EPISODE_NEIGHBOR_SPAN.path())?;
     register_work_state_configuration(registry)
 }
 

@@ -28,12 +28,25 @@ impl ServingService {
                     .await?
             }
             "dense" => {
-                self.build_dense(subject, id, space, staging.path(), capabilities)
-                    .await?
+                self.build_dense(
+                    subject,
+                    id,
+                    space,
+                    staging.path(),
+                    capabilities,
+                    snapshot.get(crate::EPA_POLICY)?,
+                )
+                .await?
             }
             "lexical" | "exact" => {
-                self.build_text(subject, family, staging.path(), capabilities)
-                    .await?
+                self.build_text(
+                    subject,
+                    family,
+                    staging.path(),
+                    capabilities,
+                    snapshot.get(crate::LEXICAL_WRITER_BYTES)?,
+                )
+                .await?
             }
             _ => return Err(Error::Invalid("unknown serving family".into())),
         };
@@ -69,6 +82,7 @@ impl ServingService {
         family: &str,
         dir: &std::path::Path,
         capabilities: ProjectionCapabilities,
+        writer_bytes: usize,
     ) -> Result<i64> {
         let input = self
             .store
@@ -107,7 +121,7 @@ impl ServingService {
             let directory = dir.to_path_buf();
             tokio::task::spawn_blocking(move || {
                 let mut lexical = LexicalGeneration::create(directory)?;
-                lexical.add_documents(&documents)
+                lexical.add_documents(&documents, writer_bytes)
             })
             .await
             .map_err(|e| Error::Infrastructure(e.to_string()))??;
@@ -231,6 +245,7 @@ impl ServingService {
         space_key: &str,
         dir: &std::path::Path,
         capabilities: ProjectionCapabilities,
+        epa_policy: EpaPolicy,
     ) -> Result<i64> {
         let provider = self
             .embedding()
@@ -305,9 +320,11 @@ impl ServingService {
             }
             generation.save(&directory.join("vectors.usearch"))?;
             let basis =
-                build_epa_basis(&tag_vectors, &space.space_hash).map(|basis| EpaBasisGeneration {
-                    generation_id: id,
-                    basis,
+                build_epa_basis(&tag_vectors, &space.space_hash, &epa_policy).map(|basis| {
+                    EpaBasisGeneration {
+                        generation_id: id,
+                        basis,
+                    }
                 });
             write_json(
                 &directory.join("records.json"),

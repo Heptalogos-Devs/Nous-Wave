@@ -51,13 +51,17 @@ impl AuthorityStore {
         .map(SubjectId)
         .collect())
     }
-    pub async fn connect(url: &str, max_connections: u32) -> Result<Self> {
+    pub async fn connect(
+        url: &str,
+        max_connections: u32,
+        acquire_timeout: std::time::Duration,
+    ) -> Result<Self> {
         if max_connections == 0 {
             return Err(Error::Invalid("max_connections must be positive".into()));
         }
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
-            .acquire_timeout(std::time::Duration::from_secs(15))
+            .acquire_timeout(acquire_timeout)
             .connect(url)
             .await
             .map_err(database_error)?;

@@ -23,43 +23,21 @@ struct BootstrapConfig {
 struct ServingBootstrapConfig {
     #[serde(default = "default_serving_root")]
     root: String,
-    #[serde(default)]
-    resolved_embedding: Option<nous_retrieval::StoredEmbeddingConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DatabaseConfig {
-    #[serde(default = "default_database_mode")]
     mode: String,
     #[serde(default)]
     url: String,
-    #[serde(default = "default_max_connections")]
     max_connections: u32,
-    #[serde(default = "default_database_name")]
+    acquire_timeout_ms: u64,
     name: String,
-    #[serde(default = "default_install_dir")]
     install_dir: String,
-    #[serde(default = "default_data_dir")]
     data_dir: String,
     instance_dir: String,
     secret_dir: String,
-}
-
-fn default_database_mode() -> String {
-    "managed_private".into()
-}
-fn default_max_connections() -> u32 {
-    8
-}
-fn default_database_name() -> String {
-    "nous_wave_20260908".into()
-}
-fn default_install_dir() -> String {
-    "./data/postgres-install".into()
-}
-fn default_data_dir() -> String {
-    "./data/postgres".into()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -101,6 +79,7 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
     let result = NousRuntime::open(RuntimeOptions {
         postgres_url,
         max_connections: config.bootstrap.database.max_connections,
+        acquire_timeout_ms: config.bootstrap.database.acquire_timeout_ms,
         object_root: resolve_path(root, &config.bootstrap.object_store.root)
             .to_string_lossy()
             .into_owned(),
@@ -112,7 +91,7 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
             memory_enabled: true,
         },
         embedding: None,
-        stored_embedding: config.bootstrap.serving.resolved_embedding,
+        stored_embedding: None,
         core_descriptors: bundle.core_descriptors,
         deployment_document: bundle.deployment_document,
     })

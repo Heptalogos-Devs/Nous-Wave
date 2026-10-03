@@ -29,6 +29,11 @@ impl ReferenceProfile {
         )
         .map_err(|error| Error::Internal(format!("reference default {}: {error}", key.path())))
     }
+    pub fn tag(&self, registry: &mut ConfigRegistryBuilder, path: &str) -> Result<()> {
+        registry.describe(path, |d| {
+            d.reference_profile = Some(format!("{}@{}", self.identity, self.revision));
+        })
+    }
     pub fn describe(&self, registry: &mut ConfigRegistryBuilder) -> Result<()> {
         for key in self.values.keys() {
             registry.describe(key, |d| {

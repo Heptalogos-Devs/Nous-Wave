@@ -13,6 +13,7 @@ nous-persistence.workspace = true
 nous-object-store.workspace = true
 nous-runtime.workspace = true
 serde.workspace = true
+schemars.workspace = true
 serde_json.workspace = true
 usearch.workspace = true
 tantivy.workspace = true

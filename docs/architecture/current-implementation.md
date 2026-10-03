@@ -18,7 +18,7 @@ Kernel 组合 Subject、Configuration、Material、Memory、Runtime、Persistenc
 | `crates/persistence` | PostgreSQL transaction/pool、fresh schema、receipts、projection watermarks |
 | `crates/subject` | Subject identity、Memory capability、Cognitive Seed version/adoption |
 | `crates/material` | Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation、DerivedRegion 与 materialization |
-| `crates/memory` | Memory、CognitiveSchema、Episode、Tag、AssociationEvidence、provenance 与 lifecycle |
+| `crates/memory` | Memory、CognitiveSchema、Episode、Journal、Tag、AssociationEvidence、provenance 与 lifecycle |
 | `crates/runtime` | Session、ResidentSet、WorkContext、UseEvent、QueryPlan、lane/result contracts 与 fixed fusion |
 | `crates/retrieval` | lexical/dense Serving、immutable generations、provider adapters 与 experimental topology |
 

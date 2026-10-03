@@ -73,7 +73,13 @@ function plain<T>(value: T): Data<T> {
   if (value !== null && typeof value === "object")
     return Object.fromEntries(
       Object.entries(value)
-        .filter(([key]) => !key.startsWith("$"))
+        .filter(
+          ([key]) =>
+            !(
+              "$typeName" in value &&
+              (key === "$typeName" || key === "$unknown")
+            ),
+        )
         .map(([key, val]) => [key, plain(val)]),
     ) as Data<T>;
   return value as Data<T>;

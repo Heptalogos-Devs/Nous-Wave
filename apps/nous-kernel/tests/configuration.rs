@@ -199,6 +199,12 @@ async fn rebuild_policy_and_provisioning_defaults_preserve_adopted_subject_state
         .into_iter()
         .find(|r| r.family == "topology")
         .unwrap();
+    let service = nous_kernel::transport::KernelService(runtime.clone());
+    let status_request = || {
+        tonic::Request::new(nous_protocol::public::SubjectRequest {
+            subject_id: old.subject_id.0.to_string(),
+        })
+    };
     let change = runtime
         .configuration
         .set_system_override(
@@ -209,6 +215,28 @@ async fn rebuild_policy_and_provisioning_defaults_preserve_adopted_subject_state
         .await
         .unwrap();
     assert_eq!(change.apply_mode, ConfigApplyMode::ServingRebuild);
+    let stale =
+        nous_protocol::kernel::authority_service_server::AuthorityService::get_projection_status(
+            &service,
+            status_request(),
+        )
+        .await
+        .unwrap()
+        .into_inner();
+    let stale = stale
+        .families
+        .iter()
+        .find(|f| f.name == "topology")
+        .unwrap();
+    assert_eq!(stale.state, "STALE");
+    assert_eq!(
+        stale.config_digest.as_ref().unwrap(),
+        before.metadata["config_digest"].as_str().unwrap()
+    );
+    assert_ne!(
+        stale.config_digest.as_deref(),
+        Some(stale.desired_config_digest.as_str())
+    );
     let rebuild = runtime.serving.refresh(old.subject_id).await.unwrap();
     assert!(rebuild.rebuilt.contains(&"topology".into()));
     let after = runtime
@@ -223,6 +251,24 @@ async fn rebuild_policy_and_provisioning_defaults_preserve_adopted_subject_state
     assert_ne!(
         before.metadata["config_digest"],
         after.metadata["config_digest"]
+    );
+    let ready =
+        nous_protocol::kernel::authority_service_server::AuthorityService::get_projection_status(
+            &service,
+            status_request(),
+        )
+        .await
+        .unwrap()
+        .into_inner();
+    let ready = ready
+        .families
+        .iter()
+        .find(|f| f.name == "topology")
+        .unwrap();
+    assert_eq!(ready.state, "READY");
+    assert_eq!(
+        ready.config_digest.as_deref(),
+        Some(ready.desired_config_digest.as_str())
     );
     let provision = runtime
         .configuration

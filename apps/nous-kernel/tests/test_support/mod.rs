@@ -74,6 +74,7 @@ pub(crate) async fn open_memory_only_runtime(url: &str, root: &TempDir) -> NousR
     NousRuntime::open(RuntimeOptions {
         postgres_url: url.into(),
         max_connections: 4,
+        acquire_timeout_ms: 15000,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
         serving_options: ServingOptions {
             root: root.path().join("serving").to_path_buf(),
@@ -111,6 +112,7 @@ pub(crate) async fn open_runtime_with_serving(
     NousRuntime::open(RuntimeOptions {
         postgres_url: url.into(),
         max_connections: 4,
+        acquire_timeout_ms: 15000,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
         serving_options: ServingOptions {
             root: root.path().join("serving"),

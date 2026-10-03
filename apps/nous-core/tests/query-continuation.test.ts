@@ -1,3 +1,4 @@
+import { coreExecutionSchema } from "../src/configuration-catalog.js";
 import { expect, it, vi } from "vitest";
 import { create } from "@bufbuild/protobuf";
 import {
@@ -21,6 +22,7 @@ it("finishes a Resource ticket without invoking required rerank for identity-onl
     throw new Error("Empty intent must not enter the reranker");
   });
   const kernel = {
+    execution: coreExecutionSchema.parse(undefined),
     authority: {
       query: async () => ({ response, validationTicket: "resource-ticket" }),
       finalizeQuery: finalize,

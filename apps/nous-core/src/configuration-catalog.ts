@@ -27,6 +27,7 @@ export const hostFields = {
   kernel_executable: z.string().min(1).nullable().default(null),
   kernel_startup_timeout_ms: executionTimeout.default(120000),
   kernel_shutdown_timeout_ms: executionTimeout.default(5000),
+  runtime_download_timeout_ms: executionTimeout.default(300000),
 };
 export const hostSchema = z.strictObject(hostFields).prefault({});
 export const coreExecutionSchema = z
@@ -34,6 +35,14 @@ export const coreExecutionSchema = z
     kernel_rpc_timeout_ms: executionTimeout.default(30000),
     maintenance_rpc_timeout_ms: executionTimeout.default(10000),
     workflow_ack_timeout_ms: executionTimeout.default(5000),
+    context_track_limit: z.number().int().min(1).max(65536).default(256),
+    query_embedding_cache_entries: z
+      .number()
+      .int()
+      .min(1)
+      .max(65536)
+      .default(128),
+    query_rerank_candidate_limit: z.number().int().min(2).max(64).default(64),
     http_body_limit_bytes: z
       .number()
       .int()
@@ -52,6 +61,7 @@ export const databaseSchema = z
       .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
       .optional(),
     max_connections: z.number().int().min(1).max(256).default(8),
+    acquire_timeout_ms: executionTimeout.default(15000),
     name: z
       .string()
       .regex(/^[a-z][a-z0-9_]{0,62}$/)

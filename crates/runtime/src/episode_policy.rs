@@ -17,6 +17,7 @@ pub struct ExperienceContext {
 pub struct EpisodePolicy {
     pub soft_idle: Duration,
     pub hard_idle: Duration,
+    pub context_switch_count: usize,
 }
 
 impl EpisodePolicy {
@@ -24,6 +25,7 @@ impl EpisodePolicy {
         Ok(Self {
             soft_idle: Duration::seconds(snapshot.get(SOFT_IDLE_KEY)? as i64),
             hard_idle: Duration::seconds(snapshot.get(HARD_IDLE_KEY)? as i64),
+            context_switch_count: snapshot.get(CONTEXT_SWITCH_COUNT)?,
         })
     }
 
@@ -46,7 +48,7 @@ impl EpisodePolicy {
             + usize::from(previous.conversation != next.conversation)
             + usize::from(previous.actor != next.actor)
             + usize::from(previous.source_class != next.source_class);
-        if switches >= 2 {
+        if switches >= self.context_switch_count {
             Some("context_switch")
         } else if gap >= self.soft_idle && (switches > 0 || previous.session != next.session) {
             Some("soft_idle_context_switch")
@@ -63,24 +65,27 @@ pub const HARD_IDLE_KEY: nous_configuration::ConfigKey<u64> =
 pub const SETTLE_DELAY_KEY: nous_configuration::ConfigKey<u64> =
     nous_configuration::ConfigKey::new("episode.settle_delay_seconds");
 
+pub const CONTEXT_SWITCH_COUNT: nous_configuration::ConfigKey<usize> =
+    nous_configuration::ConfigKey::new("episode.context_switch_count");
+
 pub fn register_episode_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
     use nous_configuration::*;
-    for (key, default, description) in [
+    let reference = ReferenceProfile::parse(include_str!(
+        "../../../config/reference/longitudinal-v1.json"
+    ))?;
+    for (key, description) in [
         (
             SOFT_IDLE_KEY,
-            300,
             "Soft Episode idle threshold in cognitive seconds.",
         ),
         (
             HARD_IDLE_KEY,
-            1800,
             "Hard Episode idle closure in cognitive seconds.",
         ),
         (
             SETTLE_DELAY_KEY,
-            300,
             "Cognitive settling delay before semantic Episode review.",
         ),
     ] {
@@ -88,7 +93,7 @@ pub fn register_episode_configuration(
             key,
             "cognitive-runtime",
             description,
-            default,
+            reference.get(key)?,
             ConfigExposure::Advanced,
             ConfigScopePolicy::SubjectOverrideAllowed,
             ConfigApplyMode::Live,
@@ -104,7 +109,29 @@ pub fn register_episode_configuration(
             },
         )?;
         registry.bounds(key, 1, 86400, Some("cognitive_seconds"))?;
+        reference.tag(registry, key.path())?;
     }
+    registry.register(
+        CONTEXT_SWITCH_COUNT,
+        "cognitive-runtime",
+        "Context dimensions required for an Episode boundary.",
+        reference.get(CONTEXT_SWITCH_COUNT)?,
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SubjectOverrideAllowed,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::AuthorityFormation,
+        |value| {
+            if (1..=4).contains(value) {
+                Ok(())
+            } else {
+                Err(nous_core::Error::Invalid(
+                    "context switch count must be 1..4".into(),
+                ))
+            }
+        },
+    )?;
+    registry.bounds(CONTEXT_SWITCH_COUNT, 1, 4, Some("items"))?;
+    reference.tag(registry, CONTEXT_SWITCH_COUNT.path())?;
     Ok(())
 }
 
@@ -117,6 +144,7 @@ mod tests {
         let policy = EpisodePolicy {
             soft_idle: Duration::minutes(5),
             hard_idle: Duration::minutes(30),
+            context_switch_count: 2,
         };
         let at = DateTime::<Utc>::UNIX_EPOCH;
         let previous = ExperienceContext {

@@ -138,9 +138,14 @@ impl ConfigRegistry {
     }
 }
 
+struct PendingDescriptor {
+    descriptor: ConfigDescriptor,
+    owner_validator: Option<ConfigValidator>,
+}
+
 #[derive(Default)]
 pub struct ConfigRegistryBuilder {
-    descriptors: BTreeMap<String, RegisteredDescriptor>,
+    descriptors: BTreeMap<String, PendingDescriptor>,
 }
 
 impl ConfigRegistryBuilder {
@@ -280,14 +285,10 @@ impl ConfigRegistryBuilder {
         }
         jsonschema::draft202012::meta::validate(&descriptor.json_schema)
             .map_err(|_| Error::Invalid(format!("invalid configuration schema: {path}")))?;
-        let schema = jsonschema::draft202012::new(&descriptor.json_schema)
-            .map_err(|_| Error::Invalid(format!("cannot compile configuration schema: {path}")))?;
-        let entry = RegisteredDescriptor {
+        let entry = PendingDescriptor {
             descriptor,
-            schema: Arc::new(schema),
             owner_validator,
         };
-        entry.validate(&entry.descriptor.reference_default)?;
         self.descriptors
             .insert(entry.descriptor.path.clone(), entry);
         Ok(())
@@ -302,6 +303,7 @@ impl ConfigRegistryBuilder {
                 let object = value.as_object_mut().expect("descriptor object");
                 object.remove("title");
                 object.remove("description");
+                object.remove("category");
                 value
             })
             .collect::<Vec<_>>();
@@ -311,7 +313,28 @@ impl ConfigRegistryBuilder {
         .to_hex()
         .to_string();
         Ok(ConfigRegistry {
-            descriptors: Arc::new(self.descriptors),
+            descriptors: Arc::new(
+                self.descriptors
+                    .into_iter()
+                    .map(|(path, pending)| {
+                        let schema = jsonschema::draft202012::options()
+                            .should_validate_formats(true)
+                            .build(&pending.descriptor.json_schema)
+                            .map_err(|_| {
+                                Error::Invalid(format!(
+                                    "cannot compile configuration schema: {path}"
+                                ))
+                            })?;
+                        let entry = RegisteredDescriptor {
+                            descriptor: pending.descriptor,
+                            schema: Arc::new(schema),
+                            owner_validator: pending.owner_validator,
+                        };
+                        entry.validate(&entry.descriptor.reference_default)?;
+                        Ok((path, entry))
+                    })
+                    .collect::<Result<BTreeMap<_, _>>>()?,
+            ),
             digest,
         })
     }

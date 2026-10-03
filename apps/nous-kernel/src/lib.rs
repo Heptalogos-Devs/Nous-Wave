@@ -33,6 +33,7 @@ pub struct NousRuntime {
 pub struct RuntimeOptions {
     pub postgres_url: String,
     pub max_connections: u32,
+    pub acquire_timeout_ms: u64,
     pub object_root: String,
     pub serving_options: ServingOptions,
     pub embedding: Option<Arc<dyn TextEmbeddingProvider>>,
@@ -64,7 +65,12 @@ impl NousRuntime {
         options: RuntimeOptions,
         clock: Arc<dyn nous_runtime::CognitiveClock>,
     ) -> Result<Self> {
-        let store = AuthorityStore::connect(&options.postgres_url, options.max_connections).await?;
+        let store = AuthorityStore::connect(
+            &options.postgres_url,
+            options.max_connections,
+            std::time::Duration::from_millis(options.acquire_timeout_ms),
+        )
+        .await?;
         store.migrate().await?;
         let registry = configuration_catalog(options.core_descriptors)?;
         let configuration =

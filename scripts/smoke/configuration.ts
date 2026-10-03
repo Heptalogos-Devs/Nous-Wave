@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { rm, readFile, writeFile } from "node:fs/promises";
@@ -26,12 +28,45 @@ try {
   );
   current = await boot(locator);
   let client = current.client;
+  const cli = async (...args: string[]) => {
+    const result = await promisify(execFile)(
+      process.execPath,
+      [
+        join(locations.program, "node_modules/tsx/dist/cli.mjs"),
+        join(locations.program, "apps/nous-core/src/launcher.ts"),
+        "--development",
+        "--locator",
+        locator,
+        "config",
+        ...args,
+      ],
+      { maxBuffer: 2 * 1024 * 1024, windowsHide: true },
+    );
+    return JSON.parse(result.stdout) as {
+      valid?: boolean;
+      descriptors?: { path: string; exposure: number }[];
+    };
+  };
+  assert.equal((await cli("check")).valid, true);
+  const standardCli = (await cli("list", "--json")).descriptors!;
+  assert(standardCli.length > 0);
+  assert(standardCli.every((d) => d.exposure === ConfigExposure.STANDARD));
+  const advancedCli = (await cli("list", "--advanced", "--json")).descriptors!;
+  assert(advancedCli.some((d) => d.exposure === ConfigExposure.ADVANCED));
+  assert(advancedCli.every((d) => d.exposure !== ConfigExposure.DEVELOPER));
+  const developerCli = (await cli("list", "--developer", "--json"))
+    .descriptors!;
+  assert(developerCli.some((d) => d.exposure === ConfigExposure.DEVELOPER));
   const standard = await client.configuration.list({});
   assert(standard.descriptors.some((d) => d.path === "gateway_profiles"));
   assert(standard.descriptors.some((d) => d.path === "maintenance.enabled"));
   assert(
     standard.descriptors.every((d) => d.exposure === ConfigExposure.STANDARD),
   );
+  const schema = (await client.configuration.describe("runtime.resident_limit"))
+    .jsonSchema;
+  assert(schema && typeof schema === "object" && !Array.isArray(schema));
+  assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
   const subject = await client.subjects.create({
     operationId: randomUUID(),
     cognitiveSeed: {
@@ -96,8 +131,8 @@ try {
   await assert.rejects(
     client.configuration.setSystem({
       operationId: randomUUID(),
-      path: "host",
-      value: configurationValue('{"port":0}'),
+      path: "host.port",
+      value: configurationValue("0"),
     }),
   );
   await stop(current);
@@ -113,7 +148,7 @@ try {
     false,
   );
   console.log(
-    "CONFIGURATION_SMOKE catalog=true precedence=true replay=true restart=true",
+    "CONFIGURATION_SMOKE catalog=true cli=true precedence=true replay=true restart=true",
   );
 } finally {
   await stop(current);

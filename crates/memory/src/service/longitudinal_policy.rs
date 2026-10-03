@@ -8,11 +8,14 @@ pub const CONSOLIDATION_DELAY: ConfigKey<u64> =
 pub const CONSOLIDATION_MAX_ACTIONS: ConfigKey<u64> = ConfigKey::new("consolidation.max_actions");
 
 pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    let reference = ReferenceProfile::parse(include_str!(
+        "../../../../config/reference/longitudinal-v1.json"
+    ))?;
     registry.register(
         JOURNAL_MAX_EPISODES,
         "memory",
         "Maximum Episodes in a Journal synthesis scope.",
-        12,
+        reference.get(JOURNAL_MAX_EPISODES)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -31,7 +34,7 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
         JOURNAL_MAX_SPAN,
         "memory",
         "Maximum Journal experience span in cognitive seconds.",
-        86400,
+        reference.get(JOURNAL_MAX_SPAN)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -50,7 +53,7 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
         CONSOLIDATION_DELAY,
         "memory",
         "Settling delay before longitudinal consolidation in cognitive seconds.",
-        300,
+        reference.get(CONSOLIDATION_DELAY)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -69,7 +72,7 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
         CONSOLIDATION_MAX_ACTIONS,
         "memory",
         "Maximum actions in one atomic longitudinal consolidation proposal.",
-        8,
+        reference.get(CONSOLIDATION_MAX_ACTIONS)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -88,5 +91,9 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
     registry.bounds(JOURNAL_MAX_SPAN, 1, 604800, Some("cognitive_seconds"))?;
     registry.bounds(CONSOLIDATION_DELAY, 1, 86400, Some("cognitive_seconds"))?;
     registry.bounds(CONSOLIDATION_MAX_ACTIONS, 1, 16, Some("items"))?;
+    reference.tag(registry, JOURNAL_MAX_EPISODES.path())?;
+    reference.tag(registry, JOURNAL_MAX_SPAN.path())?;
+    reference.tag(registry, CONSOLIDATION_DELAY.path())?;
+    reference.tag(registry, CONSOLIDATION_MAX_ACTIONS.path())?;
     Ok(())
 }

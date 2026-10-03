@@ -6,8 +6,7 @@ use std::collections::BTreeMap;
 pub struct QueryPlan {
     pub enabled_lanes: Vec<EvidenceFamily>,
     pub lane_budgets: BTreeMap<EvidenceFamily, usize>,
-    /// Compatibility accessor for bounded non-exact providers. The plan
-    /// itself is lane-specific; providers must use `lane_budgets`.
+    /// Shared upper bound for bounded non-exact providers; execution is lane-specific.
     pub candidate_limit: usize,
     pub final_validation_budget: usize,
     pub sense_cues: bool,
@@ -33,19 +32,17 @@ impl QueryPlan {
     /// query execution uses `BoundQuery::bind_query` and `for_bound_query`.
     pub fn for_query(query: &CognitiveQuery) -> Self {
         let lanes = planned_lanes(query);
-        let (multiplier, per_lane_max) = match query.effort {
-            CognitiveEffort::Light => (2, 128),
-            CognitiveEffort::Normal => (4, 512),
-            CognitiveEffort::Deep => (8, 2048),
-            CognitiveEffort::Maximum => (16, 8192),
-        };
+        let policy = super::RetrievalPolicy::reference();
+        let index = effort_index(query.effort);
+        let multiplier = policy.effort_multipliers[index];
+        let per_lane_max = policy.per_lane_max[index];
         let budget = query
             .result_need
             .limit
             .saturating_mul(multiplier)
-            .clamp(16, per_lane_max);
+            .clamp(policy.lane_min, per_lane_max);
         let budgets = lanes.iter().copied().map(|lane| (lane, budget)).collect();
-        Self::from_parts(query, lanes, budgets, &super::RetrievalPolicy::reference())
+        Self::from_parts(query, lanes, budgets, &policy)
     }
 
     fn from_parts(
@@ -54,12 +51,7 @@ impl QueryPlan {
         lane_budgets: BTreeMap<EvidenceFamily, usize>,
         retrieval_policy: &super::RetrievalPolicy,
     ) -> Self {
-        let (hops, states, resources) = match query.effort {
-            CognitiveEffort::Light => (1, 128, 1),
-            CognitiveEffort::Normal => (2, 512, 4),
-            CognitiveEffort::Deep => (3, 2048, 8),
-            CognitiveEffort::Maximum => (4, 4096, 16),
-        };
+        let index = effort_index(query.effort);
         let candidate_limit = lane_budgets.values().copied().max().unwrap_or(0);
         Self {
             enabled_lanes: enabled_lanes.clone(),
@@ -75,9 +67,9 @@ impl QueryPlan {
                 ),
             sense_cues: query.capabilities.residual_sensing == RequirementStrength::Required,
             expand_topology: enabled_lanes.contains(&EvidenceFamily::TopologyWave),
-            topology_rounds: hops,
-            topology_nodes: states,
-            resource_limit: resources,
+            topology_rounds: retrieval_policy.topology_hops[index],
+            topology_nodes: retrieval_policy.topology_states[index],
+            resource_limit: retrieval_policy.resource_limits[index],
             materialize_evidence: query.result_need.need_evidence
                 && matches!(
                     query.effort,
@@ -112,6 +104,15 @@ impl QueryPlan {
 pub struct WorkCycle {
     pub inspected: std::collections::HashSet<CognitiveRef>,
     pub frontier: Vec<CognitiveRef>,
+}
+
+fn effort_index(effort: CognitiveEffort) -> usize {
+    match effort {
+        CognitiveEffort::Light => 0,
+        CognitiveEffort::Normal => 1,
+        CognitiveEffort::Deep => 2,
+        CognitiveEffort::Maximum => 3,
+    }
 }
 
 #[cfg(test)]

@@ -1,0 +1,16 @@
+{
+  "identity": "longitudinal-v1",
+  "revision": 1,
+  "values": {
+    "episode.soft_idle_seconds": 300,
+    "episode.hard_idle_seconds": 1800,
+    "episode.settle_delay_seconds": 300,
+    "episode.context_switch_count": 2,
+    "episode.max_neighbor_episodes": 8,
+    "episode.max_neighbor_span_seconds": 86400,
+    "journal.max_episode_count": 12,
+    "journal.max_span_seconds": 86400,
+    "consolidation.settle_delay_seconds": 300,
+    "consolidation.max_actions": 8
+  }
+}

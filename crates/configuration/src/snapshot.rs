@@ -96,7 +96,7 @@ impl ConfigSnapshot {
                     Error::Invalid(format!("configuration key is not resolved: {key}"))
                 })?;
                 let descriptor = self.registry.descriptor(key).expect("snapshot descriptor");
-                Ok(serde_json::json!({"key": key, "value": value, "json_schema": descriptor.json_schema, "reference_profile": descriptor.reference_profile}))
+                Ok(serde_json::json!({"key": key, "value": value, "json_schema": descriptor.json_schema, "reference_profile": descriptor.reference_profile, "unit": descriptor.unit}))
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(blake3::hash(
