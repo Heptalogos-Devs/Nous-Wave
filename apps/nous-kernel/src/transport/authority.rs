@@ -2,6 +2,18 @@ use super::*;
 
 #[tonic::async_trait]
 impl k::authority_service_server::AuthorityService for KernelService {
+    async fn get_cognitive_time(
+        &self,
+        request: Request<p::SubjectRequest>,
+    ) -> std::result::Result<Response<prost_types::Timestamp>, Status> {
+        let result: nous_core::Result<_> = async {
+            let subject = SubjectId(id(&request.into_inner().subject_id)?);
+            self.0.store.require_subject(subject).await?;
+            Ok(timestamp(self.0.cognition.now(subject)))
+        }
+        .await;
+        result.map(Response::new).map_err(status)
+    }
     async fn commit_longitudinal_consolidation(
         &self,
         request: Request<k::CommitLongitudinalConsolidationRequest>,

@@ -259,3 +259,28 @@ impl MemoryService {
         Ok(views)
     }
 }
+
+impl MemoryService {
+    async fn wake_journal_revalidation_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        journal: JournalId,
+        sequence: i64,
+    ) -> Result<()> {
+        self.cognition
+            .wake_blocked_maintenance_in(
+                tx,
+                &nous_runtime::MaintenanceRequest {
+                    subject,
+                    kind: "journal_revalidate".into(),
+                    scope_kind: "journal".into(),
+                    scope_ref: journal.0.to_string(),
+                    trigger_authority_seq: sequence,
+                    due_at: self.cognition.now(subject),
+                    priority: 30,
+                },
+            )
+            .await
+    }
+}

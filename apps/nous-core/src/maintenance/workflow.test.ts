@@ -335,6 +335,14 @@ describe("maintenance fixed workflow retry", () => {
       expect.objectContaining({ page: { pageToken: "50" } }),
       expect.anything(),
     );
+    list.mockRejectedValueOnce(
+      new ConnectError("expired page token", Code.InvalidArgument),
+    );
+    for (let tick = 0; tick < 40; tick++)
+      await scheduler.poll(new AbortController().signal);
+    expect(
+      opportunities.filter((id) => id === ids[74]).length,
+    ).toBeGreaterThanOrEqual(2);
   });
   it("executes consolidation through the typed owner and replays a no-change outcome", async () => {
     const state = fixture();

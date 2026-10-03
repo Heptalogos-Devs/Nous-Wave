@@ -14,6 +14,7 @@ fn need_proto(value: MaintenanceNeed) -> k::MaintenanceNeed {
         scope_kind: value.scope_kind,
         scope_ref: value.scope_ref,
         trigger_authority_seq: value.trigger_authority_seq,
+        trigger_revision: value.trigger_revision,
         due_at: Some(timestamp(value.due_at)),
         priority: value.priority,
         state: value.state,
@@ -34,6 +35,7 @@ pub(super) fn need(value: k::MaintenanceNeed) -> Result<MaintenanceNeed> {
         scope_kind: value.scope_kind,
         scope_ref: value.scope_ref,
         trigger_authority_seq: value.trigger_authority_seq,
+        trigger_revision: value.trigger_revision,
         due_at: required(time(value.due_at)?, "due_at")?,
         priority: value.priority,
         state: value.state,
@@ -115,6 +117,7 @@ impl KernelService {
                     &input.allowed_kinds,
                     input.limit,
                     input.lease_seconds,
+                    input.model_execution_digest.as_deref(),
                 )
                 .await?
                 .into_iter()

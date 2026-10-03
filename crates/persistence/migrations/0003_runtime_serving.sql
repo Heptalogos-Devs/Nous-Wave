@@ -88,6 +88,7 @@ CREATE TABLE maintenance_needs (
     scope_kind text NOT NULL CHECK (scope_kind ~ '^[a-z][a-z0-9_]{0,63}$'),
     scope_ref text NOT NULL CHECK (octet_length(scope_ref) BETWEEN 1 AND 512),
     trigger_authority_seq bigint NOT NULL CHECK (trigger_authority_seq >= 0),
+    trigger_revision bigint NOT NULL DEFAULT 1 CHECK (trigger_revision > 0),
     due_at timestamptz NOT NULL,
     priority integer NOT NULL CHECK (priority BETWEEN 0 AND 100),
     state text NOT NULL CHECK (state IN ('pending','leased','blocked','satisfied','obsolete')),
@@ -100,6 +101,7 @@ CREATE TABLE maintenance_needs (
     retry_not_before timestamptz NULL,
     terminal_at timestamptz NULL,
     blocked_config_digest text NULL,
+    model_execution_digest text NULL CHECK (model_execution_digest IS NULL OR model_execution_digest ~ '^[0-9a-f]{64}$'),
     last_problem_code text NULL,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
@@ -110,6 +112,7 @@ CREATE UNIQUE INDEX maintenance_active_scope ON maintenance_needs(subject_id,kin
 CREATE INDEX maintenance_due ON maintenance_needs(subject_id,due_at,priority DESC)
     WHERE state IN ('pending','leased');
 
+ALTER TABLE model_workflow_operations ADD COLUMN maintenance_trigger_revision bigint NULL CHECK (maintenance_trigger_revision >= 0);
 ALTER TABLE model_workflow_operations ADD COLUMN maintenance_need_id uuid NULL REFERENCES maintenance_needs(need_id) ON DELETE CASCADE;
 CREATE INDEX maintenance_workflows ON model_workflow_operations(maintenance_need_id) WHERE maintenance_need_id IS NOT NULL;
 

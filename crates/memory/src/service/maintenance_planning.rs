@@ -98,7 +98,11 @@ impl MemoryService {
                     .parse()
                     .map_err(|_| Error::Invalid("invalid Episode review scope".into()))?,
             );
-            let source = self.episode_revision(subject, revision).await?;
+            let source = match self.episode_revision(subject, revision).await {
+                Ok(value) => value,
+                Err(Error::NotFound(_)) => return Ok(MaintenanceScope::empty("obsolete")),
+                Err(error) => return Err(error),
+            };
             if source.object.current_revision_id != revision || !episode_eligible(&source) {
                 return Ok(MaintenanceScope::empty("obsolete"));
             }
@@ -199,7 +203,7 @@ impl MemoryService {
         let delay = chrono::Duration::seconds(config.get(nous_runtime::SETTLE_DELAY_KEY)? as i64);
         let mut result = MaintenanceScope::empty("ready");
         let ids: Vec<Uuid> = if kind == "journal_revalidate" {
-            let journal = self
+            let journal = match self
                 .journal(
                     subject,
                     JournalId(
@@ -209,9 +213,15 @@ impl MemoryService {
                     ),
                     None,
                 )
-                .await?;
+                .await
+            {
+                Ok(value) => value,
+                Err(Error::NotFound(_)) => return Ok(MaintenanceScope::empty("obsolete")),
+                Err(error) => return Err(error),
+            };
             if journal.object.purge_state != PurgeState::Normal
                 || journal.object.acceptance_state != AcceptanceState::Accepted
+                || journal.object.integrity_state == IntegrityState::Valid
             {
                 return Ok(MaintenanceScope::empty("obsolete"));
             }
@@ -236,6 +246,8 @@ impl MemoryService {
             result.problem = Some("journal_scope_bound_exceeded".into());
             return Ok(result);
         }
+        let mut scope_start: Option<DateTime<Utc>> = None;
+        let mut scope_end: Option<DateTime<Utc>> = None;
         for id in ids {
             let episode = self
                 .episode_revision(subject, EpisodeRevisionId(id))
@@ -258,11 +270,13 @@ impl MemoryService {
                 result.problem = Some("journal_scope_span_exceeded".into());
                 return Ok(result);
             }
-            if let Some(first) = result.episodes.first()
-                && let (Some(start), Some(end)) = (
-                    extent_start(&first.revision.experience_time),
-                    extent_end(&episode.revision.experience_time),
-                )
+            if let Some(start) = extent_start(&episode.revision.experience_time) {
+                scope_start = Some(scope_start.map_or(start, |old| old.min(start)));
+            }
+            if let Some(end) = extent_end(&episode.revision.experience_time) {
+                scope_end = Some(scope_end.map_or(end, |old| old.max(end)));
+            }
+            if let (Some(start), Some(end)) = (scope_start, scope_end)
                 && end - start > span
             {
                 if result.journal.is_some() {

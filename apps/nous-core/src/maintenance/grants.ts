@@ -6,6 +6,7 @@ import type {
 import type { MaintenancePolicy } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "../model/runtime.js";
+import { canonicalDigest } from "../digest.js";
 import { runModelMaintenance } from "./workflow.js";
 
 const roles = {
@@ -105,6 +106,22 @@ export async function grantMaintenance(
       {
         subjectId: input.subjectId,
         allowedKinds: allowedKinds(models, input.maxModelCalls - modelCalls),
+        modelExecutionDigest: canonicalDigest(
+          Object.fromEntries(
+            Object.values(roles)
+              .filter((role) =>
+                models.invocations.capabilities.some(
+                  (capability) =>
+                    capability.name === `model.${role}` &&
+                    capability.state === "READY",
+                ),
+              )
+              .map((role) => [
+                role,
+                models.invocations.snapshot(role).configDigest,
+              ]),
+          ),
+        ),
         limit: 1,
         leaseSeconds: policy.workerLeaseSeconds,
       },
@@ -170,26 +187,37 @@ export async function grantMaintenance(
       status = "blocked_dependency";
       problemCode = "maintenance_retry_exhausted";
     }
-    await kernel.authority.finishMaintenance(
-      {
-        claimed: need,
-        disposition:
-          status === "deferred"
-            ? "pending"
-            : status === "retry"
-              ? "retry"
-              : status === "blocked_dependency"
-                ? "blocked"
-                : status === "obsolete"
-                  ? "obsolete"
-                  : "satisfied",
-        nextDue,
-        problemCode,
-        retryDelaySeconds:
-          status === "retry" ? retryDelay(policy, need.retryCount + 1) : 0,
-      },
-      { timeoutMs: ACK_TIMEOUT_MS },
-    );
+    try {
+      await kernel.authority.finishMaintenance(
+        {
+          claimed: need,
+          disposition:
+            status === "deferred"
+              ? "pending"
+              : status === "retry"
+                ? "retry"
+                : status === "blocked_dependency"
+                  ? "blocked"
+                  : status === "obsolete"
+                    ? "obsolete"
+                    : "satisfied",
+          nextDue,
+          problemCode,
+          retryDelaySeconds:
+            status === "retry" ? retryDelay(policy, need.retryCount + 1) : 0,
+        },
+        { timeoutMs: ACK_TIMEOUT_MS },
+      );
+    } catch (error) {
+      reportFailure(
+        need.subjectId,
+        "acknowledge",
+        need.kind,
+        problemClass(error),
+        "lease_recovery",
+      );
+      throw error;
+    }
     results.push({ needId: need.needId, kind: need.kind, status, problemCode });
   }
   return {
@@ -288,10 +316,7 @@ export class SubjectMaintenanceScheduler {
         this.failures = 0;
       } catch (error) {
         if (signal.aborted) break;
-        if (
-          error instanceof ConnectError &&
-          [Code.NotFound, Code.FailedPrecondition].includes(error.code)
-        )
+        if (error instanceof ConnectError && error.code === Code.NotFound)
           continue;
         this.report(error, "subject_opportunity");
         operations--; // Failed execution also consumes this tick's opportunity.
@@ -325,7 +350,10 @@ export async function startMaintenanceLoop(
   const scheduler = new SubjectMaintenanceScheduler(kernel, models);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let active: Promise<void> | undefined;
-  const initial = await kernel.authority.getMaintenancePolicy({ subjectId: "" }, { timeoutMs: RPC_TIMEOUT_MS });
+  const initial = await kernel.authority.getMaintenancePolicy(
+    { subjectId: "" },
+    { timeoutMs: RPC_TIMEOUT_MS },
+  );
   let pollDelay = initial.pollIntervalSeconds * 1000;
   const tick = async () => {
     let delay = pollDelay;

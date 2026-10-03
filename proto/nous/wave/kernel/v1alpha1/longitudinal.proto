@@ -22,8 +22,9 @@ message MaintenanceNeed {
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
   uint32 retry_count = 16;
+  uint64 trigger_revision = 17;
 }
-message ClaimMaintenanceRequest { string subject_id = 1; repeated string allowed_kinds = 2; uint32 limit = 3; uint32 lease_seconds = 4; }
+message ClaimMaintenanceRequest { string subject_id = 1; repeated string allowed_kinds = 2; uint32 limit = 3; uint32 lease_seconds = 4; optional string model_execution_digest = 5; }
 message ClaimMaintenanceResponse { repeated MaintenanceNeed needs = 1; }
 message FinishMaintenanceRequest { MaintenanceNeed claimed = 1; string disposition = 2; google.protobuf.Timestamp next_due = 3; optional string problem_code = 4; uint32 retry_delay_seconds = 5; }
 message OrganizeExperienceRequest { string subject_id = 1; uint32 limit = 2; bool close = 3; }

@@ -107,6 +107,10 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
             }
         },
     )?;
+    register_work_state_configuration(registry)
+}
+
+fn register_work_state_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     for (key, description, default, ceiling) in [
         (
             TERMINAL_RETENTION,

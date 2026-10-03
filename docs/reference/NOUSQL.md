@@ -30,3 +30,5 @@ Kernel 保留整棵 expression：AND 对 canonical candidate identity 取交集�
 `$current(none|prefer|required)` 可用于 scope；父级 required 不被子级放宽，最终约束进入该 leaf 的 Resource action。exact 子目标仍受父级 domain 限制，例如 `$memory` 下的 Artifact exact read 不产生返回候选。
 
 [返回文档目录](../INDEX.md)
+
+相对时间窗口 `within` 以该 Subject 的 CognitiveClock 当前时间为基准，由 Core 在编译时固定；执行 timeout 与 retry 继续使用基础设施时间。

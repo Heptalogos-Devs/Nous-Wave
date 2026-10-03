@@ -146,6 +146,8 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                         "maintenance workflow route requires Memory".into(),
                     ));
                 }
+                let expected = uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, format!("{need_id}:{}:{}", input.maintenance_trigger_authority_seq, input.maintenance_trigger_revision).as_bytes());
+                if input.operation_key != expected.to_string() { return Err(Error::Invalid("maintenance workflow identity does not match obligation".into())); }
                 let token = required(
                     input.maintenance_lease_token.clone(),
                     "maintenance_lease_token",
@@ -155,7 +157,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                     .ok_or_else(|| Error::Invalid("workflow snapshot must be an object".into()))?
                     .insert(
                         "maintenance_claim".into(),
-                        serde_json::json!({"need_id":need_id,"lease_token":token}),
+                        serde_json::json!({"need_id":need_id,"lease_token":token,"trigger":input.maintenance_trigger_authority_seq,"trigger_revision":input.maintenance_trigger_revision}),
                     );
             } else if snapshot.get("maintenance_claim").is_some() {
                 return Err(Error::Invalid(

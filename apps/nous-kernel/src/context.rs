@@ -41,7 +41,11 @@ impl ContextResolver for NousRuntime {
             }
             let level = self
                 .require_memory()?
-                .accessibility_level(subject, memory.object.memory_id, chrono::Utc::now())
+                .accessibility_level(
+                    subject,
+                    memory.object.memory_id,
+                    self.cognition.now(subject),
+                )
                 .await?;
             if !nous_memory::accessibility_eligible(level, CognitiveEffort::Normal, explicit) {
                 return Err(Error::Unavailable(

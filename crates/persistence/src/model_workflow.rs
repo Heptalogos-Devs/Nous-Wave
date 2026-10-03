@@ -59,6 +59,9 @@ impl AuthorityStore {
         }
         let mut tx = self.begin().await?;
         let maintenance = snapshot.get("maintenance_claim");
+        let maintenance_trigger = maintenance
+            .and_then(|claim| claim.get("trigger_revision"))
+            .and_then(Value::as_i64);
         let maintenance_need_id = if let Some(claim) = maintenance {
             let need: Uuid = claim
                 .get("need_id")
@@ -72,8 +75,8 @@ impl AuthorityStore {
                 .ok_or_else(|| Error::Invalid("maintenance lease required".into()))?
                 .parse()
                 .map_err(|_| Error::Invalid("invalid maintenance lease".into()))?;
-            let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp())")
-                .bind(subject.0).bind(need).bind(token).fetch_one(&mut *tx).await.map_err(db)?;
+            let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp() AND trigger_revision>=$4)")
+                .bind(subject.0).bind(need).bind(token).bind(maintenance_trigger.ok_or_else(|| Error::Invalid("maintenance trigger required".into()))?).fetch_one(&mut *tx).await.map_err(db)?;
             if !valid {
                 return Err(Error::Conflict(
                     "maintenance lease expired or changed".into(),
@@ -84,7 +87,7 @@ impl AuthorityStore {
             None
         };
 
-        sqlx::query("INSERT INTO model_workflow_operations(subject_id,owner,operation_key,semantic_digest,snapshot,maintenance_need_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING").bind(subject.0).bind(owner).bind(key).bind(digest).bind(snapshot).bind(maintenance_need_id).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO model_workflow_operations(subject_id,owner,operation_key,semantic_digest,snapshot,maintenance_need_id,maintenance_trigger_revision) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING").bind(subject.0).bind(owner).bind(key).bind(digest).bind(snapshot).bind(maintenance_need_id).bind(maintenance_trigger).execute(&mut *tx).await.map_err(db)?;
         let row=sqlx::query("SELECT snapshot,proposal,outcome,semantic_digest,lease_until>now() AS live FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 FOR UPDATE").bind(subject.0).bind(owner).bind(key).fetch_one(&mut *tx).await.map_err(db)?;
         if row.try_get::<String, _>("semantic_digest").map_err(db)? != digest {
             return Err(Error::Conflict(

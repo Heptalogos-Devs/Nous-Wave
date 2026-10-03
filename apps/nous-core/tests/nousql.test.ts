@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { canonical, parse } from "../src/nousql/parser.js";
 import { compileNousQL } from "../src/nousql/compiler.js";
 
+const referenceTime = new Date("2026-09-17T00:00:00Z");
 const resolve = async (kind: string, locator: { value: string }) => ({
   canonical: { kind, value: `entity:${locator.value}` },
   lexicalRef:
@@ -26,6 +27,7 @@ it("binds names exactly, sorts joint participants, and rejects duplicate identit
   const result = await compileNousQL(
     '@e("Bob","Alice") $memory +"school"',
     resolve,
+    referenceTime,
   );
   expect(result.boundCanonical).toContain(
     "@e(ent:amber-lotus-cello-river,ent:quiet-piano-mint-cloud)",
@@ -35,18 +37,19 @@ it("binds names exactly, sorts joint participants, and rejects duplicate identit
     result.expression.cues.every((cue) => cue.cue.case === "entityRef"),
   ).toBe(true);
   expect(result.expression.modifiers?.preferences[0]?.negative).toBe(false);
-  await expect(compileNousQL('@e("Alice","Alice")', resolve)).rejects.toThrow(
-    "DUPLICATE_ENTITY_PARTICIPANT",
-  );
+  await expect(
+    compileNousQL('@e("Alice","Alice")', resolve, referenceTime),
+  ).rejects.toThrow("DUPLICATE_ENTITY_PARTICIPANT");
 });
 it("rejects nested execution controls and requires explicit preference time axes", async () => {
   await expect(
-    compileNousQL('("a" $limit(2)) || "b"', resolve),
+    compileNousQL('("a" $limit(2)) || "b"', resolve, referenceTime),
   ).rejects.toThrow("query root");
   expect(() => parse('"a" +recent')).toThrow("recent(");
   const result = await compileNousQL(
     '"a" +recent(formed) -recent(observed)',
     resolve,
+    referenceTime,
   );
   expect(result.expression.modifiers?.preferences.map((p) => p.key)).toEqual([
     "recent:formed",
@@ -66,20 +69,25 @@ it("keeps independent time axes and rejects ambiguous or duplicate modifiers", a
   );
   expect(result.expression.modifiers?.constraints?.occurred).toBeUndefined();
   await expect(
-    compileNousQL('"study" $limit(3) $limit(4)', resolve),
+    compileNousQL('"study" $limit(3) $limit(4)', resolve, referenceTime),
   ).rejects.toThrow("Duplicate");
   await expect(
-    compileNousQL('"study" $time(valid,at="2026-09-17")', resolve),
+    compileNousQL(
+      '"study" $time(valid,at="2026-09-17")',
+      resolve,
+      referenceTime,
+    ),
   ).rejects.toThrow("offset");
-  await expect(compileNousQL('"study" $persona', resolve)).rejects.toThrow(
-    "unavailable",
-  );
+  await expect(
+    compileNousQL('"study" $persona', resolve, referenceTime),
+  ).rejects.toThrow("unavailable");
 });
 
 it("preserves distinct cognition domains and Boolean domain scope", async () => {
   const result = await compileNousQL(
     '("experience" $episode $journal) || ("context" $memory $schema)',
     resolve,
+    referenceTime,
   );
   expect(
     result.expression.children.map((child) => child.modifiers?.domains),

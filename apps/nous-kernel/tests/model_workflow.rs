@@ -120,4 +120,43 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
     assert!(completed.proposal.is_none());
     assert!(completed.lease_token.is_none());
     assert_eq!(completed.snapshot, serde_json::json!({}));
+    assert_owner_validation(&runtime.store, subject, &key).await;
+}
+
+async fn assert_owner_validation(
+    store: &nous_persistence::AuthorityStore,
+    subject: nous_core::SubjectId,
+    key: &str,
+) {
+    use nous_persistence::WorkflowOwner;
+    let domain = WorkflowOwner::new("test_domain_42").unwrap();
+    assert_eq!(domain.as_str(), "test_domain_42");
+    let generalized = store
+        .reserve_model_workflow(
+            subject,
+            domain.as_str(),
+            key,
+            "domain input",
+            &serde_json::json!({}),
+        )
+        .await
+        .unwrap();
+    assert!(generalized.lease_token.is_some());
+    for owner in [
+        "",
+        "Memory",
+        "1domain",
+        "domain-name",
+        "领域",
+        &"a".repeat(65),
+    ] {
+        assert!(WorkflowOwner::new(owner).is_err());
+        assert!(
+            store
+                .reserve_model_workflow(subject, owner, key, "input", &serde_json::json!({}))
+                .await
+                .is_err()
+        );
+        assert!(sqlx::query("INSERT INTO model_workflow_operations(subject_id,owner,operation_key,semantic_digest,snapshot) VALUES($1,$2,'invalid','input','{}')").bind(subject.0).bind(owner).execute(store.pool()).await.is_err());
+    }
 }

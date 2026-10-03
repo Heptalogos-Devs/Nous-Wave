@@ -61,7 +61,9 @@ const proposalSchema = z.discriminatedUnion("action", [
 export function maintenanceOperationId(need: MaintenanceNeed) {
   const bytes = createHash("sha1")
     .update(Buffer.from("6ba7b8129dad11d180b400c04fd430c8", "hex"))
-    .update(`${need.needId}:${need.triggerAuthoritySeq}`)
+    .update(
+      `${need.needId}:${need.triggerAuthoritySeq}:${need.triggerRevision}`,
+    )
     .digest()
     .subarray(0, 16);
   bytes[6] = (bytes[6]! & 15) | 80;
@@ -102,6 +104,7 @@ export async function runModelMaintenance(
     semanticDigest: canonicalDigest({
       needId: need.needId,
       trigger: need.triggerAuthoritySeq.toString(),
+      triggerRevision: need.triggerRevision.toString(),
       kind: need.kind,
       scopeKind: need.scopeKind,
       scopeRef: need.scopeRef,
@@ -144,6 +147,8 @@ export async function runModelMaintenance(
       snapshotJson,
       maintenanceNeedId: need.needId,
       maintenanceLeaseToken: need.leaseToken,
+      maintenanceTriggerAuthoritySeq: need.triggerAuthoritySeq,
+      maintenanceTriggerRevision: need.triggerRevision,
     },
     options,
   );

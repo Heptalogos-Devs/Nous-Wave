@@ -192,6 +192,8 @@ pub struct MaintenanceNeed {
     pub updated_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(uint32, tag="16")]
     pub retry_count: u32,
+    #[prost(uint64, tag="17")]
+    pub trigger_revision: u64,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ClaimMaintenanceRequest {
@@ -203,6 +205,8 @@ pub struct ClaimMaintenanceRequest {
     pub limit: u32,
     #[prost(uint32, tag="4")]
     pub lease_seconds: u32,
+    #[prost(string, optional, tag="5")]
+    pub model_execution_digest: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClaimMaintenanceResponse {
@@ -623,6 +627,10 @@ pub struct ReserveWorkflowRequest {
     pub maintenance_need_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="7")]
     pub maintenance_lease_token: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, tag="8")]
+    pub maintenance_trigger_authority_seq: i64,
+    #[prost(uint64, tag="9")]
+    pub maintenance_trigger_revision: u64,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct WorkflowReservation {

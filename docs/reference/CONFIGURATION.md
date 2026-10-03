@@ -51,7 +51,13 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `maintenance.enabled` | true | host maintenance 开关 |
 | `maintenance.poll_interval` | 30 | standalone loop 的基础设施秒 |
 | `maintenance.worker_lease_seconds` | 120 | worker lease 的基础设施秒 |
-| `maintenance.max_operations_per_grant` | 4 | 每次机会的操作数上限 |
+| `maintenance.max_operations_per_grant` | 4 | 每次机会/standalone tick 的操作数上限 |
+| `maintenance.terminal_retention_seconds` | 86400 | terminal need finish replay 的基础设施秒，范围 1..604800 |
+| `maintenance.retry_initial_seconds` | 30 | transient retry 初始基础设施秒，范围 1..3600 |
+| `maintenance.retry_max_seconds` | 3600 | transient retry 延迟上限秒，范围 1..86400 |
+| `maintenance.retry_max_attempts` | 8 | 连续 transient failure 上限，范围 1..32；达到后 blocked |
+| `maintenance.max_model_calls_per_tick` | 4 | standalone tick 全局模型调用预算，范围 1..32 |
+| `maintenance.max_elapsed_ms_per_tick` | 60000 | standalone tick 全局 elapsed 毫秒预算，范围 1..300000 |
 | `episode.soft_idle` | 300 | 认知秒 |
 | `episode.hard_idle` | 1800 | 认知秒 |
 | `episode.settle_delay` | 300 | semantic review 的认知秒 |
@@ -62,4 +68,4 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `consolidation.settle_delay` | 300 | 整合前的认知秒 |
 | `consolidation.max_actions` | 8 | 一个原子整合 proposal 的 action 数 |
 
-`GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`poll_interval` 与 `worker_lease_seconds` 为 system-only，其他以上设置允许 Subject override。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
+`GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`poll_interval`、`worker_lease_seconds` 和新增的 retention/retry/tick budget 设置均由 `cognitive-runtime` owner 注册，使用 Developer exposure、SystemOnly scope、Live apply mode 和 Operational semantic effect。其他以上设置允许 Subject override。retry 延迟为 `min(retry_max_seconds, retry_initial_seconds × 2^(连续失败次数−1))`。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。

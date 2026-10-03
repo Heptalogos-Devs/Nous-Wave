@@ -5,6 +5,7 @@ import "nous/wave/kernel/v1alpha1/longitudinal.proto";
 import "nous/wave/v1alpha1/journal.proto";
 import "nous/wave/v1alpha1/types.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "nous/wave/v1alpha1/identity.proto";
 import "nous/wave/v1alpha1/management.proto";
 import "nous/wave/kernel/v1alpha1/model.proto";
@@ -19,6 +20,7 @@ service ArtifactStreamService {
 }
 
 service AuthorityService {
+  rpc GetCognitiveTime(nous.wave.v1alpha1.SubjectRequest) returns (google.protobuf.Timestamp);
   rpc CommitLongitudinalConsolidation(CommitLongitudinalConsolidationRequest) returns (CommitLongitudinalConsolidationResponse);
   rpc RefreshMaintenance(RefreshMaintenanceRequest) returns (google.protobuf.Empty);
   rpc PlanMaintenance(PlanMaintenanceRequest) returns (MaintenancePlan);
