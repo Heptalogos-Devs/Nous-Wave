@@ -25,3 +25,8 @@ CREATE INDEX schema_dependency_source_idx
 CREATE INDEX journal_point_dependency_source_idx
     ON journal_point_supports((support#>>'{value,target_revision,kind}'),(support#>>'{value,target_revision,id}'),journal_revision_id)
     WHERE support->>'kind'='cognition_dependency';
+
+CREATE INDEX episode_dependency_support_source_idx
+    ON episode_revision_supports(support_kind,support_ref,episode_revision_id);
+CREATE INDEX episode_dependency_member_source_idx
+    ON episode_revision_members(ref_kind,ref_value,episode_revision_id);

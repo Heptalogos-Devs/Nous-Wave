@@ -1730,6 +1730,30 @@ async fn create_journal_dependents(
             .into_iter()
             .flatten(),
     );
+    let episode = memory
+        .create_episode(nous_memory::EpisodeInput {
+            operation_id: OperationId::new(),
+            subject,
+            track_key: "manual-dependent".into(),
+            title: None,
+            parent_episode_revision_id: None,
+            experience_time: TemporalExtent::Unknown,
+            boundary_explanation: "Supported cognitive continuation.".into(),
+            producer_signature_id: None,
+            members: vec![nous_memory::EpisodeMemberInput {
+                reference: refs[0].clone(),
+                role: "context".into(),
+            }],
+            supports: vec![RevisionSupport::CognitionDependency(CognitionDependency {
+                target_revision: refs[0].clone(),
+                support_role: SupportRole::Direct,
+            })],
+        })
+        .await
+        .unwrap();
+    refs.push(CognitiveRef::EpisodeRevision(
+        episode.revision.episode_revision_id,
+    ));
     refs
 }
 
@@ -1745,6 +1769,9 @@ async fn assert_invalidated_dependents(
             }
             nous_core::CognitiveRef::CognitiveSchemaRevision(_) => {
                 "SELECT o.integrity_state,o.object_epoch FROM cognitive_schemas o JOIN cognitive_schema_revisions r USING(schema_id) WHERE o.subject_id=$1 AND r.schema_revision_id=$2"
+            }
+            nous_core::CognitiveRef::EpisodeRevision(_) => {
+                "SELECT o.integrity_state,o.object_epoch FROM episode_objects o JOIN episode_revisions r USING(episode_id) WHERE o.subject_id=$1 AND r.episode_revision_id=$2"
             }
             _ => panic!("unexpected dependency kind"),
         };

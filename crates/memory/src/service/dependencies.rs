@@ -84,6 +84,14 @@ SELECT 'cognitive_schema_revision',o.schema_id,o.current_revision_id
 FROM cognitive_schemas o JOIN cognitive_schema_evidence_links d ON d.schema_revision_id=o.current_revision_id
 WHERE o.subject_id=$1 AND o.purge_state='normal' AND d.support_kind=$2 AND d.support_ref=$3 AND d.revoked_at IS NULL
 UNION
+SELECT 'episode_revision',o.episode_id,o.current_revision_id
+FROM episode_objects o JOIN episode_revision_supports d ON d.episode_revision_id=o.current_revision_id
+WHERE o.subject_id=$1 AND o.purge_state='normal' AND d.support_kind=$2 AND d.support_ref=$3
+UNION
+SELECT 'episode_revision',o.episode_id,o.current_revision_id
+FROM episode_objects o JOIN episode_revision_members d ON d.episode_revision_id=o.current_revision_id
+WHERE o.subject_id=$1 AND o.purge_state='normal' AND d.ref_kind=$2 AND d.ref_value=$3
+UNION
 SELECT 'journal_revision',o.journal_id,o.current_revision_id
 FROM journal_objects o JOIN journal_revision_sources d ON d.journal_revision_id=o.current_revision_id
 WHERE o.subject_id=$1 AND o.purge_state='normal' AND d.ref_kind=$2 AND d.ref_value=$3
@@ -108,6 +116,9 @@ ORDER BY kind,object_id")
                     "cognitive_schema_revision" => {
                         "UPDATE cognitive_schemas SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE subject_id=$1 AND schema_id=$2 AND integrity_state<>'revalidation_required'"
                     }
+                    "episode_revision" => {
+                        "UPDATE episode_objects SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE subject_id=$1 AND episode_id=$2 AND integrity_state<>'revalidation_required'"
+                    }
                     "journal_revision" => {
                         "UPDATE journal_objects SET integrity_state='revalidation_required',object_epoch=object_epoch+1 WHERE subject_id=$1 AND journal_id=$2 AND integrity_state<>'revalidation_required'"
                     }
@@ -125,8 +136,16 @@ ORDER BY kind,object_id")
                     .map_err(db)?
                     .rows_affected()
                     > 0;
-                affects_memory |= changed && dependent_kind != "journal_revision";
-                affects_journal |= changed && dependent_kind == "journal_revision";
+                affects_memory |= changed
+                    && matches!(
+                        dependent_kind.as_str(),
+                        "memory_revision" | "cognitive_schema_revision"
+                    );
+                affects_journal |= changed
+                    && matches!(
+                        dependent_kind.as_str(),
+                        "journal_revision" | "episode_revision"
+                    );
                 if dependent_kind == "journal_revision" {
                     self.cognition
                         .enqueue_maintenance_in(
