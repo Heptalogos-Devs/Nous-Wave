@@ -152,7 +152,7 @@ fn budget_values(
         .result_need
         .limit
         .saturating_mul(policy.effort_multipliers[index])
-        .clamp(16, policy.per_lane_max[index]);
+        .clamp(policy.lane_min, policy.per_lane_max[index]);
     lanes.iter().copied().map(|lane| (lane, budget)).collect()
 }
 

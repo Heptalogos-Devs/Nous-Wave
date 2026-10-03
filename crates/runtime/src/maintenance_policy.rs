@@ -1,7 +1,7 @@
 use nous_configuration::*;
 use nous_core::{Error, Result};
 pub const MAINTENANCE_ENABLED: ConfigKey<bool> = ConfigKey::new("maintenance.enabled");
-pub const POLL_INTERVAL: ConfigKey<u64> = ConfigKey::new("maintenance.poll_interval");
+pub const POLL_INTERVAL: ConfigKey<u64> = ConfigKey::new("maintenance.poll_interval_seconds");
 pub const MAX_OPERATIONS: ConfigKey<u64> = ConfigKey::new("maintenance.max_operations_per_grant");
 pub const WORKER_LEASE: ConfigKey<u64> = ConfigKey::new("maintenance.worker_lease_seconds");
 
@@ -11,18 +11,26 @@ pub const RETRY_INITIAL: ConfigKey<u64> = ConfigKey::new("maintenance.retry_init
 pub const RETRY_MAX: ConfigKey<u64> = ConfigKey::new("maintenance.retry_max_seconds");
 pub const RETRY_ATTEMPTS: ConfigKey<u64> = ConfigKey::new("maintenance.retry_max_attempts");
 pub const MAX_MODEL_CALLS: ConfigKey<u64> = ConfigKey::new("maintenance.max_model_calls_per_tick");
+pub const MEMBER_TEXT_MAX_BYTES: ConfigKey<u64> =
+    ConfigKey::new("maintenance.member_text_max_bytes");
+pub const EXPERIENCE_BATCH_SIZE: ConfigKey<u64> =
+    ConfigKey::new("maintenance.experience_batch_size");
 pub const MAX_ELAPSED: ConfigKey<u64> = ConfigKey::new("maintenance.max_elapsed_ms_per_tick");
 
 pub const EPISODE_MAX_NEIGHBORS: ConfigKey<u64> = ConfigKey::new("episode.max_neighbor_episodes");
-pub const EPISODE_NEIGHBOR_SPAN: ConfigKey<u64> = ConfigKey::new("episode.max_neighbor_span");
+pub const EPISODE_NEIGHBOR_SPAN: ConfigKey<u64> =
+    ConfigKey::new("episode.max_neighbor_span_seconds");
 
 pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    let reference = ReferenceProfile::parse(include_str!(
+        "../../../config/reference/longitudinal-v1.json"
+    ))?;
     registry.register(
         MAINTENANCE_ENABLED,
         "cognitive-runtime",
         "Enable host-granted maintenance opportunities.",
         true,
-        ConfigExposure::Advanced,
+        ConfigExposure::Standard,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
         ConfigSemanticEffect::Operational,
@@ -73,7 +81,7 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
         EPISODE_MAX_NEIGHBORS,
         "cognitive-runtime",
         "Maximum Episodes in semantic local repair.",
-        8,
+        reference.get(EPISODE_MAX_NEIGHBORS)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -92,7 +100,7 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
         EPISODE_NEIGHBOR_SPAN,
         "cognitive-runtime",
         "Maximum semantic Episode neighborhood span in cognitive seconds.",
-        86400,
+        reference.get(EPISODE_NEIGHBOR_SPAN)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -107,6 +115,13 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
             }
         },
     )?;
+    registry.bounds(POLL_INTERVAL, 1, 3600, Some("seconds"))?;
+    registry.bounds(WORKER_LEASE, 1, 3600, Some("seconds"))?;
+    registry.bounds(MAX_OPERATIONS, 1, 32, Some("items"))?;
+    registry.bounds(EPISODE_MAX_NEIGHBORS, 1, 8, Some("items"))?;
+    registry.bounds(EPISODE_NEIGHBOR_SPAN, 1, 86400, Some("cognitive_seconds"))?;
+    reference.tag(registry, EPISODE_MAX_NEIGHBORS.path())?;
+    reference.tag(registry, EPISODE_NEIGHBOR_SPAN.path())?;
     register_work_state_configuration(registry)
 }
 
@@ -136,7 +151,19 @@ fn register_work_state_configuration(registry: &mut ConfigRegistryBuilder) -> Re
             8,
             32,
         ),
+        (
+            MEMBER_TEXT_MAX_BYTES,
+            "Maintenance experience member text byte budget.",
+            2048,
+            65536,
+        ),
         (MAX_MODEL_CALLS, "Standalone tick model call budget.", 4, 32),
+        (
+            EXPERIENCE_BATCH_SIZE,
+            "Experience ingestion batch per maintenance operation.",
+            256,
+            256,
+        ),
         (
             MAX_ELAPSED,
             "Standalone tick elapsed budget in infrastructure milliseconds.",
@@ -164,6 +191,14 @@ fn register_work_state_configuration(registry: &mut ConfigRegistryBuilder) -> Re
                 }
             },
         )?;
+        let unit = if key.path().ends_with("_seconds") {
+            "seconds"
+        } else if key.path().contains("_ms_") {
+            "milliseconds"
+        } else {
+            "items"
+        };
+        registry.bounds(key, 1, ceiling, Some(unit))?;
     }
     Ok(())
 }

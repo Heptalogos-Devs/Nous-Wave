@@ -33,7 +33,7 @@ const policy: ConsumerPolicy = {
 
 describe("managed context synchronization", () => {
   it("appends only to a synchronized immutable prefix and resets on source revision", () => {
-    const compiler = new ContextCompiler();
+    const compiler = new ContextCompiler(256);
     const key = { subjectId: "s", sessionId: "session", consumerId: "test" };
     const initial = compiler.compile(key, "1", projection(segment("a")));
     expect(initial.kind).toBe("RESET");
@@ -62,7 +62,7 @@ describe("managed context synchronization", () => {
       ).kind,
     ).toBe("RESET");
     expect(
-      new ContextCompiler().compile(
+      new ContextCompiler(256).compile(
         key,
         "1",
         projection(segment("a")),

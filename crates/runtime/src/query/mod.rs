@@ -11,7 +11,7 @@ pub use lane::{LaneCandidate, LaneOutput, LaneStatus, TopologyWorkSummary};
 pub use orchestrate::{CognitiveContributor, CognitiveContributors, SharedLaneProvider};
 pub use plan::{QueryPlan, WorkCycle};
 pub use ranking::{
-    CandidateRankInput, RetrievalPolicy, rank_candidates_with_policy,
+    CandidateRankInput, DEFAULT_RESULT_LIMIT, RetrievalPolicy, rank_candidates_with_policy,
     register_retrieval_configuration, resolve_retrieval_policy,
 };
 pub use types::{BoundQuery, QueryExecution};

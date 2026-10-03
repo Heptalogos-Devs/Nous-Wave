@@ -19,8 +19,13 @@ pub struct EpaBasisGeneration {
 
 type RepresentativeSet = (Vec<(u64, Vec<f64>)>, Vec<f64>);
 
-pub fn build_epa_basis(vectors: &[(u64, Vec<f64>)], embedding_space: &str) -> Option<EpaBasis> {
-    if vectors.len() < 8 || vectors.iter().any(|(_, vector)| vector.is_empty()) {
+pub fn build_epa_basis(
+    vectors: &[(u64, Vec<f64>)],
+    embedding_space: &str,
+    policy: &EpaPolicy,
+) -> Option<EpaBasis> {
+    if vectors.len() < policy.minimum_samples || vectors.iter().any(|(_, vector)| vector.is_empty())
+    {
         return None;
     }
     let dimension = vectors[0].1.len();
@@ -39,16 +44,16 @@ pub fn build_epa_basis(vectors: &[(u64, Vec<f64>)], embedding_space: &str) -> Op
             })
         })
         .collect::<Vec<_>>();
-    if vectors.len() < 8 {
+    if vectors.len() < policy.minimum_samples {
         return None;
     }
-    let (vectors, weights) = if vectors.len() > 256 {
-        representative_vectors(&vectors, embedding_space, dimension)
+    let (vectors, weights) = if vectors.len() > policy.max_representatives {
+        representative_vectors(&vectors, embedding_space, dimension, policy)
     } else {
         let weights = vec![1.0; vectors.len()];
         (vectors, weights)
     };
-    build_weighted_epa_basis(&vectors, &weights, embedding_space, dimension)
+    build_weighted_epa_basis(&vectors, &weights, embedding_space, dimension, policy)
 }
 
 fn build_weighted_epa_basis(
@@ -56,6 +61,7 @@ fn build_weighted_epa_basis(
     weights: &[f64],
     embedding_space: &str,
     dimension: usize,
+    policy: &EpaPolicy,
 ) -> Option<EpaBasis> {
     if vectors.is_empty()
         || vectors.len() != weights.len()
@@ -100,7 +106,7 @@ fn build_weighted_epa_basis(
     let mut basis = Vec::new();
     if let Some(v_t) = svd.v_t {
         for (row, energy) in v_t.row_iter().zip(&energies) {
-            if *energy < 0.01 || basis.len() >= 64 {
+            if *energy < policy.minimum_axis_energy || basis.len() >= policy.max_axes {
                 break;
             }
             basis.push(row.iter().copied().collect());
@@ -118,6 +124,7 @@ pub(crate) fn representative_vectors(
     vectors: &[(u64, Vec<f64>)],
     _embedding_space: &str,
     _dimension: usize,
+    policy: &EpaPolicy,
 ) -> RepresentativeSet {
     let mut sorted = vectors.to_vec();
     sorted.sort_by(|left, right| {
@@ -128,17 +135,16 @@ pub(crate) fn representative_vectors(
 
     let mut representative = Vec::<RepresentativeEntry>::new();
     for (key, vector) in sorted {
-        if let Some((_, count)) = representative
-            .iter_mut()
-            .find(|(existing, _)| cosine(&existing.1, &vector) >= 1.0 - 1e-9)
-        {
+        if let Some((_, count)) = representative.iter_mut().find(|(existing, _)| {
+            cosine(&existing.1, &vector) >= 1.0 - policy.duplicate_cosine_epsilon
+        }) {
             *count += 1;
         } else {
             representative.push(((key, vector), 1));
         }
     }
 
-    if representative.len() <= 256 {
+    if representative.len() <= policy.max_representatives {
         return (
             representative
                 .iter()
@@ -163,7 +169,7 @@ pub(crate) fn representative_vectors(
     chosen.push(first);
     update_min_distances(&representative, &chosen, &mut min_distance);
 
-    while chosen.len() < 256 {
+    while chosen.len() < policy.max_representatives {
         let Some((index, distance)) = min_distance
             .iter()
             .enumerate()
@@ -177,7 +183,7 @@ pub(crate) fn representative_vectors(
         else {
             break;
         };
-        if *distance <= 1e-6 {
+        if *distance <= policy.representative_distance_epsilon {
             break;
         }
         chosen.push(index);
@@ -241,75 +247,6 @@ fn stable_vector_key(vector: &[f64]) -> String {
     blake3::hash(&bytes).to_hex().to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EpaObservation {
-    pub axis_energy: Vec<f64>,
-    pub entropy: f64,
-    pub cue_clarity: f64,
-    pub dominant_axes: Vec<usize>,
-    pub resonances: Vec<(usize, usize, f64)>,
-}
-
-pub fn observe_epa(basis: &EpaBasis, query: &[f64]) -> Option<EpaObservation> {
-    if query.len() != basis.mean.len() || basis.basis.is_empty() {
-        return None;
-    }
-    let centered = query
-        .iter()
-        .zip(&basis.mean)
-        .map(|(query, mean)| query - mean)
-        .collect::<Vec<_>>();
-    let projections = basis
-        .basis
-        .iter()
-        .map(|axis| axis.iter().zip(&centered).map(|(a, b)| a * b).sum::<f64>())
-        .collect::<Vec<_>>();
-    let total = projections.iter().map(|value| value * value).sum::<f64>();
-    if total <= f64::EPSILON {
-        return Some(EpaObservation {
-            axis_energy: vec![0.0; projections.len()],
-            entropy: 0.0,
-            cue_clarity: 1.0,
-            dominant_axes: Vec::new(),
-            resonances: Vec::new(),
-        });
-    }
-    let energy = projections
-        .iter()
-        .map(|value| value * value / total)
-        .collect::<Vec<_>>();
-    let denom = (energy.len() as f64).ln().max(1.0);
-    let entropy = -energy
-        .iter()
-        .filter(|value| **value > 0.0)
-        .map(|value| value * value.ln())
-        .sum::<f64>()
-        / denom;
-    let dominant_axes = energy
-        .iter()
-        .enumerate()
-        .filter_map(|(index, value)| (*value >= 0.05).then_some(index))
-        .collect::<Vec<_>>();
-    let mut resonances = Vec::new();
-    for left in 0..dominant_axes.len() {
-        for right in (left + 1)..dominant_axes.len() {
-            let a = dominant_axes[left];
-            let b = dominant_axes[right];
-            let resonance = (energy[a] * energy[b]).sqrt();
-            if resonance >= 0.15 {
-                resonances.push((a, b, resonance));
-            }
-        }
-    }
-    Some(EpaObservation {
-        axis_energy: energy,
-        entropy,
-        cue_clarity: (1.0 - entropy).clamp(0.0, 1.0),
-        dominant_axes,
-        resonances,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,13 +267,15 @@ mod tests {
                 key += 1;
             }
         }
-        let compressed = build_epa_basis(&expanded, "test-space").expect("compressed EPA basis");
+        let compressed = build_epa_basis(&expanded, "test-space", &EpaPolicy::reference())
+            .expect("compressed EPA basis");
         let explicit_weights = vec![1.0; expanded.len()];
         let explicit = build_weighted_epa_basis(
             &expanded,
             &explicit_weights,
             "test-space",
             representatives[0].len(),
+            &EpaPolicy::reference(),
         )
         .expect("expanded EPA basis");
 

@@ -7,10 +7,16 @@ impl KernelService {
         input: p::QueryRequest,
         pool_limit: Option<usize>,
     ) -> Result<k::KernelQueryResponse> {
-        let execution = self
+        let default_limit = self
             .0
-            .execute_query(compile_query(input)?, pool_limit)
-            .await?;
+            .configuration
+            .snapshot_for_subject(SubjectId(id(&input.subject_id)?))?
+            .get(nous_runtime::DEFAULT_RESULT_LIMIT)?;
+        let execution = Box::pin(
+            self.0
+                .execute_query(compile_query(input, default_limit)?, pool_limit),
+        )
+        .await?;
         let (result, ticket) =
             if pool_limit.is_some() || !execution.result.resource_actions.is_empty() {
                 let (result, ticket) = self.0.cognition.retain_query(execution)?;
@@ -180,7 +186,7 @@ fn from_resource_record(value: p::ExternalResourceRecord) -> Result<ExternalReso
         access_status: value.access_status,
     })
 }
-fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
+fn compile_query(input: p::QueryRequest, default_limit: usize) -> Result<CognitiveQuery> {
     let expression = required(input.expression, "expression")?;
     let modifiers = expression.modifiers.clone().unwrap_or_default();
     let query = CognitiveQuery {
@@ -199,7 +205,9 @@ fn compile_query(input: p::QueryRequest) -> Result<CognitiveQuery> {
             synopsis_only: false,
         },
         result_need: ResultNeed {
-            limit: modifiers.limit.unwrap_or(12) as usize,
+            limit: modifiers
+                .limit
+                .map_or(default_limit, |limit| limit as usize),
             need_evidence: true,
             need_materialization_handles: modifiers.materialize,
         },

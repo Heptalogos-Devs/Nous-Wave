@@ -333,6 +333,7 @@ impl CognitiveRuntimeService {
             &mut result.results,
             &query.expression.preferences,
             bound.bound_at,
+            &bound.retrieval_policy,
         );
         result.results.truncate(output_limit);
         if !result.degradation.is_empty() && result.status != QueryStatus::Partial {

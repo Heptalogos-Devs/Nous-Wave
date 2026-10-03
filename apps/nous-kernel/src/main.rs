@@ -1,21 +1,29 @@
 use clap::Parser;
 use nous_core::{Error, Result};
 use nous_kernel::transport::KernelService;
+use nous_protocol::kernel::kernel_configuration_service_server::KernelConfigurationServiceServer;
 use nous_protocol::kernel::{
     artifact_stream_service_server::ArtifactStreamServiceServer,
     authority_service_server::AuthorityServiceServer,
     model_material_service_server::ModelMaterialServiceServer,
 };
+use nous_protocol::public::configuration_service_server::ConfigurationServiceServer;
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{Request, Status};
 mod bootstrap;
 
+const BOOTSTRAP_CREDENTIAL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+const MAX_BOOTSTRAP_CREDENTIAL_LINE_BYTES: u64 = 130;
+const WORKFLOW_PROTOCOL_ENVELOPE_BYTES: usize = 65536;
+
 #[derive(Parser)]
 struct Cli {
     #[arg(long)]
-    config: PathBuf,
+    config: Option<PathBuf>,
+    #[arg(long)]
+    check_configuration: Option<PathBuf>,
 }
 #[tokio::main]
 async fn main() {
@@ -35,11 +43,26 @@ async fn main() {
 )]
 async fn run() -> Result<()> {
     let cli = Cli::parse();
+    if let Some(path) = &cli.check_configuration {
+        let bundle = bootstrap::read_bundle(path).await?;
+        let catalog = nous_kernel::configuration_catalog(bundle.core_descriptors)?;
+        catalog.deployment_values(&bundle.deployment_document)?;
+        println!(
+            "{}",
+            serde_json::json!({"valid":true,"catalog_digest":catalog.digest()})
+        );
+        return Ok(());
+    }
+    let config = cli
+        .config
+        .ok_or_else(|| Error::Invalid("--config is required".into()))?;
     let mut input = BufReader::new(tokio::io::stdin());
     let mut token = String::new();
     tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        (&mut input).take(130).read_line(&mut token),
+        BOOTSTRAP_CREDENTIAL_TIMEOUT,
+        (&mut input)
+            .take(MAX_BOOTSTRAP_CREDENTIAL_LINE_BYTES)
+            .read_line(&mut token),
     )
     .await
     .map_err(|_| Error::Invalid("Kernel bootstrap timed out".into()))?
@@ -48,7 +71,7 @@ async fn run() -> Result<()> {
     if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(Error::Invalid("invalid Kernel bootstrap credential".into()));
     }
-    let (runtime, managed) = bootstrap::open(&cli.config).await?;
+    let (runtime, managed) = bootstrap::open(&config).await?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| Error::Infrastructure(e.to_string()))?;
@@ -79,14 +102,26 @@ async fn run() -> Result<()> {
         .set_serving::<AuthorityServiceServer<KernelService>>()
         .await;
     let server = tonic::transport::Server::builder()
+        .add_service(KernelConfigurationServiceServer::with_interceptor(
+            service.clone(),
+            auth.clone(),
+        ))
+        .add_service(ConfigurationServiceServer::with_interceptor(
+            service.clone(),
+            auth.clone(),
+        ))
         .add_service(AuthorityServiceServer::with_interceptor(
             service.clone(),
             auth.clone(),
         ))
         .add_service(tonic::service::interceptor::InterceptedService::new(
             ModelMaterialServiceServer::new(service.clone())
-                .max_decoding_message_size(nous_persistence::WORKFLOW_VALUE_MAX_BYTES + 65536)
-                .max_encoding_message_size(nous_persistence::WORKFLOW_VALUE_MAX_BYTES + 65536),
+                .max_decoding_message_size(
+                    nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES,
+                )
+                .max_encoding_message_size(
+                    nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES,
+                ),
             auth.clone(),
         ))
         .add_service(ArtifactStreamServiceServer::with_interceptor(

@@ -69,6 +69,8 @@ async function main() {
         args: forwarded.slice(3),
         options: { pack: { type: "string" } },
       });
+      await initializeConfiguration(locations);
+      const { config } = await readConfiguration(locations, values.development);
       const controller = new AbortController();
       process.once("SIGINT", () => controller.abort());
       console.log(
@@ -78,6 +80,7 @@ async function main() {
             name,
             install.pack,
             controller.signal,
+            config.host.runtime_download_timeout_ms,
           ),
         ),
       );

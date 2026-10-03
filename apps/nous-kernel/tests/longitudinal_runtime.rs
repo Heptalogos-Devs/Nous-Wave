@@ -52,11 +52,12 @@ async fn runtime_with_clock_serving(
 ) -> NousRuntime {
     NousRuntime::open_with_clock(RuntimeOptions {
         postgres_url: url.into(), max_connections: 8,
+        acquire_timeout_ms: 15000,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
-        max_upload_bytes: 1024 * 1024,
         serving_options: ServingOptions { root: root.path().join("serving"), lexical: serving, dense: serving, topology: false, memory_enabled: true },
         embedding: serving.then(|| Arc::new(LongitudinalEmbedding) as Arc<dyn nous_retrieval::TextEmbeddingProvider>), stored_embedding: None,
-        deployment_settings: serde_json::json!({"settings":{"serving":{"lexical":{"enabled":serving},"dense":{"enabled":serving},"topology":{"enabled":false}}}}),
+        core_descriptors: vec![],
+        deployment_document: serde_json::json!({"serving":{"lexical":{"enabled":serving},"dense":{"enabled":serving},"topology":{"enabled":false}}}),
     }, clock).await.expect("open clock-injected runtime")
 }
 
@@ -767,7 +768,17 @@ async fn assert_longitudinal_materialization(
     assert_longitudinal_lanes(rt, &query, &refs).await;
     let projection = rt
         .store
-        .text_projection_input(subject, "lexical", "", true)
+        .text_projection_input(
+            subject,
+            "lexical",
+            "",
+            true,
+            rt.configuration
+                .snapshot_for_subject(subject)
+                .unwrap()
+                .get(nous_memory::EPISODE_SYNOPSIS)
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert!(refs.iter().all(|reference| {
@@ -1908,12 +1919,21 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
         && support.support_role == "interpretation"));
     let fragments = rt
         .store
-        .episode_member_text_input(subject, &[episode.revision.episode_revision_id.0])
+        .episode_member_text_input(
+            subject,
+            &[episode.revision.episode_revision_id.0],
+            rt.configuration
+                .snapshot_for_subject(subject)
+                .unwrap()
+                .get(nous_memory::EPISODE_SYNOPSIS)
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert!(
         matches!(&fragments[&episode.revision.episode_revision_id.0][0], nous_persistence::TextProjectionFragment::Text { reference:CognitiveRef::DerivedRepresentation(id),text } if *id==first && text.len()==2047)
     );
+    assert_synopsis_policy(&rt, subject).await;
     persist_media_synopsis(&rt, subject, region, "amber inlet", Some(first), "2").await;
     assert!(rt.query(query).await.unwrap().results.is_empty());
     let result = rt
@@ -1949,6 +1969,61 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
             .await
             .unwrap()
             .roots
+            .len(),
+        1
+    );
+}
+
+async fn assert_synopsis_policy(rt: &NousRuntime, subject: nous_core::SubjectId) {
+    let mut budget = rt
+        .configuration
+        .snapshot_for_subject(subject)
+        .unwrap()
+        .get(nous_memory::EPISODE_SYNOPSIS)
+        .unwrap();
+    budget.fragment_max_bytes = 7;
+    rt.configuration
+        .set_subject_override(
+            nous_core::OperationId::new(),
+            subject,
+            nous_memory::EPISODE_SYNOPSIS.path(),
+            serde_json::to_value(budget).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        rt.query(media_episode_query(subject, "harbor"))
+            .await
+            .unwrap()
+            .results
+            .is_empty()
+    );
+    let results = rt
+        .query(media_episode_query(subject, "cobalt"))
+        .await
+        .unwrap()
+        .results;
+    assert_eq!(results.len(), 1);
+    assert!(
+        !results[0]
+            .representation
+            .as_ref()
+            .unwrap()
+            .contains("harbor")
+    );
+    rt.configuration
+        .clear_subject_override(
+            nous_core::OperationId::new(),
+            subject,
+            nous_memory::EPISODE_SYNOPSIS.path(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        rt.query(media_episode_query(subject, "harbor"))
+            .await
+            .unwrap()
+            .results
             .len(),
         1
     );
@@ -2097,6 +2172,7 @@ async fn assert_consolidation_context(
             "memory_revision" | "cognitive_schema_revision"
         )
     }));
+    assert_consolidation_policy(rt, subject, &service, &need).await;
     service
         .finish_maintenance(tonic::Request::new(k::FinishMaintenanceRequest {
             claimed: Some(need),
@@ -2106,6 +2182,50 @@ async fn assert_consolidation_context(
         }))
         .await
         .unwrap();
+}
+
+async fn assert_consolidation_policy(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    service: &nous_kernel::transport::KernelService,
+    need: &nous_protocol::kernel::MaintenanceNeed,
+) {
+    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    let mut policy = rt
+        .configuration
+        .snapshot_for_subject(subject)
+        .unwrap()
+        .get(nous_memory::CONSOLIDATION_CONTEXT)
+        .unwrap();
+    policy.candidate_text_chars = 64;
+    policy.support_limit = 1;
+    policy.provenance_root_limit = 1;
+    rt.configuration
+        .set_subject_override(
+            nous_core::OperationId::new(),
+            subject,
+            nous_memory::CONSOLIDATION_CONTEXT.path(),
+            serde_json::to_value(policy).unwrap(),
+        )
+        .await
+        .unwrap();
+    let bounded = service
+        .plan_maintenance(tonic::Request::new(k::PlanMaintenanceRequest {
+            claimed: Some(need.clone()),
+        }))
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(!bounded.candidates.is_empty());
+    assert!(
+        bounded
+            .candidates
+            .iter()
+            .all(|c| c.text.chars().count() <= 64)
+    );
+    assert_eq!(bounded.supports.len(), 1);
+    assert!(bounded.support_catalog_partial);
+    assert!(bounded.provenance_roots.len() <= 1);
 }
 
 async fn manual_episode_sources(
@@ -2637,7 +2757,7 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
         .await
         .unwrap()
         .remove(0);
-    let workflow = rt.store.reserve_model_workflow(subject, "memory", "maintenance-test", "input", &serde_json::json!({"maintenance_claim":{"need_id":need_id.to_string(),"lease_token":claimed.lease_token.unwrap().to_string(),"trigger":claimed.trigger_authority_seq,"trigger_revision":claimed.trigger_revision}})).await.unwrap();
+    let workflow = rt.store.reserve_model_workflow(subject, "memory", "maintenance-test", "input", &serde_json::json!({"maintenance_claim":{"need_id":need_id.to_string(),"lease_token":claimed.lease_token.unwrap().to_string(),"trigger":claimed.trigger_authority_seq,"trigger_revision":claimed.trigger_revision}}), 360).await.unwrap();
     let explicit = rt
         .store
         .reserve_model_workflow(
@@ -2646,6 +2766,7 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
             "explicit-test",
             "input",
             &serde_json::json!({}),
+            360,
         )
         .await
         .unwrap();
@@ -2748,7 +2869,7 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
         .remove(0);
     assert_eq!(retry.retry_count, 1);
     assert_eq!(retry.attempt_count, 2);
-    let abandoned = rt.store.reserve_model_workflow(subject, "memory", "superseded-test", "input", &serde_json::json!({"maintenance_claim":{"need_id":pending.to_string(),"lease_token":retry.lease_token.unwrap().to_string(),"trigger":retry.trigger_authority_seq,"trigger_revision":retry.trigger_revision}})).await.unwrap();
+    let abandoned = rt.store.reserve_model_workflow(subject, "memory", "superseded-test", "input", &serde_json::json!({"maintenance_claim":{"need_id":pending.to_string(),"lease_token":retry.lease_token.unwrap().to_string(),"trigger":retry.trigger_authority_seq,"trigger_revision":retry.trigger_revision}}), 360).await.unwrap();
     rt.store
         .release_model_workflow(
             subject,
@@ -2824,7 +2945,6 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
     reason = "one regression covers blocked source scopes and their event-driven recovery"
 )]
 async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
-    use nous_configuration::ConfigActorTier;
     use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
     use nous_memory::{JournalInput, JournalPoint, JournalPointRole};
     let (root, url, _postgres) = database().await;
@@ -2916,7 +3036,6 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "journal.max_episode_count",
             serde_json::json!(1),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();
@@ -2970,7 +3089,6 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "journal.max_episode_count",
             serde_json::json!(2),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();
@@ -2993,9 +3111,8 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
         .set_subject_override(
             OperationId::new(),
             subject,
-            "journal.max_span",
+            "journal.max_span_seconds",
             serde_json::json!(60),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();
@@ -3053,9 +3170,8 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
         .set_subject_override(
             OperationId::new(),
             subject,
-            "episode.max_neighbor_span",
+            "episode.max_neighbor_span_seconds",
             serde_json::json!(60),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();
@@ -3109,9 +3225,8 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
         .set_subject_override(
             OperationId::new(),
             subject,
-            "episode.max_neighbor_span",
+            "episode.max_neighbor_span_seconds",
             serde_json::json!(86400),
-            ConfigActorTier::Developer,
         )
         .await
         .unwrap();

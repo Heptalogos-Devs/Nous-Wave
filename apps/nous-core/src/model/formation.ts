@@ -11,6 +11,7 @@ import { z } from "zod";
 const snapshotSchema = z.strictObject({
   cognitive_formed_at: z.string(),
   model: z.unknown(),
+  sourceMaxBytes: z.number().int().positive(),
   representationId: z.string().optional(),
   candidates: z
     .array(
@@ -138,7 +139,12 @@ export async function formObservation(
             entityRef: candidate.entityRef,
           }))
         : [];
-    snapshotText = JSON.stringify({ model, representationId, candidates });
+    snapshotText = JSON.stringify({
+      model,
+      representationId,
+      candidates,
+      sourceMaxBytes: models.materialInputs.formation_source_max_bytes,
+    });
   }
   const reservation = await kernel.modelMaterial.reserveWorkflow(
     { ...identity, snapshotJson: snapshotText },
@@ -173,7 +179,7 @@ export async function formObservation(
                 value: snapshot.representationId,
               }
             : { kind: "occurrence", value: r.occurrenceId },
-          maxBytes: 32768n,
+          maxBytes: BigInt(snapshot.sourceMaxBytes),
         },
         options,
       );
@@ -296,7 +302,9 @@ export async function formObservation(
     };
   } finally {
     await kernel.modelMaterial
-      .releaseWorkflow(lease, { timeoutMs: 5000 })
+      .releaseWorkflow(lease, {
+        timeoutMs: kernel.execution.workflow_ack_timeout_ms,
+      })
       .catch(() => {});
   }
 }

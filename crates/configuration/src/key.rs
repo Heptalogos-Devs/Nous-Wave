@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{marker::PhantomData, str::FromStr};
+use std::{marker::PhantomData, str::FromStr, sync::Arc};
 
 use nous_core::{Error, Result};
 
@@ -44,14 +44,6 @@ pub enum ConfigSource {
     DeploymentFile,
     PersistedSystem,
     PersistedSubject,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ConfigActorTier {
-    StandardUser,
-    AdvancedUser,
-    Developer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,19 +93,19 @@ impl<T: 'static> ConfigKey<T> {
         }
     }
 
-    pub const fn path(self) -> &'static str {
+    pub const fn path(&self) -> &'static str {
         self.path
     }
 }
 
 impl<T: 'static> From<ConfigKey<T>> for ConfigPath {
     fn from(value: ConfigKey<T>) -> Self {
-        Self(value.path)
+        Self(Arc::from(value.path))
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConfigPath(pub &'static str);
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ConfigPath(pub Arc<str>);
 
 impl FromStr for ConfigPath {
     type Err = Error;
@@ -124,13 +116,13 @@ impl FromStr for ConfigPath {
                 "invalid configuration key: {value}"
             )));
         }
-        Ok(Self(Box::leak(value.to_owned().into_boxed_str())))
+        Ok(Self(Arc::from(value)))
     }
 }
 
 pub fn valid_key_path(value: &str) -> bool {
     let parts = value.split('.').collect::<Vec<_>>();
-    parts.len() >= 2
+    !value.is_empty()
         && parts.iter().all(|part| {
             !part.is_empty()
                 && part.as_bytes()[0].is_ascii_lowercase()
@@ -138,6 +130,21 @@ pub fn valid_key_path(value: &str) -> bool {
                     .bytes()
                     .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
         })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfigStoragePolicy {
+    Overrideable,
+    DeploymentOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfigSensitivity {
+    Normal,
+    CredentialReference,
+    SensitiveReference,
 }
 
 pub const PROCESS_MEMORY: ConfigKey<bool> = ConfigKey::new("capabilities.process.memory");

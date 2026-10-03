@@ -25,6 +25,7 @@ impl WorkflowOwner {
 }
 
 /// A 1 MiB Material string can occupy 6 MiB after JSON escaping, plus metadata.
+pub const ABSOLUTE_WORKFLOW_LEASE_SECONDS: u64 = 3600;
 pub const WORKFLOW_VALUE_MAX_BYTES: usize = 8 * 1024 * 1024;
 
 pub struct WorkflowReservation {
@@ -43,10 +44,12 @@ impl AuthorityStore {
         key: &str,
         digest: &str,
         snapshot: &Value,
+        lease_seconds: u64,
     ) -> Result<WorkflowReservation> {
         let owner_id = WorkflowOwner::new(owner)?;
         let owner = owner_id.as_str();
-        if key.is_empty()
+        if !(1..=ABSOLUTE_WORKFLOW_LEASE_SECONDS).contains(&lease_seconds)
+            || key.is_empty()
             || key.len() > 256
             || digest.is_empty()
             || digest.len() > 128
@@ -108,7 +111,7 @@ impl AuthorityStore {
             None
         };
         if let Some(token) = token {
-            sqlx::query("UPDATE model_workflow_operations SET lease_token=$4,lease_until=now()+interval '6 minutes',updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(subject.0).bind(owner).bind(key).bind(token).execute(&mut *tx).await.map_err(db)?;
+            sqlx::query("UPDATE model_workflow_operations SET lease_token=$4,lease_until=clock_timestamp()+($5::double precision * interval '1 second'),updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(subject.0).bind(owner).bind(key).bind(token).bind(lease_seconds as f64).execute(&mut *tx).await.map_err(db)?;
         }
         tx.commit().await.map_err(db)?;
         Ok(WorkflowReservation {

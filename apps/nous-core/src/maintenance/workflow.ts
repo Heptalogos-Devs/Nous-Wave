@@ -440,6 +440,8 @@ export async function runModelMaintenance(
     }
     throw error;
   } finally {
-    await kernel.modelMaterial.releaseWorkflow(lease, { timeoutMs: 5000 });
+    await kernel.modelMaterial.releaseWorkflow(lease, {
+      timeoutMs: kernel.execution.workflow_ack_timeout_ms,
+    });
   }
 }

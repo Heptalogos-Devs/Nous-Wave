@@ -74,8 +74,8 @@ pub(crate) async fn open_memory_only_runtime(url: &str, root: &TempDir) -> NousR
     NousRuntime::open(RuntimeOptions {
         postgres_url: url.into(),
         max_connections: 4,
+        acquire_timeout_ms: 15000,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
-        max_upload_bytes: 1024 * 1024,
         serving_options: ServingOptions {
             root: root.path().join("serving").to_path_buf(),
             lexical: false,
@@ -85,8 +85,8 @@ pub(crate) async fn open_memory_only_runtime(url: &str, root: &TempDir) -> NousR
         },
         embedding: None,
         stored_embedding: None,
-        deployment_settings: serde_json::json!({
-            "settings": {
+        core_descriptors: vec![],
+        deployment_document: serde_json::json!({
                 "capabilities": {
                     "process": { "memory": true },
                     "subject_defaults": { "memory": true }
@@ -96,7 +96,6 @@ pub(crate) async fn open_memory_only_runtime(url: &str, root: &TempDir) -> NousR
                     "dense": { "enabled": false },
                     "topology": { "enabled": false }
                 }
-            }
         }),
     })
     .await
@@ -113,8 +112,8 @@ pub(crate) async fn open_runtime_with_serving(
     NousRuntime::open(RuntimeOptions {
         postgres_url: url.into(),
         max_connections: 4,
+        acquire_timeout_ms: 15000,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
-        max_upload_bytes: 1024 * 1024,
         serving_options: ServingOptions {
             root: root.path().join("serving"),
             lexical,
@@ -124,8 +123,8 @@ pub(crate) async fn open_runtime_with_serving(
         },
         embedding: None,
         stored_embedding: None,
-        deployment_settings: serde_json::json!({
-            "settings": {
+        core_descriptors: vec![],
+        deployment_document: serde_json::json!({
                 "capabilities": {
                     "process": { "memory": true },
                     "subject_defaults": { "memory": true }
@@ -135,7 +134,6 @@ pub(crate) async fn open_runtime_with_serving(
                     "dense": { "enabled": dense },
                     "topology": { "enabled": topology }
                 }
-            }
         }),
     })
     .await

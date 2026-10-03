@@ -1,5 +1,7 @@
 //! Model-independent Session continuity, consumer context and query orchestration.
 
+mod execution_policy;
+pub use execution_policy::{MODEL_WORKFLOW_LEASE, QUERY_LEASE, QUERY_SLOTS};
 mod clock;
 mod episode_policy;
 mod experience;
@@ -20,9 +22,9 @@ pub use experience::ExperienceInput;
 pub use maintenance::*;
 pub use maintenance_policy::*;
 pub use query::{
-    BoundQuery, CognitiveContributor, CognitiveContributors, LaneCandidate, LaneOutput, LaneStatus,
-    QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
-    register_retrieval_configuration,
+    BoundQuery, CognitiveContributor, CognitiveContributors, DEFAULT_RESULT_LIMIT, LaneCandidate,
+    LaneOutput, LaneStatus, QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary,
+    WorkCycle, register_retrieval_configuration,
 };
 pub use segmentation::{EpisodeDraft, SegmentationProgress};
 pub use work_contexts::*;
@@ -43,6 +45,7 @@ pub const RESIDENT_LIMIT_KEY: nous_configuration::ConfigKey<usize> =
 pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
+    execution_policy::register_configuration(registry)?;
     registry.register(
         RESIDENT_LIMIT_KEY,
         "cognitive-runtime",

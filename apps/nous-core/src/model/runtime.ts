@@ -42,6 +42,8 @@ export class ModelRuntime {
     readonly credentialEnvironments: readonly string[] = [],
     readonly audio = modelConfigurationSchema.parse({}).audio,
     readonly tempRoot?: string,
+    readonly materialInputs = modelConfigurationSchema.parse({})
+      .material_inputs,
   ) {}
   static async fromConfig(
     config: ModelConfiguration,
@@ -63,6 +65,7 @@ export class ModelRuntime {
       ),
       config.audio,
       tempRoot,
+      config.material_inputs,
     );
   }
   get embeddingModel() {

@@ -100,6 +100,7 @@ impl KernelService {
             retry_max_attempts: snapshot.get(nous_runtime::RETRY_ATTEMPTS)? as u32,
             max_model_calls: snapshot.get(nous_runtime::MAX_MODEL_CALLS)? as u32,
             max_elapsed_ms: snapshot.get(nous_runtime::MAX_ELAPSED)? as u32,
+            experience_batch_size: snapshot.get(nous_runtime::EXPERIENCE_BATCH_SIZE)? as u32,
             cognitive_now: subject.map(|subject| timestamp(self.0.cognition.now(subject))),
         })
     }

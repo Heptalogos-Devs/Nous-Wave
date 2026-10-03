@@ -7,8 +7,7 @@ use std::path::{Path, PathBuf};
 #[serde(deny_unknown_fields)]
 struct Config {
     bootstrap: BootstrapConfig,
-    #[serde(default)]
-    settings: Option<toml::Value>,
+    configuration_bundle: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -24,43 +23,21 @@ struct BootstrapConfig {
 struct ServingBootstrapConfig {
     #[serde(default = "default_serving_root")]
     root: String,
-    #[serde(default)]
-    resolved_embedding: Option<nous_retrieval::StoredEmbeddingConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DatabaseConfig {
-    #[serde(default = "default_database_mode")]
     mode: String,
     #[serde(default)]
     url: String,
-    #[serde(default = "default_max_connections")]
     max_connections: u32,
-    #[serde(default = "default_database_name")]
+    acquire_timeout_ms: u64,
     name: String,
-    #[serde(default = "default_install_dir")]
     install_dir: String,
-    #[serde(default = "default_data_dir")]
     data_dir: String,
     instance_dir: String,
     secret_dir: String,
-}
-
-fn default_database_mode() -> String {
-    "managed_private".into()
-}
-fn default_max_connections() -> u32 {
-    8
-}
-fn default_database_name() -> String {
-    "nous_wave_20260908".into()
-}
-fn default_install_dir() -> String {
-    "./data/postgres-install".into()
-}
-fn default_data_dir() -> String {
-    "./data/postgres".into()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -70,8 +47,6 @@ struct ObjectStoreConfig {
     backend: String,
     #[serde(default = "default_object_root")]
     root: String,
-    #[serde(default = "default_upload_limit")]
-    max_upload_bytes: u64,
 }
 
 fn default_backend() -> String {
@@ -80,10 +55,6 @@ fn default_backend() -> String {
 fn default_object_root() -> String {
     "./data/objects".into()
 }
-fn default_upload_limit() -> u64 {
-    8 * 1024 * 1024 * 1024
-}
-
 fn default_serving_root() -> String {
     "./data/serving".into()
 }
@@ -100,14 +71,18 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
     let root = absolute
         .parent()
         .ok_or_else(|| Error::Invalid("config parent required".into()))?;
+    let bundle = read_bundle(&resolve_path(root, &config.configuration_bundle)).await?;
+    // Validate the complete catalog/document before acquiring database resources.
+    nous_kernel::configuration_catalog(bundle.core_descriptors.clone())?
+        .deployment_values(&bundle.deployment_document)?;
     let (postgres_url, managed) = open_database(root, &config.bootstrap.database).await?;
     let result = NousRuntime::open(RuntimeOptions {
         postgres_url,
         max_connections: config.bootstrap.database.max_connections,
+        acquire_timeout_ms: config.bootstrap.database.acquire_timeout_ms,
         object_root: resolve_path(root, &config.bootstrap.object_store.root)
             .to_string_lossy()
             .into_owned(),
-        max_upload_bytes: config.bootstrap.object_store.max_upload_bytes,
         serving_options: nous_retrieval::ServingOptions {
             root: resolve_path(root, &config.bootstrap.serving.root),
             lexical: true,
@@ -116,13 +91,9 @@ pub async fn open(path: &Path) -> Result<(NousRuntime, Option<PostgreSQL>)> {
             memory_enabled: true,
         },
         embedding: None,
-        stored_embedding: config.bootstrap.serving.resolved_embedding,
-        deployment_settings: serde_json::to_value(
-            config
-                .settings
-                .unwrap_or_else(|| toml::Value::Table(Default::default())),
-        )
-        .map_err(|error| Error::Invalid(error.to_string()))?,
+        stored_embedding: None,
+        core_descriptors: bundle.core_descriptors,
+        deployment_document: bundle.deployment_document,
     })
     .await;
     match result {
@@ -314,4 +285,15 @@ fn resolve_path(root: &Path, value: &str) -> PathBuf {
     } else {
         root.join(path)
     }
+}
+
+pub async fn read_bundle(path: &Path) -> Result<nous_configuration::ConfigurationBootstrapBundle> {
+    let bytes = tokio::fs::read(path)
+        .await
+        .map_err(|error| Error::Invalid(error.to_string()))?;
+    let bundle: nous_configuration::ConfigurationBootstrapBundle =
+        serde_json::from_slice(&bytes)
+            .map_err(|_| Error::Invalid("invalid private configuration bundle".into()))?;
+    bundle.validate_revision()?;
+    Ok(bundle)
 }

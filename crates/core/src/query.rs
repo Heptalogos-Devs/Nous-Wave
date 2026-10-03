@@ -177,8 +177,18 @@ pub struct ResultNeed {
     pub need_materialization_handles: bool,
 }
 
+pub const MAX_QUERY_RESULT_ITEMS: usize = 2048;
+
 fn default_result_limit() -> usize {
-    12
+    // Explicit Rust callers may select the reference default; public requests
+    // resolve omitted limits through the Runtime Configuration snapshot.
+    let reference: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../config/reference/retrieval-ranking-v1.json"
+    ))
+    .expect("retrieval reference profile");
+    reference["values"]["retrieval.query.default_result_limit"]
+        .as_u64()
+        .expect("reference result limit") as usize
 }
 
 fn default_true() -> bool {
@@ -362,7 +372,7 @@ impl CognitiveQuery {
                 self.api_version
             )));
         }
-        if self.result_need.limit == 0 || self.result_need.limit > 2048 {
+        if self.result_need.limit == 0 || self.result_need.limit > MAX_QUERY_RESULT_ITEMS {
             return Err(Error::Invalid(
                 "result_need.limit must be between 1 and 2048".into(),
             ));

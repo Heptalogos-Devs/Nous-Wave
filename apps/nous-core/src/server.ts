@@ -1,3 +1,5 @@
+import { type CoreExecutionPolicy } from "./configuration-catalog.js";
+import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import Fastify from "fastify";
 import { grantMaintenance } from "./maintenance/grants.js";
 import { ResourceRegistry } from "./resources/registry.js";
@@ -51,6 +53,7 @@ export interface CoreOptions {
   consumers: ConsumerPolicy[];
   models?: ModelRuntime;
   resources?: ResourceRegistry;
+  execution?: CoreExecutionPolicy;
 }
 const options = (context: HandlerContext) => ({
   signal: context.signal,
@@ -59,7 +62,11 @@ const options = (context: HandlerContext) => ({
 export async function createCore(settings: CoreOptions) {
   if (settings.token.length < 32)
     throw new Error("Core credential must contain at least 32 characters");
-  const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
+  const app = Fastify({
+    logger: false,
+    bodyLimit: (settings.execution ?? settings.kernel.execution)
+      .http_body_limit_bytes,
+  });
   const kernel = settings.kernel;
   const materialLimits = await kernel.authority.getMaterialLimits({});
   const maxUploadBytes = Number(materialLimits.maxUploadBytes);
@@ -71,7 +78,7 @@ export async function createCore(settings: CoreOptions) {
     new Map(settings.consumers.map((p) => [p.consumerId, p])),
     settings.models,
   );
-  const contexts = new ContextCompiler();
+  const contexts = new ContextCompiler(kernel.execution.context_track_limit);
   const modelRuntime = settings.models ?? new ModelRuntime();
   const resourceRegistry = settings.resources ?? new ResourceRegistry({});
   const queries = new QueryOrchestrator(kernel, modelRuntime, resourceRegistry);
@@ -439,16 +446,6 @@ export async function createCore(settings: CoreOptions) {
     },
     getProjectionStatus: (r, c) =>
       kernel.authority.getProjectionStatus(r, options(c)),
-    getEffectiveConfig: () => ({
-      entries: settings.consumers.map((p) => ({
-        key: `consumer.${p.consumerId}`,
-        value: JSON.stringify(p),
-        source: "CONFIG",
-        owner: "host",
-        restartRequired: true,
-        editable: false,
-      })),
-    }),
   };
   await app.register(fastifyConnectPlugin, {
     routes: (router) => {
@@ -460,12 +457,28 @@ export async function createCore(settings: CoreOptions) {
       router.service(ResourceService, resources);
       router.service(TopologyService, topology);
       router.service(SystemService, system);
+      router.service(ConfigurationService, {
+        listConfigDescriptors: (r, c) =>
+          kernel.configuration.listConfigDescriptors(r, options(c)),
+        getConfigDescriptor: (r, c) =>
+          kernel.configuration.getConfigDescriptor(r, options(c)),
+        getConfiguration: (r, c) =>
+          kernel.configuration.getConfiguration(r, options(c)),
+        setSystemOverride: (r, c) =>
+          kernel.configuration.setSystemOverride(r, options(c)),
+        clearSystemOverride: (r, c) =>
+          kernel.configuration.clearSystemOverride(r, options(c)),
+        setSubjectOverride: (r, c) =>
+          kernel.configuration.setSubjectOverride(r, options(c)),
+        clearSubjectOverride: (r, c) =>
+          kernel.configuration.clearSubjectOverride(r, options(c)),
+      });
       router.service(ModelService, modelOperations(kernel, modelRuntime));
     },
     grpc: false,
     grpcWeb: false,
-    readMaxBytes: 2 * 1024 * 1024,
-    writeMaxBytes: 4 * 1024 * 1024,
+    readMaxBytes: kernel.execution.http_body_limit_bytes,
+    writeMaxBytes: kernel.execution.public_rpc_response_max_bytes,
   });
   await app.register(multipart, {
     limits: {

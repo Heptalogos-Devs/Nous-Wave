@@ -4,6 +4,10 @@ use nous_core::OperationId;
 use nous_subject::{CognitiveSeedInput, CreateSubject};
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one workflow scenario covers reservation concurrency, proposal recovery and terminal replay"
+)]
 async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
     let (root, url, _postgres) = test_support::database().await;
     let runtime = test_support::open_runtime(&url, &root).await;
@@ -32,6 +36,7 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
             &key,
             "same input",
             &serde_json::json!({"model":"original"}),
+            360,
         )
         .await
         .unwrap();
@@ -44,6 +49,7 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
             &key,
             "same input",
             &serde_json::json!({"model":"changed"}),
+            360,
         )
         .await
         .unwrap();
@@ -57,7 +63,8 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
                 "memory",
                 &key,
                 "different input",
-                &serde_json::json!({})
+                &serde_json::json!({}),
+                360
             )
             .await
             .is_err()
@@ -87,6 +94,7 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
             &key,
             "same input",
             &serde_json::json!({"model":"changed"}),
+            360,
         )
         .await
         .unwrap();
@@ -113,6 +121,7 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
             &key,
             "same input",
             &serde_json::json!({}),
+            360,
         )
         .await
         .unwrap();
@@ -138,6 +147,7 @@ async fn assert_owner_validation(
             key,
             "domain input",
             &serde_json::json!({}),
+            360,
         )
         .await
         .unwrap();
@@ -153,7 +163,7 @@ async fn assert_owner_validation(
         assert!(WorkflowOwner::new(owner).is_err());
         assert!(
             store
-                .reserve_model_workflow(subject, owner, key, "input", &serde_json::json!({}))
+                .reserve_model_workflow(subject, owner, key, "input", &serde_json::json!({}), 360)
                 .await
                 .is_err()
         );

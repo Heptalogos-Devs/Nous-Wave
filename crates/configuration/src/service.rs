@@ -1,6 +1,6 @@
 use crate::{
-    ConfigActorTier, ConfigApplyMode, ConfigDescriptor, ConfigRegistry, ConfigScopePolicy,
-    ConfigSnapshot, ConfigSource, flatten_settings,
+    ConfigApplyMode, ConfigRegistry, ConfigScopePolicy, ConfigSnapshot, ConfigSource,
+    ConfigStoragePolicy,
 };
 use chrono::Utc;
 use nous_core::{Error, OperationId, Result, SubjectId};
@@ -50,13 +50,7 @@ impl ConfigurationService {
         registry: ConfigRegistry,
         deployment: Value,
     ) -> Result<Self> {
-        let deployment = flatten_settings(&deployment)?;
-        for (key, value) in &deployment {
-            let descriptor = registry
-                .descriptor(key)
-                .ok_or_else(|| Error::Invalid(format!("unknown settings key: {key}")))?;
-            descriptor.validate(value)?;
-        }
+        let deployment = registry.deployment_values(&deployment)?;
         let revision = sqlx::query_scalar::<_, i64>(
             "SELECT revision FROM configuration_state WHERE singleton=TRUE",
         )
@@ -166,7 +160,7 @@ impl ConfigurationService {
                 (value.clone(), ConfigSource::DeploymentFile)
             } else {
                 (
-                    descriptor.reference_default_json.clone(),
+                    descriptor.reference_default.clone(),
                     ConfigSource::ReferenceDefault,
                 )
             };
@@ -202,19 +196,16 @@ impl ConfigurationService {
         operation_id: OperationId,
         key: &str,
         value: Value,
-        actor: ConfigActorTier,
     ) -> Result<ConfigChangeOutcome> {
-        self.mutate(operation_id, None, key, Some(value), actor)
-            .await
+        self.mutate(operation_id, None, key, Some(value)).await
     }
 
     pub async fn clear_system_override(
         &self,
         operation_id: OperationId,
         key: &str,
-        actor: ConfigActorTier,
     ) -> Result<ConfigChangeOutcome> {
-        self.mutate(operation_id, None, key, None, actor).await
+        self.mutate(operation_id, None, key, None).await
     }
 
     pub async fn set_subject_override(
@@ -223,9 +214,8 @@ impl ConfigurationService {
         subject: SubjectId,
         key: &str,
         value: Value,
-        actor: ConfigActorTier,
     ) -> Result<ConfigChangeOutcome> {
-        self.mutate(operation_id, Some(subject), key, Some(value), actor)
+        self.mutate(operation_id, Some(subject), key, Some(value))
             .await
     }
 
@@ -234,10 +224,8 @@ impl ConfigurationService {
         operation_id: OperationId,
         subject: SubjectId,
         key: &str,
-        actor: ConfigActorTier,
     ) -> Result<ConfigChangeOutcome> {
-        self.mutate(operation_id, Some(subject), key, None, actor)
-            .await
+        self.mutate(operation_id, Some(subject), key, None).await
     }
 
     #[expect(
@@ -250,7 +238,6 @@ impl ConfigurationService {
         subject: Option<SubjectId>,
         key: &str,
         value: Option<Value>,
-        actor: ConfigActorTier,
     ) -> Result<ConfigChangeOutcome> {
         let _mutation = self.inner.mutation.lock().await;
         if operation_id.0.is_nil() {
@@ -263,9 +250,13 @@ impl ConfigurationService {
             .registry
             .descriptor(key)
             .ok_or_else(|| Error::Invalid(format!("unknown configuration key: {key}")))?;
-        authorize(descriptor, subject.is_some(), actor)?;
+        if descriptor.storage_policy == ConfigStoragePolicy::DeploymentOnly {
+            return Err(Error::Invalid(format!(
+                "configuration path is deployment-only: {key}"
+            )));
+        }
         if let Some(value) = &value {
-            descriptor.validate(value)?;
+            self.inner.registry.validate(key, value)?;
         }
         if subject.is_some() && descriptor.scope_policy != ConfigScopePolicy::SubjectOverrideAllowed
         {
@@ -419,29 +410,12 @@ fn validate_persisted(
             "persisted subject override is system-only: {key}"
         )));
     }
-    descriptor.validate(value)
-}
-
-fn authorize(descriptor: &ConfigDescriptor, subject: bool, actor: ConfigActorTier) -> Result<()> {
-    if !subject && actor != ConfigActorTier::Developer {
-        return Err(Error::Invalid(
-            "only Developer may set system configuration overrides".into(),
-        ));
+    if descriptor.storage_policy == ConfigStoragePolicy::DeploymentOnly {
+        return Err(Error::Infrastructure(format!(
+            "persisted deployment-only override: {key}"
+        )));
     }
-    let allowed = match actor {
-        ConfigActorTier::StandardUser => descriptor.exposure == crate::ConfigExposure::Standard,
-        ConfigActorTier::AdvancedUser => matches!(
-            descriptor.exposure,
-            crate::ConfigExposure::Standard | crate::ConfigExposure::Advanced
-        ),
-        ConfigActorTier::Developer => true,
-    };
-    if !allowed {
-        return Err(Error::Invalid(
-            "configuration actor tier cannot modify key".into(),
-        ));
-    }
-    Ok(())
+    registry.validate(key, value)
 }
 
 fn apply_map(map: &mut BTreeMap<String, Value>, key: &str, value: Option<Value>) {

@@ -7,8 +7,11 @@ pub struct DescriptionSegment {
     pub region: DerivedRegion,
 }
 
-fn ranges(text: &str) -> Result<Vec<(usize, usize)>> {
-    if text.is_empty() || text.len() > 1_048_576 {
+const ABSOLUTE_DESCRIPTION_BYTES: usize = 1_048_576;
+const ABSOLUTE_DESCRIPTION_REGIONS: usize = 512;
+
+fn ranges(text: &str, segment_bytes: usize) -> Result<Vec<(usize, usize)>> {
+    if text.is_empty() || text.len() > ABSOLUTE_DESCRIPTION_BYTES {
         return Err(Error::Invalid(
             "description segmentation requires bounded text".into(),
         ));
@@ -16,7 +19,7 @@ fn ranges(text: &str) -> Result<Vec<(usize, usize)>> {
     let mut result = vec![];
     let mut start = 0;
     while start < text.len() {
-        let mut end = (start + 2048).min(text.len());
+        let mut end = (start + segment_bytes).min(text.len());
         while !text.is_char_boundary(end) {
             end -= 1;
         }
@@ -24,7 +27,7 @@ fn ranges(text: &str) -> Result<Vec<(usize, usize)>> {
             end = start + newline + 1;
         }
         result.push((start, end));
-        if result.len() > 512 {
+        if result.len() > ABSOLUTE_DESCRIPTION_REGIONS {
             return Err(Error::Invalid(
                 "description segmentation exceeds 512 regions".into(),
             ));
@@ -40,6 +43,9 @@ impl MaterialService {
         subject: SubjectId,
         representation: DerivedRepresentationId,
     ) -> Result<Vec<DescriptionSegment>> {
+        let snapshot = self.cognition.configuration.snapshot_for_subject(subject)?;
+        let segment_bytes = snapshot.get(crate::DESCRIPTION_SEGMENT_BYTES)?;
+        let config_digest = snapshot.digest_for(&[crate::DESCRIPTION_SEGMENT_BYTES.path()])?;
         let mut tx = self.store.begin().await?;
         let text: Option<String> = sqlx::query_scalar("SELECT payload_text FROM derived_representations WHERE subject_id=$1 AND derived_representation_id=$2 FOR SHARE")
             .bind(subject.0).bind(representation.0).fetch_optional(&mut *tx).await.map_err(db)?
@@ -47,9 +53,9 @@ impl MaterialService {
         let text =
             text.ok_or_else(|| Error::Invalid("description has no text projection".into()))?;
         let mut segments = vec![];
-        for (ordinal, (start, end)) in ranges(&text)?.into_iter().enumerate() {
+        for (ordinal, (start, end)) in ranges(&text, segment_bytes)?.into_iter().enumerate() {
             let slice = &text[start..end];
-            let coordinate = serde_json::json!({"algorithm":"description-utf8-lines-v1","ordinal":ordinal,"utf8_start":start,"utf8_end":end,"digest":blake3::hash(slice.as_bytes()).to_hex().to_string()});
+            let coordinate = serde_json::json!({"algorithm":"description-utf8-lines-v1","config_digest":config_digest,"ordinal":ordinal,"utf8_start":start,"utf8_end":end,"digest":blake3::hash(slice.as_bytes()).to_hex().to_string()});
             let mut region = DerivedRegion {
                 derived_region_id: DerivedRegionId::new(),
                 subject_id: subject,
@@ -80,13 +86,13 @@ mod tests {
     #[test]
     fn segmentation_preserves_utf8_bytes_and_line_order() {
         let text = format!("first\n\n{}\nlast", "语音🙂".repeat(600));
-        let spans = ranges(&text).unwrap();
+        let spans = ranges(&text, 2048).unwrap();
         assert_eq!(
             spans.iter().map(|(a, b)| &text[*a..*b]).collect::<String>(),
             text
         );
         assert!(spans.iter().all(|(a, b)| b - a <= 2048));
         assert_eq!(&text[spans[0].0..spans[0].1], "first\n");
-        assert_eq!(spans, ranges(&text).unwrap());
+        assert_eq!(spans, ranges(&text, 2048).unwrap());
     }
 }

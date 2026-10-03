@@ -402,7 +402,7 @@ fn finalize(
         );
         hit.match_evidence.baseline_rank = (rank + 1) as u32;
         hit.match_evidence.preference_score =
-            super::preferences::score(&preferences, hit, bound.bound_at);
+            super::preferences::score(&preferences, hit, bound.bound_at, &bound.retrieval_policy);
         hit.match_evidence.final_score =
             hit.match_evidence.base_rank_score + hit.match_evidence.preference_score;
     }

@@ -1,17 +1,66 @@
 use nous_configuration::*;
 use nous_core::{Error, Result};
 pub const JOURNAL_MAX_EPISODES: ConfigKey<u64> = ConfigKey::new("journal.max_episode_count");
-pub const JOURNAL_MAX_SPAN: ConfigKey<u64> = ConfigKey::new("journal.max_span");
-pub const CONSOLIDATION_DELAY: ConfigKey<u64> = ConfigKey::new("consolidation.settle_delay");
+pub const JOURNAL_MAX_SPAN: ConfigKey<u64> = ConfigKey::new("journal.max_span_seconds");
+pub const CONSOLIDATION_DELAY: ConfigKey<u64> =
+    ConfigKey::new("consolidation.settle_delay_seconds");
 
 pub const CONSOLIDATION_MAX_ACTIONS: ConfigKey<u64> = ConfigKey::new("consolidation.max_actions");
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ConsolidationContextPolicy {
+    #[schemars(range(min = 1, max = 8192))]
+    pub query_cue_chars: usize,
+    #[schemars(range(min = 1, max = 16384))]
+    pub candidate_text_chars: usize,
+    #[schemars(range(min = 1, max = 64))]
+    pub candidate_limit: usize,
+    #[schemars(range(min = 1, max = 512))]
+    pub support_limit: usize,
+    #[schemars(range(min = 1, max = 512))]
+    pub provenance_root_limit: usize,
+    #[schemars(range(min = 1, max = 128))]
+    pub entity_limit: usize,
+}
+pub const EPISODE_SYNOPSIS: ConfigKey<nous_persistence::EpisodeTextBudget> =
+    ConfigKey::new("episode.synopsis");
+pub const CONSOLIDATION_CONTEXT: ConfigKey<ConsolidationContextPolicy> =
+    ConfigKey::new("consolidation.context");
+
 pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    let reference = ReferenceProfile::parse(include_str!(
+        "../../../../config/reference/longitudinal-v1.json"
+    ))?;
+    registry.register(
+        EPISODE_SYNOPSIS,
+        "memory",
+        "Episode readable synopsis and Serving member text budgets.",
+        reference.get(EPISODE_SYNOPSIS)?,
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SubjectOverrideAllowed,
+        ConfigApplyMode::ServingRebuild,
+        ConfigSemanticEffect::ServingProjection,
+        |_: &nous_persistence::EpisodeTextBudget| Ok(()),
+    )?;
+    reference.tag(registry, EPISODE_SYNOPSIS.path())?;
+    registry.register(
+        CONSOLIDATION_CONTEXT,
+        "memory",
+        "Longitudinal consolidation retrieval and model input budgets.",
+        reference.get(CONSOLIDATION_CONTEXT)?,
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SubjectOverrideAllowed,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::AuthorityFormation,
+        |_: &ConsolidationContextPolicy| Ok(()),
+    )?;
+    reference.tag(registry, CONSOLIDATION_CONTEXT.path())?;
     registry.register(
         JOURNAL_MAX_EPISODES,
         "memory",
         "Maximum Episodes in a Journal synthesis scope.",
-        12,
+        reference.get(JOURNAL_MAX_EPISODES)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -30,7 +79,7 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
         JOURNAL_MAX_SPAN,
         "memory",
         "Maximum Journal experience span in cognitive seconds.",
-        86400,
+        reference.get(JOURNAL_MAX_SPAN)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -49,7 +98,7 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
         CONSOLIDATION_DELAY,
         "memory",
         "Settling delay before longitudinal consolidation in cognitive seconds.",
-        300,
+        reference.get(CONSOLIDATION_DELAY)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -68,7 +117,7 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
         CONSOLIDATION_MAX_ACTIONS,
         "memory",
         "Maximum actions in one atomic longitudinal consolidation proposal.",
-        8,
+        reference.get(CONSOLIDATION_MAX_ACTIONS)?,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
@@ -83,5 +132,13 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
             }
         },
     )?;
+    registry.bounds(JOURNAL_MAX_EPISODES, 1, 64, Some("items"))?;
+    registry.bounds(JOURNAL_MAX_SPAN, 1, 604800, Some("cognitive_seconds"))?;
+    registry.bounds(CONSOLIDATION_DELAY, 1, 86400, Some("cognitive_seconds"))?;
+    registry.bounds(CONSOLIDATION_MAX_ACTIONS, 1, 16, Some("items"))?;
+    reference.tag(registry, JOURNAL_MAX_EPISODES.path())?;
+    reference.tag(registry, JOURNAL_MAX_SPAN.path())?;
+    reference.tag(registry, CONSOLIDATION_DELAY.path())?;
+    reference.tag(registry, CONSOLIDATION_MAX_ACTIONS.path())?;
     Ok(())
 }

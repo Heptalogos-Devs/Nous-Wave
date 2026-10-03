@@ -505,6 +505,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
             &key,
             "semantic input",
             &serde_json::json!({"model":"frozen"}),
+            360,
         )
         .await
         .unwrap();

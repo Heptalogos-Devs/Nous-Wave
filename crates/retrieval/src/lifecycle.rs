@@ -14,7 +14,7 @@ pub(crate) enum OpenArtifact {
 }
 
 impl ServingService {
-    pub(crate) async fn config_digest(
+    pub async fn config_digest(
         &self,
         subject: SubjectId,
         family: &str,
@@ -27,7 +27,7 @@ impl ServingService {
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
         }
         if family == "dense"
-            && let Some(provider) = &self.embedding
+            && let Some(provider) = self.embedding()
         {
             config["space"] = serde_json::to_value(provider.space())
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
@@ -35,8 +35,8 @@ impl ServingService {
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
         }
         let keys: &[&str] = match family {
-            "lexical" => &["serving.lexical.enabled"],
-            "dense" => &["serving.dense.enabled"],
+            "lexical" => &["serving.lexical.enabled", "episode.synopsis"],
+            "dense" => &["serving.dense.enabled", "retrieval.epa", "episode.synopsis"],
             "topology" => &[
                 "topology.wave.hub_beta",
                 "topology.wave.hub_penalty_min",
@@ -112,7 +112,7 @@ impl ServingService {
             requested.push(("topology", String::new()));
         }
         if need.dense && self.options.dense {
-            if let Some(provider) = &self.embedding {
+            if let Some(provider) = self.embedding() {
                 requested.push(("dense", provider.space().space_hash));
             } else {
                 requested.extend(

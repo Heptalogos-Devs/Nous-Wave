@@ -10,7 +10,7 @@ Prompt 从仓库 `prompts/` 的 UTF-8 Markdown 加载；custom path 须落在允
 
 ## Material 与 formation
 
-`client.model.deriveMaterial({ subjectId, sourceRegionId, strategy, target, supersedes })` 返回实际 committed `representations[]`、selected representation 和 degradation。Core 的 `material_strategy` 默认 `description_only`，还接受 `direct_structured`、`describe_then_structure`。
+`client.model.deriveMaterial({ subjectId, sourceRegionId, strategy, target, supersedes })` 返回实际 committed `representations[]`、selected representation 和 degradation。Configuration 的 `material.strategy` 默认 `description_only`，还接受 `direct_structured`、`describe_then_structure`。
 
 - Text-like source：验证 UTF-8 后提交 ExtractedText，不调用模型重写。
 - Image：`material_description` 生成 rich ImageDescription；direct structured 使用独立 `material_direct_structuring` model/Prompt/参数。两阶段使用 description 的 exact ref 作为 structuring input。

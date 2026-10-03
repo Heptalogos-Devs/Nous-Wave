@@ -4,12 +4,17 @@
 //! registering owner, which resolves a snapshot into its typed policy.
 
 mod key;
+mod profile;
+pub use profile::ReferenceProfile;
 mod registry;
 mod service;
 mod snapshot;
 
 pub use key::*;
-pub use registry::{ConfigDescriptor, ConfigRegistry, ConfigRegistryBuilder, flatten_settings};
+pub use registry::{
+    CONFIG_SCHEMA_DIALECT, ConfigDescriptor, ConfigRegistry, ConfigRegistryBuilder,
+    ConfigurationBootstrapBundle,
+};
 pub use service::{ConfigChangeOutcome, ConfigurationService};
 pub use snapshot::{ConfigSnapshot, ResolvedConfigValue};
 
@@ -89,7 +94,7 @@ mod tests {
     }
 
     #[test]
-    fn settings_are_flattened_and_snapshot_digest_is_subset_scoped() {
+    fn deployment_is_descriptor_aware_and_snapshot_digest_is_subset_scoped() {
         let mut builder = ConfigRegistryBuilder::new();
         builder
             .register(
@@ -112,14 +117,100 @@ mod tests {
                 source: ConfigSource::ReferenceDefault,
             },
         )]);
-        let snapshot = ConfigSnapshot::new(None, 1, registry, values).unwrap();
+        let snapshot = ConfigSnapshot::new(None, 1, registry.clone(), values).unwrap();
         let first = snapshot.digest_for(&[TEST_KEY.path()]).unwrap();
         assert_eq!(snapshot.get(TEST_KEY).unwrap(), 1.0);
         assert_eq!(first, snapshot.digest_for(&[TEST_KEY.path()]).unwrap());
         assert_eq!(
-            flatten_settings(&json!({"settings":{"test":{"policy":{"threshold":2.0}}}})).unwrap()
-                [TEST_KEY.path()],
+            registry
+                .deployment_values(&json!({"test":{"policy":{"threshold":2.0}}}))
+                .unwrap()[TEST_KEY.path()],
             json!(2.0)
         );
+    }
+}
+
+#[cfg(test)]
+mod catalog_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn structured_descriptor() -> ConfigDescriptor {
+        ConfigDescriptor {
+            path: "gateway_profiles".into(),
+            owner: "core-model".into(),
+            title: "Gateways".into(),
+            description: "Gateway profile map".into(),
+            category: "models".into(),
+            json_schema: json!({"$schema": CONFIG_SCHEMA_DIALECT,"type":"object","additionalProperties":{"type":"object","properties":{"enabled":{"type":"boolean"}},"required":["enabled"],"additionalProperties":false}}),
+            reference_default: json!({}),
+            exposure: ConfigExposure::Standard,
+            scope_policy: ConfigScopePolicy::SystemOnly,
+            storage_policy: ConfigStoragePolicy::Overrideable,
+            apply_mode: ConfigApplyMode::RestartProcess,
+            semantic_effect: ConfigSemanticEffect::Operational,
+            unit: None,
+            sensitivity: ConfigSensitivity::CredentialReference,
+            reference_profile: None,
+        }
+    }
+
+    #[test]
+    fn imported_structures_consume_whole_values_and_reject_unknown_paths() {
+        let mut builder = ConfigRegistryBuilder::new();
+        builder.import(structured_descriptor()).unwrap();
+        let registry = builder.finish().unwrap();
+        let document = json!({"gateway_profiles":{"local":{"enabled":true}}});
+        assert_eq!(
+            registry.deployment_values(&document).unwrap()["gateway_profiles"],
+            document["gateway_profiles"]
+        );
+        assert!(
+            registry
+                .deployment_values(&json!({"gateway_profiles":{"local":{"enabled":"yes"}}}))
+                .is_err()
+        );
+        assert!(registry.deployment_values(&json!({"unknown":{}})).is_err());
+        assert!(registry.deployment_values(&json!({"settings":{}})).is_err());
+    }
+
+    #[test]
+    fn catalog_validates_dialect_schema_defaults_and_overlap() {
+        let descriptor = structured_descriptor();
+        let mut builder = ConfigRegistryBuilder::new();
+        builder.import(descriptor.clone()).unwrap();
+        let mut child = descriptor.clone();
+        child.path = "gateway_profiles.enabled".into();
+        assert!(builder.import(child).is_err());
+        let mut invalid = descriptor.clone();
+        invalid.json_schema["type"] = json!("nonsense");
+        assert!(ConfigRegistryBuilder::new().import(invalid).is_err());
+        let mut invalid = descriptor.clone();
+        invalid.json_schema["$schema"] = json!("https://json-schema.org/draft-07/schema");
+        assert!(ConfigRegistryBuilder::new().import(invalid).is_err());
+        let mut invalid = descriptor;
+        invalid.reference_default = json!(42);
+        let mut builder = ConfigRegistryBuilder::new();
+        builder.import(invalid).unwrap();
+        assert!(builder.finish().is_err());
+    }
+
+    #[test]
+    fn semantic_catalog_digest_excludes_prose_and_dynamic_paths_own_their_text() {
+        let mut a = ConfigRegistryBuilder::new();
+        a.import(structured_descriptor()).unwrap();
+        let a = a.finish().unwrap();
+        let mut descriptor = structured_descriptor();
+        descriptor.title = "New title".into();
+        descriptor.description = "New prose".into();
+        let mut b = ConfigRegistryBuilder::new();
+        b.import(descriptor.clone()).unwrap();
+        assert_eq!(a.digest(), b.finish().unwrap().digest());
+        descriptor.json_schema["maxProperties"] = json!(8);
+        let mut c = ConfigRegistryBuilder::new();
+        c.import(descriptor).unwrap();
+        assert_ne!(a.digest(), c.finish().unwrap().digest());
+        let path: ConfigPath = "dynamic.policy".to_owned().parse().unwrap();
+        assert_eq!(&*path.0, "dynamic.policy");
     }
 }

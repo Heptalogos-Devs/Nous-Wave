@@ -89,7 +89,7 @@ export async function deriveMaterial(
       {
         subjectId: request.subjectId,
         reference: { kind: "source_region", value: request.sourceRegionId },
-        maxBytes: 1048576n,
+        maxBytes: BigInt(models.materialInputs.derivation_source_max_bytes),
       },
       options,
     );
@@ -270,7 +270,9 @@ export async function deriveMaterial(
       return representation;
     } finally {
       await kernel.modelMaterial
-        .releaseWorkflow(lease, { timeoutMs: 5000 })
+        .releaseWorkflow(lease, {
+          timeoutMs: kernel.execution.workflow_ack_timeout_ms,
+        })
         .catch(() => {});
     }
   };

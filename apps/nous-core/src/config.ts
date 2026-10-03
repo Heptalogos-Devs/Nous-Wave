@@ -1,17 +1,18 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parse } from "smol-toml";
-import { z } from "zod";
 import { parseEnv } from "node:util";
-import {
-  modelConfigurationShape,
-  modelConfigurationSchema,
-} from "./model/configuration.js";
+import { modelConfigurationSchema } from "./model/configuration.js";
 import type { RuntimeLocations } from "./locations.js";
-import { resolvedEmbedding } from "./model/embedding-profile.js";
 import { resourceProfilesSchema } from "./resources/configuration.js";
-
-export const CONFIG_REVISION = 1;
+import {
+  CONFIG_REVISION,
+  bootstrapSchema,
+  consumersSchema,
+  configurationBundle,
+  coreExecutionSchema,
+} from "./configuration-catalog.js";
+export { CONFIG_REVISION } from "./configuration-catalog.js";
 
 export class ConfigurationError extends Error {
   constructor(
@@ -21,56 +22,7 @@ export class ConfigurationError extends Error {
   }
 }
 
-const requirement = z.enum(["REQUIRED", "PREFERRED", "OPTIONAL", "FORBIDDEN"]);
-const schema = z.strictObject({
-  config_revision: z.literal(CONFIG_REVISION),
-  port: z.number().int().min(0).max(65535).default(9470),
-  dotenv_file: z.string().min(1).default("gateway.env"),
-  kernel_executable: z.string().min(1).optional(),
-  database: z
-    .strictObject({
-      mode: z.enum(["managed_private", "external"]).default("managed_private"),
-      url_env: z
-        .string()
-        .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
-        .optional(),
-      max_connections: z.number().int().min(1).max(256).default(8),
-      name: z
-        .string()
-        .regex(/^[a-z][a-z0-9_]{0,62}$/)
-        .default("nous_wave"),
-    })
-    .prefault({}),
-  object_store: z
-    .strictObject({
-      max_upload_bytes: z
-        .number()
-        .int()
-        .positive()
-        .max(Number.MAX_SAFE_INTEGER)
-        .default(8589934592),
-    })
-    .prefault({}),
-  settings: z.record(z.string(), z.unknown()).default({}),
-  consumers: z
-    .array(
-      z.strictObject({
-        consumer_id: z.string().min(1).max(128),
-        revision: z.string().min(1).default("1"),
-        memory: requirement.default("PREFERRED"),
-        runtime: requirement.default("OPTIONAL"),
-        resource: requirement.default("OPTIONAL"),
-        max_items: z.number().int().min(1).max(2048).default(32),
-        max_text_bytes: z.number().int().min(1).max(1048576).default(32768),
-        materialize: z.boolean().default(true),
-      }),
-    )
-    .min(1)
-    .max(64),
-  ...modelConfigurationShape,
-  resource_profiles: resourceProfilesSchema,
-});
-
+/** File loading parses only bootstrap; Kernel validates the full managed document. */
 export function parseConfiguration(text: string, development = false) {
   let document;
   try {
@@ -84,67 +36,33 @@ export function parseConfiguration(text: string, development = false) {
       },
     ]);
   }
-  if (document.config_revision !== CONFIG_REVISION) {
-    const actual =
-      typeof document.config_revision === "number"
-        ? String(document.config_revision)
-        : "missing or invalid";
+  if (document.config_revision !== CONFIG_REVISION)
     throw new ConfigurationError([
       {
         path: "config_revision",
         code: "revision_mismatch",
-        message: `Expected ${CONFIG_REVISION}; found ${actual}. Review the current configuration contract before updating this field.`,
+        message: `Expected configuration revision ${CONFIG_REVISION}`,
       },
     ]);
-  }
-  const parsed = schema.safeParse(document);
+  const parsed = bootstrapSchema.safeParse(document);
   if (!parsed.success)
     throw new ConfigurationError(
       parsed.error.issues.map((issue) => ({
-        path: issue.path.join(".") || "nous.toml",
+        path: issue.path.join("."),
         code: issue.code,
         message: issue.message,
       })),
     );
-  const config = parsed.data;
-  if (
-    new Set(config.consumers.map((consumer) => consumer.consumer_id)).size !==
-    config.consumers.length
-  )
+  if (parsed.data.host.kernel_executable && !development)
     throw new ConfigurationError([
       {
-        path: "consumers",
-        code: "duplicate_id",
-        message: "Duplicate consumer policy ID",
-      },
-    ]);
-  if (config.kernel_executable && !development)
-    throw new ConfigurationError([
-      {
-        path: "kernel_executable",
+        path: "host.kernel_executable",
         code: "invalid_profile",
         message: "Kernel executable override is source-development-only",
       },
     ]);
-  const models = modelConfigurationSchema.safeParse({
-    material_strategy: config.material_strategy,
-    video: config.video,
-    audio: config.audio,
-    gateway_profiles: config.gateway_profiles,
-    model_profiles: config.model_profiles,
-    roles: config.roles,
-  });
-  if (!models.success)
-    throw new ConfigurationError(
-      models.error.issues.map((issue) => ({
-        path: issue.path.join(".") || "models",
-        code: issue.code,
-        message: issue.message,
-      })),
-    );
-  return { config, models: models.data };
+  return { config: parsed.data, document };
 }
-
 export async function readConfiguration(
   locations: RuntimeLocations,
   development = false,
@@ -155,97 +73,31 @@ export async function readConfiguration(
   );
 }
 
-export async function loadConfig(
-  locations: RuntimeLocations,
-  development = false,
-) {
-  const { config, models } = await readConfiguration(locations, development);
-  const credentialNames = [
-    ...Object.values(config.gateway_profiles).map((g) => g.credential_env),
-    ...Object.values(config.resource_profiles).map(
-      (profile) => profile.credential_env,
-    ),
-    ...(config.database.url_env ? [config.database.url_env] : []),
-  ];
-  try {
-    const credentials = parseEnv(
-      await readFile(resolve(locations.secret, config.dotenv_file), "utf8"),
-    );
-    for (const name of credentialNames)
-      if (process.env[name] === undefined && credentials[name] !== undefined)
-        process.env[name] = credentials[name];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT")
-      // oxlint-disable-next-line preserve-caught-error -- Raw dotenv errors can include credential content.
-      throw new Error("Credential dotenv file could not be loaded");
-  }
-  const deployment = development ? "development" : "portable";
-  if (models.video.ffmpeg_executable)
-    models.video.ffmpeg_executable = resolve(
-      locations.config,
-      models.video.ffmpeg_executable,
-    );
-  else {
-    const ffmpeg = join(
-      locations.runtime,
-      "ffmpeg",
-      "bin",
-      process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
-    );
-    if ((await stat(ffmpeg).catch(() => undefined))?.isFile())
-      models.video.ffmpeg_executable = ffmpeg;
-  }
-  const kernelExecutable = config.kernel_executable
-    ? resolve(locations.program, config.kernel_executable)
-    : deployment === "development"
-      ? join(
-          locations.program,
-          "target/debug",
-          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
-        )
-      : join(
-          locations.program,
-          "kernel",
-          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
-        );
-  const databaseUrl = config.database.url_env
-    ? process.env[config.database.url_env]
-    : undefined;
-  if (config.database.mode === "external" && !databaseUrl)
-    throw new Error("External database credential environment is unavailable");
-  return {
-    deployment,
-    externalFfmpeg: Boolean(config.video.ffmpeg_executable),
-    kernelExecutable,
-    locations,
-    port: config.port,
-    models,
-    resourceProfiles: config.resource_profiles,
-    kernelBootstrap: {
-      bootstrap: {
-        database: {
-          mode: config.database.mode,
-          url: databaseUrl ?? "",
-          max_connections: config.database.max_connections,
-          name: config.database.name,
-          install_dir: join(locations.runtime, "postgresql"),
-          data_dir: join(locations.data, "postgres"),
-          instance_dir: locations.instance,
-          secret_dir: locations.secret,
-        },
-        object_store: {
-          backend: "fs",
-          root: locations.blob,
-          max_upload_bytes: config.object_store.max_upload_bytes,
-        },
-        serving: {
-          root: join(locations.cache, "serving"),
-          resolved_embedding: resolvedEmbedding(models),
-        },
+/** Zod owners consume values resolved by Kernel; no override precedence exists in Core. */
+export function parseEffectiveConfiguration(values: Record<string, unknown>) {
+  const models = modelConfigurationSchema.parse({
+    gateway_profiles: values.gateway_profiles,
+    model_profiles: values.model_profiles,
+    roles: values.roles,
+    audio: values.audio,
+    video: values.video,
+    material_strategy: values["material.strategy"],
+    material_inputs: values["material.inputs"],
+  });
+  const consumers = consumersSchema.parse(values.consumers);
+  if (new Set(consumers.map((c) => c.consumer_id)).size !== consumers.length)
+    throw new ConfigurationError([
+      {
+        path: "consumers",
+        code: "duplicate_id",
+        message: "Duplicate consumer policy ID",
       },
-      settings: config.settings,
-    },
-    consumers: config.consumers.map((c) => ({
+    ]);
+  return {
+    models,
+    execution: coreExecutionSchema.parse(values.core_execution),
+    resourceProfiles: resourceProfilesSchema.parse(values.resource_profiles),
+    consumers: consumers.map((c) => ({
       consumerId: c.consumer_id,
       revision: c.revision,
       memory: c.memory,
@@ -256,4 +108,105 @@ export async function loadConfig(
       materialize: c.materialize,
     })),
   };
+}
+export function kernelExecutable(
+  locations: RuntimeLocations,
+  development: boolean,
+  override?: string | null,
+) {
+  return override
+    ? resolve(locations.program, override)
+    : development
+      ? join(
+          locations.program,
+          "target/debug",
+          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
+        )
+      : join(
+          locations.program,
+          "kernel",
+          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
+        );
+}
+export async function loadCredentials(
+  locations: RuntimeLocations,
+  dotenvFile: string,
+  names: readonly string[],
+) {
+  try {
+    const credentials = parseEnv(
+      await readFile(resolve(locations.secret, dotenvFile), "utf8"),
+    );
+    for (const name of names)
+      if (process.env[name] === undefined && credentials[name] !== undefined)
+        process.env[name] = credentials[name];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+      // oxlint-disable-next-line preserve-caught-error -- Raw dotenv errors can include credential content.
+      throw new Error("Credential dotenv file could not be loaded");
+  }
+}
+export async function loadConfig(
+  locations: RuntimeLocations,
+  development = false,
+) {
+  const { config, document } = await readConfiguration(locations, development);
+  await loadCredentials(
+    locations,
+    config.host.dotenv_file,
+    config.database.url_env ? [config.database.url_env] : [],
+  );
+  const databaseUrl = config.database.url_env
+    ? process.env[config.database.url_env]
+    : undefined;
+  if (config.database.mode === "external" && !databaseUrl)
+    throw new Error("External database credential environment is unavailable");
+  return {
+    deployment: development ? "development" : "portable",
+    locations,
+    port: config.host.port,
+    dotenvFile: config.host.dotenv_file,
+    startupTimeoutMs: config.host.kernel_startup_timeout_ms,
+    shutdownTimeoutMs: config.host.kernel_shutdown_timeout_ms,
+    kernelExecutable: kernelExecutable(
+      locations,
+      development,
+      config.host.kernel_executable,
+    ),
+    bundle: configurationBundle(document),
+    kernelBootstrap: {
+      configuration_bundle: join(locations.run, "configuration-bundle.json"),
+      bootstrap: {
+        database: {
+          ...config.database,
+          url: databaseUrl ?? "",
+          url_env: undefined,
+          install_dir: join(locations.runtime, "postgresql"),
+          data_dir: join(locations.data, "postgres"),
+          instance_dir: locations.instance,
+          secret_dir: locations.secret,
+        },
+        object_store: { backend: "fs", root: locations.blob },
+        serving: { root: join(locations.cache, "serving") },
+      },
+    },
+  };
+}
+export async function resolveMediaExecutables(
+  locations: RuntimeLocations,
+  models: ReturnType<typeof parseEffectiveConfiguration>["models"],
+) {
+  const explicit = models.video.ffmpeg_executable;
+  if (explicit)
+    models.video.ffmpeg_executable = resolve(locations.config, explicit);
+  else {
+    const path = join(
+      locations.runtime,
+      "ffmpeg/bin",
+      process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
+    );
+    if ((await stat(path).catch(() => undefined))?.isFile())
+      models.video.ffmpeg_executable = path;
+  }
+  return Boolean(explicit);
 }

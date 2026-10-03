@@ -19,6 +19,11 @@ impl KernelService {
             ));
         }
         let subject = claimed.subject_id;
+        let member_bytes = self
+            .0
+            .configuration
+            .snapshot_for_subject(subject)?
+            .get(nous_runtime::MEMBER_TEXT_MAX_BYTES)?;
         let sequence = self.0.store.authority_seq(subject).await?;
         let memory = self.require_memory()?;
         let scope = match claimed.kind.as_str() {
@@ -97,7 +102,7 @@ impl KernelService {
         }
         plan.episodes = scope.episodes.into_iter().map(episode::view).collect();
         let (members, scope_exceeded) = self
-            .maintenance_member_catalog(subject, &scope.occurrences)
+            .maintenance_member_catalog(subject, &scope.occurrences, member_bytes as usize)
             .await?;
         plan.members = members;
         if claimed.kind == "episode_resegment" && scope_exceeded {
@@ -127,6 +132,7 @@ impl KernelService {
         &self,
         subject: SubjectId,
         occurrences: &[OccurrenceId],
+        member_bytes: usize,
     ) -> Result<(Vec<k::ExperienceMember>, bool)> {
         let ids: Vec<uuid::Uuid> = occurrences.iter().map(|id| id.0).collect();
         let rows=sqlx::query("SELECT o.*,e.recorded_seq,e.session_id,e.active_work_context_id,e.active_work_context_revision,d.derived_representation_id FROM observation_occurrences o LEFT JOIN experience_items e ON e.occurrence_id=o.occurrence_id AND e.subject_id=o.subject_id LEFT JOIN LATERAL (SELECT r.derived_representation_id FROM coverage_needs c JOIN source_regions s USING(source_region_id) JOIN derived_representations r ON r.derived_representation_id=c.current_representation_id WHERE c.subject_id=$1 AND s.artifact_id=o.artifact_id AND c.state='ready' AND r.payload_text IS NOT NULL ORDER BY r.created_at DESC,r.derived_representation_id LIMIT 1) d ON true WHERE o.subject_id=$1 AND o.occurrence_id=ANY($2::uuid[]) ORDER BY o.observed_at,e.recorded_seq NULLS LAST,o.occurrence_id")
@@ -148,7 +154,7 @@ impl KernelService {
                         nous_material::MaterializeRequest {
                             reference,
                             byte_range: None,
-                            max_bytes: remaining.min(2048) as u64,
+                            max_bytes: remaining.min(member_bytes) as u64,
                             resource_handle: None,
                             resource: None,
                         },

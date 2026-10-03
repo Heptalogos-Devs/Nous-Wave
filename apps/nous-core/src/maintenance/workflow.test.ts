@@ -1,3 +1,4 @@
+import { coreExecutionSchema } from "../configuration-catalog.js";
 import type { CommitLongitudinalConsolidationRequest } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
 import { ExpectedCognitionSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
 import { describe, expect, it, vi } from "vitest";
@@ -81,6 +82,7 @@ function fixture() {
   const refresh = vi.fn(async () => ({}));
   const getPlan = vi.fn(async () => plan);
   const kernel = {
+    execution: coreExecutionSchema.parse(undefined),
     authority: {
       planMaintenance: getPlan,
       commitJournal: commit,
@@ -217,6 +219,7 @@ describe("maintenance fixed workflow retry", () => {
       getMaintenancePolicy: vi.fn(async () => ({
         enabled: true,
         maxOperations: 4,
+        experienceBatchSize: 256,
         workerLeaseSeconds: 120,
       })),
       claimMaintenance: claim,
@@ -259,6 +262,7 @@ describe("maintenance fixed workflow retry", () => {
       getMaintenancePolicy: vi.fn(async () => ({
         enabled: true,
         maxOperations: 4,
+        experienceBatchSize: 256,
         workerLeaseSeconds: 120,
         retryInitialSeconds: 2,
         retryMaxSeconds: 5,
@@ -301,10 +305,12 @@ describe("maintenance fixed workflow retry", () => {
       };
     });
     const kernel = {
+      execution: coreExecutionSchema.parse(undefined),
       authority: {
         getMaintenancePolicy: vi.fn(async () => ({
           enabled: true,
           maxOperations: 4,
+          experienceBatchSize: 7,
           workerLeaseSeconds: 120,
           maxModelCalls: 4,
           maxElapsedMs: 60000,
@@ -329,6 +335,10 @@ describe("maintenance fixed workflow retry", () => {
     );
     for (let tick = 0; tick < 20; tick++)
       await scheduler.poll(new AbortController().signal);
+    expect(kernel.authority.organizeExperience).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 7 }),
+      expect.anything(),
+    );
     expect(opportunities.slice(0, 75)).toEqual(ids);
     expect(opportunities.slice(75)).toEqual(ids.slice(0, 5));
     expect(list).toHaveBeenCalledWith(

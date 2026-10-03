@@ -34,7 +34,12 @@ impl SemanticCueSensing for EpaResidualCueSensing {
                 .map(|value| *value as f32)
                 .collect::<Vec<_>>();
             generation
-                .search(&residual, limit.saturating_mul(4).max(limit))
+                .search(
+                    &residual,
+                    limit
+                        .saturating_mul(config.candidate_oversampling)
+                        .max(limit),
+                )
                 .map(|matches| tag_candidates(generation, matches, limit))
         })
     }

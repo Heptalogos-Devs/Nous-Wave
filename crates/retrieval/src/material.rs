@@ -117,18 +117,27 @@ impl ServingService {
         }
         self.store.require_subject(subject).await?;
         let provider = self
-            .embedding
-            .as_ref()
+            .embedding()
             .ok_or_else(|| Error::Unavailable("embedding space not configured".into()))?;
         let config = provider.space();
         let producer = provider.producer();
         let capabilities = self.projection_capabilities(subject).await?;
+        let budget = self
+            .configuration
+            .snapshot_for_subject(subject)?
+            .get(crate::EPISODE_SYNOPSIS)?;
         let input = self
             .store
-            .text_projection_input(subject, "dense", &config.space_hash, capabilities.memory)
+            .text_projection_input(
+                subject,
+                "dense",
+                &config.space_hash,
+                capabilities.memory,
+                budget,
+            )
             .await?;
         let mut needs = vec![];
-        for doc in self.documents(input.sources).await? {
+        for doc in self.documents(input.sources, budget).await? {
             let digest = blake3::hash(doc.representation_text.as_bytes())
                 .to_hex()
                 .to_string();
@@ -158,8 +167,7 @@ impl ServingService {
     ) -> Result<()> {
         self.store.validate_reference(subject, &reference).await?;
         let configured = self
-            .embedding
-            .as_ref()
+            .embedding()
             .ok_or_else(|| Error::Unavailable("embedding not configured".into()))?;
         if configured.space().space_hash != space
             || configured.producer().signature_hash != producer
@@ -171,12 +179,16 @@ impl ServingService {
             ));
         }
         let input = self.projection_capabilities(subject).await?;
+        let budget = self
+            .configuration
+            .snapshot_for_subject(subject)?
+            .get(crate::EPISODE_SYNOPSIS)?;
         let input = self
             .store
-            .text_projection_input(subject, "dense", space, input.memory)
+            .text_projection_input(subject, "dense", space, input.memory, budget)
             .await?;
         let exists = self
-            .documents(input.sources)
+            .documents(input.sources, budget)
             .await?
             .into_iter()
             .any(|d| d.reference == reference && d.representation_text == text);

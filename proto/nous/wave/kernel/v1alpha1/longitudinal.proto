@@ -64,6 +64,7 @@ message MaintenancePolicy {
   uint32 retry_max_attempts = 8;
   uint32 max_model_calls = 9;
   uint32 max_elapsed_ms = 10;
+  uint32 experience_batch_size = 11;
 }
 message PlanMaintenanceRequest { MaintenanceNeed claimed = 1; }
 message ExperienceMember {

@@ -16,7 +16,7 @@ afterEach(async () => {
   );
 });
 describe("model protocol and provenance boundaries", () => {
-  it("rejects unsafe destinations and misbound protocols before client creation", () => {
+  it("rejects unsafe destinations and reports misbound roles unavailable", async () => {
     for (const base_url of [
       "http://gateway.example/v1",
       "https://user:secret@gateway.example/v1",
@@ -38,25 +38,28 @@ describe("model protocol and provenance boundaries", () => {
         },
       }).gateway_profiles.primary?.base_url,
     ).toBe("http://127.0.0.1:9000/v1");
+    const configuration = modelConfigurationSchema.parse({
+      gateway_profiles: {
+        local: {
+          base_url: "https://example.com/v1",
+          credential_env: "TOKEN",
+        },
+      },
+      model_profiles: {
+        chat: {
+          gateway: "local",
+          protocol: "openai-chat",
+          model: "chat",
+          capabilities: ["text"],
+        },
+      },
+      roles: { query_embedding: { model: "chat" } },
+    });
+    const runtime = await ModelInvocations.create(configuration);
     expect(
-      modelConfigurationSchema.safeParse({
-        gateway_profiles: {
-          local: {
-            base_url: "https://example.com/v1",
-            credential_env: "TOKEN",
-          },
-        },
-        model_profiles: {
-          chat: {
-            gateway: "local",
-            protocol: "openai-chat",
-            model: "chat",
-            capabilities: ["text"],
-          },
-        },
-        roles: { query_embedding: { model: "chat" } },
-      }).success,
-    ).toBe(false);
+      runtime.capabilities.find((c) => c.name === "model.query_embedding")
+        ?.state,
+    ).toBe("UNAVAILABLE");
   });
   it("bounds prompt decoding and canonical path while tracking changed content", async () => {
     const dir = await mkdtemp(join(tmpdir(), "nous-prompts-"));

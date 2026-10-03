@@ -1,3 +1,13 @@
+import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
+import { ValueSchema } from "@bufbuild/protobuf/wkt";
+export {
+  ConfigExposure,
+  ConfigurationView,
+} from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
+import {
+  ConfigurationService,
+  type ConfigDescriptor,
+} from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import {
   createClient,
   ConnectError,
@@ -63,7 +73,13 @@ function plain<T>(value: T): Data<T> {
   if (value !== null && typeof value === "object")
     return Object.fromEntries(
       Object.entries(value)
-        .filter(([key]) => !key.startsWith("$"))
+        .filter(
+          ([key]) =>
+            !(
+              "$typeName" in value &&
+              (key === "$typeName" || key === "$unknown")
+            ),
+        )
         .map(([key, val]) => [key, plain(val)]),
     ) as Data<T>;
   return value as Data<T>;
@@ -78,6 +94,21 @@ function call<I, O>(method: (input: I, options?: CallOptions) => Promise<O>) {
     }
   };
 }
+function configurationDescriptor(d: ConfigDescriptor) {
+  return {
+    ...d,
+    jsonSchema: d.jsonSchema ? toJson(ValueSchema, d.jsonSchema) : null,
+    referenceDefault: d.referenceDefault
+      ? toJson(ValueSchema, d.referenceDefault)
+      : null,
+  };
+}
+export interface ConfigurationOverride {
+  operationId: string;
+  path: string;
+  value: JsonValue;
+}
+
 export function createNousClient(transport: Transport) {
   const subjects = createClient(SubjectService, transport);
   const cognition = createClient(CognitionService, transport);
@@ -88,7 +119,63 @@ export function createNousClient(transport: Transport) {
   const topology = createClient(TopologyService, transport);
   const system = createClient(SystemService, transport);
   const model = createClient(ModelService, transport);
+  const configuration = createClient(ConfigurationService, transport);
   return {
+    configuration: {
+      list: call(
+        async (
+          input: Parameters<typeof configuration.listConfigDescriptors>[0],
+          options?: CallOptions,
+        ) => {
+          const result = await configuration.listConfigDescriptors(
+            input,
+            options,
+          );
+          return {
+            ...result,
+            descriptors: result.descriptors.map(configurationDescriptor),
+          };
+        },
+      ),
+      describe: call(async (path: string, options?: CallOptions) =>
+        configurationDescriptor(
+          await configuration.getConfigDescriptor({ path }, options),
+        ),
+      ),
+      get: call(
+        async (
+          input: Parameters<typeof configuration.getConfiguration>[0],
+          options?: CallOptions,
+        ) => {
+          const result = await configuration.getConfiguration(input, options);
+          return {
+            ...result,
+            entries: result.entries.map((entry) => ({
+              ...entry,
+              value: entry.value ? toJson(ValueSchema, entry.value) : null,
+            })),
+          };
+        },
+      ),
+      setSystem: call((input: ConfigurationOverride, options?: CallOptions) =>
+        configuration.setSystemOverride(
+          { ...input, value: fromJson(ValueSchema, input.value) },
+          options,
+        ),
+      ),
+      clearSystem: call(configuration.clearSystemOverride),
+      setSubject: call(
+        (
+          input: ConfigurationOverride & { subjectId: string },
+          options?: CallOptions,
+        ) =>
+          configuration.setSubjectOverride(
+            { ...input, value: fromJson(ValueSchema, input.value) },
+            options,
+          ),
+      ),
+      clearSubject: call(configuration.clearSubjectOverride),
+    },
     identity: {
       bind: call(identity.bindIdentity),
       resolve: call(identity.resolveIdentity),
@@ -123,7 +210,6 @@ export function createNousClient(transport: Transport) {
     system: {
       status: call(system.getStatus),
       capabilities: call(system.getCapabilities),
-      config: call(system.getEffectiveConfig),
       projections: call(system.getProjectionStatus),
     },
     subjects: {
@@ -212,3 +298,8 @@ export function createNousClient(transport: Transport) {
   };
 }
 export type NousClient = ReturnType<typeof createNousClient>;
+
+/** CLI and management callers use one JSON syntax for scalar and structured values. */
+export function configurationValue(text: string) {
+  return JSON.parse(text) as JsonValue;
+}

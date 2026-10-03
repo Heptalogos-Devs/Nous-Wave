@@ -3,6 +3,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import type { ModelRole } from "./configuration.js";
 
+const MAX_PROMPT_BYTES = 128 * 1024;
 const defaults: Partial<Record<ModelRole, string>> = {
   projection_steward: "projection/steward.md",
   memory_formation: "memory/formation.md",
@@ -43,9 +44,9 @@ export class PromptRegistry {
     const handle = await open(target, "r");
     try {
       const stat = await handle.stat();
-      if (!stat.isFile() || stat.size > 128 * 1024)
+      if (!stat.isFile() || stat.size > MAX_PROMPT_BYTES)
         throw new Error("Prompt exceeds 128 KiB or is not a file");
-      const buffer = Buffer.alloc(128 * 1024 + 1);
+      const buffer = Buffer.alloc(MAX_PROMPT_BYTES + 1);
       let size = 0;
       while (size < buffer.length) {
         const { bytesRead } = await handle.read(
@@ -57,7 +58,7 @@ export class PromptRegistry {
         if (!bytesRead) break;
         size += bytesRead;
       }
-      if (size > 128 * 1024) throw new Error("Prompt exceeds 128 KiB");
+      if (size > MAX_PROMPT_BYTES) throw new Error("Prompt exceeds 128 KiB");
       const bytes = buffer.subarray(0, size);
       const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
       if (!text.trim()) throw new Error("Empty prompt asset");

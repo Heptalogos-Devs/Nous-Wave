@@ -65,7 +65,7 @@ impl SharedLaneProvider for ServingService {
                 || bound.source_query.capabilities.text_embedding == RequirementStrength::Forbidden
             {
                 output.status = LaneStatus::Ready;
-            } else if let Some(provider) = self.embedding.as_ref() {
+            } else if let Some(provider) = self.embedding() {
                 if snapshot.dense.is_empty() {
                     output
                         .diagnostics
