@@ -270,7 +270,9 @@ export async function deriveMaterial(
       return representation;
     } finally {
       await kernel.modelMaterial
-        .releaseWorkflow(lease, { timeoutMs: 5000 })
+        .releaseWorkflow(lease, {
+          timeoutMs: kernel.execution.workflow_ack_timeout_ms,
+        })
         .catch(() => {});
     }
   };

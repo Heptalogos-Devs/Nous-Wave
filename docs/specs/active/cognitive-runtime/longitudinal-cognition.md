@@ -20,7 +20,7 @@ Session-bound Observation 在 Material 提交事务内写入一个 ExperienceIte
 
 `recorded_seq` 决定 exactly-once processing、durable cursor 和摄入顺序；experience chronology 使用 `(observed_at, recorded_seq)`。draft 最终成员、局部 repair、模型 partition input 与提交的 Episode 都按 experience chronology 排列，同 observed time 用 recorded sequence 确定顺序。
 
-历史 repair 以迟到 Observation 的 observed time 定位同 parent/track 的 overlapping current Episodes 和两侧最近邻，构建局部 partition 后加入迟到 occurrence。`episode.max_neighbor_span` 限制受影响 neighborhood 的 experience span；经历距今天的年龄不限制 repair。neighborhood 的 Episode 数、experience span 或 materialization safety budget 超界时进入 `historical_repair_scope_exceeded` blocked。
+历史 repair 以迟到 Observation 的 observed time 定位同 parent/track 的 overlapping current Episodes 和两侧最近邻，构建局部 partition 后加入迟到 occurrence。`episode.max_neighbor_span_seconds` 限制受影响 neighborhood 的 experience span；经历距今天的年龄不限制 repair。neighborhood 的 Episode 数、experience span 或 materialization safety budget 超界时进入 `historical_repair_scope_exceeded` blocked。
 
 `episode_segmentation` 接收精确、有序 member keys 和当前 Episode 组织，返回 `no_change` 或完整 partition。Memory 原子应用 N-to-M partition：1-to-1 修订同一对象；split/merge/general partition 创建替代对象并 withdraw sources，保留 exact lineage。缺失、重复、重排或虚构成员使整次提交失败。
 

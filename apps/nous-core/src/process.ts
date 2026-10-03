@@ -1,3 +1,7 @@
+import {
+  hostSchema,
+  type CoreExecutionPolicy,
+} from "./configuration-catalog.js";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
@@ -9,15 +13,20 @@ export interface KernelProcess {
   client: KernelClient;
   child: ChildProcessWithoutNullStreams;
   stop(): Promise<void>;
+  configureExecution(policy: CoreExecutionPolicy): void;
 }
 export async function startKernel(
   executable: string,
   configPath: string,
   options: {
     timeoutMs?: number;
+    shutdownTimeoutMs?: number;
   } = {},
 ): Promise<KernelProcess> {
-  const timeoutMs = options.timeoutMs ?? 120_000;
+  const reference = hostSchema.parse(undefined);
+  const timeoutMs = options.timeoutMs ?? reference.kernel_startup_timeout_ms;
+  const shutdownTimeoutMs =
+    options.shutdownTimeoutMs ?? reference.kernel_shutdown_timeout_ms;
   const inheritedNames = new Set([
     "path",
     "home",
@@ -83,7 +92,7 @@ export async function startKernel(
     if (child.exitCode !== null || child.signalCode !== null) return;
     const exited = once(child, "exit");
     child.stdin.end();
-    const timer = setTimeout(() => child.kill(), 5000);
+    const timer = setTimeout(() => child.kill(), shutdownTimeoutMs);
     try {
       await exited;
     } finally {
@@ -92,13 +101,22 @@ export async function startKernel(
     }
   };
   try {
-    const client = KernelClient.connect(await endpoint, token);
+    const endpointURL = await endpoint;
+    const client = KernelClient.connect(endpointURL, token);
     const health = await client.health.check({
       service: "nous.wave.kernel.v1alpha1.AuthorityService",
     });
     if (health.status !== HealthCheckResponse_ServingStatus.SERVING)
       throw new Error("Kernel is not serving");
-    return { client, child, stop };
+    const processState: KernelProcess = {
+      client,
+      child,
+      stop,
+      configureExecution(policy) {
+        processState.client = KernelClient.connect(endpointURL, token, policy);
+      },
+    };
+    return processState;
   } catch (error) {
     await stop();
     throw error;

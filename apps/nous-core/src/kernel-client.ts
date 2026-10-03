@@ -1,3 +1,7 @@
+import {
+  coreExecutionSchema,
+  type CoreExecutionPolicy,
+} from "./configuration-catalog.js";
 import { createClient, type Transport } from "@connectrpc/connect";
 import { createGrpcTransport } from "@connectrpc/connect-node";
 import {
@@ -18,7 +22,12 @@ export class KernelClient {
   readonly health;
   readonly modelMaterial;
 
-  constructor(transport: Transport) {
+  constructor(
+    transport: Transport,
+    readonly execution: CoreExecutionPolicy = coreExecutionSchema.parse(
+      undefined,
+    ),
+  ) {
     this.hostRuntime = createClient(KernelConfigurationService, transport);
     this.configuration = createClient(ConfigurationService, transport);
     this.authority = createClient(AuthorityService, transport);
@@ -27,11 +36,15 @@ export class KernelClient {
     this.modelMaterial = createClient(ModelMaterialService, transport);
   }
 
-  static connect(endpoint: string, token: string) {
+  static connect(
+    endpoint: string,
+    token: string,
+    execution = coreExecutionSchema.parse(undefined),
+  ) {
     return new KernelClient(
       createGrpcTransport({
         baseUrl: endpoint,
-        defaultTimeoutMs: 30_000,
+        defaultTimeoutMs: execution.kernel_rpc_timeout_ms,
         readMaxBytes: 8 * 1024 * 1024 + 65536,
         writeMaxBytes: 8 * 1024 * 1024 + 65536,
         interceptors: [
@@ -41,6 +54,7 @@ export class KernelClient {
           },
         ],
       }),
+      execution,
     );
   }
 }

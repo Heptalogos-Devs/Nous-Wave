@@ -1,10 +1,13 @@
-import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
 export {
   ConfigExposure,
   ConfigurationView,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
-import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
+import {
+  ConfigurationService,
+  type ConfigDescriptor,
+} from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import {
   createClient,
   ConnectError,
@@ -85,6 +88,21 @@ function call<I, O>(method: (input: I, options?: CallOptions) => Promise<O>) {
     }
   };
 }
+function configurationDescriptor(d: ConfigDescriptor) {
+  return {
+    ...d,
+    jsonSchema: d.jsonSchema ? toJson(ValueSchema, d.jsonSchema) : null,
+    referenceDefault: d.referenceDefault
+      ? toJson(ValueSchema, d.referenceDefault)
+      : null,
+  };
+}
+export interface ConfigurationOverride {
+  operationId: string;
+  path: string;
+  value: JsonValue;
+}
+
 export function createNousClient(transport: Transport) {
   const subjects = createClient(SubjectService, transport);
   const cognition = createClient(CognitionService, transport);
@@ -98,12 +116,58 @@ export function createNousClient(transport: Transport) {
   const configuration = createClient(ConfigurationService, transport);
   return {
     configuration: {
-      list: call(configuration.listConfigDescriptors),
-      describe: call(configuration.getConfigDescriptor),
-      get: call(configuration.getConfiguration),
-      setSystem: call(configuration.setSystemOverride),
+      list: call(
+        async (
+          input: Parameters<typeof configuration.listConfigDescriptors>[0],
+          options?: CallOptions,
+        ) => {
+          const result = await configuration.listConfigDescriptors(
+            input,
+            options,
+          );
+          return {
+            ...result,
+            descriptors: result.descriptors.map(configurationDescriptor),
+          };
+        },
+      ),
+      describe: call(async (path: string, options?: CallOptions) =>
+        configurationDescriptor(
+          await configuration.getConfigDescriptor({ path }, options),
+        ),
+      ),
+      get: call(
+        async (
+          input: Parameters<typeof configuration.getConfiguration>[0],
+          options?: CallOptions,
+        ) => {
+          const result = await configuration.getConfiguration(input, options);
+          return {
+            ...result,
+            entries: result.entries.map((entry) => ({
+              ...entry,
+              value: entry.value ? toJson(ValueSchema, entry.value) : null,
+            })),
+          };
+        },
+      ),
+      setSystem: call((input: ConfigurationOverride, options?: CallOptions) =>
+        configuration.setSystemOverride(
+          { ...input, value: fromJson(ValueSchema, input.value) },
+          options,
+        ),
+      ),
       clearSystem: call(configuration.clearSystemOverride),
-      setSubject: call(configuration.setSubjectOverride),
+      setSubject: call(
+        (
+          input: ConfigurationOverride & { subjectId: string },
+          options?: CallOptions,
+        ) =>
+          configuration.setSubjectOverride(
+            { ...input, value: fromJson(ValueSchema, input.value) },
+            options,
+          ),
+      ),
       clearSubject: call(configuration.clearSubjectOverride),
     },
     identity: {
@@ -231,5 +295,5 @@ export type NousClient = ReturnType<typeof createNousClient>;
 
 /** CLI and management callers use one JSON syntax for scalar and structured values. */
 export function configurationValue(text: string) {
-  return fromJson(ValueSchema, JSON.parse(text) as JsonValue);
+  return JSON.parse(text) as JsonValue;
 }

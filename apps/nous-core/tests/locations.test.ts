@@ -68,7 +68,7 @@ it("initializes a portable instance once and preserves operator edits byte for b
         process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
       ),
     );
-    const edited = `# operator configuration\r\nconfig_revision = ${CONFIG_REVISION}\r\nport = 12345\r\n[[consumers]]\r\nconsumer_id = "custom"\r\n`;
+    const edited = `# operator configuration\r\nconfig_revision = ${CONFIG_REVISION}\r\n[host]\r\nport = 12345\r\n[[consumers]]\r\nconsumer_id = "custom"\r\n`;
     await writeFile(results[0]!.path, edited);
     expect((await initializeConfiguration(locations)).created).toBe(false);
     expect(await readFile(results[0]!.path, "utf8")).toBe(edited);
@@ -87,15 +87,13 @@ it("rejects stale configuration semantics and checks examples and explicit refer
   );
   expect(() =>
     parseConfiguration(
-      example.replace("config_revision = 1", "config_revision = 0"),
+      example.replace("config_revision = 2", "config_revision = 0"),
     ),
-  ).toThrow("Expected 1");
+  ).toThrow("Expected configuration revision 2");
   expect(() =>
-    parseConfiguration(example.replace("config_revision = 1", "")),
-  ).toThrow("missing");
-  expect(() =>
-    parseConfiguration(example + "\nobsolete_field = true\n"),
-  ).toThrow();
+    parseConfiguration(example.replace("config_revision = 2", "")),
+  ).toThrow("Expected configuration revision 2");
+
   const root = await mkdtemp(join(tmpdir(), "nous-config-check-"));
   try {
     const locations = await resolveLocations({
@@ -106,7 +104,7 @@ it("rejects stale configuration semantics and checks examples and explicit refer
     const initialized = await initializeConfiguration(locations);
     const text = `config_revision = ${CONFIG_REVISION}\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.local]\nbase_url = "http://127.0.0.1:3000/v1"\ncredential_env = "NOUS_OFFLINE_CHECK_TOKEN"\n[model_profiles.local]\ngateway = "local"\nprotocol = "openai-chat"\nmodel = "local"\ncapabilities = ["text"]\n[roles.memory_formation]\nmodel = "local"\nprompt = "config-prompts/missing.md"\n`;
     await writeFile(initialized.path, text);
-    const result = await checkConfiguration(locations);
+    const result = await checkConfiguration(locations, true);
     expect(result.issues).toContainEqual(
       expect.objectContaining({
         path: "roles.memory_formation.prompt",

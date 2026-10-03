@@ -102,6 +102,9 @@ pub const SEED_DENSE_KEY: ConfigKey<f64> =
     reason = "Wave registration keeps the complete reference policy catalog in one owner boundary"
 )]
 pub fn register_wave_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    let reference = nous_configuration::ReferenceProfile::parse(include_str!(
+        "../../../config/reference/topology-wave-v1.json"
+    ))?;
     let finite = |value: &f64| {
         if value.is_finite() {
             Ok(())
@@ -168,62 +171,127 @@ pub fn register_wave_configuration(registry: &mut ConfigRegistryBuilder) -> Resu
             )?;
         };
     }
-    float!(HUB_BETA_KEY, 0.35, "Wave hub penalty exponent.");
-    float!(HUB_PENALTY_MIN_KEY, 0.35, "Wave hub penalty minimum.");
-    float!(HUB_PENALTY_MAX_KEY, 1.25, "Wave hub penalty maximum.");
+    float!(
+        HUB_BETA_KEY,
+        reference.get(HUB_BETA_KEY)?,
+        "Wave hub penalty exponent."
+    );
+    float!(
+        HUB_PENALTY_MIN_KEY,
+        reference.get(HUB_PENALTY_MIN_KEY)?,
+        "Wave hub penalty minimum."
+    );
+    float!(
+        HUB_PENALTY_MAX_KEY,
+        reference.get(HUB_PENALTY_MAX_KEY)?,
+        "Wave hub penalty maximum."
+    );
     float!(
         OUTBOUND_BUDGET_KEY,
-        0.90,
+        reference.get(OUTBOUND_BUDGET_KEY)?,
         "Wave outbound conductance budget."
     );
-    usize_key!(MAX_HOPS_KEY, 4, "Wave maximum hops.");
-    usize_key!(MAX_STATES_KEY, 4096, "Wave maximum states.");
-    usize_key!(MAX_NEIGHBORS_KEY, 32, "Wave maximum neighbors per node.");
-    float!(MINIMUM_STATE_ENERGY_KEY, 1e-4, "Wave minimum state energy.");
+    usize_key!(
+        MAX_HOPS_KEY,
+        reference.get(MAX_HOPS_KEY)?,
+        "Wave maximum hops."
+    );
+    usize_key!(
+        MAX_STATES_KEY,
+        reference.get(MAX_STATES_KEY)?,
+        "Wave maximum states."
+    );
+    usize_key!(
+        MAX_NEIGHBORS_KEY,
+        reference.get(MAX_NEIGHBORS_KEY)?,
+        "Wave maximum neighbors per node."
+    );
+    float!(
+        MINIMUM_STATE_ENERGY_KEY,
+        reference.get(MINIMUM_STATE_ENERGY_KEY)?,
+        "Wave minimum state energy."
+    );
     float!(
         IMMEDIATE_RETURN_MULTIPLIER_KEY,
-        0.20,
+        reference.get(IMMEDIATE_RETURN_MULTIPLIER_KEY)?,
         "Wave immediate return multiplier."
     );
-    u32_key!(INITIAL_BUDGET_STEPS_KEY, 4, "Wave initial budget steps.");
-    u32_key!(NORMAL_EDGE_COST_KEY, 1, "Wave normal edge cost.");
-    float!(FIR_GAMMA_KEY, 0.55, "Wave finite impulse response gamma.");
+    u32_key!(
+        INITIAL_BUDGET_STEPS_KEY,
+        reference.get(INITIAL_BUDGET_STEPS_KEY)?,
+        "Wave initial budget steps."
+    );
+    u32_key!(
+        NORMAL_EDGE_COST_KEY,
+        reference.get(NORMAL_EDGE_COST_KEY)?,
+        "Wave normal edge cost."
+    );
+    float!(
+        FIR_GAMMA_KEY,
+        reference.get(FIR_GAMMA_KEY)?,
+        "Wave finite impulse response gamma."
+    );
     float!(
         QUALITY_HOST_EXPLICIT_KEY,
-        1.0,
+        reference.get(QUALITY_HOST_EXPLICIT_KEY)?,
         "Wave host-explicit edge quality."
     );
     float!(
         QUALITY_SOURCE_EVIDENCE_KEY,
-        0.9,
+        reference.get(QUALITY_SOURCE_EVIDENCE_KEY)?,
         "Wave source-evidence edge quality."
     );
     float!(
         QUALITY_COGNITIVE_DERIVATION_KEY,
-        0.75,
+        reference.get(QUALITY_COGNITIVE_DERIVATION_KEY)?,
         "Wave cognitive-derivation edge quality."
     );
     float!(
         QUALITY_DERIVED_STRUCTURE_KEY,
-        0.65,
+        reference.get(QUALITY_DERIVED_STRUCTURE_KEY)?,
         "Wave derived-structure edge quality."
     );
     float!(
         QUALITY_MEANINGFUL_USE_KEY,
-        0.5,
+        reference.get(QUALITY_MEANINGFUL_USE_KEY)?,
         "Wave meaningful-use edge quality."
     );
-    float!(SEED_EXACT_KEY, 1.0, "Wave exact-target seed weight.");
-    float!(SEED_RUNTIME_KEY, 0.85, "Wave runtime seed weight.");
-    float!(SEED_RELATION_KEY, 1.0, "Wave relation-cue seed weight.");
-    float!(SEED_ENTITY_KEY, 0.90, "Wave entity-cue seed weight.");
-    float!(SEED_TAG_KEY, 0.75, "Wave tag-cue seed weight.");
+    float!(
+        SEED_EXACT_KEY,
+        reference.get(SEED_EXACT_KEY)?,
+        "Wave exact-target seed weight."
+    );
+    float!(
+        SEED_RUNTIME_KEY,
+        reference.get(SEED_RUNTIME_KEY)?,
+        "Wave runtime seed weight."
+    );
+    float!(
+        SEED_RELATION_KEY,
+        reference.get(SEED_RELATION_KEY)?,
+        "Wave relation-cue seed weight."
+    );
+    float!(
+        SEED_ENTITY_KEY,
+        reference.get(SEED_ENTITY_KEY)?,
+        "Wave entity-cue seed weight."
+    );
+    float!(
+        SEED_TAG_KEY,
+        reference.get(SEED_TAG_KEY)?,
+        "Wave tag-cue seed weight."
+    );
     float!(
         SEED_LEXICAL_KEY,
-        0.60,
+        reference.get(SEED_LEXICAL_KEY)?,
         "Wave lexical-promotion seed weight."
     );
-    float!(SEED_DENSE_KEY, 0.60, "Wave dense-promotion seed weight.");
+    float!(
+        SEED_DENSE_KEY,
+        reference.get(SEED_DENSE_KEY)?,
+        "Wave dense-promotion seed weight."
+    );
+    reference.describe(registry)?;
     Ok(())
 }
 
@@ -284,36 +352,16 @@ pub fn resolve_wave_config(snapshot: &ConfigSnapshot) -> Result<WaveConfig> {
 
 impl Default for WaveConfig {
     fn default() -> Self {
-        Self {
-            hub_beta: 0.35,
-            hub_penalty_min: 0.35,
-            hub_penalty_max: 1.25,
-            outbound_budget: 0.90,
-            max_hops: 4,
-            max_states: 4096,
-            max_neighbors_per_node: 32,
-            minimum_state_energy: 1e-4,
-            immediate_return_multiplier: 0.20,
-            initial_budget_steps: 4,
-            normal_edge_cost: 1,
-            fir_gamma: 0.55,
-            class_quality: std::collections::BTreeMap::from([
-                ("host_explicit".into(), 1.0),
-                ("source_evidence".into(), 0.9),
-                ("cognitive_derivation".into(), 0.75),
-                ("derived_structure".into(), 0.65),
-                ("meaningful_use".into(), 0.5),
-            ]),
-            seed_weights: std::collections::BTreeMap::from([
-                ("exact_target".into(), 1.0),
-                ("runtime_situation".into(), 0.85),
-                ("relation_cue".into(), 1.0),
-                ("entity_cue".into(), 0.90),
-                ("tag_cue".into(), 0.75),
-                ("lexical_promoted".into(), 0.60),
-                ("dense_promoted".into(), 0.60),
-            ]),
-        }
+        let mut registry = ConfigRegistryBuilder::new();
+        register_wave_configuration(&mut registry).expect("Wave reference catalog");
+        resolve_wave_config(
+            &registry
+                .finish()
+                .expect("Wave catalog")
+                .reference_snapshot()
+                .expect("Wave reference snapshot"),
+        )
+        .expect("Wave reference policy")
     }
 }
 

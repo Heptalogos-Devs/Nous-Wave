@@ -8,9 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 
-/// The only production owner of the reference RRF constants and formula.
-pub const RRF_K: f64 = 60.0;
-
 pub const RRF_K_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.k");
 pub const RRF_EXACT_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.exact");
 pub const RRF_RUNTIME_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.runtime");
@@ -20,6 +17,11 @@ pub const RRF_DENSE_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.
 pub const RRF_TEMPORAL_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.temporal");
 pub const RRF_SCHEMA_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.schema_direct");
 pub const RRF_TOPOLOGY_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.topology_wave");
+
+pub const PREFERENCE_WEIGHT_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.preference.weight");
+pub const PREFERENCE_CAP_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.preference.cap");
+pub const PREFERENCE_RECENCY_KEY: ConfigKey<f64> =
+    ConfigKey::new("retrieval.preference.recency_seconds");
 
 pub const QUERY_LIGHT_MULTIPLIER: ConfigKey<usize> =
     ConfigKey::new("retrieval.query.effort_multiplier.light");
@@ -43,6 +45,9 @@ pub const QUERY_VALIDATION_MAX: ConfigKey<usize> = ConfigKey::new("retrieval.que
 #[derive(Debug, Clone)]
 pub struct RetrievalPolicy {
     pub rrf_k: f64,
+    pub preference_weight: f64,
+    pub preference_cap: f64,
+    pub preference_recency_seconds: f64,
     pub weights: BTreeMap<EvidenceFamily, f64>,
     pub effort_multipliers: [usize; 4],
     pub per_lane_max: [usize; 4],
@@ -53,24 +58,16 @@ pub struct RetrievalPolicy {
 
 impl RetrievalPolicy {
     pub fn reference() -> Self {
-        Self {
-            rrf_k: RRF_K,
-            weights: BTreeMap::from([
-                (EvidenceFamily::Exact, 4.0),
-                (EvidenceFamily::Runtime, 2.0),
-                (EvidenceFamily::Entity, 2.5),
-                (EvidenceFamily::Lexical, 1.5),
-                (EvidenceFamily::Dense, 1.5),
-                (EvidenceFamily::Temporal, 1.0),
-                (EvidenceFamily::SchemaDirect, 1.5),
-                (EvidenceFamily::TopologyWave, 1.0),
-            ]),
-            effort_multipliers: [2, 4, 8, 16],
-            per_lane_max: [128, 512, 2048, 8192],
-            validation_multiplier: 4,
-            validation_min: 32,
-            validation_max: 4096,
-        }
+        let mut registry = ConfigRegistryBuilder::new();
+        register_retrieval_configuration(&mut registry).expect("reference retrieval catalog");
+        resolve_retrieval_policy(
+            &registry
+                .finish()
+                .expect("reference catalog")
+                .reference_snapshot()
+                .expect("reference snapshot"),
+        )
+        .expect("reference retrieval policy")
     }
 
     pub fn weight(&self, family: EvidenceFamily) -> Option<f64> {
@@ -78,7 +75,14 @@ impl RetrievalPolicy {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if !self.rrf_k.is_finite()
+        if !self.preference_weight.is_finite()
+            || self.preference_weight < 0.0
+            || !self.preference_cap.is_finite()
+            || self.preference_cap < 0.0
+            || self.preference_cap > 1.0
+            || !self.preference_recency_seconds.is_finite()
+            || self.preference_recency_seconds <= 0.0
+            || !self.rrf_k.is_finite()
             || self.rrf_k <= 0.0
             || self
                 .weights
@@ -97,98 +101,106 @@ impl RetrievalPolicy {
 }
 
 pub fn register_retrieval_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
-    let positive_float = |value: &f64| {
-        if value.is_finite() && *value > 0.0 {
-            Ok(())
-        } else {
-            Err(Error::Invalid(
-                "retrieval value must be finite and positive".into(),
-            ))
-        }
-    };
-    let positive_usize = |value: &usize| {
-        if *value > 0 {
-            Ok(())
-        } else {
-            Err(Error::Invalid("retrieval budget must be positive".into()))
-        }
-    };
-    macro_rules! float {
-        ($key:expr, $default:expr, $description:expr) => {
-            registry.register(
-                $key,
-                "runtime",
-                $description,
-                $default,
-                ConfigExposure::Developer,
-                ConfigScopePolicy::SystemOnly,
-                ConfigApplyMode::Live,
-                ConfigSemanticEffect::QueryPolicy,
-                positive_float,
-            )?;
-        };
+    let reference = nous_configuration::ReferenceProfile::parse(include_str!(
+        "../../../../config/reference/retrieval-ranking-v1.json"
+    ))?;
+    for (key, description) in [
+        (RRF_K_KEY, "RRF denominator constant."),
+        (RRF_EXACT_KEY, "Exact lane RRF weight."),
+        (RRF_RUNTIME_KEY, "Runtime lane RRF weight."),
+        (RRF_ENTITY_KEY, "Entity lane RRF weight."),
+        (RRF_LEXICAL_KEY, "Lexical lane RRF weight."),
+        (RRF_DENSE_KEY, "Dense lane RRF weight."),
+        (RRF_TEMPORAL_KEY, "Temporal lane RRF weight."),
+        (RRF_SCHEMA_KEY, "Schema lane RRF weight."),
+        (RRF_TOPOLOGY_KEY, "Topology lane RRF weight."),
+        (
+            PREFERENCE_WEIGHT_KEY,
+            "Soft preference contribution weight.",
+        ),
+        (PREFERENCE_CAP_KEY, "Soft preference aggregate cap."),
+        (
+            PREFERENCE_RECENCY_KEY,
+            "Preference recency timescale in cognitive seconds.",
+        ),
+    ] {
+        registry.register(
+            key,
+            "runtime",
+            description,
+            reference.get(key)?,
+            ConfigExposure::Developer,
+            ConfigScopePolicy::SystemOnly,
+            ConfigApplyMode::Live,
+            ConfigSemanticEffect::QueryPolicy,
+            |value: &f64| {
+                if value.is_finite() && *value > 0.0 {
+                    Ok(())
+                } else {
+                    Err(Error::Invalid(
+                        "retrieval value must be finite and positive".into(),
+                    ))
+                }
+            },
+        )?;
+        registry.describe(key.path(), |d| {
+            d.json_schema["exclusiveMinimum"] = serde_json::json!(0);
+        })?;
     }
-    macro_rules! budget {
-        ($key:expr, $default:expr, $description:expr) => {
-            registry.register(
-                $key,
-                "runtime",
-                $description,
-                $default,
-                ConfigExposure::Developer,
-                ConfigScopePolicy::SystemOnly,
-                ConfigApplyMode::Live,
-                ConfigSemanticEffect::QueryPolicy,
-                positive_usize,
-            )?;
-        };
+    for (key, description) in [
+        (QUERY_LIGHT_MULTIPLIER, "Light query effort multiplier."),
+        (QUERY_NORMAL_MULTIPLIER, "Normal query effort multiplier."),
+        (QUERY_DEEP_MULTIPLIER, "Deep query effort multiplier."),
+        (QUERY_MAXIMUM_MULTIPLIER, "Maximum query effort multiplier."),
+        (QUERY_LIGHT_MAX, "Light per-lane candidate maximum."),
+        (QUERY_NORMAL_MAX, "Normal per-lane candidate maximum."),
+        (QUERY_DEEP_MAX, "Deep per-lane candidate maximum."),
+        (QUERY_MAXIMUM_MAX, "Maximum per-lane candidate maximum."),
+        (
+            QUERY_VALIDATION_MULTIPLIER,
+            "Final validation budget multiplier.",
+        ),
+        (QUERY_VALIDATION_MIN, "Final validation budget minimum."),
+        (QUERY_VALIDATION_MAX, "Final validation budget maximum."),
+    ] {
+        registry.register(
+            key,
+            "runtime",
+            description,
+            reference.get(key)?,
+            ConfigExposure::Developer,
+            ConfigScopePolicy::SystemOnly,
+            ConfigApplyMode::Live,
+            ConfigSemanticEffect::QueryPolicy,
+            |value: &usize| {
+                if *value > 0 {
+                    Ok(())
+                } else {
+                    Err(Error::Invalid("retrieval budget must be positive".into()))
+                }
+            },
+        )?;
+        registry.describe(key.path(), |d| {
+            d.json_schema["minimum"] = serde_json::json!(1);
+            d.unit = Some("items".into());
+        })?;
     }
-    float!(RRF_K_KEY, 60.0, "RRF denominator constant.");
-    float!(RRF_EXACT_KEY, 4.0, "Exact lane RRF weight.");
-    float!(RRF_RUNTIME_KEY, 2.0, "Runtime lane RRF weight.");
-    float!(RRF_ENTITY_KEY, 2.5, "Entity lane RRF weight.");
-    float!(RRF_LEXICAL_KEY, 1.5, "Lexical lane RRF weight.");
-    float!(RRF_DENSE_KEY, 1.5, "Dense lane RRF weight.");
-    float!(RRF_TEMPORAL_KEY, 1.0, "Temporal lane RRF weight.");
-    float!(RRF_SCHEMA_KEY, 1.5, "Schema lane RRF weight.");
-    float!(RRF_TOPOLOGY_KEY, 1.0, "Topology lane RRF weight.");
-    budget!(QUERY_LIGHT_MULTIPLIER, 2, "Light query effort multiplier.");
-    budget!(
-        QUERY_NORMAL_MULTIPLIER,
-        4,
-        "Normal query effort multiplier."
-    );
-    budget!(QUERY_DEEP_MULTIPLIER, 8, "Deep query effort multiplier.");
-    budget!(
-        QUERY_MAXIMUM_MULTIPLIER,
-        16,
-        "Maximum query effort multiplier."
-    );
-    budget!(QUERY_LIGHT_MAX, 128, "Light per-lane candidate maximum.");
-    budget!(QUERY_NORMAL_MAX, 512, "Normal per-lane candidate maximum.");
-    budget!(QUERY_DEEP_MAX, 2048, "Deep per-lane candidate maximum.");
-    budget!(
-        QUERY_MAXIMUM_MAX,
-        8192,
-        "Maximum per-lane candidate maximum."
-    );
-    budget!(
-        QUERY_VALIDATION_MULTIPLIER,
-        4,
-        "Final validation budget multiplier."
-    );
-    budget!(QUERY_VALIDATION_MIN, 32, "Final validation budget minimum.");
-    budget!(
-        QUERY_VALIDATION_MAX,
-        4096,
-        "Final validation budget maximum."
-    );
+    reference.describe(registry)?;
+    registry.describe(PREFERENCE_RECENCY_KEY.path(), |d| {
+        d.unit = Some("cognitive_seconds".into());
+    })?;
+    registry.describe(PREFERENCE_CAP_KEY.path(), |d| {
+        d.json_schema["maximum"] = serde_json::json!(1);
+    })?;
     Ok(())
 }
 
 pub fn resolve_retrieval_policy(snapshot: &ConfigSnapshot) -> Result<RetrievalPolicy> {
     let policy = RetrievalPolicy {
         rrf_k: snapshot.get(RRF_K_KEY)?,
+        preference_weight: snapshot.get(PREFERENCE_WEIGHT_KEY)?,
+        preference_cap: snapshot.get(PREFERENCE_CAP_KEY)?,
+        preference_recency_seconds: snapshot.get(PREFERENCE_RECENCY_KEY)?,
         weights: BTreeMap::from([
             (EvidenceFamily::Exact, snapshot.get(RRF_EXACT_KEY)?),
             (EvidenceFamily::Runtime, snapshot.get(RRF_RUNTIME_KEY)?),

@@ -7,10 +7,9 @@ use uuid::Uuid;
 
 pub(crate) struct PendingQuery {
     created: Instant,
+    lease: Duration,
     execution: QueryExecution,
 }
-const QUERY_LEASE: Duration = Duration::from_secs(360);
-const QUERY_SLOTS: usize = 16;
 
 impl CognitiveRuntimeService {
     pub fn retain_query(
@@ -37,8 +36,8 @@ impl CognitiveRuntimeService {
             .pending_queries
             .lock()
             .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
-        pending.retain(|_, value| value.created.elapsed() < QUERY_LEASE);
-        if pending.len() >= QUERY_SLOTS {
+        pending.retain(|_, value| value.created.elapsed() < value.lease);
+        if pending.len() >= execution.bound.config_snapshot.get(crate::QUERY_SLOTS)? {
             return Ok(retention_fallback(
                 execution,
                 "bounded query lease slots are busy",
@@ -50,6 +49,9 @@ impl CognitiveRuntimeService {
             ticket,
             PendingQuery {
                 created: Instant::now(),
+                lease: Duration::from_secs(
+                    execution.bound.config_snapshot.get(crate::QUERY_LEASE)?,
+                ),
                 execution,
             },
         );
@@ -69,7 +71,7 @@ impl CognitiveRuntimeService {
             ));
         }
         let value = entry.remove();
-        if value.created.elapsed() >= QUERY_LEASE {
+        if value.created.elapsed() >= value.lease {
             return Err(Error::Unavailable("query lease expired".into()));
         }
         Ok(value.execution)

@@ -179,8 +179,7 @@ impl k::model_material_service_server::ModelMaterialService for KernelService {
                     &input.owner,
                     &input.operation_key,
                     &input.semantic_digest,
-                    &snapshot,
-                )
+                    &snapshot, self.0.configuration.snapshot_for_subject(subject)?.get(nous_runtime::MODEL_WORKFLOW_LEASE)?)
                 .await?;
             Ok(k::WorkflowReservation {
                 snapshot_json: reserved.snapshot.to_string(),

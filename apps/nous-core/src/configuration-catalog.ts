@@ -20,13 +20,30 @@ export const consumersSchema = z
   .min(1)
   .max(64)
   .prefault([{ consumer_id: "default" }]);
-export const hostSchema = z
+const executionTimeout = z.number().int().min(1).max(600000);
+export const hostFields = {
+  port: z.number().int().min(0).max(65535).default(9470),
+  dotenv_file: z.string().min(1).default("gateway.env"),
+  kernel_executable: z.string().min(1).nullable().default(null),
+  kernel_startup_timeout_ms: executionTimeout.default(120000),
+  kernel_shutdown_timeout_ms: executionTimeout.default(5000),
+};
+export const hostSchema = z.strictObject(hostFields).prefault({});
+export const coreExecutionSchema = z
   .strictObject({
-    port: z.number().int().min(0).max(65535).default(9470),
-    dotenv_file: z.string().min(1).default("gateway.env"),
-    kernel_executable: z.string().min(1).optional(),
+    kernel_rpc_timeout_ms: executionTimeout.default(30000),
+    maintenance_rpc_timeout_ms: executionTimeout.default(10000),
+    workflow_ack_timeout_ms: executionTimeout.default(5000),
+    http_body_limit_bytes: z
+      .number()
+      .int()
+      .min(1024)
+      .max(8388608)
+      .default(2097152),
   })
   .prefault({});
+export type CoreExecutionPolicy = z.infer<typeof coreExecutionSchema>;
+
 export const databaseSchema = z
   .strictObject({
     mode: z.enum(["managed_private", "external"]).default("managed_private"),
@@ -56,13 +73,21 @@ const owners = [
     exposure: "developer",
     deployment: true,
   },
-  {
-    path: "host",
-    schema: hostSchema,
-    default: hostSchema.parse(undefined),
+  ...Object.entries(hostFields).map(([name, schema]) => ({
+    path: `host.${name}`,
+    schema,
+    default: schema.parse(undefined),
     owner: "core-host",
-    exposure: "standard",
+    exposure:
+      name === "port" || name === "dotenv_file" ? "standard" : "developer",
     deployment: true,
+  })),
+  {
+    path: "core_execution",
+    schema: coreExecutionSchema,
+    default: coreExecutionSchema.parse(undefined),
+    owner: "core-execution",
+    exposure: "developer",
   },
   {
     path: "database",

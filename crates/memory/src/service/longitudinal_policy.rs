@@ -1,8 +1,9 @@
 use nous_configuration::*;
 use nous_core::{Error, Result};
 pub const JOURNAL_MAX_EPISODES: ConfigKey<u64> = ConfigKey::new("journal.max_episode_count");
-pub const JOURNAL_MAX_SPAN: ConfigKey<u64> = ConfigKey::new("journal.max_span");
-pub const CONSOLIDATION_DELAY: ConfigKey<u64> = ConfigKey::new("consolidation.settle_delay");
+pub const JOURNAL_MAX_SPAN: ConfigKey<u64> = ConfigKey::new("journal.max_span_seconds");
+pub const CONSOLIDATION_DELAY: ConfigKey<u64> =
+    ConfigKey::new("consolidation.settle_delay_seconds");
 
 pub const CONSOLIDATION_MAX_ACTIONS: ConfigKey<u64> = ConfigKey::new("consolidation.max_actions");
 
@@ -83,5 +84,9 @@ pub fn register_longitudinal_configuration(registry: &mut ConfigRegistryBuilder)
             }
         },
     )?;
+    registry.bounds(JOURNAL_MAX_EPISODES, 1, 64, Some("items"))?;
+    registry.bounds(JOURNAL_MAX_SPAN, 1, 604800, Some("cognitive_seconds"))?;
+    registry.bounds(CONSOLIDATION_DELAY, 1, 86400, Some("cognitive_seconds"))?;
+    registry.bounds(CONSOLIDATION_MAX_ACTIONS, 1, 16, Some("items"))?;
     Ok(())
 }

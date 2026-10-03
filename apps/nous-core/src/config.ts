@@ -10,6 +10,7 @@ import {
   bootstrapSchema,
   consumersSchema,
   configurationBundle,
+  coreExecutionSchema,
 } from "./configuration-catalog.js";
 export { CONFIG_REVISION } from "./configuration-catalog.js";
 
@@ -93,6 +94,7 @@ export function parseEffectiveConfiguration(values: Record<string, unknown>) {
     ]);
   return {
     models,
+    execution: coreExecutionSchema.parse(values.core_execution),
     resourceProfiles: resourceProfilesSchema.parse(values.resource_profiles),
     consumers: consumers.map((c) => ({
       consumerId: c.consumer_id,
@@ -109,7 +111,7 @@ export function parseEffectiveConfiguration(values: Record<string, unknown>) {
 export function kernelExecutable(
   locations: RuntimeLocations,
   development: boolean,
-  override?: string,
+  override?: string | null,
 ) {
   return override
     ? resolve(locations.program, override)
@@ -163,6 +165,8 @@ export async function loadConfig(
     locations,
     port: config.host.port,
     dotenvFile: config.host.dotenv_file,
+    startupTimeoutMs: config.host.kernel_startup_timeout_ms,
+    shutdownTimeoutMs: config.host.kernel_shutdown_timeout_ms,
     kernelExecutable: kernelExecutable(
       locations,
       development,

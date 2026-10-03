@@ -24,7 +24,7 @@ DerivedRepresentation 保存 ordered exact inputs、strategy、representation ki
 
 description segmentation 以 UTF-8 byte coordinates 建立稳定 DerivedRegion。structured model 只返回 invocation-local support keys；Core 映射成 exact DerivedRegion，Material/Kernel 验证归属和输入图。第二阶段失败时保留已提交的 description，并返回该表示及显式 degradation。
 
-description segments 使用不超过 2,048 UTF-8 bytes 的稳定范围并优先在换行处分段。Text segmentation 输入上限为 1 MiB，最多 512 个 DerivedRegion。Video frames mode 使用 FFmpeg 作有界抽帧；实验观测归 [Research](../../../research/README.md)。
+description segments 使用 `material.description_segment_bytes` 的稳定 UTF-8 范围，默认 2,048 bytes，并优先在换行处分段。region coordinates 保存 segmentation policy digest。Text segmentation 输入上限为 1 MiB，最多 512 个 DerivedRegion。Video frames mode 使用 FFmpeg 作有界抽帧；实验观测归 [Research](../../../research/README.md)。
 
 ## Memory formation
 

@@ -24,19 +24,41 @@ pub struct AccessibilityPolicy {
 
 impl Default for AccessibilityPolicy {
     fn default() -> Self {
+        let reference = nous_configuration::ReferenceProfile::parse(include_str!(
+            "../../../../config/reference/memory-accessibility-v1.json"
+        ))
+        .expect("accessibility reference profile");
         Self {
-            epsilon: 0.02,
-            tau_days: 30.0,
-            decay: 0.5,
-            formation_weight: 1.0,
-            referenced_weight: 1.0,
-            acted_on_weight: 1.4,
-            result_supported_weight: 1.1,
-            result_refuted_weight: 1.2,
-            corrected_weight: 1.5,
-            pinned_weight: 2.0,
-            normal_threshold: -0.80,
-            deep_threshold: -1.60,
+            epsilon: reference.get(EPSILON).expect("reference epsilon"),
+            tau_days: reference.get(TAU_DAYS).expect("reference tau_days"),
+            decay: reference.get(DECAY).expect("reference decay"),
+            formation_weight: reference
+                .get(FORMATION_WEIGHT)
+                .expect("reference formation_weight"),
+            referenced_weight: reference
+                .get(REFERENCED_WEIGHT)
+                .expect("reference referenced_weight"),
+            acted_on_weight: reference
+                .get(ACTED_ON_WEIGHT)
+                .expect("reference acted_on_weight"),
+            result_supported_weight: reference
+                .get(RESULT_SUPPORTED_WEIGHT)
+                .expect("reference result_supported_weight"),
+            result_refuted_weight: reference
+                .get(RESULT_REFUTED_WEIGHT)
+                .expect("reference result_refuted_weight"),
+            corrected_weight: reference
+                .get(CORRECTED_WEIGHT)
+                .expect("reference corrected_weight"),
+            pinned_weight: reference
+                .get(PINNED_WEIGHT)
+                .expect("reference pinned_weight"),
+            normal_threshold: reference
+                .get(NORMAL_THRESHOLD)
+                .expect("reference normal_threshold"),
+            deep_threshold: reference
+                .get(DEEP_THRESHOLD)
+                .expect("reference deep_threshold"),
         }
     }
 }
@@ -159,6 +181,9 @@ pub const NORMAL_THRESHOLD: ConfigKey<f64> =
 pub const DEEP_THRESHOLD: ConfigKey<f64> = ConfigKey::new("memory.accessibility.deep_threshold");
 
 pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    let reference = nous_configuration::ReferenceProfile::parse(include_str!(
+        "../../../../config/reference/memory-accessibility-v1.json"
+    ))?;
     let positive = |value: &f64| {
         if value.is_finite() && *value > 0.0 {
             Ok(())
@@ -193,7 +218,7 @@ pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()
                 "memory-service",
                 $description,
                 $default,
-                ConfigExposure::Advanced,
+                ConfigExposure::Developer,
                 ConfigScopePolicy::SubjectOverrideAllowed,
                 ConfigApplyMode::Live,
                 ConfigSemanticEffect::Operational,
@@ -201,59 +226,80 @@ pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()
             )?;
         };
     }
-    register!(EPSILON, 0.02, "Accessibility epsilon.", positive);
+    register!(
+        EPSILON,
+        reference.get(EPSILON)?,
+        "Accessibility epsilon.",
+        positive
+    );
     register!(
         TAU_DAYS,
-        30.0,
+        reference.get(TAU_DAYS)?,
         "Accessibility decay time constant in days.",
         positive
     );
-    register!(DECAY, 0.5, "Accessibility power decay.", positive);
+    register!(
+        DECAY,
+        reference.get(DECAY)?,
+        "Accessibility power decay.",
+        positive
+    );
     register!(
         FORMATION_WEIGHT,
-        1.0,
+        reference.get(FORMATION_WEIGHT)?,
         "Initial formation contribution.",
         nonnegative
     );
     register!(
         REFERENCED_WEIGHT,
-        1.0,
+        reference.get(REFERENCED_WEIGHT)?,
         "Meaningful referenced-use weight.",
         nonnegative
     );
     register!(
         ACTED_ON_WEIGHT,
-        1.4,
+        reference.get(ACTED_ON_WEIGHT)?,
         "Meaningful acted-on-use weight.",
         nonnegative
     );
     register!(
         RESULT_SUPPORTED_WEIGHT,
-        1.1,
+        reference.get(RESULT_SUPPORTED_WEIGHT)?,
         "Result-supported-use weight.",
         nonnegative
     );
     register!(
         RESULT_REFUTED_WEIGHT,
-        1.2,
+        reference.get(RESULT_REFUTED_WEIGHT)?,
         "Result-refuted-use weight.",
         nonnegative
     );
-    register!(CORRECTED_WEIGHT, 1.5, "Corrected-use weight.", nonnegative);
-    register!(PINNED_WEIGHT, 2.0, "Pinned-use weight.", nonnegative);
+    register!(
+        CORRECTED_WEIGHT,
+        reference.get(CORRECTED_WEIGHT)?,
+        "Corrected-use weight.",
+        nonnegative
+    );
+    register!(
+        PINNED_WEIGHT,
+        reference.get(PINNED_WEIGHT)?,
+        "Pinned-use weight.",
+        nonnegative
+    );
     register!(
         NORMAL_THRESHOLD,
-        -0.80,
+        reference.get(NORMAL_THRESHOLD)?,
         "Normal accessibility threshold.",
         threshold
     );
     register!(
         DEEP_THRESHOLD,
-        -1.60,
+        reference.get(DEEP_THRESHOLD)?,
         "Deep accessibility threshold.",
         threshold
     );
     super::longitudinal_policy::register_longitudinal_configuration(registry)?;
+    reference.describe(registry)?;
     Ok(())
 }
 

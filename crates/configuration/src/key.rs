@@ -93,7 +93,7 @@ impl<T: 'static> ConfigKey<T> {
         }
     }
 
-    pub const fn path(self) -> &'static str {
+    pub const fn path(&self) -> &'static str {
         self.path
     }
 }

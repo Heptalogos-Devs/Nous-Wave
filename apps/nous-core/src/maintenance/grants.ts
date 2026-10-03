@@ -15,10 +15,6 @@ const roles = {
   journal_revalidate: "journal_synthesis",
   memory_consolidate: "memory_consolidation",
 } as const;
-// Transport bounds, independent of operator maintenance policy.
-const RPC_TIMEOUT_MS = 10000;
-const ACK_TIMEOUT_MS = 5000;
-
 function allowedKinds(models: ModelRuntime, modelBudget: number) {
   const ready = new Set(
     models.invocations.capabilities
@@ -206,7 +202,7 @@ export async function grantMaintenance(
           retryDelaySeconds:
             status === "retry" ? retryDelay(policy, need.retryCount + 1) : 0,
         },
-        { timeoutMs: ACK_TIMEOUT_MS },
+        { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
       );
     } catch (error) {
       reportFailure(
@@ -243,7 +239,7 @@ export class SubjectMaintenanceScheduler {
   async poll(signal: AbortSignal) {
     const policy = await this.kernel.authority.getMaintenancePolicy(
       { subjectId: "" },
-      { signal, timeoutMs: RPC_TIMEOUT_MS },
+      { signal, timeoutMs: this.kernel.execution.maintenance_rpc_timeout_ms },
     );
     if (!policy.enabled) return policy.pollIntervalSeconds;
     const started = performance.now();
@@ -263,7 +259,10 @@ export class SubjectMaintenanceScheduler {
         try {
           const page = await this.kernel.authority.listSubjects(
             { status: "active", page: { pageToken: this.pageToken } },
-            { signal: tickSignal, timeoutMs: RPC_TIMEOUT_MS },
+            {
+              signal: tickSignal,
+              timeoutMs: this.kernel.execution.maintenance_rpc_timeout_ms,
+            },
           );
           this.subjects = page.items
             .filter((subject) => subject.capabilities?.memory)
@@ -352,7 +351,7 @@ export async function startMaintenanceLoop(
   let active: Promise<void> | undefined;
   const initial = await kernel.authority.getMaintenancePolicy(
     { subjectId: "" },
-    { timeoutMs: RPC_TIMEOUT_MS },
+    { timeoutMs: kernel.execution.maintenance_rpc_timeout_ms },
   );
   let pollDelay = initial.pollIntervalSeconds * 1000;
   const tick = async () => {

@@ -70,17 +70,39 @@ const modelSchema = z
           "Embedding protocol requires an explicit space profile; other protocols cannot declare one",
       });
   });
+const generationTokensSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(65_536)
+  .default(4096);
 const bindingSchema = z.strictObject({
   model: nonempty,
   prompt: nonempty.optional(),
   temperature: z.number().min(0).max(2).optional(),
   top_p: z.number().min(0).max(1).optional(),
-  max_output_tokens: z.number().int().min(1).max(65_536).optional(),
+  max_output_tokens: generationTokensSchema
+    .unwrap()
+    .optional()
+    .meta({ default: generationTokensSchema.parse(undefined) }),
   timeout_ms: boundedTimeout.optional(),
   requirement: z
     .enum(["optional", "preferred", "required"])
     .default("optional"),
 });
+const generationBindingSchema = bindingSchema.extend({
+  max_output_tokens: generationTokensSchema,
+});
+/** Apply per-role schema defaults only to generation protocols. */
+export function resolveRoleBinding(
+  binding: z.infer<typeof bindingSchema>,
+  protocol: string,
+) {
+  return ["openai-chat", "openai-responses"].includes(protocol)
+    ? generationBindingSchema.parse(binding)
+    : binding;
+}
+
 export const modelConfigurationShape = {
   video: z
     .strictObject({
@@ -121,22 +143,9 @@ export const modelConfigurationShape = {
 export const modelConfigurationSchema = z
   .strictObject(modelConfigurationShape)
   .superRefine((config, ctx) => {
-    for (const [id, model] of Object.entries(config.model_profiles)) {
-      if (!config.gateway_profiles[model.gateway])
-        ctx.addIssue({
-          code: "custom",
-          message: `Unknown gateway for model profile ${id}`,
-        });
-    }
     for (const [role, binding] of Object.entries(config.roles)) {
       const model = config.model_profiles[binding.model];
-      if (!model) {
-        ctx.addIssue({
-          code: "custom",
-          message: `Unknown model profile for role ${role}`,
-        });
-        continue;
-      }
+      if (!model) continue;
       const protocol =
         role === "query_embedding"
           ? "openai-embeddings"

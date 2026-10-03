@@ -172,3 +172,77 @@ async fn concurrent_configuration_mutations_publish_one_complete_snapshot() {
             .is_err()
     );
 }
+
+#[tokio::test]
+async fn rebuild_policy_and_provisioning_defaults_preserve_adopted_subject_state() {
+    use nous_configuration::ConfigApplyMode;
+    let (root, url, _postgres) = database().await;
+    let runtime = test_support::open_runtime_with_serving(&url, &root, false, false, true).await;
+    let create = || CreateSubject {
+        subject_id: None,
+        operation_id: OperationId::new(),
+        cognitive_seed: CognitiveSeedInput {
+            text: "schema_version = 1".into(),
+            format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
+            provenance: json!({}),
+        },
+        metadata: json!({}),
+        capabilities: None,
+    };
+    let old = runtime.subjects.create_subject(create()).await.unwrap();
+    runtime.serving.refresh(old.subject_id).await.unwrap();
+    let before = runtime
+        .store
+        .serving_current(old.subject_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|r| r.family == "topology")
+        .unwrap();
+    let change = runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            "topology.wave.outbound_budget",
+            json!(0.8),
+        )
+        .await
+        .unwrap();
+    assert_eq!(change.apply_mode, ConfigApplyMode::ServingRebuild);
+    let rebuild = runtime.serving.refresh(old.subject_id).await.unwrap();
+    assert!(rebuild.rebuilt.contains(&"topology".into()));
+    let after = runtime
+        .store
+        .serving_current(old.subject_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|r| r.family == "topology")
+        .unwrap();
+    assert_ne!(before.generation_id, after.generation_id);
+    assert_ne!(
+        before.metadata["config_digest"],
+        after.metadata["config_digest"]
+    );
+    let provision = runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            SUBJECT_DEFAULT_MEMORY.path(),
+            json!(false),
+        )
+        .await
+        .unwrap();
+    assert_eq!(provision.apply_mode, ConfigApplyMode::NewSubjectsOnly);
+    let new = runtime.subjects.create_subject(create()).await.unwrap();
+    assert!(!new.capabilities.memory);
+    assert!(
+        runtime
+            .subjects
+            .subject(old.subject_id)
+            .await
+            .unwrap()
+            .capabilities
+            .memory
+    );
+}

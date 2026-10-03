@@ -1,10 +1,6 @@
 use chrono::{DateTime, Utc};
 use nous_core::*;
 
-pub const PREFERENCE_WEIGHT: f64 = 0.02;
-pub const PREFERENCE_CAP: f64 = 0.06;
-const RECENCY_SECONDS: f64 = 30.0 * 86400.0;
-
 fn extent_time(value: &TemporalExtent) -> Option<DateTime<Utc>> {
     match value {
         TemporalExtent::Unknown => None,
@@ -68,6 +64,7 @@ pub(super) fn score(
     preferences: &[QueryPreference],
     hit: &CognitiveHit,
     now: DateTime<Utc>,
+    policy: &super::RetrievalPolicy,
 ) -> f64 {
     preferences
         .iter()
@@ -90,28 +87,29 @@ pub(super) fn score(
                     time.map_or(0.0, |time| {
                         1.0 / (1.0
                             + now.signed_duration_since(time).num_seconds().max(0) as f64
-                                / RECENCY_SECONDS)
+                                / policy.preference_recency_seconds)
                     })
                 }
             };
             if preference.negative {
-                -value * PREFERENCE_WEIGHT
+                -value * policy.preference_weight
             } else {
-                value * PREFERENCE_WEIGHT
+                value * policy.preference_weight
             }
         })
         .sum::<f64>()
-        .clamp(-PREFERENCE_CAP, PREFERENCE_CAP)
+        .clamp(-policy.preference_cap, policy.preference_cap)
 }
 
 pub(super) fn apply(
     hits: &mut [CognitiveHit],
     preferences: &[QueryPreference],
     now: DateTime<Utc>,
+    policy: &super::RetrievalPolicy,
 ) {
     for (index, hit) in hits.iter_mut().enumerate() {
         hit.match_evidence.baseline_rank = (index + 1) as u32;
-        hit.match_evidence.preference_score = score(preferences, hit, now);
+        hit.match_evidence.preference_score = score(preferences, hit, now, policy);
         hit.match_evidence.final_score =
             hit.match_evidence.base_rank_score + hit.match_evidence.preference_score;
     }

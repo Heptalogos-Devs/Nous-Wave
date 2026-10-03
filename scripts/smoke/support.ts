@@ -25,14 +25,16 @@ export async function prepare(home: string) {
     join(locations.config, "nous.toml"),
     stringify({
       config_revision: CONFIG_REVISION,
-      port: 0,
-      kernel_executable:
-        process.env.NOUS_WAVE_KERNEL_EXECUTABLE ??
-        join(
-          repo,
-          "target/debug",
-          process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
-        ),
+      host: {
+        port: 0,
+        kernel_executable:
+          process.env.NOUS_WAVE_KERNEL_EXECUTABLE ??
+          join(
+            repo,
+            "target/debug",
+            process.platform === "win32" ? "nous-kernel.exe" : "nous-kernel",
+          ),
+      },
       consumers: [
         "consumer:smoke:memory-reference",
         "consumer:smoke:cognitive-runtime-episode",

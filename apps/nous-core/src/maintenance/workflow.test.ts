@@ -1,3 +1,4 @@
+import { coreExecutionSchema } from "../configuration-catalog.js";
 import type { CommitLongitudinalConsolidationRequest } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
 import { ExpectedCognitionSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
 import { describe, expect, it, vi } from "vitest";
@@ -81,6 +82,7 @@ function fixture() {
   const refresh = vi.fn(async () => ({}));
   const getPlan = vi.fn(async () => plan);
   const kernel = {
+    execution: coreExecutionSchema.parse(undefined),
     authority: {
       planMaintenance: getPlan,
       commitJournal: commit,
@@ -301,6 +303,7 @@ describe("maintenance fixed workflow retry", () => {
       };
     });
     const kernel = {
+      execution: coreExecutionSchema.parse(undefined),
       authority: {
         getMaintenancePolicy: vi.fn(async () => ({
           enabled: true,

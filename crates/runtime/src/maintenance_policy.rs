@@ -1,7 +1,7 @@
 use nous_configuration::*;
 use nous_core::{Error, Result};
 pub const MAINTENANCE_ENABLED: ConfigKey<bool> = ConfigKey::new("maintenance.enabled");
-pub const POLL_INTERVAL: ConfigKey<u64> = ConfigKey::new("maintenance.poll_interval");
+pub const POLL_INTERVAL: ConfigKey<u64> = ConfigKey::new("maintenance.poll_interval_seconds");
 pub const MAX_OPERATIONS: ConfigKey<u64> = ConfigKey::new("maintenance.max_operations_per_grant");
 pub const WORKER_LEASE: ConfigKey<u64> = ConfigKey::new("maintenance.worker_lease_seconds");
 
@@ -14,7 +14,8 @@ pub const MAX_MODEL_CALLS: ConfigKey<u64> = ConfigKey::new("maintenance.max_mode
 pub const MAX_ELAPSED: ConfigKey<u64> = ConfigKey::new("maintenance.max_elapsed_ms_per_tick");
 
 pub const EPISODE_MAX_NEIGHBORS: ConfigKey<u64> = ConfigKey::new("episode.max_neighbor_episodes");
-pub const EPISODE_NEIGHBOR_SPAN: ConfigKey<u64> = ConfigKey::new("episode.max_neighbor_span");
+pub const EPISODE_NEIGHBOR_SPAN: ConfigKey<u64> =
+    ConfigKey::new("episode.max_neighbor_span_seconds");
 
 pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     registry.register(
@@ -22,7 +23,7 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
         "cognitive-runtime",
         "Enable host-granted maintenance opportunities.",
         true,
-        ConfigExposure::Advanced,
+        ConfigExposure::Standard,
         ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
         ConfigSemanticEffect::Operational,
@@ -107,6 +108,11 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
             }
         },
     )?;
+    registry.bounds(POLL_INTERVAL, 1, 3600, Some("seconds"))?;
+    registry.bounds(WORKER_LEASE, 1, 3600, Some("seconds"))?;
+    registry.bounds(MAX_OPERATIONS, 1, 32, Some("items"))?;
+    registry.bounds(EPISODE_MAX_NEIGHBORS, 1, 8, Some("items"))?;
+    registry.bounds(EPISODE_NEIGHBOR_SPAN, 1, 86400, Some("cognitive_seconds"))?;
     register_work_state_configuration(registry)
 }
 
@@ -164,6 +170,14 @@ fn register_work_state_configuration(registry: &mut ConfigRegistryBuilder) -> Re
                 }
             },
         )?;
+        let unit = if key.path().ends_with("_seconds") {
+            "seconds"
+        } else if key.path().contains("_ms_") {
+            "milliseconds"
+        } else {
+            "items"
+        };
+        registry.bounds(key, 1, ceiling, Some(unit))?;
     }
     Ok(())
 }

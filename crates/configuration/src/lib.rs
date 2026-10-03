@@ -4,6 +4,8 @@
 //! registering owner, which resolves a snapshot into its typed policy.
 
 mod key;
+mod profile;
+pub use profile::ReferenceProfile;
 mod registry;
 mod service;
 mod snapshot;

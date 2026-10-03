@@ -57,11 +57,11 @@ impl EpisodePolicy {
 }
 
 pub const SOFT_IDLE_KEY: nous_configuration::ConfigKey<u64> =
-    nous_configuration::ConfigKey::new("episode.soft_idle");
+    nous_configuration::ConfigKey::new("episode.soft_idle_seconds");
 pub const HARD_IDLE_KEY: nous_configuration::ConfigKey<u64> =
-    nous_configuration::ConfigKey::new("episode.hard_idle");
+    nous_configuration::ConfigKey::new("episode.hard_idle_seconds");
 pub const SETTLE_DELAY_KEY: nous_configuration::ConfigKey<u64> =
-    nous_configuration::ConfigKey::new("episode.settle_delay");
+    nous_configuration::ConfigKey::new("episode.settle_delay_seconds");
 
 pub fn register_episode_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
@@ -103,6 +103,7 @@ pub fn register_episode_configuration(
                 }
             },
         )?;
+        registry.bounds(key, 1, 86400, Some("cognitive_seconds"))?;
     }
     Ok(())
 }

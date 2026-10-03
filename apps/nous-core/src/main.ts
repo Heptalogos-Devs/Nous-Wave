@@ -57,7 +57,10 @@ async function main() {
       mode: 0o600,
     });
     await rename(`${bundlePath}.tmp`, bundlePath);
-    kernel = await startKernel(config.kernelExecutable, kernelConfig);
+    kernel = await startKernel(config.kernelExecutable, kernelConfig, {
+      timeoutMs: config.startupTimeoutMs,
+      shutdownTimeoutMs: config.shutdownTimeoutMs,
+    });
     const snapshot = await kernel.client.configuration.getConfiguration({
       exposureCeiling: ConfigExposure.DEVELOPER,
     });
@@ -69,6 +72,7 @@ async function main() {
         ]),
       ),
     );
+    kernel.configureExecution(effective.execution);
     await loadCredentials(locations, config.dotenvFile, [
       ...Object.values(effective.models.gateway_profiles).map(
         (g) => g.credential_env,
@@ -101,6 +105,7 @@ async function main() {
       consumers: effective.consumers,
       resources: new ResourceRegistry(effective.resourceProfiles),
       models,
+      execution: effective.execution,
     });
     const endpoint = await app.listen({ host: "127.0.0.1", port: config.port });
     await instance.publish(endpoint, token);

@@ -1,24 +1,52 @@
 # Configuration Service 当前参考
 
-应用配置位于 ConfigurationRoot/nous.toml，配置文件必须声明 `config_revision = 1`。Core 启动时解析配置并 materialize model/resource clients；改变 model profile、role 或 Prompt 后重启 Core 生效。
+操作者配置位于 `ConfigurationRoot/nous.toml`，声明 `config_revision = 2`。配置使用自然 TOML section；完整示例见 [nous.toml](examples/nous.toml)。[bootstrap.toml](examples/bootstrap.toml) 只定位独立运行目录。
 
-完整字段和可编辑示例见 [nous.toml](examples/nous.toml)。Bootstrap locator 只定位独立运行目录，见 [bootstrap.toml](examples/bootstrap.toml)。
+## Catalog 与所有权
 
-## 配置检查与初始化
+Kernel Configuration Service 统一持有 Rust 与 Core owner 注册的目录、部署值、持久覆盖、immutable snapshot 和 mutation receipt。Rust 类型由 `schemars` 发布 Draft 2020-12 JSON Schema；Core 的 Zod 4 owner schema 通过原生 `z.toJSONSchema()` 发布。Kernel 使用 `jsonschema` 校验 schema 和值，在正常服务启动前完成目录。
 
-`nous init` 和首次 `nous serve` 在 ConfigurationRoot 以 exclusive create 写入最小配置。已有文件保持原样，不自动改写或迁移。配置版本不匹配时启动和检查命令拒绝该文件。
+每个 descriptor 包含 path、owner、title、description、category、JSON Schema、reference default、exposure、scope、storage、apply mode、semantic effect、unit、sensitivity 和可选 reference profile。动态 profile map 是一个结构化配置值，TOML traversal 到达拥有该路径的 descriptor 时消费整个值。
 
-`nous config check --home <instance>` 或 `--locator <bootstrap.toml>` 检查版本、字段、profile/role 引用、Prompt 和显式 executable 文件，输出 JSON 的 `valid`、`config_revision`、`configuration` 与 `issues`。检查不写文件、不加载凭据、不启动数据库，也不调用 provider。
+Overrideable 值按 reference default → deployment TOML → persisted system override → persisted Subject override 解析。Deployment-only 值只使用 reference default 与 deployment TOML，管理 API 拒绝持久覆盖。SystemOnly 与 SubjectOverrideAllowed 声明作用域；暴露等级只控制呈现，不授予或限制管理权限。Core 的认证边界保护管理 API。
 
-## Configuration Service
+| 暴露等级 | 设置范围 |
+| --- | --- |
+| Standard | gateway/model setup、material strategy、maintenance 开关与 host 启动设置 |
+| Advanced | role、media、Resource、consumer、Episode/Journal/consolidation 策略 |
+| Developer | retrieval/accessibility/topology 算法、worker/query lease、retry 和运行预算 |
 
-Rust Configuration Service 负责 typed registry、解析、覆盖、immutable snapshot、mutation receipt 与 BLAKE3 digest。配置按 reference default → nous.toml `[settings]` → persisted system override → persisted Subject override 解析。每个 key 声明 owner、类型、校验、暴露等级、作用域与应用方式。
+## 启动与快照
 
-当前注册的配置覆盖 process/Subject capabilities、Runtime、Memory accessibility、lexical/dense/topology Serving、retrieval 与拓扑算法策略。配置 key 由其语义 owner 注册；对象 identity、领域 ownership、revision、lifecycle、幂等和 purge 是系统不变量。
+Core 先解析 `config_revision`、`host` 和 `database` bootstrap，通过私有 JSON bundle 交付 Core descriptors 与 deployment document。Kernel finalize Catalog 并加载持久覆盖后，Core 从 active snapshot 构造 model/resource/consumer runtime。凭据值只从 SecretRoot/environment 加载；Catalog 保存 credential reference。
 
-Query bind、Serving prepare 和 Authority formation 使用固定的 ConfigSnapshot。其 digest 覆盖实际影响该 operation 或制品的 key subset。标记为 `RestartProcess` 的 mutation 保存 desired value 并报告 `pending_restart`；当前 active snapshot 在重启前保持不变。Subject capability 在创建时展开并持久保存。
+Live 修改作用于后续 operation；在途 operation 保留固定快照。RestartProcess 修改 desired snapshot 并返回 restart effect，active snapshot 在重启前不变。Core model/gateway/role/media/resource/consumer 结构使用 RestartProcess。NewSubjectsOnly 更新供给默认，已有 Subject 保存已采用的 typed capability set。ServingRebuild 返回 owner rebuild effect，Serving generation 保存实际配置 digest。
 
-Bootstrap 部分提供数据库模式、外部数据库 credential reference、pool 上限和 Artifact 上传上限。上传上限由 Kernel `[bootstrap.object_store].max_upload_bytes` 拥有；Core multipart receiver 与 official Client 使用同一有效值。
+Query、Authority formation 和 Serving build 使用固定 snapshot；影响输出语义的 key subset digest 包含对应 schema 与 reference profile identity。算法参考族位于 `config/reference/` 的版本化 JSON，owner 从目录快照解析 typed policy。
+
+Artifact 上传预算为 `object_store.max_upload_bytes`，归 Material owner；Core multipart receiver 和 official Client 读取同一 active limit。Description segmentation 使用 `material.description_segment_bytes`，默认 2048 UTF-8 bytes，范围 4..65536；1 MiB input 与 512 region 是代码拥有的 hard safety ceilings。
+
+## 管理 API、Client 与 CLI
+
+Canonical `ConfigurationService` 提供 list/describe/get 与 system/Subject set/clear。Schema 和配置值使用 protobuf JSON Value；结构化值保持结构。Mutation identity 由 operation ID 和规范输入决定，同 ID 不同输入 conflict。SystemService 提供系统状态与 projection 状态。
+
+Official Client 使用 `client.configuration.list / describe / get / setSystem / clearSystem / setSubject / clearSubject`。CLI 默认显示 Standard，`--advanced` 包含 Advanced，`--developer` 包含全部目录；`--subject <id>` 选择 Subject scope，`--desired` 读取 desired view。
+
+```sh
+nous config list
+nous config list --developer
+nous config describe maintenance.enabled
+nous config get runtime.resident_limit --desired
+nous config set maintenance.enabled true
+nous config set maintenance.enabled false --subject <id>
+nous config clear maintenance.enabled --subject <id>
+nous config set roles '{"memory_formation":{"model":"formation"}}'
+nous config check --home <instance>
+```
+
+Set 的值统一使用 JSON 语法：boolean、number、带引号 string、array 或 object。CLI 类型、范围、单位、默认值、来源与应用模式来自目录。
+
+`nous init` 与首次 `nous serve` exclusive-create 最小配置；已有文件保持原样。`config check` 复用 production bootstrap/catalog validation path，检查版本、schema、未知路径、descriptor overlap、Prompt 和显式 executable reference；无需凭据或 provider 调用。
 
 ## Models 与 Prompts
 
@@ -49,7 +77,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | Setting | 默认值 | 单位/含义 |
 | --- | --- | --- |
 | `maintenance.enabled` | true | host maintenance 开关 |
-| `maintenance.poll_interval` | 30 | standalone loop 的基础设施秒 |
+| `maintenance.poll_interval_seconds` | 30 | standalone loop 的基础设施秒 |
 | `maintenance.worker_lease_seconds` | 120 | worker lease 的基础设施秒 |
 | `maintenance.max_operations_per_grant` | 4 | 每次机会/standalone tick 的操作数上限 |
 | `maintenance.terminal_retention_seconds` | 86400 | terminal need finish replay 的基础设施秒，范围 1..604800 |
@@ -58,14 +86,14 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `maintenance.retry_max_attempts` | 8 | 连续 transient failure 上限，范围 1..32；达到后 blocked |
 | `maintenance.max_model_calls_per_tick` | 4 | standalone tick 全局模型调用预算，范围 1..32 |
 | `maintenance.max_elapsed_ms_per_tick` | 60000 | standalone tick 全局 elapsed 毫秒预算，范围 1..300000 |
-| `episode.soft_idle` | 300 | 认知秒 |
-| `episode.hard_idle` | 1800 | 认知秒 |
-| `episode.settle_delay` | 300 | semantic review 的认知秒 |
+| `episode.soft_idle_seconds` | 300 | 认知秒 |
+| `episode.hard_idle_seconds` | 1800 | 认知秒 |
+| `episode.settle_delay_seconds` | 300 | semantic review 的认知秒 |
 | `episode.max_neighbor_episodes` | 8 | 局部 repair 的 Episode 数 |
-| `episode.max_neighbor_span` | 86400 | 局部 repair 的认知秒 |
+| `episode.max_neighbor_span_seconds` | 86400 | 局部 repair 的认知秒 |
 | `journal.max_episode_count` | 12 | 一次 Journal synthesis 的 Episode 数 |
-| `journal.max_span` | 86400 | Journal scope 的认知秒 |
-| `consolidation.settle_delay` | 300 | 整合前的认知秒 |
+| `journal.max_span_seconds` | 86400 | Journal scope 的认知秒 |
+| `consolidation.settle_delay_seconds` | 300 | 整合前的认知秒 |
 | `consolidation.max_actions` | 8 | 一个原子整合 proposal 的 action 数 |
 
 `GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`poll_interval`、`worker_lease_seconds` 和新增的 retention/retry/tick budget 设置均由 `cognitive-runtime` owner 注册，使用 Developer exposure、SystemOnly scope、Live apply mode 和 Operational semantic effect。其他以上设置允许 Subject override。retry 延迟为 `min(retry_max_seconds, retry_initial_seconds × 2^(连续失败次数−1))`。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。

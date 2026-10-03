@@ -1,3 +1,4 @@
+import { type CoreExecutionPolicy } from "./configuration-catalog.js";
 import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import Fastify from "fastify";
 import { grantMaintenance } from "./maintenance/grants.js";
@@ -52,6 +53,7 @@ export interface CoreOptions {
   consumers: ConsumerPolicy[];
   models?: ModelRuntime;
   resources?: ResourceRegistry;
+  execution?: CoreExecutionPolicy;
 }
 const options = (context: HandlerContext) => ({
   signal: context.signal,
@@ -60,7 +62,11 @@ const options = (context: HandlerContext) => ({
 export async function createCore(settings: CoreOptions) {
   if (settings.token.length < 32)
     throw new Error("Core credential must contain at least 32 characters");
-  const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
+  const app = Fastify({
+    logger: false,
+    bodyLimit: (settings.execution ?? settings.kernel.execution)
+      .http_body_limit_bytes,
+  });
   const kernel = settings.kernel;
   const materialLimits = await kernel.authority.getMaterialLimits({});
   const maxUploadBytes = Number(materialLimits.maxUploadBytes);

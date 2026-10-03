@@ -2637,7 +2637,7 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
         .await
         .unwrap()
         .remove(0);
-    let workflow = rt.store.reserve_model_workflow(subject, "memory", "maintenance-test", "input", &serde_json::json!({"maintenance_claim":{"need_id":need_id.to_string(),"lease_token":claimed.lease_token.unwrap().to_string(),"trigger":claimed.trigger_authority_seq,"trigger_revision":claimed.trigger_revision}})).await.unwrap();
+    let workflow = rt.store.reserve_model_workflow(subject, "memory", "maintenance-test", "input", &serde_json::json!({"maintenance_claim":{"need_id":need_id.to_string(),"lease_token":claimed.lease_token.unwrap().to_string(),"trigger":claimed.trigger_authority_seq,"trigger_revision":claimed.trigger_revision}}), 360).await.unwrap();
     let explicit = rt
         .store
         .reserve_model_workflow(
@@ -2646,6 +2646,7 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
             "explicit-test",
             "input",
             &serde_json::json!({}),
+            360,
         )
         .await
         .unwrap();
@@ -2748,7 +2749,7 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
         .remove(0);
     assert_eq!(retry.retry_count, 1);
     assert_eq!(retry.attempt_count, 2);
-    let abandoned = rt.store.reserve_model_workflow(subject, "memory", "superseded-test", "input", &serde_json::json!({"maintenance_claim":{"need_id":pending.to_string(),"lease_token":retry.lease_token.unwrap().to_string(),"trigger":retry.trigger_authority_seq,"trigger_revision":retry.trigger_revision}})).await.unwrap();
+    let abandoned = rt.store.reserve_model_workflow(subject, "memory", "superseded-test", "input", &serde_json::json!({"maintenance_claim":{"need_id":pending.to_string(),"lease_token":retry.lease_token.unwrap().to_string(),"trigger":retry.trigger_authority_seq,"trigger_revision":retry.trigger_revision}}), 360).await.unwrap();
     rt.store
         .release_model_workflow(
             subject,
@@ -2990,7 +2991,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
         .set_subject_override(
             OperationId::new(),
             subject,
-            "journal.max_span",
+            "journal.max_span_seconds",
             serde_json::json!(60),
         )
         .await
@@ -3049,7 +3050,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
         .set_subject_override(
             OperationId::new(),
             subject,
-            "episode.max_neighbor_span",
+            "episode.max_neighbor_span_seconds",
             serde_json::json!(60),
         )
         .await
@@ -3104,7 +3105,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
         .set_subject_override(
             OperationId::new(),
             subject,
-            "episode.max_neighbor_span",
+            "episode.max_neighbor_span_seconds",
             serde_json::json!(86400),
         )
         .await

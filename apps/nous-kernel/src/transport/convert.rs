@@ -188,10 +188,17 @@ pub fn to_ref(value: CognitiveRef) -> p::CognitiveRef {
     let (kind, value) = nous_core::reference_parts(&value);
     p::CognitiveRef { kind, value }
 }
+const MAX_JSON_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+
 pub fn json(value: Value) -> serde_json::Value {
     match value.kind {
         None | Some(Kind::NullValue(_)) => serde_json::Value::Null,
         Some(Kind::BoolValue(value)) => value.into(),
+        Some(Kind::NumberValue(value))
+            if value.fract() == 0.0 && value.abs() <= MAX_JSON_SAFE_INTEGER =>
+        {
+            serde_json::json!(value as i64)
+        }
         Some(Kind::NumberValue(value)) => serde_json::json!(value),
         Some(Kind::StringValue(value)) => value.into(),
         Some(Kind::ListValue(value)) => {

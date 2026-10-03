@@ -14,7 +14,7 @@ Kernel 组合 Subject、Configuration、Material、Memory、Runtime、Persistenc
 | --- | --- |
 | `crates/core` | typed IDs、exact references、query DTO、时间与共享语义错误 |
 | `crates/protocol` | 从 `proto/` 生成的 Rust wire bindings |
-| `crates/configuration` | typed registry、overrides、immutable snapshots、digest 与 capability provisioning |
+| `crates/configuration` | Rust/Core unified Catalog、JSON Schema validation、overrides、immutable snapshots、digest 与 capability provisioning |
 | `crates/persistence` | PostgreSQL transaction/pool、fresh schema、receipts、projection watermarks |
 | `crates/subject` | Subject identity、Memory capability、Cognitive Seed version/adoption |
 | `crates/material` | Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation、DerivedRegion 与 materialization |

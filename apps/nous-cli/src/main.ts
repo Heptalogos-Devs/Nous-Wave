@@ -138,7 +138,7 @@ async function main() {
     if (action === "list")
       return client.configuration.list({ exposureCeiling });
     const path = required(argument, "Configuration path");
-    if (action === "describe") return client.configuration.describe({ path });
+    if (action === "describe") return client.configuration.describe(path);
     if (action === "get")
       return client.configuration.get({
         paths: [path],

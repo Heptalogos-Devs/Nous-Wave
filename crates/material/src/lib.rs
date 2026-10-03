@@ -8,11 +8,37 @@ pub use service::*;
 
 pub const MAX_UPLOAD_BYTES: nous_configuration::ConfigKey<u64> =
     nous_configuration::ConfigKey::new("object_store.max_upload_bytes");
+pub const DESCRIPTION_SEGMENT_BYTES: nous_configuration::ConfigKey<usize> =
+    nous_configuration::ConfigKey::new("material.description_segment_bytes");
 pub const ABSOLUTE_UPLOAD_BYTES: u64 = 9_007_199_254_740_991;
 pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> nous_core::Result<()> {
     use nous_configuration::*;
+    registry.register(
+        DESCRIPTION_SEGMENT_BYTES,
+        "material",
+        "Target UTF-8 bytes per description segment.",
+        2048,
+        ConfigExposure::Advanced,
+        ConfigScopePolicy::SubjectOverrideAllowed,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::AuthorityFormation,
+        |value| {
+            if (4..=65536).contains(value) {
+                Ok(())
+            } else {
+                Err(nous_core::Error::Invalid(
+                    "description segment bytes must be 4..65536".into(),
+                ))
+            }
+        },
+    )?;
+    registry.describe(DESCRIPTION_SEGMENT_BYTES.path(), |d| {
+        d.unit = Some("bytes".into());
+        d.json_schema["minimum"] = serde_json::json!(4);
+        d.json_schema["maximum"] = serde_json::json!(65536);
+    })?;
     registry.register(
         MAX_UPLOAD_BYTES,
         "material",

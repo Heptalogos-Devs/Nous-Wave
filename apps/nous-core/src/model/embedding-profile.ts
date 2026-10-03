@@ -11,8 +11,9 @@ export function resolvedEmbedding(config: ModelConfiguration) {
   const binding = config.roles.query_embedding;
   if (!binding) return undefined;
   const profile = config.model_profiles[binding.model]!;
-  if (!profile.model.trim() || !profile.embedding) return undefined;
+  if (!profile || !profile.model.trim() || !profile.embedding) return undefined;
   const gateway = config.gateway_profiles[profile.gateway]!;
+  if (!gateway) return undefined;
   const profileDigest = canonicalDigest({
     profile,
     destination: gateway.base_url,
@@ -20,7 +21,6 @@ export function resolvedEmbedding(config: ModelConfiguration) {
   const configDigest = canonicalDigest({
     binding: {
       ...binding,
-      max_output_tokens: 4096,
       timeout_ms: binding.timeout_ms ?? gateway.request_timeout_ms,
     },
     adapter: "ai-sdk@7.0.102/openai@4.0.67",

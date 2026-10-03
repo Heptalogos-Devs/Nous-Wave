@@ -75,6 +75,22 @@ impl ConfigRegistry {
         self.descriptors.values().map(|entry| &entry.descriptor)
     }
 
+    pub fn reference_snapshot(&self) -> Result<crate::ConfigSnapshot> {
+        let values = self
+            .descriptors()
+            .map(|d| {
+                (
+                    d.path.clone(),
+                    crate::ResolvedConfigValue {
+                        json: d.reference_default.clone(),
+                        source: ConfigSource::ReferenceDefault,
+                    },
+                )
+            })
+            .collect();
+        crate::ConfigSnapshot::new(None, 0, self.clone(), values)
+    }
+
     pub fn digest(&self) -> &str {
         &self.digest
     }
@@ -189,6 +205,21 @@ impl ConfigRegistryBuilder {
     /// Startup-only import; there is no live registration/plugin protocol.
     pub fn import(&mut self, descriptor: ConfigDescriptor) -> Result<()> {
         self.insert(descriptor, None)
+    }
+
+    /// Numeric constraints are machine metadata and generic value validation together.
+    pub fn bounds<T: 'static>(
+        &mut self,
+        key: ConfigKey<T>,
+        minimum: impl Into<Value>,
+        maximum: impl Into<Value>,
+        unit: Option<&str>,
+    ) -> Result<()> {
+        self.describe(key.path(), |d| {
+            d.json_schema["minimum"] = minimum.into();
+            d.json_schema["maximum"] = maximum.into();
+            d.unit = unit.map(str::to_owned);
+        })
     }
 
     /// Owner metadata/schema bounds are finalized and revalidated before publication.

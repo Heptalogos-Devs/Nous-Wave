@@ -1,0 +1,29 @@
+{
+  "identity": "retrieval-ranking-v1",
+  "revision": 1,
+  "values": {
+    "retrieval.rrf.k": 60.0,
+    "retrieval.rrf.weights.exact": 4.0,
+    "retrieval.rrf.weights.runtime": 2.0,
+    "retrieval.rrf.weights.entity": 2.5,
+    "retrieval.rrf.weights.lexical": 1.5,
+    "retrieval.rrf.weights.dense": 1.5,
+    "retrieval.rrf.weights.temporal": 1.0,
+    "retrieval.rrf.weights.schema_direct": 1.5,
+    "retrieval.rrf.weights.topology_wave": 1.0,
+    "retrieval.query.effort_multiplier.light": 2,
+    "retrieval.query.effort_multiplier.normal": 4,
+    "retrieval.query.effort_multiplier.deep": 8,
+    "retrieval.query.effort_multiplier.maximum": 16,
+    "retrieval.query.per_lane_max.light": 128,
+    "retrieval.query.per_lane_max.normal": 512,
+    "retrieval.query.per_lane_max.deep": 2048,
+    "retrieval.query.per_lane_max.maximum": 8192,
+    "retrieval.query.validation_multiplier": 4,
+    "retrieval.query.validation_min": 32,
+    "retrieval.query.validation_max": 4096,
+    "retrieval.preference.weight": 0.02,
+    "retrieval.preference.cap": 0.06,
+    "retrieval.preference.recency_seconds": 2592000.0
+  }
+}

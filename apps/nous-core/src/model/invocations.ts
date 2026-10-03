@@ -15,6 +15,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   roleNames,
+  resolveRoleBinding,
   type ModelConfiguration,
   type ModelProfile,
   type ModelRole,
@@ -148,7 +149,13 @@ export class ModelInvocations {
       if (path) runtime.promptPaths[role] = path;
     }
     for (const role of roleNames) {
-      const binding = config.roles[role];
+      const configuredBinding = config.roles[role];
+      const binding = configuredBinding
+        ? resolveRoleBinding(
+            configuredBinding,
+            config.model_profiles[configuredBinding.model]?.protocol ?? "",
+          )
+        : undefined;
       runtime.requirements.set(role, binding?.requirement ?? "optional");
       if (!binding) {
         runtime.states.set(role, {
@@ -158,7 +165,7 @@ export class ModelInvocations {
         continue;
       }
       const profile = config.model_profiles[binding.model]!;
-      if (!profile.model.trim()) {
+      if (!profile || !profile.model.trim()) {
         runtime.states.set(role, {
           state: "NOT_CONFIGURED",
           detail: "Model identifier is unset",
@@ -166,6 +173,13 @@ export class ModelInvocations {
         continue;
       }
       const gateway = config.gateway_profiles[profile.gateway]!;
+      if (!gateway) {
+        runtime.states.set(role, {
+          state: "NOT_CONFIGURED",
+          detail: "Gateway profile is absent",
+        });
+        continue;
+      }
       const credential = process.env[gateway.credential_env];
       if (!gateway.enabled || !credential) {
         runtime.states.set(role, {
@@ -185,7 +199,7 @@ export class ModelInvocations {
         const configDigest = canonicalDigest({
           binding: {
             ...binding,
-            max_output_tokens: binding.max_output_tokens ?? 4096,
+            max_output_tokens: binding.max_output_tokens,
             timeout_ms: binding.timeout_ms ?? gateway.request_timeout_ms,
           },
           adapter: "ai-sdk@7.0.102/openai@4.0.67",
@@ -442,7 +456,7 @@ export class ModelInvocations {
             ],
             temperature: role.binding.temperature,
             top_p: role.binding.top_p,
-            max_tokens: role.binding.max_output_tokens ?? 4096,
+            max_tokens: role.binding.max_output_tokens,
             ...(schema
               ? {
                   response_format: {
@@ -519,7 +533,7 @@ export class ModelInvocations {
           : undefined,
         temperature: role.binding.temperature,
         topP: role.binding.top_p,
-        maxOutputTokens: role.binding.max_output_tokens ?? 4096,
+        maxOutputTokens: role.binding.max_output_tokens,
         maxRetries: 0,
         abortSignal: this.signal(role, signal),
       });
