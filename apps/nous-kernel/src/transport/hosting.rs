@@ -74,7 +74,12 @@ pub async fn router(runtime: NousRuntime, token: String) -> tonic::transport::se
         .add_service(nous_protocol::kernel::kernel_query_service_server::KernelQueryServiceServer::with_interceptor(service.clone(),auth.clone()))
         .add_service(nous_protocol::kernel::kernel_maintenance_service_server::KernelMaintenanceServiceServer::with_interceptor(service.clone(),auth.clone()))
         .add_service(nous_protocol::kernel::kernel_projection_service_server::KernelProjectionServiceServer::with_interceptor(service.clone(),auth.clone()))
-        .add_service(KernelMaterialWorkflowServiceServer::with_interceptor(service.clone(),auth.clone()))
+        .add_service(tonic::service::interceptor::InterceptedService::new(
+            KernelMaterialWorkflowServiceServer::new(service.clone())
+                .max_decoding_message_size(nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES)
+                .max_encoding_message_size(nous_persistence::WORKFLOW_VALUE_MAX_BYTES + WORKFLOW_PROTOCOL_ENVELOPE_BYTES),
+            auth.clone(),
+        ))
         .add_service(ConfigurationServiceServer::with_interceptor(
             service.clone(),
             auth.clone(),
