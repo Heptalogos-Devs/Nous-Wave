@@ -288,6 +288,7 @@ export async function deriveMaterial(
   const directContext: StructuredMaterialContext = {
     visual: mime.startsWith("image/") || mime.startsWith("video/"),
     audio: mime.startsWith("audio/") || mime.startsWith("video/"),
+    sourceText: textual,
     catalog: { S000: { kind: "source_region", value: request.sourceRegionId } },
   };
   const signal = options.signal ?? undefined;

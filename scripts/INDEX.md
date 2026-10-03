@@ -27,6 +27,10 @@
 | [release/notices.ts](release/notices.ts)                                     | 准备/读取依赖许可证缓存               |
 | [release/zip.ps1](release/zip.ps1)                                           | 将指定目录压缩为 ZIP                  |
 | [research/gateway.test.ts](research/gateway.test.ts)                         | 预算、并发调用和代理 telemetry 合同   |
+| [research/gateway-trace.ts](research/gateway-trace.ts) | 有界 capture、媒体描述符与敏感信息清除 |
+| [research/gateway-trace.test.ts](research/gateway-trace.test.ts) | trace 边界与凭据清除合同 |
+| [research/model-contracts.ts](research/model-contracts.ts) | 导出生产合同与 Prompt identity |
+| [research/model-trace.ts](research/model-trace.ts) | 检查单次真实 wire attempt |
 | [research/gateway.ts](research/gateway.ts)                                   | run-owned 代理及调用计数实现          |
 | [research/longitudinal.ts](research/longitudinal.ts) | 纵向认知模型 proposal 人工研究 |
 | [research/media.ts](research/media.ts)                                       | 媒体导入、派生和检索实验              |

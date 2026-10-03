@@ -28,11 +28,27 @@ const time = {
 };
 export const materialInterpretationSchema = z
   .strictObject({
-    summary: z.string().describe("Concise synthesis of the supplied material."),
+    summary: z
+      .strictObject({
+        content: z
+          .string()
+          .describe(
+            "Concise synthesis of the supplied material; empty when no meaningful content is available.",
+          ),
+        support_keys: supports,
+      })
+      .describe(
+        "A synthesis grounded in exact source supports, with uncertainty preserved in its wording.",
+      ),
     coverage: z.strictObject({
       visual: coverage,
       audio: coverage,
-      embedded_text: coverage,
+      embedded_text: coverage.describe(
+        "Visible text embedded in image/video input, not the original text source or description transport.",
+      ),
+      source_text: coverage.describe(
+        "Coverage of original text-like source content, excluding media descriptions and transcripts.",
+      ),
     }),
     observations: z.array(
       z.strictObject({
@@ -50,7 +66,16 @@ export const materialInterpretationSchema = z
           "other",
         ]),
         content: z.string(),
-        basis: z.enum(["direct", "inferred", "uncertain"]),
+        basis: z
+          .enum(["direct", "inferred"])
+          .describe(
+            "Whether this observation is directly available in the supplied evidence or inferred from it.",
+          ),
+        certainty: z
+          .enum(["clear", "uncertain"])
+          .describe(
+            "Whether the observation is clear or uncertain, independently of its derivation basis.",
+          ),
         ...time,
         support_keys: supports,
       }),
@@ -72,6 +97,14 @@ export const materialInterpretationSchema = z
       }),
     ),
     embedded_text: z.array(
+      z.strictObject({
+        text: z.string(),
+        fidelity: z.enum(["verbatim", "approximate", "uncertain"]),
+        ...time,
+        support_keys: supports,
+      }),
+    ),
+    source_text: z.array(
       z.strictObject({
         text: z.string(),
         fidelity: z.enum(["verbatim", "approximate", "uncertain"]),
@@ -113,10 +146,11 @@ export type MaterialInterpretation = z.infer<
 >;
 const contract = structuredOutputContract(materialInterpretationSchema);
 export const materialInterpretationSchemaDigest = contract.digest;
-export const materialProjectionIdentity = "material-interpretation-text-v1";
+export const materialProjectionIdentity = "material-interpretation-text-v2";
 type InterpretationInput = {
   visual: boolean;
   audio: boolean;
+  sourceText: boolean;
   supportKeys: ReadonlySet<string>;
   durationMs?: number;
 };
@@ -134,19 +168,30 @@ export function structuredMaterialResult(
     ...context,
     supportKeys: new Set(Object.keys(context.catalog)),
   });
-  const payload: Record<string, unknown> = { ...output };
+  const mapSupports = ({
+    support_keys,
+    ...item
+  }: {
+    support_keys: string[];
+    [field: string]: unknown;
+  }) => ({
+    ...item,
+    supports: support_keys.map((key) => context.catalog[key]!),
+  });
+  const payload: Record<string, unknown> = {
+    ...output,
+    summary: mapSupports(output.summary),
+  };
   for (const group of [
     "observations",
     "mentions",
     "embedded_text",
+    "source_text",
     "speech",
     "interpretations",
     "uncertainties",
   ] as const)
-    payload[group] = output[group].map(({ support_keys, ...item }) => ({
-      ...item,
-      supports: support_keys.map((key) => context.catalog[key]!),
-    }));
+    payload[group] = output[group].map(mapSupports);
   return {
     text: projectMaterialInterpretation(output),
     structuredPayload: JSON.parse(JSON.stringify(payload)) as JsonObject,
@@ -161,13 +206,17 @@ function validateMaterialInterpretation(
   const output = materialInterpretationSchema.parse(value);
   if (
     Buffer.byteLength(JSON.stringify(output)) > 262144 ||
-    Buffer.byteLength(output.summary) > 8192
+    Buffer.byteLength(output.summary.content) > 8192
   )
     throw new Error("Structured material exceeds payload bounds");
+  if (output.summary.content.trim() && !output.summary.support_keys.length)
+    throw new Error("Summary requires source support");
   const groups = [
+    [output.summary],
     output.observations,
     output.mentions,
     output.embedded_text,
+    output.source_text,
     output.speech,
     output.interpretations,
     output.uncertainties,
@@ -177,7 +226,10 @@ function validateMaterialInterpretation(
       throw new Error("Structured material exceeds item bound");
     for (const item of group) {
       for (const field of Object.values(item)) {
-        if (typeof field === "string" && Buffer.byteLength(field) > 4096)
+        if (
+          typeof field === "string" &&
+          Buffer.byteLength(field) > (item === output.summary ? 8192 : 4096)
+        )
           throw new Error("Structured material exceeds field byte bound");
       }
       if (
@@ -218,6 +270,18 @@ function validateMaterialInterpretation(
     }
   }
   if (
+    !input.sourceText &&
+    (output.coverage.source_text !== "not_available" ||
+      output.source_text.length)
+  )
+    throw new Error(
+      "Structured material invents unavailable source text input",
+    );
+  if (!input.visual && output.coverage.embedded_text !== "not_available")
+    throw new Error(
+      "Structured material invents unavailable embedded visual text",
+    );
+  if (
     !input.visual &&
     (output.coverage.visual !== "not_available" ||
       output.embedded_text.length ||
@@ -246,12 +310,13 @@ function projectMaterialInterpretation(output: MaterialInterpretation): string {
   const section = (title: string, lines: string[]) =>
     lines.length ? [`${title}:`, ...lines.map((line) => `- ${line}`)] : [];
   return [
-    `Summary: ${output.summary}`,
-    `Coverage: visual=${output.coverage.visual}; audio=${output.coverage.audio}; embedded_text=${output.coverage.embedded_text}`,
+    `Summary: ${output.summary.content}`,
+    `Coverage: visual=${output.coverage.visual}; audio=${output.coverage.audio}; embedded_text=${output.coverage.embedded_text}; source_text=${output.coverage.source_text}`,
     ...section(
       "Observations",
       output.observations.map(
-        (item) => `[${item.basis}/${item.kind}] ${item.content}`,
+        (item) =>
+          `[${item.basis}/${item.certainty}/${item.kind}] ${item.content}`,
       ),
     ),
     ...section(
@@ -264,6 +329,10 @@ function projectMaterialInterpretation(output: MaterialInterpretation): string {
     ...section(
       "Embedded text",
       output.embedded_text.map((item) => `[${item.fidelity}] ${item.text}`),
+    ),
+    ...section(
+      "Source text",
+      output.source_text.map((item) => `[${item.fidelity}] ${item.text}`),
     ),
     ...section(
       "Speech",

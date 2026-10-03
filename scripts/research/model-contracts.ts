@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { relative, resolve, sep } from "node:path";
+import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { dirname, relative, resolve, sep } from "node:path";
 import {
   parseConfiguration,
   parseEffectiveConfiguration,
@@ -45,7 +45,9 @@ const prompts = new PromptRegistry(
   resolve(values["prompt-root"]!),
   values["override-prompt-root"]
     ? resolve(values["override-prompt-root"])
-    : undefined,
+    : values.config
+      ? resolve(dirname(values.config), "prompts")
+      : undefined,
 );
 const output = resolve(
   values.output ?? "data/research/inspection/model-contracts",
@@ -105,7 +107,9 @@ for (const role of values.role ? [values.role as ModelRole] : roleNames) {
       JSON.stringify(contract.providerSchema, null, 2) + "\n",
       { mode: 0o600 },
     );
+  else await rm(resolve(root, "schema.json"), { force: true });
   if (prompt)
     await writeFile(resolve(root, "prompt.md"), prompt.text, { mode: 0o600 });
+  else await rm(resolve(root, "prompt.md"), { force: true });
   console.log(JSON.stringify({ ...metadata, output: root }));
 }

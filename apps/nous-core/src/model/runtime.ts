@@ -153,7 +153,11 @@ export class ModelRuntime {
         ? JSON.stringify({
             source_text: input,
             support_catalog: Object.keys(context.catalog),
-            modalities: { visual: context.visual, audio: context.audio },
+            modalities: {
+              visual: context.visual,
+              audio: context.audio,
+              source_text: context.sourceText,
+            },
           })
         : [
             {

@@ -11,17 +11,22 @@ const materialInterpretationJsonSchema = structuredOutputContract(
 ).providerSchema;
 
 const output = () => ({
-  summary: "A rocket launch with uncertain commentary.",
+  summary: {
+    content: "A rocket launch with uncertain commentary.",
+    support_keys: ["S000"],
+  },
   coverage: {
     visual: "observed",
     audio: "not_available",
     embedded_text: "not_available",
+    source_text: "not_available",
   },
   observations: [
     {
       kind: "event",
       content: "Rocket launch",
       basis: "direct",
+      certainty: "uncertain",
       start_ms: 0,
       end_ms: 1000,
       support_keys: ["S000"],
@@ -36,6 +41,7 @@ const output = () => ({
     },
   ],
   embedded_text: [],
+  source_text: [],
   speech: [],
   interpretations: [
     {
@@ -51,6 +57,7 @@ const output = () => ({
 const source = {
   visual: true,
   audio: false,
+  sourceText: false,
   catalog: { S000: { kind: "source_region", value: "source-id" } },
   durationMs: 1000,
 };
@@ -78,6 +85,13 @@ describe("Material interpretation contract", () => {
     ).toThrow();
   });
   it("rejects unsupported direct facts, forged keys and source-time overflow", () => {
+    const summary = output();
+    summary.summary.support_keys = [];
+    expect(() => structuredMaterialResult(summary, source)).toThrow(
+      "Summary requires",
+    );
+    summary.summary.support_keys = ["D999"];
+    expect(() => structuredMaterialResult(summary, source)).toThrow("Unknown");
     const forged = output();
     forged.observations[0]!.support_keys = ["D999"];
     expect(() => structuredMaterialResult(forged, source)).toThrow("Unknown");
@@ -111,7 +125,39 @@ describe("Material interpretation contract", () => {
       { supports: [{ kind: "source_region", value: "source-id" }] },
     ]);
     expect(JSON.stringify(structuredPayload)).not.toContain("support_keys");
+    expect(structuredPayload.summary).toMatchObject({
+      supports: [{ kind: "source_region", value: "source-id" }],
+    });
+    expect(text).toContain("[direct/uncertain/event]");
     expect(text).toContain("[tentative] May be a historical launch");
     expect(text).toContain("Uncertainties:\n- No audio available");
+  });
+  it("expresses original source text without inventing embedded visual text", () => {
+    const value = {
+      ...output(),
+      coverage: {
+        visual: "not_available",
+        audio: "not_available",
+        embedded_text: "not_available",
+        source_text: "observed",
+      },
+      observations: [],
+      source_text: [
+        {
+          text: "Original passage",
+          fidelity: "verbatim",
+          start_ms: null,
+          end_ms: null,
+          support_keys: ["S000"],
+        },
+      ],
+    };
+    const context = { ...source, visual: false, sourceText: true };
+    expect(structuredMaterialResult(value, context).text).toContain(
+      "Source text:\n- [verbatim] Original passage",
+    );
+    expect(() =>
+      structuredMaterialResult(value, { ...context, sourceText: false }),
+    ).toThrow("source text");
   });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { remoteEndpointSchema } from "../remote-endpoint.js";
+import { structuredContractForRole } from "./schemas/contracts.js";
 
 export const roleNames = [
   "projection_steward",
@@ -188,11 +189,7 @@ export function modelRoleProblem(
   )
     return "Role protocol/capability mismatch";
   if (
-    [
-      "episode_segmentation",
-      "journal_synthesis",
-      "memory_consolidation",
-    ].includes(role) &&
+    structuredContractForRole(role as ModelRole) &&
     !model.capabilities.includes("structured_output")
   )
     return "Role requires structured_output";
