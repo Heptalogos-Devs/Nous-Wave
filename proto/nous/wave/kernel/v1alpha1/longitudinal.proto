@@ -62,9 +62,9 @@ message PlanMaintenanceRequest { MaintenanceNeed claimed = 1; }
 message ExperienceMember {
   string key = 1;
   string occurrence_id = 2;
-  int64 recorded_seq = 3;
+  optional int64 recorded_seq = 3;
   google.protobuf.Timestamp observed_at = 4;
-  string session_id = 5;
+  optional string session_id = 5;
   optional string work_context_id = 6;
   optional int64 work_context_revision = 7;
   optional string conversation_ref = 8;

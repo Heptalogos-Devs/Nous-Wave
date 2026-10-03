@@ -34,7 +34,11 @@ JournalId 是稳定对象，JournalRevisionId 是不可变 exact narrative。每
 
 创建、修订、get/exact revision、history/list、suppress/restore、withdraw/reaccept 与 purge 均归 Memory。source revision/lifecycle/purge 变化使当前 Journal `revalidation_required`，排入 `journal_revalidate`；重建提交新的 revision，scope 消失可 withdraw。Journal provenance 展开原来源 lineage，Journal 不增加独立 evidence root。
 
+Journal 重验证等待全部当前来源稳定后再规划完整集合；来源数量或时间跨度超出有界范围时延后处理。新 Journal review 可按边界选择已稳定的前缀。
+
 ## Consolidation
+
+整合与 Journal synthesis 可读取手工 Episode 的 Occurrence 或 cognition members；普通 Occurrence 的目录条目保留正文和观察时间，Session 与 experience recorded sequence 仅在实际存在时提供。自动 resegmentation 使用 Session ExperienceItem 的完整顺序。
 
 `memory_consolidation` 使用 `MemoryConsolidationText`，scope 为 current eligible EpisodeRevision 或 JournalRevision。计划包含有界 source/member/support/entity catalogs、independent roots 和通过 Query/Serving 选出的最多 16 个当前 Memory/Schema context candidates。候选包括 exact revision/epoch、正文、Schema applicability/boundary/tags、独立时间轴和按 use kind 汇总的 meaningful use；presented 不计入摘要。
 

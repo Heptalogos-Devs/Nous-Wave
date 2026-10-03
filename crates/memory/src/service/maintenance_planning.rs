@@ -76,9 +76,7 @@ impl MemoryService {
             }
             _ => return Err(Error::Invalid("invalid consolidation source kind".into())),
         }
-        result.occurrences = self
-            .ordered_scope_occurrences(subject, &result.episodes, None)
-            .await?;
+        result.occurrences = scope_occurrences(&result.episodes)?;
         Ok(result)
     }
     pub async fn plan_episode_review(
@@ -234,6 +232,11 @@ impl MemoryService {
                 .await?;
             if episode.revision.recorded_at + delay > now {
                 result.next_due = Some(episode.revision.recorded_at + delay);
+                if result.journal.is_some() {
+                    result.status = "deferred".into();
+                    result.problem = Some("journal_sources_settling".into());
+                    return Ok(result);
+                }
                 break;
             }
             if let (Some(start), Some(end)) = (
@@ -243,6 +246,10 @@ impl MemoryService {
             {
                 result.problem = Some("journal_source_span_exceeded".into());
                 result.next_due = Some(now + delay);
+                if result.journal.is_some() {
+                    result.status = "deferred".into();
+                    return Ok(result);
+                }
                 break;
             }
             if let Some(first) = result.episodes.first()
@@ -252,6 +259,12 @@ impl MemoryService {
                 )
                 && end - start > span
             {
+                if result.journal.is_some() {
+                    result.status = "deferred".into();
+                    result.problem = Some("journal_scope_span_exceeded".into());
+                    result.next_due = Some(now + delay);
+                    return Ok(result);
+                }
                 break;
             }
             result.episodes.push(episode);
@@ -266,9 +279,7 @@ impl MemoryService {
             }
             .into();
         }
-        result.occurrences = self
-            .ordered_scope_occurrences(subject, &result.episodes, None)
-            .await?;
+        result.occurrences = scope_occurrences(&result.episodes)?;
         Ok(result)
     }
 
@@ -309,6 +320,23 @@ impl MemoryService {
         Ok(ordered.into_iter().map(OccurrenceId).collect())
     }
 }
+fn scope_occurrences(episodes: &[EpisodeView]) -> Result<Vec<OccurrenceId>> {
+    let occurrences: BTreeSet<_> = episodes
+        .iter()
+        .flat_map(|episode| &episode.members)
+        .filter_map(|member| match member.reference {
+            CognitiveRef::Occurrence(id) => Some(id),
+            _ => None,
+        })
+        .collect();
+    if occurrences.len() > 2048 {
+        return Err(Error::Invalid(
+            "maintenance scope exceeds 2048 occurrence members".into(),
+        ));
+    }
+    Ok(occurrences.into_iter().collect())
+}
+
 fn episode_eligible(episode: &EpisodeView) -> bool {
     episode.object.acceptance_state == AcceptanceState::Accepted
         && episode.object.integrity_state == IntegrityState::Valid

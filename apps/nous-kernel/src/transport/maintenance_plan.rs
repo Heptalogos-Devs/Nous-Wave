@@ -121,7 +121,7 @@ impl KernelService {
         occurrences: &[OccurrenceId],
     ) -> Result<Vec<k::ExperienceMember>> {
         let ids: Vec<uuid::Uuid> = occurrences.iter().map(|id| id.0).collect();
-        let rows=sqlx::query("SELECT e.*,o.occurred_time_kind,o.occurred_time_start,o.occurred_time_end,d.derived_representation_id FROM experience_items e JOIN observation_occurrences o USING(occurrence_id) LEFT JOIN LATERAL (SELECT r.derived_representation_id FROM coverage_needs c JOIN source_regions s USING(source_region_id) JOIN derived_representations r ON r.derived_representation_id=c.current_representation_id WHERE c.subject_id=$1 AND s.artifact_id=o.artifact_id AND c.state='ready' AND r.payload_text IS NOT NULL ORDER BY r.created_at DESC,r.derived_representation_id LIMIT 1) d ON true WHERE e.subject_id=$1 AND e.occurrence_id=ANY($2::uuid[]) ORDER BY e.recorded_seq")
+        let rows=sqlx::query("SELECT o.*,e.recorded_seq,e.session_id,e.active_work_context_id,e.active_work_context_revision,d.derived_representation_id FROM observation_occurrences o LEFT JOIN experience_items e ON e.occurrence_id=o.occurrence_id AND e.subject_id=o.subject_id LEFT JOIN LATERAL (SELECT r.derived_representation_id FROM coverage_needs c JOIN source_regions s USING(source_region_id) JOIN derived_representations r ON r.derived_representation_id=c.current_representation_id WHERE c.subject_id=$1 AND s.artifact_id=o.artifact_id AND c.state='ready' AND r.payload_text IS NOT NULL ORDER BY r.created_at DESC,r.derived_representation_id LIMIT 1) d ON true WHERE o.subject_id=$1 AND o.occurrence_id=ANY($2::uuid[]) ORDER BY e.recorded_seq NULLS LAST,o.observed_at,o.occurrence_id")
             .bind(subject.0).bind(ids).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
         let mut members = Vec::with_capacity(rows.len());
         let mut remaining = 65536usize;
@@ -161,7 +161,9 @@ impl KernelService {
                 occurrence_id: occurrence.to_string(),
                 recorded_seq: row.get("recorded_seq"),
                 observed_at: Some(timestamp(row.get("observed_at"))),
-                session_id: row.get::<uuid::Uuid, _>("session_id").to_string(),
+                session_id: row
+                    .get::<Option<uuid::Uuid>, _>("session_id")
+                    .map(|id| id.to_string()),
                 work_context_id: row
                     .get::<Option<uuid::Uuid>, _>("active_work_context_id")
                     .map(|id| id.to_string()),

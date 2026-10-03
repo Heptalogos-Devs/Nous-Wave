@@ -330,12 +330,12 @@ pub struct ExperienceMember {
     pub key: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub occurrence_id: ::prost::alloc::string::String,
-    #[prost(int64, tag="3")]
-    pub recorded_seq: i64,
+    #[prost(int64, optional, tag="3")]
+    pub recorded_seq: ::core::option::Option<i64>,
     #[prost(message, optional, tag="4")]
     pub observed_at: ::core::option::Option<::prost_types::Timestamp>,
-    #[prost(string, tag="5")]
-    pub session_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub session_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="6")]
     pub work_context_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int64, optional, tag="7")]
