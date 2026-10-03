@@ -3,11 +3,10 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
-import { z } from "zod";
 import { modelConfigurationSchema } from "../src/model/configuration.js";
 import { ModelInvocations } from "../src/model/invocations.js";
 import { PromptRegistry } from "../src/model/prompts.js";
-import { structuredOutputContract } from "../src/model/schemas/provider.js";
+import { providerContractForRole } from "../src/model/schemas/contracts.js";
 
 const temporary: string[] = [];
 afterEach(async () => {
@@ -112,7 +111,8 @@ describe("model protocol and provenance boundaries", () => {
                   index: 0,
                   message: {
                     role: "assistant",
-                    content: '{"value":"faithful"}',
+                    content:
+                      '{"text":"faithful","semanticRole":"reported_fact","title":null,"selectedEntityKeys":[]}',
                   },
                   finish_reason:
                     body.model === "incomplete-chat" ? "length" : "stop",
@@ -217,16 +217,15 @@ describe("model protocol and provenance boundaries", () => {
           )
           .every((c) => c.state === "READY"),
       ).toBe(true);
-      const formation = await runtime.generate(
-        "memory_formation",
-        "evidence",
-        z.object({ value: z.string() }),
-      );
-      expect(formation.value).toEqual({ value: "faithful" });
+      const formation = await runtime.generate("memory_formation", "evidence");
+      expect(formation.value).toEqual({
+        text: "faithful",
+        semanticRole: "reported_fact",
+        title: null,
+        selectedEntityKeys: [],
+      });
       expect(formation.producerMetadata.promptDigest).toHaveLength(64);
-      const outputContract = structuredOutputContract(
-        z.object({ value: z.string() }),
-      );
+      const outputContract = providerContractForRole("memory_formation")!;
       expect(formation.producerMetadata.outputSchemaDigest).toBe(
         outputContract.digest,
       );
@@ -261,19 +260,27 @@ describe("model protocol and provenance boundaries", () => {
         const result = await runtime.generate(
           "memory_formation",
           "evidence",
-          z.object({ value: z.string() }),
           undefined,
           undefined,
           undefined,
           { bytes: Uint8Array.of(1, 2, 3), mediaType },
         );
-        expect(result.value).toEqual({ value: "faithful" });
+        expect(result.value).toEqual({
+          text: "faithful",
+          semanticRole: "reported_fact",
+          title: null,
+          selectedEntityKeys: [],
+        });
         expect(result.producerMetadata.outputSchemaDigest).toBe(
           outputContract.digest,
         );
         expect(requests.at(-1)!.body.response_format).toMatchObject({
           type: "json_schema",
-          json_schema: { strict: true, schema: outputContract.providerSchema },
+          json_schema: {
+            name: outputContract.providerName,
+            strict: true,
+            schema: outputContract.providerSchema,
+          },
         });
         const messages = requests.at(-1)!.body.messages as {
           content: unknown;
@@ -312,11 +319,7 @@ describe("model protocol and provenance boundaries", () => {
       config.model_profiles.chat!.model = "incomplete-chat";
       const incomplete = await ModelInvocations.create(config);
       await expect(
-        incomplete.generate(
-          "memory_formation",
-          "evidence",
-          z.object({ value: z.string() }),
-        ),
+        incomplete.generate("memory_formation", "evidence"),
       ).rejects.toThrow("output_incomplete_length");
       expect(
         incomplete.capabilities.find((c) => c.name === "model.memory_formation")
@@ -326,7 +329,6 @@ describe("model protocol and provenance boundaries", () => {
         incomplete.generate(
           "memory_formation",
           "evidence",
-          z.object({ value: z.string() }),
           undefined,
           undefined,
           undefined,

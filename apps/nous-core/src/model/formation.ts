@@ -241,7 +241,7 @@ export async function formObservation(
           groundingOccurrenceId: r.occurrenceId,
           semanticRole: result.semanticRole,
           text: result.text,
-          title: result.title,
+          title: result.title ?? undefined,
           epistemicClass: "derived",
           aboutness,
           producer: {

@@ -1,5 +1,9 @@
 import { z } from "zod";
-const key = z.string().min(1).max(256);
+const key = z
+  .string()
+  .min(1)
+  .max(256)
+  .describe("Exact invocation-local key from the relevant supplied catalog.");
 const time = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("unknown") }),
   z.strictObject({ kind: z.literal("instant"), at: z.iso.datetime() }),
@@ -22,7 +26,9 @@ const memory = z.strictObject({
   title: z.string().max(8192).nullable(),
   supportKeys: z.array(key).min(1).max(128),
   entityKeys: z.array(key).max(128),
-  validTime: time,
+  validTime: time.describe(
+    "World-valid time of this claim, distinct from publication, observation and formation time.",
+  ),
   epistemicClass: z.enum([
     "observed",
     "reported",
@@ -35,11 +41,23 @@ const memory = z.strictObject({
 const schema = z.strictObject({
   title: z.string().max(8192).nullable(),
   structuralClaim: z.string().min(1).max(16384),
-  applicability: z.string().min(1).max(16384),
-  boundaryDefinition: z.string().min(1).max(16384),
+  applicability: z
+    .string()
+    .min(1)
+    .max(16384)
+    .describe(
+      "Conditions under which the generalized structural claim applies.",
+    ),
+  boundaryDefinition: z
+    .string()
+    .min(1)
+    .max(16384)
+    .describe("Limits and exceptions of the proposed generalization."),
   formationKind: z.enum(["explicit_import", "synthesized"]),
   entityKeys: z.array(key).max(128),
-  validTime: time,
+  validTime: time.describe(
+    "World-valid time of this claim, distinct from publication, observation and formation time.",
+  ),
   evidence: z
     .array(
       z.strictObject({
@@ -90,7 +108,19 @@ export const consolidationActionSchema = z.discriminatedUnion("action", [
     ]),
   }),
 ]);
-export const consolidationSchema = z.strictObject({
-  actions: z.array(consolidationActionSchema).min(1).max(16),
-});
+export const consolidationSchema = z
+  .strictObject({
+    actions: z
+      .array(consolidationActionSchema)
+      .min(1)
+      .max(16)
+      .describe(
+        "Ordered proposals; action endpoints use zero-based indices in this array.",
+      ),
+  })
+  .meta({
+    title: "Memory consolidation",
+    description:
+      "Source-grounded proposals to create or revise Memory and CognitiveSchema and relate legitimate objects.",
+  });
 export type ConsolidationProposal = z.infer<typeof consolidationSchema>;

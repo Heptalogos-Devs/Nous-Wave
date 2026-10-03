@@ -39,7 +39,8 @@
     "research:longitudinal": "tsx scripts/research/longitudinal.ts",
     "research:media-live": "tsx scripts/research/media.ts",
     "dev:portable": "tsx scripts/dev/portable.ts",
-    "smoke:configuration": "tsx scripts/smoke/configuration.ts"
+    "smoke:configuration": "tsx scripts/smoke/configuration.ts",
+    "inspect:model-contracts": "tsx scripts/research/model-contracts.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "1.73.0",

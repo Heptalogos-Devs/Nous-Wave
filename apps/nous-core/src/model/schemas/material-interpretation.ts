@@ -2,88 +2,112 @@ import { z } from "zod";
 import { structuredOutputContract } from "./provider.js";
 import type { JsonObject } from "@bufbuild/protobuf";
 
-const coverage = z.enum(["not_available", "observed", "limited", "uncertain"]);
-const supports = z.array(z.string());
+const coverage = z
+  .enum(["not_available", "observed", "limited", "uncertain"])
+  .describe("Availability and observation coverage of this input modality.");
+const supports = z
+  .array(z.string())
+  .describe(
+    "Invocation-local selectors from the exact supplied support catalog.",
+  );
 const time = {
-  start_ms: z.number().int().nullable(),
-  end_ms: z.number().int().nullable(),
+  start_ms: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "Start offset in milliseconds relative to the supplied media; null when unknown or not temporal.",
+    ),
+  end_ms: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "End offset in milliseconds relative to the supplied media; null when unknown or not temporal.",
+    ),
 };
-export const materialInterpretationSchema = z.strictObject({
-  summary: z.string(),
-  coverage: z.strictObject({
-    visual: coverage,
-    audio: coverage,
-    embedded_text: coverage,
-  }),
-  observations: z.array(
-    z.strictObject({
-      kind: z.enum([
-        "object",
-        "action",
-        "state",
-        "scene",
-        "spatial_relation",
-        "sound",
-        "music",
-        "text",
-        "speech",
-        "event",
-        "other",
-      ]),
-      content: z.string(),
-      basis: z.enum(["direct", "inferred", "uncertain"]),
-      ...time,
-      support_keys: supports,
+export const materialInterpretationSchema = z
+  .strictObject({
+    summary: z.string().describe("Concise synthesis of the supplied material."),
+    coverage: z.strictObject({
+      visual: coverage,
+      audio: coverage,
+      embedded_text: coverage,
     }),
-  ),
-  mentions: z.array(
-    z.strictObject({
-      surface: z.string(),
-      category: z.enum([
-        "person",
-        "organization",
-        "place",
-        "object",
-        "concept",
-        "work",
-        "other",
-      ]),
-      role: z.string().nullable(),
-      support_keys: supports,
-    }),
-  ),
-  embedded_text: z.array(
-    z.strictObject({
-      text: z.string(),
-      fidelity: z.enum(["verbatim", "approximate", "uncertain"]),
-      ...time,
-      support_keys: supports,
-    }),
-  ),
-  speech: z.array(
-    z.strictObject({
-      text: z.string(),
-      fidelity: z.enum(["verbatim", "semantic", "uncertain"]),
-      speaker_hint: z.string().nullable(),
-      ...time,
-      support_keys: supports,
-    }),
-  ),
-  interpretations: z.array(
-    z.strictObject({
-      content: z.string(),
-      status: z.enum(["supported", "tentative"]),
-      support_keys: supports,
-    }),
-  ),
-  uncertainties: z.array(
-    z.strictObject({
-      issue: z.string(),
-      alternatives: z.array(z.string()),
-      support_keys: supports,
-    }),
-  ),
-});
+    observations: z.array(
+      z.strictObject({
+        kind: z.enum([
+          "object",
+          "action",
+          "state",
+          "scene",
+          "spatial_relation",
+          "sound",
+          "music",
+          "text",
+          "speech",
+          "event",
+          "other",
+        ]),
+        content: z.string(),
+        basis: z.enum(["direct", "inferred", "uncertain"]),
+        ...time,
+        support_keys: supports,
+      }),
+    ),
+    mentions: z.array(
+      z.strictObject({
+        surface: z.string(),
+        category: z.enum([
+          "person",
+          "organization",
+          "place",
+          "object",
+          "concept",
+          "work",
+          "other",
+        ]),
+        role: z.string().nullable(),
+        support_keys: supports,
+      }),
+    ),
+    embedded_text: z.array(
+      z.strictObject({
+        text: z.string(),
+        fidelity: z.enum(["verbatim", "approximate", "uncertain"]),
+        ...time,
+        support_keys: supports,
+      }),
+    ),
+    speech: z.array(
+      z.strictObject({
+        text: z.string(),
+        fidelity: z.enum(["verbatim", "semantic", "uncertain"]),
+        speaker_hint: z.string().nullable(),
+        ...time,
+        support_keys: supports,
+      }),
+    ),
+    interpretations: z.array(
+      z.strictObject({
+        content: z.string(),
+        status: z.enum(["supported", "tentative"]),
+        support_keys: supports,
+      }),
+    ),
+    uncertainties: z.array(
+      z.strictObject({
+        issue: z.string(),
+        alternatives: z.array(z.string()),
+        support_keys: supports,
+      }),
+    ),
+  })
+  .meta({
+    title: "Material interpretation",
+    description:
+      "Observations, linguistic content and interpretations with exact source support selectors and modality coverage.",
+  });
 export type MaterialInterpretation = z.infer<
   typeof materialInterpretationSchema
 >;
