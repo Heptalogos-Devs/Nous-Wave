@@ -1227,7 +1227,7 @@ async fn longitudinal_consolidation_is_atomic_stale_fenced_and_replayable() {
     };
     let (root, url, _postgres) = database().await;
     let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
-    let rt = runtime_with_clock(&url, &root, clock.clone()).await;
+    let rt = runtime_with_clock_serving(&url, &root, clock.clone(), true).await;
     let subject = create_subject(&rt).await;
     let episode = journal_source_episode(&rt, &clock, subject).await;
     let memory = rt.require_memory().unwrap();
@@ -1307,6 +1307,7 @@ async fn longitudinal_consolidation_is_atomic_stale_fenced_and_replayable() {
         rt.store.authority_seq(subject).await.unwrap(),
         committed.authority_seq
     );
+    assert_consolidation_context(&rt, subject, &committed.results).await;
     assert_consolidation_rollback(&rt, &input, &episode).await;
     assert_consolidation_revisions(&rt, &input, &episode, &committed.results).await;
     memory
@@ -1980,4 +1981,96 @@ async fn persist_media_synopsis(
         .await
         .unwrap()
         .derived_representation_id
+}
+
+async fn assert_consolidation_context(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    results: &[Option<nous_core::CognitiveRef>],
+) {
+    use nous_protocol::{kernel as k, kernel::authority_service_server::AuthorityService};
+    rt.cognition
+        .use_feedback(nous_runtime::UseFeedback {
+            subject,
+            session_id: None,
+            consumer_ref: "consumer:test:context".into(),
+            events: [
+                nous_runtime::UseKind::Presented,
+                nous_runtime::UseKind::Referenced,
+            ]
+            .into_iter()
+            .map(|use_kind| nous_runtime::UseFeedbackEvent {
+                event_id: nous_core::UseEventId::new(),
+                reference: results[0].clone().unwrap(),
+                use_kind,
+                occurred_at: rt.cognition.now(subject),
+                context: serde_json::json!({}),
+            })
+            .collect(),
+        })
+        .await
+        .unwrap();
+    let service = nous_kernel::transport::KernelService(rt.clone());
+    let claim = service
+        .claim_maintenance(tonic::Request::new(k::ClaimMaintenanceRequest {
+            subject_id: subject.0.to_string(),
+            allowed_kinds: vec!["memory_consolidate".into()],
+            limit: 1,
+            lease_seconds: 60,
+        }))
+        .await
+        .unwrap()
+        .into_inner();
+    let need = claim.needs[0].clone();
+    let plan = service
+        .plan_maintenance(tonic::Request::new(k::PlanMaintenanceRequest {
+            claimed: Some(need.clone()),
+        }))
+        .await
+        .unwrap()
+        .into_inner();
+    let memory = plan
+        .candidates
+        .iter()
+        .find(|candidate| candidate.key == results[0].as_ref().unwrap().to_string())
+        .unwrap();
+    assert_eq!(memory.r#use.len(), 1);
+    assert_eq!(memory.r#use[0].kind, "referenced");
+    assert_eq!(memory.r#use[0].count, 1);
+    let schema = plan
+        .candidates
+        .iter()
+        .find(|candidate| candidate.key == results[2].as_ref().unwrap().to_string())
+        .unwrap();
+    assert!(schema.text.contains("Applicability: The observed contexts"));
+    assert!(
+        schema
+            .text
+            .contains("Boundary: Applies to these observed contexts.")
+    );
+    assert!(schema.text.contains("Tags:"));
+    assert!(schema.text.len() <= 4096);
+    assert_eq!(schema.formation_mode, "synthesized");
+    assert!(plan.candidates.iter().all(|candidate| {
+        matches!(
+            candidate
+                .target
+                .as_ref()
+                .unwrap()
+                .reference
+                .as_ref()
+                .unwrap()
+                .kind
+                .as_str(),
+            "memory_revision" | "cognitive_schema_revision"
+        )
+    }));
+    service
+        .finish_maintenance(tonic::Request::new(k::FinishMaintenanceRequest {
+            claimed: Some(need),
+            disposition: "satisfied".into(),
+            ..Default::default()
+        }))
+        .await
+        .unwrap();
 }

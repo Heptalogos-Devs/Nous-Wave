@@ -29,7 +29,17 @@ impl KernelService {
                 },
             )
             .collect();
-        let kinds:std::collections::BTreeMap<uuid::Uuid,String>=sqlx::query("SELECT schema_revision_id,formation_kind FROM cognitive_schema_revisions WHERE schema_revision_id=ANY($1::uuid[])").bind(schema_ids).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?.into_iter().map(|row|(row.get("schema_revision_id"),row.get("formation_kind"))).collect();
+        let schemas: std::collections::BTreeMap<uuid::Uuid, sqlx::postgres::PgRow> = sqlx::query("SELECT schema_revision_id,formation_kind,title,applicability_description,boundary_definition,tags FROM cognitive_schema_revisions WHERE schema_revision_id=ANY($1::uuid[])")
+            .bind(schema_ids).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?
+            .into_iter().map(|row| (row.get("schema_revision_id"), row)).collect();
+        let references: Vec<_> = result
+            .results
+            .iter()
+            .map(|hit| hit.revision.as_ref().unwrap_or(&hit.reference).clone())
+            .collect();
+        let mut use_summaries = self
+            .consolidation_use_summaries(subject, &references)
+            .await?;
         let mut scopes = vec![source];
         let mut entities = BTreeSet::new();
         for member in &plan.members {
@@ -54,18 +64,28 @@ impl KernelService {
                     .map(|entity| entity.as_str().to_owned()),
             );
             scopes.push(reference.clone());
-            let text: String = hit
-                .representation
-                .unwrap_or_default()
-                .chars()
-                .take(4096)
-                .collect();
+            let mut text = hit.representation.unwrap_or_default();
             let formation = if let CognitiveRef::CognitiveSchemaRevision(id) = &reference {
-                kinds.get(&id.0).cloned().unwrap_or_default()
+                if let Some(schema) = schemas.get(&id.0) {
+                    text = format!(
+                        "Title: {}\nClaim: {}\nApplicability: {}\nBoundary: {}\nTags: {:?}",
+                        schema.get::<Option<String>, _>("title").unwrap_or_default(),
+                        text,
+                        schema.get::<String, _>("applicability_description"),
+                        schema.get::<String, _>("boundary_definition"),
+                        schema.get::<Vec<uuid::Uuid>, _>("tags")
+                    );
+                    schema.get::<String, _>("formation_kind")
+                } else {
+                    String::new()
+                }
             } else {
                 hit.formation_mode.unwrap_or_default()
             };
-            let uses = self.consolidation_use_summary(subject, &reference).await?;
+            let text: String = text.chars().take(4096).collect();
+            let uses = use_summaries
+                .remove(&reference.to_string())
+                .unwrap_or_default();
             plan.candidates.push(k::ConsolidationCandidate {
                 key: reference.to_string(),
                 target: Some(k::ExpectedCognition {
@@ -147,22 +167,28 @@ impl KernelService {
                 .get(nous_memory::CONSOLIDATION_MAX_ACTIONS)? as u32;
         Ok(())
     }
-    async fn consolidation_use_summary(
+    async fn consolidation_use_summaries(
         &self,
         subject: SubjectId,
-        reference: &CognitiveRef,
-    ) -> Result<Vec<k::UseSummary>> {
-        let (kind, value) = reference_parts(reference);
-        let rows=sqlx::query("SELECT use_kind,COUNT(*) AS count,MAX(occurred_at) AS last_used FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind=$2 AND ref_value=$3 AND use_kind<>'presented' GROUP BY use_kind ORDER BY use_kind")
-            .bind(subject.0).bind(kind).bind(value).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| k::UseSummary {
+        references: &[CognitiveRef],
+    ) -> Result<std::collections::BTreeMap<String, Vec<k::UseSummary>>> {
+        let (kinds, values): (Vec<_>, Vec<_>) = references.iter().map(reference_parts).unzip();
+        let rows = sqlx::query("SELECT e.ref_kind,e.ref_value,e.use_kind,COUNT(*) AS count,MAX(e.occurred_at) AS last_used FROM cognitive_use_events e JOIN unnest($2::text[],$3::text[]) refs(kind,value) ON e.ref_kind=refs.kind AND e.ref_value=refs.value WHERE e.subject_id=$1 AND e.use_kind<>'presented' GROUP BY e.ref_kind,e.ref_value,e.use_kind ORDER BY e.ref_kind,e.ref_value,e.use_kind")
+            .bind(subject.0).bind(kinds).bind(values).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
+        let mut result = std::collections::BTreeMap::<String, Vec<k::UseSummary>>::new();
+        for row in rows {
+            let key = format!(
+                "{}:{}",
+                row.get::<String, _>("ref_kind"),
+                row.get::<String, _>("ref_value")
+            );
+            result.entry(key).or_default().push(k::UseSummary {
                 kind: row.get("use_kind"),
                 count: row.get::<i64, _>("count") as u64,
                 last_used_at: Some(timestamp(row.get("last_used"))),
-            })
-            .collect())
+            });
+        }
+        Ok(result)
     }
 }
 
