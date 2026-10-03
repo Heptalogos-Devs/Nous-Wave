@@ -6,7 +6,7 @@ Nous Wave 是一个 pre-production Subject cognition system。TypeScript Core �
 
 ## 本地开发
 
-前置条件：Node.js 24+、Corepack 与 Rust 1.98.1（由 rust-toolchain.toml 指定）。
+前置条件：Node.js 24 LTS（版本见 [.node-version](.node-version)）、Corepack 与 Rust（版本见 [rust-toolchain.toml](rust-toolchain.toml)）。pnpm 版本由 package.json 的 `packageManager` 指定。
 
 ```text
 corepack pnpm install --frozen-lockfile
