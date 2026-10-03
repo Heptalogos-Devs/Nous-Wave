@@ -1,3 +1,6 @@
+use nous_protocol::public::{
+    memory_service_server::MemoryService as _, subject_service_server::SubjectService as _,
+};
 mod test_support;
 
 use chrono::{Duration, SubsecRound, Utc};
@@ -3322,7 +3325,7 @@ async fn assert_schema_clock(
 }
 
 async fn assert_subject_pagination(rt: &NousRuntime) {
-    use nous_protocol::{kernel::authority_service_server::AuthorityService, public as p};
+    use nous_protocol::public as p;
     let mut subjects = vec![];
     for _ in 0..51 {
         subjects.push(create_subject(rt).await);

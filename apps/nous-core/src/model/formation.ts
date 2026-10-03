@@ -81,7 +81,7 @@ export async function formObservation(
     const outcome = outcomeSchema.parse(JSON.parse(text));
     if ("purged" in outcome)
       throw new ConnectError("Formation outcome was purged", Code.NotFound);
-    const memory = await kernel.authority.getMemoryRevision(
+    const memory = await kernel.memory.getMemoryRevision(
       { subjectId: r.subjectId, id: outcome.revisionId },
       options,
     );
@@ -286,7 +286,7 @@ export async function formObservation(
       FormMemoryRequestSchema,
       proposed.request as JsonValue,
     );
-    const memory = await kernel.authority.formMemory(request, options);
+    const memory = await kernel.memory.formMemory(request, options);
     await kernel.modelMaterial.saveWorkflow(
       {
         ...lease,

@@ -1,3 +1,7 @@
+import { IdentityService } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
+import { TopologyService } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
+import { MemoryService } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
+import { SubjectService } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import { MaterialService } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
 import {
   coreExecutionSchema,
@@ -21,6 +25,10 @@ export class KernelClient {
   readonly hostRuntime;
   readonly configuration;
   readonly authority;
+  readonly identity;
+  readonly topology;
+  readonly memory;
+  readonly subjects;
   readonly material;
   readonly artifacts;
   readonly health;
@@ -35,6 +43,10 @@ export class KernelClient {
     this.hostRuntime = createClient(KernelConfigurationService, transport);
     this.configuration = createClient(ConfigurationService, transport);
     this.material = createClient(MaterialService, transport);
+    this.subjects = createClient(SubjectService, transport);
+    this.memory = createClient(MemoryService, transport);
+    this.topology = createClient(TopologyService, transport);
+    this.identity = createClient(IdentityService, transport);
     this.authority = createClient(AuthorityService, transport);
     this.artifacts = createClient(ArtifactStreamService, transport);
     this.health = createClient(Health, transport);

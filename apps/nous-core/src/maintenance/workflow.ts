@@ -384,7 +384,7 @@ export async function runModelMaintenance(
       );
       return outcome;
     } else if (proposed.action === "withdraw")
-      await kernel.authority.withdrawJournal(
+      await kernel.memory.withdrawJournal(
         {
           operationId,
           subjectId: need.subjectId,

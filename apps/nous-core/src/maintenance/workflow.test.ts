@@ -306,6 +306,7 @@ describe("maintenance fixed workflow retry", () => {
     });
     const kernel = {
       execution: coreExecutionSchema.parse(undefined),
+      subjects: { listSubjects: list },
       authority: {
         getMaintenancePolicy: vi.fn(async () => ({
           enabled: true,
@@ -316,7 +317,6 @@ describe("maintenance fixed workflow retry", () => {
           maxElapsedMs: 60000,
           pollIntervalSeconds: 30,
         })),
-        listSubjects: list,
         claimMaintenance: vi.fn(async (input: { subjectId: string }) => ({
           needs: [
             { ...need, subjectId: input.subjectId, kind: "episode_segment" },

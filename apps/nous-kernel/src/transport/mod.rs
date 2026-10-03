@@ -1,13 +1,19 @@
 //! Private protocol adapters. Domain owners remain the semantic boundary.
 mod authority;
+mod canonical_identity;
 mod canonical_material;
+mod canonical_memory;
+mod canonical_subject;
+mod canonical_topology;
 mod configuration;
 mod consolidation;
 mod consolidation_plan;
 mod convert;
 mod episode;
 mod evidence;
+mod hosting;
 mod identity;
+pub use hosting::router;
 mod journal;
 mod longitudinal;
 mod maintenance_plan;

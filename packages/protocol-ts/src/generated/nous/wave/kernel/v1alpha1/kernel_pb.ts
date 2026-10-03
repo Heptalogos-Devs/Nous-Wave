@@ -8,15 +8,13 @@ import type { CommitLongitudinalConsolidationRequestSchema, CommitLongitudinalCo
 import { file_nous_wave_kernel_v1alpha1_consolidation } from "./consolidation_pb.js";
 import type { ApplyEpisodePartitionRequestSchema, ApplyEpisodePartitionResponseSchema, ClaimMaintenanceRequestSchema, ClaimMaintenanceResponseSchema, CommitJournalRequestSchema, FinishMaintenanceRequestSchema, MaintenancePlanSchema, MaintenancePolicySchema, OrganizeExperienceRequestSchema, OrganizeExperienceResponseSchema, PlanMaintenanceRequestSchema, RefreshMaintenanceRequestSchema } from "./longitudinal_pb.js";
 import { file_nous_wave_kernel_v1alpha1_longitudinal } from "./longitudinal_pb.js";
-import type { JournalMutationRequestSchema, JournalResponseSchema, JournalRevisionSchema, ListJournalRevisionsRequestSchema, ListJournalRevisionsResponseSchema, ListJournalsResponseSchema } from "../../v1alpha1/journal_pb.js";
+import type { JournalResponseSchema } from "../../v1alpha1/journal_pb.js";
 import { file_nous_wave_v1alpha1_journal } from "../../v1alpha1/journal_pb.js";
-import type { AcceptedObservationSchema, AdoptCognitiveSeedRequestSchema, ArtifactSchema, CognitiveSeedVersionSchema, CreateEpisodeRequestSchema, CreateSubjectRequestSchema, CreateWorkContextRequestSchema, EpisodeMutationRequestSchema, EpisodeResponseSchema, EpisodeRevisionSchema, FormMemoryRequestSchema, GetWorkContextRequestSchema, LinkEpisodeRevisionsRequestSchema, LinkRevisionsRequestSchema, ListEpisodeRevisionsRequestSchema, ListEpisodeRevisionsResponseSchema, ListEpisodesResponseSchema, ListMemoriesResponseSchema, ListRequestSchema, ListSessionsResponseSchema, ListSubjectsResponseSchema, ListWorkContextsRequestSchema, ListWorkContextsResponseSchema, MemoryHistoryRequestSchema, MemoryMutationRequestSchema, MemorySchema, ObjectRequestSchema, ObservationInputSchema, ProjectionRequestSchema, ProjectionSchema, QueryResponseSchema, ReportUseRequestSchema, ReportUseResponseSchema, ReviseEpisodeRequestSchema, ReviseMemoryRequestSchema, SessionSchema, SetAccessibilityRequestSchema, SetActiveWorkContextRequestSchema, SubjectRequestSchema, SubjectSchema, UpdateWorkContextRequestSchema, WorkContextMutationRequestSchema, WorkContextResponseSchema } from "../../v1alpha1/types_pb.js";
+import type { AcceptedObservationSchema, ArtifactSchema, CreateWorkContextRequestSchema, GetWorkContextRequestSchema, ListRequestSchema, ListSessionsResponseSchema, ListWorkContextsRequestSchema, ListWorkContextsResponseSchema, ObjectRequestSchema, ObservationInputSchema, ProjectionRequestSchema, ProjectionSchema, QueryResponseSchema, ReportUseRequestSchema, ReportUseResponseSchema, SessionSchema, SetActiveWorkContextRequestSchema, SubjectRequestSchema, UpdateWorkContextRequestSchema, WorkContextMutationRequestSchema, WorkContextResponseSchema } from "../../v1alpha1/types_pb.js";
 import { file_nous_wave_v1alpha1_types } from "../../v1alpha1/types_pb.js";
 import type { EmptySchema, TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_empty, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { BindIdentityRequestSchema, IdentityBindingSchema, ResolveIdentityRequestSchema, ResolveIdentityResponseSchema } from "../../v1alpha1/identity_pb.js";
-import { file_nous_wave_v1alpha1_identity } from "../../v1alpha1/identity_pb.js";
-import type { AddSchemaEvidenceRequestSchema, AssociationSchema, CognitiveSchemaSchema, ConsolidateMemoryRequestSchema, ConsolidationResponseSchema, CreateAssociationRequestSchema, CreateCognitiveSchemaRequestSchema, CreateTagRequestSchema, GetCognitiveSchemaRequestSchema, ListResourcesResponseSchema, ListTagsResponseSchema, MergeCognitiveSchemasRequestSchema, NeighborhoodRequestSchema, NeighborhoodResponseSchema, ProjectionStatusSchema, PutResourceRequestSchema, RebindEntityRequestSchema, ResourceDescriptorSchema, ReviseCognitiveSchemaRequestSchema, RevokeAssociationRequestSchema, SplitCognitiveSchemaRequestSchema, SplitCognitiveSchemaResponseSchema, SystemStatusSchema, TagSchema } from "../../v1alpha1/management_pb.js";
+import type { ListResourcesResponseSchema, ProjectionStatusSchema, PutResourceRequestSchema, ResourceDescriptorSchema, SystemStatusSchema } from "../../v1alpha1/management_pb.js";
 import { file_nous_wave_v1alpha1_management } from "../../v1alpha1/management_pb.js";
 import type { FinalizeQueryRequestSchema, KernelQueryRequestSchema, KernelQueryResponseSchema, ReleaseQueryRequestSchema } from "./model_pb.js";
 import { file_nous_wave_kernel_v1alpha1_model } from "./model_pb.js";
@@ -26,7 +24,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file nous/wave/kernel/v1alpha1/kernel.proto.
  */
 export const file_nous_wave_kernel_v1alpha1_kernel: GenFile = /*@__PURE__*/
-  fileDesc("CiZub3VzL3dhdmUva2VybmVsL3YxYWxwaGExL2tlcm5lbC5wcm90bxIZbm91cy53YXZlLmtlcm5lbC52MWFscGhhMSI2CgxVcGxvYWRIZWFkZXISEgoKc3ViamVjdF9pZBgBIAEoCRISCgptZWRpYV90eXBlGAIgASgJImMKC1VwbG9hZENodW5rEjkKBmhlYWRlchgBIAEoCzInLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuVXBsb2FkSGVhZGVySAASEQoHY29udGVudBgCIAEoDEgAQgYKBHBhcnQicgoPRG93bmxvYWRSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSEwoLYXJ0aWZhY3RfaWQYAiABKAkSEgoFc3RhcnQYAyABKARIAIgBARIQCgNlbmQYBCABKARIAYgBAUIICgZfc3RhcnRCBgoEX2VuZCIgCg1Eb3dubG9hZENodW5rEg8KB2NvbnRlbnQYASABKAwy3QEKFUFydGlmYWN0U3RyZWFtU2VydmljZRJYCg5VcGxvYWRBcnRpZmFjdBImLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuVXBsb2FkQ2h1bmsaHC5ub3VzLndhdmUudjFhbHBoYTEuQXJ0aWZhY3QoARJqChBEb3dubG9hZEFydGlmYWN0Eioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Eb3dubG9hZFJlcXVlc3QaKC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkRvd25sb2FkQ2h1bmswATKIRAoQQXV0aG9yaXR5U2VydmljZRJSChBHZXRDb2duaXRpdmVUaW1lEiIubm91cy53YXZlLnYxYWxwaGExLlN1YmplY3RSZXF1ZXN0GhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBKoAQofQ29tbWl0TG9uZ2l0dWRpbmFsQ29uc29saWRhdGlvbhJBLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuQ29tbWl0TG9uZ2l0dWRpbmFsQ29uc29saWRhdGlvblJlcXVlc3QaQi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkNvbW1pdExvbmdpdHVkaW5hbENvbnNvbGlkYXRpb25SZXNwb25zZRJiChJSZWZyZXNoTWFpbnRlbmFuY2USNC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlJlZnJlc2hNYWludGVuYW5jZVJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkScAoPUGxhbk1haW50ZW5hbmNlEjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5QbGFuTWFpbnRlbmFuY2VSZXF1ZXN0Gioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5NYWludGVuYW5jZVBsYW4SaAoUR2V0TWFpbnRlbmFuY2VQb2xpY3kSIi5ub3VzLndhdmUudjFhbHBoYTEuU3ViamVjdFJlcXVlc3QaLC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLk1haW50ZW5hbmNlUG9saWN5EnsKEENsYWltTWFpbnRlbmFuY2USMi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkNsYWltTWFpbnRlbmFuY2VSZXF1ZXN0GjMubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5DbGFpbU1haW50ZW5hbmNlUmVzcG9uc2USYAoRRmluaXNoTWFpbnRlbmFuY2USMy5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkZpbmlzaE1haW50ZW5hbmNlUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRKBAQoST3JnYW5pemVFeHBlcmllbmNlEjQubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Pcmdhbml6ZUV4cGVyaWVuY2VSZXF1ZXN0GjUubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Pcmdhbml6ZUV4cGVyaWVuY2VSZXNwb25zZRKKAQoVQXBwbHlFcGlzb2RlUGFydGl0aW9uEjcubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5BcHBseUVwaXNvZGVQYXJ0aXRpb25SZXF1ZXN0Gjgubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5BcHBseUVwaXNvZGVQYXJ0aXRpb25SZXNwb25zZRJlCg1Db21taXRKb3VybmFsEi8ubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Db21taXRKb3VybmFsUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Kb3VybmFsUmVzcG9uc2USagoRQ3JlYXRlV29ya0NvbnRleHQSLC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlV29ya0NvbnRleHRSZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0UmVzcG9uc2USZAoOR2V0V29ya0NvbnRleHQSKS5ub3VzLndhdmUudjFhbHBoYTEuR2V0V29ya0NvbnRleHRSZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0UmVzcG9uc2USbQoQTGlzdFdvcmtDb250ZXh0cxIrLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0V29ya0NvbnRleHRzUmVxdWVzdBosLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0V29ya0NvbnRleHRzUmVzcG9uc2USagoRVXBkYXRlV29ya0NvbnRleHQSLC5ub3VzLndhdmUudjFhbHBoYTEuVXBkYXRlV29ya0NvbnRleHRSZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0UmVzcG9uc2USawoQUGF1c2VXb3JrQ29udGV4dBIuLm5vdXMud2F2ZS52MWFscGhhMS5Xb3JrQ29udGV4dE11dGF0aW9uUmVxdWVzdBonLm5vdXMud2F2ZS52MWFscGhhMS5Xb3JrQ29udGV4dFJlc3BvbnNlEmwKEVJlc3VtZVdvcmtDb250ZXh0Ei4ubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0TXV0YXRpb25SZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0UmVzcG9uc2USaQoORW5kV29ya0NvbnRleHQSLi5ub3VzLndhdmUudjFhbHBoYTEuV29ya0NvbnRleHRNdXRhdGlvblJlcXVlc3QaJy5ub3VzLndhdmUudjFhbHBoYTEuV29ya0NvbnRleHRSZXNwb25zZRJkChRTZXRBY3RpdmVXb3JrQ29udGV4dBIvLm5vdXMud2F2ZS52MWFscGhhMS5TZXRBY3RpdmVXb3JrQ29udGV4dFJlcXVlc3QaGy5ub3VzLndhdmUudjFhbHBoYTEuU2Vzc2lvbhJeCg1DcmVhdGVFcGlzb2RlEigubm91cy53YXZlLnYxYWxwaGExLkNyZWF0ZUVwaXNvZGVSZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLkVwaXNvZGVSZXNwb25zZRJUCgpHZXRFcGlzb2RlEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaIy5ub3VzLndhdmUudjFhbHBoYTEuRXBpc29kZVJlc3BvbnNlElwKEkdldEVwaXNvZGVSZXZpc2lvbhIhLm5vdXMud2F2ZS52MWFscGhhMS5PYmplY3RSZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLkVwaXNvZGVSZXZpc2lvbhJZCgxMaXN0RXBpc29kZXMSHy5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFJlcXVlc3QaKC5ub3VzLndhdmUudjFhbHBoYTEuTGlzdEVwaXNvZGVzUmVzcG9uc2USeQoUTGlzdEVwaXNvZGVSZXZpc2lvbnMSLy5ub3VzLndhdmUudjFhbHBoYTEuTGlzdEVwaXNvZGVSZXZpc2lvbnNSZXF1ZXN0GjAubm91cy53YXZlLnYxYWxwaGExLkxpc3RFcGlzb2RlUmV2aXNpb25zUmVzcG9uc2USXgoNUmV2aXNlRXBpc29kZRIoLm5vdXMud2F2ZS52MWFscGhhMS5SZXZpc2VFcGlzb2RlUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5FcGlzb2RlUmVzcG9uc2USXwoUTGlua0VwaXNvZGVSZXZpc2lvbnMSLy5ub3VzLndhdmUudjFhbHBoYTEuTGlua0VwaXNvZGVSZXZpc2lvbnNSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5EmIKD1N1cHByZXNzRXBpc29kZRIqLm5vdXMud2F2ZS52MWFscGhhMS5FcGlzb2RlTXV0YXRpb25SZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLkVwaXNvZGVSZXNwb25zZRJhCg5SZXN0b3JlRXBpc29kZRIqLm5vdXMud2F2ZS52MWFscGhhMS5FcGlzb2RlTXV0YXRpb25SZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLkVwaXNvZGVSZXNwb25zZRJiCg9XaXRoZHJhd0VwaXNvZGUSKi5ub3VzLndhdmUudjFhbHBoYTEuRXBpc29kZU11dGF0aW9uUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5FcGlzb2RlUmVzcG9uc2USYgoPUmVhY2NlcHRFcGlzb2RlEioubm91cy53YXZlLnYxYWxwaGExLkVwaXNvZGVNdXRhdGlvblJlcXVlc3QaIy5ub3VzLndhdmUudjFhbHBoYTEuRXBpc29kZVJlc3BvbnNlElIKDFB1cmdlRXBpc29kZRIqLm5vdXMud2F2ZS52MWFscGhhMS5FcGlzb2RlTXV0YXRpb25SZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5ElQKCkdldEpvdXJuYWwSIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Kb3VybmFsUmVzcG9uc2USXAoSR2V0Sm91cm5hbFJldmlzaW9uEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaIy5ub3VzLndhdmUudjFhbHBoYTEuSm91cm5hbFJldmlzaW9uElkKDExpc3RKb3VybmFscxIfLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0UmVxdWVzdBooLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0Sm91cm5hbHNSZXNwb25zZRJ5ChRMaXN0Sm91cm5hbFJldmlzaW9ucxIvLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0Sm91cm5hbFJldmlzaW9uc1JlcXVlc3QaMC5ub3VzLndhdmUudjFhbHBoYTEuTGlzdEpvdXJuYWxSZXZpc2lvbnNSZXNwb25zZRJiCg9TdXBwcmVzc0pvdXJuYWwSKi5ub3VzLndhdmUudjFhbHBoYTEuSm91cm5hbE11dGF0aW9uUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Kb3VybmFsUmVzcG9uc2USYQoOUmVzdG9yZUpvdXJuYWwSKi5ub3VzLndhdmUudjFhbHBoYTEuSm91cm5hbE11dGF0aW9uUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Kb3VybmFsUmVzcG9uc2USYgoPV2l0aGRyYXdKb3VybmFsEioubm91cy53YXZlLnYxYWxwaGExLkpvdXJuYWxNdXRhdGlvblJlcXVlc3QaIy5ub3VzLndhdmUudjFhbHBoYTEuSm91cm5hbFJlc3BvbnNlEmIKD1JlYWNjZXB0Sm91cm5hbBIqLm5vdXMud2F2ZS52MWFscGhhMS5Kb3VybmFsTXV0YXRpb25SZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLkpvdXJuYWxSZXNwb25zZRJSCgxQdXJnZUpvdXJuYWwSKi5ub3VzLndhdmUudjFhbHBoYTEuSm91cm5hbE11dGF0aW9uUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJbChBTZXRBY2Nlc3NpYmlsaXR5Eisubm91cy53YXZlLnYxYWxwaGExLlNldEFjY2Vzc2liaWxpdHlSZXF1ZXN0Ghoubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeRJRCg1MaW5rUmV2aXNpb25zEigubm91cy53YXZlLnYxYWxwaGExLkxpbmtSZXZpc2lvbnNSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5El0KC1B1dFJlc291cmNlEiYubm91cy53YXZlLnYxYWxwaGExLlB1dFJlc291cmNlUmVxdWVzdBomLm5vdXMud2F2ZS52MWFscGhhMS5SZXNvdXJjZURlc2NyaXB0b3ISWAoLR2V0UmVzb3VyY2USIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBomLm5vdXMud2F2ZS52MWFscGhhMS5SZXNvdXJjZURlc2NyaXB0b3ISWwoNTGlzdFJlc291cmNlcxIfLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0UmVxdWVzdBopLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0UmVzb3VyY2VzUmVzcG9uc2USSwoOUmVtb3ZlUmVzb3VyY2USIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJKCglDcmVhdGVUYWcSJC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlVGFnUmVxdWVzdBoXLm5vdXMud2F2ZS52MWFscGhhMS5UYWcSRAoGR2V0VGFnEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaFy5ub3VzLndhdmUudjFhbHBoYTEuVGFnElEKCExpc3RUYWdzEh8ubm91cy53YXZlLnYxYWxwaGExLkxpc3RSZXF1ZXN0GiQubm91cy53YXZlLnYxYWxwaGExLkxpc3RUYWdzUmVzcG9uc2USYgoRQ3JlYXRlQXNzb2NpYXRpb24SLC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlQXNzb2NpYXRpb25SZXF1ZXN0Gh8ubm91cy53YXZlLnYxYWxwaGExLkFzc29jaWF0aW9uElkKEVJldm9rZUFzc29jaWF0aW9uEiwubm91cy53YXZlLnYxYWxwaGExLlJldm9rZUFzc29jaWF0aW9uUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJuChVDcmVhdGVDb2duaXRpdmVTY2hlbWESMC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlQ29nbml0aXZlU2NoZW1hUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTY2hlbWESaAoSR2V0Q29nbml0aXZlU2NoZW1hEi0ubm91cy53YXZlLnYxYWxwaGExLkdldENvZ25pdGl2ZVNjaGVtYVJlcXVlc3QaIy5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlU2NoZW1hEmYKEUFkZFNjaGVtYUV2aWRlbmNlEiwubm91cy53YXZlLnYxYWxwaGExLkFkZFNjaGVtYUV2aWRlbmNlUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTY2hlbWESbgoVUmV2aXNlQ29nbml0aXZlU2NoZW1hEjAubm91cy53YXZlLnYxYWxwaGExLlJldmlzZUNvZ25pdGl2ZVNjaGVtYVJlcXVlc3QaIy5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlU2NoZW1hEnkKFFNwbGl0Q29nbml0aXZlU2NoZW1hEi8ubm91cy53YXZlLnYxYWxwaGExLlNwbGl0Q29nbml0aXZlU2NoZW1hUmVxdWVzdBowLm5vdXMud2F2ZS52MWFscGhhMS5TcGxpdENvZ25pdGl2ZVNjaGVtYVJlc3BvbnNlEm4KFU1lcmdlQ29nbml0aXZlU2NoZW1hcxIwLm5vdXMud2F2ZS52MWFscGhhMS5NZXJnZUNvZ25pdGl2ZVNjaGVtYXNSZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVNjaGVtYRJkCg9HZXROZWlnaGJvcmhvb2QSJy5ub3VzLndhdmUudjFhbHBoYTEuTmVpZ2hib3Job29kUmVxdWVzdBooLm5vdXMud2F2ZS52MWFscGhhMS5OZWlnaGJvcmhvb2RSZXNwb25zZRJPCgxSZWJpbmRFbnRpdHkSJy5ub3VzLndhdmUudjFhbHBoYTEuUmViaW5kRW50aXR5UmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJFCglHZXRTdGF0dXMSFi5nb29nbGUucHJvdG9idWYuRW1wdHkaIC5ub3VzLndhdmUudjFhbHBoYTEuU3lzdGVtU3RhdHVzEl8KE0dldFByb2plY3Rpb25TdGF0dXMSIi5ub3VzLndhdmUudjFhbHBoYTEuU3ViamVjdFJlcXVlc3QaJC5ub3VzLndhdmUudjFhbHBoYTEuUHJvamVjdGlvblN0YXR1cxJsChFDb25zb2xpZGF0ZU1lbW9yeRIsLm5vdXMud2F2ZS52MWFscGhhMS5Db25zb2xpZGF0ZU1lbW9yeVJlcXVlc3QaKS5ub3VzLndhdmUudjFhbHBoYTEuQ29uc29saWRhdGlvblJlc3BvbnNlElwKDEJpbmRJZGVudGl0eRInLm5vdXMud2F2ZS52MWFscGhhMS5CaW5kSWRlbnRpdHlSZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLklkZW50aXR5QmluZGluZxJqCg9SZXNvbHZlSWRlbnRpdHkSKi5ub3VzLndhdmUudjFhbHBoYTEuUmVzb2x2ZUlkZW50aXR5UmVxdWVzdBorLm5vdXMud2F2ZS52MWFscGhhMS5SZXNvbHZlSWRlbnRpdHlSZXNwb25zZRJfChZCdWlsZENvbnRyaWJ1dGlvbkJhdGNoEiUubm91cy53YXZlLnYxYWxwaGExLlByb2plY3Rpb25SZXF1ZXN0Gh4ubm91cy53YXZlLnYxYWxwaGExLlByb2plY3Rpb24SVgoNQ3JlYXRlU3ViamVjdBIoLm5vdXMud2F2ZS52MWFscGhhMS5DcmVhdGVTdWJqZWN0UmVxdWVzdBobLm5vdXMud2F2ZS52MWFscGhhMS5TdWJqZWN0Ek0KCkdldFN1YmplY3QSIi5ub3VzLndhdmUudjFhbHBoYTEuU3ViamVjdFJlcXVlc3QaGy5ub3VzLndhdmUudjFhbHBoYTEuU3ViamVjdBJZCgxMaXN0U3ViamVjdHMSHy5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFJlcXVlc3QaKC5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFN1YmplY3RzUmVzcG9uc2USYAoQR2V0Q29nbml0aXZlU2VlZBIiLm5vdXMud2F2ZS52MWFscGhhMS5TdWJqZWN0UmVxdWVzdBooLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTZWVkVmVyc2lvbhJtChJBZG9wdENvZ25pdGl2ZVNlZWQSLS5ub3VzLndhdmUudjFhbHBoYTEuQWRvcHRDb2duaXRpdmVTZWVkUmVxdWVzdBooLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVTZWVkVmVyc2lvbhJOCgtPcGVuU2Vzc2lvbhIiLm5vdXMud2F2ZS52MWFscGhhMS5TdWJqZWN0UmVxdWVzdBobLm5vdXMud2F2ZS52MWFscGhhMS5TZXNzaW9uEkwKCkdldFNlc3Npb24SIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBobLm5vdXMud2F2ZS52MWFscGhhMS5TZXNzaW9uElkKDExpc3RTZXNzaW9ucxIfLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0UmVxdWVzdBooLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0U2Vzc2lvbnNSZXNwb25zZRJOCgxDbG9zZVNlc3Npb24SIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBobLm5vdXMud2F2ZS52MWFscGhhMS5TZXNzaW9uEmIKEVJlY29yZE9ic2VydmF0aW9uEiQubm91cy53YXZlLnYxYWxwaGExLk9ic2VydmF0aW9uSW5wdXQaJy5ub3VzLndhdmUudjFhbHBoYTEuQWNjZXB0ZWRPYnNlcnZhdGlvbhJmCgVRdWVyeRItLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuS2VybmVsUXVlcnlSZXF1ZXN0Gi4ubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5LZXJuZWxRdWVyeVJlc3BvbnNlEmMKDUZpbmFsaXplUXVlcnkSLy5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkZpbmFsaXplUXVlcnlSZXF1ZXN0GiEubm91cy53YXZlLnYxYWxwaGExLlF1ZXJ5UmVzcG9uc2USVgoMUmVsZWFzZVF1ZXJ5Ei4ubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5SZWxlYXNlUXVlcnlSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5ElgKCVJlcG9ydFVzZRIkLm5vdXMud2F2ZS52MWFscGhhMS5SZXBvcnRVc2VSZXF1ZXN0GiUubm91cy53YXZlLnYxYWxwaGExLlJlcG9ydFVzZVJlc3BvbnNlEkoKCUdldE1lbW9yeRIhLm5vdXMud2F2ZS52MWFscGhhMS5PYmplY3RSZXF1ZXN0Ghoubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeRJZCgxMaXN0TWVtb3JpZXMSHy5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFJlcXVlc3QaKC5ub3VzLndhdmUudjFhbHBoYTEuTGlzdE1lbW9yaWVzUmVzcG9uc2USUgoRR2V0TWVtb3J5UmV2aXNpb24SIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBoaLm5vdXMud2F2ZS52MWFscGhhMS5NZW1vcnkSaQoTTGlzdE1lbW9yeVJldmlzaW9ucxIoLm5vdXMud2F2ZS52MWFscGhhMS5NZW1vcnlIaXN0b3J5UmVxdWVzdBooLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0TWVtb3JpZXNSZXNwb25zZRJPCgpGb3JtTWVtb3J5EiUubm91cy53YXZlLnYxYWxwaGExLkZvcm1NZW1vcnlSZXF1ZXN0Ghoubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeRJTCgxSZXZpc2VNZW1vcnkSJy5ub3VzLndhdmUudjFhbHBoYTEuUmV2aXNlTWVtb3J5UmVxdWVzdBoaLm5vdXMud2F2ZS52MWFscGhhMS5NZW1vcnkSVwoOU3VwcHJlc3NNZW1vcnkSKS5ub3VzLndhdmUudjFhbHBoYTEuTWVtb3J5TXV0YXRpb25SZXF1ZXN0Ghoubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeRJWCg1SZXN0b3JlTWVtb3J5Eikubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeU11dGF0aW9uUmVxdWVzdBoaLm5vdXMud2F2ZS52MWFscGhhMS5NZW1vcnkSUAoLUHVyZ2VNZW1vcnkSKS5ub3VzLndhdmUudjFhbHBoYTEuTWVtb3J5TXV0YXRpb25SZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5ElcKDldpdGhkcmF3TWVtb3J5Eikubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeU11dGF0aW9uUmVxdWVzdBoaLm5vdXMud2F2ZS52MWFscGhhMS5NZW1vcnkSVwoOUmVhY2NlcHRNZW1vcnkSKS5ub3VzLndhdmUudjFhbHBoYTEuTWVtb3J5TXV0YXRpb25SZXF1ZXN0Ghoubm91cy53YXZlLnYxYWxwaGExLk1lbW9yeWIGcHJvdG8z", [file_nous_wave_kernel_v1alpha1_consolidation, file_nous_wave_kernel_v1alpha1_longitudinal, file_nous_wave_v1alpha1_journal, file_nous_wave_v1alpha1_types, file_google_protobuf_empty, file_google_protobuf_timestamp, file_nous_wave_v1alpha1_identity, file_nous_wave_v1alpha1_management, file_nous_wave_kernel_v1alpha1_model]);
+  fileDesc("CiZub3VzL3dhdmUva2VybmVsL3YxYWxwaGExL2tlcm5lbC5wcm90bxIZbm91cy53YXZlLmtlcm5lbC52MWFscGhhMSI2CgxVcGxvYWRIZWFkZXISEgoKc3ViamVjdF9pZBgBIAEoCRISCgptZWRpYV90eXBlGAIgASgJImMKC1VwbG9hZENodW5rEjkKBmhlYWRlchgBIAEoCzInLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuVXBsb2FkSGVhZGVySAASEQoHY29udGVudBgCIAEoDEgAQgYKBHBhcnQicgoPRG93bmxvYWRSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSEwoLYXJ0aWZhY3RfaWQYAiABKAkSEgoFc3RhcnQYAyABKARIAIgBARIQCgNlbmQYBCABKARIAYgBAUIICgZfc3RhcnRCBgoEX2VuZCIgCg1Eb3dubG9hZENodW5rEg8KB2NvbnRlbnQYASABKAwy3QEKFUFydGlmYWN0U3RyZWFtU2VydmljZRJYCg5VcGxvYWRBcnRpZmFjdBImLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuVXBsb2FkQ2h1bmsaHC5ub3VzLndhdmUudjFhbHBoYTEuQXJ0aWZhY3QoARJqChBEb3dubG9hZEFydGlmYWN0Eioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Eb3dubG9hZFJlcXVlc3QaKC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkRvd25sb2FkQ2h1bmswATKZGwoQQXV0aG9yaXR5U2VydmljZRJSChBHZXRDb2duaXRpdmVUaW1lEiIubm91cy53YXZlLnYxYWxwaGExLlN1YmplY3RSZXF1ZXN0GhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBKoAQofQ29tbWl0TG9uZ2l0dWRpbmFsQ29uc29saWRhdGlvbhJBLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuQ29tbWl0TG9uZ2l0dWRpbmFsQ29uc29saWRhdGlvblJlcXVlc3QaQi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkNvbW1pdExvbmdpdHVkaW5hbENvbnNvbGlkYXRpb25SZXNwb25zZRJiChJSZWZyZXNoTWFpbnRlbmFuY2USNC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlJlZnJlc2hNYWludGVuYW5jZVJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkScAoPUGxhbk1haW50ZW5hbmNlEjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5QbGFuTWFpbnRlbmFuY2VSZXF1ZXN0Gioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5NYWludGVuYW5jZVBsYW4SaAoUR2V0TWFpbnRlbmFuY2VQb2xpY3kSIi5ub3VzLndhdmUudjFhbHBoYTEuU3ViamVjdFJlcXVlc3QaLC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLk1haW50ZW5hbmNlUG9saWN5EnsKEENsYWltTWFpbnRlbmFuY2USMi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkNsYWltTWFpbnRlbmFuY2VSZXF1ZXN0GjMubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5DbGFpbU1haW50ZW5hbmNlUmVzcG9uc2USYAoRRmluaXNoTWFpbnRlbmFuY2USMy5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkZpbmlzaE1haW50ZW5hbmNlUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRKBAQoST3JnYW5pemVFeHBlcmllbmNlEjQubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Pcmdhbml6ZUV4cGVyaWVuY2VSZXF1ZXN0GjUubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Pcmdhbml6ZUV4cGVyaWVuY2VSZXNwb25zZRKKAQoVQXBwbHlFcGlzb2RlUGFydGl0aW9uEjcubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5BcHBseUVwaXNvZGVQYXJ0aXRpb25SZXF1ZXN0Gjgubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5BcHBseUVwaXNvZGVQYXJ0aXRpb25SZXNwb25zZRJlCg1Db21taXRKb3VybmFsEi8ubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Db21taXRKb3VybmFsUmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5Kb3VybmFsUmVzcG9uc2USagoRQ3JlYXRlV29ya0NvbnRleHQSLC5ub3VzLndhdmUudjFhbHBoYTEuQ3JlYXRlV29ya0NvbnRleHRSZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0UmVzcG9uc2USZAoOR2V0V29ya0NvbnRleHQSKS5ub3VzLndhdmUudjFhbHBoYTEuR2V0V29ya0NvbnRleHRSZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0UmVzcG9uc2USbQoQTGlzdFdvcmtDb250ZXh0cxIrLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0V29ya0NvbnRleHRzUmVxdWVzdBosLm5vdXMud2F2ZS52MWFscGhhMS5MaXN0V29ya0NvbnRleHRzUmVzcG9uc2USagoRVXBkYXRlV29ya0NvbnRleHQSLC5ub3VzLndhdmUudjFhbHBoYTEuVXBkYXRlV29ya0NvbnRleHRSZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0UmVzcG9uc2USawoQUGF1c2VXb3JrQ29udGV4dBIuLm5vdXMud2F2ZS52MWFscGhhMS5Xb3JrQ29udGV4dE11dGF0aW9uUmVxdWVzdBonLm5vdXMud2F2ZS52MWFscGhhMS5Xb3JrQ29udGV4dFJlc3BvbnNlEmwKEVJlc3VtZVdvcmtDb250ZXh0Ei4ubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0TXV0YXRpb25SZXF1ZXN0Gicubm91cy53YXZlLnYxYWxwaGExLldvcmtDb250ZXh0UmVzcG9uc2USaQoORW5kV29ya0NvbnRleHQSLi5ub3VzLndhdmUudjFhbHBoYTEuV29ya0NvbnRleHRNdXRhdGlvblJlcXVlc3QaJy5ub3VzLndhdmUudjFhbHBoYTEuV29ya0NvbnRleHRSZXNwb25zZRJkChRTZXRBY3RpdmVXb3JrQ29udGV4dBIvLm5vdXMud2F2ZS52MWFscGhhMS5TZXRBY3RpdmVXb3JrQ29udGV4dFJlcXVlc3QaGy5ub3VzLndhdmUudjFhbHBoYTEuU2Vzc2lvbhJdCgtQdXRSZXNvdXJjZRImLm5vdXMud2F2ZS52MWFscGhhMS5QdXRSZXNvdXJjZVJlcXVlc3QaJi5ub3VzLndhdmUudjFhbHBoYTEuUmVzb3VyY2VEZXNjcmlwdG9yElgKC0dldFJlc291cmNlEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaJi5ub3VzLndhdmUudjFhbHBoYTEuUmVzb3VyY2VEZXNjcmlwdG9yElsKDUxpc3RSZXNvdXJjZXMSHy5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFJlcXVlc3QaKS5ub3VzLndhdmUudjFhbHBoYTEuTGlzdFJlc291cmNlc1Jlc3BvbnNlEksKDlJlbW92ZVJlc291cmNlEiEubm91cy53YXZlLnYxYWxwaGExLk9iamVjdFJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSRQoJR2V0U3RhdHVzEhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5GiAubm91cy53YXZlLnYxYWxwaGExLlN5c3RlbVN0YXR1cxJfChNHZXRQcm9qZWN0aW9uU3RhdHVzEiIubm91cy53YXZlLnYxYWxwaGExLlN1YmplY3RSZXF1ZXN0GiQubm91cy53YXZlLnYxYWxwaGExLlByb2plY3Rpb25TdGF0dXMSXwoWQnVpbGRDb250cmlidXRpb25CYXRjaBIlLm5vdXMud2F2ZS52MWFscGhhMS5Qcm9qZWN0aW9uUmVxdWVzdBoeLm5vdXMud2F2ZS52MWFscGhhMS5Qcm9qZWN0aW9uEk4KC09wZW5TZXNzaW9uEiIubm91cy53YXZlLnYxYWxwaGExLlN1YmplY3RSZXF1ZXN0Ghsubm91cy53YXZlLnYxYWxwaGExLlNlc3Npb24STAoKR2V0U2Vzc2lvbhIhLm5vdXMud2F2ZS52MWFscGhhMS5PYmplY3RSZXF1ZXN0Ghsubm91cy53YXZlLnYxYWxwaGExLlNlc3Npb24SWQoMTGlzdFNlc3Npb25zEh8ubm91cy53YXZlLnYxYWxwaGExLkxpc3RSZXF1ZXN0Gigubm91cy53YXZlLnYxYWxwaGExLkxpc3RTZXNzaW9uc1Jlc3BvbnNlEk4KDENsb3NlU2Vzc2lvbhIhLm5vdXMud2F2ZS52MWFscGhhMS5PYmplY3RSZXF1ZXN0Ghsubm91cy53YXZlLnYxYWxwaGExLlNlc3Npb24SYgoRUmVjb3JkT2JzZXJ2YXRpb24SJC5ub3VzLndhdmUudjFhbHBoYTEuT2JzZXJ2YXRpb25JbnB1dBonLm5vdXMud2F2ZS52MWFscGhhMS5BY2NlcHRlZE9ic2VydmF0aW9uEmYKBVF1ZXJ5Ei0ubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5LZXJuZWxRdWVyeVJlcXVlc3QaLi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLktlcm5lbFF1ZXJ5UmVzcG9uc2USYwoNRmluYWxpemVRdWVyeRIvLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRmluYWxpemVRdWVyeVJlcXVlc3QaIS5ub3VzLndhdmUudjFhbHBoYTEuUXVlcnlSZXNwb25zZRJWCgxSZWxlYXNlUXVlcnkSLi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlJlbGVhc2VRdWVyeVJlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSWAoJUmVwb3J0VXNlEiQubm91cy53YXZlLnYxYWxwaGExLlJlcG9ydFVzZVJlcXVlc3QaJS5ub3VzLndhdmUudjFhbHBoYTEuUmVwb3J0VXNlUmVzcG9uc2ViBnByb3RvMw", [file_nous_wave_kernel_v1alpha1_consolidation, file_nous_wave_kernel_v1alpha1_longitudinal, file_nous_wave_v1alpha1_journal, file_nous_wave_v1alpha1_types, file_google_protobuf_empty, file_google_protobuf_timestamp, file_nous_wave_v1alpha1_management, file_nous_wave_kernel_v1alpha1_model]);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.UploadHeader
@@ -300,190 +298,6 @@ export const AuthorityService: GenService<{
     output: typeof SessionSchema;
   },
   /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.CreateEpisode
-   */
-  createEpisode: {
-    methodKind: "unary";
-    input: typeof CreateEpisodeRequestSchema;
-    output: typeof EpisodeResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetEpisode
-   */
-  getEpisode: {
-    methodKind: "unary";
-    input: typeof ObjectRequestSchema;
-    output: typeof EpisodeResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetEpisodeRevision
-   */
-  getEpisodeRevision: {
-    methodKind: "unary";
-    input: typeof ObjectRequestSchema;
-    output: typeof EpisodeRevisionSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ListEpisodes
-   */
-  listEpisodes: {
-    methodKind: "unary";
-    input: typeof ListRequestSchema;
-    output: typeof ListEpisodesResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ListEpisodeRevisions
-   */
-  listEpisodeRevisions: {
-    methodKind: "unary";
-    input: typeof ListEpisodeRevisionsRequestSchema;
-    output: typeof ListEpisodeRevisionsResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ReviseEpisode
-   */
-  reviseEpisode: {
-    methodKind: "unary";
-    input: typeof ReviseEpisodeRequestSchema;
-    output: typeof EpisodeResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.LinkEpisodeRevisions
-   */
-  linkEpisodeRevisions: {
-    methodKind: "unary";
-    input: typeof LinkEpisodeRevisionsRequestSchema;
-    output: typeof EmptySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.SuppressEpisode
-   */
-  suppressEpisode: {
-    methodKind: "unary";
-    input: typeof EpisodeMutationRequestSchema;
-    output: typeof EpisodeResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.RestoreEpisode
-   */
-  restoreEpisode: {
-    methodKind: "unary";
-    input: typeof EpisodeMutationRequestSchema;
-    output: typeof EpisodeResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.WithdrawEpisode
-   */
-  withdrawEpisode: {
-    methodKind: "unary";
-    input: typeof EpisodeMutationRequestSchema;
-    output: typeof EpisodeResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ReacceptEpisode
-   */
-  reacceptEpisode: {
-    methodKind: "unary";
-    input: typeof EpisodeMutationRequestSchema;
-    output: typeof EpisodeResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.PurgeEpisode
-   */
-  purgeEpisode: {
-    methodKind: "unary";
-    input: typeof EpisodeMutationRequestSchema;
-    output: typeof EmptySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetJournal
-   */
-  getJournal: {
-    methodKind: "unary";
-    input: typeof ObjectRequestSchema;
-    output: typeof JournalResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetJournalRevision
-   */
-  getJournalRevision: {
-    methodKind: "unary";
-    input: typeof ObjectRequestSchema;
-    output: typeof JournalRevisionSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ListJournals
-   */
-  listJournals: {
-    methodKind: "unary";
-    input: typeof ListRequestSchema;
-    output: typeof ListJournalsResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ListJournalRevisions
-   */
-  listJournalRevisions: {
-    methodKind: "unary";
-    input: typeof ListJournalRevisionsRequestSchema;
-    output: typeof ListJournalRevisionsResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.SuppressJournal
-   */
-  suppressJournal: {
-    methodKind: "unary";
-    input: typeof JournalMutationRequestSchema;
-    output: typeof JournalResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.RestoreJournal
-   */
-  restoreJournal: {
-    methodKind: "unary";
-    input: typeof JournalMutationRequestSchema;
-    output: typeof JournalResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.WithdrawJournal
-   */
-  withdrawJournal: {
-    methodKind: "unary";
-    input: typeof JournalMutationRequestSchema;
-    output: typeof JournalResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ReacceptJournal
-   */
-  reacceptJournal: {
-    methodKind: "unary";
-    input: typeof JournalMutationRequestSchema;
-    output: typeof JournalResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.PurgeJournal
-   */
-  purgeJournal: {
-    methodKind: "unary";
-    input: typeof JournalMutationRequestSchema;
-    output: typeof EmptySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.SetAccessibility
-   */
-  setAccessibility: {
-    methodKind: "unary";
-    input: typeof SetAccessibilityRequestSchema;
-    output: typeof MemorySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.LinkRevisions
-   */
-  linkRevisions: {
-    methodKind: "unary";
-    input: typeof LinkRevisionsRequestSchema;
-    output: typeof EmptySchema;
-  },
-  /**
    * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.PutResource
    */
   putResource: {
@@ -516,110 +330,6 @@ export const AuthorityService: GenService<{
     output: typeof EmptySchema;
   },
   /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.CreateTag
-   */
-  createTag: {
-    methodKind: "unary";
-    input: typeof CreateTagRequestSchema;
-    output: typeof TagSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetTag
-   */
-  getTag: {
-    methodKind: "unary";
-    input: typeof ObjectRequestSchema;
-    output: typeof TagSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ListTags
-   */
-  listTags: {
-    methodKind: "unary";
-    input: typeof ListRequestSchema;
-    output: typeof ListTagsResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.CreateAssociation
-   */
-  createAssociation: {
-    methodKind: "unary";
-    input: typeof CreateAssociationRequestSchema;
-    output: typeof AssociationSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.RevokeAssociation
-   */
-  revokeAssociation: {
-    methodKind: "unary";
-    input: typeof RevokeAssociationRequestSchema;
-    output: typeof EmptySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.CreateCognitiveSchema
-   */
-  createCognitiveSchema: {
-    methodKind: "unary";
-    input: typeof CreateCognitiveSchemaRequestSchema;
-    output: typeof CognitiveSchemaSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetCognitiveSchema
-   */
-  getCognitiveSchema: {
-    methodKind: "unary";
-    input: typeof GetCognitiveSchemaRequestSchema;
-    output: typeof CognitiveSchemaSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.AddSchemaEvidence
-   */
-  addSchemaEvidence: {
-    methodKind: "unary";
-    input: typeof AddSchemaEvidenceRequestSchema;
-    output: typeof CognitiveSchemaSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ReviseCognitiveSchema
-   */
-  reviseCognitiveSchema: {
-    methodKind: "unary";
-    input: typeof ReviseCognitiveSchemaRequestSchema;
-    output: typeof CognitiveSchemaSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.SplitCognitiveSchema
-   */
-  splitCognitiveSchema: {
-    methodKind: "unary";
-    input: typeof SplitCognitiveSchemaRequestSchema;
-    output: typeof SplitCognitiveSchemaResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.MergeCognitiveSchemas
-   */
-  mergeCognitiveSchemas: {
-    methodKind: "unary";
-    input: typeof MergeCognitiveSchemasRequestSchema;
-    output: typeof CognitiveSchemaSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetNeighborhood
-   */
-  getNeighborhood: {
-    methodKind: "unary";
-    input: typeof NeighborhoodRequestSchema;
-    output: typeof NeighborhoodResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.RebindEntity
-   */
-  rebindEntity: {
-    methodKind: "unary";
-    input: typeof RebindEntityRequestSchema;
-    output: typeof EmptySchema;
-  },
-  /**
    * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetStatus
    */
   getStatus: {
@@ -636,76 +346,12 @@ export const AuthorityService: GenService<{
     output: typeof ProjectionStatusSchema;
   },
   /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ConsolidateMemory
-   */
-  consolidateMemory: {
-    methodKind: "unary";
-    input: typeof ConsolidateMemoryRequestSchema;
-    output: typeof ConsolidationResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.BindIdentity
-   */
-  bindIdentity: {
-    methodKind: "unary";
-    input: typeof BindIdentityRequestSchema;
-    output: typeof IdentityBindingSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ResolveIdentity
-   */
-  resolveIdentity: {
-    methodKind: "unary";
-    input: typeof ResolveIdentityRequestSchema;
-    output: typeof ResolveIdentityResponseSchema;
-  },
-  /**
    * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.BuildContributionBatch
    */
   buildContributionBatch: {
     methodKind: "unary";
     input: typeof ProjectionRequestSchema;
     output: typeof ProjectionSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.CreateSubject
-   */
-  createSubject: {
-    methodKind: "unary";
-    input: typeof CreateSubjectRequestSchema;
-    output: typeof SubjectSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetSubject
-   */
-  getSubject: {
-    methodKind: "unary";
-    input: typeof SubjectRequestSchema;
-    output: typeof SubjectSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ListSubjects
-   */
-  listSubjects: {
-    methodKind: "unary";
-    input: typeof ListRequestSchema;
-    output: typeof ListSubjectsResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetCognitiveSeed
-   */
-  getCognitiveSeed: {
-    methodKind: "unary";
-    input: typeof SubjectRequestSchema;
-    output: typeof CognitiveSeedVersionSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.AdoptCognitiveSeed
-   */
-  adoptCognitiveSeed: {
-    methodKind: "unary";
-    input: typeof AdoptCognitiveSeedRequestSchema;
-    output: typeof CognitiveSeedVersionSchema;
   },
   /**
    * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.OpenSession
@@ -778,94 +424,6 @@ export const AuthorityService: GenService<{
     methodKind: "unary";
     input: typeof ReportUseRequestSchema;
     output: typeof ReportUseResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetMemory
-   */
-  getMemory: {
-    methodKind: "unary";
-    input: typeof ObjectRequestSchema;
-    output: typeof MemorySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ListMemories
-   */
-  listMemories: {
-    methodKind: "unary";
-    input: typeof ListRequestSchema;
-    output: typeof ListMemoriesResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.GetMemoryRevision
-   */
-  getMemoryRevision: {
-    methodKind: "unary";
-    input: typeof ObjectRequestSchema;
-    output: typeof MemorySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ListMemoryRevisions
-   */
-  listMemoryRevisions: {
-    methodKind: "unary";
-    input: typeof MemoryHistoryRequestSchema;
-    output: typeof ListMemoriesResponseSchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.FormMemory
-   */
-  formMemory: {
-    methodKind: "unary";
-    input: typeof FormMemoryRequestSchema;
-    output: typeof MemorySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ReviseMemory
-   */
-  reviseMemory: {
-    methodKind: "unary";
-    input: typeof ReviseMemoryRequestSchema;
-    output: typeof MemorySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.SuppressMemory
-   */
-  suppressMemory: {
-    methodKind: "unary";
-    input: typeof MemoryMutationRequestSchema;
-    output: typeof MemorySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.RestoreMemory
-   */
-  restoreMemory: {
-    methodKind: "unary";
-    input: typeof MemoryMutationRequestSchema;
-    output: typeof MemorySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.PurgeMemory
-   */
-  purgeMemory: {
-    methodKind: "unary";
-    input: typeof MemoryMutationRequestSchema;
-    output: typeof EmptySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.WithdrawMemory
-   */
-  withdrawMemory: {
-    methodKind: "unary";
-    input: typeof MemoryMutationRequestSchema;
-    output: typeof MemorySchema;
-  },
-  /**
-   * @generated from rpc nous.wave.kernel.v1alpha1.AuthorityService.ReacceptMemory
-   */
-  reacceptMemory: {
-    methodKind: "unary";
-    input: typeof MemoryMutationRequestSchema;
-    output: typeof MemorySchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_nous_wave_kernel_v1alpha1_kernel, 1);

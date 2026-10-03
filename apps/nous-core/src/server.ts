@@ -209,7 +209,7 @@ export async function createCore(settings: CoreOptions) {
         const compiled = await compileNousQL(
           r.nousql,
           async (kind, locator) => {
-            const result = await kernel.authority.resolveIdentity(
+            const result = await kernel.identity.resolveIdentity(
               {
                 subjectId: r.subjectId,
                 kind,
@@ -251,7 +251,7 @@ export async function createCore(settings: CoreOptions) {
             "resource",
           ].includes(hit.reference.kind)
         ) {
-          const binding = await kernel.authority.bindIdentity(
+          const binding = await kernel.identity.bindIdentity(
             { subjectId: r.subjectId, canonical: hit.reference },
             options(c),
           );
@@ -313,59 +313,55 @@ export async function createCore(settings: CoreOptions) {
     },
   };
   const subjects: ServiceImpl<typeof SubjectService> = {
-    createSubject: (r, c) => kernel.authority.createSubject(r, options(c)),
-    getSubject: (r, c) => kernel.authority.getSubject(r, options(c)),
-    listSubjects: (r, c) => kernel.authority.listSubjects(r, options(c)),
-    getCognitiveSeed: (r, c) =>
-      kernel.authority.getCognitiveSeed(r, options(c)),
+    createSubject: (r, c) => kernel.subjects.createSubject(r, options(c)),
+    getSubject: (r, c) => kernel.subjects.getSubject(r, options(c)),
+    listSubjects: (r, c) => kernel.subjects.listSubjects(r, options(c)),
+    getCognitiveSeed: (r, c) => kernel.subjects.getCognitiveSeed(r, options(c)),
     adoptCognitiveSeed: (r, c) =>
-      kernel.authority.adoptCognitiveSeed(r, options(c)),
+      kernel.subjects.adoptCognitiveSeed(r, options(c)),
   };
   const memories: ServiceImpl<typeof MemoryService> = {
-    setAccessibility: (r, c) =>
-      kernel.authority.setAccessibility(r, options(c)),
-    linkRevisions: (r, c) => kernel.authority.linkRevisions(r, options(c)),
-    consolidateMemory: (r, c) =>
-      kernel.authority.consolidateMemory(r, options(c)),
-    getMemory: (r, c) => kernel.authority.getMemory(r, options(c)),
-    listMemories: (r, c) => kernel.authority.listMemories(r, options(c)),
-    getMemoryRevision: (r, c) =>
-      kernel.authority.getMemoryRevision(r, options(c)),
+    setAccessibility: (r, c) => kernel.memory.setAccessibility(r, options(c)),
+    linkRevisions: (r, c) => kernel.memory.linkRevisions(r, options(c)),
+    consolidateMemory: (r, c) => kernel.memory.consolidateMemory(r, options(c)),
+    getMemory: (r, c) => kernel.memory.getMemory(r, options(c)),
+    listMemories: (r, c) => kernel.memory.listMemories(r, options(c)),
+    getMemoryRevision: (r, c) => kernel.memory.getMemoryRevision(r, options(c)),
     listMemoryRevisions: (r, c) =>
-      kernel.authority.listMemoryRevisions(r, options(c)),
-    formMemory: (r, c) => kernel.authority.formMemory(r, options(c)),
-    reviseMemory: (r, c) => kernel.authority.reviseMemory(r, options(c)),
-    suppressMemory: (r, c) => kernel.authority.suppressMemory(r, options(c)),
-    restoreMemory: (r, c) => kernel.authority.restoreMemory(r, options(c)),
-    withdrawMemory: (r, c) => kernel.authority.withdrawMemory(r, options(c)),
-    reacceptMemory: (r, c) => kernel.authority.reacceptMemory(r, options(c)),
-    purgeMemory: (r, c) => kernel.authority.purgeMemory(r, options(c)),
-    createEpisode: (r, c) => kernel.authority.createEpisode(r, options(c)),
-    getEpisode: (r, c) => kernel.authority.getEpisode(r, options(c)),
+      kernel.memory.listMemoryRevisions(r, options(c)),
+    formMemory: (r, c) => kernel.memory.formMemory(r, options(c)),
+    reviseMemory: (r, c) => kernel.memory.reviseMemory(r, options(c)),
+    suppressMemory: (r, c) => kernel.memory.suppressMemory(r, options(c)),
+    restoreMemory: (r, c) => kernel.memory.restoreMemory(r, options(c)),
+    withdrawMemory: (r, c) => kernel.memory.withdrawMemory(r, options(c)),
+    reacceptMemory: (r, c) => kernel.memory.reacceptMemory(r, options(c)),
+    purgeMemory: (r, c) => kernel.memory.purgeMemory(r, options(c)),
+    createEpisode: (r, c) => kernel.memory.createEpisode(r, options(c)),
+    getEpisode: (r, c) => kernel.memory.getEpisode(r, options(c)),
     getEpisodeRevision: (r, c) =>
-      kernel.authority.getEpisodeRevision(r, options(c)),
-    listEpisodes: (r, c) => kernel.authority.listEpisodes(r, options(c)),
+      kernel.memory.getEpisodeRevision(r, options(c)),
+    listEpisodes: (r, c) => kernel.memory.listEpisodes(r, options(c)),
     listEpisodeRevisions: (r, c) =>
-      kernel.authority.listEpisodeRevisions(r, options(c)),
-    reviseEpisode: (r, c) => kernel.authority.reviseEpisode(r, options(c)),
+      kernel.memory.listEpisodeRevisions(r, options(c)),
+    reviseEpisode: (r, c) => kernel.memory.reviseEpisode(r, options(c)),
     linkEpisodeRevisions: (r, c) =>
-      kernel.authority.linkEpisodeRevisions(r, options(c)),
-    suppressEpisode: (r, c) => kernel.authority.suppressEpisode(r, options(c)),
-    restoreEpisode: (r, c) => kernel.authority.restoreEpisode(r, options(c)),
-    withdrawEpisode: (r, c) => kernel.authority.withdrawEpisode(r, options(c)),
-    reacceptEpisode: (r, c) => kernel.authority.reacceptEpisode(r, options(c)),
-    purgeEpisode: (r, c) => kernel.authority.purgeEpisode(r, options(c)),
-    getJournal: (r, c) => kernel.authority.getJournal(r, options(c)),
+      kernel.memory.linkEpisodeRevisions(r, options(c)),
+    suppressEpisode: (r, c) => kernel.memory.suppressEpisode(r, options(c)),
+    restoreEpisode: (r, c) => kernel.memory.restoreEpisode(r, options(c)),
+    withdrawEpisode: (r, c) => kernel.memory.withdrawEpisode(r, options(c)),
+    reacceptEpisode: (r, c) => kernel.memory.reacceptEpisode(r, options(c)),
+    purgeEpisode: (r, c) => kernel.memory.purgeEpisode(r, options(c)),
+    getJournal: (r, c) => kernel.memory.getJournal(r, options(c)),
     getJournalRevision: (r, c) =>
-      kernel.authority.getJournalRevision(r, options(c)),
-    listJournals: (r, c) => kernel.authority.listJournals(r, options(c)),
+      kernel.memory.getJournalRevision(r, options(c)),
+    listJournals: (r, c) => kernel.memory.listJournals(r, options(c)),
     listJournalRevisions: (r, c) =>
-      kernel.authority.listJournalRevisions(r, options(c)),
-    suppressJournal: (r, c) => kernel.authority.suppressJournal(r, options(c)),
-    restoreJournal: (r, c) => kernel.authority.restoreJournal(r, options(c)),
-    withdrawJournal: (r, c) => kernel.authority.withdrawJournal(r, options(c)),
-    reacceptJournal: (r, c) => kernel.authority.reacceptJournal(r, options(c)),
-    purgeJournal: (r, c) => kernel.authority.purgeJournal(r, options(c)),
+      kernel.memory.listJournalRevisions(r, options(c)),
+    suppressJournal: (r, c) => kernel.memory.suppressJournal(r, options(c)),
+    restoreJournal: (r, c) => kernel.memory.restoreJournal(r, options(c)),
+    withdrawJournal: (r, c) => kernel.memory.withdrawJournal(r, options(c)),
+    reacceptJournal: (r, c) => kernel.memory.reacceptJournal(r, options(c)),
+    purgeJournal: (r, c) => kernel.memory.purgeJournal(r, options(c)),
   };
   const material: ServiceImpl<typeof MaterialService> = {
     getDerivedRegion: (r, c) => kernel.material.getDerivedRegion(r, options(c)),
@@ -383,8 +379,8 @@ export async function createCore(settings: CoreOptions) {
       kernel.material.materializeEvidence(r, options(c)),
   };
   const identities: ServiceImpl<typeof IdentityService> = {
-    bindIdentity: (r, c) => kernel.authority.bindIdentity(r, options(c)),
-    resolveIdentity: (r, c) => kernel.authority.resolveIdentity(r, options(c)),
+    bindIdentity: (r, c) => kernel.identity.bindIdentity(r, options(c)),
+    resolveIdentity: (r, c) => kernel.identity.resolveIdentity(r, options(c)),
   };
   const resources: ServiceImpl<typeof ResourceService> = {
     materializeResource: (r, c) =>
@@ -395,27 +391,27 @@ export async function createCore(settings: CoreOptions) {
     removeResource: (r, c) => kernel.authority.removeResource(r, options(c)),
   };
   const topology: ServiceImpl<typeof TopologyService> = {
-    createTag: (r, c) => kernel.authority.createTag(r, options(c)),
-    getTag: (r, c) => kernel.authority.getTag(r, options(c)),
-    listTags: (r, c) => kernel.authority.listTags(r, options(c)),
+    createTag: (r, c) => kernel.topology.createTag(r, options(c)),
+    getTag: (r, c) => kernel.topology.getTag(r, options(c)),
+    listTags: (r, c) => kernel.topology.listTags(r, options(c)),
     createAssociation: (r, c) =>
-      kernel.authority.createAssociation(r, options(c)),
+      kernel.topology.createAssociation(r, options(c)),
     revokeAssociation: (r, c) =>
-      kernel.authority.revokeAssociation(r, options(c)),
-    getNeighborhood: (r, c) => kernel.authority.getNeighborhood(r, options(c)),
-    rebindEntity: (r, c) => kernel.authority.rebindEntity(r, options(c)),
+      kernel.topology.revokeAssociation(r, options(c)),
+    getNeighborhood: (r, c) => kernel.topology.getNeighborhood(r, options(c)),
+    rebindEntity: (r, c) => kernel.topology.rebindEntity(r, options(c)),
     createCognitiveSchema: (r, c) =>
-      kernel.authority.createCognitiveSchema(r, options(c)),
+      kernel.topology.createCognitiveSchema(r, options(c)),
     getCognitiveSchema: (r, c) =>
-      kernel.authority.getCognitiveSchema(r, options(c)),
+      kernel.topology.getCognitiveSchema(r, options(c)),
     addSchemaEvidence: (r, c) =>
-      kernel.authority.addSchemaEvidence(r, options(c)),
+      kernel.topology.addSchemaEvidence(r, options(c)),
     reviseCognitiveSchema: (r, c) =>
-      kernel.authority.reviseCognitiveSchema(r, options(c)),
+      kernel.topology.reviseCognitiveSchema(r, options(c)),
     splitCognitiveSchema: (r, c) =>
-      kernel.authority.splitCognitiveSchema(r, options(c)),
+      kernel.topology.splitCognitiveSchema(r, options(c)),
     mergeCognitiveSchemas: (r, c) =>
-      kernel.authority.mergeCognitiveSchemas(r, options(c)),
+      kernel.topology.mergeCognitiveSchemas(r, options(c)),
   };
   const system: ServiceImpl<typeof SystemService> = {
     getStatus: async (r, c) => {

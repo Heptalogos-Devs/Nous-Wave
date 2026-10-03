@@ -261,7 +261,7 @@ export class SubjectMaintenanceScheduler {
           this.reachedEnd = false;
         }
         try {
-          const page = await this.kernel.authority.listSubjects(
+          const page = await this.kernel.subjects.listSubjects(
             { status: "active", page: { pageToken: this.pageToken } },
             {
               signal: tickSignal,
