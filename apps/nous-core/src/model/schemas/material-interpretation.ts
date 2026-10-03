@@ -116,7 +116,12 @@ export const materialInterpretationSchema = z
       z.strictObject({
         text: z.string(),
         fidelity: z.enum(["verbatim", "semantic", "uncertain"]),
-        speaker_hint: z.string().nullable(),
+        speaker_hint: z
+          .string()
+          .nullable()
+          .describe(
+            "Evidence-grounded voice label; use a neutral speaker label or null when identity is unknown. A person named by narration is not necessarily the speaker.",
+          ),
         ...time,
         support_keys: supports,
       }),

@@ -15,6 +15,10 @@ type Source = {
   raw_sha256: string;
   topic: string;
   entity_ref: string;
+  entities?: { surface: string; entityRef: string; semanticRole: string }[];
+  publication_date?: string;
+  rights?: string;
+  extraction?: string;
 };
 type Unit = { id: string; source: string; paragraph: number; sha256: string };
 type Query = {
@@ -41,6 +45,8 @@ type Receipt = {
 type Track = {
   createId: string;
   subjectId?: string;
+  sessionId?: string;
+  sessionClosed?: boolean;
   units: Record<string, Receipt>;
 };
 type State = {
@@ -73,6 +79,8 @@ const { values, positionals } = parseArgs({
     concurrency: { type: "string", default: "4" },
     limit: { type: "string", default: "0" },
     "embedding-batch": { type: "string", default: "64" },
+    "skip-embeddings": { type: "boolean", default: false },
+    session: { type: "boolean", default: false },
     "embedding-interval-ms": { type: "string", default: "0" },
   },
 });
@@ -203,6 +211,12 @@ async function importCorpus() {
     throw new Error("--embedding-interval-ms must be 0..60000");
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 4)
     throw new Error("--concurrency must be 1..4");
+  if (values.session && !track.sessionId) {
+    track.sessionId = (
+      await client.cognition.openSession({ subjectId }, options)
+    ).sessionId;
+    await save();
+  }
   let cursor = 0,
     completed = 0;
   await Promise.all(
@@ -224,15 +238,20 @@ async function importCorpus() {
               {
                 subjectId,
                 requestId: receipt.observeId,
+                sessionId: track.sessionId,
                 ...webSource(source.url),
                 context: {
                   source_url: source.url,
                   raw_source_sha256: source.raw_sha256,
                   unit_sha256: unit.sha256,
                   paragraph: unit.paragraph,
-                  extraction: "html-p-text-v1",
+                  extraction: source.extraction ?? "html-p-text-v1",
+                  ...(source.publication_date
+                    ? { publication_date: source.publication_date }
+                    : {}),
+                  ...(source.rights ? { rights: source.rights } : {}),
                 },
-                entities: [
+                entities: source.entities ?? [
                   {
                     surface: source.topic,
                     entityRef: source.entity_ref,
@@ -338,23 +357,39 @@ async function importCorpus() {
       }
     }),
   );
+  if (
+    track.sessionId &&
+    !track.sessionClosed &&
+    selected.every((unit) => track.units[unit.id]?.revisionId)
+  ) {
+    await client.cognition.closeSession(
+      { subjectId, id: track.sessionId },
+      options,
+    );
+    track.sessionClosed = true;
+    await save();
+  }
   for (const source of manifest.sources) {
     if (
-      manifest.units.some(
+      !manifest.units.some(
         (unit) => unit.source === source.id && track.units[unit.id]?.revisionId,
       )
     )
+      continue;
+    for (const entity of source.entities ?? [
+      { surface: source.topic, entityRef: source.entity_ref },
+    ])
       await client.identity.bind(
         {
           subjectId,
-          canonical: { kind: "entity", value: source.entity_ref },
-          displayName: source.topic,
+          canonical: { kind: "entity", value: entity.entityRef },
+          displayName: entity.surface,
         },
         options,
       );
   }
   let committed = 0;
-  while (true) {
+  while (!values["skip-embeddings"]) {
     const batch = await client.model.prepareEmbeddings(
       { subjectId, limit: Number(values["embedding-batch"]) },
       options,

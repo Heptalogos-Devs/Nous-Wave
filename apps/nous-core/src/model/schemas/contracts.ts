@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ModelRole } from "../configuration.js";
+import type { ModelRole } from "../roles.js";
 import { formationSchema } from "./formation.js";
 import { projectionStewardSchema } from "./projection.js";
 import { materialInterpretationSchema } from "./material-interpretation.js";
@@ -22,7 +22,7 @@ const material = contract(
   "material_interpretation",
   materialInterpretationSchema,
 );
-export const structuredRoleContracts = {
+const structuredRoleContracts = {
   projection_steward: contract(
     "projection.steward",
     "projection_steward",
@@ -51,7 +51,7 @@ export const structuredRoleContracts = {
     consolidationSchema,
   ),
 } as const;
-export type StructuredRole = keyof typeof structuredRoleContracts;
+type StructuredRole = keyof typeof structuredRoleContracts;
 export type ModelGenerationOutput<R extends ModelRole> =
   R extends StructuredRole
     ? z.output<(typeof structuredRoleContracts)[R]["owner"]>

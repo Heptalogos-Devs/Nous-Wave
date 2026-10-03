@@ -38,6 +38,10 @@ Core 的 `model/schemas/contracts.ts` 按 role 唯一绑定 model-facing Zod own
 
 Schema title/description 说明字段语义；任务策略由 Prompt 拥有。Formation 的 title 与 Steward 的 summary 用 required nullable scalar 表达缺省状态。`inspect:model-contracts` 从同一 registry 和 PromptRegistry 导出实际合同、Prompt 与无敏感信息的角色身份，生成文件只保存在 ignored research data。检查命令及 research gateway trace 见 [开发脚本](../../../../scripts/README.md#模型合同与-trace-检查)。
 
+## 输入语义与 Steward
+
+Formation 使用 evidenceText、resolvedEntityCandidates、aboutnessMode envelope。证据、source dates 和作者观点保持其来源归属。Steward 只取得 policy-filtered segment id/role/text，合同为 task-agnostic faithful compression；没有 task intent 时不声称按 current consumer 任务选择相关性。Memory contribution 在 Kernel owner materialize，并携带 evidence 与实际 revision，受文本预算和领域可访问性规则约束。
+
 ## Producer identity
 
 ProducerSignature 标识实际 adapter/protocol、operation、model identifier/revision、Prompt logical id/digest、strategy 与 role configuration digest。Credential、token 与 provider response body 不属于 producer identity。

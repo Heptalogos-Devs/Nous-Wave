@@ -38,7 +38,7 @@ export const episodePartitionSchema = z
   });
 export type EpisodePartitionProposal = z.infer<typeof episodePartitionSchema>;
 
-export const journalPointSchema = z.strictObject({
+const journalPointSchema = z.strictObject({
   role: z.enum([
     "summary",
     "outcome",

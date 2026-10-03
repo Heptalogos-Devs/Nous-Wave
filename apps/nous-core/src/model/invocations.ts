@@ -27,7 +27,7 @@ import {
   modelConfigurationSchema,
 } from "./configuration.js";
 import { PromptRegistry, type PromptAsset } from "./prompts.js";
-import { modelRoleIdentity } from "./identity.js";
+import { modelRoleIdentity, invocationConfigDigest } from "./identity.js";
 
 class MediaProtocolError extends Error {}
 class ModelOutputError extends Error {}
@@ -286,17 +286,12 @@ export class ModelInvocations {
       const prompt = await this.prompts?.load(name, path);
       if (!prompt) throw new Error("Strategy prompt unavailable");
       snapshot.prompt = prompt;
-      snapshot.configDigest = canonicalDigest({
-        binding: snapshot.configDigest,
-        promptId: prompt.id,
-        promptDigest: prompt.digest,
-      });
     }
-    if (adapter)
-      snapshot.configDigest = canonicalDigest({
-        binding: snapshot.configDigest,
-        adapter,
-      });
+    snapshot.configDigest = invocationConfigDigest(
+      snapshot.configDigest,
+      path ? snapshot.prompt : undefined,
+      adapter,
+    );
     return snapshot;
   }
   private hydrate(input: ModelRoleSnapshot): ReadyRole {

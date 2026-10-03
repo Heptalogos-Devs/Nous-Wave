@@ -151,7 +151,10 @@ export class ModelRuntime {
     const content: UserContent =
       typeof input === "string"
         ? JSON.stringify({
-            source_text: input,
+            evidence_text: input,
+            evidence_kind: context.sourceText
+              ? "original_text"
+              : "committed_representation",
             support_catalog: Object.keys(context.catalog),
             modalities: {
               visual: context.visual,

@@ -238,3 +238,50 @@ async fn resident_noop_preserves_hold_and_revision_and_eviction_is_one_revision(
         1
     );
 }
+
+#[tokio::test]
+async fn projection_materializes_supported_memory_within_the_text_budget() {
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let source = observation(&runtime, subject, "Grounded projection content").await;
+    let memory = runtime
+        .require_memory()
+        .expect("memory")
+        .form_memory(test_support::form_input(
+            subject,
+            source.occurrence.occurrence_id,
+            OperationId::new(),
+            "Grounded projection content",
+        ))
+        .await
+        .expect("formed memory");
+    let session = runtime
+        .cognition
+        .open_session(subject, serde_json::json!({}))
+        .await
+        .expect("session");
+    let service = nous_kernel::transport::KernelService(runtime);
+    let projection = service
+        .build_contribution_batch(nous_protocol::public::ProjectionRequest {
+            subject_id: subject.0.to_string(),
+            session_id: session.session_id.0.to_string(),
+            consumer_id: "default".into(),
+            max_items: 4,
+            max_text_bytes: 8,
+            situation_refs: vec![nous_protocol::public::CognitiveRef {
+                kind: "memory_revision".into(),
+                value: memory.revision.memory_revision_id.0.to_string(),
+            }],
+            ..Default::default()
+        })
+        .await
+        .expect("projection");
+    assert!(projection.degradation.is_empty());
+    assert_eq!(projection.segments[0].text, "Grounded");
+    assert_eq!(projection.segments[0].evidence.len(), 1);
+    assert_eq!(
+        projection.segments[0].source_revision.as_deref(),
+        Some(memory.revision.memory_revision_id.0.to_string().as_str())
+    );
+}

@@ -199,7 +199,7 @@ export async function formObservation(
       );
       const result = await models.form(
         JSON.stringify({
-          producerMetadata: text,
+          evidenceText: text,
           resolvedEntityCandidates: snapshot.candidates,
           aboutnessMode: mode,
         }),

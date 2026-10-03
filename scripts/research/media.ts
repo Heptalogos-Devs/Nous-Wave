@@ -38,6 +38,10 @@ const { values } = parseArgs({
     "run-root": { type: "string" },
     "client-module": { type: "string" },
     manifest: { type: "string", default: "docs/research/corpus/media.json" },
+    unit: { type: "string", multiple: true },
+    strategy: { type: "string", multiple: true },
+    "derive-only": { type: "boolean", default: false },
+    "skip-retrieval": { type: "boolean", default: false },
     "raw-root": {
       type: "string",
       default: resolve(workspacePaths.research, "corpus/raw"),
@@ -63,8 +67,30 @@ process.once("SIGINT", () =>
 const options = { timeoutMs: 180000, signal: cancellation.signal };
 const manifestBytes = await readFile(values.manifest),
   digest = createHash("sha256").update(manifestBytes).digest("hex");
-const units = (JSON.parse(manifestBytes.toString("utf8")) as { units: Unit[] })
-  .units;
+const allUnits = (
+  JSON.parse(manifestBytes.toString("utf8")) as { units: Unit[] }
+).units;
+const units = values.unit
+  ? allUnits.filter((unit) => values.unit!.includes(unit.id))
+  : allUnits;
+if (values.unit?.some((id) => !allUnits.some((unit) => unit.id === id)))
+  throw new Error("Unknown media unit");
+const strategies = values.strategy ?? [
+  "description_only",
+  "direct_structured",
+  "describe_then_structure",
+];
+if (
+  strategies.some(
+    (strategy) =>
+      ![
+        "description_only",
+        "direct_structured",
+        "describe_then_structure",
+      ].includes(strategy),
+  )
+)
+  throw new Error("Unknown media strategy");
 const statePath = resolve(values.state);
 const state = JSON.parse(
   await readFile(statePath, "utf8").catch((error: NodeJS.ErrnoException) => {
@@ -157,16 +183,12 @@ for (const unit of units) {
     receipt.sourceRegionId = observed.sourceRegionId;
     await save();
   }
-  for (const strategy of [
-    "description_only",
-    "direct_structured",
-    "describe_then_structure",
-  ]) {
+  for (const strategy of strategies) {
     const operation = (receipt.strategies[strategy] ??= {
       operationId: randomUUID(),
     });
     if (
-      operation.revisionId &&
+      (values["derive-only"] || operation.revisionId) &&
       (operation.result as { status?: string } | undefined)?.status === "PASS"
     )
       continue;
@@ -186,21 +208,23 @@ for (const unit of units) {
         throw new Error(`Derivation incomplete: ${json(derived.degradation)}`);
       if (strategy !== "description_only" && !selected.structuredPayload)
         throw new Error("Structured strategy did not commit a JSON payload");
-      const formed = await client.model.formFromObservation(
-        {
-          subjectId,
-          operationId: operation.operationId,
-          occurrenceId: receipt.occurrenceId,
-          representationId: selected.representationId,
-          aboutnessMode: "none",
-        },
-        options,
-      );
-      if (!formed.memory)
+      const formed = values["derive-only"]
+        ? undefined
+        : await client.model.formFromObservation(
+            {
+              subjectId,
+              operationId: operation.operationId,
+              occurrenceId: receipt.occurrenceId,
+              representationId: selected.representationId,
+              aboutnessMode: "none",
+            },
+            options,
+          );
+      if (formed && !formed.memory)
         throw new Error(
           `Formation did not commit Memory: ${json(formed.degradation)}`,
         );
-      operation.revisionId = formed.memory.revisionId;
+      if (formed?.memory) operation.revisionId = formed.memory.revisionId;
       const missingFacts = unit.oracle_patterns.filter(
         (pattern) => !new RegExp(pattern, "is").test(selected.text ?? ""),
       );
@@ -279,39 +303,45 @@ for (const unit of units) {
     );
   }
 }
-while (true) {
-  const batch = await client.model.prepareEmbeddings(
-    { subjectId, limit: 1 },
-    options,
-  );
-  await save();
-  if (batch.degradation.length)
-    throw new Error(`Media embeddings incomplete: ${json(batch.degradation)}`);
-  if (!batch.committed) break;
-  await delay(2000, undefined, { signal: cancellation.signal });
+if (!values["derive-only"] && !values["skip-retrieval"]) {
+  while (true) {
+    const batch = await client.model.prepareEmbeddings(
+      { subjectId, limit: 1 },
+      options,
+    );
+    await save();
+    if (batch.degradation.length)
+      throw new Error(
+        `Media embeddings incomplete: ${json(batch.degradation)}`,
+      );
+    if (!batch.committed) break;
+    await delay(2000, undefined, { signal: cancellation.signal });
+  }
+  for (const unit of units) {
+    const response = await client.cognition.query(
+      {
+        subjectId,
+        nousql: `${JSON.stringify(unit.query)} $memory $limit(10) $diagnostics(full)`,
+      },
+      options,
+    );
+    const expected = Object.values(state.units[unit.id]!.strategies)
+      .map((operation) => operation.revisionId)
+      .filter(Boolean);
+    const recalled = response.hits.filter((hit) =>
+      expected.includes(hit.reference?.value),
+    );
+    state.units[unit.id]!.query = {
+      status:
+        recalled.length && response.status === "complete" ? "PASS" : "FAIL",
+      response,
+    };
+    await save();
+  }
 }
-for (const unit of units) {
-  const response = await client.cognition.query(
-    {
-      subjectId,
-      nousql: `${JSON.stringify(unit.query)} $memory $limit(10) $diagnostics(full)`,
-    },
-    options,
-  );
-  const expected = Object.values(state.units[unit.id]!.strategies)
-    .map((operation) => operation.revisionId)
-    .filter(Boolean);
-  const recalled = response.hits.filter((hit) =>
-    expected.includes(hit.reference?.value),
-  );
-  state.units[unit.id]!.query = {
-    status: recalled.length && response.status === "complete" ? "PASS" : "FAIL",
-    response,
-  };
-  await save();
-}
-const outcomes = Object.values(state.units)
-  .flatMap((unit) => Object.values(unit.strategies))
+const outcomes = units
+  .map((unit) => state.units[unit.id]!)
+  .flatMap((unit) => strategies.map((strategy) => unit.strategies[strategy]!))
   .map(
     (operation) =>
       operation.result as { status?: string; quality?: string } | undefined,
@@ -323,9 +353,11 @@ const qualityFailures = outcomes.filter(
 const unverified = outcomes.filter(
   (outcome) => outcome?.quality === "NOT_RUN",
 ).length;
-const queryFailures = units.filter(
-  (unit) => state.units[unit.id]?.query?.status !== "PASS",
-).length;
+const queryFailures =
+  values["derive-only"] || values["skip-retrieval"]
+    ? 0
+    : units.filter((unit) => state.units[unit.id]?.query?.status !== "PASS")
+        .length;
 process.stdout.write(
   json({
     status:
@@ -336,7 +368,12 @@ process.stdout.write(
           : "PASS",
     pipelineStatus: failed ? "FAIL" : "PASS",
     qualityStatus: qualityFailures ? "FAIL" : unverified ? "NOT_RUN" : "PASS",
-    queryStatus: queryFailures ? "FAIL" : "PASS",
+    queryStatus:
+      values["derive-only"] || values["skip-retrieval"]
+        ? "NOT_RUN"
+        : queryFailures
+          ? "FAIL"
+          : "PASS",
     subjectId,
     units: units.length,
     failed,

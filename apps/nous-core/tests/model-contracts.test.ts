@@ -3,11 +3,13 @@ import { canonicalDigest } from "../src/digest.js";
 import { roleNames } from "../src/model/configuration.js";
 import {
   providerContractForRole,
-  structuredRoleContracts,
+  structuredContractForRole,
 } from "../src/model/schemas/contracts.js";
 
 it("owns every structured generation role and exports its production schema identity", () => {
-  expect(Object.keys(structuredRoleContracts).sort()).toEqual([
+  expect(
+    roleNames.filter((role) => structuredContractForRole(role)).sort(),
+  ).toEqual([
     "episode_segmentation",
     "journal_synthesis",
     "material_direct_structuring",

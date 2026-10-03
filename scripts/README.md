@@ -107,24 +107,27 @@ Gateway 默认转发 `http://127.0.0.1:3000/v1`，监听端口 18000；用 `--up
 ```text
 corepack pnpm research:retrieval-live import --run-root <实例run目录> --client-module <分发client模块> --track controlled
 corepack pnpm research:retrieval-live run --run-root <实例run目录> --client-module <分发client模块> --track controlled --variant baseline --output <结果.json>
-corepack pnpm research:media-live --run-root <实例run目录> --client-module <分发client模块>
+corepack pnpm research:media-live --run-root <实例run目录> --client-module <分发client模块> --unit nasa-menon-conversation --strategy direct_structured --derive-only
 ```
 
 Retrieval 子命令为 `import`、`run`、`audit-formation`；track 为 `controlled` 或 `end-to-end`，variant 为 `baseline`、`model-rerank`、`wave`、`combined`。默认读取 `docs/research/corpus/manifest.json`、`queries.json`、`data/research/corpus/unit-texts.json`，状态位于 `data/research/runs/corpus-state.json`。可用 `--manifest`、`--queries`、`--texts`、`--state`、`--output` 改路径；`--limit` 默认 0 表示全部，`--concurrency` 默认 4。导入可用 `--embedding-batch`（默认 64）、`--embedding-interval-ms`（默认 0）控制批次。
 
 Media 默认读取 `docs/research/corpus/media.json` 与 `data/research/corpus/raw`，将处理状态写到 `data/research/runs/media-state.json`；用 `--manifest`、`--raw-root`、`--state` 覆盖。状态文件用于继续已有实验，不会从头重复已完成操作。
 
+媒体 runner 的 `--unit`、`--strategy` 可重复指定，`--derive-only` 只验证派生与来源图，`--skip-retrieval` 执行派生和 formation、暂不准备 embedding/query。Receipt 与完整 manifest digest 绑定；更换语料用新的 state。文本 runner 支持 manifest 中显式 author/project entities、出版日期、rights 与 extraction；`--skip-embeddings` 用于小组 formation baseline，`--session` 把观察归入一个实际 Session 并在所选单元成功后关闭。人工评阅应核对实际输出，pattern 命中只覆盖预先声明的事实。
+
 ## 模型合同与 trace 检查
 
 ```text
 corepack pnpm inspect:model-contracts --all
 corepack pnpm inspect:model-contracts --role memory_formation --config data/config/apps/nous.toml --output data/research/inspection/formation
+corepack pnpm inspect:model-contracts --role material_description --prompt-path material/video-description.md --adapter gateway-chat-media-v1 --config data/config/apps/nous.toml --output data/research/inspection/video
 corepack pnpm inspect:model-trace --root data/research/runs/<run>/traces --attempt 1
 ```
 
-合同检查消费 production invocation 同一 Structured Contract Registry 和 PromptRegistry，导出 `contract.json`、实际 provider `schema.json` 与 `prompt.md`；未使用 Structured Output 的角色没有 schema 文件。配置可选；提供时导出无凭据的 model/protocol、profile 与 role configuration digest。该命令不调用模型，也不要求读取 credential 值。生成文件只能写入 ignored `data/research/`，不形成第二份 schema source。
+合同检查消费 production invocation 同一 Structured Contract Registry 和 PromptRegistry，导出 `contract.json`、实际 provider `schema.json` 与 `prompt.md`；未使用 Structured Output 的角色没有 schema 文件。配置可选；提供时导出无凭据的 model/protocol、profile 与 role configuration digest。`--prompt-path`（须配 `--role`）选择实际 invocation 的 Prompt override，`--adapter` 计入生产 invocation 的 adapter identity；两者沿用 production digest owner。该命令不调用模型，也不要求读取 credential 值。生成文件只能写入 ignored `data/research/`，不形成第二份 schema source。
 
-Trace 检查显示 endpoint、model、状态、usage、wire digest、capture 状态及文件路径，并从捕获的 Prompt/schema 确定性匹配当前角色。模型 JSON 输出可以对当前匹配的 Zod owner 复验；原 invocation 的 owner commit/degradation 仍由对应研究 runner 的实际结果确认。更换 Prompt/schema 后，旧 trace 不会伪称匹配当前合同。
+Trace 检查显示 endpoint、model、状态、usage、wire digest、capture 状态及文件路径，并从捕获的 Prompt/schema 确定性匹配当前角色。`--prompt-path` 与 `--override-prompt-root` 可用于 custom Prompt；视频默认 Prompt 自动参与匹配。embedding/rerank/transcription 按实际 endpoint 识别角色。模型 JSON 输出可以对当前匹配的 Zod owner 复验；原 invocation 的 owner commit/degradation 仍由对应研究 runner 的实际结果确认。更换 Prompt/schema 后，旧 trace 不会伪称匹配当前合同。
 
 ## 维护
 

@@ -6,13 +6,22 @@
         "scripts/dev/*.ts!",
         "scripts/runtime/pack.ts!",
         "scripts/release/{assemble,archive,prepare-notices,verify-portable}.ts!",
-        "scripts/smoke/{memory,runtime-episode,model-material-resource}.ts!",
-        "scripts/research/{retrieval,media,serve-gateway}.ts!",
+        "scripts/smoke/{memory,runtime-episode,model-material-resource,longitudinal,configuration}.ts!",
+        "scripts/research/{retrieval,media,serve-gateway,longitudinal,model-contracts,model-trace}.ts!",
         "scripts/research/*.test.ts"
       ]
     },
     "apps/nous-core": {
-      "entry": ["src/main.ts!", "src/launcher.ts!"]
+      "entry": [
+        "src/main.ts!",
+        "src/launcher.ts!",
+        "src/**/*.test.ts",
+        "tests/*.test.ts"
+      ],
+      "ignoreExportsUsedInFile": {
+        "class": true,
+        "function": true
+      }
     },
     "apps/nous-cli": {
       "entry": ["src/main.ts!"]

@@ -31,8 +31,15 @@ Memory revision 的 `producerSignatureId` 可用 `client.material.producer` 读�
 
 完整配置与语义合同见 [Gateway/model/Prompt Spec](../specs/active/model-runtime/gateway-model-and-prompts.md)、[Material Spec](../specs/active/model-runtime/material-derivation.md)。
 
-[返回文档目录](../INDEX.md)
 
 ## 纵向维护角色
 
 `episode_segmentation`、`journal_synthesis`、`memory_consolidation` 使用 text + structured_output profile 和 canonical Zod schema。Core 的 `client.cognition.grantMaintenance({ subjectId, maxOperations, maxModelCalls, maxElapsedMs })` 执行有界机会，Rust owner 验证并提交模型 proposal。Core 在 claim 前只允许可执行角色对应的 maintenance kinds；未配置角色不取得 lease 或增加 attempt count。临时 provider 故障使用 Configuration Service 的有界指数退避。角色配置、Prompt 和超时沿用现有 ModelProfile/RoleBinding 机制。数据身份与重试语义见 [纵向认知合同](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
+
+## 输入与投影
+
+Formation envelope 的 `evidenceText` 是原始来源或已提交表示正文，`resolvedEntityCandidates` 是可选择实体目录，`aboutnessMode` 由 owner 决定。作者观点保留作者归属，观察者身份不自动成为 aboutness。Material text structuring 使用 `evidence_text` 和 `evidence_kind` 区分 original_text 与 committed_representation；后者不提供原始媒体访问。
+
+Projection Steward 接收经 consumer policy 筛选的 id/role/text，执行无任务上下文的忠实压缩。Kernel contribution owner 经现有 ContextResolver materialize Memory 内容，遵守请求文本预算、可访问性与 lifecycle，保存实际 revision 和 evidence；Core 在模型前执行 consumer policy。Steward 不承担未提供 query/Focus 的任务相关性判断。
+
+[返回文档目录](../INDEX.md)

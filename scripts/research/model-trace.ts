@@ -12,6 +12,8 @@ const { values } = parseArgs({
     root: { type: "string" },
     attempt: { type: "string" },
     "prompt-root": { type: "string", default: "prompts" },
+    "prompt-path": { type: "string" },
+    "override-prompt-root": { type: "string" },
   },
 });
 if (!values.root || !values.attempt || !/^[1-9][0-9]*$/.test(values.attempt))
@@ -60,19 +62,29 @@ const textFormat = request?.text as
 const schema =
   responseFormat?.json_schema?.schema ?? textFormat?.format?.schema;
 const schemaDigest = schema ? canonicalDigest(schema) : undefined;
-const prompts = new PromptRegistry(resolve(values["prompt-root"]!));
+const prompts = new PromptRegistry(
+  resolve(values["prompt-root"]!),
+  values["override-prompt-root"]
+    ? resolve(values["override-prompt-root"])
+    : undefined,
+);
 const matches = [];
 for (const role of roleNames) {
   const contract = providerContractForRole(role);
-  const asset = await prompts.load(role);
-  if (
-    asset?.digest === promptDigest ||
-    (schemaDigest && contract?.digest === schemaDigest)
-  )
+  const asset = await prompts.load(role, values["prompt-path"]);
+  const video =
+    role === "material_description"
+      ? await prompts.load(role, "material/video-description.md")
+      : undefined;
+  const promptMatches =
+    promptDigest !== undefined &&
+    (asset?.digest === promptDigest || video?.digest === promptDigest);
+  if (promptMatches || (schemaDigest && contract?.digest === schemaDigest))
     matches.push({
       role,
-      prompt_matches: asset?.digest === promptDigest,
-      schema_matches: contract?.digest === schemaDigest,
+      prompt_matches: promptMatches,
+      schema_matches:
+        schemaDigest !== undefined && contract?.digest === schemaDigest,
     });
 }
 const choices = response?.choices as
@@ -108,6 +120,13 @@ console.log(
     {
       ...meta,
       model: request?.model,
+      endpoint_role: (
+        {
+          "/embeddings": "query_embedding",
+          "/rerank": "query_rerank",
+          "/audio/transcriptions": "speech_transcription",
+        } as Record<string, string>
+      )[String(meta.endpoint)],
       prompt_digest: promptDigest,
       schema_digest: schemaDigest,
       matching_current_roles: matches,

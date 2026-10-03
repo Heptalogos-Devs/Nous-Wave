@@ -12,7 +12,10 @@ import {
 } from "../../apps/nous-core/src/model/configuration.js";
 import { PromptRegistry } from "../../apps/nous-core/src/model/prompts.js";
 import { providerContractForRole } from "../../apps/nous-core/src/model/schemas/contracts.js";
-import { modelRoleIdentity } from "../../apps/nous-core/src/model/identity.js";
+import {
+  modelRoleIdentity,
+  invocationConfigDigest,
+} from "../../apps/nous-core/src/model/identity.js";
 
 const { values } = parseArgs({
   options: {
@@ -21,9 +24,13 @@ const { values } = parseArgs({
     config: { type: "string" },
     output: { type: "string" },
     "prompt-root": { type: "string", default: "prompts" },
+    "prompt-path": { type: "string" },
+    adapter: { type: "string" },
     "override-prompt-root": { type: "string" },
   },
 });
+if (values["prompt-path"] && !values.role)
+  throw new Error("--prompt-path requires --role");
 if (values.role && !roleNames.includes(values.role as ModelRole))
   throw new Error("Unknown model role");
 if (!values.all && !values.role)
@@ -67,11 +74,20 @@ for (const role of values.role ? [values.role as ModelRole] : roleNames) {
   const binding = configured
     ? resolveRoleBinding(configured, profile?.protocol ?? "")
     : undefined;
-  const prompt = await prompts.load(role, binding?.prompt);
+  const basePrompt = await prompts.load(role, binding?.prompt);
+  const prompt = values["prompt-path"]
+    ? await prompts.load(role, values["prompt-path"])
+    : basePrompt;
   const identity =
     profile && gateway && binding
-      ? modelRoleIdentity(profile, gateway, binding, prompt)
+      ? modelRoleIdentity(profile, gateway, binding, basePrompt)
       : undefined;
+  if (identity)
+    identity.configDigest = invocationConfigDigest(
+      identity.configDigest,
+      values["prompt-path"] ? prompt : undefined,
+      values.adapter,
+    );
   const metadata = {
     role,
     contract_id: contract?.id ?? null,

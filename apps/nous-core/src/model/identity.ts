@@ -24,3 +24,19 @@ export function modelRoleIdentity(
   });
   return { profileDigest, configDigest };
 }
+
+export function invocationConfigDigest(
+  binding: string,
+  prompt?: PromptAsset,
+  adapter?: string,
+) {
+  let result = prompt
+    ? canonicalDigest({
+        binding,
+        promptId: prompt.id,
+        promptDigest: prompt.digest,
+      })
+    : binding;
+  if (adapter) result = canonicalDigest({ binding: result, adapter });
+  return result;
+}

@@ -12,7 +12,7 @@ export const formationSchema = z
       .min(1)
       .max(128)
       .describe(
-        "The semantic function of this Memory, such as a reported fact or working practice.",
+        "A short semantic label, at most 128 characters, such as reported_fact or working_practice.",
       ),
     title: z
       .string()
