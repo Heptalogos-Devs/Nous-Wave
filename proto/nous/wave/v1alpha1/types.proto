@@ -75,6 +75,7 @@ message Cue {
     string external_object_ref = 8;
   }
 }
+// Domains: memory, schema, episode, journal, evidence, resource. Empty selects all available local domains.
 message QueryModifiers { repeated string domains = 1; QueryConstraints constraints = 2; string effort = 3; optional uint32 limit = 4; string exploration = 5; string current_authority = 6; bool materialize = 7; string diagnostics = 8; repeated Preference preferences = 9; }
 message Preference { bool negative = 1; Cue cue = 2; string key = 3; }
 message QueryExpr { string operation = 1; repeated Cue cues = 2; repeated QueryExpr children = 3; QueryModifiers modifiers = 4; }

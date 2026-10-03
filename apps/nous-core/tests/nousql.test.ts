@@ -75,3 +75,16 @@ it("keeps independent time axes and rejects ambiguous or duplicate modifiers", a
     "unavailable",
   );
 });
+
+it("preserves distinct cognition domains and Boolean domain scope", async () => {
+  const result = await compileNousQL(
+    '("experience" $episode $journal) || ("context" $memory $schema)',
+    resolve,
+  );
+  expect(
+    result.expression.children.map((child) => child.modifiers?.domains),
+  ).toEqual([
+    ["episode", "journal"],
+    ["memory", "schema"],
+  ]);
+});

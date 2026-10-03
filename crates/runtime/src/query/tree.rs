@@ -499,5 +499,23 @@ mod tests {
                 .any(|target| matches!(target, QueryTarget::Memory))
         );
         assert!(inherit_targets(&[QueryTarget::Memory], &[QueryTarget::Evidence, exact]).is_none());
+        let narrowed = inherit_targets(
+            &[
+                QueryTarget::Memory,
+                QueryTarget::Schema,
+                QueryTarget::Episode,
+                QueryTarget::Journal,
+            ],
+            &[QueryTarget::Schema, QueryTarget::Journal],
+        )
+        .unwrap();
+        assert_eq!(
+            narrowed
+                .iter()
+                .filter_map(QueryTarget::domain_name)
+                .collect::<Vec<_>>(),
+            vec!["schema", "journal"]
+        );
+        assert!(inherit_targets(&[QueryTarget::Episode], &[QueryTarget::Journal]).is_none());
     }
 }

@@ -41,13 +41,22 @@ async fn runtime_with_clock(
     root: &tempfile::TempDir,
     clock: Arc<dyn CognitiveClock>,
 ) -> NousRuntime {
+    runtime_with_clock_serving(url, root, clock, false).await
+}
+
+async fn runtime_with_clock_serving(
+    url: &str,
+    root: &tempfile::TempDir,
+    clock: Arc<dyn CognitiveClock>,
+    serving: bool,
+) -> NousRuntime {
     NousRuntime::open_with_clock(RuntimeOptions {
         postgres_url: url.into(), max_connections: 8,
         object_root: root.path().join("objects").to_string_lossy().into_owned(),
         max_upload_bytes: 1024 * 1024,
-        serving_options: ServingOptions { root: root.path().join("serving"), lexical: false, dense: false, topology: false, memory_enabled: true },
-        embedding: None, stored_embedding: None,
-        deployment_settings: serde_json::json!({"settings":{"serving":{"lexical":{"enabled":false},"dense":{"enabled":false},"topology":{"enabled":false}}}}),
+        serving_options: ServingOptions { root: root.path().join("serving"), lexical: serving, dense: serving, topology: false, memory_enabled: true },
+        embedding: serving.then(|| Arc::new(LongitudinalEmbedding) as Arc<dyn nous_retrieval::TextEmbeddingProvider>), stored_embedding: None,
+        deployment_settings: serde_json::json!({"settings":{"serving":{"lexical":{"enabled":serving},"dense":{"enabled":serving},"topology":{"enabled":false}}}}),
     }, clock).await.expect("open clock-injected runtime")
 }
 
@@ -584,7 +593,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     use nous_memory::{JournalInput, JournalPoint, JournalPointRole};
     let (root, url, _postgres) = database().await;
     let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
-    let rt = runtime_with_clock(&url, &root, clock.clone()).await;
+    let rt = runtime_with_clock_serving(&url, &root, clock.clone(), true).await;
     let subject = create_subject(&rt).await;
     let episode = journal_source_episode(&rt, &clock, subject).await;
     assert_maintenance_planning(&rt, &clock, subject).await;
@@ -612,7 +621,8 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
         producer: None,
     };
     let journal = memory.commit_journal(input.clone()).await.unwrap();
-    let recall = assert_longitudinal_materialization(&rt, subject, &episode, &journal).await;
+    let recall =
+        assert_longitudinal_materialization(&rt, &clock, subject, &episode, &journal).await;
     let support = RevisionSupport::CognitionDependency(CognitionDependency {
         target_revision: CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
         support_role: SupportRole::Direct,
@@ -692,6 +702,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
 
 async fn assert_longitudinal_materialization(
     rt: &NousRuntime,
+    clock: &ManualCognitiveClock,
     subject: nous_core::SubjectId,
     episode: &EpisodeView,
     journal: &nous_memory::JournalView,
@@ -768,6 +779,9 @@ async fn assert_longitudinal_materialization(
     assert_eq!(rt.query(filtered.clone()).await.unwrap().results.len(), 2);
     filtered.expression.constraints.source_classes_exclude = vec![SourceClass::Message];
     assert!(rt.query(filtered).await.unwrap().results.is_empty());
+    assert_longitudinal_lanes(rt, &query, &refs).await;
+    clock.advance_by(subject, Duration::days(730)).unwrap();
+    assert_longitudinal_lanes(rt, &query, &refs).await;
     let projection = rt
         .store
         .text_projection_input(subject, "lexical", "", true)
@@ -1516,4 +1530,138 @@ async fn assert_journal_consolidation(
         row.get::<chrono::DateTime<Utc>, _>("recorded_at"),
         rt.cognition.now(subject)
     );
+}
+
+struct LongitudinalEmbedding;
+
+#[async_trait::async_trait]
+impl nous_retrieval::TextEmbeddingProvider for LongitudinalEmbedding {
+    fn space(&self) -> nous_core::EmbeddingSpaceSignature {
+        nous_core::EmbeddingSpaceSignature {
+            space_hash: "longitudinal-test-space".into(),
+            model_identity: "deterministic-test".into(),
+            weights_revision: "1".into(),
+            task: "text".into(),
+            input_representation: "text".into(),
+            preprocessing_identity: "identity".into(),
+            preprocessing_revision: "1".into(),
+            dimension: 2,
+            normalization: "l2".into(),
+            output_semantics: "test-vector".into(),
+        }
+    }
+    fn producer(&self) -> nous_core::ProducerSignature {
+        nous_core::ProducerSignature {
+            signature_hash: "longitudinal-test-producer".into(),
+            provider_class: "test".into(),
+            operation: nous_core::CapabilityOperation::TextEmbedding,
+            implementation: "test".into(),
+            model_identity: Some("deterministic-test".into()),
+            model_revision: Some("1".into()),
+            output_schema_digest: None,
+            preprocessing_identity: "identity".into(),
+            preprocessing_revision: "1".into(),
+            config_digest: "test".into(),
+        }
+    }
+    async fn embed(
+        &self,
+        _request: nous_retrieval::TextEmbeddingRequest,
+    ) -> nous_core::Result<nous_retrieval::TextEmbeddingOutput> {
+        Ok(nous_retrieval::TextEmbeddingOutput {
+            vector: vec![1.0, 0.0],
+            space: self.space(),
+            producer: self.producer(),
+        })
+    }
+}
+
+async fn assert_longitudinal_lanes(
+    rt: &NousRuntime,
+    exact: &nous_core::CognitiveQuery,
+    refs: &[nous_core::CognitiveRef; 2],
+) {
+    use nous_core::{Cue, EvidenceFamily, QueryTarget, TextCue};
+    for (domain, text, expected) in [
+        (QueryTarget::Episode, "object source", &refs[0]),
+        (QueryTarget::Journal, "Point-only detail", &refs[1]),
+    ] {
+        let mut query = exact.clone();
+        query.expression.targets = vec![domain];
+        query.expression.cues = vec![Cue::Text(TextCue { text: text.into() })];
+        query.result_need.limit = 1;
+        let result = rt.query(query).await.unwrap();
+        assert_eq!(result.results.len(), 1);
+        assert_eq!(&result.results[0].reference, expected);
+        assert!(
+            result.results[0]
+                .match_evidence
+                .families
+                .contains(&EvidenceFamily::Lexical)
+        );
+        assert!(
+            result.results[0]
+                .match_evidence
+                .families
+                .contains(&EvidenceFamily::Dense)
+        );
+    }
+    assert_longitudinal_query_protocol(rt, exact.subject, refs).await;
+    let mut scoped = exact.clone();
+    scoped.expression.targets.push(QueryTarget::Memory);
+    assert!(rt.query(scoped.clone()).await.unwrap().results.is_empty());
+    scoped.expression.targets.pop();
+    scoped.expression.targets.push(QueryTarget::Journal);
+    assert_eq!(
+        rt.query(scoped).await.unwrap().results[0].reference,
+        refs[1]
+    );
+}
+
+async fn assert_longitudinal_query_protocol(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    refs: &[nous_core::CognitiveRef; 2],
+) {
+    use k::authority_service_server::AuthorityService as Kernel;
+    use nous_protocol::{kernel as k, public as p};
+    let service = nous_kernel::transport::KernelService(rt.clone());
+    for (domain, text, expected) in [
+        ("episode", "object source", &refs[0]),
+        ("journal", "Point-only detail", &refs[1]),
+    ] {
+        let response = Kernel::query(
+            &service,
+            tonic::Request::new(k::KernelQueryRequest {
+                query: Some(p::QueryRequest {
+                    subject_id: subject.0.to_string(),
+                    expression: Some(p::QueryExpr {
+                        operation: "atom".into(),
+                        cues: vec![p::Cue {
+                            cue: Some(p::cue::Cue::Text(text.into())),
+                        }],
+                        modifiers: Some(p::QueryModifiers {
+                            domains: vec![domain.into()],
+                            limit: Some(1),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+        )
+        .await
+        .unwrap()
+        .into_inner()
+        .response
+        .unwrap();
+        assert_eq!(response.hits.len(), 1);
+        let reference = response.hits[0].reference.as_ref().unwrap();
+        assert_eq!(
+            format!("{}:{}", reference.kind, reference.value),
+            expected.to_string()
+        );
+    }
 }

@@ -303,6 +303,7 @@ pub mod cue {
         ExternalObjectRef(::prost::alloc::string::String),
     }
 }
+/// Domains: memory, schema, episode, journal, evidence, resource. Empty selects all available local domains.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryModifiers {
     #[prost(string, repeated, tag="1")]

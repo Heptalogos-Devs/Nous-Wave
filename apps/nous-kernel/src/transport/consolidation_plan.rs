@@ -174,7 +174,7 @@ fn consolidation_query(subject: SubjectId, cue: String) -> CognitiveQuery {
         session: None,
         situation: Default::default(),
         expression: CognitiveQueryExpr {
-            targets: vec![QueryTarget::AnyRelevantCognition],
+            targets: vec![QueryTarget::Memory, QueryTarget::Schema],
             cues: vec![Cue::Text(TextCue { text: cue })],
             constraints,
             ..Default::default()

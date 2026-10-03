@@ -846,6 +846,8 @@ export const CueSchema: GenMessage<Cue> = /*@__PURE__*/
   messageDesc(file_nous_wave_v1alpha1_types, 22);
 
 /**
+ * Domains: memory, schema, episode, journal, evidence, resource. Empty selects all available local domains.
+ *
  * @generated from message nous.wave.v1alpha1.QueryModifiers
  */
 export type QueryModifiers = Message<"nous.wave.v1alpha1.QueryModifiers"> & {

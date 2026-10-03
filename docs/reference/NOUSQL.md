@@ -7,7 +7,9 @@
 - 原子：引号包围的文本、`#concept`、`*`，以及 `@e`、`@tag`、`@schema`、`@r`、`@object`、`@ref` selector。
 - 组合：显式 `&&`、`||` 和括号；`&&` 优先于 `||`。
 - 软偏好：`+atom`、`-atom` 和 `+recent(axis)`、`-recent(axis)`。
-- 指令：`$memory`、`$evidence`、`$resource`、`$effort`、`$limit`、`$source`、`$modality`、`$cognitiveRole`、`$formationMode`、`$evidenceClass`、`$authority`、`$current`、`$diagnostics`、`$explore`、`$materialize`、`$exclude` 和 `$time`。
+- 指令：`$memory`、`$schema`、`$episode`、`$journal`、`$evidence`、`$resource`、`$effort`、`$limit`、`$source`、`$modality`、`$cognitiveRole`、`$formationMode`、`$evidenceClass`、`$authority`、`$current`、`$diagnostics`、`$explore`、`$materialize`、`$exclude` 和 `$time`。
+
+`$memory`、`$schema`、`$episode`、`$journal` 分别选择 Memory、CognitiveSchema、Episode、Journal；多个域指令取并集。未指定域时查询所有可用域，包括四类认知对象以及 Evidence/Resource 引用。父级域限制对子表达式和 exact target 生效。
 
 单个软偏好操作数目前也接受冗余括号；canonical form 会省略这层括号。
 
