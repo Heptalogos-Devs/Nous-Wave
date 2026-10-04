@@ -15,7 +15,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | Component | Frozen VCP owner | Exact contract | Nous current | Reference kernel | Nous adapter | Label |
 | --- | --- | --- | --- | --- | --- | --- |
 | EPA | memo_pipeline analyze_epa；lib.rs EpaBasisTask | f32 query centering，basis dot 的平方能量概率，归一化熵、dominant axes 与 bridge resonance；query analysis 不读取 cached training energies | weighted representative PCA 与当前 EPA policy | query analysis 首个 native 数值 fixture 通过；basis builder 待实现 | 待实现 | uncertain |
-| Residual | memo_pipeline analyze_pyramid / orthogonal_projection；lib.rs IntrinsicResidualTask | 每层 residual ANN，按返回序正交化 Tag，dependent axis contribution 为零；f32 投影累积，解释量归一到原 query energy | bounded residual search 与 Nous own residual contract | 待实现 | 待实现 | nous-native |
+| Residual | memo_pipeline analyze_pyramid / orthogonal_projection；lib.rs IntrinsicResidualTask | 每层 residual ANN，按返回序正交化 Tag，dependent axis contribution 为零；f32 投影累积，解释量归一到原 query energy | bounded residual search 与 Nous own residual contract | neutral Residual Pyramid 四个 actual ANN snapshot case 通过；intrinsic residual kernel 待实现 | 待实现 | nous-native |
 | graph build | memo_artifact_builder build_fact_matrix / build_transport | 有序 file-tag 全 pair；位置/距离/semantic/reverse anchor 调制；log evidence、target inflow hub 校正与预算内 wormhole reserve | CognitiveRef/AssociationEvidence，support class quality 与独立 provenance root max dedup | neutral ordered graph builder 首个 native fact/CSR/provenance fixture 通过；完整 graph matrix 待补 | 待实现 | nous-native |
 | bounded Sense | memo_sensing sense_typed | energy、momentum、hop、previous-node state；normal/wormhole decay、立即回流抑制、FIR、邻居/state 上限 | Wave 的固定 outbound、步数预算与 state 上限；无 VCP wormhole/decay 合同 | neutral Sense 数值与状态 matrix 通过；单一 lineage 边界单独记录 | 待实现 | nous-native |
 | query river | memo_sensing SenseOutput | node potential 与实际注入 edge flow；source field 为最终 retained FIR 分布；edge 记录先于 momentum/state admission | QueryRiver 包含 source/potential/edge/provenance/mass；native source 为初始归一 seed | Sense node/edge/source field 与逐跳 transfer matrix 通过；VCP 单一 lineage 不作为稳定合同 | 待实现 | nous-native |
@@ -41,7 +41,9 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 
 图构建的 reverse anchor/semantic/distance 影响 fact mass；log evidence、hub correction 与 wormhole reserve 影响预算内 transport。Provenance 使用单独的 file/direction/distance mass 合同，独立计算，避免把 transport 权重当来源质量。首个 fixture 通过不替代完整配置边界与 graph matrix。
 
-完整 vector/candidate matrix、EPA basis builder、field vector projection、DTSC/V3 readout 与 adapter utility 继续实现。
+[Residual Pyramid fixture](../../crates/retrieval/tests/fixtures/vcp-pyramid.json) 固定 actual pipeline 的每层 ANN 返回候选，覆盖 duplicate directions、weak residual、dominant direction 与 empty query。独立 [Pyramid kernel](../../crates/retrieval/src/reference/pyramid.rs) 按该顺序正交化，检查每个 Tag contribution/handshake magnitude、projection/residual magnitude、energy ratio/explained、direction coherence/pattern/noise，以及最终 depth/coverage/novelty/activation。弱残差 case 实际经过三层，避免单层满秩例子掩盖层间合同。
+
+这些 fixture 证明给定候选序列时的数值 kernel；ANN 搜索排序和 ontology mapping 仍属于 adapter utility。完整 vector/candidate matrix、EPA basis builder、intrinsic residual/gating/fusion、field vector projection、DTSC/V3 readout 与 adapter utility 继续实现。
 
 ## 需要保留的实现边界
 

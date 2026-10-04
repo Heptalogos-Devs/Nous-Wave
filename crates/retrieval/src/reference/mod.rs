@@ -6,3 +6,5 @@ mod sense;
 pub use sense::*;
 mod graph;
 pub use graph::*;
+mod pyramid;
+pub use pyramid::*;

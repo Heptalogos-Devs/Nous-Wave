@@ -167,3 +167,29 @@ fn native_ordered_graph_transport_and_provenance_match() {
         assert!(mass <= input.config.outbound_mass + 1e-12);
     }
 }
+
+#[test]
+fn native_residual_pyramid_projection_handshake_and_features_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-pyramid.json"))
+        .expect("native pyramid matrix");
+    for case in fixture["cases"].as_array().unwrap() {
+        let query: Vec<f32> = serde_json::from_value(case["query"].clone()).unwrap();
+        let config: ReferencePyramidConfig =
+            serde_json::from_value(case["config"].clone()).unwrap();
+        let layers: Vec<Vec<ReferenceResidualCandidate>> =
+            serde_json::from_value(case["search_results"].clone()).unwrap();
+        let mut level = 0;
+        let output = reference_pyramid(&query, &config, |_, limit| {
+            let hits = layers.get(level).cloned().unwrap_or_default();
+            assert!(hits.len() <= limit);
+            level += 1;
+            Ok(hits)
+        })
+        .expect("independent projection");
+        compare_numeric_subset(
+            &serde_json::to_value(output).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}
