@@ -193,3 +193,22 @@ fn native_residual_pyramid_projection_handshake_and_features_match() {
         );
     }
 }
+
+#[test]
+fn native_query_morphology_and_all_omega_components_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-query-shape.json"))
+        .expect("query shape matrix");
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceRiverShapeInput =
+            serde_json::from_value(case["input"].clone()).unwrap();
+        let config: ReferenceOmegaConfig = serde_json::from_value(case["config"].clone()).unwrap();
+        let morphology = reference_morphology(&input);
+        let omega = reference_omega(&input, &config);
+        let total = morphology.atomic_weight
+            + morphology.propositional_weight
+            + morphology.narrative_weight;
+        assert!((total - 1.0).abs() <= 1e-12);
+        let actual = serde_json::json!({"morphology":morphology,"omega":omega});
+        compare_numeric_subset(&actual, &case["expected"], case["name"].as_str().unwrap());
+    }
+}

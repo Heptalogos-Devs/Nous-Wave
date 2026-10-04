@@ -8,3 +8,5 @@ mod graph;
 pub use graph::*;
 mod pyramid;
 pub use pyramid::*;
+mod query_shape;
+pub use query_shape::*;
