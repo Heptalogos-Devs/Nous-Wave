@@ -17,8 +17,8 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | EPA | memo_pipeline analyze_epa；lib.rs EpaBasisTask | f32 query centering，basis dot 的平方能量概率，归一化熵、dominant axes 与 bridge resonance；query analysis 不读取 cached training energies | weighted representative PCA 与当前 EPA policy | query analysis 首个 native 数值 fixture 通过；basis builder 待实现 | 待实现 | uncertain |
 | Residual | memo_pipeline analyze_pyramid / orthogonal_projection；lib.rs IntrinsicResidualTask | 每层 residual ANN，按返回序正交化 Tag，dependent axis contribution 为零；f32 投影累积，解释量归一到原 query energy | bounded residual search 与 Nous own residual contract | 待实现 | 待实现 | nous-native |
 | graph build | memo_artifact_builder build_fact_matrix / build_transport | 有序 file-tag 全 pair；位置/距离/semantic/reverse anchor 调制；log evidence、target inflow hub 校正与预算内 wormhole reserve | CognitiveRef/AssociationEvidence，support class quality 与独立 provenance root max dedup | 待实现 | 待实现 | nous-native |
-| bounded Sense | memo_sensing sense_typed | energy、momentum、hop、previous-node state；normal/wormhole decay、立即回流抑制、FIR、邻居/state 上限 | Wave 的固定 outbound、步数预算与 state 上限；无 VCP wormhole/decay 合同 | 待实现 | 待实现 | nous-native |
-| query river | memo_sensing SenseOutput | node potential 与实际注入 edge flow；source field 为最终 retained FIR 分布；edge 记录先于 momentum/state admission | QueryRiver 包含 source/potential/edge/provenance/mass；native source 为初始归一 seed | 待实现 | 待实现 | nous-native |
+| bounded Sense | memo_sensing sense_typed | energy、momentum、hop、previous-node state；normal/wormhole decay、立即回流抑制、FIR、邻居/state 上限 | Wave 的固定 outbound、步数预算与 state 上限；无 VCP wormhole/decay 合同 | neutral Sense 数值与状态 matrix 通过；单一 lineage 边界单独记录 | 待实现 | nous-native |
+| query river | memo_sensing SenseOutput | node potential 与实际注入 edge flow；source field 为最终 retained FIR 分布；edge 记录先于 momentum/state admission | QueryRiver 包含 source/potential/edge/provenance/mass；native source 为初始归一 seed | Sense node/edge/source field 与逐跳 transfer matrix 通过；VCP 单一 lineage 不作为稳定合同 | 待实现 | nous-native |
 | dual fields | memo_pipeline solve_dual_fields | 同一 source/transport 的两个 scaled resolvent，独立 L1 convergence、mass-ratio domains 与 vector projection | 尚无该 VCP profile 的双场 readout | neutral 双 resolvent 首个 native 数值 fixture 通过；vector projection 待实现 | 待实现 | vcp-derived |
 | DTSC | memo_dtsc score_curve / run | ordered curve 的 exact/interpolated field contacts、coverage、continuity、action、closure、D/S/T、受限 reward floors；low trust 保留原输入顺序 | 当前 native 以 node potential 排序 | 待实现 | 待实现 | absent |
 | morphology | rivermemo_topology_v3 compute_query_morphology | candidate/text 无关的 river 统计，三个 logits stable softmax，按样本/complete confidence 向 uniform prior 收缩 | 无三形态混合 | 待实现 | 待实现 | absent |
@@ -33,7 +33,11 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 
 首个三维图 probe 实际执行 EPA publish、intrinsic residual、artifact build、统一 pipeline、DTSC 与 V3，导出 mean/basis/energy、residual/anchor、CSR、Sense 转移/node/edge、双场、morphology、Ω 与 candidate components/order。Tracked [数值 fixture](../../crates/retrieval/tests/fixtures/vcp-epa-dual-fields.json) 只包含生成的中间数值与来源身份，独立 [reference kernel](../../crates/retrieval/src/reference/fields.rs) 使用中性 DTO。
 
-当前通过 query EPA 的 entropy/depth/resonance/axis energy，以及双场每个 node mass、支持域、迭代次数、convergence 与 L1 residual；absolute/relative tolerance 均为 `1e-10`。这是一组 component fixture，完整 vector/graph/candidate matrix、EPA basis builder、field vector projection 和 adapter utility 继续实现。
+当前通过 query EPA 的 entropy/depth/resonance/axis energy，以及双场每个 node mass、支持域、迭代次数、convergence 与 L1 residual；absolute/relative tolerance 均为 `1e-10`。该 EPA/双场组仍只覆盖一个 component fixture。另有 [Sense graph matrix](../../crates/retrieval/tests/fixtures/vcp-sense.json)，由 frozen `sense_typed` 实际执行生成 chain、fork、merge、立即回流、hub、两独立 roots、wormhole bridge、disconnected distractor、weak/strong edges、state truncation、empty seeds 和 transition-record truncation 共 12 个 case。
+
+独立 [Sense kernel](../../crates/retrieval/src/reference/sense.rs) 逐值比较 source field、node energy/normalization/hop、edge flow/max/normalization/conductance、逐跳 transfer、抑制质量与状态截断数量，absolute/relative tolerance 为 `1e-12`，离散 membership/flag exact match。数组以 node/edge key canonicalize，保留全部中间数值。Frozen 合流 state 的单一 seedId/originType 由首次 HashMap encounter 保留，不能宣称稳定唯一 lineage；reference 数值 DTO 不输出这份任意 lineage，candidate adapter 需要区分实际来源。
+
+完整 vector/candidate matrix、EPA basis builder、graph builder、field vector projection、DTSC/V3 readout 与 adapter utility 继续实现。
 
 ## 需要保留的实现边界
 

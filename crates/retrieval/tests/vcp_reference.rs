@@ -81,3 +81,66 @@ fn native_epa_and_dual_field_intermediate_values_match() {
     assert_eq!(empty.iterations, 0);
     assert!(empty.local_field.is_empty() && empty.transfer_field.is_empty());
 }
+
+fn compare_numeric_subset(actual: &Value, expected: &Value, path: &str) {
+    match (actual, expected) {
+        (Value::Number(a), Value::Number(b)) => {
+            let a = a.as_f64().unwrap();
+            let b = b.as_f64().unwrap();
+            assert!(
+                (a - b).abs() <= 1e-12 + 1e-12 * b.abs(),
+                "{path}: {a} != {b}"
+            );
+        }
+        (Value::Array(a), Value::Array(b)) => {
+            assert_eq!(a.len(), b.len(), "{path}");
+            for (index, (a, b)) in a.iter().zip(b).enumerate() {
+                compare_numeric_subset(a, b, &format!("{path}/{index}"));
+            }
+        }
+        (Value::Object(a), Value::Object(b)) => {
+            for (key, value) in a {
+                compare_numeric_subset(
+                    value,
+                    b.get(key).unwrap_or_else(|| panic!("{path}/{key}")),
+                    &format!("{path}/{key}"),
+                );
+            }
+        }
+        _ => assert_eq!(actual, expected, "{path}"),
+    }
+}
+
+#[test]
+fn frozen_sense_graph_matrix_matches_intermediate_numeric_and_discrete_contracts() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-sense.json")).expect("frozen Sense matrix");
+    for case in fixture["cases"].as_array().expect("cases") {
+        let graph: ReferenceSenseGraph =
+            serde_json::from_value(case["graph"].clone()).expect("neutral graph");
+        let input: ReferenceSenseInput =
+            serde_json::from_value(case["input"].clone()).expect("neutral query");
+        let output = reference_sense(&graph, &input).expect("independent Sense");
+        let mut actual = serde_json::to_value(output).expect("numeric output");
+        let mut expected = case["expected"].clone();
+        // Flow/node array ties in frozen VCP lack a total comparator. Canonical
+        // key order compares every value and the exact discrete membership.
+        for value in [&mut actual, &mut expected] {
+            value["nodes"]
+                .as_array_mut()
+                .unwrap()
+                .sort_by_key(|n| n["id"].as_i64().unwrap());
+            value["edges"].as_array_mut().unwrap().sort_by_key(|e| {
+                (
+                    e["sourceId"].as_i64().unwrap(),
+                    e["targetId"].as_i64().unwrap(),
+                )
+            });
+            value["sourceField"]
+                .as_array_mut()
+                .unwrap()
+                .sort_by_key(|entry| entry[0].as_i64().unwrap());
+        }
+        compare_numeric_subset(&actual, &expected, case["name"].as_str().unwrap());
+    }
+}
