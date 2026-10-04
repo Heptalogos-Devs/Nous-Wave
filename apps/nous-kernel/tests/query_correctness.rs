@@ -1235,6 +1235,45 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     assert!(topology.edges.iter().any(|edge| {
         edge.association_kind == "assoc.related" && edge.provenance_root.is_some()
     }));
+    let projection_budget = nous_persistence::EpisodeTextBudget {
+        max_members: 32,
+        fragment_max_bytes: 4096,
+        total_max_bytes: 16384,
+    };
+    let cognitive = runtime
+        .store
+        .cognitive_projection_input(subject, true, projection_budget)
+        .await
+        .expect("coherent cognitive projection");
+    assert_eq!(cognitive.topology.watermark, topology.watermark);
+    assert_eq!(cognitive.topology.nodes, topology.nodes);
+    let memory_reference = CognitiveRef::MemoryRevision(memory.revision.memory_revision_id);
+    assert!(
+        cognitive
+            .sources
+            .iter()
+            .any(|s| s.reference == memory_reference && s.text.is_some())
+    );
+    assert!(
+        cognitive
+            .topology
+            .edges
+            .iter()
+            .any(|e| e.association_kind == "assoc.related" && e.provenance_root.is_some())
+    );
+    let forbidden = runtime
+        .store
+        .cognitive_projection_input(subject, false, projection_budget)
+        .await
+        .expect("cognitive projection without memory capability");
+    assert!(
+        !forbidden
+            .sources
+            .iter()
+            .any(|s| s.reference == memory_reference)
+    );
+    assert!(!forbidden.topology.nodes.contains(&memory_reference));
+    check_vcp_projection_material(&runtime, subject, &memory_reference).await;
     let mut native_request = query(subject);
     native_request.expression.targets = vec![QueryTarget::Exact {
         reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
@@ -1407,6 +1446,103 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .await
         .expect("derived producer association");
     assert_eq!(derived.producer_signature_id, Some(producer));
+}
+
+async fn check_vcp_projection_material(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+    memory: &CognitiveRef,
+) {
+    let mut space = nous_core::EmbeddingSpaceSignature {
+        space_hash: String::new(),
+        model_identity: "fixture-vcp".into(),
+        weights_revision: "1".into(),
+        task: "retrieval".into(),
+        input_representation: "text".into(),
+        preprocessing_identity: "fixture".into(),
+        preprocessing_revision: "1".into(),
+        dimension: 3,
+        normalization: "l2".into(),
+        output_semantics: "dense".into(),
+    };
+    space.space_hash = blake3::hash(&serde_json::to_vec(&space).unwrap())
+        .to_hex()
+        .to_string();
+    let producer =
+        nous_persistence::AuthorityStore::canonical_producer(&nous_core::ProducerSignature {
+            signature_hash: String::new(),
+            provider_class: "fixture".into(),
+            operation: nous_core::CapabilityOperation::TextEmbedding,
+            implementation: "fixture".into(),
+            model_identity: Some("fixture-vcp".into()),
+            model_revision: Some("1".into()),
+            output_schema_digest: None,
+            preprocessing_identity: "fixture".into(),
+            preprocessing_revision: "1".into(),
+            config_digest: "fixture".into(),
+        })
+        .unwrap();
+    runtime
+        .serving
+        .initialize_embedding(nous_retrieval::StoredEmbeddingConfig {
+            space: space.clone(),
+            producer: producer.clone(),
+        })
+        .unwrap();
+    let snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    assert!(matches!(
+        runtime
+            .serving
+            .vcp_projection_material(subject, &snapshot)
+            .await,
+        Err(nous_core::Error::Unavailable(_))
+    ));
+    for need in runtime.serving.embedding_needs(subject, 256).await.unwrap() {
+        runtime
+            .serving
+            .commit_embedding(
+                subject,
+                need.reference,
+                need.text,
+                &space.space_hash,
+                &producer.signature_hash,
+                vec![1.0, 0.0, 0.0],
+            )
+            .await
+            .unwrap();
+    }
+    let material = runtime
+        .serving
+        .vcp_projection_material(subject, &snapshot)
+        .await
+        .unwrap();
+    assert_eq!(material.space, space);
+    assert_eq!(material.producer.signature_hash, producer.signature_hash);
+    assert!(
+        material
+            .documents
+            .iter()
+            .any(|d| &d.reference == memory && d.vector == vec![1.0, 0.0, 0.0])
+    );
+    assert!(
+        material
+            .edges
+            .iter()
+            .any(|e| e.association_kind == "assoc.related")
+    );
+    assert_eq!(
+        material
+            .identities
+            .reference(material.identities.id(memory).unwrap())
+            .unwrap(),
+        memory
+    );
+    let current: i64 = sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+        .bind(subject.0)
+        .fetch_one(runtime.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(material.authority_watermark, current);
 }
 
 fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {

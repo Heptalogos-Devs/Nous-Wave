@@ -102,6 +102,12 @@ Positive AssociationEvidence projection 保留 support class、association kind 
 
 映射聚焦检查覆盖输入次序不变的 identity、source/stable curve 顺序、重复 member、维度错误、独立/重复/negative evidence 和未知输出 ID。Production graph/embedding 资产组装、Typed config、atomic generation publication、immutable VCP observation、引擎与 public query 接入仍待完成；当前 VCP profile 尚未启用。
 
+`AuthorityStore.cognitive_projection_input()` 在同一个 repeatable-read read-only transaction 中读取 subject Authority sequence、拓扑证据和符合 capability 的 material/memory/longitudinal 文本源。原 `topology_projection_input()` 复用同一个 topology snapshot owner；`CognitiveProjectionInput.authority_watermark` 表示全 Subject sequence，另有原 topology watermark，二者不能互换。
+
+[Serving VCP material preparation](../../crates/retrieval/src/vcp_material.rs) 复用既有文本拼装与 host-supplied embedding provider，冻结 space/producer 并检查每个输出身份/维度。它返回 generation identity map、独立证据、candidate vectors 与 Tag membership，Authority 无序 membership 明确标记 stable-identity 曲线顺序。缺已存储 embedding 时返回 unavailable；本机配置使用 StoredEmbeddingProvider，该步骤没有独立远程调用路径。
+
+真实 PostgreSQL 的 association integration 回归同时验证 memory 开关对文本与拓扑的同步排除、独立 association provenance、缺 material、提交存储 embedding 后的候选 vectors/space/producer 和全 Authority 水位。此准备入口已可执行，仍未接入 VCP profile 的 generation build/publication 和查询 lane。
+
 ## 需要保留的实现边界
 
 ### 观测与完整度

@@ -166,7 +166,7 @@ pub(crate) async fn memory_sources(
     Ok(sources)
 }
 
-async fn material_sources(
+pub(crate) async fn material_sources(
     tx: &mut Transaction<'_, Postgres>,
     subject: SubjectId,
 ) -> Result<Vec<TextProjectionSource>> {
@@ -280,7 +280,7 @@ async fn material_sources(
     Ok(sources)
 }
 
-async fn longitudinal_sources(
+pub(crate) async fn longitudinal_sources(
     tx: &mut Transaction<'_, Postgres>,
     subject: SubjectId,
     episode_budget: crate::EpisodeTextBudget,

@@ -18,7 +18,7 @@ mod topology_input;
 pub use projection_input::{TextProjectionFragment, TextProjectionInput, TextProjectionSource};
 pub use projections::{DenseInvalidation, ProjectionInvalidation};
 pub use serving::ServingRecord;
-pub use topology_input::{TopologyEdgeSource, TopologyProjectionInput};
+pub use topology_input::{CognitiveProjectionInput, TopologyEdgeSource, TopologyProjectionInput};
 
 use nous_core::{Error, OperationId, Result, SubjectId};
 use sqlx::{PgPool, Postgres, Transaction, postgres::PgPoolOptions};
