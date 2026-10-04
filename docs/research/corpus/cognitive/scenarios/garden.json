@@ -1,0 +1,4164 @@
+{
+  "schema_version": 1,
+  "scenario_id": "garden",
+  "license": "CC0-1.0",
+  "authorship": "project-original deterministic event graph; no external text",
+  "title": "溪湾种子园",
+  "events": [
+    {
+      "event_id": "garden-c01-e01",
+      "subject": "garden",
+      "occurred_at": "2026-05-01T09:00:00Z",
+      "observed_at": "2026-05-01T11:00:00Z",
+      "formed_at": "2026-05-01T12:00:00Z",
+      "recorded_at": "2026-05-01T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-01T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "何雨登记青禾育苗棚的新一轮作业，将内部联想标签记为“叶舟密码-01”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-05-01 · 溪湾种子园 · 何雨登记青禾育苗棚的新一轮作业，将内部联想标签记为“叶舟密码-01”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e02",
+      "subject": "garden",
+      "occurred_at": "2026-05-02T09:00:00Z",
+      "observed_at": "2026-05-02T11:00:00Z",
+      "formed_at": "2026-05-02T12:00:00Z",
+      "recorded_at": "2026-05-02T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-02T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "青禾育苗棚首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-05-02 · 溪湾种子园 · 青禾育苗棚首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e03",
+      "subject": "garden",
+      "occurred_at": "2026-05-03T09:00:00Z",
+      "observed_at": "2026-05-03T11:00:00Z",
+      "formed_at": "2026-05-03T12:00:00Z",
+      "recorded_at": "2026-05-03T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-03T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "何雨调阅青禾育苗棚的根区记录，发现异常总在连续运行后出现，决定先检查滴灌阀。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c01-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-05-03 · 溪湾种子园 · 何雨调阅青禾育苗棚的根区记录，发现异常总在连续运行后出现，决定先检查滴灌阀。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e04",
+      "subject": "garden",
+      "occurred_at": "2026-05-04T09:00:00Z",
+      "observed_at": "2026-05-04T11:00:00Z",
+      "formed_at": "2026-05-04T12:00:00Z",
+      "recorded_at": "2026-05-04T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-04T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01-other",
+      "entities": [
+        "沈青",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "青禾育苗棚",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-05-04 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e05",
+      "subject": "garden",
+      "occurred_at": "2026-05-05T09:00:00Z",
+      "observed_at": "2026-05-06T15:00:00Z",
+      "formed_at": "2026-05-06T16:00:00Z",
+      "recorded_at": "2026-05-06T16:10:00Z",
+      "valid_time": {
+        "start": "2026-05-05T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "何雨检验滴灌阀，发现老化使供水周期偏离预期。复核人员将该发现归入“叶舟密码-01”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c01-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-05-05 · 溪湾种子园 · 何雨检验滴灌阀，发现老化使供水周期偏离预期。复核人员将该发现归入“叶舟密码-01”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e06",
+      "subject": "garden",
+      "occurred_at": "2026-05-06T09:00:00Z",
+      "observed_at": "2026-05-06T11:00:00Z",
+      "formed_at": "2026-05-06T12:00:00Z",
+      "recorded_at": "2026-05-06T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-06T09:00:00Z",
+        "end": "2026-05-07T09:00:00Z"
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "何雨在青禾育苗棚暂定供水周期为7单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-05-06 · 溪湾种子园 · 何雨在青禾育苗棚暂定供水周期为7单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e07",
+      "subject": "garden",
+      "occurred_at": "2026-05-07T09:00:00Z",
+      "observed_at": "2026-05-07T11:00:00Z",
+      "formed_at": "2026-05-07T12:00:00Z",
+      "recorded_at": "2026-05-07T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-07T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "复核后何雨把青禾育苗棚的供水周期改为10单位，明确替代此前7单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c01-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c01-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-05-07 · 溪湾种子园 · 复核后何雨把青禾育苗棚的供水周期改为10单位，明确替代此前7单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e08",
+      "subject": "garden",
+      "occurred_at": "2026-05-08T09:00:00Z",
+      "observed_at": "2026-05-08T11:00:00Z",
+      "formed_at": "2026-05-08T12:00:00Z",
+      "recorded_at": "2026-05-08T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-08T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "何雨按新的供水周期执行滴灌阀维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c01-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-05-08 · 溪湾种子园 · 何雨按新的供水周期执行滴灌阀维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e09",
+      "subject": "garden",
+      "occurred_at": "2026-05-09T09:00:00Z",
+      "observed_at": "2026-05-09T11:00:00Z",
+      "formed_at": "2026-05-09T12:00:00Z",
+      "recorded_at": "2026-05-09T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-09T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "青禾育苗棚复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c01-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-05-09 · 溪湾种子园 · 青禾育苗棚复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c01-e10",
+      "subject": "garden",
+      "occurred_at": "2026-05-10T09:00:00Z",
+      "observed_at": "2026-05-10T11:00:00Z",
+      "formed_at": "2026-05-10T12:00:00Z",
+      "recorded_at": "2026-05-10T12:10:00Z",
+      "valid_time": {
+        "start": "2026-05-10T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-01",
+      "entities": [
+        "何雨",
+        "青禾育苗棚"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "青禾育苗棚",
+          "text": "何雨为青禾育苗棚下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-01”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "青禾育苗棚",
+        "叶舟密码-01",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c01-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-05-10 · 溪湾种子园 · 何雨为青禾育苗棚下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-01”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e01",
+      "subject": "garden",
+      "occurred_at": "2026-05-13T10:00:00Z",
+      "observed_at": "2026-05-13T12:00:00Z",
+      "formed_at": "2026-05-13T13:00:00Z",
+      "recorded_at": "2026-05-13T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-13T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "何雨登记石桥番茄圃的新一轮作业，将内部联想标签记为“叶舟密码-02”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-05-13 · 溪湾种子园 · 何雨登记石桥番茄圃的新一轮作业，将内部联想标签记为“叶舟密码-02”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e02",
+      "subject": "garden",
+      "occurred_at": "2026-05-14T10:00:00Z",
+      "observed_at": "2026-05-14T12:00:00Z",
+      "formed_at": "2026-05-14T13:00:00Z",
+      "recorded_at": "2026-05-14T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-14T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "石桥番茄圃首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-05-14 · 溪湾种子园 · 石桥番茄圃首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e03",
+      "subject": "garden",
+      "occurred_at": "2026-05-15T10:00:00Z",
+      "observed_at": "2026-05-15T12:00:00Z",
+      "formed_at": "2026-05-15T13:00:00Z",
+      "recorded_at": "2026-05-15T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-15T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "何雨调阅石桥番茄圃的根区记录，发现异常总在连续运行后出现，决定先检查土壤探头。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c02-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c01-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-05-15 · 溪湾种子园 · 何雨调阅石桥番茄圃的根区记录，发现异常总在连续运行后出现，决定先检查土壤探头。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e04",
+      "subject": "garden",
+      "occurred_at": "2026-05-16T10:00:00Z",
+      "observed_at": "2026-05-16T12:00:00Z",
+      "formed_at": "2026-05-16T13:00:00Z",
+      "recorded_at": "2026-05-16T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-16T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02-other",
+      "entities": [
+        "沈青",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "石桥番茄圃",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-05-16 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e05",
+      "subject": "garden",
+      "occurred_at": "2026-05-17T10:00:00Z",
+      "observed_at": "2026-05-18T16:00:00Z",
+      "formed_at": "2026-05-18T17:00:00Z",
+      "recorded_at": "2026-05-18T17:10:00Z",
+      "valid_time": {
+        "start": "2026-05-17T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "何雨检验土壤探头，发现老化使补水阈值偏离预期。复核人员将该发现归入“叶舟密码-02”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c02-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-05-17 · 溪湾种子园 · 何雨检验土壤探头，发现老化使补水阈值偏离预期。复核人员将该发现归入“叶舟密码-02”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e06",
+      "subject": "garden",
+      "occurred_at": "2026-05-18T10:00:00Z",
+      "observed_at": "2026-05-18T12:00:00Z",
+      "formed_at": "2026-05-18T13:00:00Z",
+      "recorded_at": "2026-05-18T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-18T10:00:00Z",
+        "end": "2026-05-19T10:00:00Z"
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "何雨在石桥番茄圃暂定补水阈值为14单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-05-18 · 溪湾种子园 · 何雨在石桥番茄圃暂定补水阈值为14单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e07",
+      "subject": "garden",
+      "occurred_at": "2026-05-19T10:00:00Z",
+      "observed_at": "2026-05-19T12:00:00Z",
+      "formed_at": "2026-05-19T13:00:00Z",
+      "recorded_at": "2026-05-19T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-19T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "复核后何雨把石桥番茄圃的补水阈值改为17单位，明确替代此前14单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c02-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c02-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-05-19 · 溪湾种子园 · 复核后何雨把石桥番茄圃的补水阈值改为17单位，明确替代此前14单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e08",
+      "subject": "garden",
+      "occurred_at": "2026-05-20T10:00:00Z",
+      "observed_at": "2026-05-20T12:00:00Z",
+      "formed_at": "2026-05-20T13:00:00Z",
+      "recorded_at": "2026-05-20T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-20T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "何雨按新的补水阈值执行土壤探头维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c02-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-05-20 · 溪湾种子园 · 何雨按新的补水阈值执行土壤探头维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e09",
+      "subject": "garden",
+      "occurred_at": "2026-05-21T10:00:00Z",
+      "observed_at": "2026-05-21T12:00:00Z",
+      "formed_at": "2026-05-21T13:00:00Z",
+      "recorded_at": "2026-05-21T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-21T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "石桥番茄圃复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c02-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-05-21 · 溪湾种子园 · 石桥番茄圃复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c02-e10",
+      "subject": "garden",
+      "occurred_at": "2026-05-22T10:00:00Z",
+      "observed_at": "2026-05-22T12:00:00Z",
+      "formed_at": "2026-05-22T13:00:00Z",
+      "recorded_at": "2026-05-22T13:10:00Z",
+      "valid_time": {
+        "start": "2026-05-22T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-02",
+      "entities": [
+        "何雨",
+        "石桥番茄圃"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "石桥番茄圃",
+          "text": "何雨为石桥番茄圃下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-02”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "石桥番茄圃",
+        "叶舟密码-02",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c02-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-05-22 · 溪湾种子园 · 何雨为石桥番茄圃下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-02”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e01",
+      "subject": "garden",
+      "occurred_at": "2026-05-25T11:00:00Z",
+      "observed_at": "2026-05-25T13:00:00Z",
+      "formed_at": "2026-05-25T14:00:00Z",
+      "recorded_at": "2026-05-25T14:10:00Z",
+      "valid_time": {
+        "start": "2026-05-25T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "何雨登记河湾香草床的新一轮作业，将内部联想标签记为“叶舟密码-03”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-05-25 · 溪湾种子园 · 何雨登记河湾香草床的新一轮作业，将内部联想标签记为“叶舟密码-03”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e02",
+      "subject": "garden",
+      "occurred_at": "2026-05-26T11:00:00Z",
+      "observed_at": "2026-05-26T13:00:00Z",
+      "formed_at": "2026-05-26T14:00:00Z",
+      "recorded_at": "2026-05-26T14:10:00Z",
+      "valid_time": {
+        "start": "2026-05-26T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "河湾香草床首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-05-26 · 溪湾种子园 · 河湾香草床首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e03",
+      "subject": "garden",
+      "occurred_at": "2026-05-27T11:00:00Z",
+      "observed_at": "2026-05-27T13:00:00Z",
+      "formed_at": "2026-05-27T14:00:00Z",
+      "recorded_at": "2026-05-27T14:10:00Z",
+      "valid_time": {
+        "start": "2026-05-27T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "何雨调阅河湾香草床的根区记录，发现异常总在连续运行后出现，决定先检查遮阳网。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c03-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c02-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-05-27 · 溪湾种子园 · 何雨调阅河湾香草床的根区记录，发现异常总在连续运行后出现，决定先检查遮阳网。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e04",
+      "subject": "garden",
+      "occurred_at": "2026-05-28T11:00:00Z",
+      "observed_at": "2026-05-28T13:00:00Z",
+      "formed_at": "2026-05-28T14:00:00Z",
+      "recorded_at": "2026-05-28T14:10:00Z",
+      "valid_time": {
+        "start": "2026-05-28T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03-other",
+      "entities": [
+        "沈青",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "河湾香草床",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-05-28 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e05",
+      "subject": "garden",
+      "occurred_at": "2026-05-29T11:00:00Z",
+      "observed_at": "2026-05-30T17:00:00Z",
+      "formed_at": "2026-05-30T18:00:00Z",
+      "recorded_at": "2026-05-30T18:10:00Z",
+      "valid_time": {
+        "start": "2026-05-29T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "何雨检验遮阳网，发现老化使开启时段偏离预期。复核人员将该发现归入“叶舟密码-03”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c03-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-05-29 · 溪湾种子园 · 何雨检验遮阳网，发现老化使开启时段偏离预期。复核人员将该发现归入“叶舟密码-03”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e06",
+      "subject": "garden",
+      "occurred_at": "2026-05-30T11:00:00Z",
+      "observed_at": "2026-05-30T13:00:00Z",
+      "formed_at": "2026-05-30T14:00:00Z",
+      "recorded_at": "2026-05-30T14:10:00Z",
+      "valid_time": {
+        "start": "2026-05-30T11:00:00Z",
+        "end": "2026-05-31T11:00:00Z"
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "何雨在河湾香草床暂定开启时段为21单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-05-30 · 溪湾种子园 · 何雨在河湾香草床暂定开启时段为21单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e07",
+      "subject": "garden",
+      "occurred_at": "2026-05-31T11:00:00Z",
+      "observed_at": "2026-05-31T13:00:00Z",
+      "formed_at": "2026-05-31T14:00:00Z",
+      "recorded_at": "2026-05-31T14:10:00Z",
+      "valid_time": {
+        "start": "2026-05-31T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "复核后何雨把河湾香草床的开启时段改为24单位，明确替代此前21单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c03-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c03-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-05-31 · 溪湾种子园 · 复核后何雨把河湾香草床的开启时段改为24单位，明确替代此前21单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e08",
+      "subject": "garden",
+      "occurred_at": "2026-06-01T11:00:00Z",
+      "observed_at": "2026-06-01T13:00:00Z",
+      "formed_at": "2026-06-01T14:00:00Z",
+      "recorded_at": "2026-06-01T14:10:00Z",
+      "valid_time": {
+        "start": "2026-06-01T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "何雨按新的开启时段执行遮阳网维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c03-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-06-01 · 溪湾种子园 · 何雨按新的开启时段执行遮阳网维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e09",
+      "subject": "garden",
+      "occurred_at": "2026-06-02T11:00:00Z",
+      "observed_at": "2026-06-02T13:00:00Z",
+      "formed_at": "2026-06-02T14:00:00Z",
+      "recorded_at": "2026-06-02T14:10:00Z",
+      "valid_time": {
+        "start": "2026-06-02T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "河湾香草床复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c03-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-06-02 · 溪湾种子园 · 河湾香草床复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c03-e10",
+      "subject": "garden",
+      "occurred_at": "2026-06-03T11:00:00Z",
+      "observed_at": "2026-06-03T13:00:00Z",
+      "formed_at": "2026-06-03T14:00:00Z",
+      "recorded_at": "2026-06-03T14:10:00Z",
+      "valid_time": {
+        "start": "2026-06-03T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-03",
+      "entities": [
+        "何雨",
+        "河湾香草床"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "河湾香草床",
+          "text": "何雨为河湾香草床下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-03”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "河湾香草床",
+        "叶舟密码-03",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c03-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-06-03 · 溪湾种子园 · 何雨为河湾香草床下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-03”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e01",
+      "subject": "garden",
+      "occurred_at": "2026-06-06T09:00:00Z",
+      "observed_at": "2026-06-06T11:00:00Z",
+      "formed_at": "2026-06-06T12:00:00Z",
+      "recorded_at": "2026-06-06T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-06T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "何雨登记南坡果树区的新一轮作业，将内部联想标签记为“叶舟密码-04”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-06-06 · 溪湾种子园 · 何雨登记南坡果树区的新一轮作业，将内部联想标签记为“叶舟密码-04”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e02",
+      "subject": "garden",
+      "occurred_at": "2026-06-07T09:00:00Z",
+      "observed_at": "2026-06-07T11:00:00Z",
+      "formed_at": "2026-06-07T12:00:00Z",
+      "recorded_at": "2026-06-07T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-07T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "南坡果树区首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-06-07 · 溪湾种子园 · 南坡果树区首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e03",
+      "subject": "garden",
+      "occurred_at": "2026-06-08T09:00:00Z",
+      "observed_at": "2026-06-08T11:00:00Z",
+      "formed_at": "2026-06-08T12:00:00Z",
+      "recorded_at": "2026-06-08T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-08T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "何雨调阅南坡果树区的根区记录，发现异常总在连续运行后出现，决定先检查蓄水泵。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c04-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c03-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-06-08 · 溪湾种子园 · 何雨调阅南坡果树区的根区记录，发现异常总在连续运行后出现，决定先检查蓄水泵。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e04",
+      "subject": "garden",
+      "occurred_at": "2026-06-09T09:00:00Z",
+      "observed_at": "2026-06-09T11:00:00Z",
+      "formed_at": "2026-06-09T12:00:00Z",
+      "recorded_at": "2026-06-09T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-09T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04-other",
+      "entities": [
+        "沈青",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "南坡果树区",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-06-09 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e05",
+      "subject": "garden",
+      "occurred_at": "2026-06-10T09:00:00Z",
+      "observed_at": "2026-06-11T15:00:00Z",
+      "formed_at": "2026-06-11T16:00:00Z",
+      "recorded_at": "2026-06-11T16:10:00Z",
+      "valid_time": {
+        "start": "2026-06-10T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "何雨检验蓄水泵，发现老化使灌溉压力偏离预期。复核人员将该发现归入“叶舟密码-04”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c04-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-06-10 · 溪湾种子园 · 何雨检验蓄水泵，发现老化使灌溉压力偏离预期。复核人员将该发现归入“叶舟密码-04”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e06",
+      "subject": "garden",
+      "occurred_at": "2026-06-11T09:00:00Z",
+      "observed_at": "2026-06-11T11:00:00Z",
+      "formed_at": "2026-06-11T12:00:00Z",
+      "recorded_at": "2026-06-11T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-11T09:00:00Z",
+        "end": "2026-06-12T09:00:00Z"
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "何雨在南坡果树区暂定灌溉压力为28单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-06-11 · 溪湾种子园 · 何雨在南坡果树区暂定灌溉压力为28单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e07",
+      "subject": "garden",
+      "occurred_at": "2026-06-12T09:00:00Z",
+      "observed_at": "2026-06-12T11:00:00Z",
+      "formed_at": "2026-06-12T12:00:00Z",
+      "recorded_at": "2026-06-12T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-12T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "复核后何雨把南坡果树区的灌溉压力改为31单位，明确替代此前28单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c04-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c04-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-06-12 · 溪湾种子园 · 复核后何雨把南坡果树区的灌溉压力改为31单位，明确替代此前28单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e08",
+      "subject": "garden",
+      "occurred_at": "2026-06-13T09:00:00Z",
+      "observed_at": "2026-06-13T11:00:00Z",
+      "formed_at": "2026-06-13T12:00:00Z",
+      "recorded_at": "2026-06-13T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-13T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "何雨按新的灌溉压力执行蓄水泵维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c04-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-06-13 · 溪湾种子园 · 何雨按新的灌溉压力执行蓄水泵维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e09",
+      "subject": "garden",
+      "occurred_at": "2026-06-14T09:00:00Z",
+      "observed_at": "2026-06-14T11:00:00Z",
+      "formed_at": "2026-06-14T12:00:00Z",
+      "recorded_at": "2026-06-14T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-14T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "南坡果树区复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c04-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-06-14 · 溪湾种子园 · 南坡果树区复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c04-e10",
+      "subject": "garden",
+      "occurred_at": "2026-06-15T09:00:00Z",
+      "observed_at": "2026-06-15T11:00:00Z",
+      "formed_at": "2026-06-15T12:00:00Z",
+      "recorded_at": "2026-06-15T12:10:00Z",
+      "valid_time": {
+        "start": "2026-06-15T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-04",
+      "entities": [
+        "何雨",
+        "南坡果树区"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "南坡果树区",
+          "text": "何雨为南坡果树区下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-04”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "南坡果树区",
+        "叶舟密码-04",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c04-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-06-15 · 溪湾种子园 · 何雨为南坡果树区下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-04”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e01",
+      "subject": "garden",
+      "occurred_at": "2026-06-18T10:00:00Z",
+      "observed_at": "2026-06-18T12:00:00Z",
+      "formed_at": "2026-06-18T13:00:00Z",
+      "recorded_at": "2026-06-18T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-18T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "何雨登记东门花种圃的新一轮作业，将内部联想标签记为“叶舟密码-05”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-06-18 · 溪湾种子园 · 何雨登记东门花种圃的新一轮作业，将内部联想标签记为“叶舟密码-05”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e02",
+      "subject": "garden",
+      "occurred_at": "2026-06-19T10:00:00Z",
+      "observed_at": "2026-06-19T12:00:00Z",
+      "formed_at": "2026-06-19T13:00:00Z",
+      "recorded_at": "2026-06-19T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-19T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "东门花种圃首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-06-19 · 溪湾种子园 · 东门花种圃首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e03",
+      "subject": "garden",
+      "occurred_at": "2026-06-20T10:00:00Z",
+      "observed_at": "2026-06-20T12:00:00Z",
+      "formed_at": "2026-06-20T13:00:00Z",
+      "recorded_at": "2026-06-20T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-20T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "何雨调阅东门花种圃的根区记录，发现异常总在连续运行后出现，决定先检查风机叶轮。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c05-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c04-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-06-20 · 溪湾种子园 · 何雨调阅东门花种圃的根区记录，发现异常总在连续运行后出现，决定先检查风机叶轮。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e04",
+      "subject": "garden",
+      "occurred_at": "2026-06-21T10:00:00Z",
+      "observed_at": "2026-06-21T12:00:00Z",
+      "formed_at": "2026-06-21T13:00:00Z",
+      "recorded_at": "2026-06-21T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-21T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05-other",
+      "entities": [
+        "沈青",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "东门花种圃",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-06-21 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e05",
+      "subject": "garden",
+      "occurred_at": "2026-06-22T10:00:00Z",
+      "observed_at": "2026-06-23T16:00:00Z",
+      "formed_at": "2026-06-23T17:00:00Z",
+      "recorded_at": "2026-06-23T17:10:00Z",
+      "valid_time": {
+        "start": "2026-06-22T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "何雨检验风机叶轮，发现老化使通风转速偏离预期。复核人员将该发现归入“叶舟密码-05”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c05-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-06-22 · 溪湾种子园 · 何雨检验风机叶轮，发现老化使通风转速偏离预期。复核人员将该发现归入“叶舟密码-05”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e06",
+      "subject": "garden",
+      "occurred_at": "2026-06-23T10:00:00Z",
+      "observed_at": "2026-06-23T12:00:00Z",
+      "formed_at": "2026-06-23T13:00:00Z",
+      "recorded_at": "2026-06-23T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-23T10:00:00Z",
+        "end": "2026-06-24T10:00:00Z"
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "何雨在东门花种圃暂定通风转速为35单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-06-23 · 溪湾种子园 · 何雨在东门花种圃暂定通风转速为35单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e07",
+      "subject": "garden",
+      "occurred_at": "2026-06-24T10:00:00Z",
+      "observed_at": "2026-06-24T12:00:00Z",
+      "formed_at": "2026-06-24T13:00:00Z",
+      "recorded_at": "2026-06-24T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-24T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "复核后何雨把东门花种圃的通风转速改为38单位，明确替代此前35单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c05-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c05-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-06-24 · 溪湾种子园 · 复核后何雨把东门花种圃的通风转速改为38单位，明确替代此前35单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e08",
+      "subject": "garden",
+      "occurred_at": "2026-06-25T10:00:00Z",
+      "observed_at": "2026-06-25T12:00:00Z",
+      "formed_at": "2026-06-25T13:00:00Z",
+      "recorded_at": "2026-06-25T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-25T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "何雨按新的通风转速执行风机叶轮维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c05-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-06-25 · 溪湾种子园 · 何雨按新的通风转速执行风机叶轮维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e09",
+      "subject": "garden",
+      "occurred_at": "2026-06-26T10:00:00Z",
+      "observed_at": "2026-06-26T12:00:00Z",
+      "formed_at": "2026-06-26T13:00:00Z",
+      "recorded_at": "2026-06-26T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-26T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "东门花种圃复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c05-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-06-26 · 溪湾种子园 · 东门花种圃复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c05-e10",
+      "subject": "garden",
+      "occurred_at": "2026-06-27T10:00:00Z",
+      "observed_at": "2026-06-27T12:00:00Z",
+      "formed_at": "2026-06-27T13:00:00Z",
+      "recorded_at": "2026-06-27T13:10:00Z",
+      "valid_time": {
+        "start": "2026-06-27T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-05",
+      "entities": [
+        "何雨",
+        "东门花种圃"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "东门花种圃",
+          "text": "何雨为东门花种圃下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-05”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "东门花种圃",
+        "叶舟密码-05",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c05-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-06-27 · 溪湾种子园 · 何雨为东门花种圃下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-05”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e01",
+      "subject": "garden",
+      "occurred_at": "2026-06-30T11:00:00Z",
+      "observed_at": "2026-06-30T13:00:00Z",
+      "formed_at": "2026-06-30T14:00:00Z",
+      "recorded_at": "2026-06-30T14:10:00Z",
+      "valid_time": {
+        "start": "2026-06-30T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "何雨登记旧仓萌发室的新一轮作业，将内部联想标签记为“叶舟密码-06”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-06-30 · 溪湾种子园 · 何雨登记旧仓萌发室的新一轮作业，将内部联想标签记为“叶舟密码-06”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e02",
+      "subject": "garden",
+      "occurred_at": "2026-07-01T11:00:00Z",
+      "observed_at": "2026-07-01T13:00:00Z",
+      "formed_at": "2026-07-01T14:00:00Z",
+      "recorded_at": "2026-07-01T14:10:00Z",
+      "valid_time": {
+        "start": "2026-07-01T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "旧仓萌发室首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-07-01 · 溪湾种子园 · 旧仓萌发室首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e03",
+      "subject": "garden",
+      "occurred_at": "2026-07-02T11:00:00Z",
+      "observed_at": "2026-07-02T13:00:00Z",
+      "formed_at": "2026-07-02T14:00:00Z",
+      "recorded_at": "2026-07-02T14:10:00Z",
+      "valid_time": {
+        "start": "2026-07-02T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "何雨调阅旧仓萌发室的根区记录，发现异常总在连续运行后出现，决定先检查加热片。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c06-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c05-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-07-02 · 溪湾种子园 · 何雨调阅旧仓萌发室的根区记录，发现异常总在连续运行后出现，决定先检查加热片。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e04",
+      "subject": "garden",
+      "occurred_at": "2026-07-03T11:00:00Z",
+      "observed_at": "2026-07-03T13:00:00Z",
+      "formed_at": "2026-07-03T14:00:00Z",
+      "recorded_at": "2026-07-03T14:10:00Z",
+      "valid_time": {
+        "start": "2026-07-03T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06-other",
+      "entities": [
+        "沈青",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "旧仓萌发室",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-07-03 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e05",
+      "subject": "garden",
+      "occurred_at": "2026-07-04T11:00:00Z",
+      "observed_at": "2026-07-05T17:00:00Z",
+      "formed_at": "2026-07-05T18:00:00Z",
+      "recorded_at": "2026-07-05T18:10:00Z",
+      "valid_time": {
+        "start": "2026-07-04T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "何雨检验加热片，发现老化使萌发温度偏离预期。复核人员将该发现归入“叶舟密码-06”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c06-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-07-04 · 溪湾种子园 · 何雨检验加热片，发现老化使萌发温度偏离预期。复核人员将该发现归入“叶舟密码-06”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e06",
+      "subject": "garden",
+      "occurred_at": "2026-07-05T11:00:00Z",
+      "observed_at": "2026-07-05T13:00:00Z",
+      "formed_at": "2026-07-05T14:00:00Z",
+      "recorded_at": "2026-07-05T14:10:00Z",
+      "valid_time": {
+        "start": "2026-07-05T11:00:00Z",
+        "end": "2026-07-06T11:00:00Z"
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "何雨在旧仓萌发室暂定萌发温度为42单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-07-05 · 溪湾种子园 · 何雨在旧仓萌发室暂定萌发温度为42单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e07",
+      "subject": "garden",
+      "occurred_at": "2026-07-06T11:00:00Z",
+      "observed_at": "2026-07-06T13:00:00Z",
+      "formed_at": "2026-07-06T14:00:00Z",
+      "recorded_at": "2026-07-06T14:10:00Z",
+      "valid_time": {
+        "start": "2026-07-06T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "复核后何雨把旧仓萌发室的萌发温度改为45单位，明确替代此前42单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c06-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c06-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-07-06 · 溪湾种子园 · 复核后何雨把旧仓萌发室的萌发温度改为45单位，明确替代此前42单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e08",
+      "subject": "garden",
+      "occurred_at": "2026-07-07T11:00:00Z",
+      "observed_at": "2026-07-07T13:00:00Z",
+      "formed_at": "2026-07-07T14:00:00Z",
+      "recorded_at": "2026-07-07T14:10:00Z",
+      "valid_time": {
+        "start": "2026-07-07T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "何雨按新的萌发温度执行加热片维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c06-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-07-07 · 溪湾种子园 · 何雨按新的萌发温度执行加热片维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e09",
+      "subject": "garden",
+      "occurred_at": "2026-07-08T11:00:00Z",
+      "observed_at": "2026-07-08T13:00:00Z",
+      "formed_at": "2026-07-08T14:00:00Z",
+      "recorded_at": "2026-07-08T14:10:00Z",
+      "valid_time": {
+        "start": "2026-07-08T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "旧仓萌发室复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c06-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-07-08 · 溪湾种子园 · 旧仓萌发室复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c06-e10",
+      "subject": "garden",
+      "occurred_at": "2026-07-09T11:00:00Z",
+      "observed_at": "2026-07-09T13:00:00Z",
+      "formed_at": "2026-07-09T14:00:00Z",
+      "recorded_at": "2026-07-09T14:10:00Z",
+      "valid_time": {
+        "start": "2026-07-09T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-06",
+      "entities": [
+        "何雨",
+        "旧仓萌发室"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "旧仓萌发室",
+          "text": "何雨为旧仓萌发室下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-06”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "旧仓萌发室",
+        "叶舟密码-06",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c06-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-07-09 · 溪湾种子园 · 何雨为旧仓萌发室下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-06”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e01",
+      "subject": "garden",
+      "occurred_at": "2026-07-12T09:00:00Z",
+      "observed_at": "2026-07-12T11:00:00Z",
+      "formed_at": "2026-07-12T12:00:00Z",
+      "recorded_at": "2026-07-12T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-12T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "何雨登记白墙菌床的新一轮作业，将内部联想标签记为“叶舟密码-07”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-07-12 · 溪湾种子园 · 何雨登记白墙菌床的新一轮作业，将内部联想标签记为“叶舟密码-07”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e02",
+      "subject": "garden",
+      "occurred_at": "2026-07-13T09:00:00Z",
+      "observed_at": "2026-07-13T11:00:00Z",
+      "formed_at": "2026-07-13T12:00:00Z",
+      "recorded_at": "2026-07-13T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-13T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "白墙菌床首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-07-13 · 溪湾种子园 · 白墙菌床首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e03",
+      "subject": "garden",
+      "occurred_at": "2026-07-14T09:00:00Z",
+      "observed_at": "2026-07-14T11:00:00Z",
+      "formed_at": "2026-07-14T12:00:00Z",
+      "recorded_at": "2026-07-14T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-14T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "何雨调阅白墙菌床的根区记录，发现异常总在连续运行后出现，决定先检查湿度喷嘴。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c07-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c06-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-07-14 · 溪湾种子园 · 何雨调阅白墙菌床的根区记录，发现异常总在连续运行后出现，决定先检查湿度喷嘴。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e04",
+      "subject": "garden",
+      "occurred_at": "2026-07-15T09:00:00Z",
+      "observed_at": "2026-07-15T11:00:00Z",
+      "formed_at": "2026-07-15T12:00:00Z",
+      "recorded_at": "2026-07-15T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-15T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07-other",
+      "entities": [
+        "沈青",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "白墙菌床",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-07-15 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e05",
+      "subject": "garden",
+      "occurred_at": "2026-07-16T09:00:00Z",
+      "observed_at": "2026-07-17T15:00:00Z",
+      "formed_at": "2026-07-17T16:00:00Z",
+      "recorded_at": "2026-07-17T16:10:00Z",
+      "valid_time": {
+        "start": "2026-07-16T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "何雨检验湿度喷嘴，发现老化使喷雾间隔偏离预期。复核人员将该发现归入“叶舟密码-07”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c07-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-07-16 · 溪湾种子园 · 何雨检验湿度喷嘴，发现老化使喷雾间隔偏离预期。复核人员将该发现归入“叶舟密码-07”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e06",
+      "subject": "garden",
+      "occurred_at": "2026-07-17T09:00:00Z",
+      "observed_at": "2026-07-17T11:00:00Z",
+      "formed_at": "2026-07-17T12:00:00Z",
+      "recorded_at": "2026-07-17T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-17T09:00:00Z",
+        "end": "2026-07-18T09:00:00Z"
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "何雨在白墙菌床暂定喷雾间隔为49单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-07-17 · 溪湾种子园 · 何雨在白墙菌床暂定喷雾间隔为49单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e07",
+      "subject": "garden",
+      "occurred_at": "2026-07-18T09:00:00Z",
+      "observed_at": "2026-07-18T11:00:00Z",
+      "formed_at": "2026-07-18T12:00:00Z",
+      "recorded_at": "2026-07-18T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-18T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "复核后何雨把白墙菌床的喷雾间隔改为52单位，明确替代此前49单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c07-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c07-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-07-18 · 溪湾种子园 · 复核后何雨把白墙菌床的喷雾间隔改为52单位，明确替代此前49单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e08",
+      "subject": "garden",
+      "occurred_at": "2026-07-19T09:00:00Z",
+      "observed_at": "2026-07-19T11:00:00Z",
+      "formed_at": "2026-07-19T12:00:00Z",
+      "recorded_at": "2026-07-19T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-19T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "何雨按新的喷雾间隔执行湿度喷嘴维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c07-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-07-19 · 溪湾种子园 · 何雨按新的喷雾间隔执行湿度喷嘴维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e09",
+      "subject": "garden",
+      "occurred_at": "2026-07-20T09:00:00Z",
+      "observed_at": "2026-07-20T11:00:00Z",
+      "formed_at": "2026-07-20T12:00:00Z",
+      "recorded_at": "2026-07-20T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-20T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "白墙菌床复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c07-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-07-20 · 溪湾种子园 · 白墙菌床复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c07-e10",
+      "subject": "garden",
+      "occurred_at": "2026-07-21T09:00:00Z",
+      "observed_at": "2026-07-21T11:00:00Z",
+      "formed_at": "2026-07-21T12:00:00Z",
+      "recorded_at": "2026-07-21T12:10:00Z",
+      "valid_time": {
+        "start": "2026-07-21T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-07",
+      "entities": [
+        "何雨",
+        "白墙菌床"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "白墙菌床",
+          "text": "何雨为白墙菌床下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-07”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "白墙菌床",
+        "叶舟密码-07",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c07-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-07-21 · 溪湾种子园 · 何雨为白墙菌床下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-07”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e01",
+      "subject": "garden",
+      "occurred_at": "2026-07-24T10:00:00Z",
+      "observed_at": "2026-07-24T12:00:00Z",
+      "formed_at": "2026-07-24T13:00:00Z",
+      "recorded_at": "2026-07-24T13:10:00Z",
+      "valid_time": {
+        "start": "2026-07-24T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "何雨登记莲池试验田的新一轮作业，将内部联想标签记为“叶舟密码-08”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-07-24 · 溪湾种子园 · 何雨登记莲池试验田的新一轮作业，将内部联想标签记为“叶舟密码-08”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e02",
+      "subject": "garden",
+      "occurred_at": "2026-07-25T10:00:00Z",
+      "observed_at": "2026-07-25T12:00:00Z",
+      "formed_at": "2026-07-25T13:00:00Z",
+      "recorded_at": "2026-07-25T13:10:00Z",
+      "valid_time": {
+        "start": "2026-07-25T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "莲池试验田首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-07-25 · 溪湾种子园 · 莲池试验田首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e03",
+      "subject": "garden",
+      "occurred_at": "2026-07-26T10:00:00Z",
+      "observed_at": "2026-07-26T12:00:00Z",
+      "formed_at": "2026-07-26T13:00:00Z",
+      "recorded_at": "2026-07-26T13:10:00Z",
+      "valid_time": {
+        "start": "2026-07-26T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "何雨调阅莲池试验田的根区记录，发现异常总在连续运行后出现，决定先检查排水闸。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c08-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c07-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-07-26 · 溪湾种子园 · 何雨调阅莲池试验田的根区记录，发现异常总在连续运行后出现，决定先检查排水闸。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e04",
+      "subject": "garden",
+      "occurred_at": "2026-07-27T10:00:00Z",
+      "observed_at": "2026-07-27T12:00:00Z",
+      "formed_at": "2026-07-27T13:00:00Z",
+      "recorded_at": "2026-07-27T13:10:00Z",
+      "valid_time": {
+        "start": "2026-07-27T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08-other",
+      "entities": [
+        "沈青",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "莲池试验田",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-07-27 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e05",
+      "subject": "garden",
+      "occurred_at": "2026-07-28T10:00:00Z",
+      "observed_at": "2026-07-29T16:00:00Z",
+      "formed_at": "2026-07-29T17:00:00Z",
+      "recorded_at": "2026-07-29T17:10:00Z",
+      "valid_time": {
+        "start": "2026-07-28T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "何雨检验排水闸，发现老化使水位上限偏离预期。复核人员将该发现归入“叶舟密码-08”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c08-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-07-28 · 溪湾种子园 · 何雨检验排水闸，发现老化使水位上限偏离预期。复核人员将该发现归入“叶舟密码-08”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e06",
+      "subject": "garden",
+      "occurred_at": "2026-07-29T10:00:00Z",
+      "observed_at": "2026-07-29T12:00:00Z",
+      "formed_at": "2026-07-29T13:00:00Z",
+      "recorded_at": "2026-07-29T13:10:00Z",
+      "valid_time": {
+        "start": "2026-07-29T10:00:00Z",
+        "end": "2026-07-30T10:00:00Z"
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "何雨在莲池试验田暂定水位上限为56单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-07-29 · 溪湾种子园 · 何雨在莲池试验田暂定水位上限为56单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e07",
+      "subject": "garden",
+      "occurred_at": "2026-07-30T10:00:00Z",
+      "observed_at": "2026-07-30T12:00:00Z",
+      "formed_at": "2026-07-30T13:00:00Z",
+      "recorded_at": "2026-07-30T13:10:00Z",
+      "valid_time": {
+        "start": "2026-07-30T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "复核后何雨把莲池试验田的水位上限改为59单位，明确替代此前56单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c08-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c08-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-07-30 · 溪湾种子园 · 复核后何雨把莲池试验田的水位上限改为59单位，明确替代此前56单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e08",
+      "subject": "garden",
+      "occurred_at": "2026-07-31T10:00:00Z",
+      "observed_at": "2026-07-31T12:00:00Z",
+      "formed_at": "2026-07-31T13:00:00Z",
+      "recorded_at": "2026-07-31T13:10:00Z",
+      "valid_time": {
+        "start": "2026-07-31T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "何雨按新的水位上限执行排水闸维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c08-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-07-31 · 溪湾种子园 · 何雨按新的水位上限执行排水闸维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e09",
+      "subject": "garden",
+      "occurred_at": "2026-08-01T10:00:00Z",
+      "observed_at": "2026-08-01T12:00:00Z",
+      "formed_at": "2026-08-01T13:00:00Z",
+      "recorded_at": "2026-08-01T13:10:00Z",
+      "valid_time": {
+        "start": "2026-08-01T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "莲池试验田复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c08-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-08-01 · 溪湾种子园 · 莲池试验田复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c08-e10",
+      "subject": "garden",
+      "occurred_at": "2026-08-02T10:00:00Z",
+      "observed_at": "2026-08-02T12:00:00Z",
+      "formed_at": "2026-08-02T13:00:00Z",
+      "recorded_at": "2026-08-02T13:10:00Z",
+      "valid_time": {
+        "start": "2026-08-02T10:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-08",
+      "entities": [
+        "何雨",
+        "莲池试验田"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "莲池试验田",
+          "text": "何雨为莲池试验田下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-08”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "莲池试验田",
+        "叶舟密码-08",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c08-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-08-02 · 溪湾种子园 · 何雨为莲池试验田下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-08”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e01",
+      "subject": "garden",
+      "occurred_at": "2026-08-05T11:00:00Z",
+      "observed_at": "2026-08-05T13:00:00Z",
+      "formed_at": "2026-08-05T14:00:00Z",
+      "recorded_at": "2026-08-05T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-05T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "何雨登记西窗水培槽的新一轮作业，将内部联想标签记为“叶舟密码-09”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-08-05 · 溪湾种子园 · 何雨登记西窗水培槽的新一轮作业，将内部联想标签记为“叶舟密码-09”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e02",
+      "subject": "garden",
+      "occurred_at": "2026-08-06T11:00:00Z",
+      "observed_at": "2026-08-06T13:00:00Z",
+      "formed_at": "2026-08-06T14:00:00Z",
+      "recorded_at": "2026-08-06T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-06T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "西窗水培槽首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-08-06 · 溪湾种子园 · 西窗水培槽首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e03",
+      "subject": "garden",
+      "occurred_at": "2026-08-07T11:00:00Z",
+      "observed_at": "2026-08-07T13:00:00Z",
+      "formed_at": "2026-08-07T14:00:00Z",
+      "recorded_at": "2026-08-07T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-07T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "何雨调阅西窗水培槽的根区记录，发现异常总在连续运行后出现，决定先检查营养泵。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c09-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c08-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-08-07 · 溪湾种子园 · 何雨调阅西窗水培槽的根区记录，发现异常总在连续运行后出现，决定先检查营养泵。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e04",
+      "subject": "garden",
+      "occurred_at": "2026-08-08T11:00:00Z",
+      "observed_at": "2026-08-08T13:00:00Z",
+      "formed_at": "2026-08-08T14:00:00Z",
+      "recorded_at": "2026-08-08T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-08T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09-other",
+      "entities": [
+        "沈青",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "西窗水培槽",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-08-08 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e05",
+      "subject": "garden",
+      "occurred_at": "2026-08-09T11:00:00Z",
+      "observed_at": "2026-08-10T17:00:00Z",
+      "formed_at": "2026-08-10T18:00:00Z",
+      "recorded_at": "2026-08-10T18:10:00Z",
+      "valid_time": {
+        "start": "2026-08-09T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "何雨检验营养泵，发现老化使回流时间偏离预期。复核人员将该发现归入“叶舟密码-09”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c09-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-08-09 · 溪湾种子园 · 何雨检验营养泵，发现老化使回流时间偏离预期。复核人员将该发现归入“叶舟密码-09”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e06",
+      "subject": "garden",
+      "occurred_at": "2026-08-10T11:00:00Z",
+      "observed_at": "2026-08-10T13:00:00Z",
+      "formed_at": "2026-08-10T14:00:00Z",
+      "recorded_at": "2026-08-10T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-10T11:00:00Z",
+        "end": "2026-08-11T11:00:00Z"
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "何雨在西窗水培槽暂定回流时间为63单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-08-10 · 溪湾种子园 · 何雨在西窗水培槽暂定回流时间为63单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e07",
+      "subject": "garden",
+      "occurred_at": "2026-08-11T11:00:00Z",
+      "observed_at": "2026-08-11T13:00:00Z",
+      "formed_at": "2026-08-11T14:00:00Z",
+      "recorded_at": "2026-08-11T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-11T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "复核后何雨把西窗水培槽的回流时间改为66单位，明确替代此前63单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c09-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c09-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-08-11 · 溪湾种子园 · 复核后何雨把西窗水培槽的回流时间改为66单位，明确替代此前63单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e08",
+      "subject": "garden",
+      "occurred_at": "2026-08-12T11:00:00Z",
+      "observed_at": "2026-08-12T13:00:00Z",
+      "formed_at": "2026-08-12T14:00:00Z",
+      "recorded_at": "2026-08-12T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-12T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "何雨按新的回流时间执行营养泵维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c09-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-08-12 · 溪湾种子园 · 何雨按新的回流时间执行营养泵维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e09",
+      "subject": "garden",
+      "occurred_at": "2026-08-13T11:00:00Z",
+      "observed_at": "2026-08-13T13:00:00Z",
+      "formed_at": "2026-08-13T14:00:00Z",
+      "recorded_at": "2026-08-13T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-13T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "西窗水培槽复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c09-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-08-13 · 溪湾种子园 · 西窗水培槽复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c09-e10",
+      "subject": "garden",
+      "occurred_at": "2026-08-14T11:00:00Z",
+      "observed_at": "2026-08-14T13:00:00Z",
+      "formed_at": "2026-08-14T14:00:00Z",
+      "recorded_at": "2026-08-14T14:10:00Z",
+      "valid_time": {
+        "start": "2026-08-14T11:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-09",
+      "entities": [
+        "何雨",
+        "西窗水培槽"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "西窗水培槽",
+          "text": "何雨为西窗水培槽下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-09”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "西窗水培槽",
+        "叶舟密码-09",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c09-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-08-14 · 溪湾种子园 · 何雨为西窗水培槽下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-09”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e01",
+      "subject": "garden",
+      "occurred_at": "2026-08-17T09:00:00Z",
+      "observed_at": "2026-08-17T11:00:00Z",
+      "formed_at": "2026-08-17T12:00:00Z",
+      "recorded_at": "2026-08-17T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-17T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "opened",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "何雨登记竹径留种区的新一轮作业，将内部联想标签记为“叶舟密码-10”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-08-17 · 溪湾种子园 · 何雨登记竹径留种区的新一轮作业，将内部联想标签记为“叶舟密码-10”；该标签意指先记录异常，再核对来源，最后复核结果。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e02",
+      "subject": "garden",
+      "occurred_at": "2026-08-18T09:00:00Z",
+      "observed_at": "2026-08-18T11:00:00Z",
+      "formed_at": "2026-08-18T12:00:00Z",
+      "recorded_at": "2026-08-18T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-18T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "noticed",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "竹径留种区首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-08-18 · 溪湾种子园 · 竹径留种区首次出现幼苗萎蔫。何雨记录现场条件，暂时未确定原因。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e03",
+      "subject": "garden",
+      "occurred_at": "2026-08-19T09:00:00Z",
+      "observed_at": "2026-08-19T11:00:00Z",
+      "formed_at": "2026-08-19T12:00:00Z",
+      "recorded_at": "2026-08-19T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-19T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "pattern",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "何雨调阅竹径留种区的根区记录，发现异常总在连续运行后出现，决定先检查授粉刷。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c10-e02",
+          "reason": "record explicitly uses the preceding investigation result"
+        },
+        {
+          "kind": "recurrence",
+          "target": "garden-c09-e03",
+          "reason": "same operator repeats post-continuous-operation investigation pattern across sessions"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-08-19 · 溪湾种子园 · 何雨调阅竹径留种区的根区记录，发现异常总在连续运行后出现，决定先检查授粉刷。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e04",
+      "subject": "garden",
+      "occurred_at": "2026-08-20T09:00:00Z",
+      "observed_at": "2026-08-20T11:00:00Z",
+      "formed_at": "2026-08-20T12:00:00Z",
+      "recorded_at": "2026-08-20T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-20T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10-other",
+      "entities": [
+        "沈青",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "distractor",
+          "actor": "沈青",
+          "project": "竹径留种区",
+          "text": "沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-08-20 · 溪湾种子园 · 沈青在另一班次报告相似现象，实际原因是操作步骤遗漏，补全步骤后恢复；此报告不属于何雨的本轮故障。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e05",
+      "subject": "garden",
+      "occurred_at": "2026-08-21T09:00:00Z",
+      "observed_at": "2026-08-22T15:00:00Z",
+      "formed_at": "2026-08-22T16:00:00Z",
+      "recorded_at": "2026-08-22T16:10:00Z",
+      "valid_time": {
+        "start": "2026-08-21T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "diagnosed",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "何雨检验授粉刷，发现老化使作业轮次偏离预期。复核人员将该发现归入“叶舟密码-10”的来源核对阶段。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c10-e03",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "reminder",
+          "text": "2026-08-21 · 溪湾种子园 · 何雨检验授粉刷，发现老化使作业轮次偏离预期。复核人员将该发现归入“叶舟密码-10”的来源核对阶段。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e06",
+      "subject": "garden",
+      "occurred_at": "2026-08-22T09:00:00Z",
+      "observed_at": "2026-08-22T11:00:00Z",
+      "formed_at": "2026-08-22T12:00:00Z",
+      "recorded_at": "2026-08-22T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-22T09:00:00Z",
+        "end": "2026-08-23T09:00:00Z"
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "provisional",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "何雨在竹径留种区暂定作业轮次为70单位，只在当天试运行有效。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [],
+      "renders": [
+        {
+          "kind": "web_text",
+          "text": "2026-08-22 · 溪湾种子园 · 何雨在竹径留种区暂定作业轮次为70单位，只在当天试运行有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e07",
+      "subject": "garden",
+      "occurred_at": "2026-08-23T09:00:00Z",
+      "observed_at": "2026-08-23T11:00:00Z",
+      "formed_at": "2026-08-23T12:00:00Z",
+      "recorded_at": "2026-08-23T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-23T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "updated",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "复核后何雨把竹径留种区的作业轮次改为73单位，明确替代此前70单位的暂定值。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "supersedes",
+          "target": "garden-c10-e06",
+          "reason": "explicit correction of provisional setting"
+        },
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c10-e05",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "chat_turn",
+          "text": "2026-08-23 · 溪湾种子园 · 复核后何雨把竹径留种区的作业轮次改为73单位，明确替代此前70单位的暂定值。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e08",
+      "subject": "garden",
+      "occurred_at": "2026-08-24T09:00:00Z",
+      "observed_at": "2026-08-24T11:00:00Z",
+      "formed_at": "2026-08-24T12:00:00Z",
+      "recorded_at": "2026-08-24T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-24T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "intervention",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "何雨按新的作业轮次执行授粉刷维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c10-e07",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "note",
+          "text": "2026-08-24 · 溪湾种子园 · 何雨按新的作业轮次执行授粉刷维护，异常减轻；维护记录引用复核结果而非另一班次的步骤遗漏报告。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e09",
+      "subject": "garden",
+      "occurred_at": "2026-08-25T09:00:00Z",
+      "observed_at": "2026-08-25T11:00:00Z",
+      "formed_at": "2026-08-25T12:00:00Z",
+      "recorded_at": "2026-08-25T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-25T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "verified",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "竹径留种区复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c10-e08",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "project_log",
+          "text": "2026-08-25 · 溪湾种子园 · 竹径留种区复测未再出现幼苗萎蔫，何雨将问题关闭，复测结果支持此前维护有效。"
+        }
+      ]
+    },
+    {
+      "event_id": "garden-c10-e10",
+      "subject": "garden",
+      "occurred_at": "2026-08-26T09:00:00Z",
+      "observed_at": "2026-08-26T11:00:00Z",
+      "formed_at": "2026-08-26T12:00:00Z",
+      "recorded_at": "2026-08-26T12:10:00Z",
+      "valid_time": {
+        "start": "2026-08-26T09:00:00Z",
+        "end": null
+      },
+      "session": "garden-session-10",
+      "entities": [
+        "何雨",
+        "竹径留种区"
+      ],
+      "facts": [
+        {
+          "predicate": "reminder",
+          "actor": "何雨",
+          "project": "竹径留种区",
+          "text": "何雨为竹径留种区下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-10”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ],
+      "tags": [
+        "竹径留种区",
+        "叶舟密码-10",
+        "工作记录"
+      ],
+      "relations": [
+        {
+          "kind": "recalls_precursor",
+          "target": "garden-c10-e09",
+          "reason": "record explicitly uses the preceding investigation result"
+        }
+      ],
+      "renders": [
+        {
+          "kind": "journal",
+          "text": "2026-08-26 · 溪湾种子园 · 何雨为竹径留种区下一轮值班留下提醒：再次遇到同类信号时沿“叶舟密码-10”查找复核和维护记录，同时保留根区记录；这不是一次新故障。"
+        }
+      ]
+    }
+  ]
+}

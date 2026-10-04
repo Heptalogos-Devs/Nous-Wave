@@ -27,3 +27,5 @@
 - [Architecture-Vault Target Design](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md)
 
 [返回仓库地图](../INDEX.md)
+
+- [原创 Cognitive Recall Corpus](research/corpus/cognitive/README.md)

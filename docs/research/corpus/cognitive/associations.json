@@ -1,0 +1,1265 @@
+{
+  "schema_version": 1,
+  "edges": [
+    {
+      "subject": "observatory",
+      "from": "observatory-c01-e03",
+      "to": "observatory-c01-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c01-e05",
+      "to": "observatory-c01-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c01-e07",
+      "to": "observatory-c01-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c01-e08",
+      "to": "observatory-c01-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c01-e09",
+      "to": "observatory-c01-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c01-e10",
+      "to": "observatory-c01-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c02-e03",
+      "to": "observatory-c02-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c02-e05",
+      "to": "observatory-c02-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c02-e07",
+      "to": "observatory-c02-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c02-e08",
+      "to": "observatory-c02-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c02-e09",
+      "to": "observatory-c02-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c02-e10",
+      "to": "observatory-c02-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c03-e03",
+      "to": "observatory-c03-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c03-e05",
+      "to": "observatory-c03-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c03-e07",
+      "to": "observatory-c03-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c03-e08",
+      "to": "observatory-c03-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c03-e09",
+      "to": "observatory-c03-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c03-e10",
+      "to": "observatory-c03-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c04-e03",
+      "to": "observatory-c04-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c04-e05",
+      "to": "observatory-c04-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c04-e07",
+      "to": "observatory-c04-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c04-e08",
+      "to": "observatory-c04-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c04-e09",
+      "to": "observatory-c04-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c04-e10",
+      "to": "observatory-c04-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c05-e03",
+      "to": "observatory-c05-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c05-e05",
+      "to": "observatory-c05-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c05-e07",
+      "to": "observatory-c05-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c05-e08",
+      "to": "observatory-c05-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c05-e09",
+      "to": "observatory-c05-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c05-e10",
+      "to": "observatory-c05-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c06-e03",
+      "to": "observatory-c06-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c06-e05",
+      "to": "observatory-c06-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c06-e07",
+      "to": "observatory-c06-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c06-e08",
+      "to": "observatory-c06-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c06-e09",
+      "to": "observatory-c06-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c06-e10",
+      "to": "observatory-c06-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c07-e03",
+      "to": "observatory-c07-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c07-e05",
+      "to": "observatory-c07-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c07-e07",
+      "to": "observatory-c07-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c07-e08",
+      "to": "observatory-c07-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c07-e09",
+      "to": "observatory-c07-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c07-e10",
+      "to": "observatory-c07-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c08-e03",
+      "to": "observatory-c08-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c08-e05",
+      "to": "observatory-c08-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c08-e07",
+      "to": "observatory-c08-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c08-e08",
+      "to": "observatory-c08-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c08-e09",
+      "to": "observatory-c08-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c08-e10",
+      "to": "observatory-c08-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c09-e03",
+      "to": "observatory-c09-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c09-e05",
+      "to": "observatory-c09-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c09-e07",
+      "to": "observatory-c09-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c09-e08",
+      "to": "observatory-c09-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c09-e09",
+      "to": "observatory-c09-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c09-e10",
+      "to": "observatory-c09-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c10-e03",
+      "to": "observatory-c10-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c10-e05",
+      "to": "observatory-c10-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c10-e07",
+      "to": "observatory-c10-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c10-e08",
+      "to": "observatory-c10-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c10-e09",
+      "to": "observatory-c10-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "observatory",
+      "from": "observatory-c10-e10",
+      "to": "observatory-c10-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c01-e03",
+      "to": "garden-c01-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c01-e05",
+      "to": "garden-c01-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c01-e07",
+      "to": "garden-c01-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c01-e08",
+      "to": "garden-c01-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c01-e09",
+      "to": "garden-c01-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c01-e10",
+      "to": "garden-c01-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c02-e03",
+      "to": "garden-c02-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c02-e05",
+      "to": "garden-c02-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c02-e07",
+      "to": "garden-c02-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c02-e08",
+      "to": "garden-c02-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c02-e09",
+      "to": "garden-c02-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c02-e10",
+      "to": "garden-c02-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c03-e03",
+      "to": "garden-c03-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c03-e05",
+      "to": "garden-c03-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c03-e07",
+      "to": "garden-c03-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c03-e08",
+      "to": "garden-c03-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c03-e09",
+      "to": "garden-c03-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c03-e10",
+      "to": "garden-c03-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c04-e03",
+      "to": "garden-c04-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c04-e05",
+      "to": "garden-c04-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c04-e07",
+      "to": "garden-c04-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c04-e08",
+      "to": "garden-c04-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c04-e09",
+      "to": "garden-c04-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c04-e10",
+      "to": "garden-c04-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c05-e03",
+      "to": "garden-c05-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c05-e05",
+      "to": "garden-c05-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c05-e07",
+      "to": "garden-c05-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c05-e08",
+      "to": "garden-c05-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c05-e09",
+      "to": "garden-c05-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c05-e10",
+      "to": "garden-c05-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c06-e03",
+      "to": "garden-c06-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c06-e05",
+      "to": "garden-c06-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c06-e07",
+      "to": "garden-c06-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c06-e08",
+      "to": "garden-c06-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c06-e09",
+      "to": "garden-c06-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c06-e10",
+      "to": "garden-c06-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c07-e03",
+      "to": "garden-c07-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c07-e05",
+      "to": "garden-c07-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c07-e07",
+      "to": "garden-c07-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c07-e08",
+      "to": "garden-c07-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c07-e09",
+      "to": "garden-c07-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c07-e10",
+      "to": "garden-c07-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c08-e03",
+      "to": "garden-c08-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c08-e05",
+      "to": "garden-c08-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c08-e07",
+      "to": "garden-c08-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c08-e08",
+      "to": "garden-c08-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c08-e09",
+      "to": "garden-c08-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c08-e10",
+      "to": "garden-c08-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c09-e03",
+      "to": "garden-c09-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c09-e05",
+      "to": "garden-c09-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c09-e07",
+      "to": "garden-c09-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c09-e08",
+      "to": "garden-c09-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c09-e09",
+      "to": "garden-c09-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c09-e10",
+      "to": "garden-c09-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c10-e03",
+      "to": "garden-c10-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c10-e05",
+      "to": "garden-c10-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c10-e07",
+      "to": "garden-c10-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c10-e08",
+      "to": "garden-c10-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c10-e09",
+      "to": "garden-c10-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "garden",
+      "from": "garden-c10-e10",
+      "to": "garden-c10-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c01-e03",
+      "to": "archive-c01-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c01-e05",
+      "to": "archive-c01-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c01-e07",
+      "to": "archive-c01-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c01-e08",
+      "to": "archive-c01-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c01-e09",
+      "to": "archive-c01-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c01-e10",
+      "to": "archive-c01-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c02-e03",
+      "to": "archive-c02-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c02-e05",
+      "to": "archive-c02-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c02-e07",
+      "to": "archive-c02-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c02-e08",
+      "to": "archive-c02-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c02-e09",
+      "to": "archive-c02-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c02-e10",
+      "to": "archive-c02-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c03-e03",
+      "to": "archive-c03-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c03-e05",
+      "to": "archive-c03-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c03-e07",
+      "to": "archive-c03-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c03-e08",
+      "to": "archive-c03-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c03-e09",
+      "to": "archive-c03-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c03-e10",
+      "to": "archive-c03-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c04-e03",
+      "to": "archive-c04-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c04-e05",
+      "to": "archive-c04-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c04-e07",
+      "to": "archive-c04-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c04-e08",
+      "to": "archive-c04-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c04-e09",
+      "to": "archive-c04-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c04-e10",
+      "to": "archive-c04-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c05-e03",
+      "to": "archive-c05-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c05-e05",
+      "to": "archive-c05-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c05-e07",
+      "to": "archive-c05-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c05-e08",
+      "to": "archive-c05-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c05-e09",
+      "to": "archive-c05-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c05-e10",
+      "to": "archive-c05-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c06-e03",
+      "to": "archive-c06-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c06-e05",
+      "to": "archive-c06-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c06-e07",
+      "to": "archive-c06-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c06-e08",
+      "to": "archive-c06-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c06-e09",
+      "to": "archive-c06-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c06-e10",
+      "to": "archive-c06-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c07-e03",
+      "to": "archive-c07-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c07-e05",
+      "to": "archive-c07-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c07-e07",
+      "to": "archive-c07-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c07-e08",
+      "to": "archive-c07-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c07-e09",
+      "to": "archive-c07-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c07-e10",
+      "to": "archive-c07-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c08-e03",
+      "to": "archive-c08-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c08-e05",
+      "to": "archive-c08-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c08-e07",
+      "to": "archive-c08-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c08-e08",
+      "to": "archive-c08-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c08-e09",
+      "to": "archive-c08-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c08-e10",
+      "to": "archive-c08-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c09-e03",
+      "to": "archive-c09-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c09-e05",
+      "to": "archive-c09-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c09-e07",
+      "to": "archive-c09-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c09-e08",
+      "to": "archive-c09-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c09-e09",
+      "to": "archive-c09-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c09-e10",
+      "to": "archive-c09-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c10-e03",
+      "to": "archive-c10-e02",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c10-e05",
+      "to": "archive-c10-e03",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c10-e07",
+      "to": "archive-c10-e05",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c10-e08",
+      "to": "archive-c10-e07",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c10-e09",
+      "to": "archive-c10-e08",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    },
+    {
+      "subject": "archive",
+      "from": "archive-c10-e10",
+      "to": "archive-c10-e09",
+      "kind": "recalls_precursor",
+      "reason": "record explicitly uses the preceding investigation result"
+    }
+  ]
+}
