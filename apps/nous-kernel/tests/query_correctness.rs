@@ -1324,6 +1324,15 @@ async fn query_distinguishes_provider_unavailable_from_unknown() {
             .iter()
             .any(|value| value.code == "dense_lane_unavailable")
     );
+    let mut associative = text_query(subject);
+    associative.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+    let unavailable = runtime.query(associative).await.expect("associative query");
+    assert!(
+        unavailable
+            .degradation
+            .iter()
+            .any(|value| value.code == "topologywave_lane_unavailable")
+    );
 }
 
 #[tokio::test]
