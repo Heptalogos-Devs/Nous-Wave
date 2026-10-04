@@ -504,3 +504,83 @@ fn native_query_fusion_seed_max_supplements_ghosts_and_dedup_match() {
         );
     }
 }
+
+#[test]
+fn native_epa_density_sampling_weighted_basis_and_publication_values_match() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-epa-training.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceEpaTrainingInput =
+            serde_json::from_value(case["input"].clone()).unwrap();
+        let output = reference_train_epa(&input);
+        let e = &case["expected"];
+        assert_eq!(
+            output.success,
+            e["success"].as_bool().unwrap(),
+            "{}",
+            case["name"]
+        );
+        if !output.success {
+            continue;
+        }
+        let s = &e["samples"];
+        assert_eq!(
+            output.bucket_keys,
+            serde_json::from_value::<Vec<u16>>(s["bucket_keys"].clone()).unwrap()
+        );
+        assert_eq!(
+            output.weights,
+            serde_json::from_value::<Vec<usize>>(s["weights"].clone()).unwrap(),
+            "{}",
+            case["name"]
+        );
+        assert_eq!(
+            output.labels,
+            serde_json::from_value::<Vec<String>>(s["labels"].clone()).unwrap()
+        );
+        assert_eq!(
+            output.representative_count,
+            s["representative_count"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            output.bucket_count,
+            s["bucket_count"].as_u64().unwrap() as usize
+        );
+        for (a, e) in [
+            (&output.density_mean, &s["density_mean"]),
+            (&output.mean, &e["cache"]["mean"]),
+        ] {
+            let b: Vec<f32> = serde_json::from_value(e.clone()).unwrap();
+            for (a, b) in a.iter().zip(b) {
+                assert!((a - b).abs() <= 1e-7, "{} mean {a}!={b}", case["name"]);
+            }
+        }
+        let centroids: Vec<Vec<f32>> = serde_json::from_value(s["centroids"].clone()).unwrap();
+        for (a, b) in output.centroids.iter().zip(centroids) {
+            for (a, b) in a.iter().zip(b) {
+                assert!((a - b).abs() <= 1e-7);
+            }
+        }
+        let basis: Vec<Vec<f32>> = serde_json::from_value(e["cache"]["basis"].clone()).unwrap();
+        assert_eq!(output.basis.len(), basis.len());
+        for (a, b) in output.basis.iter().zip(basis) {
+            let dot: f64 = a
+                .iter()
+                .zip(&b)
+                .map(|(a, b)| f64::from(*a) * f64::from(*b))
+                .sum();
+            let sign = if dot >= 0.0 { 1.0 } else { -1.0 };
+            for (a, b) in a.iter().zip(b) {
+                assert!(
+                    (f64::from(*a) - sign * f64::from(b)).abs() <= 1e-5,
+                    "{} axis {a}!={b}",
+                    case["name"]
+                );
+            }
+        }
+        let energies: Vec<f64> = serde_json::from_value(e["cache"]["energies"].clone()).unwrap();
+        for (a, b) in output.energies.iter().zip(energies) {
+            assert!((a - b).abs() <= 1e-5 + 1e-5 * b.abs());
+        }
+    }
+}

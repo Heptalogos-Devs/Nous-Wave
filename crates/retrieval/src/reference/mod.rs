@@ -38,3 +38,5 @@ mod gating;
 pub use gating::*;
 mod fusion;
 pub use fusion::*;
+mod epa_training;
+pub use epa_training::*;

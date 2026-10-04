@@ -14,7 +14,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 
 | Component | Frozen VCP owner | Exact contract | Nous current | Reference kernel | Nous adapter | Label |
 | --- | --- | --- | --- | --- | --- | --- |
-| EPA | memo_pipeline analyze_epa；lib.rs EpaBasisTask | f32 query centering，basis dot 的平方能量概率，归一化熵、dominant axes 与 bridge resonance；query analysis 不读取 cached training energies | weighted representative PCA 与当前 EPA policy | query analysis 首个 native 数值 fixture 通过；basis builder 待实现 | 待实现 | uncertain |
+| EPA | memo_pipeline analyze_epa；lib.rs EpaBasisTask | f32 query centering，basis dot 的平方能量概率，归一化熵、dominant axes 与 bridge resonance；query analysis 不读取 cached training energies | weighted representative PCA 与当前 EPA policy | query analysis 首个 native fixture；density sampler / weighted f32 basis builder 8 个 native case 通过 | 待实现 | uncertain |
 | Residual | memo_pipeline analyze_pyramid / orthogonal_projection；lib.rs IntrinsicResidualTask | 每层 residual ANN，按返回序正交化 Tag，dependent axis contribution 为零；f32 投影累积，解释量归一到原 query energy | bounded residual search 与 Nous own residual contract | Pyramid 四个 actual ANN snapshot case；Intrinsic Residual 16 个 native task case 通过 | 待实现 | nous-native |
 | graph build | memo_artifact_builder build_fact_matrix / build_transport | 有序 file-tag 全 pair；位置/距离/semantic/reverse anchor 调制；log evidence、target inflow hub 校正与预算内 wormhole reserve | CognitiveRef/AssociationEvidence，support class quality 与独立 provenance root max dedup | neutral ordered graph builder 首个 native fact/CSR/provenance fixture 通过；完整 graph matrix 待补 | 待实现 | nous-native |
 | bounded Sense | memo_sensing sense_typed | energy、momentum、hop、previous-node state；normal/wormhole decay、立即回流抑制、FIR、邻居/state 上限 | Wave 的固定 outbound、步数预算与 state 上限；无 VCP wormhole/decay 合同 | neutral Sense 数值与状态 matrix 通过；单一 lineage 边界单独记录 | 待实现 | nous-native |
@@ -86,6 +86,10 @@ Frozen task 的等权邻居顺序来自 HashMap；独立 builder 用稳定 ID �
 独立 [Tag gating](../../crates/retrieval/src/reference/gating.rs) 的 [16-case fixture](../../crates/retrieval/tests/fixtures/vcp-gating.json) 直接调用原 `gate_tags`，核对输出 seed ID/name/weight/core、effective boost 与 dynamic core boost。覆盖技术/社会/Unknown world、语言开关、core casefold、零相似度回退、非正节点、首次重复占位、空 pyramid、range fallback 与参数夹逼，数值 tolerance 为 `1e-12`。
 
 独立 [fusion](../../crates/retrieval/src/reference/fusion.rs) 的 [17-case fixture](../../crates/retrieval/tests/fixtures/vcp-fusion.json) 使用原 `fuse_observation`、实际 index vectors 与 SQLite core-name lookup。核对 seed max/emergent 排序与 cap、core 补全、hard/soft ghost 和无效 ghost、缺/零向量、20% dedup 转移与 core 属性、全部诊断计数/selected IDs/weights，以及最终向量，数值 tolerance 为 `1e-12`。空 selected 保持原 query 而非强制单位化；已在 emergent 中的 core ID 不被补全重复升级。以上仍为 component fixture，完整 query pipeline 与 Nous adapter 尚待接入。
+
+独立 [EPA training](../../crates/retrieval/src/reference/epa_training.rs) 的 [8-case fixture](../../crates/retrieval/tests/fixtures/vcp-epa-training.json) 核对原 `select_epa_density_residual_samples` 和实际 native compute/publish cache。案例包含冻结十 Tag、六维密集分布、anchor 数量上下界、单 basis、未归一化输入、七 Tag 不足和十二维能量截断。密度 mean/key、centroid、weights、labels、representative count/bucket count 与 weighted mean 对照通过；sampling f32 tolerance 为 `1e-7`，SVD basis 以符号等价、energy 以 absolute/relative `1e-5` 比较不同 nalgebra f32 实现。十二维案例实际保留 11 axes。
+
+Sampler 的 xorshift 12-bit density key、残差/密度评分、多样性衰减、candidate `swap_remove` 次序、f32 加权 SVD 和 95% 能量/minimum-eight-axis 规则均由独立实现承担。Representative samples 仅影响诊断数量，不被追加为 SVD 行。参数化 `samples_per_anchor` / `candidate_limit` 对应 native 环境参数，本组验证其默认 32/512；同分 bucket 的 native HashMap 起序未声明稳定 parity。Basis 资产发布与 generation 元数据仍属于 production adapter/lifecycle 的后续工作。
 
 ## 需要保留的实现边界
 
