@@ -39,7 +39,7 @@ pub struct ReferenceGraphConfig {
     pub hub_ceiling: f64,
     pub smoothing_ratio: f64,
 }
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ReferenceProvenanceEdge {
     pub source_id: i64,
     pub target_id: i64,

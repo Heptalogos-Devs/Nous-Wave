@@ -13,7 +13,7 @@ pub struct ReferenceTopologyInput {
     pub provenance: Vec<ReferenceProvenanceEdge>,
     pub config: ReferenceTopologyConfig,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceTopologyConfig {
     pub semantic_node_threshold: f64,
@@ -35,7 +35,7 @@ impl Default for ReferenceTopologyConfig {
         }
     }
 }
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceRelativeTopology {
     pub score: f64,

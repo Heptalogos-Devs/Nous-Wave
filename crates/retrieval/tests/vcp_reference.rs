@@ -317,3 +317,65 @@ fn native_candidate_observables_and_pure_score_match_persisted_vectors() {
         );
     }
 }
+
+#[test]
+fn native_candidate_superset_sources_scores_quotas_and_order_match() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-candidate-pool.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let signals: Vec<ReferencePoolSignals> =
+            serde_json::from_value(case["input"]["signals"].clone()).unwrap();
+        let config: ReferencePoolConfig =
+            serde_json::from_value(case["input"]["config"].clone()).unwrap();
+        compare_numeric_subset(
+            &serde_json::to_value(reference_candidate_pool(&signals, &config)).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}
+
+#[test]
+fn native_v3_readout_composes_one_observation_through_candidate_pool_and_final_ranking() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-v3-readout.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceReadoutInput = serde_json::from_value(case["input"].clone()).unwrap();
+        let output = reference_v3_readout(&input).unwrap();
+        let actual = serde_json::to_value(output).unwrap();
+        for field in ["morphology", "omega", "selected"] {
+            compare_numeric_subset(&actual[field], &case["expected"][field], field);
+        }
+        let expected = case["expected"]["results"].as_array().unwrap();
+        let results = actual["results"].as_array().unwrap();
+        assert_eq!(results.len(), expected.len());
+        for (actual, expected) in results.iter().zip(expected) {
+            for field in [
+                "id",
+                "rank",
+                "score",
+                "baseScore",
+                "geometry",
+                "relativeTopology",
+                "observables",
+                "anchor",
+            ] {
+                compare_numeric_subset(&actual[field], &expected[field], field);
+            }
+            for field in [
+                "id",
+                "role",
+                "v2Bonus",
+                "gatedBonus",
+                "anchorBonus",
+                "finalScore",
+            ] {
+                compare_numeric_subset(
+                    &actual["scoring"][field],
+                    &expected["scoring"][field],
+                    field,
+                );
+            }
+        }
+    }
+}

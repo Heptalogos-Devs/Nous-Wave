@@ -7,7 +7,7 @@ pub struct ReferenceScoreInput {
     pub omega: f64,
     pub config: ReferenceScoreConfig,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceScoreCandidate {
     pub id: i64,
@@ -22,7 +22,7 @@ pub struct ReferenceScoreCandidate {
     pub topology_reliability: f64,
     pub anchor_strength: f64,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceScoreConfig {
     pub conditional_bandwidth: f64,

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceRiverNode {
     pub id: i64,
@@ -9,7 +9,7 @@ pub struct ReferenceRiverNode {
     pub normalized_energy: f64,
     pub hop: i64,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceRiverEdge {
     pub source_id: i64,
@@ -17,7 +17,7 @@ pub struct ReferenceRiverEdge {
     pub flow: f64,
     pub normalized_flow: f64,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceRiverShapeInput {
     pub river_nodes: Vec<ReferenceRiverNode>,
@@ -43,7 +43,7 @@ pub struct ReferenceMorphology {
     pub growth_persistence: f64,
     pub dominant_mode: String,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceOmegaConfig {
     pub kappa_edge: f64,

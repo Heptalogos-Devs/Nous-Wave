@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ReferenceCurveTag {
     pub id: i64,
     pub vector: Vec<f32>,
     pub position: i64,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ReferenceCurve {
     pub id: i64,
     pub chunk_vector: Vec<f32>,
@@ -22,7 +22,7 @@ pub struct ReferenceAnchorInput {
     pub fallback: bool,
     pub config: ReferenceAnchorConfig,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceAnchorConfig {
     pub semantic_anchor_threshold: f64,

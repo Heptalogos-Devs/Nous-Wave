@@ -12,7 +12,7 @@ pub struct ReferencePathInput {
     pub edges: Vec<(i64, i64, f64)>,
     pub config: ReferencePathConfig,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferencePathConfig {
     pub local_weight: f64,
@@ -30,7 +30,7 @@ impl Default for ReferencePathConfig {
         }
     }
 }
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferencePathGeometry {
     pub path_quality: f64,

@@ -10,7 +10,7 @@ pub struct ReferenceTransport {
 }
 
 impl ReferenceTransport {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         if self.row_offsets.len() != self.node_ids.len() + 1
             || self.row_offsets.first() != Some(&0)
             || self.row_offsets.windows(2).any(|pair| pair[0] > pair[1])
