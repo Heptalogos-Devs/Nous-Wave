@@ -4,12 +4,19 @@ use std::io::Write;
 #[derive(Deserialize)]
 struct Query {
     query_id: String,
+    #[serde(default = "default_suite")]
+    suite: String,
     subject: String,
     category: String,
     text: String,
     as_of: DateTime<Utc>,
     time_axis: Option<String>,
     oracle: serde_json::Value,
+    #[serde(default)]
+    session_oracle: Vec<String>,
+    #[serde(default)]
+    unresolved_evidence: Vec<String>,
+    original_question_date: Option<DateTime<Utc>>,
 }
 #[derive(Deserialize)]
 struct Queries {
@@ -32,6 +39,9 @@ pub(super) async fn run(
     queries
         .queries
         .sort_by_key(|q| (q.subject.clone(), q.as_of, q.query_id.clone()));
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(corpus.join("manifest.json")).map_err(failure)?)
+            .map_err(failure)?;
     let cache: CachedVectors =
         serde_json::from_slice(&std::fs::read(vectors_path).map_err(failure)?).map_err(failure)?;
     let vectors = cache
@@ -68,7 +78,7 @@ pub(super) async fn run(
             < state
                 .events
                 .keys()
-                .filter(|id| id.starts_with(&query.subject))
+                .filter(|id| id.starts_with(&format!("{}-", query.subject)))
                 .count()
         {
             return Err(Error::Conflict(
@@ -122,7 +132,7 @@ pub(super) async fn run(
                     serde_json::json!({"event_id":event,"hit":hit})
                 })
                 .collect::<Vec<_>>();
-            let row = serde_json::json!({"query_id":query.query_id,"suite":"nous-cognitive-cc0-v1","category":query.category,"profile":profile.id(),"profile_digest":profile.digest(),"config_digest":execution.bound.config_snapshot.effective_digest,"cognitive_config_subset_digest":execution.bound.config_snapshot.digest_for(&["retrieval.cognitive.profile","retrieval.vcp.assets","retrieval.vcp.query","retrieval.vcp.readout"])? ,"authority_watermark":execution.bound.bound_at_authority_seq,"as_of":query.as_of,"clock_source":"research-serial-prefix","track":"controlled-kernel-no-rerank","oracle":query.oracle,"default_same_subject_oracle":{"grade":0,"reason":"distractor"},"returned":returned,"lane_diagnostics":execution.result.diagnostics,"degradation":execution.result.degradation,"latency_ms":start.elapsed().as_secs_f64()*1000.0,"serving_generations":{"dense":snapshot.dense.iter().map(|g|g.generation_id).collect::<Vec<_>>(),"native":snapshot.topology.as_ref().map(|g|g.generation_id),"vcp":snapshot.vcp.as_ref().map(|g|g.generation_id)},"provider_usage":{"query_generation":"precomputed_real_provider_cache","rerank_calls":0},"error":null});
+            let row = serde_json::json!({"query_id":query.query_id,"suite":query.suite,"category":query.category,"profile":profile.id(),"profile_digest":profile.digest(),"corpus_digest":state.corpus_digest,"query_set_digest":manifest["queries_sha256"],"embedding_space":cache.config.space,"embedding_producer":cache.config.producer,"config_digest":execution.bound.config_snapshot.effective_digest,"cognitive_config_subset_digest":execution.bound.config_snapshot.digest_for(&["retrieval.cognitive.profile","retrieval.vcp.assets","retrieval.vcp.query","retrieval.vcp.readout"])? ,"authority_watermark":execution.bound.bound_at_authority_seq,"as_of":query.as_of,"clock_source":"research-serial-prefix","track":"controlled-kernel-no-rerank","oracle":query.oracle,"subject":query.subject,"session_oracle":query.session_oracle,"unresolved_evidence":query.unresolved_evidence,"original_question_date":query.original_question_date,"default_same_subject_oracle":{"grade":0,"reason":"distractor"},"returned":returned,"lane_diagnostics":execution.result.diagnostics,"degradation":execution.result.degradation,"latency_ms":start.elapsed().as_secs_f64()*1000.0,"serving_generations":{"dense":snapshot.dense.iter().map(|g|g.generation_id).collect::<Vec<_>>(),"native":snapshot.topology.as_ref().map(|g|g.generation_id),"vcp":snapshot.vcp.as_ref().map(|g|g.generation_id)},"provider_usage":{"query_generation":"precomputed_real_provider_cache","rerank_calls":0},"error":null});
             writeln!(output, "{}", serde_json::to_string(&row).map_err(failure)?)
                 .map_err(failure)?;
             output.flush().map_err(failure)?;

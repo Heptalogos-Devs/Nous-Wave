@@ -178,3 +178,15 @@ Rust harness 验证材料身份后使用普通 `ServingService.commit_embedding`
 ### Cognitive benchmark scoring
 
 `corepack pnpm exec tsx scripts/research/cognitive-score.ts --input <benchmark.jsonl> --output data/research/<run>/metrics.json` 将当前 CC0 corpus 的 sparse oracle 展开，并复用 retrieval metrics owner 按类别/profile 汇总。默认语料路径 `docs/research/corpus/cognitive`。报告只证明输入行已测量，不凭结果行数确认整个 suite 完成；模型 rerank、其他 benchmark tracks 与消融仍需对应运行。
+
+## External memory suites
+
+```text
+corepack pnpm research:retrieval-live prepare --suite longmemeval-s --raw-file data/research/external/longmemeval/longmemeval_s_cleaned.json --prepared-root data/research/external/longmemeval/prepared
+corepack pnpm research:retrieval-live prepare --suite locomo --raw-file data/research/external/locomo/locomo10.json --prepared-root data/research/external/locomo/prepared
+cargo run -p nous-kernel --example cognitive-import -- data/research/external/locomo/prepared data/research/<external-import-run> data/research/<material-run>/embedding-config.json
+```
+
+原文件 URL 与 frozen SHA-256 由 [source manifest](../docs/research/corpus/external-memory-sources.json) 记录，需先下载到上述 ignored raw path。`prepare` 验证摘要后生成供同一个 clock-injected semantic-owner harness 消费的 scenarios/queries/manifest，以及 annotation audit；不访问付费模型。Importer 根据 manifest 加载 scenario，保留各 item/会话隔离，外部 suite 使用官方 session 时间及明确的 research availability 映射。正常导入仅导出 bounded embedding needs；外部 full-run、public-host rerank track 仍需接线，`--suite` 非 legacy 的 import/run 暂时明确报错。
+
+Importer 的 event/revision receipts 使用增量 JSONL journal，Subject/Session 元数据仍以 atomic checkpoint 保存。旧完整 JSON checkpoint 首次 reopen 时原子迁移；写入中断的末尾残行会截去，并按普通 owner operation ID 恢复该事件。已有已提交 revision 必须再次回读核对时间，不能用 checkpoint 代替 Authority。

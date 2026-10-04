@@ -24,6 +24,8 @@ use std::{
 #[derive(Clone, Deserialize)]
 struct Scenario {
     scenario_id: String,
+    #[serde(default = "default_suite")]
+    suite: String,
     events: Vec<Event>,
 }
 #[derive(Clone, Deserialize)]
@@ -58,6 +60,7 @@ struct Relation {
 #[serde(default)]
 struct State {
     subjects: BTreeMap<String, SubjectId>,
+    #[serde(skip_serializing)]
     events: BTreeMap<String, EventReceipt>,
     sessions: BTreeMap<String, SessionId>,
     corpus_digest: String,
@@ -100,6 +103,9 @@ impl CognitiveClock for ImportClock {
         instant
     }
 }
+fn default_suite() -> String {
+    "nous-cognitive-cc0-v1".into()
+}
 fn id(key: &str) -> uuid::Uuid {
     let digest = blake3::hash(key.as_bytes());
     let mut bytes = [0; 16];
@@ -111,6 +117,55 @@ fn operation(key: &str) -> OperationId {
 }
 fn failure(error: impl std::fmt::Display) -> Error {
     Error::Infrastructure(error.to_string())
+}
+fn append_receipt(path: &std::path::Path, key: &str, receipt: &EventReceipt) -> Result<()> {
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path.with_extension("events.jsonl"))
+        .map_err(failure)?;
+    let mut line = serde_json::to_vec(&(key, receipt)).map_err(failure)?;
+    line.push(b'\n');
+    file.write_all(&line).map_err(failure)?;
+    file.sync_data().map_err(failure)
+}
+fn load_receipts(path: &std::path::Path, state: &mut State) -> Result<()> {
+    let journal = path.with_extension("events.jsonl");
+    if !journal.exists() {
+        use std::io::Write;
+        let staging = journal.with_extension("staging.jsonl");
+        let mut file = std::fs::File::create(&staging).map_err(failure)?;
+        for (key, receipt) in &state.events {
+            let mut line = serde_json::to_vec(&(key, receipt)).map_err(failure)?;
+            line.push(b'\n');
+            file.write_all(&line).map_err(failure)?;
+        }
+        file.sync_all().map_err(failure)?;
+        std::fs::rename(staging, &journal).map_err(failure)?;
+    }
+    let bytes = std::fs::read(&journal).map_err(failure)?;
+    let complete = bytes
+        .iter()
+        .rposition(|byte| *byte == b'\n')
+        .map_or(0, |i| i + 1);
+    for line in bytes[..complete]
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+    {
+        let (key, receipt): (String, EventReceipt) =
+            serde_json::from_slice(line).map_err(failure)?;
+        state.events.insert(key, receipt);
+    }
+    if complete != bytes.len() {
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(journal)
+            .map_err(failure)?
+            .set_len(complete as u64)
+            .map_err(failure)?;
+    }
+    Ok(())
 }
 fn save(path: &std::path::Path, state: &State) -> Result<()> {
     let staging = path.with_extension("staging.json");
@@ -253,8 +308,8 @@ async fn import_scenario(
     if !runtime.store.subject_exists(subject).await? {
         runtime.subjects.create_subject(nous_subject::CreateSubject {
         subject_id: Some(subject), operation_id: operation(&format!("{}:create", scenario.scenario_id)),
-        cognitive_seed: nous_subject::CognitiveSeedInput { text: "schema_version = 1".into(), format: nous_subject::COGNITIVE_SEED_FORMAT.into(), provenance: serde_json::json!({"suite":"nous-cognitive-cc0-v1"}) },
-        metadata: serde_json::json!({"corpus":"nous-cognitive-cc0-v1","scenario":scenario.scenario_id}), capabilities: None,
+        cognitive_seed: nous_subject::CognitiveSeedInput { text: "schema_version = 1".into(), format: nous_subject::COGNITIVE_SEED_FORMAT.into(), provenance: serde_json::json!({"suite":scenario.suite}) },
+        metadata: serde_json::json!({"corpus":scenario.suite,"scenario":scenario.scenario_id}), capabilities: None,
     }).await?;
     }
     state.subjects.insert(scenario.scenario_id.clone(), subject);
@@ -310,7 +365,7 @@ async fn import_scenario(
             subject, session: Some(session), occurrence: OccurrenceDescriptor {
                 source_class: SourceClass::Message, external_object_ref: Some(ObjectRef::new(format!("object:cc0:{}",event.event_id))?),
                 occurred_time: TemporalExtent::Instant { at: event.occurred_at }, observed_at: Some(event.observed_at),
-                conversation_ref: None, actor_entity_ref: None, context: serde_json::json!({"event_id":event.event_id,"suite":"nous-cognitive-cc0-v1","clock_source":"research-serial-clock"}),
+                conversation_ref: None, actor_entity_ref: None, context: serde_json::json!({"event_id":event.event_id,"suite":scenario.suite,"clock_source":"research-serial-clock"}),
             }, material: ObservationMaterial::InlineText { text: event.renders.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join("\n"), media_type: "text/plain".into() }, entities: Vec::new(), runtime: RuntimeDirective::default(),
         }, Some(id(&format!("{}:observe", event.event_id)))).await?;
         if accepted.occurrence.observed_at != event.observed_at
@@ -344,8 +399,9 @@ async fn import_scenario(
                 recorded_at: view.revision.recorded_at,
             },
         );
-        save(state_path, state)?;
+        append_receipt(state_path, &event.event_id, &state.events[&event.event_id])?;
     }
+    save(state_path, state)?;
     import_associations(runtime, clock, &scenario, subject, state, state_path).await?;
     println!(
         "scenario={} events={} verified owner timestamps",
@@ -525,6 +581,16 @@ fn verify_corpus(corpus: &std::path::Path) -> Result<()> {
             ));
         }
     }
+    let query_bytes = std::fs::read(corpus.join("queries.json")).map_err(failure)?;
+    let query_digest = Sha256::digest(&query_bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    if Some(query_digest.as_str()) != manifest["queries_sha256"].as_str() {
+        return Err(Error::Conflict(
+            "query digest disagrees with frozen manifest".into(),
+        ));
+    }
     Ok(())
 }
 
@@ -617,14 +683,19 @@ async fn commit_vectors(
 }
 
 fn load_scenarios(corpus: &std::path::Path) -> Result<Vec<Scenario>> {
-    ["observatory", "garden", "archive"]
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(corpus.join("manifest.json")).map_err(failure)?)
+            .map_err(failure)?;
+    manifest["scenario_files"]
+        .as_array()
+        .ok_or_else(|| Error::Invalid("scenario manifest missing".into()))?
         .iter()
-        .map(|name| {
-            serde_json::from_slice(
-                &std::fs::read(corpus.join("scenarios").join(format!("{name}.json")))
-                    .map_err(failure)?,
-            )
-            .map_err(failure)
+        .map(|file| {
+            let path = file["path"]
+                .as_str()
+                .ok_or_else(|| Error::Invalid("scenario path missing".into()))?;
+            serde_json::from_slice(&std::fs::read(corpus.join(path)).map_err(failure)?)
+                .map_err(failure)
         })
         .collect()
 }
@@ -642,6 +713,7 @@ fn load_import_state(corpus: &std::path::Path, state_path: &std::path::Path) -> 
             "corpus changed since import; use a separate run root".into(),
         ));
     }
+    load_receipts(state_path, &mut state)?;
     state.corpus_digest = corpus_digest;
     save(state_path, &state)?;
     Ok(state)

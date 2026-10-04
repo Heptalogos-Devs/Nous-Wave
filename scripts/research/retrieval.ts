@@ -59,6 +59,9 @@ type State = {
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
+    suite: { type: "string", default: "legacy" },
+    "raw-file": { type: "string" },
+    "prepared-root": { type: "string" },
     "run-root": { type: "string" },
     "client-module": { type: "string" },
     manifest: { type: "string", default: "docs/research/corpus/manifest.json" },
@@ -85,6 +88,21 @@ const { values, positionals } = parseArgs({
     "embedding-interval-ms": { type: "string", default: "0" },
   },
 });
+if (positionals[0] === "prepare") {
+  if (!values["raw-file"] || !values["prepared-root"])
+    throw new Error("prepare requires --raw-file --prepared-root");
+  const { prepareExternal } = await import("./retrieval/external.js");
+  await prepareExternal(
+    values.suite,
+    values["raw-file"],
+    values["prepared-root"],
+  );
+  process.exit(0);
+}
+if (values.suite !== "legacy")
+  throw new Error(
+    "External suite import/run uses the clock-injected Kernel harness; public-host track integration pending",
+  );
 if (!values["run-root"] || !values["client-module"])
   throw new Error(
     "--run-root and distributed --client-module required; credentials are read by the runtime",

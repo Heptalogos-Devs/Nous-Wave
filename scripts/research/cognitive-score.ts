@@ -14,9 +14,12 @@ if (!values.input || !values.output)
 const output = resolve(values.output);
 if (!output.startsWith(resolve("data/research") + "/"))
   throw new Error("Results must be under ignored data/research");
-type Event = { event_id: string; subject: string };
+type Event = { event_id: string; subject: string; session?: string };
 type Row = {
   query_id: string;
+  subject?: string;
+  session_oracle?: string[];
+  unresolved_evidence?: string[];
   category: string;
   profile: string;
   as_of: string;
@@ -35,14 +38,14 @@ type Row = {
   error: unknown;
 };
 const events: Event[] = [];
-for (const scenario of ["archive", "garden", "observatory"])
+const manifest = JSON.parse(
+  await readFile(resolve(values.corpus!, "manifest.json"), "utf8"),
+) as { scenario_files: { path: string }[] };
+for (const file of manifest.scenario_files)
   events.push(
     ...(
       JSON.parse(
-        await readFile(
-          resolve(values.corpus!, "scenarios", `${scenario}.json`),
-          "utf8",
-        ),
+        await readFile(resolve(values.corpus!, file.path), "utf8"),
       ) as { events: Event[] }
     ).events,
   );
@@ -50,12 +53,15 @@ const input = (await readFile(values.input, "utf8")).trim();
 const raw = input
   ? input.split("\n").map((line) => JSON.parse(line) as Row)
   : [];
+const eventSessions = new Map(
+  events.map((event) => [event.event_id, event.session]),
+);
 const seen = new Set<string>();
 const rows = raw.map((row) => {
   const key = `${row.query_id}:${row.profile}`;
   if (seen.has(key)) throw new Error(`Duplicate result ${key}`);
   seen.add(key);
-  const subject = row.query_id.split("-q")[0]!;
+  const subject = row.subject ?? row.query_id.split("-q")[0]!;
   const oracle: Record<string, RecallOracle> = Object.fromEntries(
     events
       .filter((event) => event.subject === subject)
@@ -78,7 +84,26 @@ const rows = raw.map((row) => {
   );
   if (returned.some((id) => !id.startsWith("unmapped:") && !(id in oracle)))
     throw new Error("Returned event outside Subject");
-  return { ...row, metrics: retrievalMetrics(returned, oracle) };
+  const expectedSessions = new Set(row.session_oracle ?? []);
+  const sessionRecall = Object.fromEntries(
+    [1, 5, 10].map((k) => {
+      const returnedSessions = new Set(
+        returned
+          .slice(0, k)
+          .map((id) => eventSessions.get(id))
+          .filter((session): session is string => Boolean(session)),
+      );
+      return [
+        k,
+        expectedSessions.size
+          ? [...expectedSessions].filter((session) =>
+              returnedSessions.has(session),
+            ).length / expectedSessions.size
+          : null,
+      ];
+    }),
+  );
+  return { ...row, sessionRecall, metrics: retrievalMetrics(returned, oracle) };
 });
 const groups = new Map<string, typeof rows>();
 for (const row of rows) {
@@ -107,6 +132,11 @@ const summary = [...groups].map(([key, items]) => {
     ndcg10: mean((r) => r.metrics.atK[10]!.ndcg),
     mrr: mean((r) => r.metrics.reciprocalRank),
     averagePrecision: mean((r) => r.metrics.averagePrecision),
+    sessionRecall1: mean((r) => r.sessionRecall[1] ?? null),
+    sessionRecall5: mean((r) => r.sessionRecall[5] ?? null),
+    sessionRecall10: mean((r) => r.sessionRecall[10] ?? null),
+    unresolvedOracleRows: items.filter((r) => r.unresolved_evidence?.length)
+      .length,
     sourceSetRecall10: mean((r) => r.metrics.atK[10]!.sourceSetRecall),
     harmful1: mean((r) => r.metrics.atK[1]!.harmfulCount),
     harmful5: mean((r) => r.metrics.atK[5]!.harmfulCount),
