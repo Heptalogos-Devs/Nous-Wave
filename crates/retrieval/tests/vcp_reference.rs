@@ -393,3 +393,23 @@ fn native_dtsc_field_trust_retention_exact_contacts_and_sampling_match() {
         );
     }
 }
+
+#[test]
+fn native_dtsc_curve_metrics_rewards_guards_and_full_order_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-dtsc.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceDtscInput = serde_json::from_value(case["input"].clone()).unwrap();
+        if case.get("error").is_some() {
+            assert!(matches!(
+                reference_dtsc(&input),
+                Err(nous_core::Error::Invalid(_))
+            ));
+            continue;
+        }
+        compare_numeric_subset(
+            &serde_json::to_value(reference_dtsc(&input).unwrap()).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}
