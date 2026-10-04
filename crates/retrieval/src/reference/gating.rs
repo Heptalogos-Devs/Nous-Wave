@@ -20,7 +20,7 @@ pub struct ReferenceGateInput {
     pub core_tags: Vec<String>,
     pub config: ReferenceGateConfig,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceGateConfig {
     pub base_tag_boost: f64,

@@ -18,7 +18,7 @@ pub struct ReferenceSenseSeed {
     pub energy: f64,
     pub source_type: String,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceSenseConfig {
     pub max_safe_hops: usize,

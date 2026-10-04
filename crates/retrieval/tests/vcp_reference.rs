@@ -584,3 +584,84 @@ fn native_epa_density_sampling_weighted_basis_and_publication_values_match() {
         }
     }
 }
+
+#[test]
+fn native_query_pipeline_composes_one_query_through_sense_fusion_and_dual_fields() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-query-pipeline.json")).unwrap();
+    let input: ReferencePipelineInput = serde_json::from_value(fixture["input"].clone()).unwrap();
+    let layers: Vec<Vec<ReferenceResidualCandidate>> =
+        serde_json::from_value(fixture["search_results"].clone()).unwrap();
+    let mut level = 0;
+    let output = reference_query_pipeline(&input, |_, limit| {
+        let hits = layers.get(level).cloned().unwrap_or_default();
+        level += 1;
+        assert!(hits.len() <= limit);
+        Ok(hits)
+    })
+    .unwrap();
+    let expected = &fixture["expected"];
+    for (key, value) in [
+        ("logicDepth", output.epa.logic_depth),
+        ("entropy", output.epa.entropy),
+        ("resonance", output.epa.resonance),
+    ] {
+        near(value, expected["epa"][key].as_f64().unwrap());
+    }
+    compare_numeric_subset(
+        &serde_json::to_value(&output.pyramid).unwrap(),
+        &expected["pyramid"],
+        "pyramid",
+    );
+    compare_numeric_subset(
+        &serde_json::to_value(&output.gating).unwrap(),
+        &expected["gating"],
+        "gating",
+    );
+    let mut sense = serde_json::to_value(&output.sense).unwrap();
+    let mut native = expected["sense"].clone();
+    for field in ["nodes", "edges"] {
+        for data in [&mut sense, &mut native] {
+            data[field].as_array_mut().unwrap().sort_by_key(|n| {
+                if field == "nodes" {
+                    (n["id"].as_i64().unwrap(), 0)
+                } else {
+                    (
+                        n["sourceId"].as_i64().unwrap(),
+                        n["targetId"].as_i64().unwrap(),
+                    )
+                }
+            });
+        }
+    }
+    for field in ["sourceField", "nodes", "edges", "diagnostics"] {
+        compare_numeric_subset(&sense[field], &native[field], field);
+    }
+    compare_numeric_subset(
+        &serde_json::to_value(&output.fusion.diagnostics).unwrap(),
+        &expected["fusion_diagnostics"],
+        "fusion",
+    );
+    for (a, b) in output
+        .fusion
+        .vector
+        .iter()
+        .zip(expected["enhanced_vector"].as_array().unwrap())
+    {
+        assert!((a - b.as_f64().unwrap()).abs() <= 1e-7);
+    }
+    compare_numeric_subset(
+        &serde_json::to_value(output.fields).unwrap(),
+        &expected["fields"],
+        "fields",
+    );
+    for (a, e) in [
+        (&output.local_vector, &expected["local_vector"]),
+        (&output.transfer_vector, &expected["transfer_vector"]),
+    ] {
+        let b: Vec<f32> = serde_json::from_value(e.clone()).unwrap();
+        for (a, b) in a.iter().zip(b) {
+            assert!((a - b).abs() <= 1e-7);
+        }
+    }
+}

@@ -29,6 +29,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | conditional innovation | rivermemo_topology_v3 assign_v3_scores | 条件 peer Gaussian 期望、variance/ESS uncertainty，正 innovation 经 role cap 与 Ω gate；独立 batch anchor activation | native topology rank 经 Runtime fixed fusion，无此读出 | neutral 17-case native peer statistics/role caps/anchor activation 对照通过；已组装 V3 candidate readout，query preparation 待接入 | 待实现 | vcp-derived |
 | candidate observables / pure score | rivermemo_topology_v3 evaluate_observables / run_native | source contact、semantic boundary、双场覆盖/potential、closure；original/local/transfer cosine 与 bounded path reward | native 使用 own node-potential | observables 14-case native 对照、其中 5 个实际 selected curve 的 pure score 对照通过；另有 11-case 组合 readout | 待实现 | vcp-derived |
 | candidate pool / V3 readout composition | rivermemo_topology_v3 select_superset / run_native | 七路 channel quota/归一化/union score/source count；同一 observation 的 path/topology/anchor、形态混合、条件创新、最终排序 | native 使用 own TopologyWave lane | pool 12-case、cached observation 到完整 V3 readout 11-case native 对照通过；query preparation 与 production adapter 待接入 | 待实现 | vcp-derived |
+| unified query preparation | memo_pipeline run_pipeline | 同一个 query 的 EPA/pyramid/gating/Sense/fusion/dual fields/projection，供 DTSC/V3 共享 | 已有 native shared signals；VCP 查询准备尚待 adapter | 首个 full native observation 组合 fixture 通过；ANN 返回次序作为条件输入 | 待实现 | vcp-derived |
 | TimeDecay | RAGDiaryPlugin modifiers / _applyTimeDecay | 显式修饰符启用，V3 后、外部 rerank/截断前，以文本/路径日期作半衰期乘法；time lane 跳过乘法；native timeScore 仅进入 superset | Runtime own temporal hard constraints/age preference，不声明 VCP parity | owner 已确认；独立 temporal 实验待完成 | 待实现 | nous-native |
 
 ## 当前数值 conformance
@@ -90,6 +91,8 @@ Frozen task 的等权邻居顺序来自 HashMap；独立 builder 用稳定 ID �
 独立 [EPA training](../../crates/retrieval/src/reference/epa_training.rs) 的 [8-case fixture](../../crates/retrieval/tests/fixtures/vcp-epa-training.json) 核对原 `select_epa_density_residual_samples` 和实际 native compute/publish cache。案例包含冻结十 Tag、六维密集分布、anchor 数量上下界、单 basis、未归一化输入、七 Tag 不足和十二维能量截断。密度 mean/key、centroid、weights、labels、representative count/bucket count 与 weighted mean 对照通过；sampling f32 tolerance 为 `1e-7`，SVD basis 以符号等价、energy 以 absolute/relative `1e-5` 比较不同 nalgebra f32 实现。十二维案例实际保留 11 axes。
 
 Sampler 的 xorshift 12-bit density key、残差/密度评分、多样性衰减、candidate `swap_remove` 次序、f32 加权 SVD 和 95% 能量/minimum-eight-axis 规则均由独立实现承担。Representative samples 仅影响诊断数量，不被追加为 SVD 行。参数化 `samples_per_anchor` / `candidate_limit` 对应 native 环境参数，本组验证其默认 32/512；同分 bucket 的 native HashMap 起序未声明稳定 parity。Basis 资产发布与 generation 元数据仍属于 production adapter/lifecycle 的后续工作。
+
+独立 [query pipeline](../../crates/retrieval/src/reference/pipeline.rs) 的 [首个组合 fixture](../../crates/retrieval/tests/fixtures/vcp-query-pipeline.json) 使用同一次实际 native `run_pipeline` 输出，从 query/cache basis/Tag vectors/图资产进入 EPA、Pyramid、门控、Sense、融合、双场及投影。EPA stats、Pyramid/gating、完整 source/node/edge 数值、Sense 诊断、fusion 计数/selected IDs、双场每节点质量/domain/convergence/residual 对照通过；f32 enhanced/local/transfer vector 使用 `1e-7` tolerance。Native 任意合流 lineage 不作为唯一稳定来源输出；ANN 实际返回的候选次序与相似度仍是冻结输入。此组只覆盖首个组合案例，剩余查询矩阵、生产索引 adapter/资产生命周期、Authority 映射和 benchmark 待完成。
 
 ## 需要保留的实现边界
 

@@ -40,3 +40,5 @@ mod fusion;
 pub use fusion::*;
 mod epa_training;
 pub use epa_training::*;
+mod pipeline;
+pub use pipeline::*;

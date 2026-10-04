@@ -7,13 +7,13 @@ pub struct ReferenceFusionNode {
     pub id: i64,
     pub energy: f64,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ReferenceFusionVector {
     pub id: i64,
     pub name: String,
     pub vector: Vec<f32>,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ReferenceFusionGhost {
     pub name: String,
     pub vector: Vec<f32>,
@@ -31,7 +31,7 @@ pub struct ReferenceFusionInput {
     pub alpha: f64,
     pub config: ReferenceFusionConfig,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceFusionConfig {
     pub core_boost_factor: f64,
