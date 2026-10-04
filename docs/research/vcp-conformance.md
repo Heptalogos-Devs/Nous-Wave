@@ -4,7 +4,7 @@
 
 本轮冻结 `lioensky/VCPToolBox@e03b891d42055cdf3cab5dc961cc71dd5facd65a`。精确文件 blob 与研究基线由 [source manifest](corpus/cognitive-retrieval-sources.json) 拥有。本页描述已读 production Rust 合同及当前差异；独立 reference kernel 已开始实现，完整 fixture matrix 与 Nous adapter 尚未完成，不能将源码研究写成 `reference-parity`。
 
-已完整研究 `memo_pipeline.rs`、`memo_sensing.rs`、`memo_artifact_builder.rs`、`memo_dtsc.rs`、`rivermemo_topology_v3.rs` 与 `rag_params.json`。已进一步读取 lib.rs 中 EPA density sampling/basis 构建与 intrinsic residual compute owner。TagMemoEngine 控制面、要求的完整文档与 unified geometry probe 仍需完成。参数须以 frozen effective config 为准：Rust fallback defaults 与 rag_params 的 alpha、support count、contact thresholds、language penalty 有差异。
+已完整研究 `memo_pipeline.rs`、`memo_sensing.rs`、`memo_artifact_builder.rs`、`memo_dtsc.rs`、`rivermemo_topology_v3.rs`、`TagMemoEngine.js`、`rag_params.json`、要求的 Deep Dive/Topology V3 文档及 unified geometry probe。已进一步读取 lib.rs 的 EPA/Intrinsic Residual owner、TagMemoV10 配置快照、RiverMemo 的 native 参数映射和 RAGDiaryPlugin 的 TimeDecay 调用与实现。参数须以 frozen effective config 为准：Rust fallback defaults 与 rag_params 的 alpha、support count、contact thresholds、language penalty 有差异。
 
 VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合同；Nous 实现不包含第三方源码。Reference fixture 将保存数值输入、输出、浮点容差与来源身份。
 
@@ -27,7 +27,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | Direct Anchor | rivermemo_topology_v3 compute_anchors | hop-0 seed/core exact 或高阈值 semantic contact，mass/specificity/closure/pool rarity noisy-OR；缺少 lineage 的 fallback 限 reliability | exact lane 与 native seeds，不等于 VCP 独立 anchor reward | neutral 11-case native contact/pool rarity/noisy-OR/reliability 对照通过 | 待实现 | vcp-derived |
 | conditional innovation | rivermemo_topology_v3 assign_v3_scores | 条件 peer Gaussian 期望、variance/ESS uncertainty，正 innovation 经 role cap 与 Ω gate；独立 batch anchor activation | native topology rank 经 Runtime fixed fusion，无此读出 | neutral 17-case native peer statistics/role caps/anchor activation 对照通过；完整 candidate pipeline 待接入 | 待实现 | vcp-derived |
 | candidate observables / pure score | rivermemo_topology_v3 evaluate_observables / run_native | source contact、semantic boundary、双场覆盖/potential、closure；original/local/transfer cosine 与 bounded path reward | native 使用 own node-potential | observables 14-case native 对照、其中 5 个实际 selected curve 的 pure score 对照通过；graph mixture 与完整流水线待接入 | 待实现 | vcp-derived |
-| TimeDecay | rag_params 与实际 JS caller 待完整确认 | native V3 的 time score 只影响 candidate superset；不能声称它直接进入 pure final score | Runtime own temporal hard constraints/age preference，不声明 VCP parity | 待实现 | 待实现 | uncertain |
+| TimeDecay | RAGDiaryPlugin modifiers / _applyTimeDecay | 显式修饰符启用，V3 后、外部 rerank/截断前，以文本/路径日期作半衰期乘法；time lane 跳过乘法；native timeScore 仅进入 superset | Runtime own temporal hard constraints/age preference，不声明 VCP parity | owner 已确认；独立 temporal 实验待完成 | 待实现 | nous-native |
 
 ## 当前数值 conformance
 
@@ -79,6 +79,12 @@ Exact contact 读取完整正能量场；vector interpolation 另受 mass-ratio/
 
 ### RiverMemo V3
 
+JS 控制面只转交部分配置。`TagMemoV10Engine.getEffectiveConfig()` 合并 laboratory/riverMemo 并冻结 nested defaults；原生资产构建保留同代 `orderedCooccurrence`、`v9`、`spikeRouting`。`RiverMemoEngine._nativeConfig()` 没有转交 pure original/local/transfer weights、role cap/multiplier maps 和 frontier 常量，对应 production Rust 固定值须与实验覆盖项区分。
+
+完整源码表明 `TagMemoEngine.applyTagBoost()` / `geodesicRerank()` 在 Rust-owned 资产下被显式停用。其旧 `observeQueryForV10()` 使用 enhanced vector delta 判断完整度；当前 native cached observation 使用 source field 非空，不能混合这两种合同。Deep Dive 中关于私有概念和普遍收益的描述属于上游观测，本轮检索质量仍由独立 benchmark 判定。
+
+Unified geometry probe 是离线研究程序：采样/裁剪图、忽略 association reserve 的简化 kernel、叠加 decay 的 transport、无生产 momentum/state cap 的单种子有限场，以及简化 curve 泛函。它的同泛函两乘两设计、去源归一化和随机/拓扑消融可用于实验设计，不能用其输出代替 production DTSC/V3 source conformance。
+
 候选使用文件 Tag 的稳定序位；relative topology 分别比较节点、边、方向、距离与独立来源比例。当前 motif score 复用 edge topology score，没有单独候选 fork/merge 模体匹配。
 
 Morphology 与 Ω 只读取 query river。Morphology 的 active degrees 来自正 flow，sample confidence 使用数组 node/edge count。Ω 的 edge component 使用全部 edge count，flow entropy 只使用正 raw flow；单条正 flow 为 0.5，无正 flow 为 0，各 component 在 geometric mean 前取 epsilon 下限。
@@ -86,5 +92,7 @@ Morphology 与 Ω 只读取 query river。Morphology 的 active degrees 来自�
 Direct Anchor 的 semantic similarity 用于选择 contact；contact contribution 使用固定 semantic discount。候选池 rarity 依赖完整 selected pool。Conditional innovation 同时需要高于条件期望和 uncertainty，不能以裸 graph score 替代。Role caps/部分 frontier 常量在当前 Rust 中固定，不全部从 rag_params maps 读取。
 
 V3 pure score 直接混合 original/local/transfer cosine，加有界 path reward；enhanced vector 用于 superset，不是第四个 pure semantic 分量。BM25/time 参与候选来源，不直接加入 pure final 分。Nous adapter 只能生成 TopologyWave lane 内的排序和可解释 metadata，最终仍由 Runtime fixed fusion 与 Authority revalidation 决定。
+
+`::TimeDecay` 是 RAGDiaryPlugin 的后处理，位于 RiverMemo 返回后、外部 rerank/最终截断前。半衰期、最低分优先取修饰符，其次全局配置，fallback 分别为 30 天和 0.5；日期依次取 Tag 行、括号、首行、路径。对有效日期使用非负整数日龄，原分优先 `rerank_score`，乘 `0.5^(days/halfLife)` 后排序并按最低分过滤。`source=time` 跳过衰减乘法，仍参加全批过滤；未匹配 target Tag、无日期或日期无效的候选保留原分。此合同不等于 Nous 的多轴时间约束，后续比较须分别标识。
 
 [返回研究入口](README.md)
