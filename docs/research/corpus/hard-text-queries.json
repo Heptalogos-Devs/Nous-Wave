@@ -1,0 +1,1086 @@
+{
+  "version": 1,
+  "status": "draft_positive_anchors_confirmed_not_final_audited_queries",
+  "queries": [
+    {
+      "id": "hard-q001",
+      "text": "Python 3.5 的 PEP 492 为异步程序引入了哪些对象和控制结构？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-5-u0021"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.5"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-5-u0021",
+          "url": "https://docs.python.org/3.5/whatsnew/3.5.html",
+          "anchor": "pep-492-coroutines-with-async-and-await-syntax",
+          "ordinal": 20,
+          "sha256": "2519fa2fd2586709a720452b613ee2059b84b36d4454d572330fa6cf25df1c67"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q002",
+      "text": "在 Python 3.5 中，为函数类型标注提供标准定义的新 provisional 模块是什么？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-5-u0083"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.5"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-5-u0083",
+          "url": "https://docs.python.org/3.5/whatsnew/3.5.html",
+          "anchor": "typing",
+          "ordinal": 82,
+          "sha256": "4b51f1d9f850552537f0de69bbb8e24ca4b4cae949f127056e6042dc6b52999e"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q003",
+      "text": "Python 3.5 的矩阵乘法中缀运算符如何由自定义类型实现？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "python-3-5-u0031"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.5"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-5-u0031",
+          "url": "https://docs.python.org/3.5/whatsnew/3.5.html",
+          "anchor": "pep-465-a-dedicated-infix-operator-for-matrix-multiplication",
+          "ordinal": 30,
+          "sha256": "d51b99bc609e64121314ec166503561898840523ccb2adf6fbce81b4cb147376"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q004",
+      "text": "Python 3.5 对函数调用中的可迭代和字典展开次数做了什么改变？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-5-u0035"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.5"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-5-u0035",
+          "url": "https://docs.python.org/3.5/whatsnew/3.5.html",
+          "anchor": "pep-448-additional-unpacking-generalizations",
+          "ordinal": 34,
+          "sha256": "95687a04b334f805a0ac209f4e9d56e2d6f3c21a95177b5af65ddab9eb57fd87"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q005",
+      "text": "哪种 Python 3.6 字符串字面量支持在文本中插入表达式？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-6-u0016"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.6"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-6-u0016",
+          "url": "https://docs.python.org/3.6/whatsnew/3.6.html",
+          "anchor": "pep-498-formatted-string-literals",
+          "ordinal": 15,
+          "sha256": "f0f039d167e3b2a2defe9ae371be25dadd9759c1f6934df699f86d0e19cafce4"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q006",
+      "text": "Python 3.6 的类型标注语法如何从函数参数扩展到变量？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-6-u0019"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.6"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-6-u0019",
+          "url": "https://docs.python.org/3.6/whatsnew/3.6.html",
+          "anchor": "pep-526-syntax-for-variable-annotations",
+          "ordinal": 18,
+          "sha256": "d9ad5f5cac8bf69c21447939a40377857a36b4aca09c0212affeb7fdd6cde59d"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q007",
+      "text": "Python 3.6 生成认证 token 等用途的强随机数应查哪个新增模块？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-6-u0009"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.6"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-6-u0009",
+          "url": "https://docs.python.org/3.6/whatsnew/3.6.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 8,
+          "sha256": "f5da4ee4eb3457abe1f1e250cf47aaff55cf83aea25b08df52d65f4eb46dff5f"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q008",
+      "text": "Python 3.5 中 await 与 yield 同在一个函数体的限制在 3.6 怎样变化？",
+      "category": "stale_current",
+      "expected_units": [
+        "python-3-6-u0028"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.6"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-6-u0028",
+          "url": "https://docs.python.org/3.6/whatsnew/3.6.html",
+          "anchor": "pep-525-asynchronous-generators",
+          "ordinal": 27,
+          "sha256": "b86806218763ee7cbb868e5170871c17e7aa5fb93ad27d9df7949cd71829faa9"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q009",
+      "text": "Python 3.7 的 data class 装饰器会为属性声明自动生成哪些方法？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-7-u0057"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.7"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-7-u0057",
+          "url": "https://docs.python.org/3.7/whatsnew/3.7.html",
+          "anchor": "dataclasses",
+          "ordinal": 56,
+          "sha256": "b341d18afdd12cd788fc31e801eaf97845438023a82b83b1b2c0d2a9be6ba0ee"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q010",
+      "text": "Python 3.7 中哪种上下文变量机制能正确支持异步代码，而不只依赖线程局部变量？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-7-u0055"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.7"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-7-u0055",
+          "url": "https://docs.python.org/3.7/whatsnew/3.7.html",
+          "anchor": "contextvars",
+          "ordinal": 54,
+          "sha256": "a161b90482d6a219f8e5760b0e096172f5a989b17a1e574bd62d584da324860b"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q011",
+      "text": "Python 3.7 提供什么内置函数作为统一进入调试器的方法？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-7-u0024"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.7"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-7-u0024",
+          "url": "https://docs.python.org/3.7/whatsnew/3.7.html",
+          "anchor": "pep-553-built-in-breakpoint",
+          "ordinal": 23,
+          "sha256": "03c02a8144d654855fc4e4d222e19b0936270c57e330fc1585402b8866b1a56d"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q012",
+      "text": "Python 3.7 中字典保持插入顺序是语言保证，还是单一实现的偶然行为？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "python-3-7-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.7"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-7-u0002",
+          "url": "https://docs.python.org/3.7/whatsnew/3.7.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 1,
+          "sha256": "89449c559a90737732d816a0dd4e2a4e33681d9e30b3a614bf49e1193aa6d8e8"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q013",
+      "text": "Python 3.8 在更大表达式中给变量赋值的语法是什么？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-8-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.8"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-8-u0002",
+          "url": "https://docs.python.org/3.8/whatsnew/3.8.html",
+          "anchor": "assignment-expressions",
+          "ordinal": 1,
+          "sha256": "d5915c1e0d1a5e7903f324e01d6a1e1b437ebd7b2f021e9ca1347bd43eb1abc9"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q014",
+      "text": "Python 3.8 的函数签名中斜杠用来声明什么参数限制？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-8-u0011"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.8"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-8-u0011",
+          "url": "https://docs.python.org/3.8/whatsnew/3.8.html",
+          "anchor": "positional-only-parameters",
+          "ordinal": 10,
+          "sha256": "552a75a7dd0f5846b5d818b47f62e7bce063baf31e2a2c2af4f5c622a6c10eb1"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q015",
+      "text": "Python 3.8 如何让 f-string 同时输出表达式本身和计算结果？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-8-u0031"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.8"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-8-u0031",
+          "url": "https://docs.python.org/3.8/whatsnew/3.8.html",
+          "anchor": "f-strings-support-for-self-documenting-expressions-and-debugging",
+          "ordinal": 30,
+          "sha256": "7e60bd33e4fcf359ccf1686c5c596a1134790c6bce070800d2945d4ec7eb4de0"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q016",
+      "text": "Python 3.8 新增哪个 multiprocessing 模块用于共享内存？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "python-3-8-u0120"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.8"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-8-u0120",
+          "url": "https://docs.python.org/3.8/whatsnew/3.8.html",
+          "anchor": "multiprocessing",
+          "ordinal": 119,
+          "sha256": "552a3e01f7cb0fd1170dbd12d9e768470096ab9fe63a2b10b10c567ea0ac1a2d"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q017",
+      "text": "Python 3.9 对 dict 增加了哪些合并和更新运算符？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-9-u0013"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.9"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-9-u0013",
+          "url": "https://docs.python.org/3.9/whatsnew/3.9.html",
+          "anchor": "dictionary-merge-update-operators",
+          "ordinal": 12,
+          "sha256": "ef3b35dba41d6ee152a1ec6b8101a2da70b10166326acd2950b723f24ebd6dc0"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q018",
+      "text": "Python 3.9 标准库在哪里提供 IANA 时区数据库？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-9-u0005"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.9"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-9-u0005",
+          "url": "https://docs.python.org/3.9/whatsnew/3.9.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 4,
+          "sha256": "021233382456f63c26bf3eef5da35238ef3e4d4203fa085d1aa17a16fe1d7482"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q019",
+      "text": "Python 3.9 的哪个新模块提供图的拓扑排序？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-9-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.9"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-9-u0006",
+          "url": "https://docs.python.org/3.9/whatsnew/3.9.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 5,
+          "sha256": "faf58cdf395fdcba9f033776f656e9b577079832d2880122d783e2957ca39f1d"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q020",
+      "text": "Python 3.9 如何直接移除字符串的指定前缀或后缀？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-9-u0016"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.9"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-9-u0016",
+          "url": "https://docs.python.org/3.9/whatsnew/3.9.html",
+          "anchor": "new-string-methods-to-remove-prefixes-and-suffixes",
+          "ordinal": 15,
+          "sha256": "50813bda17287bd69f8848c4a66df0e5dfc49626f1a2d95ae2d2144b7e4f17f1"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q021",
+      "text": "Python 3.10 的结构模式匹配使用什么语句，能依据哪些结构分支？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-10-u0037"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.10"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-10-u0037",
+          "url": "https://docs.python.org/3.10/whatsnew/3.10.html",
+          "anchor": "pep-634-structural-pattern-matching",
+          "ordinal": 36,
+          "sha256": "053b88e521f04cbe9838b93e8e15a7a51c5d2f16c4d6b547f091f1347fecdf10"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q022",
+      "text": "Python 3.10 中表示类型 X 或 Y 的新语法是什么？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-10-u0077"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.10"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-10-u0077",
+          "url": "https://docs.python.org/3.10/whatsnew/3.10.html",
+          "anchor": "pep-604-new-type-union-operator",
+          "ordinal": 76,
+          "sha256": "bacf831ed54107eb898ad989e2ccb8375b9ee87b9a6cdf2c5bf10e48596ec4c7"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q023",
+      "text": "Python 3.10 的 PEP 626 如何改善调试和覆盖工具的行号事件？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-10-u0034"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.10"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-10-u0034",
+          "url": "https://docs.python.org/3.10/whatsnew/3.10.html",
+          "anchor": "pep-626-precise-line-numbers-for-debugging-and-other-tools",
+          "ordinal": 33,
+          "sha256": "16bba8b83a785b26ecd48b0d019d5127b9642726817af48e15bfd75130bb75af"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q024",
+      "text": "Python 3.10 的模式匹配只比较基本值，还是也能解构类实例和映射？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "python-3-10-u0037"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.10"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-10-u0037",
+          "url": "https://docs.python.org/3.10/whatsnew/3.10.html",
+          "anchor": "pep-634-structural-pattern-matching",
+          "ordinal": 36,
+          "sha256": "053b88e521f04cbe9838b93e8e15a7a51c5d2f16c4d6b547f091f1347fecdf10"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q025",
+      "text": "Python 3.11 如何同时抛出和处理多个互不相关的异常？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-11-u0013"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.11"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-11-u0013",
+          "url": "https://docs.python.org/3.11/whatsnew/3.11.html",
+          "anchor": "pep-654-exception-groups-and-except",
+          "ordinal": 12,
+          "sha256": "61ce2c3713189f22350875e0886db0f6cdee51b89dde4000d929f57ce3f78a96"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q026",
+      "text": "Python 3.11 标准库中读取 TOML 的新增模块是什么？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-11-u0054"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.11"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-11-u0054",
+          "url": "https://docs.python.org/3.11/whatsnew/3.11.html",
+          "anchor": "new-modules",
+          "ordinal": 53,
+          "sha256": "b0f7cc6f8303d6bf2d323a18c8ee820da5b4b51bc0a758d57a709a20a27f9212"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q027",
+      "text": "Python 3.11 哪个异步上下文管理器退出时会等待整组任务？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-11-u0056"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.11"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-11-u0056",
+          "url": "https://docs.python.org/3.11/whatsnew/3.11.html",
+          "anchor": "asyncio",
+          "ordinal": 55,
+          "sha256": "e5b3d3209822e3324ff7f9ab410a4dc54350c59d446b9fe685251745afc1d93d"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q028",
+      "text": "Python 3.11 的 zero-cost exceptions 在没有抛出异常时消除了什么成本？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "python-3-11-u0186"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.11"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-11-u0186",
+          "url": "https://docs.python.org/3.11/whatsnew/3.11.html",
+          "anchor": "misc",
+          "ordinal": 185,
+          "sha256": "8605400908a0b16fdf3906680456b585182821beb15e4305644dace1206e2967"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q029",
+      "text": "Python 3.12 的类型参数与 type 语句主要改善哪种静态类型使用方式？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-12-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.12"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-12-u0003",
+          "url": "https://docs.python.org/3.12/whatsnew/3.12.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 2,
+          "sha256": "72b47fe95e38ea998b9ff1f8ad8e993d504efac31f7da1cee8c7b80e75b31d43"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q030",
+      "text": "Python 3.12 的 per-interpreter GIL 当时可以通过 Python API 直接使用吗？",
+      "category": "stale_current",
+      "expected_units": [
+        "python-3-12-u0033"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.12"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-12-u0033",
+          "url": "https://docs.python.org/3.12/whatsnew/3.12.html",
+          "anchor": "pep-684-a-per-interpreter-gil",
+          "ordinal": 32,
+          "sha256": "0fd3db91d8a0b74770f0489ad38d25675b2bc677c294afc8fca1018bebd4ff25"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q031",
+      "text": "Python 3.12 中 distutils 仍然属于标准库吗？",
+      "category": "stale_current",
+      "expected_units": [
+        "python-3-12-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.12"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-12-u0002",
+          "url": "https://docs.python.org/3.12/whatsnew/3.12.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 1,
+          "sha256": "3f1b19ae033837e91fefc253afc72982e1ceafe9d7d02f4beeff0bec7f6a2add"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q032",
+      "text": "Python 3.12 哪个事件监测 API 供 profiler 和 debugger 只承担所监测事件的开销？",
+      "category": "paraphrase",
+      "expected_units": [
+        "python-3-12-u0037"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.12"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-12-u0037",
+          "url": "https://docs.python.org/3.12/whatsnew/3.12.html",
+          "anchor": "pep-669-low-impact-monitoring-for-cpython",
+          "ordinal": 36,
+          "sha256": "eeb72aed2e465e691d73eb26f0ad51b02f348d9ad740d5ce28b832a07351faa5"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q033",
+      "text": "Python 3.13 的 free-threaded 支持在这一版本被描述为何种成熟度？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-13-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.13"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-13-u0002",
+          "url": "https://docs.python.org/3.13/whatsnew/3.13.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 1,
+          "sha256": "6fb49696bbbe641a5e5b35d1d283594d602a3b65f3c6ec87cd7b99f139d1e1b1"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q034",
+      "text": "Python 3.13 的初始 JIT 默认启用吗，文档怎样评价性能收益？",
+      "category": "stale_current",
+      "expected_units": [
+        "python-3-13-u0008"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.13"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-13-u0008",
+          "url": "https://docs.python.org/3.13/whatsnew/3.13.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 7,
+          "sha256": "abe29037490c46eb5905ee73f665e112f4df76a7adafe7a2a8cee7e8a0fe586e"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q035",
+      "text": "Python 3.13 的 dbm 新增了哪个数据库后端？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "python-3-13-u0077"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.13"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-13-u0077",
+          "url": "https://docs.python.org/3.13/whatsnew/3.13.html",
+          "anchor": "new-modules",
+          "ordinal": 76,
+          "sha256": "9289ef9faecea1a313b62d456b7f4a954897ab111f12ddf456385d976cc26520"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q036",
+      "text": "Python 3.13 的 PEP 594 删除了多少个剩余 legacy 标准库模块？",
+      "category": "direct_fact",
+      "expected_units": [
+        "python-3-13-u0023"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.13"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-13-u0023",
+          "url": "https://docs.python.org/3.13/whatsnew/3.13.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 22,
+          "sha256": "c3b367a4e7c150320446b7e9420d68b20ccdadc2fa2ea7b52ef5912514f0a651"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q037",
+      "text": "Python 3.14 的语言更新中，标注求值改成什么时机？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-14-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.14"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-14-u0002",
+          "url": "https://docs.python.org/3.14/whatsnew/3.14.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 1,
+          "sha256": "f59e8a90427dc65a22c09c1f286dd69b3613cc15b4f59d7eb99e7ea57e2af791"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q038",
+      "text": "Python 3.14 的 t-strings 由哪个 string 子模块支持？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "python-3-14-u0110"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.14"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-14-u0110",
+          "url": "https://docs.python.org/3.14/whatsnew/3.14.html",
+          "anchor": "new-modules",
+          "ordinal": 109,
+          "sha256": "57494bb44f7fe44b5c701e8572cd7762211d5880201742627d0e1109bd189399"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q039",
+      "text": "Python 3.14 的 Zstandard 压缩能力放在哪个标准库模块？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "python-3-14-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.14"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-14-u0003",
+          "url": "https://docs.python.org/3.14/whatsnew/3.14.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 2,
+          "sha256": "e11472e5ec330cdfbb002ef40851d6536dd79111f61800ef9a86e65ed60650f4"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q040",
+      "text": "Python 3.14 中旧 Union 写法与竖线类型联合是否仍生成不同的运行时类型？",
+      "category": "stale_current",
+      "expected_units": [
+        "python-3-14-u0227"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revision": "3.14"
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-14-u0227",
+          "url": "https://docs.python.org/3.14/whatsnew/3.14.html",
+          "anchor": "whatsnew314-typing-union",
+          "ordinal": 226,
+          "sha256": "bfda3d3179a537f90d9604a74ae96a78fb58aea5af12e1db68200e1701dd636a"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    }
+  ]
+}
