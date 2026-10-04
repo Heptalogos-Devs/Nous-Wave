@@ -142,6 +142,12 @@ powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1 -W
 
 PostgreSQL 清理只处理`data/temp/tests/` 中具有 PostgreSQL cluster 标记的孤立测试根，跳过运行中的 PostgreSQL。省略 `-WhatIf` 执行删除；`-MinimumAgeHours <小时>` 限制最小年龄，默认 0。它不清理语料、手写配置或开发实例。
 
+### 检索评测指标
+
+`research:retrieval-live` 使用 [retrieval-metrics.ts](research/retrieval-metrics.ts) 计算多目标 Recall@1/5/10、hit rate、MRR、nDCG@5/10、Average Precision 与 source-set recall。Recall 的分母为独立 oracle 中全部正相关单位；旧报告将任一相关项命中称为 Recall，需重新评分后才能与新报告比较。Runner 的现有 binary oracle 映射 grade=1；认知 benchmark 可提供 grade=-1/0/1/2/3 及 reason/source/harmfulKind。
+
+正 nDCG 只使用正 grade 的 `2^grade-1` gain；harmful count 与按 rank 折扣的 exposure 单独输出。重复结果保留排名位置但不重复获得 gain/recall；未审定结果单独计数，不自动标为有害。负例-only oracle 没有正相关分母，Recall/nDCG/AP 返回 null。不同类别的结果应分别报告，不能把这个函数输出解释为统一认知总分。
+
 ### Longitudinal model research
 
 ```text

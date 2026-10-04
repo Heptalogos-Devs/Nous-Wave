@@ -1,3 +1,4 @@
+import { retrievalMetrics } from "./retrieval-metrics.js";
 import { workspacePaths } from "../workspace.js";
 import type { connectNousInstance } from "@nous-wave/client/node";
 import { webSource } from "@nous-wave/client";
@@ -501,6 +502,22 @@ async function runQueries() {
       if (hit.entityRefs.length && !hit.entityRefs.includes(source.entity_ref))
         wrongEntity++;
     }
+    const irMetrics = retrievalMetrics(
+      units.map(
+        (id, index) =>
+          id ?? `unmapped:${response.hits[index]?.reference?.value ?? index}`,
+      ),
+      Object.fromEntries(
+        query.expected_units.map((id) => [
+          id,
+          {
+            grade: 1 as const,
+            reason: "direct_fact",
+            source: manifest.units.find((unit) => unit.id === id)!.source,
+          },
+        ]),
+      ),
+    );
     rows.push({
       query: query.id,
       status: "PASS",
@@ -508,9 +525,17 @@ async function runQueries() {
       availableUnits: available,
       returnedUnits: units,
       rank,
-      recall1: rank === 1 ? 1 : 0,
-      recall5: rank > 0 && rank <= 5 ? 1 : 0,
-      recall10: rank > 0 && rank <= 10 ? 1 : 0,
+      recall1: irMetrics.atK[1]!.recall,
+      recall5: irMetrics.atK[5]!.recall,
+      recall10: irMetrics.atK[10]!.recall,
+      hitRate1: irMetrics.atK[1]!.hitRate,
+      hitRate5: irMetrics.atK[5]!.hitRate,
+      hitRate10: irMetrics.atK[10]!.hitRate,
+      ndcg5: irMetrics.atK[5]!.ndcg,
+      ndcg10: irMetrics.atK[10]!.ndcg,
+      averagePrecision: irMetrics.averagePrecision,
+      sourceSetRecall10: irMetrics.atK[10]!.sourceSetRecall,
+      irMetrics,
       reciprocalRank: rank > 0 ? 1 / rank : 0,
       formationCoverage: available.length ? 1 : 0,
       latencyMs: latency,
@@ -572,6 +597,13 @@ async function runQueries() {
         recall5: mean("recall5"),
         recall10: mean("recall10"),
         mrr: mean("reciprocalRank"),
+        hitRate1: mean("hitRate1"),
+        hitRate5: mean("hitRate5"),
+        hitRate10: mean("hitRate10"),
+        ndcg5: mean("ndcg5"),
+        ndcg10: mean("ndcg10"),
+        averagePrecision: mean("averagePrecision"),
+        sourceSetRecall10: mean("sourceSetRecall10"),
         conditionalRecall1: mean("recall1", conditional),
         conditionalRecall5: mean("recall5", conditional),
         conditionalRecall10: mean("recall10", conditional),
