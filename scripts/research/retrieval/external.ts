@@ -312,7 +312,35 @@ export async function prepareExternal(
   await writeFile(resolve(root, "queries.json"), queryBytes + "\n", {
     mode: 0o600,
   });
+  const duplicateSessions =
+    suite === "longmemeval-s"
+      ? (raw as LmeItem[]).flatMap((item) => {
+          const seenIds = new Map<string, number[]>();
+          item.haystack_session_ids.forEach((id, index) => {
+            const indices = seenIds.get(id) ?? [];
+            indices.push(index);
+            seenIds.set(id, indices);
+          });
+          return [...seenIds]
+            .filter(([, indices]) => indices.length > 1)
+            .map(([id, indices]) => ({
+              question_id: item.question_id,
+              session_id: id,
+              occurrences: indices.length,
+              date_count: new Set(
+                indices.map((index) => item.haystack_dates[index]),
+              ).size,
+              body_count: new Set(
+                indices.map((index) =>
+                  sha(JSON.stringify(item.haystack_sessions[index])),
+                ),
+              ).size,
+              answer_session: item.answer_session_ids.includes(id),
+            }));
+        })
+      : [];
   const audit = {
+    duplicate_session_occurrences: duplicateSessions,
     suite,
     adapter_version: "external-memory-turn-v1",
     source,

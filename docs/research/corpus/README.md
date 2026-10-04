@@ -25,3 +25,5 @@ LoCoMo 按原 session 编号顺序保留 10 个独立 Subject、5,882 dialogue t
 Session 时间原数据没有 timezone，research fixture 显式按 UTC 解释；同一 session 内所有 turns 保留同一个 source 时间。Controlled history 的可用时刻设为 max(question date, last session)+1 秒。LongMemEval 76 条 question date 早于末次 session，因此输出同时保留原 question date，不能将这个完整-history track 当作前缀 future-exclusion 测试。Prepared oracle 不参与形成输入，tags/association graph 没有从 QA evidence 制造。
 
 下载/适配完成仅证明输入已冻结。LoCoMo 已通过普通 owners 导入 5,882 turns / 272 Sessions，reopen 回读复核完成；LongMemEval 全量 owner 导入正在执行。实际 embeddings、各 profile 运行、session/turn recall、分层 end-to-end formation 与算法取舍都需要对应实测。此处结果不等同于原论文 answer-generation accuracy。
+
+LongMemEval source 的 session occurrence 数为 23,867；其中 13 个 session ID 在同一个 item 重复出现，正文完全相同而日期不同，均不属于 answer session。Adapter 保留全部 246,750 turns 和各自日期，Cognitive Session 仍使用官方逻辑 ID，因此实际导入有 23,854 个 Session、500 个 Subject。`adapter-audit.json` 单列这些重复项，不将 occurrence 数与逻辑 Session 数混用。
