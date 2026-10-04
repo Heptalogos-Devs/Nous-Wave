@@ -76,7 +76,7 @@
       }
     },
     {
-      "sha256": "6884a0bb52b1e7e7cb87479a30aa708a28cb66869e550b3ae887cf845260762a",
+      "sha256": "6825e6e1c11b3fedc00299b231db35f0a6c296f87d81bd13277b9b3109774900",
       "rights": "NASA official archival recording; retain source and credit, research cache only",
       "id": "nasa-press-video",
       "source_url": "https://images-assets.nasa.gov/video/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372~preview.mp4",
@@ -90,7 +90,7 @@
         "oracle_review": "Visual source frame reviewed; temporal and audio-word correctness not asserted",
         "source_catalog": "https://images.nasa.gov/details/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372",
         "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
-        "preprocessing": "FFmpeg stream copy; complete clip sent directly",
+        "preprocessing": "FFmpeg 7.0.2-static stream copy; requested source interval 300–312 seconds; clip regenerated from frozen archive.",
         "requested_clip_duration_seconds": "12"
       }
     },

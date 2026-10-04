@@ -42,6 +42,7 @@ const { values } = parseArgs({
     unit: { type: "string", multiple: true },
     strategy: { type: "string", multiple: true },
     "derive-only": { type: "boolean", default: false },
+    "allow-degradation": { type: "string", multiple: true },
     "skip-retrieval": { type: "boolean", default: false },
     "raw-root": {
       type: "string",
@@ -205,7 +206,10 @@ for (const unit of units) {
       const selected = derived.representations.find(
         (item) => item.representationId === derived.selectedRepresentationId,
       );
-      if (!selected || derived.degradation.length)
+      const unexpectedDegradation = derived.degradation.filter(
+        (item) => !values["allow-degradation"]?.includes(item.code),
+      );
+      if (!selected || unexpectedDegradation.length)
         throw new Error(`Derivation incomplete: ${json(derived.degradation)}`);
       if (strategy !== "description_only" && !selected.structuredPayload)
         throw new Error("Structured strategy did not commit a JSON payload");
