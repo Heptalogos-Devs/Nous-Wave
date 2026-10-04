@@ -15,7 +15,7 @@ pub struct ReferenceGraphInput {
     pub anchor_gain: Vec<(i64, f64)>,
     pub config: ReferenceGraphConfig,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ReferenceGraphConfig {
     pub forward_gain: f64,
     pub reverse_gain: f64,
@@ -45,7 +45,7 @@ pub struct ReferenceProvenanceEdge {
     pub target_id: i64,
     pub file_contributions: Vec<(i64, f64)>,
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReferenceGraphOutput {
     pub fact_matrix: Vec<(i64, i64, f64)>,
     pub transport: ReferenceTransport,

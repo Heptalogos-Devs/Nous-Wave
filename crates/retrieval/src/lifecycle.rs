@@ -10,6 +10,7 @@ pub(crate) enum OpenArtifact {
     Lexical(Arc<LexicalGeneration>),
     Dense(Arc<DenseGeneration>, Option<Arc<EpaBasisGeneration>>),
     Topology(Arc<WaveGraphGeneration>),
+    Vcp(Arc<VcpGeneration>),
     Exact(Arc<ExactPostings>),
 }
 
@@ -22,6 +23,29 @@ impl ServingService {
     ) -> Result<String> {
         let capabilities = self.projection_capabilities(subject).await?;
         let mut config = serde_json::json!({"schema":1,"memory_enabled":capabilities.memory});
+        if family == "topology"
+            && matches!(
+                snapshot.get(nous_runtime::COGNITIVE_PROFILE)?,
+                nous_runtime::CognitiveProfile::VcpDtsc
+                    | nous_runtime::CognitiveProfile::VcpRiverMemo
+            )
+        {
+            let provider = self.embedding().ok_or_else(|| {
+                Error::Unavailable(
+                    "VCP serving build requires configured embedding material".into(),
+                )
+            })?;
+            config["space"] = serde_json::to_value(provider.space())
+                .map_err(|e| Error::Infrastructure(e.to_string()))?;
+            config["producer"] = serde_json::to_value(provider.producer())
+                .map_err(|e| Error::Infrastructure(e.to_string()))?;
+            config["policy_digest"] = serde_json::Value::String(snapshot.digest_for(&[
+                "retrieval.cognitive.profile",
+                "retrieval.vcp.assets",
+                "episode.synopsis",
+            ])?);
+            return digest(&config);
+        }
         if family == "topology" {
             config["propagation"] = serde_json::to_value(resolve_wave_config(snapshot)?)
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
@@ -134,10 +158,24 @@ impl ServingService {
             let existing = current
                 .iter()
                 .find(|record| record.family == family && record.space == space);
-            let watermark = self
-                .store
-                .projection_watermark(subject, family, &space)
-                .await?;
+            let watermark = if family == "topology"
+                && matches!(
+                    snapshot.get(nous_runtime::COGNITIVE_PROFILE)?,
+                    nous_runtime::CognitiveProfile::VcpDtsc
+                        | nous_runtime::CognitiveProfile::VcpRiverMemo
+                ) {
+                sqlx::query_scalar::<_, i64>(
+                    "SELECT authority_seq FROM subjects WHERE subject_id=$1",
+                )
+                .bind(subject.0)
+                .fetch_one(self.store.pool())
+                .await
+                .map_err(nous_persistence::database_error)?
+            } else {
+                self.store
+                    .projection_watermark(subject, family, &space)
+                    .await?
+            };
             let compatible = if let Some(record) = existing {
                 self.compatible(record, snapshot).await.then_some(record)
             } else {
@@ -254,10 +292,16 @@ impl ServingService {
                 .lexical
                 .as_ref()
                 .is_some_and(|index| index.generation_id == record.generation_id),
-            "topology" => snapshot
-                .topology
-                .as_ref()
-                .is_some_and(|graph| graph.generation_id == record.generation_id),
+            "topology" => {
+                snapshot
+                    .topology
+                    .as_ref()
+                    .is_some_and(|graph| graph.generation_id == record.generation_id)
+                    || snapshot
+                        .vcp
+                        .as_ref()
+                        .is_some_and(|assets| assets.generation_id == record.generation_id)
+            }
             "dense" => snapshot
                 .dense
                 .iter()
@@ -294,6 +338,16 @@ impl ServingService {
                 &path.join("postings.json"),
             )?))),
             "topology" => {
+                if path.join("vcp.json").exists() {
+                    let assets: VcpGeneration = read_json(&path.join("vcp.json"))?;
+                    if assets.generation_id != id {
+                        return Err(Error::Infrastructure(
+                            "VCP generation identity mismatch".into(),
+                        ));
+                    }
+                    assets.validate()?;
+                    return Ok(OpenArtifact::Vcp(Arc::new(assets)));
+                }
                 let artifact: TopologyArtifact = read_json(&path.join("topology.json"))?;
                 if artifact.generation_id != id {
                     return Err(Error::Infrastructure(
@@ -337,7 +391,14 @@ impl ServingService {
                     snapshot.postings = postings.clone();
                     snapshot.postings_generation = Some(record.generation_id);
                 }
-                OpenArtifact::Topology(graph) => snapshot.topology = Some(graph.clone()),
+                OpenArtifact::Topology(graph) => {
+                    snapshot.topology = Some(graph.clone());
+                    snapshot.vcp = None;
+                }
+                OpenArtifact::Vcp(assets) => {
+                    snapshot.vcp = Some(assets.clone());
+                    snapshot.topology = None;
+                }
                 OpenArtifact::Dense(index, basis) => {
                     snapshot
                         .dense

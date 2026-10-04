@@ -106,11 +106,17 @@ Positive AssociationEvidence projection 保留 support class、association kind 
 
 [Serving VCP material preparation](../../crates/retrieval/src/vcp_material.rs) 复用既有文本拼装与 host-supplied embedding provider，冻结 space/producer 并检查每个输出身份/维度。它返回 generation identity map、独立证据、candidate vectors 与 Tag membership，Authority 无序 membership 明确标记 stable-identity 曲线顺序。缺已存储 embedding 时返回 unavailable；本机配置使用 StoredEmbeddingProvider，该步骤没有独立远程调用路径。
 
-真实 PostgreSQL 的 association integration 回归同时验证 memory 开关对文本与拓扑的同步排除、独立 association provenance、缺 material、提交存储 embedding 后的候选 vectors/space/producer 和全 Authority 水位。此准备入口已可执行，仍未接入 VCP profile 的 generation build/publication 和查询 lane。
+真实 PostgreSQL 的 association integration 回归同时验证 memory 开关对文本与拓扑的同步排除、独立 association provenance、缺 material、提交存储 embedding 后的候选 vectors/space/producer 和全 Authority 水位。此准备入口现在由 VCP profile generation build 消费；查询 lane/readout 仍待接线。
 
 [Nous graph assets](../../crates/retrieval/src/vcp_graph.rs) 将同一 projection 的 Tag membership 和正向 Authority evidence 汇入独立 reference transport。无序 membership 使用 position=0 的对称 cooccurrence 分支；有实际 source sequence 时保留位置。Evidence 先按端点/独立根/support class/association kind 取最大值，再累加独立贡献；保留原 semantic identity 与质量。这里未添加新的 support-class 权重。
 
-Reference 图 owner 现在分开构建按文档的 facts 与全图 transport，批量共享 pairwise/anchor lookup。Adapter 的 provenance root ID 使用独立命名空间，每条边保留各根贡献，根表可回译到原始 identity。它还不是 V3 candidate visibility 的 file ID；查询接线时必须由 Authority scoped candidate view 映射可见贡献。Frozen ordered graph parity 和 adapter 的无序/去重/重排回归通过，真实 PostgreSQL material 也已构建 transport。该资产构建入口仍未发布到 Serving generation，VCP 查询 profile 仍不可用。
+Reference 图 owner 现在分开构建按文档的 facts 与全图 transport，批量共享 pairwise/anchor lookup。Adapter 的 provenance root ID 使用独立命名空间，每条边保留各根贡献，根表可回译到原始 identity。它还不是 V3 candidate visibility 的 file ID；查询接线时必须由 Authority scoped candidate view 映射可见贡献。Frozen ordered graph parity 和 adapter 的无序/去重/重排回归通过，真实 PostgreSQL material 也已构建 transport。该资产构建入口现在由同代 VCP generation 消费；VCP 查询 readout 仍不可用。
+
+[VCP generation owner](../../crates/retrieval/src/vcp_generation.rs) 持有 identity map、embedding space/producer、candidate/tag vectors 与 labels、曲线及顺序来源、cooccurrence pairwise、intrinsic residual/anchor、EPA basis 和 graph assets。缺少 concept vector 时返回 unavailable；图中缺向量的节点显式保留在 diagnostics 资产中。EPA 标签不足时保留 reference 的 cache unavailable 状态。
+
+`retrieval.vcp.assets` 是 Developer/SystemOnly/ServingRebuild 的 typed policy，默认 EPA anchors/max basis 为 64/64，samples/candidates 为 32/512；图与 intrinsic 参数来自明确的独立数值合同。VCP `vcp.json` 使用既有 staging readback/checksum/rename/publication 流程，回读检查 generation/identity map、vector/curve identity、EPA shape 与 provenance root。ServingSnapshot 的 native/VCP 视图在同一次 publication 中互斥切换；topology implementation revision=3。VCP 配置 digest 包含 profile、asset policy、synopsis budget、space/producer 和 capability，刷新水位使用完整 Subject authority_seq。
+
+真实 PostgreSQL 回归验证 VCP publication/reopen、native/VCP 切换、回读拒绝乱序 identity map 和曲线向量不一致。Asset policy 的 outbound mass 从 0.95 改为 0.7 时 generation 重建，每个非空 transport 行总质量变为 0.7。此次验证覆盖资产生命周期；immutable VCP query observation、候选 index/readout、Authority scoped provenance visibility 和公共查询仍待完成。
 
 ## 需要保留的实现边界
 

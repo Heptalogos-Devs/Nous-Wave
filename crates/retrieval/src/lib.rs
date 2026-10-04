@@ -17,6 +17,10 @@ mod topology_lane;
 mod vcp_adapter;
 pub use material::*;
 pub use vcp_adapter::*;
+mod vcp_policy;
+pub use vcp_policy::*;
+mod vcp_generation;
+pub use vcp_generation::*;
 mod vcp_graph;
 pub use vcp_graph::*;
 mod vcp_material;
@@ -52,6 +56,7 @@ pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
     epa_policy::register_configuration(registry)?;
+    vcp_policy::register_configuration(registry)?;
     for (key, description, default) in [
         (
             LEXICAL_ENABLED_KEY,

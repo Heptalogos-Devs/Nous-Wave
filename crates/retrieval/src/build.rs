@@ -190,6 +190,23 @@ impl ServingService {
         snapshot: &nous_configuration::ConfigSnapshot,
         capabilities: ProjectionCapabilities,
     ) -> Result<i64> {
+        let profile = snapshot.get(nous_runtime::COGNITIVE_PROFILE)?;
+        if matches!(
+            profile,
+            nous_runtime::CognitiveProfile::VcpDtsc | nous_runtime::CognitiveProfile::VcpRiverMemo
+        ) {
+            let material = self.vcp_projection_material(subject, snapshot).await?;
+            let watermark = material.authority_watermark;
+            let policy = snapshot.get(crate::VCP_ASSETS)?;
+            let path = dir.join("vcp.json");
+            tokio::task::spawn_blocking(move || {
+                let assets = VcpGeneration::build(id, profile, material, policy)?;
+                write_json(&path, &assets)
+            })
+            .await
+            .map_err(|e| Error::Infrastructure(e.to_string()))??;
+            return Ok(watermark);
+        }
         let input = self
             .store
             .topology_projection_input(subject, capabilities.memory)
@@ -354,7 +371,7 @@ pub(crate) fn implementation(family: &str) -> &'static str {
     match family {
         "lexical" => "tantivy",
         "dense" => "usearch",
-        "topology" => "petgraph-csr-bounded-wave",
+        "topology" => "cognitive-profile-assets",
         "exact" => "roaring-postings",
         _ => "unknown",
     }
@@ -367,7 +384,7 @@ fn is_text(media: &str) -> bool {
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
         "lexical" | "dense" | "exact" => 4,
-        "topology" => 2,
+        "topology" => 3,
         _ => 1,
     }
 }

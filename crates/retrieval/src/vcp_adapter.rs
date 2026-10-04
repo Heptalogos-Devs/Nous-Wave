@@ -105,7 +105,7 @@ pub fn vcp_candidate_curve(
     })
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VcpEvidenceContribution {
     pub source_id: i64,
     pub target_id: i64,

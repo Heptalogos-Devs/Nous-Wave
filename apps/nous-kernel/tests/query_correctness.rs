@@ -1384,7 +1384,28 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .await
         .expect("reference prepare");
     let generation = runtime.serving.publisher.snapshot_for(subject);
-    let graph = generation.topology.as_ref().expect("profile generation");
+    let graph = generation.vcp.as_ref().expect("VCP profile generation");
+    assert!(generation.topology.is_none());
+    graph.validate().unwrap();
+    let encoded = serde_json::to_value(graph.as_ref()).unwrap();
+    let mut decoded: nous_retrieval::VcpGeneration =
+        serde_json::from_value(encoded.clone()).unwrap();
+    decoded.curves[0].chunk_vector[0] += 0.1;
+    assert!(decoded.validate().is_err());
+    let mut reordered = encoded;
+    reordered["identities"]["references"]
+        .as_array_mut()
+        .unwrap()
+        .reverse();
+    let decoded: nous_retrieval::VcpGeneration = serde_json::from_value(reordered).unwrap();
+    assert!(decoded.validate().is_err());
+    assert_eq!(graph.policy.epa_anchors, 64);
+    assert!(
+        graph
+            .curves
+            .iter()
+            .any(|c| c.id == graph.identities.id(&memory_reference).unwrap())
+    );
     assert_ne!(old_generation, graph.generation_id);
     assert_eq!(
         graph.cognitive_profile,
@@ -1403,6 +1424,37 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         topology.metadata["cognitive_profile"],
         "vcp-rivermemo-v3.1-adapter-v1"
     );
+    assert!(
+        std::path::Path::new(&topology.artifact_location)
+            .join("vcp.json")
+            .exists()
+    );
+    runtime
+        .serving
+        .publisher
+        .publish_for(subject, nous_retrieval::ServingSnapshot::default());
+    let reopened = runtime
+        .serving
+        .prepare_with_snapshot(
+            subject,
+            reference_plan.serving_need(&reference_bound.source_query),
+            &reference_bound.config_snapshot,
+        )
+        .await
+        .unwrap();
+    assert_eq!(reopened.reopened, vec!["exact", "topology"]);
+    assert_eq!(
+        runtime
+            .serving
+            .publisher
+            .snapshot_for(subject)
+            .vcp
+            .as_ref()
+            .unwrap()
+            .generation_id,
+        graph.generation_id
+    );
+
     let stale_output = nous_runtime::SharedLaneProvider::lanes(&runtime.serving, &frozen, &plan)
         .await
         .expect("generation mismatch");
@@ -1446,6 +1498,60 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .await
         .expect("derived producer association");
     assert_eq!(derived.producer_signature_id, Some(producer));
+    let previous_vcp = runtime
+        .serving
+        .publisher
+        .snapshot_for(subject)
+        .vcp
+        .as_ref()
+        .unwrap()
+        .generation_id;
+    let mut policy = nous_retrieval::VcpAssetPolicy::default();
+    policy.graph.outbound_mass = 0.7;
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_retrieval::VCP_ASSETS.path(),
+            serde_json::to_value(policy).unwrap(),
+        )
+        .await
+        .unwrap();
+    let changed_snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    let changed = runtime
+        .serving
+        .prepare_with_snapshot(
+            subject,
+            nous_core::ServingNeed {
+                exact: false,
+                lexical: false,
+                dense: false,
+                topology: true,
+            },
+            &changed_snapshot,
+        )
+        .await
+        .unwrap();
+    assert_eq!(changed.rebuilt, vec!["topology"]);
+    let published = runtime.serving.publisher.snapshot_for(subject);
+    let assets = published.vcp.as_ref().unwrap();
+    assert_ne!(assets.generation_id, previous_vcp);
+    assert_eq!(assets.policy.graph.outbound_mass, 0.7);
+    let authority_seq: i64 =
+        sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+            .bind(subject.0)
+            .fetch_one(runtime.store.pool())
+            .await
+            .unwrap();
+    assert_eq!(assets.authority_watermark, authority_seq);
+    let transport = &assets.graph.graph.transport;
+    for row in transport
+        .row_offsets
+        .windows(2)
+        .filter(|row| row[1] > row[0])
+    {
+        assert!((transport.weights[row[0]..row[1]].iter().sum::<f64>() - 0.7).abs() < 1e-12);
+    }
 }
 
 async fn check_vcp_projection_material(
@@ -1543,29 +1649,7 @@ async fn check_vcp_projection_material(
         .await
         .unwrap();
     assert_eq!(material.authority_watermark, current);
-    let config = nous_retrieval::reference::ReferenceGraphConfig {
-        forward_gain: 1.0,
-        reverse_gain: 0.35,
-        min_reverse_gain: 0.25,
-        max_reverse_gain: 0.6,
-        distance_decay: 0.08,
-        reverse_inversion_guard: 0.9,
-        reverse_anchor_boost: true,
-        reverse_anchor_max: 1.35,
-        semantic_enabled: true,
-        semantic_peak: 0.65,
-        semantic_sigma: 0.25,
-        semantic_low_fallback: 0.1,
-        outbound_mass: 0.95,
-        association_reserve_mass: 0.05,
-        evidence_compression: 1.0,
-        wormhole_gain: 1.35,
-        tension_threshold: 1.0,
-        hub_exponent: 0.3,
-        hub_floor: 0.55,
-        hub_ceiling: 1.8,
-        smoothing_ratio: 0.1,
-    };
+    let config = nous_retrieval::VcpAssetPolicy::default().graph;
     let assets = nous_retrieval::vcp_graph_assets(&material, &[], &[], &config).unwrap();
     assert!(
         assets

@@ -4,13 +4,14 @@ use crate::reference::{
     ReferenceProvenanceEdge, reference_graph_file_facts, reference_graph_from_facts,
 };
 use crate::{
-    VcpCurveOrder, VcpEvidenceContribution, VcpProjectionMaterial, vcp_evidence_contributions,
+    VcpCurveOrder, VcpEvidenceContribution, VcpIdentityMap, VcpProjectedDocument,
+    VcpProjectionMaterial, vcp_evidence_contributions,
 };
 use nous_core::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VcpGraphAssets {
     pub graph: ReferenceGraphOutput,
     pub membership: Vec<ReferenceFileTags>,
@@ -30,37 +31,7 @@ pub fn vcp_graph_assets(
     let evidence = vcp_evidence_contributions(ids, &material.edges)?;
     let mut facts = BTreeMap::<(i64, i64), f64>::new();
     let mut roots = BTreeMap::<(i64, i64), BTreeMap<String, f64>>::new();
-    let mut membership = Vec::new();
-    for document in &material.documents {
-        let file_id = ids.id(&document.reference)?;
-        let mut seen = BTreeSet::new();
-        let mut concepts = document
-            .concept_refs
-            .iter()
-            .map(|r| ids.id(r))
-            .collect::<Result<Vec<_>>>()?;
-        if matches!(document.curve_order, VcpCurveOrder::StableIdentity) {
-            concepts.sort_unstable();
-        }
-        concepts.retain(|id| seen.insert(*id));
-        let file = ReferenceFileTags {
-            file_id,
-            tags: concepts
-                .into_iter()
-                .enumerate()
-                .map(|(i, id)| {
-                    (
-                        id,
-                        match document.curve_order {
-                            VcpCurveOrder::SourceSequence => i as i64 + 1,
-                            VcpCurveOrder::StableIdentity => 0,
-                        },
-                    )
-                })
-                .collect(),
-        };
-        membership.push(file);
-    }
+    let membership = vcp_membership(ids, &material.documents)?;
     let output = reference_graph_file_facts(&ReferenceGraphInput {
         files: membership.clone(),
         pairwise: pairwise.to_vec(),
@@ -120,6 +91,44 @@ pub fn vcp_graph_assets(
         provenance_roots,
         evidence,
     })
+}
+
+pub(crate) fn vcp_membership(
+    ids: &VcpIdentityMap,
+    documents: &[VcpProjectedDocument],
+) -> Result<Vec<ReferenceFileTags>> {
+    let mut membership = Vec::new();
+    for document in documents {
+        let file_id = ids.id(&document.reference)?;
+        let mut seen = BTreeSet::new();
+        let mut concepts = document
+            .concept_refs
+            .iter()
+            .map(|r| ids.id(r))
+            .collect::<Result<Vec<_>>>()?;
+        if matches!(document.curve_order, VcpCurveOrder::StableIdentity) {
+            concepts.sort_unstable();
+        }
+        concepts.retain(|id| seen.insert(*id));
+        let file = ReferenceFileTags {
+            file_id,
+            tags: concepts
+                .into_iter()
+                .enumerate()
+                .map(|(i, id)| {
+                    (
+                        id,
+                        match document.curve_order {
+                            VcpCurveOrder::SourceSequence => i as i64 + 1,
+                            VcpCurveOrder::StableIdentity => 0,
+                        },
+                    )
+                })
+                .collect(),
+        };
+        membership.push(file);
+    }
+    Ok(membership)
 }
 
 #[cfg(test)]

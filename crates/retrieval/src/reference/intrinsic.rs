@@ -11,7 +11,7 @@ pub struct ReferenceIntrinsicInput {
     pub pairwise: Vec<(i64, i64, f64)>,
     pub config: ReferenceIntrinsicConfig,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceIntrinsicConfig {
     pub method: String,
@@ -81,7 +81,7 @@ impl ReferenceIntrinsicConfig {
         c
     }
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReferenceIntrinsicResult {
     pub id: i64,
     pub raw_residual_ratio: Option<f64>,

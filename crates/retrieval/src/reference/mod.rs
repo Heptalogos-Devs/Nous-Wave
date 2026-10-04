@@ -11,6 +11,7 @@ pub use pyramid::*;
 mod query_shape;
 pub use query_shape::*;
 mod anchors;
+pub(crate) use anchors::reference_cosine;
 pub use anchors::*;
 mod geometry;
 pub use geometry::*;

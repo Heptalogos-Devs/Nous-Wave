@@ -12,7 +12,7 @@ pub struct ReferenceEpaTrainingInput {
     pub samples_per_anchor: usize,
     pub candidate_limit: usize,
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReferenceEpaTraining {
     pub success: bool,
     pub density_mean: Vec<f32>,

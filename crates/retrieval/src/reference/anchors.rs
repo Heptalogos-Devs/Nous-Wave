@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReferenceCurveTag {
     pub id: i64,
     pub vector: Vec<f32>,
     pub position: i64,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReferenceCurve {
     pub id: i64,
     pub chunk_vector: Vec<f32>,
