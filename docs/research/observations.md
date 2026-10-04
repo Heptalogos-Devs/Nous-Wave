@@ -63,4 +63,47 @@ RAGFlow 是 optional provider，当前没有可用于实验的用户实例/datas
 
 本轮支持继续 Subject Cognition 开发；模型输出仍须 owner 校验。待决范围为别名背后的实际 weights revision、更大个人轨迹的语义稳定性、精细分段边界和 Schema 泛化质量。Self、Social Cognition、Motivation、真实 topology/Wave 与 RAGFlow 不在本轮实施范围。
 
+## 2026-10-04 Cognitive Retrieval：协议与配置因果观测
+
+本节记录 PR #14 之后的新实验，保留上节历史数据。本轮 Nous 基线为 d7ae4836；Vault 为 2614d65e；VCP source 为 e03b891d；运行 New API 镜像标注 revision 2035a82a，独立本地源码分支在该 revision 上修改。精确来源/blob 身份由 [source manifest](corpus/cognitive-retrieval-sources.json) 保存，逐次请求与结果留在 ignored `data/research/runs/cognitive-retrieval-2026-10-04/`。
+
+### ASR 与 Responses
+
+New API 的 VolcEngine adapter 原先在标准转写入口返回 `unsupported audio relay mode`。本地独立分支新增 SAUC WebSocket 转换，接受有界 WAV/MP3 multipart bytes，API key 与有效 resource ID 进入专用 headers；本机 Agent Plan channel 显式选择 `/api/v3/plan/sauc/bigmodel_nostream`。24 kHz PCM WAV 在网关规范化到 16 kHz；不要求公共音频 URL。Fake upstream、取消、错误、格式/时长边界与 TTS 回归通过。
+
+Menon 40 秒对话 WAV 的标准端点转写耗时约 7.2 秒。新增同一 NASA 官方节目中 46.28–76.28 秒的主持人介绍 MP3，具有 NASA transcript 和已冻结独立 ASR 对照。两段均经过 Nous production `speech_transcription`，提交 Transcript 与正常 provenance，再执行 formation；对话继续通过 embedding/Query，返回已形成 Memory。Nous 保持 `openai-audio-transcription`，没有供应商专属协议。转写 oracle 只检验文字事实，不要求转写结果承担视觉/声线描述或 diarization。
+
+Responses 初次请求因本机 Advanced Custom channel 没有对应 route 返回 503；补齐 route 后 provider 返回 200，但缺少 `output_text.annotations`，被当前 SDK 拒绝。New API 的 Responses owner 为缺省/null annotation list 补空数组，保留现有 annotations、usage 与 provider extension；focused handler tests 和 affected live 重跑通过。
+
+同一输入、同一 Prompt/schema 比较了六个角色：formation、Steward、Material structuring、Episode partition、Journal、consolidation。Chat 与 Responses 均通过 canonical Zod；partition、Journal support catalog 与 consolidation production mapper 检查通过。此组纵向结果是 proposal 校验，不声称重放提交了旧 Authority plan。额外公开 API formation 在 persisted role profile 切到 Responses 后提交了新 Memory；其 providerClass、role config digest 和 Producer signature 改变，Prompt/schema digest 保持一致。单次 latency 不能作为协议性能排名。
+
+### Mini / Lite 模型对照
+
+按用户建议加入 `doubao-seed-2.1-lite`，以同一 frozen input、Prompt、canonical Zod 与原角色配置对比 Mini，分别保留 chat/Responses 结果。Lite formation 与 Steward 两种协议均通过，人工检查保留计划中的 Soyuz 任务时态；该小样本不能证明总体推理质量排名。Lite chat Material structuring 通过但耗时约 115 秒；Responses 在原 4096 token 预算下只返回 incomplete reasoning、没有完整结构化产物。原 120 秒 timeout 下，Lite chat 的三个长程角色以及 Responses Journal/consolidation 超时；Responses Episode 返回合法 no_change，与 Mini 的主题 partition 不同，缺少 audited segmentation oracle 时不判赢家。
+
+单独 operational variant 延长 timeout 至 300 秒，并将 Material structuring 输出预算提高至 8192，保持输入/Prompt/schema；此结果不混入固定配置对照。目前延长后的 chat Episode 通过，Journal 仍超时，其余 affected case 继续运行。研究同时保存 wire usage 与 latency，区分合同拒绝、timeout/length 和已观察到的语义质量。
+
+### 媒体合同修复与视频输入
+
+第二段语音的 structuring 曾因 `state` 被一律解释为视觉 kind 而误拒。Observation 新增独立 `evidence_channel`，区分 visual/audio/source_text；kind 描述事项，channel 描述证据。Canonical Zod、validator、projection、Prompt 和直接 consumer 一起更新。转写中陈述的状态可以使用 audio evidence，仍不能声称观察到视觉事件。Steward 曾把计划中的 Soyuz 任务压缩成正在进行；修订时间/归属忠实度要求后，同一输入的 chat/Responses 重跑保留未来状态。
+
+Apollo liftoff 与 press clip 均实际执行 direct video、frames+ASR 和 frames-only，description/direct structured 的来源 graph 与 owner 校验通过。Press clip 的音轨返回空识别文本，scene 保留明确 degradation；这只说明该选定音轨没有成功取得 transcript，不能泛化为 ASR 缺陷。研究 runner 允许显式声明预期 degradation，并在结果中保留它。
+
+Contact sheet 复核发现原始 frames envelope 只给一组 timestamps 与一组图片，模型曾错配黑白帧的时间，并把音频里的升空事件转成早期帧的可见事实。输入改为每张图片紧邻 frame index/timestamp label，frame envelope 身份进入 preprocessing digest。Frames 的可用 audio 以实际 transcript 为准，音频支持可指向 `T001` 的 committed Transcript；相同可用性传入第二阶段 structuring。Focused regression 拒绝 frames-only 的伪 audio coverage。新 labelled frames-only case 保留烟云、亮光、后期可见 rocket 与时间顺序；自由描述对模糊原因的措辞仍须独立语义评阅。
+
+### 已证明的配置效果与 Wave freeze
+
+- `audio.input_mode`：同一 Menon SourceRegion 从 transcription 改为 direct，实际产物由 Transcript 变为 AudioDescription，providerClass 从标准转写变为 chat，无降级。
+- `material.strategy`：同一 inline-text SourceRegion 省略 strategy 参数，配置从 description_only 改为 direct_structured 后，实际产物从 extracted_text 变为 structured_interpretation。
+- `video.input_mode`：direct wire 发送原始 video；frames wire 使用 FFmpeg 帧、采样时间与可选独立 ASR，quality/provenance/preprocessing identity 随之变化。
+- `video.frame_end_margin_seconds`：0.1→0.9，24 秒样本的末帧实际时间 23.9→23.1；set 后 active 保持不变，restart 后采用 desired。
+- `roles.memory_formation`：配置切换到 Responses profile 后，真实 wire 与已提交 Producer identity 改变。
+- `retrieval.query.default_result_limit`：首次公开 NousQL probe 改为 1 仍返回两个命中；owner defect 是 compiler 强行补 12。删除该默认后，省略 `$limit` 的请求按配置返回 1/2，显式 limit 继续保留。
+
+其余本轮 targeted descriptors 仍继续按各 consumer 的真实行为验证，不把 Catalog set/get 当效果证据。
+
+现有 `experimental-node-potential-v1` 的数值 golden 冻结 graph conductance、hub penalty、provenance-root dedup、outbound mass、immediate return、FIR potential、state truncation、discarded mass、排序与空 seed；公开 unavailable-topology degradation 有单独回归。Reference baseline 与浮点 tolerance 随 fixture 保存。请求准备现在持有共享 embedding 与只读 lexical/dense hits；Dense 的多代匹配消费同一 embedding，FORBIDDEN、缺失 generation 与 provider failure 保留原 lane 状态和 Runtime requirement 裁决。Native readout 从不可变 QueryObservation 读取唯一 QueryRiver，观测保存 query/profile/generation/config subset/时间约束和 seeds，不保存候选排名；普通 diagnostics 增加 profile、实际激活边与最深传播 hop。
+
+定向图复现了两个旧 Wave 缺陷：remaining budget 只递减却不限制传播；合流状态保留单个 origin，后续节点丢失其他来源。修复后，不足边成本的状态停止传播，合流携带所有来源，输出 provenance 和等能量 tie 顺序稳定。原 default golden 数值与排序仍通过；预算与多源 regression、共享信号 unit 和真实 PostgreSQL association/query integration 通过。完整 profile registry、仅 cognitive lane 所需 embedding、VCP parity 和 benchmark utility 仍在本轮后续工作中，不能由这次 native refactor 代替。
+
 [返回文档目录](../INDEX.md)

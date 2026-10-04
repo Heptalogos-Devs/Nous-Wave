@@ -1,5 +1,7 @@
 # 开发脚本
 
+[返回仓库地图](../INDEX.md)
+
 从仓库根目录执行下列命令。TypeScript 入口依赖 `corepack pnpm install --frozen-lockfile`；源码位置和内部 helper 见 [INDEX.md](INDEX.md)。
 
 ## 开发实例
@@ -102,7 +104,7 @@ Research 使用真实模型，必须先准备语料、运行实例和分发的 C
 corepack pnpm research:gateway --ledger data/research/runs/run-ledger.json --max-calls 1000
 ```
 
-Gateway 默认转发 `http://127.0.0.1:3000/v1`，监听端口 18000；用 `--upstream`、`--port` 覆盖。`--ledger` 与 `--max-calls` 必填，预算计入失败和重试，持久化在 ledger；同路径旁保存 telemetry。将实例模型 endpoint 配为该 gateway 后再运行实验。 可加 `--trace-root data/research/runs/<run>/traces` 保存每次 attempt 的 `meta.json` 和经过敏感信息清除的 request/response。request capture 上限为 96 MiB，response 为 1 MiB；超限只保存大小、digest 和 truncation 状态。大型 data/base64 媒体保存 media type、byte count 与 SHA-256 描述符。Authorization、cookie 和 credential header 不落盘，已知凭据回显也在写盘前清除。trace 文件使用 0600 权限。
+Gateway 默认转发 `http://127.0.0.1:3000/v1`，监听端口 18000；用 `--upstream`、`--port` 覆盖。`--ledger` 与 `--max-calls` 必填，预算计入失败和重试，持久化在 ledger；同路径旁保存 telemetry。将实例模型 endpoint 配为该 gateway 后再运行实验。 可加 `--trace-root data/research/runs/<run>/traces` 保存每次 attempt 的 `meta.json` 和经过敏感信息清除的 request/response。request capture 上限为 96 MiB，response 为 1 MiB；超限只保存大小、digest 和 truncation 状态。大型 data/base64 媒体与 multipart file 保存 media type、byte count 与 SHA-256 描述符；multipart 保留 model/language 等普通字段，binary 不作为文本落盘。Authorization、cookie 和 credential header 不落盘，已知凭据回显也在写盘前清除。trace 文件使用 0600 权限。
 
 ```text
 corepack pnpm research:retrieval-live import --run-root <实例run目录> --client-module <分发client模块> --track controlled
@@ -114,7 +116,7 @@ Retrieval 子命令为 `import`、`run`、`audit-formation`；track 为 `control
 
 Media 默认读取 `docs/research/corpus/media.json` 与 `data/research/corpus/raw`，将处理状态写到 `data/research/runs/media-state.json`；用 `--manifest`、`--raw-root`、`--state` 覆盖。状态文件用于继续已有实验，不会从头重复已完成操作。
 
-媒体 runner 的 `--unit`、`--strategy` 可重复指定，`--derive-only` 只验证派生与来源图，`--skip-retrieval` 执行派生和 formation、暂不准备 embedding/query。Receipt 与完整 manifest digest 绑定；更换语料用新的 state。文本 runner 支持 manifest 中显式 author/project entities、出版日期、rights 与 extraction；`--skip-embeddings` 用于小组 formation baseline，`--session` 把观察归入一个实际 Session 并在所选单元成功后关闭。人工评阅应核对实际输出，pattern 命中只覆盖预先声明的事实。
+媒体 runner 的 `--unit`、`--strategy` 可重复指定，`--derive-only` 只验证派生与来源图，`--skip-retrieval` 执行派生和 formation、暂不准备 embedding/query。`--allow-degradation <code>` 可重复声明实验预期的降级（例如 frames-only 的 `video_audio_not_interpreted`），结果仍保存全部 degradation；其他降级继续使 pipeline 失败。Receipt 与完整 manifest digest 绑定；更换语料用新的 state。文本 runner 支持 manifest 中显式 author/project entities、出版日期、rights 与 extraction；`--skip-embeddings` 用于小组 formation baseline，`--session` 把观察归入一个实际 Session 并在所选单元成功后关闭。人工评阅应核对实际输出，pattern 命中只覆盖预先声明的事实。Manifest 的 `oracle_patterns_by_representation_kind` 可为 Transcript 等表示声明与其职责相符的事实 oracle，未声明时使用共同 `oracle_patterns`。
 
 ## 模型合同与 trace 检查
 
@@ -139,8 +141,6 @@ powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1 -W
 文档检查使用 Python 3.11+，读取 Git tracked 和非 ignored Markdown，报告失效本地链接、无返回链接、孤儿页面及最近祖先 INDEX 未收录的页面。README 和普通文档参与返回/覆盖检查；INDEX、AGENTS 不要求返回，`.agents/` Skills 和作为产品输入的 `prompts/` 不属于人类文档。文档需链接回收录它的目录或其他入口；INDEX 用明确的文件链接收录页面。忽略目录与豁免页面在 [.config/scripts/doc-navigation.toml](../.config/scripts/doc-navigation.toml) 中配置，不需修改脚本；用 `--config <TOML路径>` 指定其他配置。目录和页面路径相对仓库根。发现问题退出 1，否则退出 0；这是按需工具。
 
 PostgreSQL 清理只处理`data/temp/tests/` 中具有 PostgreSQL cluster 标记的孤立测试根，跳过运行中的 PostgreSQL。省略 `-WhatIf` 执行删除；`-MinimumAgeHours <小时>` 限制最小年龄，默认 0。它不清理语料、手写配置或开发实例。
-
-[返回仓库地图](../INDEX.md)
 
 ### Longitudinal model research
 
