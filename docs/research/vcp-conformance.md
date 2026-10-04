@@ -108,6 +108,10 @@ Positive AssociationEvidence projection 保留 support class、association kind 
 
 真实 PostgreSQL 的 association integration 回归同时验证 memory 开关对文本与拓扑的同步排除、独立 association provenance、缺 material、提交存储 embedding 后的候选 vectors/space/producer 和全 Authority 水位。此准备入口已可执行，仍未接入 VCP profile 的 generation build/publication 和查询 lane。
 
+[Nous graph assets](../../crates/retrieval/src/vcp_graph.rs) 将同一 projection 的 Tag membership 和正向 Authority evidence 汇入独立 reference transport。无序 membership 使用 position=0 的对称 cooccurrence 分支；有实际 source sequence 时保留位置。Evidence 先按端点/独立根/support class/association kind 取最大值，再累加独立贡献；保留原 semantic identity 与质量。这里未添加新的 support-class 权重。
+
+Reference 图 owner 现在分开构建按文档的 facts 与全图 transport，批量共享 pairwise/anchor lookup。Adapter 的 provenance root ID 使用独立命名空间，每条边保留各根贡献，根表可回译到原始 identity。它还不是 V3 candidate visibility 的 file ID；查询接线时必须由 Authority scoped candidate view 映射可见贡献。Frozen ordered graph parity 和 adapter 的无序/去重/重排回归通过，真实 PostgreSQL material 也已构建 transport。该资产构建入口仍未发布到 Serving generation，VCP 查询 profile 仍不可用。
+
 ## 需要保留的实现边界
 
 ### 观测与完整度

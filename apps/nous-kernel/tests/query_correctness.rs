@@ -1543,6 +1543,45 @@ async fn check_vcp_projection_material(
         .await
         .unwrap();
     assert_eq!(material.authority_watermark, current);
+    let config = nous_retrieval::reference::ReferenceGraphConfig {
+        forward_gain: 1.0,
+        reverse_gain: 0.35,
+        min_reverse_gain: 0.25,
+        max_reverse_gain: 0.6,
+        distance_decay: 0.08,
+        reverse_inversion_guard: 0.9,
+        reverse_anchor_boost: true,
+        reverse_anchor_max: 1.35,
+        semantic_enabled: true,
+        semantic_peak: 0.65,
+        semantic_sigma: 0.25,
+        semantic_low_fallback: 0.1,
+        outbound_mass: 0.95,
+        association_reserve_mass: 0.05,
+        evidence_compression: 1.0,
+        wormhole_gain: 1.35,
+        tension_threshold: 1.0,
+        hub_exponent: 0.3,
+        hub_floor: 0.55,
+        hub_ceiling: 1.8,
+        smoothing_ratio: 0.1,
+    };
+    let assets = nous_retrieval::vcp_graph_assets(&material, &[], &[], &config).unwrap();
+    assert!(
+        assets
+            .evidence
+            .iter()
+            .any(|e| e.association_kind == "assoc.related")
+    );
+    assert!(!assets.graph.transport.weights.is_empty());
+    for edge in &assets.graph.provenance {
+        material.identities.reference(edge.source_id).unwrap();
+        material.identities.reference(edge.target_id).unwrap();
+        for (root_id, mass) in &edge.file_contributions {
+            assert!(*root_id > 0 && *root_id as usize <= assets.provenance_roots.len());
+            assert!(mass.is_finite() && *mass > 0.0);
+        }
+    }
 }
 
 fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {

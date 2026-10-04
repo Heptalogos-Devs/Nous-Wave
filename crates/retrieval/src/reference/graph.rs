@@ -3,7 +3,7 @@ use nous_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReferenceFileTags {
     pub file_id: i64,
     pub tags: Vec<(i64, i64)>,
@@ -15,7 +15,7 @@ pub struct ReferenceGraphInput {
     pub anchor_gain: Vec<(i64, f64)>,
     pub config: ReferenceGraphConfig,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReferenceGraphConfig {
     pub forward_gain: f64,
     pub reverse_gain: f64,
@@ -58,7 +58,8 @@ fn add(map: &mut BTreeMap<(i64, i64), f64>, from: i64, to: i64, value: f64) {
         *map.entry((from, to)).or_default() += value;
     }
 }
-fn facts(input: &ReferenceGraphInput) -> BTreeMap<(i64, i64), f64> {
+type DirectedFacts = BTreeMap<(i64, i64), f64>;
+fn file_facts(input: &ReferenceGraphInput) -> Vec<(i64, DirectedFacts)> {
     let config = &input.config;
     let pairwise = input
         .pairwise
@@ -70,8 +71,9 @@ fn facts(input: &ReferenceGraphInput) -> BTreeMap<(i64, i64), f64> {
         .iter()
         .copied()
         .collect::<BTreeMap<_, _>>();
-    let mut fact = BTreeMap::new();
+    let mut output = Vec::new();
     for file in &input.files {
+        let mut fact = BTreeMap::new();
         if !(2..=100).contains(&file.tags.len()) {
             continue;
         }
@@ -124,23 +126,77 @@ fn facts(input: &ReferenceGraphInput) -> BTreeMap<(i64, i64), f64> {
                 add(&mut fact, *right, *left, backward);
             }
         }
+        output.push((file.file_id, fact));
     }
-    fact
+    output
 }
 
-pub fn reference_graph(input: &ReferenceGraphInput) -> Result<ReferenceGraphOutput> {
-    let config = &input.config;
-    if config.min_reverse_gain > config.max_reverse_gain {
+/// Prepare pairwise and anchor lookup once for the entire file collection.
+pub fn reference_graph_file_facts(input: &ReferenceGraphInput) -> Result<Vec<ReferenceFileFacts>> {
+    if input.config.min_reverse_gain > input.config.max_reverse_gain {
         return Err(Error::Invalid(
             "invalid reference reverse gain range".into(),
         ));
     }
-    let fact = facts(input);
-    let anchors = input
-        .anchor_gain
-        .iter()
-        .copied()
-        .collect::<BTreeMap<_, _>>();
+    Ok(file_facts(input)
+        .into_iter()
+        .map(|(file_id, facts)| ReferenceFileFacts {
+            file_id,
+            facts: facts
+                .into_iter()
+                .map(|((a, b), mass)| (a, b, mass))
+                .collect(),
+        })
+        .collect())
+}
+
+#[derive(Debug)]
+pub struct ReferenceFileFacts {
+    pub file_id: i64,
+    pub facts: Vec<(i64, i64, f64)>,
+}
+
+pub fn reference_graph_facts(input: &ReferenceGraphInput) -> Result<Vec<(i64, i64, f64)>> {
+    let mut facts = BTreeMap::new();
+    for file in reference_graph_file_facts(input)? {
+        for (from, to, mass) in file.facts {
+            add(&mut facts, from, to, mass);
+        }
+    }
+    Ok(facts
+        .into_iter()
+        .map(|((a, b), mass)| (a, b, mass))
+        .collect())
+}
+
+pub fn reference_graph(input: &ReferenceGraphInput) -> Result<ReferenceGraphOutput> {
+    reference_graph_from_facts(
+        &reference_graph_facts(input)?,
+        &input.anchor_gain,
+        reference_provenance(input),
+        &input.config,
+    )
+}
+
+/// Build the frozen transport contract from owner-supplied directed facts.
+/// Evidence roots are supplied separately, so adapters need not invent files
+/// or turn unordered membership into a narrative sequence.
+pub fn reference_graph_from_facts(
+    facts: &[(i64, i64, f64)],
+    anchor_gain: &[(i64, f64)],
+    provenance: Vec<ReferenceProvenanceEdge>,
+    config: &ReferenceGraphConfig,
+) -> Result<ReferenceGraphOutput> {
+    let mut fact = BTreeMap::new();
+    for &(from, to, mass) in facts {
+        if !mass.is_finite() || mass < 0.0 {
+            return Err(Error::Invalid(
+                "graph fact mass must be finite and nonnegative".into(),
+            ));
+        }
+        add(&mut fact, from, to, mass);
+    }
+    let anchors = anchor_gain.iter().copied().collect::<BTreeMap<_, _>>();
     let mut rows = BTreeMap::<i64, Vec<(i64, f64, bool)>>::new();
     let mut inflow = BTreeMap::<i64, f64>::new();
     for ((from, to), support) in &fact {
@@ -234,7 +290,7 @@ pub fn reference_graph(input: &ReferenceGraphInput) -> Result<ReferenceGraphOutp
         },
         wormholes,
         inbound: inbound.into_iter().collect(),
-        provenance: reference_provenance(input),
+        provenance,
     })
 }
 

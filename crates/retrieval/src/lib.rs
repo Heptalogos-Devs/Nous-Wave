@@ -17,6 +17,8 @@ mod topology_lane;
 mod vcp_adapter;
 pub use material::*;
 pub use vcp_adapter::*;
+mod vcp_graph;
+pub use vcp_graph::*;
 mod vcp_material;
 pub use vcp_material::*;
 
