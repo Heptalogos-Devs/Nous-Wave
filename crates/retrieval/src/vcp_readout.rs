@@ -163,16 +163,33 @@ fn candidate_provenance(
     generation: &VcpServingGeneration,
     candidate: &VcpReadoutCandidate,
 ) -> Vec<ReferenceProvenanceEdge> {
-    let canonical = candidate.reference.to_string();
     let id = generation
         .identities
         .id(&candidate.reference)
         .expect("validated candidate identity");
-    let snapshot_roots = generation
+    let document_roots = generation
+        .candidate_evidence_roots
+        .iter()
+        .map(|(id, roots)| {
+            (
+                generation
+                    .identities
+                    .reference(*id)
+                    .expect("validated asset identity")
+                    .to_string(),
+                roots,
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let mut self_roots = candidate.self_evidence_roots.clone();
+    if let Some((_, roots)) = generation
         .candidate_evidence_roots
         .iter()
         .find(|(candidate_id, _)| *candidate_id == id)
-        .map(|(_, roots)| roots);
+    {
+        self_roots.extend(roots.iter().cloned());
+    }
+    self_roots.insert(candidate.reference.to_string());
     generation
         .graph
         .graph
@@ -182,14 +199,10 @@ fn candidate_provenance(
             let (mut own, mut other) = (0.0, 0.0);
             for (id, mass) in &edge.file_contributions {
                 let root = &generation.graph.provenance_roots[*id as usize - 1];
-                if root == &canonical
-                    || candidate.self_evidence_roots.contains(root)
-                    || snapshot_roots.is_some_and(|roots| roots.contains(root))
-                {
-                    own += mass;
-                } else {
-                    other += mass;
-                }
+                let (self_mass, independent_mass) =
+                    root_mass_ownership(root, *mass, &self_roots, &document_roots);
+                own += self_mass;
+                other += independent_mass;
             }
             ReferenceProvenanceEdge {
                 source_id: edge.source_id,
@@ -201,6 +214,32 @@ fn candidate_provenance(
             }
         })
         .collect()
+}
+
+/// A cooccurrence contribution is one mass even when its document depends on
+/// several roots. Known roots divide that mass evenly; unknown lineage supplies
+/// no independent credit. This is explicit Nous ontology adaptation.
+fn root_mass_ownership(
+    root: &str,
+    mass: f64,
+    self_roots: &BTreeSet<String>,
+    document_roots: &std::collections::BTreeMap<String, &BTreeSet<String>>,
+) -> (f64, f64) {
+    if self_roots.contains(root) || root.starts_with("unknown-dependency:") {
+        return (mass, 0.0);
+    }
+    let Some(roots) = document_roots.get(root) else {
+        return (0.0, mass);
+    };
+    if roots.is_empty() {
+        return (mass, 0.0);
+    }
+    let own_count = roots
+        .iter()
+        .filter(|root| self_roots.contains(*root) || root.starts_with("unknown-dependency:"))
+        .count();
+    let own = mass * own_count as f64 / roots.len() as f64;
+    (own, mass - own)
 }
 
 pub fn vcp_v3_readout(
@@ -297,4 +336,35 @@ pub fn vcp_v3_readout(
         config: config.clone(),
         top_k,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn document_source_overlap_conserves_mass_and_unknown_lineage_is_not_independent() {
+        let own = BTreeSet::from(["external:shared".into()]);
+        let same = BTreeSet::from(["external:shared".into()]);
+        let partial = BTreeSet::from(["external:shared".into(), "external:independent".into()]);
+        let unknown = BTreeSet::from(["unknown-dependency:memory_revision:x".into()]);
+        let empty = BTreeSet::new();
+        let docs = std::collections::BTreeMap::from([
+            ("memory_revision:same".into(), &same),
+            ("memory_revision:partial".into(), &partial),
+            ("memory_revision:unknown".into(), &unknown),
+            ("memory_revision:empty".into(), &empty),
+        ]);
+        for (root, expected) in [
+            ("memory_revision:same", (0.8, 0.0)),
+            ("memory_revision:partial", (0.4, 0.4)),
+            ("memory_revision:unknown", (0.8, 0.0)),
+            ("memory_revision:empty", (0.8, 0.0)),
+            ("external:independent", (0.0, 0.8)),
+            ("external:shared", (0.8, 0.0)),
+        ] {
+            let actual = root_mass_ownership(root, 0.8, &own, &docs);
+            assert_eq!(actual, expected);
+            assert!((actual.0 + actual.1 - 0.8).abs() < 1e-12);
+        }
+    }
 }

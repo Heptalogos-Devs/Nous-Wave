@@ -136,6 +136,8 @@ Coherent projection 现在在同一个 repeatable-read transaction 中解析每�
 
 V3 self-mass 计算自动消费 generation 的 candidate evidence roots，并保留调用者提供的补充 self roots。真实 PostgreSQL 回归验证 Memory 有实际来源根、memory capability 禁用时对应 root entry 被移除，以及 embedding material 保留来源集合。Generation readback 校验 root entry 的 candidate IDs。此更改完成快照内来源 ownership 接线；当前 Authority 查询候选过滤、过期图处理和公共 lane 仍待完成。Episode/Journal/derived 闭包分支尚未在本轮增加专用 fixture，不据此宣称全部矩阵完成。
 
+V3 candidate provenance 现在将 document contribution 回译到 generation 保存的来源闭包，避免同一 underlying source 的多个文档贡献全被当作独立来源。一个 document mass 在其来源根间等分；与候选自身来源重叠的份额进入 self mass。Unknown/空文档来源不提供 independent credit，但仍保留原 transport 贡献质量。明确的独立 Authority evidence root 保持原 root mass；每条贡献的 self+other 总量不变。该分摊是可辨认的 Nous ontology adaptation，不声明 frozen VCP file ontology parity，也未改变 reference independence 的 0.15 floor。专用回归覆盖完全重叠、部分重叠、unknown/空来源和显式根；现有实际 index→两个 readout PostgreSQL 回归继续通过。
+
 ## 需要保留的实现边界
 
 ### 观测与完整度
