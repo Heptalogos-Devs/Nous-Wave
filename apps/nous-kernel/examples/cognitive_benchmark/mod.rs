@@ -80,6 +80,7 @@ pub(super) async fn run(
         nous_runtime::CognitiveProfile::VcpDtsc,
         nous_runtime::CognitiveProfile::VcpRiverMemo,
     ];
+    let mut admitted_prefixes = BTreeMap::new();
     for query in queries.queries {
         let scenario = scenarios
             .iter()
@@ -87,20 +88,21 @@ pub(super) async fn run(
             .ok_or_else(|| Error::Invalid("query Subject absent".into()))?;
         let mut prefix = scenario.clone();
         prefix.events.retain(|e| e.recorded_at <= query.as_of);
-        if prefix.events.len()
-            < state
-                .events
-                .keys()
-                .filter(|id| id.starts_with(&format!("{}-", query.subject)))
-                .count()
-        {
-            return Err(Error::Conflict(
-                "prefix root already contains future events".into(),
-            ));
+        let admitted_count = prefix.events.len();
+        if admitted_prefixes.get(&query.subject) != Some(&admitted_count) {
+            prepare_prefix(
+                runtime,
+                clock,
+                prefix,
+                state,
+                state_path,
+                &vectors,
+                &cache.config,
+            )
+            .await?;
+            admitted_prefixes.insert(query.subject.clone(), admitted_count);
         }
-        import_scenario(runtime, clock, prefix, state, state_path).await?;
         let subject = state.subjects[&query.subject];
-        prepare_material(runtime, subject, &vectors, &cache.config).await?;
         clock.set(query.as_of);
         let vector = vectors
             .get(&query.text)
@@ -163,6 +165,31 @@ pub(super) async fn run(
         }
     }
     Ok(())
+}
+
+async fn prepare_prefix(
+    runtime: &NousRuntime,
+    clock: &ImportClock,
+    prefix: Scenario,
+    state: &mut State,
+    state_path: &std::path::Path,
+    vectors: &BTreeMap<String, Vec<f32>>,
+    config: &nous_retrieval::StoredEmbeddingConfig,
+) -> Result<()> {
+    if prefix.events.len()
+        < state
+            .events
+            .keys()
+            .filter(|id| id.starts_with(&format!("{}-", prefix.scenario_id)))
+            .count()
+    {
+        return Err(Error::Conflict(
+            "prefix root already contains future events".into(),
+        ));
+    }
+    let scenario_id = prefix.scenario_id.clone();
+    import_scenario(runtime, clock, prefix, state, state_path).await?;
+    prepare_material(runtime, state.subjects[&scenario_id], vectors, config).await
 }
 
 async fn prepare_material(

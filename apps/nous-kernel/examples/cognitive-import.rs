@@ -274,7 +274,7 @@ async fn main() -> Result<()> {
             import_scenario(&runtime, &clock, scenario, &mut state, &state_path).await?;
         }
         if let Some(path) = &vectors_path {
-            commit_vectors(&runtime, &root, path).await?;
+            commit_vectors(&runtime, &state, path).await?;
         }
         if embedding_path.is_some() {
             export_needs(&runtime, &state, &root).await?;
@@ -623,12 +623,6 @@ async fn export_needs(runtime: &NousRuntime, state: &State, root: &std::path::Pa
 }
 
 #[derive(Deserialize)]
-struct Need {
-    subject: SubjectId,
-    reference: CognitiveRef,
-    text: String,
-}
-#[derive(Deserialize)]
 struct CachedVectors {
     config: nous_retrieval::StoredEmbeddingConfig,
     #[serde(default)]
@@ -657,7 +651,7 @@ fn load_vector_cache(path: &std::path::Path) -> Result<CachedVectors> {
 }
 async fn commit_vectors(
     runtime: &NousRuntime,
-    root: &std::path::Path,
+    state: &State,
     path: &std::path::Path,
 ) -> Result<()> {
     let cache = load_vector_cache(path)?;
@@ -672,31 +666,36 @@ async fn commit_vectors(
             "embedding cache identity disagrees with runtime".into(),
         ));
     }
-    let needs: Vec<Need> =
-        serde_json::from_slice(&std::fs::read(root.join("embedding-needs.json")).map_err(failure)?)
-            .map_err(failure)?;
     let vectors = cache
         .vectors
         .into_iter()
         .map(|entry| (entry.text, entry.vector))
         .collect::<BTreeMap<_, _>>();
     let mut committed = 0;
-    for need in needs {
-        let vector = vectors
-            .get(&need.text)
-            .ok_or_else(|| Error::Unavailable("embedding cache page incomplete".into()))?;
-        runtime
-            .serving
-            .commit_embedding(
-                need.subject,
-                need.reference,
-                need.text,
-                &cache.config.space.space_hash,
-                &cache.config.producer.signature_hash,
-                vector.clone(),
-            )
-            .await?;
-        committed += 1;
+    for subject in state.subjects.values() {
+        loop {
+            let needs = runtime.serving.embedding_needs(*subject, 256).await?;
+            if needs.is_empty() {
+                break;
+            }
+            for need in needs {
+                let vector = vectors
+                    .get(&need.text)
+                    .ok_or_else(|| Error::Unavailable("embedding cache page incomplete".into()))?;
+                runtime
+                    .serving
+                    .commit_embedding(
+                        *subject,
+                        need.reference,
+                        need.text,
+                        &cache.config.space.space_hash,
+                        &cache.config.producer.signature_hash,
+                        vector.clone(),
+                    )
+                    .await?;
+                committed += 1;
+            }
+        }
     }
     println!("committed embedding references={committed}");
     Ok(())

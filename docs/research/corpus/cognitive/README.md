@@ -43,7 +43,7 @@ cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cogn
 
 使用已安装的 PostgreSQL 18.6 runtime，在独立 ignored run root 中保存数据库、对象和 operation/revision/session 映射。正常结束会停止该 harness 的 PostgreSQL，保留数据供后续 reopen；不操作现有 Core 实例。Corpus manifest/scenario digest 固定数据，重跑复用已导入记录并回读 Memory 时间。
 
-Harness 通过 `NousRuntime::open_with_clock` 注入串行研究时钟。Memory mutation 第一次 semantic `now()` 返回 formed_at，之后返回 recorded_at；读 current head 在 arm 之前进行。它是显式研究 fixture，不能当作真实用户运行期时钟。Occurrence 的 occurred/observed 与 Memory valid interval 通过正常输入合同提交，formed/recorded 通过原 owner 时钟写入并逐条检查。Importer 目前采用固定 scenario 文件名和已授权的 corpus schema。
+Harness 通过 `NousRuntime::open_with_clock` 注入串行研究时钟。Memory mutation 第一次 semantic `now()` 返回 formed_at，之后返回 recorded_at；读 current head 在 arm 之前进行。它是显式研究 fixture，不能当作真实用户运行期时钟。Occurrence 的 occurred/observed 与 Memory valid interval 通过正常输入合同提交，formed/recorded 通过原 owner 时钟写入并逐条检查。Importer 从 manifest 的 scenario_files 读取当前 corpus schema。
 
 `supersedes` 事件通过实际 `revise_memory(Correct)` 更新同一 Memory，保留先前 exact revision；recalls_precursor 映射 `assoc.sequence`，recurrence 映射 `assoc.related`，支持为原 observation evidence。这些映射进入报告；不要声称 relation ontology 完全等同。其他 render kind 当前作为文本 observation 输入，未据 journal/reminder 标签创建相应 cognition object。
 
@@ -117,4 +117,19 @@ Native 有 243 条 query 的 seed count 非零，全部触及状态/转换预算
 
 这轮输入改变了 Tag/Runtime context，不能当作数值内核的纯参数消融。配置 effective digest、corpus/query digest、embedding identity 都有保存；raw binary 在 discarded-mass 修复前编译，VCP raw 0 仍为未测量占位，scorer 将其标为 null。Rerank、去 Hub/关系消融、预算曲线、longitudinal 和外部 suite 结果仍待对应运行。
 
-Paired rerank 六 variant 全量运行已在 `cc0-paired-rerank` 启动，配置/命令见 [scripts](../../../../scripts/README.md#cognitive-paired-rerank)。首条 query baseline/native 使用真实 `qwen3.7-text-rerank`、`rerank-v1`，最终 hit evidence 包含 language_rerank，已证明 production invocation→原 Runtime final Authority validation 接线。该小样本不构成 rerank 质量结论，需整轮结束后按 category 比较。
+## 六 variant 配对 rerank 结果
+
+`cc0-paired-rerank/{benchmark.jsonl,metrics.json}` 已完成 249 queries、1,494 rows、120 category/variant groups。Baseline/native 使用真实 `qwen3.7-text-rerank`、`rerank-v1` production invocation，之后经过 Runtime final Authority validation；四个无 rerank profile 使用相同输入和水位。474 次模型调用，24 次候选不足两个而跳过，无模型失败、执行错误或 topology unavailable。最终池验证预算仍为 40；退化行保留。
+
+| Category | baseline R10 / N10 | baseline+rerank R10 / N10 | native R10 / N10 | native+rerank R10 / N10 | DTSC R10 / N10 | V3 R10 / N10 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| knowledge_update | 1.000 / .972 | 1.000 / .971 | 1.000 / .396 | 1.000 / .971 | 1.000 / .973 | .967 / .910 |
+| association_2_hop | .133 / .041 | .200 / .064 | .767 / .246 | .200 / .064 | .233 / .073 | .133 / .040 |
+| narrative_causal_chain | .656 / .636 | .544 / .622 | .967 / .793 | .544 / .622 | .556 / .624 | .678 / .630 |
+| spontaneous_helpful_recall | .520 / .392 | .447 / .320 | .607 / .445 | .447 / .320 | .500 / .377 | .540 / .406 |
+
+R10 为 Recall@10，N10 为 nDCG@10。语义 rerank 恢复 native 的当前事实排序，但抑制联想 target、叙事背景和 helpful recall。二跳 native harmful@10 从 1.000 降至 .100，Recall 同时从 .767 降至 .200；叙事 harmful 从 .500 降至 .100。Spontaneous native harmful 从 .833 降至 .500，但 Recall 从 .607 降至 .447。这些取舍支持继续研究保留认知背景的融合策略，尚未实施或宣称 hybrid 有收益。
+
+Historical-state-retention 和 recurrence 在全部六 variant 的 R10/N10 均为 0。当前自然语言查询使用 CurrentOnly，旧修订不会由 rerank 恢复；现有 exact historical API 不等同于自然语言历史检索。本轮没有将 oracle 正例 ID 注入查询。
+
+No-rerank 结果截取实际候选池的前十项；rerank 使用最多 64 个候选，不应将差异描述为只对原 top10 换序。Query/source embedding 复用 608 项真实 provider cache。模型 provider latency 单独记录；总 rerank latency 包含研究限流的 6000ms 批次间隔及 final validation，不能用它推断在线延迟。所有类别完整指标保存在 metrics.json，以上表格只摘录影响下一步选择的类别。模板语料、既有输入 revision 2 和 CurrentOnly 合同仍限定结论适用范围。
