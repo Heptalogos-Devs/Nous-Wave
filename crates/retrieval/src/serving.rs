@@ -8,7 +8,7 @@ pub struct ServingSnapshot {
     pub lexical: Option<Arc<LexicalGeneration>>,
     pub dense: Vec<Arc<DenseGeneration>>,
     pub topology: Option<Arc<WaveGraphGeneration>>,
-    pub vcp: Option<Arc<VcpGeneration>>,
+    pub vcp: Option<Arc<VcpServingGeneration>>,
     pub epa: Vec<Arc<EpaBasisGeneration>>,
     pub postings: Arc<ExactPostings>,
     pub postings_generation: Option<ServingGenerationId>,

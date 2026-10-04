@@ -198,10 +198,12 @@ impl ServingService {
             let material = self.vcp_projection_material(subject, snapshot).await?;
             let watermark = material.authority_watermark;
             let policy = snapshot.get(crate::VCP_ASSETS)?;
+            let directory = dir.to_path_buf();
             let path = dir.join("vcp.json");
             tokio::task::spawn_blocking(move || {
                 let assets = VcpGeneration::build(id, profile, material, policy)?;
-                write_json(&path, &assets)
+                let generation = VcpServingGeneration::create(assets, &directory)?;
+                write_json(&path, &generation)
             })
             .await
             .map_err(|e| Error::Infrastructure(e.to_string()))??;
@@ -384,7 +386,7 @@ fn is_text(media: &str) -> bool {
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
         "lexical" | "dense" | "exact" => 4,
-        "topology" => 3,
+        "topology" => 4,
         _ => 1,
     }
 }

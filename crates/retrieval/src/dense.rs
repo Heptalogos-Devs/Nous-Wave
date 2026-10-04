@@ -50,7 +50,18 @@ impl DenseGeneration {
         space: EmbeddingSpaceSignature,
         records: Vec<VectorRecord>,
     ) -> Result<Self> {
-        let mut generation = Self::new(space, records.len())?;
+        let metric = metric_for_space(&space);
+        Self::open_with_metric(path, generation_id, space, records, metric)
+    }
+
+    pub(crate) fn open_with_metric(
+        path: &std::path::Path,
+        generation_id: ServingGenerationId,
+        space: EmbeddingSpaceSignature,
+        records: Vec<VectorRecord>,
+        metric: MetricKind,
+    ) -> Result<Self> {
+        let mut generation = Self::new_with_metric(space, records.len(), metric)?;
         generation
             .index
             .load(
@@ -87,6 +98,15 @@ impl DenseGeneration {
         Ok(generation)
     }
     pub fn new(space: EmbeddingSpaceSignature, capacity: usize) -> Result<Self> {
+        let metric = metric_for_space(&space);
+        Self::new_with_metric(space, capacity, metric)
+    }
+
+    pub(crate) fn new_with_metric(
+        space: EmbeddingSpaceSignature,
+        capacity: usize,
+        metric: MetricKind,
+    ) -> Result<Self> {
         if space.dimension == 0 {
             return Err(Error::Invalid(
                 "embedding dimension must be positive".into(),
@@ -94,11 +114,7 @@ impl DenseGeneration {
         }
         let options = IndexOptions {
             dimensions: space.dimension as usize,
-            metric: if space.normalization.eq_ignore_ascii_case("l2") {
-                MetricKind::Cos
-            } else {
-                MetricKind::L2sq
-            },
+            metric,
             quantization: ScalarKind::F32,
             connectivity: 16,
             expansion_add: 40,
@@ -224,4 +240,12 @@ fn validate_vector(space: &EmbeddingSpaceSignature, vector: &[f32]) -> Result<()
         }
     }
     Ok(())
+}
+
+fn metric_for_space(space: &EmbeddingSpaceSignature) -> MetricKind {
+    if space.normalization.eq_ignore_ascii_case("l2") {
+        MetricKind::Cos
+    } else {
+        MetricKind::L2sq
+    }
 }

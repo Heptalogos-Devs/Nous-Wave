@@ -114,9 +114,11 @@ Reference 图 owner 现在分开构建按文档的 facts 与全图 transport，�
 
 [VCP generation owner](../../crates/retrieval/src/vcp_generation.rs) 持有 identity map、embedding space/producer、candidate/tag vectors 与 labels、曲线及顺序来源、cooccurrence pairwise、intrinsic residual/anchor、EPA basis 和 graph assets。缺少 concept vector 时返回 unavailable；图中缺向量的节点显式保留在 diagnostics 资产中。EPA 标签不足时保留 reference 的 cache unavailable 状态。
 
-`retrieval.vcp.assets` 是 Developer/SystemOnly/ServingRebuild 的 typed policy，默认 EPA anchors/max basis 为 64/64，samples/candidates 为 32/512；图与 intrinsic 参数来自明确的独立数值合同。VCP `vcp.json` 使用既有 staging readback/checksum/rename/publication 流程，回读检查 generation/identity map、vector/curve identity、EPA shape 与 provenance root。ServingSnapshot 的 native/VCP 视图在同一次 publication 中互斥切换；topology implementation revision=3。VCP 配置 digest 包含 profile、asset policy、synopsis budget、space/producer 和 capability，刷新水位使用完整 Subject authority_seq。
+`retrieval.vcp.assets` 是 Developer/SystemOnly/ServingRebuild 的 typed policy，默认 EPA anchors/max basis 为 64/64，samples/candidates 为 32/512；图与 intrinsic 参数来自明确的独立数值合同。VCP `vcp.json` 使用既有 staging readback/checksum/rename/publication 流程，回读检查 generation/identity map、vector/curve identity、EPA shape 与 provenance root。ServingSnapshot 的 native/VCP 视图在同一次 publication 中互斥切换；topology implementation revision=4。VCP 配置 digest 包含 profile、asset policy、synopsis budget、space/producer 和 capability，刷新水位使用完整 Subject authority_seq。
 
-真实 PostgreSQL 回归验证 VCP publication/reopen、native/VCP 切换、回读拒绝乱序 identity map 和曲线向量不一致。Asset policy 的 outbound mass 从 0.95 改为 0.7 时 generation 重建，每个非空 transport 行总质量变为 0.7。此次验证覆盖资产生命周期；immutable VCP query observation、候选 index/readout、Authority scoped provenance visibility 和公共查询仍待完成。
+真实 PostgreSQL 回归验证 VCP publication/reopen、native/VCP 切换、回读拒绝乱序 identity map 和曲线向量不一致。Asset policy 的 outbound mass 从 0.95 改为 0.7 时 generation 重建，每个非空 transport 行总质量变为 0.7。此次验证覆盖资产生命周期；immutable VCP query observation、候选 readout、Authority scoped provenance visibility 和公共查询仍待完成。
+
+[VCP indexed generation](../../crates/retrieval/src/vcp_index.rs) 将数值资产与 candidate/Tag 两个 USearch index 放在同一个不可变 owner 中。三个文件使用同一次 staging/checksum/publication；回读逐 ID 检查 index vector 与原资产一致。VCP 索引显式使用 cosine metric，Dense 原有 metric 选择保持原合同。Tag residual 搜索使用 frozen pipeline 的 f64 `1/(1+f32 distance)` similarity，并从同代 label/vector 表返回输入。实际 USearch 保存/回读后，两个正交 Tag 的 residual 搜索结果一致；真实 PostgreSQL generation 的 candidate 搜索包含 MemoryRevision，空 Tag index 返回空输入。这里只证明索引接线，未声明 ANN 排序与 frozen VCP index 完全一致。
 
 ## 需要保留的实现边界
 

@@ -1387,6 +1387,23 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     let graph = generation.vcp.as_ref().expect("VCP profile generation");
     assert!(generation.topology.is_none());
     graph.validate().unwrap();
+    let indexed = graph
+        .search_candidates(&[1.0, 0.0, 0.0], graph.vectors.len())
+        .unwrap();
+    assert_eq!(indexed.len(), graph.vectors.len());
+    assert!(
+        indexed
+            .iter()
+            .any(|hit| hit.record.as_ref().unwrap().reference == memory_reference)
+    );
+    assert!(indexed.iter().all(|hit| hit.distance.abs() < 1e-6));
+    assert!(
+        graph
+            .search_residual_tags(&[1.0, 0.0, 0.0], 10)
+            .unwrap()
+            .is_empty()
+    );
+
     let encoded = serde_json::to_value(graph.as_ref()).unwrap();
     let mut decoded: nous_retrieval::VcpGeneration =
         serde_json::from_value(encoded.clone()).unwrap();

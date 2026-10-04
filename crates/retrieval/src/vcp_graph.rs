@@ -242,5 +242,44 @@ mod tests {
         material.edges[0].polarity = "positive".into();
         material.edges[0].provenance_root = None;
         assert!(vcp_graph_assets(&material, &[], &[], &config).is_err());
+        material.edges[0].provenance_root = Some("occurrence:restored".into());
+        check_index_roundtrip(material);
+    }
+
+    fn check_index_roundtrip(mut material: VcpProjectionMaterial) {
+        let tag_refs = material.documents[0].concept_refs.clone();
+        for (i, reference) in tag_refs.into_iter().enumerate() {
+            material.documents.push(VcpProjectedDocument {
+                reference,
+                representation_text: format!("Tag{i}"),
+                vector: if i == 0 {
+                    vec![1.0, 0.0]
+                } else {
+                    vec![0.0, 1.0]
+                },
+                concept_refs: Vec::new(),
+                curve_order: VcpCurveOrder::StableIdentity,
+            });
+        }
+        let assets = crate::VcpGeneration::build(
+            nous_core::ServingGenerationId::new(),
+            nous_runtime::CognitiveProfile::VcpDtsc,
+            material,
+            crate::VcpAssetPolicy::default(),
+        )
+        .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let index = crate::VcpServingGeneration::create(assets, directory.path()).unwrap();
+        let hits = index.search_residual_tags(&[1.0, 0.0], 2).unwrap();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].name, "Tag0");
+        assert!((hits[0].similarity - 1.0).abs() < 1e-6);
+        assert_eq!(hits[0].vector, vec![1.0, 0.0]);
+        let decoded = serde_json::from_value(serde_json::to_value(&index).unwrap()).unwrap();
+        let reopened = crate::VcpServingGeneration::open(decoded, directory.path()).unwrap();
+        assert_eq!(
+            serde_json::to_value(reopened.search_residual_tags(&[1.0, 0.0], 2).unwrap()).unwrap(),
+            serde_json::to_value(hits).unwrap()
+        );
     }
 }

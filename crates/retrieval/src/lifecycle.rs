@@ -10,7 +10,7 @@ pub(crate) enum OpenArtifact {
     Lexical(Arc<LexicalGeneration>),
     Dense(Arc<DenseGeneration>, Option<Arc<EpaBasisGeneration>>),
     Topology(Arc<WaveGraphGeneration>),
-    Vcp(Arc<VcpGeneration>),
+    Vcp(Arc<VcpServingGeneration>),
     Exact(Arc<ExactPostings>),
 }
 
@@ -346,7 +346,9 @@ impl ServingService {
                         ));
                     }
                     assets.validate()?;
-                    return Ok(OpenArtifact::Vcp(Arc::new(assets)));
+                    return Ok(OpenArtifact::Vcp(Arc::new(VcpServingGeneration::open(
+                        assets, path,
+                    )?)));
                 }
                 let artifact: TopologyArtifact = read_json(&path.join("topology.json"))?;
                 if artifact.generation_id != id {

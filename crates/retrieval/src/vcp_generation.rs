@@ -148,6 +148,14 @@ impl VcpGeneration {
             ));
         }
         self.graph.graph.transport.validate()?;
+        if self.vectors.windows(2).any(|v| v[0].0 >= v[1].0)
+            || self.labels.windows(2).any(|v| v[0].0 >= v[1].0)
+        {
+            return Err(Error::Invalid(
+                "VCP vector/label IDs must be unique and sorted".into(),
+            ));
+        }
+
         let mut seen = std::collections::BTreeSet::new();
         for (id, vector) in &self.vectors {
             self.identities.reference(*id)?;
@@ -160,6 +168,15 @@ impl VcpGeneration {
         }
         for id in &self.graph.graph.transport.node_ids {
             self.identities.reference(*id)?;
+        }
+        for (id, _) in &self.labels {
+            if !seen.contains(id)
+                || !matches!(self.identities.reference(*id)?, CognitiveRef::Tag(_))
+            {
+                return Err(Error::Invalid(
+                    "VCP label must identify an embedded Tag".into(),
+                ));
+            }
         }
         let vectors = self
             .vectors
