@@ -94,6 +94,25 @@ Scorer 展开同 Subject 的 grade=0 默认 oracle，按 category/profile 输出
 
 `queries.json` revision 2 在每个 query 的 `input_context` 声明独立输入：Tag label 必须逐字出现在 query text 且已进入 as-of prefix；spontaneous case 的 `current_event_ids` 指向文字中“接手下一轮值班”所引用的实际提醒事件。这些字段从 authored story/input 取得，不读取 grade、oracle 或 required_paths。Runner 将 Tag cue 与 Runtime current refs 通过普通 bind/query 合同提交，逐条记录输入。30 条 spontaneous case 使用非空 Runtime context。
 
-第二轮在新的 `cc0-context-v2` prefix root 对四个 profile 全量重跑；相同 query/source 文本复用既有真实 provider cache，不重新调用 embedding。首轮 revision 1 的 text-only raw 输出保留，和 revision 2 分开分析，不能把输入变化当作纯算法消融。新输入已实际激活 native 种子/扩散；完整结果仍需待运行结束评分。Recurrence 与 weak-cue 未出现可绑定的 Tag surface，因此仍保留 text-only 输入。
+第二轮在新的 `cc0-context-v2` prefix root 对四个 profile 全量重跑；相同 query/source 文本复用既有真实 provider cache，不重新调用 embedding。首轮 revision 1 的 text-only raw 输出保留，和 revision 2 分开分析，不能把输入变化当作纯算法消融。新输入已实际激活 native 种子/扩散；完整 996 行现已结束并评分，结果如下。Recurrence 与 weak-cue 未出现可绑定的 Tag surface，因此仍保留 text-only 输入。
 
 首轮 revision 1 增补指标已输出至 `cc0-prefix-corrected/cognitive-metrics.json`。二跳 chain coverage@10：baseline/native 0.567、DTSC 0.617、V3 0.567；同类 wrong-session@10：0.233、0.533、0.200。DTSC 目标召回收益伴随更高错误 Session intrusion，不能只据 Recall 选用。三跳 chain coverage@10：baseline/native 0.711、DTSC 0.567、V3 0.711。该报告使用的 frozen paths 在 revision 1/2 间完全相同，尚未包含第二轮情境输入结果。
+
+## 第二轮情境输入结果
+
+`cc0-context-v2/metrics.json` 保存 249 queries / 996 rows / 80 groups；无执行错误、无 topology unavailable，同一个 query 四个 profile 的 Authority 水位一致。516 行有退化，其中 388 次 validation budget exhaustion、243 次 native topology truncation（部分行同时存在两者）。没有去掉这些行。
+
+| Category | baseline Recall@10 | native Recall@10 | DTSC Recall@10 | V3 Recall@10 | baseline nDCG@10 | native nDCG@10 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| knowledge_update | 1.000 | 1.000 | 1.000 | 0.967 | 0.972 | 0.396 |
+| association_1_hop | 1.000 | 1.000 | 1.000 | 1.000 | 0.445 | 0.675 |
+| association_2_hop | 0.133 | 0.767 | 0.233 | 0.133 | 0.041 | 0.246 |
+| association_3_hop | 1.000 | 1.000 | 0.600 | 1.000 | 0.433 | 0.353 |
+| narrative_causal_chain | 0.656 | 0.967 | 0.556 | 0.678 | 0.636 | 0.793 |
+| spontaneous_helpful_recall | 0.520 | 0.607 | 0.500 | 0.540 | 0.392 | 0.445 |
+
+Native 在结构 cue 下召回更多二跳 target 和叙事背景；同类 harmful@10 分别为 1.000 和 0.500，baseline 为 0.233 和 0.100。Native 当前事实 Recall 保持 1，但 nDCG 从首轮 0.972 降至 0.396，显示强扩散介入后的排序代价。Spontaneous native Recall 增加 0.087，同时 harmful@10 从 0.433 增至 0.833。DTSC/V3 的大部分类别与首轮接近，精确差值保存在每类指标中。
+
+Native 有 243 条 query 的 seed count 非零，全部触及状态/转换预算；6 条 weak-cue/recurrence 无显式 seed。观察到的最大 hop：native 2、VCP 1。Oracle 的 1/2/3-hop buckets 描述 authored event graph 中 justified predecessor 路径；Serving 还有共享 Tag 和 cooccurrence shortcut，不能据三跳 bucket 的 Recall 声称实际走过三次扩散。
+
+这轮输入改变了 Tag/Runtime context，不能当作数值内核的纯参数消融。配置 effective digest、corpus/query digest、embedding identity 都有保存；raw binary 在 discarded-mass 修复前编译，VCP raw 0 仍为未测量占位，scorer 将其标为 null。Rerank、去 Hub/关系消融、预算曲线、longitudinal 和外部 suite 结果仍待对应运行。
