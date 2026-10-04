@@ -16,7 +16,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | --- | --- | --- | --- | --- | --- | --- |
 | EPA | memo_pipeline analyze_epa；lib.rs EpaBasisTask | f32 query centering，basis dot 的平方能量概率，归一化熵、dominant axes 与 bridge resonance；query analysis 不读取 cached training energies | weighted representative PCA 与当前 EPA policy | query analysis 首个 native 数值 fixture 通过；basis builder 待实现 | 待实现 | uncertain |
 | Residual | memo_pipeline analyze_pyramid / orthogonal_projection；lib.rs IntrinsicResidualTask | 每层 residual ANN，按返回序正交化 Tag，dependent axis contribution 为零；f32 投影累积，解释量归一到原 query energy | bounded residual search 与 Nous own residual contract | 待实现 | 待实现 | nous-native |
-| graph build | memo_artifact_builder build_fact_matrix / build_transport | 有序 file-tag 全 pair；位置/距离/semantic/reverse anchor 调制；log evidence、target inflow hub 校正与预算内 wormhole reserve | CognitiveRef/AssociationEvidence，support class quality 与独立 provenance root max dedup | 待实现 | 待实现 | nous-native |
+| graph build | memo_artifact_builder build_fact_matrix / build_transport | 有序 file-tag 全 pair；位置/距离/semantic/reverse anchor 调制；log evidence、target inflow hub 校正与预算内 wormhole reserve | CognitiveRef/AssociationEvidence，support class quality 与独立 provenance root max dedup | neutral ordered graph builder 首个 native fact/CSR/provenance fixture 通过；完整 graph matrix 待补 | 待实现 | nous-native |
 | bounded Sense | memo_sensing sense_typed | energy、momentum、hop、previous-node state；normal/wormhole decay、立即回流抑制、FIR、邻居/state 上限 | Wave 的固定 outbound、步数预算与 state 上限；无 VCP wormhole/decay 合同 | neutral Sense 数值与状态 matrix 通过；单一 lineage 边界单独记录 | 待实现 | nous-native |
 | query river | memo_sensing SenseOutput | node potential 与实际注入 edge flow；source field 为最终 retained FIR 分布；edge 记录先于 momentum/state admission | QueryRiver 包含 source/potential/edge/provenance/mass；native source 为初始归一 seed | Sense node/edge/source field 与逐跳 transfer matrix 通过；VCP 单一 lineage 不作为稳定合同 | 待实现 | nous-native |
 | dual fields | memo_pipeline solve_dual_fields | 同一 source/transport 的两个 scaled resolvent，独立 L1 convergence、mass-ratio domains 与 vector projection | 尚无该 VCP profile 的双场 readout | neutral 双 resolvent 首个 native 数值 fixture 通过；vector projection 待实现 | 待实现 | vcp-derived |
@@ -37,7 +37,11 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 
 独立 [Sense kernel](../../crates/retrieval/src/reference/sense.rs) 逐值比较 source field、node energy/normalization/hop、edge flow/max/normalization/conductance、逐跳 transfer、抑制质量与状态截断数量，absolute/relative tolerance 为 `1e-12`，离散 membership/flag exact match。数组以 node/edge key canonicalize，保留全部中间数值。Frozen 合流 state 的单一 seedId/originType 由首次 HashMap encounter 保留，不能宣称稳定唯一 lineage；reference 数值 DTO 不输出这份任意 lineage，candidate adapter 需要区分实际来源。
 
-完整 vector/candidate matrix、EPA basis builder、graph builder、field vector projection、DTSC/V3 readout 与 adapter utility 继续实现。
+独立 [ordered graph builder](../../crates/retrieval/src/reference/graph.rs) 以 file/tag/position、pair similarity、anchor gain 和 typed config 为中性输入。[graph fixture](../../crates/retrieval/tests/fixtures/vcp-graph.json) 对照 frozen native 的 30 条归一化前 fact entries、CSR 节点/行/目标/conductance、wormhole 集合、inbound mass 与逐文件 provenance，容差 `1e-12`。Fact export 只调用原 private builder，算法函数没有修改。
+
+图构建的 reverse anchor/semantic/distance 影响 fact mass；log evidence、hub correction 与 wormhole reserve 影响预算内 transport。Provenance 使用单独的 file/direction/distance mass 合同，独立计算，避免把 transport 权重当来源质量。首个 fixture 通过不替代完整配置边界与 graph matrix。
+
+完整 vector/candidate matrix、EPA basis builder、field vector projection、DTSC/V3 readout 与 adapter utility 继续实现。
 
 ## 需要保留的实现边界
 

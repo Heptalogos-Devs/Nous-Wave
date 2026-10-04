@@ -144,3 +144,26 @@ fn frozen_sense_graph_matrix_matches_intermediate_numeric_and_discrete_contracts
         compare_numeric_subset(&actual, &expected, case["name"].as_str().unwrap());
     }
 }
+
+#[test]
+fn native_ordered_graph_transport_and_provenance_match() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-graph.json")).expect("native graph");
+    let input: ReferenceGraphInput =
+        serde_json::from_value(fixture["input"].clone()).expect("neutral graph DTO");
+    let graph = reference_graph(&input).expect("reference graph build");
+    let value = serde_json::to_value(&graph).unwrap();
+    for field in [
+        "fact_matrix",
+        "transport",
+        "wormholes",
+        "inbound",
+        "provenance",
+    ] {
+        compare_numeric_subset(&value[field], &fixture["expected"][field], field);
+    }
+    for range in graph.transport.row_offsets.windows(2) {
+        let mass: f64 = graph.transport.weights[range[0]..range[1]].iter().sum();
+        assert!(mass <= input.config.outbound_mass + 1e-12);
+    }
+}

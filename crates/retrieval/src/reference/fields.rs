@@ -1,7 +1,7 @@
 use nous_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ReferenceTransport {
     pub node_ids: Vec<i64>,
     pub row_offsets: Vec<usize>,
