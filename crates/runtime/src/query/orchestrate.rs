@@ -385,7 +385,7 @@ impl CognitiveRuntimeService {
                         .candidate_counts
                         .insert("topology_visited_nodes".into(), work.visited_nodes);
                     diagnostics.topology_complete = Some(work.complete);
-                    diagnostics.topology_discarded_mass = Some(work.discarded_mass);
+                    diagnostics.topology_discarded_mass = work.discarded_mass;
                 }
             }
         }

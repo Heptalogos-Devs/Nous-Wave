@@ -181,3 +181,5 @@ V3 pure score 直接混合 original/local/transfer cosine，加有界 path rewar
 `::TimeDecay` 是 RAGDiaryPlugin 的后处理，位于 RiverMemo 返回后、外部 rerank/最终截断前。半衰期、最低分优先取修饰符，其次全局配置，fallback 分别为 30 天和 0.5；日期依次取 Tag 行、括号、首行、路径。对有效日期使用非负整数日龄，原分优先 `rerank_score`，乘 `0.5^(days/halfLife)` 后排序并按最低分过滤。`source=time` 跳过衰减乘法，仍参加全批过滤；未匹配 target Tag、无日期或日期无效的候选保留原分。此合同不等于 Nous 的多轴时间约束，后续比较须分别标识。
 
 [返回研究入口](README.md)
+
+VCP Sense 当前测量 activated edges、visited nodes、seed count、max hop 和 truncation；没有测量被预算丢弃的 probability mass。`topology_discarded_mass` 因此为 null，native 则保留其实际 `discarded_state_mass`。此前 raw benchmark 的 VCP 值 0 是未测量占位，不能解释为零丢弃；当前进程仍运行旧 binary 的 raw 输出需按此说明读取。

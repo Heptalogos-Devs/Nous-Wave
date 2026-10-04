@@ -31,7 +31,8 @@ pub struct TopologyWorkSummary {
     pub seed_count: usize,
     pub visited_nodes: usize,
     pub complete: bool,
-    pub discarded_mass: f64,
+    /// None means the engine does not measure discarded probability mass.
+    pub discarded_mass: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

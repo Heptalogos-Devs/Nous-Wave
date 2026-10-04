@@ -278,6 +278,6 @@ fn work_summary(
         seed_count: observation.numerical().gating.tags.len(),
         visited_nodes: sense.nodes.len(),
         complete,
-        discarded_mass: 0.0,
+        discarded_mass: None,
     }
 }

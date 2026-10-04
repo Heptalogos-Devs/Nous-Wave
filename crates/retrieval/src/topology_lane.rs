@@ -58,7 +58,7 @@ pub(crate) fn topology_lane(
         seed_count: observation.source_seeds().len(),
         visited_nodes: river.node_potential.len(),
         complete: river.complete,
-        discarded_mass: river.discarded_state_mass,
+        discarded_mass: Some(river.discarded_state_mass),
     });
     if !river.complete {
         output.status = LaneStatus::Truncated;

@@ -1703,6 +1703,7 @@ async fn check_public_vcp_queries(
             "{diagnostics:?}"
         );
         assert!(diagnostics.lane_status["topologywave"].contains("ready"));
+        assert_eq!(diagnostics.topology_discarded_mass, None);
         let bound = runtime.cognition.bind_query(request.clone()).await.unwrap();
         let plan = QueryPlan::for_bound_query(&bound);
         let CognitiveRef::MemoryRevision(revision) = memory else {
