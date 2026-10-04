@@ -1766,6 +1766,84 @@ async fn check_public_vcp_queries(
                 .contains_key("topology_profile")
         );
     }
+    check_vcp_native_switch_freshness(runtime, subject).await;
+}
+
+async fn check_vcp_native_switch_freshness(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+) {
+    observation(
+        runtime,
+        subject,
+        "topology publication full-watermark regression",
+    )
+    .await;
+    let provider = runtime.serving.embedding().unwrap();
+    for need in runtime.serving.embedding_needs(subject, 256).await.unwrap() {
+        runtime
+            .serving
+            .commit_embedding(
+                subject,
+                need.reference,
+                need.text,
+                &provider.space().space_hash,
+                &provider.producer().signature_hash,
+                vec![1.0, 0.0, 0.0],
+            )
+            .await
+            .unwrap();
+    }
+    let desired = runtime
+        .store
+        .projection_watermark(subject, "topology", "")
+        .await
+        .unwrap();
+    let full: i64 = sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+        .bind(subject.0)
+        .fetch_one(runtime.store.pool())
+        .await
+        .unwrap();
+    assert!(full > desired);
+    let need = nous_core::ServingNeed {
+        exact: false,
+        lexical: false,
+        dense: false,
+        topology: true,
+    };
+    for profile in ["vcp-dtsc-v9.2.1-adapter-v1", "nous-node-potential-v1"] {
+        runtime
+            .configuration
+            .set_system_override(
+                OperationId::new(),
+                nous_runtime::COGNITIVE_PROFILE.path(),
+                serde_json::json!(profile),
+            )
+            .await
+            .unwrap();
+        let snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+        let status = runtime
+            .serving
+            .prepare_with_snapshot(subject, need, &snapshot)
+            .await
+            .unwrap();
+        assert!(status.degradation.is_empty());
+    }
+    let snapshot = runtime.serving.publisher.snapshot_for(subject);
+    assert!(snapshot.vcp.is_none());
+    assert_eq!(
+        snapshot.topology.as_ref().unwrap().cognitive_profile,
+        nous_runtime::CognitiveProfile::NousNodePotential
+    );
+    let current = runtime.store.serving_current(subject).await.unwrap();
+    assert_eq!(
+        current
+            .iter()
+            .find(|record| record.family == "topology")
+            .unwrap()
+            .authority_watermark,
+        full
+    );
 }
 
 async fn check_vcp_nonempty_observation(

@@ -158,12 +158,7 @@ impl ServingService {
             let existing = current
                 .iter()
                 .find(|record| record.family == family && record.space == space);
-            let watermark = if family == "topology"
-                && matches!(
-                    snapshot.get(nous_runtime::COGNITIVE_PROFILE)?,
-                    nous_runtime::CognitiveProfile::VcpDtsc
-                        | nous_runtime::CognitiveProfile::VcpRiverMemo
-                ) {
+            let watermark = if family == "topology" {
                 sqlx::query_scalar::<_, i64>(
                     "SELECT authority_seq FROM subjects WHERE subject_id=$1",
                 )

@@ -114,7 +114,7 @@ Reference 图 owner 现在分开构建按文档的 facts 与全图 transport，�
 
 [VCP generation owner](../../crates/retrieval/src/vcp_generation.rs) 持有 identity map、embedding space/producer、candidate/tag vectors 与 labels、曲线及顺序来源、cooccurrence pairwise、intrinsic residual/anchor、EPA basis 和 graph assets。缺少 concept vector 时返回 unavailable；图中缺向量的节点显式保留在 diagnostics 资产中。EPA 标签不足时保留 reference 的 cache unavailable 状态。
 
-`retrieval.vcp.assets` 是 Developer/SystemOnly/ServingRebuild 的 typed policy，默认 EPA anchors/max basis 为 64/64，samples/candidates 为 32/512；图与 intrinsic 参数来自明确的独立数值合同。VCP `vcp.json` 使用既有 staging readback/checksum/rename/publication 流程，回读检查 generation/identity map、vector/curve identity、EPA shape 与 provenance root。ServingSnapshot 的 native/VCP 视图在同一次 publication 中互斥切换；topology implementation revision=5。VCP 配置 digest 包含 profile、asset policy、synopsis budget、space/producer 和 capability，刷新水位使用完整 Subject authority_seq。
+`retrieval.vcp.assets` 是 Developer/SystemOnly/ServingRebuild 的 typed policy，默认 EPA anchors/max basis 为 64/64，samples/candidates 为 32/512；图与 intrinsic 参数来自明确的独立数值合同。VCP `vcp.json` 使用既有 staging readback/checksum/rename/publication 流程，回读检查 generation/identity map、vector/curve identity、EPA shape 与 provenance root。ServingSnapshot 的 native/VCP 视图在同一次 publication 中互斥切换；topology implementation revision=6。VCP 配置 digest 包含 profile、asset policy、synopsis budget、space/producer 和 capability，刷新水位使用完整 Subject authority_seq。
 
 真实 PostgreSQL 回归验证 VCP publication/reopen、native/VCP 切换、回读拒绝乱序 identity map 和曲线向量不一致。Asset policy 的 outbound mass 从 0.95 改为 0.7 时 generation 重建，每个非空 transport 行总质量变为 0.7。此次验证覆盖资产生命周期；immutable VCP query observation、候选 readout、Authority scoped provenance visibility 和公共查询仍待完成。
 
@@ -147,6 +147,8 @@ V3 candidate provenance 现在将 document contribution 回译到 generation 保
 当前本机 Core/Kernel 已以 `a2303cc` 启动，真实 New API HTTP probe 完成。已有 ASR Subject 的同一 text query 在 native/DTSC/V3 下均返回 2 hits，无 degradation；该 Subject 无 Tag 源场，只证明空场路径。新增原创 CC0 观测站维修场景（3 Memories、3 Tags）通过普通 observe/form API 提交，并由真实 provider 生成 embeddings；同一 text+Tag query 下 DTSC/V3 各激活 8 edges、访问 6 nodes、最大 hop=1，返回 3 Memories，无 degradation。Native 激活 6 edges、最大 hop=2，同样返回 3 Memories，但报告配置预算截断。
 
 六组最终输出均经过既有 model rerank；正场三组顺序一致，未形成算法质量结论。新 gateway observation 中 10 个实际 /embeddings 或 /rerank 调用均为 HTTP 200；30 个 trace JSON 文件的 prohibited header/实际 credential 字节扫描为零命中。原 cognitive profile 已恢复。完整 category benchmarks、消融、无 rerank 对照和更深传播场景仍待执行；3 条原创 Memory 只是后续 CC0 benchmark 的初始场景，未达到 Spec 规模。
+
+前缀 benchmark 发现并修复 topology serving 的跨 profile publication 缺陷：VCP 资产使用完整 Subject authority_seq，native 资产使用 topology 子水位，切回 native 时 persistence 的单调 publication fence 返回了水位较高的旧 VCP 资产。Topology snapshot 和 freshness 检查现在统一使用完整 Subject 水位，implementation revision=6；数值算法未变化。实际 PostgreSQL 回归明确制造 full seq > topology desired 的情况，验证 VCP→native 发布成功，native 视图和记录水位正确。Native golden 保持通过；缺陷前 benchmark 输出不参与正常算法评分。
 
 ## 需要保留的实现边界
 

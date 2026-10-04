@@ -1,4 +1,4 @@
-use crate::{AuthorityStore, database_error as db, projection_input::watermark};
+use crate::{AuthorityStore, database_error as db};
 use nous_core::*;
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
@@ -119,7 +119,12 @@ async fn topology_snapshot_in(
     subject: SubjectId,
     memory_enabled: bool,
 ) -> Result<TopologyProjectionInput> {
-    let watermark = watermark(tx, subject, "topology", "").await?;
+    let watermark: i64 =
+        sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+            .bind(subject.0)
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(db)?;
     let mut nodes = HashSet::new();
     let mut edges = Vec::new();
     if memory_enabled {
