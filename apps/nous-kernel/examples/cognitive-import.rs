@@ -63,6 +63,7 @@ struct State {
     #[serde(skip_serializing)]
     events: BTreeMap<String, EventReceipt>,
     sessions: BTreeMap<String, SessionId>,
+    tags: BTreeMap<String, TagId>,
     corpus_digest: String,
     associations: BTreeMap<String, AssociationEvidenceId>,
 }
@@ -333,6 +334,9 @@ async fn import_scenario(
                 },
             )
             .await?;
+        state
+            .tags
+            .insert(format!("{}:{label}", scenario.scenario_id), tag.tag_id);
         tags.insert(label.clone(), tag.tag_id);
     }
     scenario.events.sort_by_key(|event| event.formed_at);

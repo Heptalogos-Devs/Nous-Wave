@@ -1,6 +1,14 @@
 use super::*;
 use std::io::Write;
 
+#[derive(Default, Deserialize, Serialize)]
+struct InputContext {
+    #[serde(default)]
+    tag_labels: Vec<String>,
+    #[serde(default)]
+    current_event_ids: Vec<String>,
+    source: Option<String>,
+}
 #[derive(Deserialize)]
 struct Query {
     query_id: String,
@@ -17,6 +25,8 @@ struct Query {
     #[serde(default)]
     unresolved_evidence: Vec<String>,
     original_question_date: Option<DateTime<Utc>>,
+    #[serde(default)]
+    input_context: InputContext,
 }
 #[derive(Deserialize)]
 struct Queries {
@@ -109,7 +119,7 @@ pub(super) async fn run(
                     serde_json::to_value(profile).map_err(failure)?,
                 )
                 .await?;
-            let request = request_for(&query, subject)?;
+            let request = request_for(&query, subject, state)?;
             let start = std::time::Instant::now();
             let execution = nous_retrieval::with_query_material(
                 requests.clone(),
@@ -132,7 +142,7 @@ pub(super) async fn run(
                     serde_json::json!({"event_id":event,"hit":hit})
                 })
                 .collect::<Vec<_>>();
-            let row = serde_json::json!({"query_id":query.query_id,"suite":query.suite,"category":query.category,"profile":profile.id(),"profile_digest":profile.digest(),"corpus_digest":state.corpus_digest,"query_set_digest":manifest["queries_sha256"],"embedding_space":cache.config.space,"embedding_producer":cache.config.producer,"config_digest":execution.bound.config_snapshot.effective_digest,"cognitive_config_subset_digest":execution.bound.config_snapshot.digest_for(&["retrieval.cognitive.profile","retrieval.vcp.assets","retrieval.vcp.query","retrieval.vcp.readout"])? ,"authority_watermark":execution.bound.bound_at_authority_seq,"as_of":query.as_of,"clock_source":"research-serial-prefix","track":"controlled-kernel-no-rerank","oracle":query.oracle,"subject":query.subject,"session_oracle":query.session_oracle,"unresolved_evidence":query.unresolved_evidence,"original_question_date":query.original_question_date,"default_same_subject_oracle":{"grade":0,"reason":"distractor"},"returned":returned,"lane_diagnostics":execution.result.diagnostics,"degradation":execution.result.degradation,"latency_ms":start.elapsed().as_secs_f64()*1000.0,"serving_generations":{"dense":snapshot.dense.iter().map(|g|g.generation_id).collect::<Vec<_>>(),"native":snapshot.topology.as_ref().map(|g|g.generation_id),"vcp":snapshot.vcp.as_ref().map(|g|g.generation_id)},"provider_usage":{"query_generation":"precomputed_real_provider_cache","rerank_calls":0},"error":null});
+            let row = serde_json::json!({"query_id":query.query_id,"suite":query.suite,"category":query.category,"profile":profile.id(),"profile_digest":profile.digest(),"corpus_digest":state.corpus_digest,"query_set_digest":manifest["queries_sha256"],"embedding_space":cache.config.space,"embedding_producer":cache.config.producer,"config_digest":execution.bound.config_snapshot.effective_digest,"cognitive_config_subset_digest":execution.bound.config_snapshot.digest_for(&["retrieval.cognitive.profile","retrieval.vcp.assets","retrieval.vcp.query","retrieval.vcp.readout"])? ,"authority_watermark":execution.bound.bound_at_authority_seq,"as_of":query.as_of,"clock_source":"research-serial-prefix","track":"controlled-kernel-no-rerank","oracle":query.oracle,"input_context":query.input_context,"subject":query.subject,"session_oracle":query.session_oracle,"unresolved_evidence":query.unresolved_evidence,"original_question_date":query.original_question_date,"default_same_subject_oracle":{"grade":0,"reason":"distractor"},"returned":returned,"lane_diagnostics":execution.result.diagnostics,"degradation":execution.result.degradation,"latency_ms":start.elapsed().as_secs_f64()*1000.0,"serving_generations":{"dense":snapshot.dense.iter().map(|g|g.generation_id).collect::<Vec<_>>(),"native":snapshot.topology.as_ref().map(|g|g.generation_id),"vcp":snapshot.vcp.as_ref().map(|g|g.generation_id)},"provider_usage":{"query_generation":"precomputed_real_provider_cache","rerank_calls":0},"error":null});
             writeln!(output, "{}", serde_json::to_string(&row).map_err(failure)?)
                 .map_err(failure)?;
             output.flush().map_err(failure)?;
@@ -177,7 +187,7 @@ async fn prepare_material(
     }
     Ok(())
 }
-fn request_for(query: &Query, subject: SubjectId) -> Result<CognitiveQuery> {
+fn request_for(query: &Query, subject: SubjectId, state: &State) -> Result<CognitiveQuery> {
     let mut constraints = QueryConstraints::default();
     if let Some(axis) = &query.time_axis {
         // Temporal queries explicitly name an RFC3339 timestamp. Parse only
@@ -207,16 +217,49 @@ fn request_for(query: &Query, subject: SubjectId) -> Result<CognitiveQuery> {
             _ => {}
         }
     }
+    let mut cues = vec![Cue::Text(TextCue {
+        text: query.text.clone(),
+    })];
+    for label in &query.input_context.tag_labels {
+        let tag = state
+            .tags
+            .get(&format!("{}:{label}", query.subject))
+            .ok_or_else(|| {
+                Error::Invalid("query input Tag is absent from current prefix".into())
+            })?;
+        cues.push(Cue::Tag(TagCue { tag: *tag }));
+    }
+    let current_refs = query
+        .input_context
+        .current_event_ids
+        .iter()
+        .map(|event| {
+            if !event.starts_with(&format!("{}-", query.subject)) {
+                return Err(Error::Invalid(
+                    "current situation reference crosses Subject".into(),
+                ));
+            }
+            state
+                .events
+                .get(event)
+                .map(|receipt| CognitiveRef::MemoryRevision(receipt.revision))
+                .ok_or_else(|| {
+                    Error::Invalid("current situation event is absent from prefix".into())
+                })
+        })
+        .collect::<Result<Vec<_>>>()?;
     Ok(CognitiveQuery {
         api_version: API_VERSION,
         subject,
         session: None,
-        situation: Default::default(),
+        situation: SituationDescriptor {
+            consumer: Some("research-cognitive-recall".into()),
+            current_refs,
+            current_objects: Vec::new(),
+        },
         expression: CognitiveQueryExpr {
             targets: vec![QueryTarget::Memory],
-            cues: vec![Cue::Text(TextCue {
-                text: query.text.clone(),
-            })],
+            cues,
             constraints,
             ..Default::default()
         },

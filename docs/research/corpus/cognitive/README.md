@@ -89,3 +89,9 @@ Scorer 展开同 Subject 的 grade=0 默认 oracle，按 category/profile 输出
 三条 future-exclusion case 无 future exposure，四个 profile Recall@10=1；这是前缀导入隔离条件下的结果。五轴 occurred/observed/formed/recorded case 正例均 Recall@10/nDCG@10=1，valid case Recall@10=1，但 V3 nDCG@10=0.544（其他三个 0.754）。小类各只有三条，不能外推到一般时间推理能力。Diffusion/interference 类四个 profile 的平均 harmful@10 均为 1，低分与 intrusion 都保留在 category 指标中。
 
 当前 JSONL 的 `config_digest` 是 profile/assets/query/readout 四键的配置摘要；后续 runner 已改为完整 effective digest，并另存 `cognitive_config_subset_digest`。该轮 latency 混合冷/热 Serving preparation，未拆分 embedding/model rerank/final validation；cached query vectors 不算每条实时 embedding 调用。尚无 rerank、外部 suite、消融或 hybrid 取舍结论。
+
+## Query input revision 2
+
+`queries.json` revision 2 在每个 query 的 `input_context` 声明独立输入：Tag label 必须逐字出现在 query text 且已进入 as-of prefix；spontaneous case 的 `current_event_ids` 指向文字中“接手下一轮值班”所引用的实际提醒事件。这些字段从 authored story/input 取得，不读取 grade、oracle 或 required_paths。Runner 将 Tag cue 与 Runtime current refs 通过普通 bind/query 合同提交，逐条记录输入。30 条 spontaneous case 使用非空 Runtime context。
+
+第二轮在新的 `cc0-context-v2` prefix root 对四个 profile 全量重跑；相同 query/source 文本复用既有真实 provider cache，不重新调用 embedding。首轮 revision 1 的 text-only raw 输出保留，和 revision 2 分开分析，不能把输入变化当作纯算法消融。新输入已实际激活 native 种子/扩散；完整结果仍需待运行结束评分。Recurrence 与 weak-cue 未出现可绑定的 Tag surface，因此仍保留 text-only 输入。

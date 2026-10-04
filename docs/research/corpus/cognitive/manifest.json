@@ -27,8 +27,10 @@
   ],
   "event_count": 300,
   "query_count": 249,
-  "queries_sha256": "5ac7c5971e24259657f604c01446bf4d60f23b16b90c253a47f3b2f48ae52f80",
+  "queries_sha256": "9a12b2ef09e27f197b65648d98cafd5961f1af74efbff6e9ae40fbea6bb1385e",
   "associations_sha256": "c6af581d7100c7a0cae6308187ac73f631ebab94388b93d49d7854f89bd91c4c",
   "status": "authored_not_imported_not_benchmarked",
-  "generation": "fixed authored phase templates with 30 distinct projects; no retrieval-output-derived oracle"
+  "generation": "fixed authored phase templates with 30 distinct projects; no retrieval-output-derived oracle",
+  "query_set_revision": 2,
+  "query_input": "project Tag cues and Runtime current reminder refs declared independently of oracle"
 }
