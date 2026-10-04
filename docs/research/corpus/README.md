@@ -13,4 +13,4 @@
 
 [返回 Research 入口](../README.md)
 
-[原创 Cognitive Recall Corpus](cognitive/README.md) 保存三条事件图、249 个查询 oracle 和有依据的来源路径；当前尚未导入和评测。
+[原创 Cognitive Recall Corpus](cognitive/README.md) 保存三条事件图、249 个查询 oracle 和有依据的来源路径；已由独立 research harness 导入，完整评测仍待运行。

@@ -26,13 +26,27 @@
 
 ## 当前状态
 
-300 events、249 queries 的 authored graph 已保存，文件摘要、引用、时间顺序和 1/2/3-hop 最短路径已检查。**尚未导入、运行或完成 benchmark**。后续还需：
+300 events、249 queries 的 authored graph 已保存，文件摘要、引用、时间顺序和 1/2/3-hop 最短路径已检查。独立 research PostgreSQL 已通过下面的 harness 导入 300 events、60 Sessions 和 207 条有来源支持的 association，并回读确认 formed/recorded 时间。**尚未运行完整 benchmark**。后续还需：
 
-- 通过普通 API 导入 fact/render、Tag、关系、Session 和修订；保留 deterministic ID 到实际 Authority revision 的映射。
-- 用真实 owner/API 或明确的 research clock harness 注入时间；禁止直接修改数据库时间字段。
+- 补全 importer 的外部 evidence/graph coverage 审计，并使用保存的 deterministic event → Authority revision 映射进行评测。
+- 将 research clock 与查询 as-of 调度接线，验证五轴过滤和历史状态；当前 importer 通过正常 owner 写入时间，没有直接修改数据库时间字段。
 - 在所有 profile 上使用同一 Authority snapshot，按类别比较有/无 rerank 和指定消融。
 - 分别报告模板干扰、时间轴实现能力、grade assumption、future leakage、无关扩散与有用链条召回；不将规模或单一总分作为结论。
 
-现有 ignored 的三条观测站 live Memory 是独立 wiring probe，未算作这 300 events 的导入结果。Corpus 中的 as-of、setting grade 与数据状态尚未经过真实检索验证。
+现有 ignored 的三条观测站 live Memory 是独立 wiring probe，未算作这 300 events 的导入结果。Corpus 中的 as-of、setting grade 尚未经过完整真实检索验证。
+
+## 研究 importer
+
+```text
+cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cognitive data/research/runs/cognitive-recall
+```
+
+使用已安装的 PostgreSQL 18.6 runtime，在独立 ignored run root 中保存数据库、对象和 operation/revision/session 映射。正常结束会停止该 harness 的 PostgreSQL，保留数据供后续 reopen；不操作现有 Core 实例。Corpus manifest/scenario digest 固定数据，重跑复用已导入记录并回读 Memory 时间。
+
+Harness 通过 `NousRuntime::open_with_clock` 注入串行研究时钟。Memory mutation 第一次 semantic `now()` 返回 formed_at，之后返回 recorded_at；读 current head 在 arm 之前进行。它是显式研究 fixture，不能当作真实用户运行期时钟。Occurrence 的 occurred/observed 与 Memory valid interval 通过正常输入合同提交，formed/recorded 通过原 owner 时钟写入并逐条检查。Importer 目前采用固定 scenario 文件名和已授权的 corpus schema。
+
+`supersedes` 事件通过实际 `revise_memory(Correct)` 更新同一 Memory，保留先前 exact revision；recalls_precursor 映射 `assoc.sequence`，recurrence 映射 `assoc.related`，支持为原 observation evidence。这些映射进入报告；不要声称 relation ontology 完全等同。其他 render kind 当前作为文本 observation 输入，未据 journal/reminder 标签创建相应 cognition object。
+
+本次实际导入位于 ignored `data/research/runs/cognitive-retrieval-2026-10-04/cc0-runtime`，尚未配置 embedding/Serving 或执行 query runner。初始 manifest 的 `status` 描述 authored release 时点，实际 import/run 状态以对应 run root 为准。
 
 [返回语料入口](../README.md)
