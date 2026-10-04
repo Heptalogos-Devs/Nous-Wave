@@ -589,6 +589,19 @@ fn native_epa_density_sampling_weighted_basis_and_publication_values_match() {
 fn native_query_pipeline_composes_one_query_through_sense_fusion_and_dual_fields() {
     let fixture: Value =
         serde_json::from_str(include_str!("fixtures/vcp-query-pipeline.json")).unwrap();
+    verify_pipeline_fixture(&fixture);
+}
+
+#[test]
+fn native_query_pipeline_vector_and_configuration_matrix_matches() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-query-pipeline-matrix.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        verify_pipeline_fixture(case);
+    }
+}
+
+fn verify_pipeline_fixture(fixture: &Value) {
     let input: ReferencePipelineInput = serde_json::from_value(fixture["input"].clone()).unwrap();
     let layers: Vec<Vec<ReferenceResidualCandidate>> =
         serde_json::from_value(fixture["search_results"].clone()).unwrap();
@@ -642,6 +655,10 @@ fn native_query_pipeline_composes_one_query_through_sense_fusion_and_dual_fields
         &expected["fusion_diagnostics"],
         "fusion",
     );
+    assert_eq!(
+        output.fusion.vector.len(),
+        expected["enhanced_vector"].as_array().unwrap().len()
+    );
     for (a, b) in output
         .fusion
         .vector
@@ -660,6 +677,7 @@ fn native_query_pipeline_composes_one_query_through_sense_fusion_and_dual_fields
         (&output.transfer_vector, &expected["transfer_vector"]),
     ] {
         let b: Vec<f32> = serde_json::from_value(e.clone()).unwrap();
+        assert_eq!(a.len(), b.len());
         for (a, b) in a.iter().zip(b) {
             assert!((a - b).abs() <= 1e-7);
         }
