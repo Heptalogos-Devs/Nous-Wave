@@ -1235,6 +1235,32 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     assert!(topology.edges.iter().any(|edge| {
         edge.association_kind == "assoc.related" && edge.provenance_root.is_some()
     }));
+    let mut native_request = query(subject);
+    native_request.expression.targets = vec![QueryTarget::Exact {
+        reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
+    }];
+    native_request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+    native_request.diagnostics = nous_core::DiagnosticsRequest::Summary;
+    let result = runtime
+        .query(native_request)
+        .await
+        .expect("native cognitive readout");
+    let diagnostics = result.diagnostics.expect("native observation summary");
+    assert_eq!(
+        diagnostics.lane_status["topology_profile"],
+        "nous-node-potential-v1"
+    );
+    assert_eq!(
+        diagnostics.lane_status["topology_mechanism"],
+        "experimental-node-potential-v1"
+    );
+    assert_eq!(diagnostics.lane_status["topology_profile_digest"].len(), 64);
+    assert!(diagnostics.candidate_counts["topology_seed_count"] > 0);
+    assert!(diagnostics.candidate_counts["topology_activated_edges"] > 0);
+    assert!(diagnostics.candidate_counts["topology_max_hop_observed"] > 0);
+    assert!(result.results.iter().any(
+        |hit| hit.reference == CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
+    ));
     let producer = Uuid::now_v7();
     sqlx::query("INSERT INTO producer_signatures(producer_signature_id,signature_hash,provider_class,operation,implementation,model_identity,model_revision,preprocessing_identity,preprocessing_revision,config_digest,created_at,metadata) VALUES($1,$2,'test','text.interpretation','derived-test',NULL,NULL,'none','1','derived-test',now(),'{}')")
         .bind(producer)

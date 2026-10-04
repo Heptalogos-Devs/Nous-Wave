@@ -7,8 +7,11 @@ mod artifacts;
 mod build;
 mod lifecycle;
 mod material;
+mod observation;
 mod provider;
+pub use observation::{QueryObservation, QueryTemporalContext};
 mod query;
+pub use query::PreparedQuerySignals;
 mod topology_lane;
 pub use material::*;
 

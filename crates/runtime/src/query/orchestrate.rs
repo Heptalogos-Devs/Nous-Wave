@@ -364,6 +364,19 @@ impl CognitiveRuntimeService {
                 if let Some(work) = &lane.topology_work {
                     diagnostics
                         .lane_status
+                        .insert("topology_profile".into(), work.profile_id.clone());
+                    diagnostics.lane_status.insert(
+                        "topology_profile_digest".into(),
+                        work.profile_digest.clone(),
+                    );
+                    diagnostics
+                        .candidate_counts
+                        .insert("topology_activated_edges".into(), work.activated_edges);
+                    diagnostics
+                        .candidate_counts
+                        .insert("topology_max_hop_observed".into(), work.max_hop_observed);
+                    diagnostics
+                        .lane_status
                         .insert("topology_mechanism".into(), work.mechanism.clone());
                     diagnostics
                         .candidate_counts

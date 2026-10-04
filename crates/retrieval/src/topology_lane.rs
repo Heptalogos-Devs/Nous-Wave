@@ -1,26 +1,23 @@
-use crate::{ServingSnapshot, SourceSeed, propagate_with_budget};
+use crate::observation::NATIVE_MECHANISM_ID;
+use crate::{QueryObservation, ServingSnapshot, SourceSeed};
 use nous_core::{CognitiveRef, Cue, EvidenceFamily};
 use nous_runtime::{
     BoundQuery, LaneCandidate, LaneOutput, LaneStatus, QueryPlan, TopologyWorkSummary,
 };
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "Keep topology seed selection, bounded propagation and observed execution evidence in one owner"
-)]
 pub(crate) fn topology_lane(
     snapshot: &ServingSnapshot,
     bound: &BoundQuery,
     plan: &QueryPlan,
-) -> LaneOutput {
+) -> nous_core::Result<LaneOutput> {
     let mut output = LaneOutput::empty(EvidenceFamily::TopologyWave, LaneStatus::Ready);
     let Some(graph) = snapshot.topology.as_ref() else {
         output.status = LaneStatus::Unavailable;
         output
             .diagnostics
             .push("topology serving generation is unavailable".into());
-        return output;
+        return Ok(output);
     };
     output.generation_ref = Some(graph.generation_id);
     let seed_weight = |name: &str, default: f64| {
@@ -74,39 +71,28 @@ pub(crate) fn topology_lane(
             seeds.push((node, weight, family));
         }
     }
-    if seeds.is_empty() {
-        output.topology_work = Some(TopologyWorkSummary {
-            mechanism: "experimental-node-potential-v1".into(),
-            seed_count: 0,
-            visited_nodes: 0,
-            complete: true,
-            discarded_mass: 0.0,
-        });
-        return output;
-    }
-    let mut merged = HashMap::<u32, SourceSeed>::new();
+    let mut merged = BTreeMap::<(u32, String), SourceSeed>::new();
     for (node, weight, family) in seeds {
         merged
-            .entry(node)
+            .entry((node, family.into()))
             .and_modify(|seed| seed.weight += weight)
             .or_insert(SourceSeed {
                 node,
                 weight,
                 seed_family: family.into(),
-                origin_cue: family.into(),
+                origin_cue: format!("{family}:{}", graph.nodes[node as usize].reference),
                 hop_zero: true,
             });
     }
-    let seed_count = merged.len();
-    let river = propagate_with_budget(
-        graph,
-        &merged.into_values().collect::<Vec<_>>(),
-        plan.topology_rounds,
-        plan.topology_nodes,
-    );
+    let observation = QueryObservation::native(graph, bound, plan, merged.into_values().collect())?;
+    let river = observation.river();
     output.topology_work = Some(TopologyWorkSummary {
-        mechanism: "experimental-node-potential-v1".into(),
-        seed_count,
+        mechanism: NATIVE_MECHANISM_ID.into(),
+        profile_id: observation.profile_id().into(),
+        profile_digest: observation.profile_digest().into(),
+        activated_edges: river.edges.len(),
+        max_hop_observed: river.max_hop_observed,
+        seed_count: observation.source_seeds().len(),
         visited_nodes: river.node_potential.len(),
         complete: river.complete,
         discarded_mass: river.discarded_state_mass,
@@ -141,5 +127,5 @@ pub(crate) fn topology_lane(
             provider_metadata: serde_json::Value::Null,
         })
         .collect();
-    output
+    Ok(output)
 }

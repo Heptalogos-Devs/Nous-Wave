@@ -1,0 +1,204 @@
+use super::*;
+use nous_core::*;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
+
+struct EmbeddingProbe {
+    calls: AtomicUsize,
+    fail: bool,
+}
+
+#[async_trait::async_trait]
+impl TextEmbeddingProvider for EmbeddingProbe {
+    fn space(&self) -> EmbeddingSpaceSignature {
+        EmbeddingSpaceSignature {
+            space_hash: "signals-space".into(),
+            model_identity: "probe".into(),
+            weights_revision: "1".into(),
+            task: "retrieval".into(),
+            input_representation: "text".into(),
+            preprocessing_identity: "utf8".into(),
+            preprocessing_revision: "1".into(),
+            dimension: 2,
+            normalization: "none".into(),
+            output_semantics: "dense_vector".into(),
+        }
+    }
+    fn producer(&self) -> ProducerSignature {
+        ProducerSignature {
+            signature_hash: "signals-producer".into(),
+            provider_class: "probe".into(),
+            operation: CapabilityOperation::TextEmbedding,
+            implementation: "probe".into(),
+            model_identity: Some("probe".into()),
+            model_revision: None,
+            output_schema_digest: None,
+            preprocessing_identity: "utf8".into(),
+            preprocessing_revision: "1".into(),
+            config_digest: "probe".into(),
+        }
+    }
+    async fn embed(&self, request: TextEmbeddingRequest) -> Result<TextEmbeddingOutput> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        assert!(request.query);
+        assert_eq!(request.text, "query");
+        if self.fail {
+            return Err(Error::Unavailable("probe failure".into()));
+        }
+        Ok(TextEmbeddingOutput {
+            vector: vec![1.0, 0.0],
+            space: self.space(),
+            producer: self.producer(),
+        })
+    }
+}
+
+fn query() -> CognitiveQuery {
+    CognitiveQuery {
+        api_version: API_VERSION,
+        subject: SubjectId::new(),
+        session: None,
+        situation: Default::default(),
+        expression: CognitiveQueryExpr {
+            cues: vec![Cue::Text(TextCue {
+                text: "query".into(),
+            })],
+            targets: vec![QueryTarget::Memory],
+            ..Default::default()
+        },
+        exploration: Default::default(),
+        resources: Default::default(),
+        result_need: Default::default(),
+        effort: Default::default(),
+        capabilities: Default::default(),
+        diagnostics: Default::default(),
+    }
+}
+
+fn snapshot(provider: &EmbeddingProbe) -> (ServingSnapshot, CognitiveRef) {
+    let reference = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+    let generations = (0..2)
+        .map(|index| {
+            let mut generation = DenseGeneration::new(provider.space(), 1).expect("dense index");
+            generation
+                .insert(
+                    VectorRecord {
+                        serving_doc_id: index,
+                        reference: reference.clone(),
+                        embedding_space: provider.space(),
+                        producer_signature: provider.producer().signature_hash,
+                        representation_kind: "memory".into(),
+                        source_region: None,
+                    },
+                    &[1.0, 0.0],
+                )
+                .expect("insert vector");
+            Arc::new(generation)
+        })
+        .collect();
+    (
+        ServingSnapshot {
+            dense: generations,
+            ..Default::default()
+        },
+        reference,
+    )
+}
+
+#[tokio::test]
+async fn one_preparation_shares_embedding_and_deduplicates_dense_generations() {
+    let provider = EmbeddingProbe {
+        calls: AtomicUsize::new(0),
+        fail: false,
+    };
+    let (snapshot, reference) = snapshot(&provider);
+    let query = query();
+    let plan = QueryPlan::for_query(&query);
+    let signals = prepare_signals(
+        &snapshot,
+        &query,
+        &[EvidenceFamily::Dense],
+        &plan,
+        Some(&provider),
+    )
+    .await
+    .expect("prepare");
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+    assert!(std::ptr::eq(
+        signals.embedding().expect("embedding"),
+        signals.embedding().expect("same embedding")
+    ));
+    assert_eq!(signals.query_text(), "query");
+    let output = signals.dense().expect("dense");
+    assert_eq!(output.status, LaneStatus::Ready);
+    assert_eq!(output.candidates.len(), 1);
+    assert_eq!(output.candidates[0].reference, reference);
+    assert_eq!(output.candidates[0].variants.len(), 2);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn forbidden_and_missing_generation_do_not_call_embedding() {
+    let provider = EmbeddingProbe {
+        calls: AtomicUsize::new(0),
+        fail: false,
+    };
+    let (snapshot, _) = snapshot(&provider);
+    let mut query = query();
+    query.capabilities.text_embedding = RequirementStrength::Forbidden;
+    let plan = QueryPlan::for_query(&query);
+    let signals = prepare_signals(
+        &snapshot,
+        &query,
+        &[EvidenceFamily::Dense],
+        &plan,
+        Some(&provider),
+    )
+    .await
+    .expect("forbidden");
+    assert!(signals.embedding().is_none());
+    assert_eq!(signals.dense().expect("dense").status, LaneStatus::Ready);
+    query.capabilities.text_embedding = RequirementStrength::Optional;
+    let signals = prepare_signals(
+        &ServingSnapshot::default(),
+        &query,
+        &[EvidenceFamily::Dense],
+        &plan,
+        Some(&provider),
+    )
+    .await
+    .expect("missing");
+    assert_eq!(
+        signals.dense().expect("dense").status,
+        LaneStatus::Unavailable
+    );
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn provider_failure_remains_unavailable_lane_for_runtime_requirement_policy() {
+    let provider = EmbeddingProbe {
+        calls: AtomicUsize::new(0),
+        fail: true,
+    };
+    let (snapshot, _) = snapshot(&provider);
+    let query = query();
+    let plan = QueryPlan::for_query(&query);
+    let signals = prepare_signals(
+        &snapshot,
+        &query,
+        &[EvidenceFamily::Dense],
+        &plan,
+        Some(&provider),
+    )
+    .await
+    .expect("lane failure");
+    assert!(signals.embedding().is_none());
+    let dense = signals.dense().expect("dense");
+    assert_eq!(dense.status, LaneStatus::Unavailable);
+    assert!(dense.candidates.is_empty());
+    assert!(dense.diagnostics[0].contains("probe failure"));
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+}
