@@ -104,7 +104,7 @@ Research 使用真实模型，必须先准备语料、运行实例和分发的 C
 corepack pnpm research:gateway --ledger data/research/runs/run-ledger.json --max-calls 1000
 ```
 
-Gateway 默认转发 `http://127.0.0.1:3000/v1`，监听端口 18000；用 `--upstream`、`--port` 覆盖。`--ledger` 与 `--max-calls` 必填，预算计入失败和重试，持久化在 ledger；同路径旁保存 telemetry。将实例模型 endpoint 配为该 gateway 后再运行实验。 可加 `--trace-root data/research/runs/<run>/traces` 保存每次 attempt 的 `meta.json` 和经过敏感信息清除的 request/response。request capture 上限为 96 MiB，response 为 1 MiB；超限只保存大小、digest 和 truncation 状态。大型 data/base64 媒体与 multipart file 保存 media type、byte count 与 SHA-256 描述符；multipart 保留 model/language 等普通字段，binary 不作为文本落盘。Authorization、cookie 和 credential header 不落盘，已知凭据回显也在写盘前清除。trace 文件使用 0600 权限。
+Gateway 默认转发 `http://127.0.0.1:3000/v1`，监听端口 18000；用 `--upstream`、`--port` 覆盖。`--ledger` 与 `--max-calls` 必填，显式累计调用上限允许 1–100000，预算计入失败和重试，持久化在 ledger；同路径旁保存 telemetry。将实例模型 endpoint 配为该 gateway 后再运行实验。 可加 `--trace-root data/research/runs/<run>/traces` 保存每次 attempt 的 `meta.json` 和经过敏感信息清除的 request/response。request capture 上限为 96 MiB，response 为 1 MiB；超限只保存大小、digest 和 truncation 状态。大型 data/base64 媒体与 multipart file 保存 media type、byte count 与 SHA-256 描述符；multipart 保留 model/language 等普通字段，binary 不作为文本落盘。Authorization、cookie 和 credential header 不落盘，已知凭据回显也在写盘前清除。trace 文件使用 0600 权限。
 
 ```text
 corepack pnpm research:retrieval-live import --run-root <实例run目录> --client-module <分发client模块> --track controlled
@@ -205,4 +205,6 @@ NOUS_RESEARCH_RERANK_CONFIG=<research-nous.toml> NOUS_RESEARCH_RERANK_LOCATOR=<b
 
 每个 query 共六个 variant：baseline、baseline+model-rerank、native、native+model-rerank、DTSC、V3。记录固定 rerank binding/profile/config digest、producer、调用数、失败、真实 provider latency、6000ms research throttle 以及 rerank+final-validation 总时长；后两者当前没有逐段完全分开。Rerank operational failure 保留已验证 baseline、添加 `query_rerank_unavailable`，不会当成成功排序。这个受控 Kernel/production-model track 还需与 public Core end-to-end track 分开。
 
-旧 live ledger 的 guard 从 1000 调到 2000 是这次 LoCoMo embeddings 加 498 次 rerank 预算的阶段配置，保留累计计数。Gateway 切换时在已提交 embedding batch 边界短暂停止 writer，确认新 gateway ready 后继续；没有重置 ledger 或并行建立第二个 proxy。
+LoCoMo embeddings / CC0 rerank 阶段使用累计上限 2000；全量 LongMemEval 阶段使用 30000（246457 个唯一文本，batch=10，另保留既有累计调用和后续比较容量）。上限按实际阶段输入规模声明，ledger 保留累计计数。Gateway 切换在模型调用间完成，确认新 gateway ready 后继续。
+
+Hard Text 原始来源冻结：`python3 scripts/research/retrieval/hard-text.py`，源目录和 unit texts 位于 ignored `data/research/corpus/hard-text/`，摘要/locator 位于 [hard-text manifest](../docs/research/corpus/hard-text.json)。该命令只准备 source，query 审计和实际检索使用对应研究流程。
