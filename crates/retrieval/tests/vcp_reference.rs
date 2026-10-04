@@ -665,3 +665,39 @@ fn native_query_pipeline_composes_one_query_through_sense_fusion_and_dual_fields
         }
     }
 }
+
+#[test]
+fn native_epa_and_dual_field_boundary_matrix_matches() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-epa-fields-matrix.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: FixtureInput = serde_json::from_value(case["input"].clone()).unwrap();
+        let expected = &case["expected"];
+        let epa = reference_epa_analysis(&input.epa).unwrap();
+        for (key, value) in [
+            ("logicDepth", epa.logic_depth),
+            ("entropy", epa.entropy),
+            ("resonance", epa.resonance),
+        ] {
+            near(value, expected["epa"][key].as_f64().unwrap());
+        }
+        assert_eq!(
+            epa.cache_available,
+            expected["epa"]["cacheAvailable"].as_bool().unwrap(),
+            "{}",
+            case["name"]
+        );
+        for axis in expected["epa"]["dominantAxes"].as_array().unwrap() {
+            near(
+                epa.axis_probabilities[axis["index"].as_u64().unwrap() as usize],
+                axis["energy"].as_f64().unwrap(),
+            );
+        }
+        let fields =
+            reference_dual_fields(&input.transport, &input.source_field, &input.config).unwrap();
+        let actual = serde_json::to_value(fields).unwrap();
+        let mut field_expected = expected.clone();
+        field_expected.as_object_mut().unwrap().remove("epa");
+        compare_numeric_subset(&actual, &field_expected, case["name"].as_str().unwrap());
+    }
+}
