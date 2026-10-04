@@ -212,3 +212,18 @@ fn native_query_morphology_and_all_omega_components_match() {
         compare_numeric_subset(&actual, &case["expected"], case["name"].as_str().unwrap());
     }
 }
+
+#[test]
+fn native_direct_anchor_pool_contacts_and_fallback_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-anchors.json"))
+        .expect("native anchor matrix");
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceAnchorInput = serde_json::from_value(case["input"].clone()).unwrap();
+        let anchors = reference_anchors(&input);
+        compare_numeric_subset(
+            &serde_json::to_value(anchors).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}

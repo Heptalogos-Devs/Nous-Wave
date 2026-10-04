@@ -23,7 +23,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | DTSC | memo_dtsc score_curve / run | ordered curve 的 exact/interpolated field contacts、coverage、continuity、action、closure、D/S/T、受限 reward floors；low trust 保留原输入顺序 | 当前 native 以 node potential 排序 | 待实现 | 待实现 | absent |
 | morphology | rivermemo_topology_v3 compute_query_morphology | candidate/text 无关的 river 统计，三个 logits stable softmax，按样本/complete confidence 向 uniform prior 收缩 | 无三形态混合 | neutral 19-case native features/probabilities/discrete mode 对照通过 | 待实现 | vcp-derived |
 | Ω | rivermemo_topology_v3 compute_omega | edge activation、emergence、正 raw flow entropy 的 epsilon-floored geometric mean，乘完整度因子 | native complete/discarded mass，尚无 Ω | neutral 19-case native Ω components/regime 对照通过 | 待实现 | vcp-derived |
-| Direct Anchor | rivermemo_topology_v3 compute_anchors | hop-0 seed/core exact 或高阈值 semantic contact，mass/specificity/closure/pool rarity noisy-OR；缺少 lineage 的 fallback 限 reliability | exact lane 与 native seeds，不等于 VCP 独立 anchor reward | 待实现 | 待实现 | absent |
+| Direct Anchor | rivermemo_topology_v3 compute_anchors | hop-0 seed/core exact 或高阈值 semantic contact，mass/specificity/closure/pool rarity noisy-OR；缺少 lineage 的 fallback 限 reliability | exact lane 与 native seeds，不等于 VCP 独立 anchor reward | neutral 11-case native contact/pool rarity/noisy-OR/reliability 对照通过 | 待实现 | vcp-derived |
 | conditional innovation | rivermemo_topology_v3 assign_v3_scores | 条件 peer Gaussian 期望、variance/ESS uncertainty，正 innovation 经 role cap 与 Ω gate；独立 batch anchor activation | native topology rank 经 Runtime fixed fusion，无此读出 | 待实现 | 待实现 | absent |
 | TimeDecay | rag_params 与实际 JS caller 待完整确认 | native V3 的 time score 只影响 candidate superset；不能声称它直接进入 pure final score | Runtime own temporal hard constraints/age preference，不声明 VCP parity | 待实现 | 待实现 | uncertain |
 
@@ -46,6 +46,8 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 [Query shape fixture](../../crates/retrieval/tests/fixtures/vcp-query-shape.json) 使用 frozen `compute_query_morphology` 与 `compute_omega` 的只读 export，包含 Sense matrix 的河网以及独立深链、同层关系、空/不完整观测、单边、零 raw flow/正 normalized flow 和 Ω scale override，共 19 个 case。独立 [query shape kernel](../../crates/retrieval/src/reference/query_shape.rs) 对照所有形态 features、confidence、三个概率、dominant mode，以及 Ω edge/emerge/flow/最终值与 regime；数值容差 `1e-12`，离散结果 exact match。
 
 Morphology 的正 normalized flow 可以形成方向统计；Ω entropy 使用正 raw flow。这个边界已有单独 fixture。输入不包含 query text 或 candidate，保证这两个 kernel 的测量对象是 query observation。
+
+[Direct Anchor fixture](../../crates/retrieval/tests/fixtures/vcp-anchors.json) 从 frozen `compute_anchors`/`anchor_contacts` 导出 11 个中性曲线 case，包括 exact/semantic、fallback、无 inbound、零 mass、缺 seed vector、semantic discount、全池共同 anchor、稀有 exact anchor、负正文 closure、空 seeds/pool。独立 [anchor kernel](../../crates/retrieval/src/reference/anchors.rs) 对照 score/reliability/strength、exact/semantic/contact 数与 mean closure，容差 `1e-12`。Rarity 先读取完整 selected pool，之后各候选独立读出；semantic cosine 用于选择 contact，奖励使用固定 discount。Hop-0 seed/core 的来源筛选仍由统一 pipeline/adapter 负责，不能将此 kernel 接受的任意 seed DTO 当作真实直接来源证明。
 
 这些 fixture 证明给定候选序列时的数值 kernel；ANN 搜索排序和 ontology mapping 仍属于 adapter utility。完整 vector/candidate matrix、EPA basis builder、intrinsic residual/gating/fusion、field vector projection、DTSC/V3 readout 与 adapter utility 继续实现。
 
