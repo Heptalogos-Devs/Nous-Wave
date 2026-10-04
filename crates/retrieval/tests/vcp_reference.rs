@@ -701,3 +701,20 @@ fn native_epa_and_dual_field_boundary_matrix_matches() {
         compare_numeric_subset(&actual, &field_expected, case["name"].as_str().unwrap());
     }
 }
+
+#[test]
+fn native_graph_builder_boundaries_and_provenance_matrix_match() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-graph-matrix.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceGraphInput = serde_json::from_value(case["input"].clone()).unwrap();
+        let actual = serde_json::to_value(reference_graph(&input).unwrap()).unwrap();
+        for key in ["fact_matrix", "transport", "wormholes", "provenance"] {
+            compare_numeric_subset(
+                &actual[key],
+                &case["expected"][key],
+                &format!("{}/{key}", case["name"].as_str().unwrap()),
+            );
+        }
+    }
+}
