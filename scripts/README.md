@@ -174,3 +174,7 @@ cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cogn
 配置导出复用 production `resolvedEmbedding`，不维护第二份 identity。实际生成复用 `ModelInvocations.embeddingBatch`，凭据通过 locator/SecretRoot 的既有加载方式读取。文本按 SHA-256 去重，成功批次保存缓存，空间/producer 不一致时拒绝复用。批次间隔默认 6000ms，`--interval-ms` 可按实际 provider 限流调整；失败不隐藏，重跑只处理未缓存文本。
 
 Rust harness 验证材料身份后使用普通 `ServingService.commit_embedding`，导出下一轮未就绪 needs。每 Subject 页最多 256，满页会报告 bounded；生成/提交/再导出直到 needs 为空才完成。这个材料阶段尚未运行查询或生成 benchmark 分数。
+
+### Cognitive benchmark scoring
+
+`corepack pnpm exec tsx scripts/research/cognitive-score.ts --input <benchmark.jsonl> --output data/research/<run>/metrics.json` 将当前 CC0 corpus 的 sparse oracle 展开，并复用 retrieval metrics owner 按类别/profile 汇总。默认语料路径 `docs/research/corpus/cognitive`。报告只证明输入行已测量，不凭结果行数确认整个 suite 完成；模型 rerank、其他 benchmark tracks 与消融仍需对应运行。

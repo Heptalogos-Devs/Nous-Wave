@@ -1,4 +1,5 @@
 //! Explicit research harness; semantic writes use normal owners and an injected clock.
+mod cognitive_benchmark;
 use chrono::{DateTime, Utc};
 use nous_core::*;
 use nous_kernel::{NousRuntime, RuntimeOptions};
@@ -20,12 +21,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct Scenario {
     scenario_id: String,
     events: Vec<Event>,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct Event {
     event_id: String,
     occurred_at: DateTime<Utc>,
@@ -39,16 +40,16 @@ struct Event {
     renders: Vec<Render>,
     relations: Vec<Relation>,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct ValidTime {
     start: DateTime<Utc>,
     end: Option<DateTime<Utc>>,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct Render {
     text: String,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct Relation {
     kind: String,
     target: String,
@@ -130,6 +131,7 @@ async fn main() -> Result<()> {
     );
     let embedding_path = args.next().map(PathBuf::from);
     let vectors_path = args.next().map(PathBuf::from);
+    let benchmark = args.next().is_some_and(|value| value == "benchmark");
     let root = std::path::absolute(root).map_err(failure)?;
     let research = std::path::absolute("data/research").map_err(failure)?;
     if !root.starts_with(research) {
@@ -186,7 +188,7 @@ async fn main() -> Result<()> {
         object_root: root.join("objects").to_string_lossy().into_owned(),
         serving_options: ServingOptions { root: root.join("serving"), lexical: false, dense: false, topology: false, memory_enabled: true },
         embedding: None, stored_embedding: None, core_descriptors: vec![],
-        deployment_document: serde_json::json!({"serving":{"lexical":{"enabled":false},"dense":{"enabled":false},"topology":{"enabled":false}}}),
+        deployment_document: serde_json::json!({"serving":{"lexical":{"enabled":benchmark},"dense":{"enabled":benchmark},"topology":{"enabled":benchmark}}}),
     }, clock.clone()).await?;
     if let Some(path) = &embedding_path {
         let config =
@@ -194,38 +196,38 @@ async fn main() -> Result<()> {
         runtime.serving.initialize_embedding(config)?;
     }
     let state_path = root.join("import-state.json");
-    let mut state: State = if state_path.exists() {
-        serde_json::from_slice(&std::fs::read(&state_path).map_err(failure)?).map_err(failure)?
-    } else {
-        State::default()
-    };
-    let manifest = std::fs::read(corpus.join("manifest.json")).map_err(failure)?;
-    let corpus_digest = blake3::hash(&manifest).to_hex().to_string();
-    if !state.corpus_digest.is_empty() && state.corpus_digest != corpus_digest {
-        return Err(Error::Conflict(
-            "corpus changed since import; use a separate run root".into(),
-        ));
-    }
-    state.corpus_digest = corpus_digest;
-    save(&state_path, &state)?;
-    for name in ["observatory", "garden", "archive"] {
-        let scenario: Scenario = serde_json::from_slice(
-            &std::fs::read(corpus.join("scenarios").join(format!("{name}.json")))
-                .map_err(failure)?,
+    let mut state = load_import_state(&corpus, &state_path)?;
+    let scenarios = load_scenarios(&corpus)?;
+    if benchmark {
+        let path = vectors_path
+            .as_ref()
+            .ok_or_else(|| Error::Invalid("benchmark requires real embedding cache".into()))?;
+        cognitive_benchmark::run(
+            &runtime,
+            &clock,
+            &scenarios,
+            &corpus,
+            &root,
+            &mut state,
+            &state_path,
+            path,
         )
-        .map_err(failure)?;
-        import_scenario(&runtime, &clock, scenario, &mut state, &state_path).await?;
-    }
-    println!(
-        "imported subjects={} events={} clock=serial-formation-start/commit",
-        state.subjects.len(),
-        state.events.len()
-    );
-    if let Some(path) = &vectors_path {
-        commit_vectors(&runtime, &root, path).await?;
-    }
-    if embedding_path.is_some() {
-        export_needs(&runtime, &state, &root).await?;
+        .await?;
+    } else {
+        for scenario in scenarios {
+            import_scenario(&runtime, &clock, scenario, &mut state, &state_path).await?;
+        }
+        if let Some(path) = &vectors_path {
+            commit_vectors(&runtime, &root, path).await?;
+        }
+        if embedding_path.is_some() {
+            export_needs(&runtime, &state, &root).await?;
+        }
+        println!(
+            "imported subjects={} events={} clock=serial-formation-start/commit",
+            state.subjects.len(),
+            state.events.len()
+        );
     }
     runtime.store.pool().close().await;
     postgres.stop().await.map_err(failure)?;
@@ -612,4 +614,35 @@ async fn commit_vectors(
     }
     println!("committed embedding references={committed}");
     Ok(())
+}
+
+fn load_scenarios(corpus: &std::path::Path) -> Result<Vec<Scenario>> {
+    ["observatory", "garden", "archive"]
+        .iter()
+        .map(|name| {
+            serde_json::from_slice(
+                &std::fs::read(corpus.join("scenarios").join(format!("{name}.json")))
+                    .map_err(failure)?,
+            )
+            .map_err(failure)
+        })
+        .collect()
+}
+
+fn load_import_state(corpus: &std::path::Path, state_path: &std::path::Path) -> Result<State> {
+    let mut state: State = if state_path.exists() {
+        serde_json::from_slice(&std::fs::read(state_path).map_err(failure)?).map_err(failure)?
+    } else {
+        State::default()
+    };
+    let manifest = std::fs::read(corpus.join("manifest.json")).map_err(failure)?;
+    let corpus_digest = blake3::hash(&manifest).to_hex().to_string();
+    if !state.corpus_digest.is_empty() && state.corpus_digest != corpus_digest {
+        return Err(Error::Conflict(
+            "corpus changed since import; use a separate run root".into(),
+        ));
+    }
+    state.corpus_digest = corpus_digest;
+    save(state_path, &state)?;
+    Ok(state)
 }
