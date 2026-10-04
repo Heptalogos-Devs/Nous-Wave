@@ -413,3 +413,48 @@ fn native_dtsc_curve_metrics_rewards_guards_and_full_order_match() {
         );
     }
 }
+
+#[test]
+fn native_intrinsic_residual_ratios_fixed_anchor_gains_and_statuses_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-intrinsic.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceIntrinsicInput = serde_json::from_value(case["input"].clone()).unwrap();
+        let tolerance = if input.config.method.trim() == "svd" {
+            1e-6
+        } else {
+            1e-10
+        };
+        let actual = reference_intrinsic_residual(&input);
+        let expected = case["expected"].as_array().unwrap();
+        assert_eq!(actual.len(), expected.len());
+        for (a, b) in actual.iter().zip(expected) {
+            assert_eq!(a.id, b["id"].as_i64().unwrap(), "{}", case["name"]);
+            assert_eq!(
+                a.status,
+                b["status"].as_str().unwrap(),
+                "{} id{}",
+                case["name"],
+                a.id
+            );
+            assert_eq!(
+                a.neighbor_count,
+                b["neighbor_count"].as_u64().unwrap() as usize
+            );
+            for (value, key) in [
+                (a.raw_residual_ratio, "raw_residual_ratio"),
+                (a.anchor_gain, "anchor_gain"),
+            ] {
+                match (value, b[key].as_f64()) {
+                    (Some(value), Some(expected)) => assert!(
+                        (value - expected).abs() <= tolerance + tolerance * expected.abs(),
+                        "{} id{} {key}: {value} != {expected}",
+                        case["name"],
+                        a.id
+                    ),
+                    (None, None) => {}
+                    _ => panic!("{} id{} {key}", case["name"], a.id),
+                }
+            }
+        }
+    }
+}

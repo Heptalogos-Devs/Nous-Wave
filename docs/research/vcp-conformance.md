@@ -15,7 +15,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | Component | Frozen VCP owner | Exact contract | Nous current | Reference kernel | Nous adapter | Label |
 | --- | --- | --- | --- | --- | --- | --- |
 | EPA | memo_pipeline analyze_epa；lib.rs EpaBasisTask | f32 query centering，basis dot 的平方能量概率，归一化熵、dominant axes 与 bridge resonance；query analysis 不读取 cached training energies | weighted representative PCA 与当前 EPA policy | query analysis 首个 native 数值 fixture 通过；basis builder 待实现 | 待实现 | uncertain |
-| Residual | memo_pipeline analyze_pyramid / orthogonal_projection；lib.rs IntrinsicResidualTask | 每层 residual ANN，按返回序正交化 Tag，dependent axis contribution 为零；f32 投影累积，解释量归一到原 query energy | bounded residual search 与 Nous own residual contract | neutral Residual Pyramid 四个 actual ANN snapshot case 通过；intrinsic residual kernel 待实现 | 待实现 | nous-native |
+| Residual | memo_pipeline analyze_pyramid / orthogonal_projection；lib.rs IntrinsicResidualTask | 每层 residual ANN，按返回序正交化 Tag，dependent axis contribution 为零；f32 投影累积，解释量归一到原 query energy | bounded residual search 与 Nous own residual contract | Pyramid 四个 actual ANN snapshot case；Intrinsic Residual 16 个 native task case 通过 | 待实现 | nous-native |
 | graph build | memo_artifact_builder build_fact_matrix / build_transport | 有序 file-tag 全 pair；位置/距离/semantic/reverse anchor 调制；log evidence、target inflow hub 校正与预算内 wormhole reserve | CognitiveRef/AssociationEvidence，support class quality 与独立 provenance root max dedup | neutral ordered graph builder 首个 native fact/CSR/provenance fixture 通过；完整 graph matrix 待补 | 待实现 | nous-native |
 | bounded Sense | memo_sensing sense_typed | energy、momentum、hop、previous-node state；normal/wormhole decay、立即回流抑制、FIR、邻居/state 上限 | Wave 的固定 outbound、步数预算与 state 上限；无 VCP wormhole/decay 合同 | neutral Sense 数值与状态 matrix 通过；单一 lineage 边界单独记录 | 待实现 | nous-native |
 | query river | memo_sensing SenseOutput | node potential 与实际注入 edge flow；source field 为最终 retained FIR 分布；edge 记录先于 momentum/state admission | QueryRiver 包含 source/potential/edge/provenance/mass；native source 为初始归一 seed | Sense node/edge/source field 与逐跳 transfer matrix 通过；VCP 单一 lineage 不作为稳定合同 | 待实现 | nous-native |
@@ -75,6 +75,10 @@ Morphology 的正 normalized flow 可以形成方向统计；Ω entropy 使用�
 独立 [DTSC curve kernel](../../crates/retrieval/src/reference/dtsc_curve.rs)、[typed config](../../crates/retrieval/src/reference/dtsc_config.rs) 与 [batch readout](../../crates/retrieval/src/reference/dtsc.rs) 已接入完整场准备。[22-case fixture](../../crates/retrieval/tests/fixtures/vcp-dtsc.json) 由实际 `rerankMemoDtsc` 生成，核对全部数值 curve/reward/diagnostic 字段与完整 membership/order；Tag 文本标签由 adapter 映射，不作为中性 numerical kernel 输出。案例覆盖 native defaults、实际 rag 配置、低支持/低熵/缺向量/无接触回退、sourceField-only、emergent structural、两个 semantic direct contacts、thematic、非零 sparse pair relief、非零 geometry/identity floor、联合低覆盖/低区分度、缺失曲线、Top-K、空候选、维度错配、零维度拒绝和冲突参数夹逼。数值 tolerance 为 `1e-12`，membership/enum/count exact；零维度按输入错误拒绝。
 
 DTSC 的正常最终分为原 KNN 分加 bounded reward，不沿用 V3 的 `[0,1]` final clamp。批级回退清零 base/aux/total bonus 并保留输入次序；`fallbackToKnnOnLowTrust=false` 关闭的是联合低信任/熵守卫，最小支持、向量可用性和无贡献回退仍存在。此组资产与查询观察为冻结输入，query preparation、完整矩阵要求与 production adapter/benchmark 仍需完成。
+
+独立 [Intrinsic Residual builder](../../crates/retrieval/src/reference/intrinsic.rs) 使用 [16-case fixture](../../crates/retrieval/tests/fixtures/vcp-intrinsic.json)，由实际 native task 在独立 SQLite 文件计算并读取持久 value/status。包括 anchored GS/centroid/SVD、basis 限制、未归一化输入、缺少 pairwise、关闭语义门控、hard floor、min gain、抵消 centroid、零向量、空/超大 file、legacy position、固定 anchor mapping 与配置夹逼。ID、status、neighbor count exact；raw ratio/anchor gain 的 absolute/relative tolerance 为 `1e-10`，SVD 使用 f32、不同 nalgebra 版本的 `1e-6` tolerance。没有把全库 median 引入 anchor mapping。
+
+Frozen task 的等权邻居顺序来自 HashMap；独立 builder 用稳定 ID 起序，不声称任意 tie 的唯一 basis/lineage parity。资产签名、数据库 cache/persistence 属于 adapter/lifecycle，数值 fixture 没有替代这些生产要求。
 
 ## 需要保留的实现边界
 
