@@ -1081,6 +1081,1086 @@
       ],
       "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
       "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q041",
+      "text": "PostgreSQL 9.6 的同步复制如何增加备用服务器冗余？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-9-6-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "9.6"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-9-6-u0001",
+          "url": "https://www.postgresql.org/docs/release/9.6/",
+          "anchor": "docContent",
+          "ordinal": 0,
+          "sha256": "d2e6577a2cbd42e3249956b9d90196afffc698742d50ca9807aab8660f3f2288"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q042",
+      "text": "PostgreSQL 9.6 最初的并行查询支持哪些读操作，是否默认开启？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-9-6-u0019"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "9.6"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-9-6-u0019",
+          "url": "https://www.postgresql.org/docs/release/9.6/",
+          "anchor": "docContent",
+          "ordinal": 18,
+          "sha256": "4a028983c94ae5d4d015c818e6042945a003f7038b17a7ded44837ced8e1f106"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q043",
+      "text": "从旧 major 版本迁移到 PostgreSQL 9.6，release note 列出什么数据迁移方法？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "postgresql-9-6-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "9.6"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-9-6-u0003",
+          "url": "https://www.postgresql.org/docs/release/9.6/",
+          "anchor": "docContent",
+          "ordinal": 2,
+          "sha256": "431812183c018c0bfe94504ab87cf68a0162778376f480e9983e456d4b445166"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q044",
+      "text": "PostgreSQL 9.6 的性能改进特别涉及哪种多处理器服务器扩展性？",
+      "category": "paraphrase",
+      "expected_units": [
+        "postgresql-9-6-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "9.6"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-9-6-u0002",
+          "url": "https://www.postgresql.org/docs/release/9.6/",
+          "anchor": "docContent",
+          "ordinal": 1,
+          "sha256": "87a13593feff1b1eadf9a32e6f1610dd17025975a7a196495ed7a8ec8f880ed9"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q045",
+      "text": "升级到 PostgreSQL 10 后，旧 hash index 为什么需要重建？",
+      "category": "stale_current",
+      "expected_units": [
+        "postgresql-10-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "10"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-10-u0003",
+          "url": "https://www.postgresql.org/docs/release/10.0/",
+          "anchor": "id-1.11.6.28.4",
+          "ordinal": 2,
+          "sha256": "e6467edec901ef24533b3f56d0039097328cdc10f62743c8d19a4a844fc3a6e0"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q046",
+      "text": "PostgreSQL 10 怎样重命名 WAL 与事务状态目录以减少误删数据？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-10-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "10"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-10-u0004",
+          "url": "https://www.postgresql.org/docs/release/10.0/",
+          "anchor": "id-1.11.6.28.4",
+          "ordinal": 3,
+          "sha256": "6e2dcc4b2a564dd6b459ab372c46cc5908ffec70ffa3c4a71d7210bf63ccb562"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q047",
+      "text": "PostgreSQL 10 的 identity columns 与 SERIAL 有什么标准兼容性区别？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "postgresql-10-u0098"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "10"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-10-u0098",
+          "url": "https://www.postgresql.org/docs/release/10.0/",
+          "anchor": "id-1.11.6.28.5.7",
+          "ordinal": 97,
+          "sha256": "155080f6b33b87825629201912bdc8dedc168fc287d55f2d700c215b070f6415"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q048",
+      "text": "PostgreSQL 10 新分区语法如何处理约束和写入路由，支持哪两类分区？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-10-u0084"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "10"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-10-u0084",
+          "url": "https://www.postgresql.org/docs/release/10.0/",
+          "anchor": "id-1.11.6.28.5.6",
+          "ordinal": 83,
+          "sha256": "866bcd36117951eff5b45f8dd85702e347f205d15df92cb60e8ce5bdf55fed93"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q049",
+      "text": "PostgreSQL 11 中修改分区键的 UPDATE 怎样处理行的位置？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-11-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "11"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-11-u0001",
+          "url": "https://www.postgresql.org/docs/release/11.0/",
+          "anchor": "id-1.11.6.27.3",
+          "ordinal": 0,
+          "sha256": "9e2d4bbd5bb38ad54685f7a1cd7a8f73304bb2e88c18140e3a8c419e63aa5df9"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q050",
+      "text": "PostgreSQL 11 为哪种索引创建新增了并行处理？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-11-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "11"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-11-u0002",
+          "url": "https://www.postgresql.org/docs/release/11.0/",
+          "anchor": "id-1.11.6.27.3",
+          "ordinal": 1,
+          "sha256": "c00e177831013d14c54df702697230111ea22a8b44ced4b76c362a87c86263f7"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q051",
+      "text": "PostgreSQL 11 用什么可选编译技术加速 SQL 表达式求值？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "postgresql-11-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "11"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-11-u0003",
+          "url": "https://www.postgresql.org/docs/release/11.0/",
+          "anchor": "id-1.11.6.27.3",
+          "ordinal": 2,
+          "sha256": "5cfb1105c5483aa51fb4ea3362323c364b17d02a39769f6c58739f831230bfeb"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q052",
+      "text": "PostgreSQL 11 对 SQL:2011 的窗口帧选项增加了哪些支持？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-11-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "11"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-11-u0004",
+          "url": "https://www.postgresql.org/docs/release/11.0/",
+          "anchor": "id-1.11.6.27.3",
+          "ordinal": 3,
+          "sha256": "47ed12ca28e6a814dac670302434034933f7a3f04903e6304e86bfbf04a70284"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q053",
+      "text": "PostgreSQL 12 有哪种重建索引的方法可以不阻塞表写入？",
+      "category": "paraphrase",
+      "expected_units": [
+        "postgresql-12-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "12"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-12-u0002",
+          "url": "https://www.postgresql.org/docs/release/12.0/",
+          "anchor": "id-1.11.6.28.3",
+          "ordinal": 1,
+          "sha256": "a3c0d6584a8d0ed16f0f27efc83b23e47c9d35c3339b28ce4b083af5eeb3af0e"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q054",
+      "text": "PostgreSQL 12 哪种 ICU collation 允许忽略大小写或重音的分组排序？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-12-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "12"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-12-u0003",
+          "url": "https://www.postgresql.org/docs/release/12.0/",
+          "anchor": "id-1.11.6.28.3",
+          "ordinal": 2,
+          "sha256": "ac8a548791bf235391f7f3b03017917c28660b06db9638e3160a931d2ff9c2bf"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q055",
+      "text": "PostgreSQL 12 怎样在 pg_hba.conf 中将客户端证书与另一个认证方式组合？",
+      "category": "paraphrase",
+      "expected_units": [
+        "postgresql-12-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "12"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-12-u0004",
+          "url": "https://www.postgresql.org/docs/release/12.0/",
+          "anchor": "id-1.11.6.28.3",
+          "ordinal": 3,
+          "sha256": "8775077306c6e473fe926ad27c5e86f40a67c34c2d8fb522c2655371584135bf"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q056",
+      "text": "PostgreSQL 12 怎样改善有大量分区的查询和附加分区的并发行为？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-12-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "12"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-12-u0001",
+          "url": "https://www.postgresql.org/docs/release/12.0/",
+          "anchor": "id-1.11.6.28.3",
+          "ordinal": 0,
+          "sha256": "6ca78e8fd40a9351bd35eaf7fa525cfdf29cfa5920a245dfd47f5af2016dfd0f"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q057",
+      "text": "PostgreSQL 13 的 SIMILAR TO 在 ESCAPE 为 NULL 时返回值有什么变化？",
+      "category": "stale_current",
+      "expected_units": [
+        "postgresql-13-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "13"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-13-u0004",
+          "url": "https://www.postgresql.org/docs/release/13.0/",
+          "anchor": "id-1.11.6.29.4",
+          "ordinal": 3,
+          "sha256": "31198d2fab4c9cf427cef980b141d90dce0f2ca871804a9ee8e0b297e176bb47"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q058",
+      "text": "PostgreSQL 13 已按排序前缀排列的中间结果，怎样只对剩余键继续排序？",
+      "category": "paraphrase",
+      "expected_units": [
+        "postgresql-13-u0036"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "13"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-13-u0036",
+          "url": "https://www.postgresql.org/docs/release/13.0/",
+          "anchor": "id-1.11.6.29.5.3.5",
+          "ordinal": 35,
+          "sha256": "7a446f1e71c6d42c53e3719d2ea5ea9fd66db23eef9c2cf7bc72a002d6dd50eb"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q059",
+      "text": "PostgreSQL 13 的 pg_stat_activity 如何指出并行 worker 的 leader？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "postgresql-13-u0049"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "13"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-13-u0049",
+          "url": "https://www.postgresql.org/docs/release/13.0/",
+          "anchor": "id-1.11.6.29.5.3.7",
+          "ordinal": 48,
+          "sha256": "b355931aa2c9812b24e3b52b4423fbed5434e1ac816eb68cc6e9b72df8498730"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q060",
+      "text": "PostgreSQL 13 对只读事务中的 utility command 许可做了什么调整？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-13-u0060"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "13"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-13-u0060",
+          "url": "https://www.postgresql.org/docs/release/13.0/",
+          "anchor": "id-1.11.6.29.5.3.10",
+          "ordinal": 59,
+          "sha256": "0875f3390cfb8644f38142d4620c6240a1ee1881a50d9a057d1e7a544f5d4b6a"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q061",
+      "text": "PostgreSQL 14 给公共表表达式实现了哪两个 SQL 标准选项？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-14-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "14"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-14-u0001",
+          "url": "https://www.postgresql.org/docs/release/14.0/",
+          "anchor": "id-1.11.6.30.3",
+          "ordinal": 0,
+          "sha256": "cf12af54540c20d4c0ca93437bf196cacc8c35f9e5bfdfdcf82c84e3d39a712d"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q062",
+      "text": "PostgreSQL 14 的下标操作是否仍仅限数组，新增支持哪些具体类型？",
+      "category": "stale_current",
+      "expected_units": [
+        "postgresql-14-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "14"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-14-u0002",
+          "url": "https://www.postgresql.org/docs/release/14.0/",
+          "anchor": "id-1.11.6.30.3",
+          "ordinal": 1,
+          "sha256": "da3559bd2cb984493492ae7ee8fcdc203d10acede3327297d3e9c96f20e0382a"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q063",
+      "text": "PostgreSQL 14 用什么 range 扩展来表示不连续的数据范围？",
+      "category": "paraphrase",
+      "expected_units": [
+        "postgresql-14-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "14"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-14-u0003",
+          "url": "https://www.postgresql.org/docs/release/14.0/",
+          "anchor": "id-1.11.6.30.3",
+          "ordinal": 2,
+          "sha256": "0f44e1c74cc8fc24a734f55f191ffa958cb5bc4bd7113300ff6a4e56f06d784c"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q064",
+      "text": "PostgreSQL 14 的性能改进覆盖哪些并发查询和维护领域？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-14-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "14"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-14-u0004",
+          "url": "https://www.postgresql.org/docs/release/14.0/",
+          "anchor": "id-1.11.6.30.3",
+          "ordinal": 3,
+          "sha256": "09d0ce09b9f45b36c62e188ee858e115ec205df2b595f721c7801f2515b41086"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q065",
+      "text": "PostgreSQL 15 的 logical replication publication 怎样选择表的一部分数据？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-15-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "15"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-15-u0001",
+          "url": "https://www.postgresql.org/docs/release/15.0/",
+          "anchor": "id-1.11.6.25.3",
+          "ordinal": 0,
+          "sha256": "e7fe822a8d0a8cba9a8a5ab3f548c040bfa01a63323d56add2abaae3b57c4d5c"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q066",
+      "text": "PostgreSQL 15 的 pg_basebackup 在服务器端增加了什么压缩能力？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "postgresql-15-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "15"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-15-u0002",
+          "url": "https://www.postgresql.org/docs/release/15.0/",
+          "anchor": "id-1.11.6.25.3",
+          "ordinal": 1,
+          "sha256": "0c6c5839aa18945a66a075b273dbc90572c923bfb36b63bb8a1a4765dddba1c0"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q067",
+      "text": "PostgreSQL 15 新建数据库的 public schema 默认还允许 PUBLIC 创建对象吗？",
+      "category": "stale_current",
+      "expected_units": [
+        "postgresql-15-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "15"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-15-u0006",
+          "url": "https://www.postgresql.org/docs/release/15.0/",
+          "anchor": "id-1.11.6.25.4",
+          "ordinal": 5,
+          "sha256": "f1cad30a61bb3e0fc8caa806f0cbfdd385261a010bdd6475728779faa1db6f14"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q068",
+      "text": "PostgreSQL 15 为什么移除 exclusive backup mode，备份函数名怎样变化？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-15-u0008"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "15"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-15-u0008",
+          "url": "https://www.postgresql.org/docs/release/15.0/",
+          "anchor": "id-1.11.6.25.4",
+          "ordinal": 7,
+          "sha256": "80a792924ba19a978026ae4fa62c0bc7138edafc9a42240f5bb22b38c1564528"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q069",
+      "text": "PostgreSQL 16 在哪些认证配置文件中支持用户或数据库名的正则匹配？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-16-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "16"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-16-u0001",
+          "url": "https://www.postgresql.org/docs/release/16.0/",
+          "anchor": "RELEASE-16-HIGHLIGHTS",
+          "ordinal": 0,
+          "sha256": "5ba2f4d33688d3ea4092b8145c59995870409c5ed61b4b773de68c16e4cfa163"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q070",
+      "text": "PostgreSQL 16 的 force_parallel_mode 被重命名为什么配置项？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "postgresql-16-u0009"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "16"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-16-u0009",
+          "url": "https://www.postgresql.org/docs/release/16.0/",
+          "anchor": "RELEASE-16-MIGRATION",
+          "ordinal": 8,
+          "sha256": "1b5e586ea1e20796e213e9808bebde49a0285130e73af6a52905ec50f81ee59b"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q071",
+      "text": "PostgreSQL 16 把并行 hash join 扩展到哪两种外连接？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-16-u0018"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "16"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-16-u0018",
+          "url": "https://www.postgresql.org/docs/release/16.0/",
+          "anchor": "RELEASE-16-OPTIMIZER",
+          "ordinal": 17,
+          "sha256": "9bcf21d5da65e57459d39d8cdb20beb5e853089f4b45247d91d980085f21292a"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q072",
+      "text": "PostgreSQL 16 的 logical replication 初次同步何时可以使用二进制行拷贝？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-16-u0078"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "16"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-16-u0078",
+          "url": "https://www.postgresql.org/docs/release/16.0/",
+          "anchor": "RELEASE-16-LOGICAL",
+          "ordinal": 77,
+          "sha256": "5bc8be14639245bd29d6da0929b29660f9c521cebf243c6c2080f8c9e009367f"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q073",
+      "text": "PostgreSQL 17 如何通过 VACUUM 的内存管理降低资源使用？",
+      "category": "paraphrase",
+      "expected_units": [
+        "postgresql-17-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "17"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-17-u0001",
+          "url": "https://www.postgresql.org/docs/release/17.0/",
+          "anchor": "RELEASE-17-HIGHLIGHTS",
+          "ordinal": 0,
+          "sha256": "296b18e5ea615b00fec865142dba16808ec759e984589897fe937afaaa75a4cb"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q074",
+      "text": "PostgreSQL 17 哪个 SQL/JSON 函数把 JSON 转成表形式？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "postgresql-17-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "17"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-17-u0002",
+          "url": "https://www.postgresql.org/docs/release/17.0/",
+          "anchor": "RELEASE-17-HIGHLIGHTS",
+          "ordinal": 1,
+          "sha256": "a5e5a9d9e3a8ec9f8da7c7742e96049cc322d6bf9f05fceac21cd27dc8a3891e"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q075",
+      "text": "PostgreSQL 17 的读取、并发写入与多值 B-tree 查找有哪些性能改进？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-17-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "17"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-17-u0003",
+          "url": "https://www.postgresql.org/docs/release/17.0/",
+          "anchor": "RELEASE-17-HIGHLIGHTS",
+          "ordinal": 2,
+          "sha256": "d01e05f35c5b1cc465891694fef20e7c38cf0c2f2351e2bde2597cffbe33fd27"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q076",
+      "text": "PostgreSQL 17 的 pg_createsubscriber 与 pg_upgrade 对逻辑复制状态分别做什么？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-17-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "17"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-17-u0004",
+          "url": "https://www.postgresql.org/docs/release/17.0/",
+          "anchor": "RELEASE-17-HIGHLIGHTS",
+          "ordinal": 3,
+          "sha256": "c9808b5cac02524fcddff591a86898aa8d15b8a25e0535bf3c8c79f2f7f1efba"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q077",
+      "text": "PostgreSQL 18 的异步 I/O 子系统可以改善哪些扫描或维护操作？",
+      "category": "direct_fact",
+      "expected_units": [
+        "postgresql-18-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "18"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-18-u0001",
+          "url": "https://www.postgresql.org/docs/release/18.0/",
+          "anchor": "RELEASE-18-HIGHLIGHTS",
+          "ordinal": 0,
+          "sha256": "3a9e8c1332b41a63b45e018d879d0a7e935f992e7aa1ed7d7b28fac3d68b7984"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q078",
+      "text": "PostgreSQL 18 的 skip scan 让哪类索引在更多场景下可用？",
+      "category": "paraphrase",
+      "expected_units": [
+        "postgresql-18-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "18"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-18-u0002",
+          "url": "https://www.postgresql.org/docs/release/18.0/",
+          "anchor": "RELEASE-18-HIGHLIGHTS",
+          "ordinal": 1,
+          "sha256": "31b3f72455526b772b4eea6e61fede6d99466d2b7b4746ee6dbde296fd161a9c"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q079",
+      "text": "PostgreSQL 18 的 generated columns 默认何时计算值？",
+      "category": "stale_current",
+      "expected_units": [
+        "postgresql-18-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "18"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-18-u0003",
+          "url": "https://www.postgresql.org/docs/release/18.0/",
+          "anchor": "RELEASE-18-HIGHLIGHTS",
+          "ordinal": 2,
+          "sha256": "8385b95eec851b788395c42f189ed6b9be8836f627754f703cee920ec6cb802b"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q080",
+      "text": "PostgreSQL 18 在哪些命令的 RETURNING 中新增 OLD 与 NEW 支持？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-18-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revision": "18"
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-18-u0004",
+          "url": "https://www.postgresql.org/docs/release/18.0/",
+          "anchor": "RELEASE-18-HIGHLIGHTS",
+          "ordinal": 3,
+          "sha256": "91f499340aa7c1fae23400941436ff03e82d298685f4d1129dd395f53a200d83"
+        }
+      ],
+      "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
     }
   ]
 }
