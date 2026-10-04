@@ -98,6 +98,7 @@ Contact sheet 复核发现原始 frames envelope 只给一组 timestamps 与一�
 - `video.input_mode`：direct wire 发送原始 video；frames wire 使用 FFmpeg 帧、采样时间与可选独立 ASR，quality/provenance/preprocessing identity 随之变化。
 - `video.frame_end_margin_seconds`：0.1→0.9，24 秒样本的末帧实际时间 23.9→23.1；set 后 active 保持不变，restart 后采用 desired。
 - `roles.memory_formation`：配置切换到 Responses profile 后，真实 wire 与已提交 Producer identity 改变。
+- `retrieval.cognitive.profile`：公开 exact revision query 在 native→baseline→native 切换时，topology diagnostics 为 enabled→skipped→enabled，exact 命中均保留且无降级。`serving.topology.enabled` 的 false active 在 restart 后变为 true，随后 native lane 实际执行。
 - `retrieval.query.default_result_limit`：首次公开 NousQL probe 改为 1 仍返回两个命中；owner defect 是 compiler 强行补 12。删除该默认后，省略 `$limit` 的请求按配置返回 1/2，显式 limit 继续保留。
 
 其余本轮 targeted descriptors 仍继续按各 consumer 的真实行为验证，不把 Catalog set/get 当效果证据。
