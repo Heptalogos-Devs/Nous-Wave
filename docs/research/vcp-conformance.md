@@ -114,7 +114,7 @@ Reference 图 owner 现在分开构建按文档的 facts 与全图 transport，�
 
 [VCP generation owner](../../crates/retrieval/src/vcp_generation.rs) 持有 identity map、embedding space/producer、candidate/tag vectors 与 labels、曲线及顺序来源、cooccurrence pairwise、intrinsic residual/anchor、EPA basis 和 graph assets。缺少 concept vector 时返回 unavailable；图中缺向量的节点显式保留在 diagnostics 资产中。EPA 标签不足时保留 reference 的 cache unavailable 状态。
 
-`retrieval.vcp.assets` 是 Developer/SystemOnly/ServingRebuild 的 typed policy，默认 EPA anchors/max basis 为 64/64，samples/candidates 为 32/512；图与 intrinsic 参数来自明确的独立数值合同。VCP `vcp.json` 使用既有 staging readback/checksum/rename/publication 流程，回读检查 generation/identity map、vector/curve identity、EPA shape 与 provenance root。ServingSnapshot 的 native/VCP 视图在同一次 publication 中互斥切换；topology implementation revision=4。VCP 配置 digest 包含 profile、asset policy、synopsis budget、space/producer 和 capability，刷新水位使用完整 Subject authority_seq。
+`retrieval.vcp.assets` 是 Developer/SystemOnly/ServingRebuild 的 typed policy，默认 EPA anchors/max basis 为 64/64，samples/candidates 为 32/512；图与 intrinsic 参数来自明确的独立数值合同。VCP `vcp.json` 使用既有 staging readback/checksum/rename/publication 流程，回读检查 generation/identity map、vector/curve identity、EPA shape 与 provenance root。ServingSnapshot 的 native/VCP 视图在同一次 publication 中互斥切换；topology implementation revision=5。VCP 配置 digest 包含 profile、asset policy、synopsis budget、space/producer 和 capability，刷新水位使用完整 Subject authority_seq。
 
 真实 PostgreSQL 回归验证 VCP publication/reopen、native/VCP 切换、回读拒绝乱序 identity map 和曲线向量不一致。Asset policy 的 outbound mass 从 0.95 改为 0.7 时 generation 重建，每个非空 transport 行总质量变为 0.7。此次验证覆盖资产生命周期；immutable VCP query observation、候选 readout、Authority scoped provenance visibility 和公共查询仍待完成。
 
@@ -131,6 +131,10 @@ Reference 图 owner 现在分开构建按文档的 facts 与全图 transport，�
 V3 支持可选 per-candidate provenance view，旧 reference file-owned view 保持默认合同。Nous adapter 将每条边的实际 root mass 按该候选的 canonical document root 和声明 self roots 分为 self/other 两类，只传质量比例给原 independence 公式；两个质量 token 不代表新证据根。这样同一真实根可以属于多个候选，且不重复增加总质量。View 中 offered candidates 已由调用者决定，reference visible 标记仅控制 observable direct，不能代替 Authority 验证。
 
 `retrieval.vcp.readout` 是 Developer/SystemOnly/Live/QueryPolicy typed policy，包含独立 DTSC/V3 numerical config。实际 index→observation→两种 readout 的 lab case 返回原 CognitiveRef，并确认 observation 不变；将已知独立根加入候选 self roots 后，V3 edge topology score 降低，未知 root/重复候选被拒绝。20 项 frozen reference 检查继续通过。完整公共查询仍待当前 Authority 候选/self-root 图视图和 topology lane 接线，此处没有检索质量或权限完成声明。
+
+Coherent projection 现在在同一个 repeatable-read transaction 中解析每个 source 的 evidence root closure，并随 candidate material/同代 generation 保存。Memory/schema 复用 association 的来源解析；Episode supports、Journal sources、Occurrence、SourceRegion 与派生 representation 的 source ancestry 进入闭包。重复访问同一依赖不生成额外 unknown root；没有可解析来源时保留明确 unknown-dependency。SourceRegion 通过同 Subject 的 artifact occurrence 对齐 external/artifact/occurrence 根。
+
+V3 self-mass 计算自动消费 generation 的 candidate evidence roots，并保留调用者提供的补充 self roots。真实 PostgreSQL 回归验证 Memory 有实际来源根、memory capability 禁用时对应 root entry 被移除，以及 embedding material 保留来源集合。Generation readback 校验 root entry 的 candidate IDs。此更改完成快照内来源 ownership 接线；当前 Authority 查询候选过滤、过期图处理和公共 lane 仍待完成。Episode/Journal/derived 闭包分支尚未在本轮增加专用 fixture，不据此宣称全部矩阵完成。
 
 ## 需要保留的实现边界
 

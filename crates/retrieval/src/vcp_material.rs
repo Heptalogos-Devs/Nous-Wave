@@ -15,6 +15,7 @@ pub struct VcpProjectedDocument {
     pub vector: Vec<f32>,
     pub concept_refs: Vec<CognitiveRef>,
     pub curve_order: VcpCurveOrder,
+    pub evidence_roots: std::collections::BTreeSet<String>,
 }
 
 impl ServingService {
@@ -72,7 +73,15 @@ impl ServingService {
                     "VCP embedding material has invalid dimension or values".into(),
                 ));
             }
+            let evidence_roots = input
+                .evidence_roots
+                .get(&document.reference)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
             documents.push(VcpProjectedDocument {
+                evidence_roots,
                 reference: document.reference,
                 representation_text: document.representation_text,
                 vector: output.vector,

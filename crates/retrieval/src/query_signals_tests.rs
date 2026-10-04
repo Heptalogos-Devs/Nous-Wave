@@ -261,6 +261,7 @@ fn vcp_snapshot(provider: &EmbeddingProbe) -> (ServingSnapshot, TagId) {
                 vector: vec![1.0, 0.0],
                 concept_refs: vec![tag_a.clone(), tag_b.clone()],
                 curve_order: crate::VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
             },
             crate::VcpProjectedDocument {
                 reference: tag_a,
@@ -268,6 +269,7 @@ fn vcp_snapshot(provider: &EmbeddingProbe) -> (ServingSnapshot, TagId) {
                 vector: vec![1.0, 0.0],
                 concept_refs: Vec::new(),
                 curve_order: crate::VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
             },
             crate::VcpProjectedDocument {
                 reference: tag_b,
@@ -275,6 +277,7 @@ fn vcp_snapshot(provider: &EmbeddingProbe) -> (ServingSnapshot, TagId) {
                 vector: vec![0.0, 1.0],
                 concept_refs: Vec::new(),
                 curve_order: crate::VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
             },
         ],
     };

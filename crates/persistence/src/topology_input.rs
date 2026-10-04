@@ -20,6 +20,7 @@ pub struct CognitiveProjectionInput {
     pub authority_watermark: i64,
     pub topology: TopologyProjectionInput,
     pub sources: Vec<crate::TextProjectionSource>,
+    pub evidence_roots: std::collections::HashMap<CognitiveRef, HashSet<String>>,
 }
 
 pub struct TopologyProjectionInput {
@@ -89,11 +90,21 @@ impl AuthorityStore {
             );
         }
         sources.sort_by_key(|s| s.reference.to_string());
+        let mut evidence_roots = std::collections::HashMap::new();
+        for source in &sources {
+            let reference = source.reference.to_string();
+            let (kind, value) = reference
+                .split_once(':')
+                .ok_or_else(|| Error::Infrastructure("invalid projection reference".into()))?;
+            let roots = revision_roots(&mut tx, subject, kind, value, &mut HashSet::new()).await?;
+            evidence_roots.insert(source.reference.clone(), roots);
+        }
         tx.commit().await.map_err(db)?;
         Ok(CognitiveProjectionInput {
             authority_watermark,
             topology,
             sources,
+            evidence_roots,
         })
     }
 }
@@ -346,7 +357,12 @@ async fn revision_roots(
     let mut roots = HashSet::new();
     while let Some((kind, value)) = stack.pop() {
         if !visited.insert((kind.clone(), value.clone())) {
-            roots.insert(format!("unknown-dependency:{kind}:{value}"));
+            continue;
+        }
+        if matches!(
+            kind.as_str(),
+            "entity" | "resource" | "tag" | "cognitive_schema"
+        ) {
             continue;
         }
         let id = value
@@ -403,12 +419,101 @@ async fn revision_roots(
                     stack.push((support_kind, row.try_get("support_ref").map_err(db)?));
                 }
             }
+        } else if kind == "occurrence" {
+            roots.extend(occurrence_roots(tx, subject, id).await?);
+        } else if kind == "source_region" {
+            roots.extend(source_region_roots(tx, subject, id).await?);
+        } else if kind == "derived_representation" || kind == "derived_region" {
+            stack.extend(
+                derived_source_regions(tx, subject, &kind, id)
+                    .await?
+                    .into_iter()
+                    .map(|id| ("source_region".into(), id.to_string())),
+            );
+        } else if kind == "episode_revision" {
+            let rows = sqlx::query("SELECT s.support_kind,s.support_ref,s.occurrence_id FROM episode_revision_supports s JOIN episode_revisions r USING(episode_revision_id) WHERE r.subject_id=$1 AND r.episode_revision_id=$2")
+                .bind(subject.0).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
+            for row in rows {
+                let support_kind: String = row.try_get("support_kind").map_err(db)?;
+                if support_kind == "evidence" {
+                    if let Some(occurrence) = row
+                        .try_get::<Option<Uuid>, _>("occurrence_id")
+                        .map_err(db)?
+                    {
+                        roots.extend(occurrence_roots(tx, subject, occurrence).await?);
+                    }
+                } else {
+                    stack.push((support_kind, row.try_get("support_ref").map_err(db)?));
+                }
+            }
+        } else if kind == "journal_revision" {
+            let rows = sqlx::query("SELECT s.ref_kind,s.ref_value FROM journal_revision_sources s JOIN journal_revisions r USING(journal_revision_id) WHERE r.subject_id=$1 AND r.journal_revision_id=$2")
+                .bind(subject.0).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
+            for row in rows {
+                stack.push((
+                    row.try_get("ref_kind").map_err(db)?,
+                    row.try_get("ref_value").map_err(db)?,
+                ));
+            }
         } else {
             roots.insert(format!("unknown-dependency:{kind}:{value}"));
         }
     }
     if roots.is_empty() {
         roots.insert(format!("unknown-dependency:{kind}:{value}"));
+    }
+    Ok(roots)
+}
+
+async fn derived_source_regions(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    kind: &str,
+    id: Uuid,
+) -> Result<Vec<Uuid>> {
+    let representation = if kind == "derived_region" {
+        sqlx::query_scalar::<_, Uuid>("SELECT derived_representation_id FROM derived_regions WHERE subject_id=$1 AND derived_region_id=$2")
+            .bind(subject.0).bind(id).fetch_optional(&mut **tx).await.map_err(db)?
+    } else {
+        Some(id)
+    };
+    if let Some(representation) = representation {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT source_region_id FROM representation_source_regions($1,$2)",
+        )
+        .bind(subject.0)
+        .bind(representation)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(db)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+async fn source_region_roots(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    id: Uuid,
+) -> Result<HashSet<String>> {
+    let artifact: Option<Uuid> = sqlx::query_scalar(
+        "SELECT artifact_id FROM source_regions WHERE subject_id=$1 AND source_region_id=$2",
+    )
+    .bind(subject.0)
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?;
+    let mut roots = HashSet::new();
+    if let Some(artifact) = artifact {
+        let occurrences = sqlx::query_scalar::<_, Uuid>("SELECT occurrence_id FROM observation_occurrences WHERE subject_id=$1 AND artifact_id=$2")
+            .bind(subject.0).bind(artifact).fetch_all(&mut **tx).await.map_err(db)?;
+        if occurrences.is_empty() {
+            roots.insert(format!("artifact:{artifact}"));
+        }
+        for occurrence in occurrences {
+            roots.extend(occurrence_roots(tx, subject, occurrence).await?);
+        }
     }
     Ok(roots)
 }

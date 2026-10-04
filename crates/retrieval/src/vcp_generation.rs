@@ -13,6 +13,7 @@ pub struct VcpGeneration {
     pub labels: Vec<(i64, String)>,
     pub curves: Vec<ReferenceCurve>,
     pub curve_orders: Vec<(i64, VcpCurveOrder)>,
+    pub candidate_evidence_roots: Vec<(i64, std::collections::BTreeSet<String>)>,
     pub pairwise: Vec<(i64, i64, f64)>,
     pub intrinsic: Vec<ReferenceIntrinsicResult>,
     pub epa: ReferenceEpaTraining,
@@ -112,6 +113,16 @@ impl VcpGeneration {
             .filter(|id| !vectors.contains_key(id))
             .copied()
             .collect();
+        let candidate_evidence_roots = material
+            .documents
+            .iter()
+            .map(|d| {
+                Ok((
+                    material.identities.id(&d.reference)?,
+                    d.evidence_roots.clone(),
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
         let generation = Self {
             generation_id,
             cognitive_profile,
@@ -122,6 +133,7 @@ impl VcpGeneration {
             policy,
             vectors: vectors.into_iter().collect(),
             labels: labels.into_iter().collect(),
+            candidate_evidence_roots,
             curves,
             curve_orders: orders,
             pairwise,
@@ -202,6 +214,18 @@ impl VcpGeneration {
                     ));
                 }
             }
+        }
+        if self.candidate_evidence_roots.len() != curve_ids.len()
+            || self
+                .candidate_evidence_roots
+                .iter()
+                .map(|(id, _)| *id)
+                .collect::<std::collections::BTreeSet<_>>()
+                != curve_ids
+        {
+            return Err(Error::Invalid(
+                "VCP candidate evidence identities disagree".into(),
+            ));
         }
         if self.curve_orders.len() != curve_ids.len()
             || self

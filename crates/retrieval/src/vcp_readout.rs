@@ -164,6 +164,15 @@ fn candidate_provenance(
     candidate: &VcpReadoutCandidate,
 ) -> Vec<ReferenceProvenanceEdge> {
     let canonical = candidate.reference.to_string();
+    let id = generation
+        .identities
+        .id(&candidate.reference)
+        .expect("validated candidate identity");
+    let snapshot_roots = generation
+        .candidate_evidence_roots
+        .iter()
+        .find(|(candidate_id, _)| *candidate_id == id)
+        .map(|(_, roots)| roots);
     generation
         .graph
         .graph
@@ -173,7 +182,10 @@ fn candidate_provenance(
             let (mut own, mut other) = (0.0, 0.0);
             for (id, mass) in &edge.file_contributions {
                 let root = &generation.graph.provenance_roots[*id as usize - 1];
-                if root == &canonical || candidate.self_evidence_roots.contains(root) {
+                if root == &canonical
+                    || candidate.self_evidence_roots.contains(root)
+                    || snapshot_roots.is_some_and(|roots| roots.contains(root))
+                {
                     own += mass;
                 } else {
                     other += mass;

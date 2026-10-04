@@ -1273,6 +1273,14 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             .any(|s| s.reference == memory_reference)
     );
     assert!(!forbidden.topology.nodes.contains(&memory_reference));
+    let memory_roots = &cognitive.evidence_roots[&memory_reference];
+    assert!(!memory_roots.is_empty());
+    assert!(
+        memory_roots
+            .iter()
+            .any(|root| !root.starts_with("unknown-dependency:"))
+    );
+    assert!(!forbidden.evidence_roots.contains_key(&memory_reference));
     check_vcp_projection_material(&runtime, subject, &memory_reference).await;
     let mut native_request = query(subject);
     native_request.expression.targets = vec![QueryTarget::Exact {
@@ -1869,6 +1877,7 @@ fn nonempty_vcp_lab_material(
                 vector: vec![1.0, 0.0, 0.0],
                 concept_refs: vec![tag_a.clone(), tag_b.clone()],
                 curve_order: VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
             },
             VcpProjectedDocument {
                 reference: tag_a.clone(),
@@ -1876,6 +1885,7 @@ fn nonempty_vcp_lab_material(
                 vector: vec![1.0, 0.0, 0.0],
                 concept_refs: Vec::new(),
                 curve_order: VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
             },
             VcpProjectedDocument {
                 reference: tag_b,
@@ -1883,6 +1893,7 @@ fn nonempty_vcp_lab_material(
                 vector: vec![0.6, 0.8, 0.0],
                 concept_refs: Vec::new(),
                 curve_order: VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
             },
         ],
     };
@@ -1958,6 +1969,16 @@ async fn check_vcp_projection_material(
         .await
         .unwrap();
     assert_eq!(material.space, space);
+    assert!(
+        material
+            .documents
+            .iter()
+            .find(|d| &d.reference == memory)
+            .unwrap()
+            .evidence_roots
+            .iter()
+            .any(|root| !root.starts_with("unknown-dependency:"))
+    );
     assert_eq!(material.producer.signature_hash, producer.signature_hash);
     assert!(
         material

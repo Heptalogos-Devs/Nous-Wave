@@ -182,6 +182,7 @@ mod tests {
             documents: vec![VcpProjectedDocument {
                 reference: body.clone(), representation_text: "fixture".into(), vector: vec![1.0, 0.0],
                 concept_refs: vec![b.clone(), a.clone(), b.clone()], curve_order: VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
             }],
         };
         let assets = vcp_graph_assets(&material, &[(ai, bi, 0.5)], &[], &config).unwrap();
@@ -259,6 +260,7 @@ mod tests {
                 },
                 concept_refs: Vec::new(),
                 curve_order: VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
             });
         }
         let assets = crate::VcpGeneration::build(
