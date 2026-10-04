@@ -66,6 +66,11 @@ export const materialInterpretationSchema = z
           "other",
         ]),
         content: z.string(),
+        evidence_channel: z
+          .enum(["visual", "audio", "source_text"])
+          .describe(
+            "Underlying source channel supplying this evidence, independently of its topic/kind. A state or action narrated in speech uses audio; one stated in original text uses source_text. This does not claim the narrated event was visually observed.",
+          ),
         basis: z
           .enum(["direct", "inferred"])
           .describe(
@@ -151,7 +156,7 @@ export type MaterialInterpretation = z.infer<
 >;
 const contract = structuredOutputContract(materialInterpretationSchema);
 export const materialInterpretationSchemaDigest = contract.digest;
-export const materialProjectionIdentity = "material-interpretation-text-v2";
+export const materialProjectionIdentity = "material-interpretation-text-v3";
 type InterpretationInput = {
   visual: boolean;
   audio: boolean;
@@ -274,6 +279,16 @@ function validateMaterialInterpretation(
         throw new Error("Structured material alternatives exceed bounds");
     }
   }
+  const channels = {
+    visual: input.visual,
+    audio: input.audio,
+    source_text: input.sourceText,
+  };
+  for (const observation of output.observations)
+    if (!channels[observation.evidence_channel])
+      throw new Error(
+        `Structured material invents unavailable ${observation.evidence_channel} evidence`,
+      );
   if (
     !input.sourceText &&
     (output.coverage.source_text !== "not_available" ||
@@ -288,24 +303,12 @@ function validateMaterialInterpretation(
     );
   if (
     !input.visual &&
-    (output.coverage.visual !== "not_available" ||
-      output.embedded_text.length ||
-      output.observations.some(
-        (item) =>
-          item.basis === "direct" &&
-          ["object", "action", "state", "scene", "spatial_relation"].includes(
-            item.kind,
-          ),
-      ))
+    (output.coverage.visual !== "not_available" || output.embedded_text.length)
   )
     throw new Error("Structured material invents unavailable visual input");
   if (
     !input.audio &&
-    (output.coverage.audio !== "not_available" ||
-      output.speech.length ||
-      output.observations.some((item) =>
-        ["sound", "music", "speech"].includes(item.kind),
-      ))
+    (output.coverage.audio !== "not_available" || output.speech.length)
   )
     throw new Error("Structured material invents unavailable audio input");
   return output;
@@ -321,7 +324,7 @@ function projectMaterialInterpretation(output: MaterialInterpretation): string {
       "Observations",
       output.observations.map(
         (item) =>
-          `[${item.basis}/${item.certainty}/${item.kind}] ${item.content}`,
+          `[${item.basis}/${item.certainty}/${item.kind}; evidence=${item.evidence_channel}] ${item.content}`,
       ),
     ),
     ...section(

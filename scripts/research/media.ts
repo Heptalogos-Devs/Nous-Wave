@@ -19,6 +19,7 @@ type Unit = {
   context?: Record<string, string>;
   query: string;
   oracle_patterns: string[];
+  oracle_patterns_by_representation_kind?: Record<string, string[]>;
   oracle_status: "PASS" | "NOT_RUN";
 };
 type Receipt = {
@@ -225,7 +226,10 @@ for (const unit of units) {
           `Formation did not commit Memory: ${json(formed.degradation)}`,
         );
       if (formed?.memory) operation.revisionId = formed.memory.revisionId;
-      const missingFacts = unit.oracle_patterns.filter(
+      const oraclePatterns =
+        unit.oracle_patterns_by_representation_kind?.[selected.kind] ??
+        unit.oracle_patterns;
+      const missingFacts = oraclePatterns.filter(
         (pattern) => !new RegExp(pattern, "is").test(selected.text ?? ""),
       );
       const roots = new Set<string>(),
