@@ -194,3 +194,15 @@ Importer 的 event/revision receipts 使用增量 JSONL journal，Subject/Sessio
 Cognitive scorer 同时保存 association target recall、chain coverage、causal precursor recall 与 ordered-chain score（@1/5/10）。Chain 从冻结的 directed paths 取得，排除 cue 根节点；ordered-chain 分母为所有前驱对，按 cue→precursor 的路径顺序检查检索排名，未返回节点不获 pair credit。它不测生成叙事顺序。按 category/profile 汇总 harmful kinds、activated edges、seed count、observed max hop、已测 discarded mass 和对 baseline 的 Recall/nDCG/intrusion 差值；VCP 未测 mass 保持 null。没有 paths 的 query 相应指标为 null。
 
 真实向量 cache 使用 `{config, vector_files}` manifest，每个 batch 写入相邻 `.parts/` 目录，随后原子发布 index。Rust importer/benchmark reader 同时支持现有 `{config, vectors}` cache 和新分片格式。生成器首次 reopen 旧 flat cache 会将其转为一个 legacy shard，后续批次不重写全部已生成向量。分片保留原 text/space/producer/vector，不改变 embedding 合同；相同文本通过 SHA-256 去重。已有正在运行的旧生成进程继续写旧格式，需等该 writer 结束后迁移。
+
+## Cognitive paired rerank
+
+```text
+NOUS_RESEARCH_RERANK_CONFIG=<research-nous.toml> NOUS_RESEARCH_RERANK_LOCATOR=<bootstrap.toml> cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cognitive data/research/<fresh-paired-run> data/research/<material-run>/embedding-config.json data/research/<material-run>/embedding-vectors.json benchmark
+```
+
+这两个变量显式启用付费 `query_rerank` track。例子只通过 stdio 调用 [production invocation adapter](research/cognitive-rerank.ts)，adapter 使用既有 credentials loader、`ModelInvocations.rerank` 和 research gateway。每条 query 的 baseline/native 使用相同已验证候选池（pool ceiling=64、正常 validation budget 仍生效），先保存无 rerank 的前十，再由原 Runtime retain/finalize workflow 对真实模型排序进行最终 Authority 复核。模型不能增加候选，少于两个可排序候选时跳过调用。
+
+每个 query 共六个 variant：baseline、baseline+model-rerank、native、native+model-rerank、DTSC、V3。记录固定 rerank binding/profile/config digest、producer、调用数、失败、真实 provider latency、6000ms research throttle 以及 rerank+final-validation 总时长；后两者当前没有逐段完全分开。Rerank operational failure 保留已验证 baseline、添加 `query_rerank_unavailable`，不会当成成功排序。这个受控 Kernel/production-model track 还需与 public Core end-to-end track 分开。
+
+旧 live ledger 的 guard 从 1000 调到 2000 是这次 LoCoMo embeddings 加 498 次 rerank 预算的阶段配置，保留累计计数。Gateway 切换时在已提交 embedding batch 边界短暂停止 writer，确认新 gateway ready 后继续；没有重置 ledger 或并行建立第二个 proxy。

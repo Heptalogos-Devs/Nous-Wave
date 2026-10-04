@@ -1,3 +1,4 @@
+mod rerank;
 use super::*;
 use std::io::Write;
 
@@ -72,6 +73,7 @@ pub(super) async fn run(
         .create_new(true)
         .open(root.join("benchmark.jsonl"))
         .map_err(failure)?;
+    let mut rerank = rerank::Bridge::open().await?;
     let profiles = [
         nous_runtime::CognitiveProfile::BaselineRrf,
         nous_runtime::CognitiveProfile::NousNodePotential,
@@ -124,34 +126,39 @@ pub(super) async fn run(
             let start = std::time::Instant::now();
             let execution = nous_retrieval::with_query_material(
                 requests.clone(),
-                runtime.execute_query(request, None),
+                runtime.execute_query(request, rerank.as_ref().map(|_| 64)),
             )
             .await?;
             let snapshot = runtime.serving.publisher.snapshot_for(subject);
-            let returned = execution
-                .result
-                .results
-                .iter()
-                .map(|hit| {
-                    let event = state
-                        .events
-                        .iter()
-                        .find(|(_, receipt)| {
-                            CognitiveRef::MemoryRevision(receipt.revision) == hit.reference
-                        })
-                        .map(|(id, _)| id.clone());
-                    serde_json::json!({"event_id":event,"hit":hit})
-                })
-                .collect::<Vec<_>>();
+            let returned = mapped_results(&execution.result, state);
             let row = serde_json::json!({"query_id":query.query_id,"suite":query.suite,"category":query.category,"profile":profile.id(),"profile_digest":profile.digest(),"corpus_digest":state.corpus_digest,"query_set_digest":manifest["queries_sha256"],"embedding_space":cache.config.space,"embedding_producer":cache.config.producer,"config_digest":execution.bound.config_snapshot.effective_digest,"cognitive_config_subset_digest":execution.bound.config_snapshot.digest_for(&["retrieval.cognitive.profile","retrieval.vcp.assets","retrieval.vcp.query","retrieval.vcp.readout"])? ,"authority_watermark":execution.bound.bound_at_authority_seq,"as_of":query.as_of,"clock_source":"research-serial-prefix","track":"controlled-kernel-no-rerank","oracle":query.oracle,"required_paths":query.required_paths,"input_context":query.input_context,"subject":query.subject,"session_oracle":query.session_oracle,"unresolved_evidence":query.unresolved_evidence,"original_question_date":query.original_question_date,"default_same_subject_oracle":{"grade":0,"reason":"distractor"},"returned":returned,"lane_diagnostics":execution.result.diagnostics,"degradation":execution.result.degradation,"latency_ms":start.elapsed().as_secs_f64()*1000.0,"serving_generations":{"dense":snapshot.dense.iter().map(|g|g.generation_id).collect::<Vec<_>>(),"native":snapshot.topology.as_ref().map(|g|g.generation_id),"vcp":snapshot.vcp.as_ref().map(|g|g.generation_id)},"provider_usage":{"query_generation":"precomputed_real_provider_cache","rerank_calls":0},"error":null});
             writeln!(output, "{}", serde_json::to_string(&row).map_err(failure)?)
                 .map_err(failure)?;
             output.flush().map_err(failure)?;
+            if let Some(bridge) = rerank.as_mut()
+                && matches!(
+                    profile,
+                    nous_runtime::CognitiveProfile::BaselineRrf
+                        | nous_runtime::CognitiveProfile::NousNodePotential
+                )
+            {
+                write_reranked(
+                    runtime,
+                    &query.text,
+                    execution,
+                    bridge,
+                    row.clone(),
+                    &mut output,
+                    state,
+                    start,
+                )
+                .await?;
+            }
             println!(
                 "query={} profile={} hits={}",
                 query.query_id,
                 profile.id(),
-                returned.len()
+                returned.as_array().map_or(0, Vec::len)
             );
         }
     }
@@ -274,4 +281,61 @@ fn request_for(query: &Query, subject: SubjectId, state: &State) -> Result<Cogni
         capabilities: Default::default(),
         diagnostics: DiagnosticsRequest::Full,
     })
+}
+
+fn mapped_results(result: &CognitiveQueryResult, state: &State) -> serde_json::Value {
+    serde_json::json!(
+        result
+            .results
+            .iter()
+            .take(10)
+            .map(|hit| {
+                let event = state
+                    .events
+                    .iter()
+                    .find(|(_, receipt)| {
+                        CognitiveRef::MemoryRevision(receipt.revision) == hit.reference
+                    })
+                    .map(|(id, _)| id.clone());
+                serde_json::json!({"event_id":event,"hit":hit})
+            })
+            .collect::<Vec<_>>()
+    )
+}
+
+async fn write_reranked(
+    runtime: &NousRuntime,
+    text: &str,
+    execution: nous_runtime::QueryExecution,
+    bridge: &mut rerank::Bridge,
+    row: serde_json::Value,
+    output: &mut std::fs::File,
+    state: &State,
+    start: std::time::Instant,
+) -> Result<()> {
+    let subject = execution.bound.source_query.subject;
+    let profile = row["profile"]
+        .as_str()
+        .ok_or_else(|| Error::Internal("profile missing".into()))?
+        .to_owned();
+    let rank_start = std::time::Instant::now();
+    let (result, usage) = rerank::apply(runtime, subject, text, execution, bridge).await?;
+    let mut reranked = row;
+    reranked["profile"] = serde_json::json!(format!("{}+model-rerank", profile));
+    reranked["track"] = serde_json::json!("controlled-kernel-production-rerank");
+    reranked["returned"] = mapped_results(&result, state);
+    reranked["lane_diagnostics"] = serde_json::to_value(result.diagnostics).map_err(failure)?;
+    reranked["degradation"] = serde_json::to_value(result.degradation).map_err(failure)?;
+    reranked["latency_ms"] = serde_json::json!(start.elapsed().as_secs_f64() * 1000.0);
+    reranked["rerank_and_final_validation_ms"] =
+        serde_json::json!(rank_start.elapsed().as_secs_f64() * 1000.0);
+    reranked["provider_usage"] = serde_json::json!({"query_generation":"precomputed_real_provider_cache","rerank_calls":if usage.get("skipped").is_some(){0}else{1},"rerank_throttle_ms":6000,"rerank":usage});
+    writeln!(
+        output,
+        "{}",
+        serde_json::to_string(&reranked).map_err(failure)?
+    )
+    .map_err(failure)?;
+    output.flush().map_err(failure)?;
+    Ok(())
 }

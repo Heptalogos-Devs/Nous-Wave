@@ -116,3 +116,5 @@ Native 在结构 cue 下召回更多二跳 target 和叙事背景；同类 harmf
 Native 有 243 条 query 的 seed count 非零，全部触及状态/转换预算；6 条 weak-cue/recurrence 无显式 seed。观察到的最大 hop：native 2、VCP 1。Oracle 的 1/2/3-hop buckets 描述 authored event graph 中 justified predecessor 路径；Serving 还有共享 Tag 和 cooccurrence shortcut，不能据三跳 bucket 的 Recall 声称实际走过三次扩散。
 
 这轮输入改变了 Tag/Runtime context，不能当作数值内核的纯参数消融。配置 effective digest、corpus/query digest、embedding identity 都有保存；raw binary 在 discarded-mass 修复前编译，VCP raw 0 仍为未测量占位，scorer 将其标为 null。Rerank、去 Hub/关系消融、预算曲线、longitudinal 和外部 suite 结果仍待对应运行。
+
+Paired rerank 六 variant 全量运行已在 `cc0-paired-rerank` 启动，配置/命令见 [scripts](../../../../scripts/README.md#cognitive-paired-rerank)。首条 query baseline/native 使用真实 `qwen3.7-text-rerank`、`rerank-v1`，最终 hit evidence 包含 language_rerank，已证明 production invocation→原 Runtime final Authority validation 接线。该小样本不构成 rerank 质量结论，需整轮结束后按 category 比较。

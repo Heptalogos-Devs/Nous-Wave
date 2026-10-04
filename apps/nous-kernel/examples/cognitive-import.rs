@@ -258,7 +258,7 @@ async fn main() -> Result<()> {
         let path = vectors_path
             .as_ref()
             .ok_or_else(|| Error::Invalid("benchmark requires real embedding cache".into()))?;
-        cognitive_benchmark::run(
+        Box::pin(cognitive_benchmark::run(
             &runtime,
             &clock,
             &scenarios,
@@ -267,7 +267,7 @@ async fn main() -> Result<()> {
             &mut state,
             &state_path,
             path,
-        )
+        ))
         .await?;
     } else {
         for scenario in scenarios {
