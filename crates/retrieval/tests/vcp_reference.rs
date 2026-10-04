@@ -379,3 +379,17 @@ fn native_v3_readout_composes_one_observation_through_candidate_pool_and_final_r
         }
     }
 }
+
+#[test]
+fn native_dtsc_field_trust_retention_exact_contacts_and_sampling_match() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-dtsc-field.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceDtscFieldInput = serde_json::from_value(case["input"].clone()).unwrap();
+        compare_numeric_subset(
+            &serde_json::to_value(reference_dtsc_field(&input)).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}
