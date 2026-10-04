@@ -34,3 +34,7 @@ mod dtsc;
 pub use dtsc::*;
 mod intrinsic;
 pub use intrinsic::*;
+mod gating;
+pub use gating::*;
+mod fusion;
+pub use fusion::*;

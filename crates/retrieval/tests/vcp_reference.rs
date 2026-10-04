@@ -458,3 +458,49 @@ fn native_intrinsic_residual_ratios_fixed_anchor_gains_and_statuses_match() {
         }
     }
 }
+
+#[test]
+fn native_field_vector_projection_matches_available_index_vectors() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-field-projection.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceFieldProjectionInput =
+            serde_json::from_value(case["input"].clone()).unwrap();
+        let actual = reference_field_projection(&input);
+        let expected: Vec<f32> = serde_json::from_value(case["expected"].clone()).unwrap();
+        assert_eq!(actual.len(), expected.len());
+        for (a, b) in actual.iter().zip(expected) {
+            assert!(
+                (a - b).abs() <= 1e-7 + 1e-7 * b.abs(),
+                "{}: {a} != {b}",
+                case["name"]
+            );
+        }
+    }
+}
+
+#[test]
+fn native_query_tag_gating_language_core_and_layer_weights_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-gating.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceGateInput = serde_json::from_value(case["input"].clone()).unwrap();
+        compare_numeric_subset(
+            &serde_json::to_value(reference_gate_tags(&input)).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}
+
+#[test]
+fn native_query_fusion_seed_max_supplements_ghosts_and_dedup_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-fusion.json")).unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceFusionInput = serde_json::from_value(case["input"].clone()).unwrap();
+        compare_numeric_subset(
+            &serde_json::to_value(reference_fuse_observation(&input)).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}

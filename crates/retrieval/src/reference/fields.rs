@@ -1,6 +1,48 @@
 use nous_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Deserialize)]
+pub struct ReferenceFieldProjectionInput {
+    pub dimension: usize,
+    pub field: Vec<(i64, f64)>,
+    pub tag_vectors: Vec<(i64, Vec<f32>)>,
+}
+
+/// Project a field in its artifact node order using available index vectors.
+pub fn reference_field_projection(input: &ReferenceFieldProjectionInput) -> Vec<f32> {
+    let vectors = input
+        .tag_vectors
+        .iter()
+        .map(|(id, vector)| (*id, vector))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let mut vector = vec![0.0; input.dimension];
+    let mut total = 0.0;
+    for (id, mass) in &input.field {
+        if *mass <= 0.0 {
+            continue;
+        }
+        let Some(source) = vectors.get(id).filter(|v| v.len() == input.dimension) else {
+            continue;
+        };
+        total += mass;
+        for (result, value) in vector.iter_mut().zip(source.iter()) {
+            *result += f64::from(*value) * mass;
+        }
+    }
+    if total > 0.0 {
+        for value in &mut vector {
+            *value /= total;
+        }
+        let magnitude = vector.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if magnitude > 1e-12 {
+            for value in &mut vector {
+                *value /= magnitude;
+            }
+        }
+    }
+    vector.into_iter().map(|v| v as f32).collect()
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ReferenceTransport {
     pub node_ids: Vec<i64>,
