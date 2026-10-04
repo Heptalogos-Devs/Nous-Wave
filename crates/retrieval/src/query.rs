@@ -175,11 +175,14 @@ async fn prepare_signals(
         .transpose()?;
 
     let dense_enabled = enabled_lanes.contains(&EvidenceFamily::Dense);
+    let cognitive_embedding =
+        plan.expand_topology && plan.cognitive_profile.requirements().query_embedding;
+
     let mut embedding = None;
     let mut embedding_error = None;
     // Generation absence preserves the existing unavailable-lane semantics.
     // FORBIDDEN is checked before reaching the sole provider invocation.
-    if dense_enabled
+    if (dense_enabled || cognitive_embedding)
         && !query_text.trim().is_empty()
         && query.capabilities.text_embedding != RequirementStrength::Forbidden
         && !snapshot.dense.is_empty()
@@ -236,7 +239,7 @@ impl SharedLaneProvider for ServingService {
         .await?;
         let topology = bound
             .lane_enabled(EvidenceFamily::TopologyWave)
-            .then(|| topology_lane(&snapshot, bound, plan))
+            .then(|| topology_lane(&snapshot, bound, plan, &signals))
             .transpose()?;
         let mut outputs = signals.into_lanes();
         outputs.extend(topology);

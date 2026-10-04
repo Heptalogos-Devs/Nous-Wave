@@ -22,9 +22,10 @@ pub use experience::ExperienceInput;
 pub use maintenance::*;
 pub use maintenance_policy::*;
 pub use query::{
-    BoundQuery, CognitiveContributor, CognitiveContributors, DEFAULT_RESULT_LIMIT, LaneCandidate,
-    LaneOutput, LaneStatus, QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary,
-    WorkCycle, register_retrieval_configuration,
+    BoundQuery, COGNITIVE_PROFILE, CognitiveContributor, CognitiveContributors, CognitiveProfile,
+    CognitiveProfileRequirements, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput, LaneStatus,
+    QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
+    register_retrieval_configuration,
 };
 pub use segmentation::{EpisodeDraft, SegmentationProgress};
 pub use work_contexts::*;

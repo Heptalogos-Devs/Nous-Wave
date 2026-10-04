@@ -18,6 +18,17 @@ pub fn planned_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     result
 }
 
+pub(super) fn planned_profile_lanes(
+    query: &CognitiveQuery,
+    profile: super::CognitiveProfile,
+) -> Vec<EvidenceFamily> {
+    let mut lanes = planned_lanes(query);
+    if !profile.requirements().topology {
+        lanes.retain(|family| *family != EvidenceFamily::TopologyWave);
+    }
+    lanes
+}
+
 fn local_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     let mut lanes = Vec::new();
     if query
@@ -251,7 +262,7 @@ impl CognitiveRuntimeService {
                 allowed_revision_refs,
             }
         };
-        let enabled_lanes = planned_lanes(&query);
+        let enabled_lanes = planned_profile_lanes(&query, retrieval_policy.cognitive_profile);
         if enabled_lanes.is_empty() && !query.requests_resources() {
             return Err(Error::Invalid("query has no enabled retrieval lane".into()));
         }
@@ -274,7 +285,8 @@ impl CognitiveRuntimeService {
                 exact_target_bypasses_auto_level,
             },
             selected_embedding_space: None,
-            topology_required: explicit_topology(&query),
+            topology_required: explicit_topology(&query)
+                && retrieval_policy.cognitive_profile.requirements().topology,
             fusion_version: "rrf-v1".into(),
             config_snapshot,
             retrieval_policy,

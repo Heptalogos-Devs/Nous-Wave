@@ -1261,6 +1261,118 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     assert!(result.results.iter().any(
         |hit| hit.reference == CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
     ));
+    let mut request = query(subject);
+    request.expression.targets = vec![QueryTarget::Exact {
+        reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
+    }];
+    request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+    let frozen = runtime
+        .cognition
+        .bind_query(request.clone())
+        .await
+        .expect("frozen native query");
+    let plan = QueryPlan::for_bound_query(&frozen);
+    let old_generation = runtime
+        .serving
+        .publisher
+        .snapshot_for(subject)
+        .topology
+        .as_ref()
+        .expect("native generation")
+        .generation_id;
+    let receipt = runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("baseline-rrf"),
+        )
+        .await
+        .expect("baseline profile");
+    assert_eq!(
+        receipt.apply_mode,
+        nous_configuration::ConfigApplyMode::ServingRebuild
+    );
+    assert_eq!(
+        plan.cognitive_profile,
+        nous_runtime::CognitiveProfile::NousNodePotential
+    );
+    let baseline = runtime
+        .cognition
+        .bind_query(request.clone())
+        .await
+        .expect("baseline bound");
+    let baseline_plan = QueryPlan::for_bound_query(&baseline);
+    assert_eq!(
+        baseline_plan.cognitive_profile,
+        nous_runtime::CognitiveProfile::BaselineRrf
+    );
+    assert!(!baseline_plan.expand_topology);
+    assert!(!baseline.lane_enabled(nous_core::EvidenceFamily::TopologyWave));
+    let old_output = nous_runtime::SharedLaneProvider::lanes(&runtime.serving, &frozen, &plan)
+        .await
+        .expect("frozen profile readout");
+    assert_eq!(
+        old_output
+            .iter()
+            .find(|lane| lane.family == nous_core::EvidenceFamily::TopologyWave)
+            .expect("native lane")
+            .generation_ref,
+        Some(old_generation)
+    );
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("vcp-rivermemo-v3.1-adapter-v1"),
+        )
+        .await
+        .expect("reference profile");
+    let reference_bound = runtime
+        .cognition
+        .bind_query(request)
+        .await
+        .expect("reference bound");
+    let reference_plan = QueryPlan::for_bound_query(&reference_bound);
+    runtime
+        .serving
+        .prepare_with_snapshot(
+            subject,
+            reference_plan.serving_need(&reference_bound.source_query),
+            &reference_bound.config_snapshot,
+        )
+        .await
+        .expect("reference prepare");
+    let generation = runtime.serving.publisher.snapshot_for(subject);
+    let graph = generation.topology.as_ref().expect("profile generation");
+    assert_ne!(old_generation, graph.generation_id);
+    assert_eq!(
+        graph.cognitive_profile,
+        nous_runtime::CognitiveProfile::VcpRiverMemo
+    );
+    let current = runtime
+        .store
+        .serving_current(subject)
+        .await
+        .expect("published metadata");
+    let topology = current
+        .iter()
+        .find(|record| record.family == "topology")
+        .expect("topology record");
+    assert_eq!(
+        topology.metadata["cognitive_profile"],
+        "vcp-rivermemo-v3.1-adapter-v1"
+    );
+    let stale_output = nous_runtime::SharedLaneProvider::lanes(&runtime.serving, &frozen, &plan)
+        .await
+        .expect("generation mismatch");
+    let stale_topology = stale_output
+        .iter()
+        .find(|lane| lane.family == nous_core::EvidenceFamily::TopologyWave)
+        .expect("old lane");
+    assert_eq!(stale_topology.status, nous_runtime::LaneStatus::Unavailable);
+    assert!(stale_topology.candidates.is_empty());
     let producer = Uuid::now_v7();
     sqlx::query("INSERT INTO producer_signatures(producer_signature_id,signature_hash,provider_class,operation,implementation,model_identity,model_revision,preprocessing_identity,preprocessing_revision,config_digest,created_at,metadata) VALUES($1,$2,'test','text.interpretation','derived-test',NULL,NULL,'none','1','derived-test',now(),'{}')")
         .bind(producer)

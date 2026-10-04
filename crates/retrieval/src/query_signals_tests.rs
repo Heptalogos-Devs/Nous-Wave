@@ -202,3 +202,40 @@ async fn provider_failure_remains_unavailable_lane_for_runtime_requirement_polic
     assert!(dense.diagnostics[0].contains("probe failure"));
     assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
 }
+
+#[tokio::test]
+async fn cognitive_embedding_is_shared_even_when_dense_lane_is_disabled() {
+    let provider = EmbeddingProbe {
+        calls: AtomicUsize::new(0),
+        fail: false,
+    };
+    let (snapshot, _) = snapshot(&provider);
+    let mut query = query();
+    let mut plan = QueryPlan::for_query(&query);
+    plan.expand_topology = true;
+    plan.cognitive_profile = nous_runtime::CognitiveProfile::VcpRiverMemo;
+    let signals = prepare_signals(
+        &snapshot,
+        &query,
+        &[EvidenceFamily::TopologyWave],
+        &plan,
+        Some(&provider),
+    )
+    .await
+    .expect("cognitive signals");
+    assert!(signals.embedding().is_some());
+    assert!(signals.dense().is_none());
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+    query.capabilities.text_embedding = RequirementStrength::Forbidden;
+    let signals = prepare_signals(
+        &snapshot,
+        &query,
+        &[EvidenceFamily::TopologyWave],
+        &plan,
+        Some(&provider),
+    )
+    .await
+    .expect("forbidden cognitive signals");
+    assert!(signals.embedding().is_none());
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+}

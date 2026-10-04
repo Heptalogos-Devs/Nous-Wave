@@ -360,6 +360,7 @@ mod tests {
     fn converging_graph(config: WaveConfig) -> WaveGraphGeneration {
         WaveGraphGeneration::from_artifact(TopologyArtifact {
             generation_id: nous_core::ServingGenerationId::new(),
+            cognitive_profile: nous_runtime::CognitiveProfile::default(),
             nodes: (0..5)
                 .map(|node| WaveNode {
                     serving_id: node,

@@ -10,8 +10,13 @@ pub(crate) fn topology_lane(
     snapshot: &ServingSnapshot,
     bound: &BoundQuery,
     plan: &QueryPlan,
+    signals: &crate::PreparedQuerySignals,
 ) -> nous_core::Result<LaneOutput> {
     let mut output = LaneOutput::empty(EvidenceFamily::TopologyWave, LaneStatus::Ready);
+    if !plan.expand_topology {
+        output.status = LaneStatus::Disabled;
+        return Ok(output);
+    }
     let Some(graph) = snapshot.topology.as_ref() else {
         output.status = LaneStatus::Unavailable;
         output
@@ -19,7 +24,76 @@ pub(crate) fn topology_lane(
             .push("topology serving generation is unavailable".into());
         return Ok(output);
     };
+    if graph.cognitive_profile != plan.cognitive_profile {
+        output.status = LaneStatus::Unavailable;
+        output
+            .diagnostics
+            .push("topology generation does not match bound cognitive profile".into());
+        return Ok(output);
+    }
+    if plan.cognitive_profile.requirements().query_embedding && signals.embedding().is_none() {
+        output.status = LaneStatus::Unavailable;
+        output
+            .diagnostics
+            .push("bound cognitive profile requires an available permitted query embedding".into());
+        return Ok(output);
+    }
+    if plan.cognitive_profile != nous_runtime::CognitiveProfile::NousNodePotential {
+        output.status = LaneStatus::Unavailable;
+        output.diagnostics.push(format!(
+            "cognitive kernel not implemented: {}",
+            plan.cognitive_profile.id()
+        ));
+        return Ok(output);
+    }
     output.generation_ref = Some(graph.generation_id);
+    let observation = QueryObservation::native(graph, bound, plan, source_seeds(graph, bound))?;
+    let river = observation.river();
+    output.topology_work = Some(TopologyWorkSummary {
+        mechanism: NATIVE_MECHANISM_ID.into(),
+        profile_id: observation.profile_id().into(),
+        profile_digest: observation.profile_digest().into(),
+        activated_edges: river.edges.len(),
+        max_hop_observed: river.max_hop_observed,
+        seed_count: observation.source_seeds().len(),
+        visited_nodes: river.node_potential.len(),
+        complete: river.complete,
+        discarded_mass: river.discarded_state_mass,
+    });
+    if !river.complete {
+        output.status = LaneStatus::Truncated;
+    }
+    let mut values = river
+        .node_potential
+        .iter()
+        .filter_map(|(node, potential)| {
+            graph
+                .nodes
+                .get(*node as usize)
+                .map(|value| (value.reference.clone(), *potential))
+        })
+        .collect::<Vec<_>>();
+    values.sort_by(|left, right| {
+        right
+            .1
+            .total_cmp(&left.1)
+            .then_with(|| left.0.to_string().cmp(&right.0.to_string()))
+    });
+    output.candidates = values
+        .into_iter()
+        .take(plan.lane_budget(EvidenceFamily::TopologyWave))
+        .enumerate()
+        .map(|(index, (reference, _))| LaneCandidate {
+            reference,
+            rank: (index + 1) as u32,
+            variants: vec!["topology:wave".into()],
+            provider_metadata: serde_json::Value::Null,
+        })
+        .collect();
+    Ok(output)
+}
+
+fn source_seeds(graph: &crate::WaveGraphGeneration, bound: &BoundQuery) -> Vec<SourceSeed> {
     let seed_weight = |name: &str, default: f64| {
         graph
             .config
@@ -84,48 +158,5 @@ pub(crate) fn topology_lane(
                 hop_zero: true,
             });
     }
-    let observation = QueryObservation::native(graph, bound, plan, merged.into_values().collect())?;
-    let river = observation.river();
-    output.topology_work = Some(TopologyWorkSummary {
-        mechanism: NATIVE_MECHANISM_ID.into(),
-        profile_id: observation.profile_id().into(),
-        profile_digest: observation.profile_digest().into(),
-        activated_edges: river.edges.len(),
-        max_hop_observed: river.max_hop_observed,
-        seed_count: observation.source_seeds().len(),
-        visited_nodes: river.node_potential.len(),
-        complete: river.complete,
-        discarded_mass: river.discarded_state_mass,
-    });
-    if !river.complete {
-        output.status = LaneStatus::Truncated;
-    }
-    let mut values = river
-        .node_potential
-        .iter()
-        .filter_map(|(node, potential)| {
-            graph
-                .nodes
-                .get(*node as usize)
-                .map(|value| (value.reference.clone(), *potential))
-        })
-        .collect::<Vec<_>>();
-    values.sort_by(|left, right| {
-        right
-            .1
-            .total_cmp(&left.1)
-            .then_with(|| left.0.to_string().cmp(&right.0.to_string()))
-    });
-    output.candidates = values
-        .into_iter()
-        .take(plan.lane_budget(EvidenceFamily::TopologyWave))
-        .enumerate()
-        .map(|(index, (reference, _))| LaneCandidate {
-            reference,
-            rank: (index + 1) as u32,
-            variants: vec!["topology:wave".into()],
-            provider_metadata: serde_json::Value::Null,
-        })
-        .collect();
-    Ok(output)
+    merged.into_values().collect()
 }

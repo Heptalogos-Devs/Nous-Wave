@@ -393,6 +393,7 @@ impl WaveConfig {
 #[derive(Debug, Clone)]
 pub struct WaveGraphGeneration {
     pub generation_id: ServingGenerationId,
+    pub cognitive_profile: nous_runtime::CognitiveProfile,
     pub nodes: Vec<WaveNode>,
     node_by_ref: std::collections::HashMap<CognitiveRef, u32>,
     adjacency: Vec<Vec<(u32, f64)>>,
@@ -415,6 +416,7 @@ impl WaveGraphGeneration {
         }
         TopologyArtifact {
             generation_id: self.generation_id,
+            cognitive_profile: self.cognitive_profile,
             nodes: self.nodes.clone(),
             edges,
             config: self.config.clone(),
@@ -444,6 +446,7 @@ impl WaveGraphGeneration {
             .collect();
         Ok(Self {
             generation_id: artifact.generation_id,
+            cognitive_profile: artifact.cognitive_profile,
             nodes: artifact.nodes,
             node_by_ref,
             adjacency,
@@ -533,6 +536,7 @@ impl WaveGraphGeneration {
         }
         Ok(Self {
             generation_id: ServingGenerationId::new(),
+            cognitive_profile: nous_runtime::CognitiveProfile::default(),
             nodes,
             node_by_ref,
             adjacency,
@@ -561,6 +565,7 @@ impl WaveGraphGeneration {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopologyArtifact {
     pub generation_id: ServingGenerationId,
+    pub cognitive_profile: nous_runtime::CognitiveProfile,
     pub nodes: Vec<WaveNode>,
     pub edges: Vec<(u32, u32, f64, f64)>,
     pub config: WaveConfig,

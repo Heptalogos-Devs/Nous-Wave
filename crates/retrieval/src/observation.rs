@@ -2,7 +2,6 @@ use crate::{QueryRiver, SourceSeed, WaveGraphGeneration, propagate_with_budget};
 use nous_core::{Result, ServingGenerationId, TimeInterval};
 use serde::Serialize;
 
-pub const NATIVE_PROFILE_ID: &str = "nous-node-potential-v1";
 pub const NATIVE_MECHANISM_ID: &str = "experimental-node-potential-v1";
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -20,7 +19,7 @@ pub struct QueryTemporalContext {
 #[derive(Debug, Serialize)]
 pub struct QueryObservation {
     query_id: String,
-    profile_id: &'static str,
+    profile_id: nous_runtime::CognitiveProfile,
     profile_digest: String,
     topology_generation_id: ServingGenerationId,
     config_subset_digest: String,
@@ -51,11 +50,8 @@ impl QueryObservation {
         );
         Ok(Self {
             query_id: bound.query_id.to_string(),
-            profile_id: NATIVE_PROFILE_ID,
-            profile_digest: crate::artifacts::digest(&serde_json::json!({
-                "profile": NATIVE_PROFILE_ID,
-                "mechanism": NATIVE_MECHANISM_ID,
-            }))?,
+            profile_id: plan.cognitive_profile,
+            profile_digest: plan.cognitive_profile.digest(),
             topology_generation_id: graph.generation_id,
             config_subset_digest,
             bound_at: bound.bound_at,
@@ -78,7 +74,7 @@ impl QueryObservation {
         &self.source_seeds
     }
     pub fn profile_id(&self) -> &str {
-        self.profile_id
+        self.profile_id.id()
     }
     pub fn profile_digest(&self) -> &str {
         &self.profile_digest

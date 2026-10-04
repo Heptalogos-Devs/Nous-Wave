@@ -38,6 +38,7 @@ impl ServingService {
             "lexical" => &["serving.lexical.enabled", "episode.synopsis"],
             "dense" => &["serving.dense.enabled", "retrieval.epa", "episode.synopsis"],
             "topology" => &[
+                "retrieval.cognitive.profile",
                 "topology.wave.hub_beta",
                 "topology.wave.hub_penalty_min",
                 "topology.wave.hub_penalty_max",

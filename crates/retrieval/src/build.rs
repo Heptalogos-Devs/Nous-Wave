@@ -46,6 +46,9 @@ impl ServingService {
         let implementation_id = implementation(family).to_owned();
         let config_digest = self.config_digest(subject, family, snapshot).await?;
         let implementation_revision = implementation_revision(family);
+        let cognitive_profile = (family == "topology")
+            .then(|| snapshot.get(nous_runtime::COGNITIVE_PROFILE))
+            .transpose()?;
         let record = ServingRecord {
             generation_id: id,
             subject,
@@ -58,7 +61,7 @@ impl ServingService {
             artifact_location: target.to_string_lossy().into_owned(),
             artifact_hash: hash,
             built_at: chrono::Utc::now(),
-            metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": implementation_revision, "config_digest": config_digest, "checksums": sums }),
+            metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": implementation_revision, "config_digest": config_digest, "checksums": sums, "cognitive_profile": cognitive_profile }),
         };
         self.store.publish_generation(record).await
     }
@@ -230,9 +233,11 @@ impl ServingService {
             .collect();
         let path = dir.join("topology.json");
         let config = resolve_wave_config(snapshot)?;
+        let cognitive_profile = snapshot.get(nous_runtime::COGNITIVE_PROFILE)?;
         tokio::task::spawn_blocking(move || {
             let mut graph = WaveGraphGeneration::build(nodes, &edges, config)?;
             graph.generation_id = id;
+            graph.cognitive_profile = cognitive_profile;
             write_json(&path, &graph.artifact())
         })
         .await
@@ -362,6 +367,7 @@ fn is_text(media: &str) -> bool {
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
         "lexical" | "dense" | "exact" => 4,
+        "topology" => 2,
         _ => 1,
     }
 }

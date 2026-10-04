@@ -1,3 +1,5 @@
+mod cognitive_profile;
+pub use cognitive_profile::{COGNITIVE_PROFILE, CognitiveProfile, CognitiveProfileRequirements};
 mod bind;
 mod lane;
 mod orchestrate;

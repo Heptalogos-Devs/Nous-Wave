@@ -81,7 +81,7 @@ Responses 初次请求因本机 Advanced Custom channel 没有对应 route 返�
 
 按用户建议加入 `doubao-seed-2.1-lite`，以同一 frozen input、Prompt、canonical Zod 与原角色配置对比 Mini，分别保留 chat/Responses 结果。Lite formation 与 Steward 两种协议均通过，人工检查保留计划中的 Soyuz 任务时态；该小样本不能证明总体推理质量排名。Lite chat Material structuring 通过但耗时约 115 秒；Responses 在原 4096 token 预算下只返回 incomplete reasoning、没有完整结构化产物。原 120 秒 timeout 下，Lite chat 的三个长程角色以及 Responses Journal/consolidation 超时；Responses Episode 返回合法 no_change，与 Mini 的主题 partition 不同，缺少 audited segmentation oracle 时不判赢家。
 
-单独 operational variant 延长 timeout 至 300 秒，并将 Material structuring 输出预算提高至 8192，保持输入/Prompt/schema；此结果不混入固定配置对照。目前延长后的 chat Episode 通过，Journal 仍超时，其余 affected case 继续运行。研究同时保存 wire usage 与 latency，区分合同拒绝、timeout/length 和已观察到的语义质量。
+单独 operational variant 延长 timeout 至 300 秒，并将 Material structuring 输出预算提高至 8192，保持输入/Prompt/schema；此结果不混入固定配置对照。延长后的 chat Episode 与 consolidation、Responses Journal 通过；chat Journal 仍在 300 秒超时，Responses Material/consolidation 达到各自输出上限且没有完整产物。研究同时保存 wire usage 与 latency，区分合同拒绝、timeout/length 和已观察到的语义质量。
 
 ### 媒体合同修复与视频输入
 
@@ -104,6 +104,6 @@ Contact sheet 复核发现原始 frames envelope 只给一组 timestamps 与一�
 
 现有 `experimental-node-potential-v1` 的数值 golden 冻结 graph conductance、hub penalty、provenance-root dedup、outbound mass、immediate return、FIR potential、state truncation、discarded mass、排序与空 seed；公开 unavailable-topology degradation 有单独回归。Reference baseline 与浮点 tolerance 随 fixture 保存。请求准备现在持有共享 embedding 与只读 lexical/dense hits；Dense 的多代匹配消费同一 embedding，FORBIDDEN、缺失 generation 与 provider failure 保留原 lane 状态和 Runtime requirement 裁决。Native readout 从不可变 QueryObservation 读取唯一 QueryRiver，观测保存 query/profile/generation/config subset/时间约束和 seeds，不保存候选排名；普通 diagnostics 增加 profile、实际激活边与最深传播 hop。
 
-定向图复现了两个旧 Wave 缺陷：remaining budget 只递减却不限制传播；合流状态保留单个 origin，后续节点丢失其他来源。修复后，不足边成本的状态停止传播，合流携带所有来源，输出 provenance 和等能量 tie 顺序稳定。原 default golden 数值与排序仍通过；预算与多源 regression、共享信号 unit 和真实 PostgreSQL association/query integration 通过。完整 profile registry、仅 cognitive lane 所需 embedding、VCP parity 和 benchmark utility 仍在本轮后续工作中，不能由这次 native refactor 代替。
+定向图复现了两个旧 Wave 缺陷：remaining budget 只递减却不限制传播；合流状态保留单个 origin，后续节点丢失其他来源。修复后，不足边成本的状态停止传播，合流携带所有来源，输出 provenance 和等能量 tie 顺序稳定。原 default golden 数值与排序仍通过；预算与多源 regression、共享信号 unit 和真实 PostgreSQL association/query integration 通过。typed profile registry 与仅 cognitive lane 所需 embedding 已接入；真实 PostgreSQL regression 验证冻结旧 plan、baseline lane 省略、profile 切换 generation/config 身份与 mismatch unavailable。VCP parity 和 benchmark utility 仍在本轮后续工作中，不能由这次 native refactor 代替。
 
 [返回文档目录](../INDEX.md)
