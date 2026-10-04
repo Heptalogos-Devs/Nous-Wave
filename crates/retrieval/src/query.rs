@@ -241,10 +241,23 @@ impl SharedLaneProvider for ServingService {
             self.embedding().map(|provider| provider.as_ref()),
         )
         .await?;
-        let topology = bound
-            .lane_enabled(EvidenceFamily::TopologyWave)
-            .then(|| topology_lane(&snapshot, bound, plan, &signals))
-            .transpose()?;
+        let topology = if bound.lane_enabled(EvidenceFamily::TopologyWave) {
+            Some(
+                if plan.expand_topology
+                    && matches!(
+                        plan.cognitive_profile,
+                        nous_runtime::CognitiveProfile::VcpDtsc
+                            | nous_runtime::CognitiveProfile::VcpRiverMemo
+                    )
+                {
+                    self.vcp_lane(&snapshot, bound, plan, &signals).await?
+                } else {
+                    topology_lane(&snapshot, bound, plan, &signals)?
+                },
+            )
+        } else {
+            None
+        };
         let mut outputs = signals.into_lanes();
         outputs.extend(topology);
         Ok(outputs)

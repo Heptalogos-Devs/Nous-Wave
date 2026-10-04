@@ -1649,6 +1649,123 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     {
         assert!((transport.weights[row[0]..row[1]].iter().sum::<f64>() - 0.7).abs() < 1e-12);
     }
+    Box::pin(check_public_vcp_queries(
+        &runtime,
+        subject,
+        &memory_reference,
+        &query_embedding,
+    ))
+    .await;
+}
+
+async fn check_public_vcp_queries(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+    memory: &CognitiveRef,
+    embedding: &nous_retrieval::TextEmbeddingOutput,
+) {
+    for profile in [
+        "vcp-rivermemo-v3.1-adapter-v1",
+        "vcp-dtsc-v9.2.1-adapter-v1",
+    ] {
+        runtime
+            .configuration
+            .set_system_override(
+                OperationId::new(),
+                nous_runtime::COGNITIVE_PROFILE.path(),
+                serde_json::json!(profile),
+            )
+            .await
+            .unwrap();
+        let mut request = query(subject);
+        request.expression.cues = vec![nous_core::Cue::Text(nous_core::TextCue {
+            text: "association memory".into(),
+        })];
+        request.expression.targets = vec![QueryTarget::Memory];
+        request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+        request.diagnostics = nous_core::DiagnosticsRequest::Summary;
+        let material = vec![nous_retrieval::QueryEmbedding {
+            text: "association memory".into(),
+            output: embedding.clone(),
+        }];
+        let result =
+            nous_retrieval::with_query_material(material.clone(), runtime.query(request.clone()))
+                .await
+                .unwrap();
+        assert!(result.results.iter().any(|hit| &hit.reference == memory));
+        let diagnostics = result.diagnostics.unwrap();
+        assert_eq!(
+            diagnostics
+                .lane_status
+                .get("topology_profile")
+                .map(String::as_str),
+            Some(profile),
+            "{diagnostics:?}"
+        );
+        assert!(diagnostics.lane_status["topologywave"].contains("ready"));
+        let bound = runtime.cognition.bind_query(request.clone()).await.unwrap();
+        let plan = QueryPlan::for_bound_query(&bound);
+        let CognitiveRef::MemoryRevision(revision) = memory else {
+            panic!("memory revision fixture");
+        };
+        let memory_id: Uuid = sqlx::query_scalar(
+            "SELECT memory_id FROM memory_revisions WHERE subject_id=$1 AND memory_revision_id=$2",
+        )
+        .bind(subject.0)
+        .bind(revision.0)
+        .fetch_one(runtime.store.pool())
+        .await
+        .unwrap();
+        let view = runtime
+            .require_memory()
+            .unwrap()
+            .memory(subject, nous_core::MemoryId(memory_id), None)
+            .await
+            .unwrap();
+        let suppressed = runtime
+            .require_memory()
+            .unwrap()
+            .suppress(
+                subject,
+                view.object.memory_id,
+                OperationId::new(),
+                view.object.object_epoch,
+            )
+            .await
+            .unwrap();
+        let stale = nous_retrieval::with_query_material(
+            material,
+            nous_runtime::SharedLaneProvider::lanes(&runtime.serving, &bound, &plan),
+        )
+        .await
+        .unwrap();
+        let lane = stale
+            .iter()
+            .find(|lane| lane.family == nous_core::EvidenceFamily::TopologyWave)
+            .unwrap();
+        assert_eq!(lane.status, nous_runtime::LaneStatus::Unavailable);
+        assert!(lane.candidates.is_empty());
+        runtime
+            .require_memory()
+            .unwrap()
+            .restore(
+                subject,
+                suppressed.object.memory_id,
+                OperationId::new(),
+                suppressed.object.object_epoch,
+            )
+            .await
+            .unwrap();
+        request.capabilities.text_embedding = nous_core::RequirementStrength::Forbidden;
+        let forbidden = runtime.query(request).await.unwrap();
+        assert!(
+            !forbidden
+                .diagnostics
+                .unwrap()
+                .lane_status
+                .contains_key("topology_profile")
+        );
+    }
 }
 
 async fn check_vcp_nonempty_observation(

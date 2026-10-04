@@ -138,6 +138,12 @@ V3 self-mass 计算自动消费 generation 的 candidate evidence roots，并保
 
 V3 candidate provenance 现在将 document contribution 回译到 generation 保存的来源闭包，避免同一 underlying source 的多个文档贡献全被当作独立来源。一个 document mass 在其来源根间等分；与候选自身来源重叠的份额进入 self mass。Unknown/空文档来源不提供 independent credit，但仍保留原 transport 贡献质量。明确的独立 Authority evidence root 保持原 root mass；每条贡献的 self+other 总量不变。该分摊是可辨认的 Nous ontology adaptation，不声明 frozen VCP file ontology parity，也未改变 reference independence 的 0.15 floor。专用回归覆盖完全重叠、部分重叠、unknown/空来源和显式根；现有实际 index→两个 readout PostgreSQL 回归继续通过。
 
+[VCP public lane](../../crates/retrieval/src/vcp_lane.rs) 已由 SharedLaneProvider 根据 bound profile 分派。DTSC 从原向量 index 提供候选；V3 从原/增强/local/transfer 向量 index 合并 offered candidates，并加入现有 lexical/dense signals 和 exact bindings。Index 搜索前按 query domain 过滤；base candidate 质量/可见性最终仍由 Runtime 的固定融合及 Authority revalidation 控制。Lexical source 目前使用现有 lane rank 的 reciprocal 作为 pool signal，time source 为零；这些是明确的 adapter 映射，未伪造 BM25 或日期分数。
+
+数值 observation/readout 前后检查完整 Subject authority_seq，并检查实际 memory capability；过期 fallback artifact 不生成候选。Profile/asset/embedding identity fence 仍由 observation owner 执行。Source-field 非空、state/transition truncation 与双场收敛分别可观察；discarded state mass 当前没有数值测量，truncation diagnostics 明示这一点。
+
+真实 PostgreSQL Kernel query integration 已验证两个 VCP profile 返回 MemoryRevision 并记录实际 profile/ready lane；通过普通 suppress lifecycle 改变 Authority 后，直接复用旧 generation 得到 unavailable/空候选，restore 后继续；Forbidden embedding 不生成 VCP observation。Native golden 和 20 项 frozen reference 检查通过。此结果验证 Kernel Runtime 查询接线，尚未重启当前本机 Core/运行真实 provider HTTP case，也未证明检索质量；benchmark 与正河网公共查询的完整 category 场景仍待执行。
+
 ## 需要保留的实现边界
 
 ### 观测与完整度

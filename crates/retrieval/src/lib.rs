@@ -19,6 +19,7 @@ pub use material::*;
 pub use vcp_adapter::*;
 mod vcp_policy;
 pub use vcp_policy::*;
+mod vcp_lane;
 mod vcp_readout;
 pub use vcp_readout::*;
 mod vcp_observation;
