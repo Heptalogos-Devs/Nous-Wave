@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { cognitiveMetrics, type RecallPath } from "./cognitive-metrics.js";
 import { retrievalMetrics, type RecallOracle } from "./retrieval-metrics.js";
 const { values } = parseArgs({
   options: {
@@ -20,6 +21,11 @@ type Row = {
   subject?: string;
   session_oracle?: string[];
   unresolved_evidence?: string[];
+  required_paths?: RecallPath[];
+  lane_diagnostics?: {
+    candidate_counts: Record<string, number>;
+    topology_discarded_mass: number | null;
+  };
   category: string;
   profile: string;
   as_of: string;
@@ -49,6 +55,15 @@ for (const file of manifest.scenario_files)
       ) as { events: Event[] }
     ).events,
   );
+const frozenQueries = JSON.parse(
+  await readFile(resolve(values.corpus!, "queries.json"), "utf8"),
+) as { queries: { query_id: string; required_paths?: RecallPath[] }[] };
+const frozenPaths = new Map(
+  frozenQueries.queries.map((query) => [
+    query.query_id,
+    query.required_paths ?? [],
+  ]),
+);
 const input = (await readFile(values.input, "utf8")).trim();
 const raw = input
   ? input.split("\n").map((line) => JSON.parse(line) as Row)
@@ -103,7 +118,16 @@ const rows = raw.map((row) => {
       ];
     }),
   );
-  return { ...row, sessionRecall, metrics: retrievalMetrics(returned, oracle) };
+  return {
+    ...row,
+    sessionRecall,
+    cognitive: cognitiveMetrics(
+      returned,
+      oracle,
+      row.required_paths ?? frozenPaths.get(row.query_id) ?? [],
+    ),
+    metrics: retrievalMetrics(returned, oracle),
+  };
 });
 const groups = new Map<string, typeof rows>();
 for (const row of rows) {
@@ -138,6 +162,48 @@ const summary = [...groups].map(([key, items]) => {
     unresolvedOracleRows: items.filter((r) => r.unresolved_evidence?.length)
       .length,
     sourceSetRecall10: mean((r) => r.metrics.atK[10]!.sourceSetRecall),
+    associationTargetRecall10: mean(
+      (r) => r.cognitive[10]!.associationTargetRecall,
+    ),
+    chainCoverage10: mean((r) => r.cognitive[10]!.chainCoverage),
+    precursorRecall10: mean((r) => r.cognitive[10]!.precursorRecall),
+    orderedChainScore10: mean((r) => r.cognitive[10]!.orderedChainScore),
+    harmfulByKind: Object.fromEntries(
+      [1, 5, 10].map((k) => [
+        k,
+        Object.fromEntries(
+          [
+            "stale",
+            "future",
+            "hub",
+            "wrong_entity",
+            "wrong_session",
+            "wrong_time",
+          ].map((kind) => [
+            kind,
+            mean((r) => r.metrics.atK[k]!.harmfulKinds[kind] ?? 0),
+          ]),
+        ),
+      ]),
+    ),
+    activatedEdges: mean(
+      (r) =>
+        r.lane_diagnostics?.candidate_counts.topology_activated_edges ?? null,
+    ),
+    observedMaxHop: Math.max(
+      ...items.map(
+        (r) =>
+          r.lane_diagnostics?.candidate_counts.topology_max_hop_observed ?? 0,
+      ),
+    ),
+    seedCount: mean(
+      (r) => r.lane_diagnostics?.candidate_counts.topology_seed_count ?? null,
+    ),
+    discardedMass: mean((r) =>
+      r.profile.startsWith("vcp-")
+        ? null
+        : (r.lane_diagnostics?.topology_discarded_mass ?? null),
+    ),
     harmful1: mean((r) => r.metrics.atK[1]!.harmfulCount),
     harmful5: mean((r) => r.metrics.atK[5]!.harmfulCount),
     harmful10: mean((r) => r.metrics.atK[10]!.harmfulCount),
@@ -150,6 +216,20 @@ const summary = [...groups].map(([key, items]) => {
     p99: percentile(0.99),
   };
 });
+const categoryDeltas = summary.map((group) => {
+  const category = group.group.split(":")[0]!;
+  const baseline = summary.find(
+    (candidate) => candidate.group === `${category}:baseline-rrf`,
+  );
+  const difference = (a: number | null, b: number | null | undefined) =>
+    a !== null && b != null ? a - b : null;
+  return {
+    group: group.group,
+    recall10Delta: difference(group.recall10, baseline?.recall10),
+    ndcg10Delta: difference(group.ndcg10, baseline?.ndcg10),
+    harmful10Delta: difference(group.harmful10, baseline?.harmful10),
+  };
+});
 await writeFile(
   output,
   JSON.stringify(
@@ -157,6 +237,7 @@ await writeFile(
       queryCount: new Set(rows.map((row) => row.query_id)).size,
       resultCount: rows.length,
       summary,
+      categoryDeltas,
       rows,
       status: "measured_rows_only_not_suite_completion",
     },

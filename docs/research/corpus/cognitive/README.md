@@ -95,3 +95,5 @@ Scorer 展开同 Subject 的 grade=0 默认 oracle，按 category/profile 输出
 `queries.json` revision 2 在每个 query 的 `input_context` 声明独立输入：Tag label 必须逐字出现在 query text 且已进入 as-of prefix；spontaneous case 的 `current_event_ids` 指向文字中“接手下一轮值班”所引用的实际提醒事件。这些字段从 authored story/input 取得，不读取 grade、oracle 或 required_paths。Runner 将 Tag cue 与 Runtime current refs 通过普通 bind/query 合同提交，逐条记录输入。30 条 spontaneous case 使用非空 Runtime context。
 
 第二轮在新的 `cc0-context-v2` prefix root 对四个 profile 全量重跑；相同 query/source 文本复用既有真实 provider cache，不重新调用 embedding。首轮 revision 1 的 text-only raw 输出保留，和 revision 2 分开分析，不能把输入变化当作纯算法消融。新输入已实际激活 native 种子/扩散；完整结果仍需待运行结束评分。Recurrence 与 weak-cue 未出现可绑定的 Tag surface，因此仍保留 text-only 输入。
+
+首轮 revision 1 增补指标已输出至 `cc0-prefix-corrected/cognitive-metrics.json`。二跳 chain coverage@10：baseline/native 0.567、DTSC 0.617、V3 0.567；同类 wrong-session@10：0.233、0.533、0.200。DTSC 目标召回收益伴随更高错误 Session intrusion，不能只据 Recall 选用。三跳 chain coverage@10：baseline/native 0.711、DTSC 0.567、V3 0.711。该报告使用的 frozen paths 在 revision 1/2 间完全相同，尚未包含第二轮情境输入结果。
