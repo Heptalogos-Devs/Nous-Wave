@@ -241,3 +241,17 @@ fn native_dual_field_path_geometry_components_match() {
         );
     }
 }
+
+#[test]
+fn native_relative_topology_alignment_distance_and_source_independence_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-relative-topology.json"))
+        .expect("native relative topology");
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceTopologyInput = serde_json::from_value(case["input"].clone()).unwrap();
+        compare_numeric_subset(
+            &serde_json::to_value(reference_relative_topology(&input)).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}

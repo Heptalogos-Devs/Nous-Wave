@@ -21,6 +21,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | query river | memo_sensing SenseOutput | node potential 与实际注入 edge flow；source field 为最终 retained FIR 分布；edge 记录先于 momentum/state admission | QueryRiver 包含 source/potential/edge/provenance/mass；native source 为初始归一 seed | Sense node/edge/source field 与逐跳 transfer matrix 通过；VCP 单一 lineage 不作为稳定合同 | 待实现 | nous-native |
 | dual fields | memo_pipeline solve_dual_fields | 同一 source/transport 的两个 scaled resolvent，独立 L1 convergence、mass-ratio domains 与 vector projection | 尚无该 VCP profile 的双场 readout | neutral 双 resolvent 首个 native 数值 fixture 通过；vector projection 待实现 | 待实现 | vcp-derived |
 | DTSC | memo_dtsc score_curve / run | ordered curve 的 exact/interpolated field contacts、coverage、continuity、action、closure、D/S/T、受限 reward floors；low trust 保留原输入顺序 | 当前 native 以 node potential 排序 | 待实现 | 待实现 | absent |
+| relative topology | rivermemo_topology_v3 evaluate_topology | exact/semantic node 对应，hop/position 相对距离、方向、独立 file 来源比例；node-only reliability cap；motif 复用 edge score | 当前 native node-potential 没有此 candidate readout | neutral 13-case native node/edge/component/reliability 对照通过 | 待实现 | vcp-derived |
 | morphology | rivermemo_topology_v3 compute_query_morphology | candidate/text 无关的 river 统计，三个 logits stable softmax，按样本/complete confidence 向 uniform prior 收缩 | 无三形态混合 | neutral 19-case native features/probabilities/discrete mode 对照通过 | 待实现 | vcp-derived |
 | Ω | rivermemo_topology_v3 compute_omega | edge activation、emergence、正 raw flow entropy 的 epsilon-floored geometric mean，乘完整度因子 | native complete/discarded mass，尚无 Ω | neutral 19-case native Ω components/regime 对照通过 | 待实现 | vcp-derived |
 | Direct Anchor | rivermemo_topology_v3 compute_anchors | hop-0 seed/core exact 或高阈值 semantic contact，mass/specificity/closure/pool rarity noisy-OR；缺少 lineage 的 fallback 限 reliability | exact lane 与 native seeds，不等于 VCP 独立 anchor reward | neutral 11-case native contact/pool rarity/noisy-OR/reliability 对照通过 | 待实现 | vcp-derived |
@@ -53,7 +54,11 @@ Morphology 的正 normalized flow 可以形成方向统计；Ω entropy 使用�
 
 支持标记由有效域和边存在性计算，质量还取决于实际 field mass；因此支持 count 非零不等于 path quality 非零。单 Tag 使用受限节点读出，仍保留段 count 为零。此处验证数值 kernel，未将正反 case 的差值外推为实际 retrieval utility。
 
-完整 vector/candidate matrix、EPA basis builder、intrinsic residual/gating/fusion、field vector projection、相对拓扑/条件创新/DTSC/V3 final readout 与 adapter utility 继续实现。
+[Relative topology fixture](../../crates/retrieval/tests/fixtures/vcp-relative-topology.json) 通过 frozen `evaluate_topology` 导出 13 个中性 case，涵盖正反/semantic 曲线、多个 query nodes 对应同一 candidate tag、node-only/无对应、self/independent source、weak edge/cap、distance/direction override、负正文 closure 和空 river。独立 [topology kernel](../../crates/retrieval/src/reference/topology.rs) 对照 node/edge coverage、alignment、distance/direction/edge/motif 分量、两个 graph heads、最终 score/reliability/mode，容差 `1e-12`。来源贡献按 file ID 读取独立比例，保留 frozen `0.15` self-evidence floor。
+
+当前 motif 分量与 edge topology 分量严格相同，没有额外图同构判定。缺少完整 edge 对应时采用 node-only readout，并限制 reliability；分数与 reliability 分开记录。
+
+完整 vector/candidate matrix、EPA basis builder、intrinsic residual/gating/fusion、field vector projection、条件创新/DTSC/V3 final readout 与 adapter utility 继续实现。
 
 ## 需要保留的实现边界
 

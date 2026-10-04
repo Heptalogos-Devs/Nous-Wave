@@ -14,3 +14,5 @@ mod anchors;
 pub use anchors::*;
 mod geometry;
 pub use geometry::*;
+mod topology;
+pub use topology::*;
