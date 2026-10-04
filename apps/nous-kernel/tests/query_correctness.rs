@@ -1387,6 +1387,67 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     let graph = generation.vcp.as_ref().expect("VCP profile generation");
     assert!(generation.topology.is_none());
     graph.validate().unwrap();
+    let query_embedding = nous_retrieval::TextEmbeddingOutput {
+        vector: vec![1.0, 0.0, 0.0],
+        space: graph.space.clone(),
+        producer: graph.producer.clone(),
+    };
+    let observation = nous_retrieval::VcpQueryObservation::prepare(
+        graph,
+        &reference_bound,
+        &reference_plan,
+        &query_embedding,
+    )
+    .unwrap();
+    assert_eq!(observation.original_vector(), &[1.0, 0.0, 0.0]);
+    assert_eq!(observation.generation_id(), graph.generation_id);
+    assert_eq!(observation.profile_id(), "vcp-rivermemo-v3.1-adapter-v1");
+    assert!(!observation.numerical().epa.cache_available);
+    assert!(observation.numerical().sense.source_field.is_empty());
+    check_vcp_nonempty_observation(
+        &runtime,
+        subject,
+        &reference_bound,
+        &reference_plan,
+        &query_embedding,
+    )
+    .await;
+
+    let mut insufficient_plan = reference_plan.clone();
+    insufficient_plan.topology_nodes = 50;
+    assert!(
+        nous_retrieval::VcpQueryObservation::prepare(
+            graph,
+            &reference_bound,
+            &insufficient_plan,
+            &query_embedding
+        )
+        .is_err()
+    );
+    let mut wrong_embedding = query_embedding.clone();
+    wrong_embedding.producer.signature_hash = "different".into();
+    assert!(
+        nous_retrieval::VcpQueryObservation::prepare(
+            graph,
+            &reference_bound,
+            &reference_plan,
+            &wrong_embedding
+        )
+        .is_err()
+    );
+    let mut forbidden_bound = reference_bound.clone();
+    forbidden_bound.source_query.capabilities.text_embedding =
+        nous_core::RequirementStrength::Forbidden;
+    assert!(
+        nous_retrieval::VcpQueryObservation::prepare(
+            graph,
+            &forbidden_bound,
+            &reference_plan,
+            &query_embedding
+        )
+        .is_err()
+    );
+
     let indexed = graph
         .search_candidates(&[1.0, 0.0, 0.0], graph.vectors.len())
         .unwrap();
@@ -1554,6 +1615,17 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     let assets = published.vcp.as_ref().unwrap();
     assert_ne!(assets.generation_id, previous_vcp);
     assert_eq!(assets.policy.graph.outbound_mass, 0.7);
+    assert!(
+        nous_retrieval::VcpQueryObservation::prepare(
+            assets,
+            &reference_bound,
+            &reference_plan,
+            &query_embedding
+        )
+        .is_err()
+    );
+    assert_eq!(observation.generation_id(), graph.generation_id);
+
     let authority_seq: i64 =
         sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
             .bind(subject.0)
@@ -1569,6 +1641,165 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     {
         assert!((transport.weights[row[0]..row[1]].iter().sum::<f64>() - 0.7).abs() < 1e-12);
     }
+}
+
+async fn check_vcp_nonempty_observation(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+    bound: &nous_runtime::BoundQuery,
+    plan: &QueryPlan,
+    embedding: &nous_retrieval::TextEmbeddingOutput,
+) {
+    let (material, a) = nonempty_vcp_lab_material(bound, embedding);
+    let tag_a = CognitiveRef::Tag(a);
+    let assets = nous_retrieval::VcpGeneration::build(
+        nous_core::ServingGenerationId::new(),
+        plan.cognitive_profile,
+        material,
+        bound
+            .config_snapshot
+            .get(nous_retrieval::VCP_ASSETS)
+            .unwrap(),
+    )
+    .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let generation =
+        nous_retrieval::VcpServingGeneration::create(assets, directory.path()).unwrap();
+    let baseline_policy = nous_retrieval::VcpQueryPolicy::default();
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_retrieval::VCP_QUERY.path(),
+            serde_json::to_value(&baseline_policy).unwrap(),
+        )
+        .await
+        .unwrap();
+    let mut bound = bound.clone();
+    bound.config_snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    bound
+        .source_query
+        .expression
+        .cues
+        .push(nous_core::Cue::Tag(nous_core::TagCue { tag: a }));
+    let observation =
+        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding).unwrap();
+    assert_eq!(
+        observation.core_tag_ids(),
+        &[generation.identities.id(&tag_a).unwrap()]
+    );
+    assert!(!observation.numerical().pyramid.levels.is_empty());
+    assert!(!observation.numerical().sense.source_field.is_empty());
+    assert!(!observation.numerical().fields.local_field.is_empty());
+    assert!(observation.numerical().fields.local_converged);
+    let mut query_policy = baseline_policy;
+    query_policy.sense.fir_gamma = 0.9;
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_retrieval::VCP_QUERY.path(),
+            serde_json::to_value(query_policy).unwrap(),
+        )
+        .await
+        .unwrap();
+    let changed_snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    let previous_generation = runtime
+        .serving
+        .publisher
+        .snapshot_for(subject)
+        .vcp
+        .as_ref()
+        .unwrap()
+        .generation_id;
+    let status = runtime
+        .serving
+        .prepare_with_snapshot(
+            subject,
+            nous_core::ServingNeed {
+                exact: false,
+                lexical: false,
+                dense: false,
+                topology: true,
+            },
+            &changed_snapshot,
+        )
+        .await
+        .unwrap();
+    assert!(status.rebuilt.is_empty());
+    assert_eq!(
+        runtime
+            .serving
+            .publisher
+            .snapshot_for(subject)
+            .vcp
+            .as_ref()
+            .unwrap()
+            .generation_id,
+        previous_generation
+    );
+    bound.config_snapshot = changed_snapshot;
+    let changed =
+        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding).unwrap();
+    assert_eq!(changed.policy().sense.fir_gamma, 0.9);
+    assert_ne!(
+        changed.config_subset_digest(),
+        observation.config_subset_digest()
+    );
+    assert_ne!(
+        changed.numerical().sense.source_field,
+        observation.numerical().sense.source_field
+    );
+    assert_eq!(changed.generation_id(), observation.generation_id());
+}
+
+fn nonempty_vcp_lab_material(
+    bound: &nous_runtime::BoundQuery,
+    embedding: &nous_retrieval::TextEmbeddingOutput,
+) -> (nous_retrieval::VcpProjectionMaterial, nous_core::TagId) {
+    use nous_retrieval::{VcpCurveOrder, VcpProjectedDocument};
+    let a = nous_core::TagId::new();
+    let b = nous_core::TagId::new();
+    let tag_a = CognitiveRef::Tag(a);
+    let tag_b = CognitiveRef::Tag(b);
+    let body = bound.exact_bindings[0].bound_ref.clone();
+    // Independent lab material exercises numerical adapter input. These Tag
+    // identities are not persisted or used as public-query Authority evidence.
+    let material = nous_retrieval::VcpProjectionMaterial {
+        authority_watermark: bound.bound_at_authority_seq,
+        space: embedding.space.clone(),
+        producer: embedding.producer.clone(),
+        identities: nous_retrieval::VcpIdentityMap::new([
+            body.clone(),
+            tag_a.clone(),
+            tag_b.clone(),
+        ]),
+        edges: Vec::new(),
+        documents: vec![
+            VcpProjectedDocument {
+                reference: body,
+                representation_text: "body".into(),
+                vector: vec![1.0, 0.0, 0.0],
+                concept_refs: vec![tag_a.clone(), tag_b.clone()],
+                curve_order: VcpCurveOrder::StableIdentity,
+            },
+            VcpProjectedDocument {
+                reference: tag_a.clone(),
+                representation_text: "查询线索".into(),
+                vector: vec![1.0, 0.0, 0.0],
+                concept_refs: Vec::new(),
+                curve_order: VcpCurveOrder::StableIdentity,
+            },
+            VcpProjectedDocument {
+                reference: tag_b,
+                representation_text: "其他线索".into(),
+                vector: vec![0.0, 1.0, 0.0],
+                concept_refs: Vec::new(),
+                curve_order: VcpCurveOrder::StableIdentity,
+            },
+        ],
+    };
+    (material, a)
 }
 
 async fn check_vcp_projection_material(

@@ -24,7 +24,7 @@ impl Serialize for VcpServingGeneration {
     }
 }
 impl VcpServingGeneration {
-    pub(crate) fn create(assets: VcpGeneration, path: &Path) -> Result<Self> {
+    pub fn create(assets: VcpGeneration, path: &Path) -> Result<Self> {
         assets.validate()?;
         let candidates = build_index(&assets, false)?;
         let tags = build_index(&assets, true)?;
@@ -36,7 +36,7 @@ impl VcpServingGeneration {
             tags,
         })
     }
-    pub(crate) fn open(assets: VcpGeneration, path: &Path) -> Result<Self> {
+    pub fn open(assets: VcpGeneration, path: &Path) -> Result<Self> {
         assets.validate()?;
         let candidates = DenseGeneration::open_with_metric(
             &path.join("vcp-candidates.usearch"),

@@ -31,7 +31,7 @@ pub struct ReferenceFusionInput {
     pub alpha: f64,
     pub config: ReferenceFusionConfig,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceFusionConfig {
     pub core_boost_factor: f64,

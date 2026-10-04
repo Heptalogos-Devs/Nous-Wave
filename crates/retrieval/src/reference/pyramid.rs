@@ -8,7 +8,7 @@ pub struct ReferenceResidualCandidate {
     pub vector: Vec<f32>,
     pub similarity: f64,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ReferencePyramidConfig {
     pub max_levels: usize,
     pub top_k: usize,

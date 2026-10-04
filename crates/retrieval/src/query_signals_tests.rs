@@ -209,8 +209,10 @@ async fn cognitive_embedding_is_shared_even_when_dense_lane_is_disabled() {
         calls: AtomicUsize::new(0),
         fail: false,
     };
-    let (snapshot, _) = snapshot(&provider);
+    let (snapshot, tag) = vcp_snapshot(&provider);
+    assert!(snapshot.dense.is_empty());
     let mut query = query();
+    query.expression.cues.push(Cue::Tag(TagCue { tag }));
     let mut plan = QueryPlan::for_query(&query);
     plan.expand_topology = true;
     plan.cognitive_profile = nous_runtime::CognitiveProfile::VcpRiverMemo;
@@ -238,4 +240,58 @@ async fn cognitive_embedding_is_shared_even_when_dense_lane_is_disabled() {
     .expect("forbidden cognitive signals");
     assert!(signals.embedding().is_none());
     assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+}
+
+fn vcp_snapshot(provider: &EmbeddingProbe) -> (ServingSnapshot, TagId) {
+    let body = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+    let first = TagId::new();
+    let second = TagId::new();
+    let tag_a = CognitiveRef::Tag(first);
+    let tag_b = CognitiveRef::Tag(second);
+    let material = crate::VcpProjectionMaterial {
+        authority_watermark: 1,
+        space: provider.space(),
+        producer: provider.producer(),
+        identities: crate::VcpIdentityMap::new([body.clone(), tag_a.clone(), tag_b.clone()]),
+        edges: Vec::new(),
+        documents: vec![
+            crate::VcpProjectedDocument {
+                reference: body,
+                representation_text: "body".into(),
+                vector: vec![1.0, 0.0],
+                concept_refs: vec![tag_a.clone(), tag_b.clone()],
+                curve_order: crate::VcpCurveOrder::StableIdentity,
+            },
+            crate::VcpProjectedDocument {
+                reference: tag_a,
+                representation_text: "query".into(),
+                vector: vec![1.0, 0.0],
+                concept_refs: Vec::new(),
+                curve_order: crate::VcpCurveOrder::StableIdentity,
+            },
+            crate::VcpProjectedDocument {
+                reference: tag_b,
+                representation_text: "other".into(),
+                vector: vec![0.0, 1.0],
+                concept_refs: Vec::new(),
+                curve_order: crate::VcpCurveOrder::StableIdentity,
+            },
+        ],
+    };
+    let assets = crate::VcpGeneration::build(
+        ServingGenerationId::new(),
+        nous_runtime::CognitiveProfile::VcpRiverMemo,
+        material,
+        crate::VcpAssetPolicy::default(),
+    )
+    .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let generation = crate::VcpServingGeneration::create(assets, directory.path()).unwrap();
+    (
+        ServingSnapshot {
+            vcp: Some(Arc::new(generation)),
+            ..Default::default()
+        },
+        first,
+    )
 }

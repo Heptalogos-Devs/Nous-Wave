@@ -185,7 +185,11 @@ async fn prepare_signals(
     if (dense_enabled || cognitive_embedding)
         && !query_text.trim().is_empty()
         && query.capabilities.text_embedding != RequirementStrength::Forbidden
-        && !snapshot.dense.is_empty()
+        && (!snapshot.dense.is_empty()
+            || (cognitive_embedding
+                && snapshot.vcp.as_ref().is_some_and(|generation| {
+                    generation.cognitive_profile == plan.cognitive_profile
+                })))
     {
         if let Some(provider) = provider {
             match provider

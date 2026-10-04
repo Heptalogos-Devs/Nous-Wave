@@ -43,7 +43,7 @@ pub fn reference_field_projection(input: &ReferenceFieldProjectionInput) -> Vec<
     vector.into_iter().map(|v| v as f32).collect()
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ReferenceTransport {
     pub node_ids: Vec<i64>,
     pub row_offsets: Vec<usize>,
@@ -82,7 +82,7 @@ impl ReferenceTransport {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ReferenceFieldConfig {
     pub local_alpha: f64,
     pub transfer_alpha: f64,
