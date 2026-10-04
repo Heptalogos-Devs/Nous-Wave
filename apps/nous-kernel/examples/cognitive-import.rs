@@ -128,6 +128,8 @@ async fn main() -> Result<()> {
         args.next()
             .ok_or_else(|| Error::Invalid("research run root required".into()))?,
     );
+    let embedding_path = args.next().map(PathBuf::from);
+    let vectors_path = args.next().map(PathBuf::from);
     let root = std::path::absolute(root).map_err(failure)?;
     let research = std::path::absolute("data/research").map_err(failure)?;
     if !root.starts_with(research) {
@@ -186,6 +188,11 @@ async fn main() -> Result<()> {
         embedding: None, stored_embedding: None, core_descriptors: vec![],
         deployment_document: serde_json::json!({"serving":{"lexical":{"enabled":false},"dense":{"enabled":false},"topology":{"enabled":false}}}),
     }, clock.clone()).await?;
+    if let Some(path) = &embedding_path {
+        let config =
+            serde_json::from_slice(&std::fs::read(path).map_err(failure)?).map_err(failure)?;
+        runtime.serving.initialize_embedding(config)?;
+    }
     let state_path = root.join("import-state.json");
     let mut state: State = if state_path.exists() {
         serde_json::from_slice(&std::fs::read(&state_path).map_err(failure)?).map_err(failure)?
@@ -214,6 +221,12 @@ async fn main() -> Result<()> {
         state.subjects.len(),
         state.events.len()
     );
+    if let Some(path) = &vectors_path {
+        commit_vectors(&runtime, &root, path).await?;
+    }
+    if embedding_path.is_some() {
+        export_needs(&runtime, &state, &root).await?;
+    }
     runtime.store.pool().close().await;
     postgres.stop().await.map_err(failure)?;
     Ok(())
@@ -510,5 +523,93 @@ fn verify_corpus(corpus: &std::path::Path) -> Result<()> {
             ));
         }
     }
+    Ok(())
+}
+
+async fn export_needs(runtime: &NousRuntime, state: &State, root: &std::path::Path) -> Result<()> {
+    let mut needs = Vec::new();
+    for subject in state.subjects.values() {
+        // The owner has a bounded page. Uncommitted pages are not silently
+        // treated as a complete export when this corpus outgrows that bound.
+        let page = runtime.serving.embedding_needs(*subject, 256).await?;
+        if page.len() == 256 {
+            println!("subject embedding page bounded at 256; commit then export next page");
+        }
+        for need in page {
+            needs.push(
+                serde_json::json!({"subject":subject,"reference":need.reference,"text":need.text}),
+            );
+        }
+    }
+    std::fs::write(
+        root.join("embedding-needs.json"),
+        serde_json::to_vec_pretty(&needs).map_err(failure)?,
+    )
+    .map_err(failure)?;
+    println!("exported embedding needs={}", needs.len());
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct Need {
+    subject: SubjectId,
+    reference: CognitiveRef,
+    text: String,
+}
+#[derive(Deserialize)]
+struct CachedVectors {
+    config: nous_retrieval::StoredEmbeddingConfig,
+    vectors: Vec<CachedVector>,
+}
+#[derive(Deserialize)]
+struct CachedVector {
+    text: String,
+    vector: Vec<f32>,
+}
+async fn commit_vectors(
+    runtime: &NousRuntime,
+    root: &std::path::Path,
+    path: &std::path::Path,
+) -> Result<()> {
+    let cache: CachedVectors =
+        serde_json::from_slice(&std::fs::read(path).map_err(failure)?).map_err(failure)?;
+    let provider = runtime
+        .serving
+        .embedding()
+        .ok_or_else(|| Error::Unavailable("embedding identity required before commit".into()))?;
+    if !cache.config.space.compatible_with(&provider.space())
+        || cache.config.producer.signature_hash != provider.producer().signature_hash
+    {
+        return Err(Error::Conflict(
+            "embedding cache identity disagrees with runtime".into(),
+        ));
+    }
+    let needs: Vec<Need> =
+        serde_json::from_slice(&std::fs::read(root.join("embedding-needs.json")).map_err(failure)?)
+            .map_err(failure)?;
+    let vectors = cache
+        .vectors
+        .into_iter()
+        .map(|entry| (entry.text, entry.vector))
+        .collect::<BTreeMap<_, _>>();
+    let mut committed = 0;
+    for need in needs {
+        let vector = vectors
+            .get(&need.text)
+            .ok_or_else(|| Error::Unavailable("embedding cache page incomplete".into()))?;
+        runtime
+            .serving
+            .commit_embedding(
+                need.subject,
+                need.reference,
+                need.text,
+                &cache.config.space.space_hash,
+                &cache.config.producer.signature_hash,
+                vector.clone(),
+            )
+            .await?;
+        committed += 1;
+    }
+    println!("committed embedding references={committed}");
     Ok(())
 }

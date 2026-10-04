@@ -161,3 +161,16 @@ Runner 通过真实配置角色和 canonical Structured Output 生成一次 prop
 ### Cognitive recall research import
 
 [CC0 corpus importer](../apps/nous-kernel/examples/cognitive-import.rs) 使用正常 Rust semantic owners 和显式 research CognitiveClock 导入独立 PostgreSQL，保存 event/revision 映射。用法及时间/关系映射限制见 [Cognitive Corpus](../docs/research/corpus/cognitive/README.md#研究-importer)。该入口不调用付费模型；embedding 和完整 query/profile runner 另行执行。
+
+### Cognitive embedding material
+
+```text
+corepack pnpm exec tsx scripts/research/cognitive-embedding.ts --config <nous.toml> --output data/research/<run>/embedding-config.json
+cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cognitive data/research/<run> data/research/<run>/embedding-config.json
+corepack pnpm exec tsx scripts/research/cognitive-embedding.ts --config <nous.toml> --output data/research/<run>/embedding-config.json --needs data/research/<run>/embedding-needs.json --vectors data/research/<run>/embedding-vectors.json --locator <bootstrap.toml>
+cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cognitive data/research/<run> data/research/<run>/embedding-config.json data/research/<run>/embedding-vectors.json
+```
+
+配置导出复用 production `resolvedEmbedding`，不维护第二份 identity。实际生成复用 `ModelInvocations.embeddingBatch`，凭据通过 locator/SecretRoot 的既有加载方式读取。文本按 SHA-256 去重，成功批次保存缓存，空间/producer 不一致时拒绝复用。批次间隔默认 6000ms，`--interval-ms` 可按实际 provider 限流调整；失败不隐藏，重跑只处理未缓存文本。
+
+Rust harness 验证材料身份后使用普通 `ServingService.commit_embedding`，导出下一轮未就绪 needs。每 Subject 页最多 256，满页会报告 bounded；生成/提交/再导出直到 needs 为空才完成。这个材料阶段尚未运行查询或生成 benchmark 分数。

@@ -47,6 +47,8 @@ Harness 通过 `NousRuntime::open_with_clock` 注入串行研究时钟。Memory 
 
 `supersedes` 事件通过实际 `revise_memory(Correct)` 更新同一 Memory，保留先前 exact revision；recalls_precursor 映射 `assoc.sequence`，recurrence 映射 `assoc.related`，支持为原 observation evidence。这些映射进入报告；不要声称 relation ontology 完全等同。其他 render kind 当前作为文本 observation 输入，未据 journal/reminder 标签创建相应 cognition object。
 
-本次实际导入位于 ignored `data/research/runs/cognitive-retrieval-2026-10-04/cc0-runtime`，尚未配置 embedding/Serving 或执行 query runner。初始 manifest 的 `status` 描述 authored release 时点，实际 import/run 状态以对应 run root 为准。
+本次实际导入位于 ignored `data/research/runs/cognitive-retrieval-2026-10-04/cc0-runtime`，已提交真实 provider embedding 材料（361 个唯一文本、831 个 reference，余下 needs=0）；尚未启用 Serving 或执行完整 query runner。初始 manifest 的 `status` 描述 authored release 时点，实际 import/run 状态以对应 run root 为准。
 
 [返回语料入口](../README.md)
+
+材料生成入口见 [Cognitive embedding material](../../../../scripts/README.md#cognitive-embedding-material)。使用 production `resolvedEmbedding` 与 `ModelInvocations.embeddingBatch`，经过同一个 research gateway。首次批量调用在 100 个文本后出现 HTTP 429；缓存保留，改为 6000ms 批次间隔后完成剩余文本，没有重复生成已缓存内容。这个限流恢复记录属于 provider operational 结果，不是 retrieval quality 结论。Query embedding 尚未批量生成。
