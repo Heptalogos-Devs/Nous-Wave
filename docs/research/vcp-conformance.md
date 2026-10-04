@@ -49,7 +49,11 @@ Morphology 的正 normalized flow 可以形成方向统计；Ω entropy 使用�
 
 [Direct Anchor fixture](../../crates/retrieval/tests/fixtures/vcp-anchors.json) 从 frozen `compute_anchors`/`anchor_contacts` 导出 11 个中性曲线 case，包括 exact/semantic、fallback、无 inbound、零 mass、缺 seed vector、semantic discount、全池共同 anchor、稀有 exact anchor、负正文 closure、空 seeds/pool。独立 [anchor kernel](../../crates/retrieval/src/reference/anchors.rs) 对照 score/reliability/strength、exact/semantic/contact 数与 mean closure，容差 `1e-12`。Rarity 先读取完整 selected pool，之后各候选独立读出；semantic cosine 用于选择 contact，奖励使用固定 discount。Hop-0 seed/core 的来源筛选仍由统一 pipeline/adapter 负责，不能将此 kernel 接受的任意 seed DTO 当作真实直接来源证明。
 
-这些 fixture 证明给定候选序列时的数值 kernel；ANN 搜索排序和 ontology mapping 仍属于 adapter utility。完整 vector/candidate matrix、EPA basis builder、intrinsic residual/gating/fusion、field vector projection、DTSC/V3 readout 与 adapter utility 继续实现。
+这些 fixture 证明给定候选序列时的数值 kernel；ANN 搜索排序和 ontology mapping 仍属于 adapter utility。[Path geometry fixture](../../crates/retrieval/tests/fixtures/vcp-path.json) 从 frozen `evaluate_path` 生成 10 个 case：正反有序曲线、transfer-only bridge、支持域外尾部、缺失 conductance、单 Tag、空曲线、负正文 closure、权重/closure override 和空 fields。独立 [path kernel](../../crates/retrieval/src/reference/geometry.rs) 复用中性 Curve DTO，按 max-normalized field 读取相邻段，逐值比较 local/transfer potential、direction、continuity、support/transfer count、正文 closure、path core/quality，容差 `1e-12`。
+
+支持标记由有效域和边存在性计算，质量还取决于实际 field mass；因此支持 count 非零不等于 path quality 非零。单 Tag 使用受限节点读出，仍保留段 count 为零。此处验证数值 kernel，未将正反 case 的差值外推为实际 retrieval utility。
+
+完整 vector/candidate matrix、EPA basis builder、intrinsic residual/gating/fusion、field vector projection、相对拓扑/条件创新/DTSC/V3 final readout 与 adapter utility 继续实现。
 
 ## 需要保留的实现边界
 

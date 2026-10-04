@@ -227,3 +227,17 @@ fn native_direct_anchor_pool_contacts_and_fallback_match() {
         );
     }
 }
+
+#[test]
+fn native_dual_field_path_geometry_components_match() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/vcp-path.json")).expect("native path matrix");
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferencePathInput = serde_json::from_value(case["input"].clone()).unwrap();
+        compare_numeric_subset(
+            &serde_json::to_value(reference_path_geometry(&input)).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}

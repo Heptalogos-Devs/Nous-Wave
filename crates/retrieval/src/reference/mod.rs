@@ -12,3 +12,5 @@ mod query_shape;
 pub use query_shape::*;
 mod anchors;
 pub use anchors::*;
+mod geometry;
+pub use geometry::*;
