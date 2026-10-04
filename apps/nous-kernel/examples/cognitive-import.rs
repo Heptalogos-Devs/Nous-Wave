@@ -631,20 +631,36 @@ struct Need {
 #[derive(Deserialize)]
 struct CachedVectors {
     config: nous_retrieval::StoredEmbeddingConfig,
+    #[serde(default)]
     vectors: Vec<CachedVector>,
+    #[serde(default)]
+    vector_files: Vec<PathBuf>,
 }
 #[derive(Deserialize)]
 struct CachedVector {
     text: String,
     vector: Vec<f32>,
 }
+fn load_vector_cache(path: &std::path::Path) -> Result<CachedVectors> {
+    let mut cache: CachedVectors =
+        serde_json::from_slice(&std::fs::read(path).map_err(failure)?).map_err(failure)?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| Error::Invalid("cache parent missing".into()))?;
+    for part in &cache.vector_files {
+        let vectors: Vec<CachedVector> =
+            serde_json::from_slice(&std::fs::read(parent.join(part)).map_err(failure)?)
+                .map_err(failure)?;
+        cache.vectors.extend(vectors);
+    }
+    Ok(cache)
+}
 async fn commit_vectors(
     runtime: &NousRuntime,
     root: &std::path::Path,
     path: &std::path::Path,
 ) -> Result<()> {
-    let cache: CachedVectors =
-        serde_json::from_slice(&std::fs::read(path).map_err(failure)?).map_err(failure)?;
+    let cache = load_vector_cache(path)?;
     let provider = runtime
         .serving
         .embedding()

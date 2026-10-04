@@ -3,8 +3,8 @@ import { createHash } from "node:crypto";
 import { ModelInvocations } from "../../apps/nous-core/src/model/invocations.js";
 import { resolveLocations } from "../../apps/nous-core/src/locations.js";
 import { parseArgs } from "node:util";
-import { readFile, writeFile, rename } from "node:fs/promises";
-import { resolve } from "node:path";
+import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
+import { resolve, dirname, relative } from "node:path";
 import {
   parseConfiguration,
   parseEffectiveConfiguration,
@@ -65,7 +65,8 @@ if (values.needs || values.vectors) {
   }[];
   type Cache = {
     config: typeof embedding;
-    vectors: { text: string; vector: number[] }[];
+    vectors?: { text: string; vector: number[] }[];
+    vector_files?: string[];
   };
   let cache: Cache = { config: embedding, vectors: [] };
   try {
@@ -77,7 +78,33 @@ if (values.needs || values.vectors) {
     throw new Error("Embedding cache identity mismatch");
   const digest = (text: string) =>
     createHash("sha256").update(text).digest("hex");
-  const existing = new Set(cache.vectors.map((entry) => digest(entry.text)));
+  const existing = new Set(
+    (cache.vectors ?? []).map((entry) => digest(entry.text)),
+  );
+  for (const file of cache.vector_files ?? []) {
+    const entries = JSON.parse(
+      await readFile(resolve(dirname(vectorsPath), file), "utf8"),
+    ) as { text: string; vector: number[] }[];
+    for (const entry of entries) existing.add(digest(entry.text));
+  }
+  const partsRoot = `${vectorsPath}.parts`;
+  await mkdir(partsRoot, { recursive: true, mode: 0o700 });
+  cache.vector_files ??= [];
+  const publish = async () => {
+    const staging = `${vectorsPath}.staging`;
+    await writeFile(staging, JSON.stringify(cache) + "\n", { mode: 0o600 });
+    await rename(staging, vectorsPath);
+  };
+  // Migrate an existing flat cache once; future batches publish only a small index.
+  if (cache.vectors?.length) {
+    const legacy = resolve(partsRoot, "legacy.json");
+    await writeFile(legacy, JSON.stringify(cache.vectors) + "\n", {
+      mode: 0o600,
+    });
+    cache.vector_files.push(relative(dirname(vectorsPath), legacy));
+    delete cache.vectors;
+    await publish();
+  } else delete cache.vectors;
   const pending = new Map(
     needs
       .filter((entry) => !existing.has(digest(entry.text)))
@@ -97,17 +124,27 @@ if (values.needs || values.vectors) {
       batch,
       embedding.space.model_identity,
     );
-    cache.vectors.push(
-      ...batch.map((text, i) => ({ text, vector: result.value[i]! })),
+    const entries = batch.map((text, i) => ({
+      text,
+      vector: result.value[i]!,
+    }));
+    const part = resolve(
+      partsRoot,
+      `batch-${String(cache.vector_files.length).padStart(6, "0")}.json`,
     );
-    const staging = `${vectorsPath}.staging`;
-    await writeFile(staging, JSON.stringify(cache) + "\n", { mode: 0o600 });
-    await rename(staging, vectorsPath);
+    const partStaging = `${part}.staging`;
+    await writeFile(partStaging, JSON.stringify(entries) + "\n", {
+      mode: 0o600,
+    });
+    await rename(partStaging, part);
+    cache.vector_files.push(relative(dirname(vectorsPath), part));
+    for (const text of batch) existing.add(digest(text));
+    await publish();
     console.log(
       JSON.stringify({
         completed: Math.min(offset + size, texts.length),
         pending: texts.length,
-        cached: cache.vectors.length,
+        cached: existing.size,
       }),
     );
   }

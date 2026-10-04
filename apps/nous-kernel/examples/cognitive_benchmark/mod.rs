@@ -54,8 +54,7 @@ pub(super) async fn run(
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(corpus.join("manifest.json")).map_err(failure)?)
             .map_err(failure)?;
-    let cache: CachedVectors =
-        serde_json::from_slice(&std::fs::read(vectors_path).map_err(failure)?).map_err(failure)?;
+    let cache = load_vector_cache(vectors_path)?;
     let vectors = cache
         .vectors
         .into_iter()

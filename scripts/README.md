@@ -192,3 +192,5 @@ cargo run -p nous-kernel --example cognitive-import -- data/research/external/lo
 Importer 的 event/revision receipts 使用增量 JSONL journal，Subject/Session 元数据仍以 atomic checkpoint 保存。旧完整 JSON checkpoint 首次 reopen 时原子迁移；写入中断的末尾残行会截去，并按普通 owner operation ID 恢复该事件。已有已提交 revision 必须再次回读核对时间，不能用 checkpoint 代替 Authority。
 
 Cognitive scorer 同时保存 association target recall、chain coverage、causal precursor recall 与 ordered-chain score（@1/5/10）。Chain 从冻结的 directed paths 取得，排除 cue 根节点；ordered-chain 分母为所有前驱对，按 cue→precursor 的路径顺序检查检索排名，未返回节点不获 pair credit。它不测生成叙事顺序。按 category/profile 汇总 harmful kinds、activated edges、seed count、observed max hop、已测 discarded mass 和对 baseline 的 Recall/nDCG/intrusion 差值；VCP 未测 mass 保持 null。没有 paths 的 query 相应指标为 null。
+
+真实向量 cache 使用 `{config, vector_files}` manifest，每个 batch 写入相邻 `.parts/` 目录，随后原子发布 index。Rust importer/benchmark reader 同时支持现有 `{config, vectors}` cache 和新分片格式。生成器首次 reopen 旧 flat cache 会将其转为一个 legacy shard，后续批次不重写全部已生成向量。分片保留原 text/space/producer/vector，不改变 embedding 合同；相同文本通过 SHA-256 去重。已有正在运行的旧生成进程继续写旧格式，需等该 writer 结束后迁移。
