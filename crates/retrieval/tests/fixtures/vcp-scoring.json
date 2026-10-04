@@ -1,0 +1,2897 @@
+{
+  "source": {
+    "commit": "e03b891d42055cdf3cab5dc961cc71dd5facd65a",
+    "owner": "rust-vexus-lite/src/rivermemo_topology_v3.rs assign_v3_scores",
+    "probe": "original score expressions; read-only capture of actual local peer statistics and anchor activation; neutral precomputed candidate inputs"
+  },
+  "tolerance": {
+    "absolute": 1e-12,
+    "relative": 1e-12
+  },
+  "cases": [
+    {
+      "name": "atomic-positive-innovation",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.2555297803591227,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.556,
+          "gatedBonus": 0.055999999999999994,
+          "id": 1,
+          "role": "atomic_concept",
+          "v2Bonus": 0.08
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "propositional-structural",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "propositional",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.17336673378798353,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.5315,
+          "gatedBonus": 0.0315,
+          "id": 1,
+          "role": "structural_explanation",
+          "v2Bonus": 0.045
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "narrative",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "narrative",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.17336673378798353,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.5315,
+          "gatedBonus": 0.0315,
+          "id": 1,
+          "role": "structural_explanation",
+          "v2Bonus": 0.045
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "singleton-no-peers",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0,
+            "effectivePeers": 0,
+            "expected": 0.95,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 0,
+            "requestedBonus": 0,
+            "uncertainty": 0,
+            "variance": 0
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 1,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "two-candidates-fallback",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.9,
+            "graphScore": 0.1,
+            "queryScore": 0.4,
+            "closure": 0.1,
+            "directEvidence": 0,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.3094511269974631,
+            "effectivePeers": 1,
+            "expected": 0.1,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0.85,
+            "peerCount": 1,
+            "requestedBonus": 0.1315167289739218,
+            "uncertainty": 0,
+            "variance": 0
+          },
+          "finalScore": 0.556,
+          "gatedBonus": 0.055999999999999994,
+          "id": 1,
+          "role": "atomic_concept",
+          "v2Bonus": 0.08
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.292403830344269,
+            "combinedConfidence": 0.1169615321377076,
+            "effectivePeers": 1,
+            "expected": 0.95,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 1,
+            "requestedBonus": 0,
+            "uncertainty": 0,
+            "variance": 0
+          },
+          "finalScore": 0.9,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "empty",
+      "input": {
+        "candidates": [],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": []
+    },
+    {
+      "name": "homogeneous-graph",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.6,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.6,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.6,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.6,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.6,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.6,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0,
+            "variance": 0
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 1,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.6,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0,
+            "variance": 0
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.6,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0,
+            "variance": 0
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.6,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0,
+            "variance": 0
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.6,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0,
+            "variance": 0
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "direct-frontier",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 6,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.8,
+            "closure": 0.7,
+            "directEvidence": 0.9,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "propositional",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.17336673378798353,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 1,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3,
+            "expected": 0.4666666666666667,
+            "graphGate": 0.7,
+            "initialRole": "direct_answer",
+            "innovation": 0,
+            "peerCount": 3,
+            "requestedBonus": 0,
+            "uncertainty": 0.395343263881271,
+            "variance": 0.1172222222222222
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 6,
+          "role": "direct_answer",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "thematic-cap",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.1,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.1,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.1,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.1,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.1,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.1,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.1,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.1,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.1,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.1,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "propositional",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.402278661274724,
+            "combinedConfidence": 0.402278661274724,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "thematic_neighbor",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.019930936226876608,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.5056,
+          "gatedBonus": 0.0056,
+          "id": 1,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0.008
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.402278661274724,
+            "combinedConfidence": 0.402278661274724,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "thematic_neighbor",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.402278661274724,
+            "combinedConfidence": 0.402278661274724,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "thematic_neighbor",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.402278661274724,
+            "combinedConfidence": 0.402278661274724,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "thematic_neighbor",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.402278661274724,
+            "combinedConfidence": 0.402278661274724,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "thematic_neighbor",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "collapsed-omega",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "propositional",
+        "omega": 0.01,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.01,
+            "initialRole": "structural_explanation",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.17336673378798353,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.50045,
+          "gatedBonus": 0.00045,
+          "id": 1,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0.045
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.01,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.01,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.01,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.01,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "zero-omega",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0,
+            "initialRole": "atomic_concept",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.2555297803591227,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 1,
+          "role": "atomic_concept",
+          "v2Bonus": 0.08
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "anchor-promotes-atomic",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.8
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.8,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.2555297803591227,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.556,
+          "gatedBonus": 0.055999999999999994,
+          "id": 1,
+          "role": "direct_answer",
+          "v2Bonus": 0.08
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.8,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.8,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.8,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.8,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "anchor-smooth-activation",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.12
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.01
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.01
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.01
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.01
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {
+          "anchorActivationZ": 0,
+          "anchorFrontierAbsFloor": 0.9
+        }
+      },
+      "expected": [
+        {
+          "anchorBonus": 0.04500740740740739,
+          "diagnostics": {
+            "anchorActivation": 0.4500740740740739,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.2555297803591227,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.6010074074074074,
+          "gatedBonus": 0.055999999999999994,
+          "id": 1,
+          "role": "atomic_concept",
+          "v2Bonus": 0.08
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "anchor-threshold-saturated",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.8
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.1
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.1
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.1
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0.1
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {
+          "anchorActivationFloor": 0.4,
+          "anchorActivationZ": 0
+        }
+      },
+      "expected": [
+        {
+          "anchorBonus": 0.1,
+          "diagnostics": {
+            "anchorActivation": 1,
+            "anchorThreshold": 0.4,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0.6606013242568481,
+            "peerCount": 4,
+            "requestedBonus": 0.2555297803591227,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.656,
+          "gatedBonus": 0.055999999999999994,
+          "id": 1,
+          "role": "direct_answer",
+          "v2Bonus": 0.08
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.4,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.4,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.4,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.4,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "config-override",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {
+          "conditionalBandwidth": 0.2,
+          "conditionalClosureBandwidth": 0.3,
+          "conditionalDirectBandwidth": 0.3,
+          "minimumPeers": 1,
+          "minimumEffectivePeers": 1,
+          "innovationConfidenceZ": 0,
+          "innovationScale": 2,
+          "topologyBonusCap": 0.03,
+          "omegaGamma": 2
+        }
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9999859609854975,
+            "expected": 0.22509369135755156,
+            "graphGate": 0.48999999999999994,
+            "initialRole": "atomic_concept",
+            "innovation": 0.7249063086424484,
+            "peerCount": 4,
+            "requestedBonus": 1.1216153708848822,
+            "uncertainty": 0.06248434624848924,
+            "variance": 0.003123432628377379
+          },
+          "finalScore": 0.5147,
+          "gatedBonus": 0.014699999999999998,
+          "id": 1,
+          "role": "atomic_concept",
+          "v2Bonus": 0.03
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9999334057969893,
+            "expected": 0.41330780346464796,
+            "graphGate": 0.48999999999999994,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3524245643669672,
+            "variance": 0.09936212800280288
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9999894729249714,
+            "expected": 0.4001873241640757,
+            "graphGate": 0.48999999999999994,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3602251537714158,
+            "variance": 0.1038096744869567
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9999859609854975,
+            "expected": 0.3878983786593858,
+            "graphGate": 0.48999999999999994,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3654301993346967,
+            "variance": 0.1068313094780586
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9999485319444035,
+            "expected": 0.4251862107970381,
+            "graphGate": 0.48999999999999994,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3411977158575743,
+            "variance": 0.09313246537471168
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "mixed-peer-roles",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.5,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.6,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.01,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "propositional",
+        "omega": 0.7,
+        "config": {}
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 2.6572927835227502,
+            "expected": 0.24042714197611048,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0.6237405916368538,
+            "peerCount": 4,
+            "requestedBonus": 0.16369308557580411,
+            "uncertainty": 0.08583226638703566,
+            "variance": 0.005352797812084683
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 1,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 3.989038603492356,
+            "expected": 0.4333228274484199,
+            "graphGate": 0.7,
+            "initialRole": "direct_answer",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3467958240515129,
+            "variance": 0.09616102708496707
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "direct_answer",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.5224960127287434,
+            "combinedConfidence": 0.5224960127287434,
+            "effectivePeers": 3.079770847003157,
+            "expected": 0.4753778831080638,
+            "graphGate": 0.7,
+            "initialRole": "thematic_neighbor",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.39961798829337797,
+            "variance": 0.12055152031589982
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "thematic_neighbor",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 2.6572927835227502,
+            "expected": 0.52958915024823,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.44541130249034583,
+            "variance": 0.14414585069039254
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7498221800656487,
+            "combinedConfidence": 0.7498221800656487,
+            "effectivePeers": 2.635754738043236,
+            "expected": 0.5741473994429178,
+            "graphGate": 0.7,
+            "initialRole": "structural_explanation",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.37789468363925455,
+            "variance": 0.10352660719532276
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "structural_explanation",
+          "v2Bonus": 0
+        }
+      ]
+    },
+    {
+      "name": "confidence-penalty",
+      "input": {
+        "candidates": [
+          {
+            "id": 1,
+            "pureScore": 0.5,
+            "graphScore": 0.95,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 2,
+            "pureScore": 0.51,
+            "graphScore": 0.2,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 3,
+            "pureScore": 0.49,
+            "graphScore": 0.25,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 4,
+            "pureScore": 0.5,
+            "graphScore": 0.3,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          },
+          {
+            "id": 5,
+            "pureScore": 0.48,
+            "graphScore": 0.15,
+            "queryScore": 0.4,
+            "closure": 0.7,
+            "directEvidence": 0.3,
+            "matchedEdgeCoverage": 0.8,
+            "matchedNodeCoverage": 0.9,
+            "nodeAlignmentScore": 0.8,
+            "topologyReliability": 0.7,
+            "anchorStrength": 0
+          }
+        ],
+        "mode": "atomic",
+        "omega": 0.7,
+        "config": {
+          "innovationConfidenceZ": 4
+        }
+      },
+      "expected": [
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.22730641632730694,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0.47432454600931373,
+            "peerCount": 4,
+            "requestedBonus": 0.18347533165642768,
+            "uncertainty": 0.06209225941584482,
+            "variance": 0.0030830603816322734
+          },
+          "finalScore": 0.556,
+          "gatedBonus": 0.055999999999999994,
+          "id": 1,
+          "role": "atomic_concept",
+          "v2Bonus": 0.08
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.961804654995983,
+            "expected": 0.432180329979405,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.35814194595958293,
+            "variance": 0.1024150482073688
+          },
+          "finalScore": 0.51,
+          "gatedBonus": 0,
+          "id": 2,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9937255148708783,
+            "expected": 0.40457687771416023,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3626654515758271,
+            "variance": 0.1051879319617782
+          },
+          "finalScore": 0.49,
+          "gatedBonus": 0,
+          "id": 3,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.991593853355918,
+            "expected": 0.39742058304293454,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3699610718226958,
+            "variance": 0.10945085585354374
+          },
+          "finalScore": 0.5,
+          "gatedBonus": 0,
+          "id": 4,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        },
+        {
+          "anchorBonus": 0,
+          "diagnostics": {
+            "anchorActivation": 0,
+            "anchorThreshold": 0.05,
+            "candidateConfidence": 0.7736278174936576,
+            "combinedConfidence": 0.7736278174936576,
+            "effectivePeers": 3.9694783283228077,
+            "expected": 0.4288818503468326,
+            "graphGate": 0.7,
+            "initialRole": "atomic_concept",
+            "innovation": 0,
+            "peerCount": 4,
+            "requestedBonus": 0,
+            "uncertainty": 0.3414205334669414,
+            "variance": 0.09311119648516482
+          },
+          "finalScore": 0.48,
+          "gatedBonus": 0,
+          "id": 5,
+          "role": "atomic_concept",
+          "v2Bonus": 0
+        }
+      ]
+    }
+  ]
+}

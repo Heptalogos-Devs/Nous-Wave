@@ -25,12 +25,12 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | morphology | rivermemo_topology_v3 compute_query_morphology | candidate/text 无关的 river 统计，三个 logits stable softmax，按样本/complete confidence 向 uniform prior 收缩 | 无三形态混合 | neutral 19-case native features/probabilities/discrete mode 对照通过 | 待实现 | vcp-derived |
 | Ω | rivermemo_topology_v3 compute_omega | edge activation、emergence、正 raw flow entropy 的 epsilon-floored geometric mean，乘完整度因子 | native complete/discarded mass，尚无 Ω | neutral 19-case native Ω components/regime 对照通过 | 待实现 | vcp-derived |
 | Direct Anchor | rivermemo_topology_v3 compute_anchors | hop-0 seed/core exact 或高阈值 semantic contact，mass/specificity/closure/pool rarity noisy-OR；缺少 lineage 的 fallback 限 reliability | exact lane 与 native seeds，不等于 VCP 独立 anchor reward | neutral 11-case native contact/pool rarity/noisy-OR/reliability 对照通过 | 待实现 | vcp-derived |
-| conditional innovation | rivermemo_topology_v3 assign_v3_scores | 条件 peer Gaussian 期望、variance/ESS uncertainty，正 innovation 经 role cap 与 Ω gate；独立 batch anchor activation | native topology rank 经 Runtime fixed fusion，无此读出 | 待实现 | 待实现 | absent |
+| conditional innovation | rivermemo_topology_v3 assign_v3_scores | 条件 peer Gaussian 期望、variance/ESS uncertainty，正 innovation 经 role cap 与 Ω gate；独立 batch anchor activation | native topology rank 经 Runtime fixed fusion，无此读出 | neutral 17-case native peer statistics/role caps/anchor activation 对照通过；完整 candidate pipeline 待接入 | 待实现 | vcp-derived |
 | TimeDecay | rag_params 与实际 JS caller 待完整确认 | native V3 的 time score 只影响 candidate superset；不能声称它直接进入 pure final score | Runtime own temporal hard constraints/age preference，不声明 VCP parity | 待实现 | 待实现 | uncertain |
 
 ## 当前数值 conformance
 
-独立 checkout 的 frozen native 模块已编译。只读 research export 暴露同一 cached observation，不修改算法；原 blob、export module 与 binary checksum 存在 ignored `data/research/vcp-reference/e03b891d42055cdf3cab5dc961cc71dd5facd65a/source-manifest.json`。
+独立 checkout 的 frozen native 模块已编译。只读 research export 暴露同一 cached observation；条件创新 probe 另记录原函数局部统计值，原 score 表达式保持不变。原 blob、instrumentation 与 binary checksum 存在 ignored `data/research/vcp-reference/e03b891d42055cdf3cab5dc961cc71dd5facd65a/source-manifest.json`。
 
 首个三维图 probe 实际执行 EPA publish、intrinsic residual、artifact build、统一 pipeline、DTSC 与 V3，导出 mean/basis/energy、residual/anchor、CSR、Sense 转移/node/edge、双场、morphology、Ω 与 candidate components/order。Tracked [数值 fixture](../../crates/retrieval/tests/fixtures/vcp-epa-dual-fields.json) 只包含生成的中间数值与来源身份，独立 [reference kernel](../../crates/retrieval/src/reference/fields.rs) 使用中性 DTO。
 
@@ -59,6 +59,8 @@ Morphology 的正 normalized flow 可以形成方向统计；Ω entropy 使用�
 当前 motif 分量与 edge topology 分量严格相同，没有额外图同构判定。缺少完整 edge 对应时采用 node-only readout，并限制 reliability；分数与 reliability 分开记录。
 
 完整 vector/candidate matrix、EPA basis builder、intrinsic residual/gating/fusion、field vector projection、条件创新/DTSC/V3 final readout 与 adapter utility 继续实现。
+
+独立 [V3 scoring head](../../crates/retrieval/src/reference/scoring.rs) 与 [17-case fixture](../../crates/retrieval/tests/fixtures/vcp-scoring.json) 比较实际函数记录的 peer expectation、variance、ESS、uncertainty、positive innovation、candidate/statistical confidence、requested bonus 和 peer count。Atomic/propositional/narrative、单候选/两候选/空池、Gaussian fallback、direct frontier、thematic cap、低/零 Ω、batch anchor promotion/平滑激活/饱和以及参数覆盖均通过 `1e-12` absolute/relative 对照，角色与数量 exact match。Anchor promotion 与 anchor reward 是两个独立决策：默认 z=2 的五候选案例中，最强 anchor 可提升角色而未超过激活阈值，加分仍为零。此组以 precomputed pure/graph/closure 等中性标量为输入；完整 candidate observables、pure score、候选池构建及 Nous adapter 尚未由此组证明。
 
 ## 需要保留的实现边界
 

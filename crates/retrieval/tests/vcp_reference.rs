@@ -255,3 +255,17 @@ fn native_relative_topology_alignment_distance_and_source_independence_match() {
         );
     }
 }
+
+#[test]
+fn native_conditional_peer_statistics_role_caps_and_anchor_activation_match() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-scoring.json"))
+        .expect("native scoring matrix");
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceScoreInput = serde_json::from_value(case["input"].clone()).unwrap();
+        compare_numeric_subset(
+            &serde_json::to_value(reference_v3_scores(&input)).unwrap(),
+            &case["expected"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}
