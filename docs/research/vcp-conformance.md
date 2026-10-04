@@ -26,6 +26,7 @@ VCP 为 CC BY-NC-SA 4.0，Nous 为 MIT。本页只记录独立提取的数学合
 | Ω | rivermemo_topology_v3 compute_omega | edge activation、emergence、正 raw flow entropy 的 epsilon-floored geometric mean，乘完整度因子 | native complete/discarded mass，尚无 Ω | neutral 19-case native Ω components/regime 对照通过 | 待实现 | vcp-derived |
 | Direct Anchor | rivermemo_topology_v3 compute_anchors | hop-0 seed/core exact 或高阈值 semantic contact，mass/specificity/closure/pool rarity noisy-OR；缺少 lineage 的 fallback 限 reliability | exact lane 与 native seeds，不等于 VCP 独立 anchor reward | neutral 11-case native contact/pool rarity/noisy-OR/reliability 对照通过 | 待实现 | vcp-derived |
 | conditional innovation | rivermemo_topology_v3 assign_v3_scores | 条件 peer Gaussian 期望、variance/ESS uncertainty，正 innovation 经 role cap 与 Ω gate；独立 batch anchor activation | native topology rank 经 Runtime fixed fusion，无此读出 | neutral 17-case native peer statistics/role caps/anchor activation 对照通过；完整 candidate pipeline 待接入 | 待实现 | vcp-derived |
+| candidate observables / pure score | rivermemo_topology_v3 evaluate_observables / run_native | source contact、semantic boundary、双场覆盖/potential、closure；original/local/transfer cosine 与 bounded path reward | native 使用 own node-potential | observables 14-case native 对照、其中 5 个实际 selected curve 的 pure score 对照通过；graph mixture 与完整流水线待接入 | 待实现 | vcp-derived |
 | TimeDecay | rag_params 与实际 JS caller 待完整确认 | native V3 的 time score 只影响 candidate superset；不能声称它直接进入 pure final score | Runtime own temporal hard constraints/age preference，不声明 VCP parity | 待实现 | 待实现 | uncertain |
 
 ## 当前数值 conformance
@@ -61,6 +62,8 @@ Morphology 的正 normalized flow 可以形成方向统计；Ω entropy 使用�
 完整 vector/candidate matrix、EPA basis builder、intrinsic residual/gating/fusion、field vector projection、条件创新/DTSC/V3 final readout 与 adapter utility 继续实现。
 
 独立 [V3 scoring head](../../crates/retrieval/src/reference/scoring.rs) 与 [17-case fixture](../../crates/retrieval/tests/fixtures/vcp-scoring.json) 比较实际函数记录的 peer expectation、variance、ESS、uncertainty、positive innovation、candidate/statistical confidence、requested bonus 和 peer count。Atomic/propositional/narrative、单候选/两候选/空池、Gaussian fallback、direct frontier、thematic cap、低/零 Ω、batch anchor promotion/平滑激活/饱和以及参数覆盖均通过 `1e-12` absolute/relative 对照，角色与数量 exact match。Anchor promotion 与 anchor reward 是两个独立决策：默认 z=2 的五候选案例中，最强 anchor 可提升角色而未超过激活阈值，加分仍为零。此组以 precomputed pure/graph/closure 等中性标量为输入；完整 candidate observables、pure score、候选池构建及 Nous adapter 尚未由此组证明。
+
+独立 [observables / pure score](../../crates/retrieval/src/reference/observables.rs) 另使用 [14-case fixture](../../crates/retrieval/tests/fixtures/vcp-observables-pure.json)。五个同一次 native run selected curve 使用数据库实际 f32 Tag/chunk 向量和 cached original/local/transfer vector，逐项比较 observables 与 pure score；九个附加 observables case 覆盖 hidden direct、零/反向 query、空 curve、无 source、无场、tail-only、local-only 和重复 source ID，使用原 `evaluate_observables` 直接生成期望，均以 `1e-12` 对照通过。此组的 geometry/topology/morphology 为条件输入，尚未证明候选池选择、完整 graph mixture 或统一 candidate 流水线。
 
 ## 需要保留的实现边界
 

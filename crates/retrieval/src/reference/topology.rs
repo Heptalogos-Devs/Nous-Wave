@@ -35,7 +35,7 @@ impl Default for ReferenceTopologyConfig {
         }
     }
 }
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceRelativeTopology {
     pub score: f64,

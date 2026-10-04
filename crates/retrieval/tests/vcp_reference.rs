@@ -269,3 +269,51 @@ fn native_conditional_peer_statistics_role_caps_and_anchor_activation_match() {
         );
     }
 }
+
+#[test]
+fn native_candidate_observables_and_pure_score_match_persisted_vectors() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-observables-pure.json"))
+        .expect("native persisted curve matrix");
+    for case in fixture["cases"].as_array().unwrap() {
+        let input: ReferenceObservableInput =
+            serde_json::from_value(case["input"].clone()).unwrap();
+        let local: Vec<f32> = serde_json::from_value(case["local_vector"].clone()).unwrap();
+        let transfer: Vec<f32> = serde_json::from_value(case["transfer_vector"].clone()).unwrap();
+        let topology = serde_json::from_value(case["topology"].clone()).unwrap();
+        let morphology = serde_json::from_value(case["morphology"].clone()).unwrap();
+        let config = serde_json::from_value(case["config"].clone()).unwrap();
+        let observables = reference_observables(&input);
+        compare_numeric_subset(
+            &serde_json::to_value(&observables).unwrap(),
+            &case["expected"]["observables"],
+            case["name"].as_str().unwrap(),
+        );
+        if case["expected"].get("pureScore").is_none() {
+            continue;
+        }
+        let cosine = |a: &[f32], b: &[f32]| {
+            let dot: f64 = a
+                .iter()
+                .zip(b)
+                .map(|(a, b)| f64::from(*a) * f64::from(*b))
+                .sum();
+            let magnitude = |v: &[f32]| v.iter().map(|x| f64::from(*x).powi(2)).sum::<f64>().sqrt();
+            dot / (magnitude(a) * magnitude(b))
+        };
+        let scores = reference_pure_scores(&ReferencePureInput {
+            query_score: cosine(&input.query_vector, &input.curve.chunk_vector),
+            local_score: cosine(&local, &input.curve.chunk_vector),
+            transfer_score: cosine(&transfer, &input.curve.chunk_vector),
+            geometry: &input.geometry,
+            observables: &observables,
+            topology: &topology,
+            morphology: &morphology,
+            config: &config,
+        });
+        compare_numeric_subset(
+            &serde_json::json!(scores.pure_score),
+            &case["expected"]["pureScore"],
+            case["name"].as_str().unwrap(),
+        );
+    }
+}

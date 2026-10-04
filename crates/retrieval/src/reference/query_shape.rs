@@ -24,7 +24,7 @@ pub struct ReferenceRiverShapeInput {
     pub river_edges: Vec<ReferenceRiverEdge>,
     pub complete_observation: bool,
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceMorphology {
     pub atomic_weight: f64,

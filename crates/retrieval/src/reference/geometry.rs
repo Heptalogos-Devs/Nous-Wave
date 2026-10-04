@@ -30,7 +30,7 @@ impl Default for ReferencePathConfig {
         }
     }
 }
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferencePathGeometry {
     pub path_quality: f64,
