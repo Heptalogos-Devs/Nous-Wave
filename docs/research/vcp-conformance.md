@@ -94,6 +94,14 @@ Sampler 的 xorshift 12-bit density key、残差/密度评分、多样性衰减�
 
 独立 [query pipeline](../../crates/retrieval/src/reference/pipeline.rs) 的 [首个组合 fixture](../../crates/retrieval/tests/fixtures/vcp-query-pipeline.json) 使用同一次实际 native `run_pipeline` 输出，从 query/cache basis/Tag vectors/图资产进入 EPA、Pyramid、门控、Sense、融合、双场及投影。EPA stats、Pyramid/gating、完整 source/node/edge 数值、Sense 诊断、fusion 计数/selected IDs、双场每节点质量/domain/convergence/residual 对照通过；f32 enhanced/local/transfer vector 使用 `1e-7` tolerance。Native 任意合流 lineage 不作为唯一稳定来源输出；ANN 实际返回的候选次序与相似度仍是冻结输入。此组只覆盖首个组合案例，剩余查询矩阵、生产索引 adapter/资产生命周期、Authority 映射和 benchmark 待完成。
 
+## Nous adapter 映射进度
+
+[VCP adapter identity/evidence boundary](../../crates/retrieval/src/vcp_adapter.rs) 已实现 generation-local `CognitiveRef` 双向映射、中性 candidate curve 与 reference ranking 到 LaneCandidate 的转换。输入引用稳定排序并去重，ID 从 1 起；输出引用必须属于同一映射，未知/非正 ID 拒绝。Curve member 使用同维、有限 embedding，保留真实 source sequence；无 Authority 序位时明确使用 `stable_identity` 控制顺序，不能据此宣称 narrative/causal order。
+
+Positive AssociationEvidence projection 保留 support class、association kind 与独立 provenance root，按 directed edge/root/class/kind 的重复输入取最大 support mass，不把重复记录当作独立支持；negative evidence 不产生 reference 正向 flow。此变换不写回 Authority，不改变 acceptance/evidence 语义。最终 ranking 去重并映射原 CognitiveRef，保留 kernel metadata；这些 ID 映射检查不能代替 Runtime Authority revalidation。
+
+映射聚焦检查覆盖输入次序不变的 identity、source/stable curve 顺序、重复 member、维度错误、独立/重复/negative evidence 和未知输出 ID。Production graph/embedding 资产组装、Typed config、atomic generation publication、immutable VCP observation、引擎与 public query 接入仍待完成；当前 VCP profile 尚未启用。
+
 ## 需要保留的实现边界
 
 ### 观测与完整度

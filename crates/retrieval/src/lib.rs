@@ -14,7 +14,9 @@ pub use observation::{QueryObservation, QueryTemporalContext};
 mod query;
 pub use query::PreparedQuerySignals;
 mod topology_lane;
+mod vcp_adapter;
 pub use material::*;
+pub use vcp_adapter::*;
 
 use nous_core::*;
 use nous_object_store::ObjectStore;
