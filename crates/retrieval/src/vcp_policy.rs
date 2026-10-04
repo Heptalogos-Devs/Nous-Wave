@@ -67,6 +67,17 @@ impl VcpAssetPolicy {
 }
 pub(crate) fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     registry.register(
+        VCP_READOUT,
+        "cognitive-retrieval",
+        "VCP candidate readout numerical policy.",
+        VcpReadoutPolicy::default(),
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SystemOnly,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::QueryPolicy,
+        VcpReadoutPolicy::validate,
+    )?;
+    registry.register(
         VCP_QUERY,
         "cognitive-retrieval",
         "VCP request observation numerical policy.",
@@ -147,6 +158,21 @@ impl VcpQueryPolicy {
         {
             return Err(Error::Invalid("invalid VCP query policy bounds".into()));
         }
+        Ok(())
+    }
+}
+
+pub const VCP_READOUT: ConfigKey<VcpReadoutPolicy> = ConfigKey::new("retrieval.vcp.readout");
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct VcpReadoutPolicy {
+    pub dtsc: ReferenceDtscConfig,
+    pub v3: ReferenceReadoutConfig,
+}
+impl VcpReadoutPolicy {
+    pub fn validate(&self) -> Result<()> {
+        let value = serde_json::to_value(self).map_err(|e| Error::Invalid(e.to_string()))?;
+        serde_json::from_value::<Self>(value).map_err(|e| Error::Invalid(e.to_string()))?;
         Ok(())
     }
 }

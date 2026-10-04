@@ -12,7 +12,7 @@ pub struct ReferencePoolSignals {
     pub time: f64,
     pub anchor: f64,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferencePoolConfig {
     pub query_k: usize,

@@ -106,7 +106,7 @@ pub fn reference_observables(input: &ReferenceObservableInput) -> ReferenceObser
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferencePureConfig {
     pub pure_query_weight: f64,

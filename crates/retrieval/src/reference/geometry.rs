@@ -12,7 +12,7 @@ pub struct ReferencePathInput {
     pub edges: Vec<(i64, i64, f64)>,
     pub config: ReferencePathConfig,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferencePathConfig {
     pub local_weight: f64,

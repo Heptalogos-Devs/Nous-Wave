@@ -1,7 +1,7 @@
 use super::ReferenceDtscFieldConfig;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Clone, Deserialize)]
+#[derive(Debug, Default, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct ReferenceDtscConfig {
     pub field: ReferenceDtscFieldConfig,
@@ -11,7 +11,7 @@ pub struct ReferenceDtscConfig {
     pub trust: ReferenceDtscTrustConfig,
     pub auxiliary: ReferenceDtscAuxConfig,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceDtscCurveConfig {
     pub strong_contact_threshold: f64,
@@ -32,7 +32,7 @@ impl Default for ReferenceDtscCurveConfig {
         }
     }
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceDtscSparseConfig {
     #[serde(rename = "sparseAssociationEnabled")]
@@ -66,7 +66,7 @@ impl Default for ReferenceDtscSparseConfig {
         }
     }
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceDtscRewardConfig {
     pub alpha: f64,
@@ -102,7 +102,7 @@ impl Default for ReferenceDtscRewardConfig {
         }
     }
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceDtscTrustConfig {
     #[serde(rename = "minGeoCoverageRatio", alias = "minCandidateCoverage")]
@@ -123,7 +123,7 @@ impl Default for ReferenceDtscTrustConfig {
         }
     }
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceDtscAuxConfig {
     pub enabled: bool,
@@ -153,7 +153,7 @@ impl Default for ReferenceDtscAuxConfig {
         }
     }
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceDtscIdentityConfig {
     pub enabled: bool,

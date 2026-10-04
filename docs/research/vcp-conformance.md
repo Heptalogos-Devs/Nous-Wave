@@ -124,7 +124,13 @@ Reference 图 owner 现在分开构建按文档的 facts 与全图 transport，�
 
 `retrieval.vcp.query` 是 Developer/SystemOnly/Live/QueryPolicy 的 typed policy，默认值来自独立 numerical contracts，包含 Pyramid/gating/Sense/fusion/fields。真实 PostgreSQL 回归验证缺 EPA/空河网路径、producer/policy fences 与 observation 的 generation 不变；独立 lab material 经真实 index 构造非空 Pyramid/Sense/双场和 core Tag 映射。FIR paired probe 在同一 lab generation/中文 Tag 输入下仅将 gamma 从 0.6 改为 0.9，source field 改变而 Serving generation 不重建。最初英文 Tag fixture 在 Unknown world 下 language confidence=0.05，未达到 firing threshold，单节点归一化源场相同；该输入对 FIR 不敏感。
 
-修正 shared query signals 仍依赖 Dense generation 的接线缺陷：存在匹配 VCP generation 且允许 embedding 时，可以在 Dense 未启用/没有 Dense generation 的情况下准备一次共享 embedding；Forbidden 仍不调用 provider。实际 VCP-only index 回归覆盖此路径。当前 observation 入口可执行，DTSC/V3 readout 与公共 topology lane 仍未接通。
+修正 shared query signals 仍依赖 Dense generation 的接线缺陷：存在匹配 VCP generation 且允许 embedding 时，可以在 Dense 未启用/没有 Dense generation 的情况下准备一次共享 embedding；Forbidden 仍不调用 provider。实际 VCP-only index 回归覆盖此路径。当前 observation 入口可执行，DTSC/V3 数值 readout 已可执行；公共 topology lane 与 Authority candidate/self-root view 仍未接通。
+
+[VCP readout adapter](../../crates/retrieval/src/vcp_readout.rs) 的 DTSC/V3 函数借用同一个 immutable observation，接受调用者提供的 offered candidate、base/BM25/time/anchor signals 与 self-evidence roots。它检查 generation/profile、ID/curve、重复候选、有限数值和已知 root，不查询模型、不扩展候选或赋予权限。DTSC 输入直接使用 EPA/Pyramid metrics，depth 交给 frozen kernel 的 clamp；hop-0 来源由实际 gating core/seed 标注，后续节点为 emergent，未构造不稳定的 seed lineage。
+
+V3 支持可选 per-candidate provenance view，旧 reference file-owned view 保持默认合同。Nous adapter 将每条边的实际 root mass 按该候选的 canonical document root 和声明 self roots 分为 self/other 两类，只传质量比例给原 independence 公式；两个质量 token 不代表新证据根。这样同一真实根可以属于多个候选，且不重复增加总质量。View 中 offered candidates 已由调用者决定，reference visible 标记仅控制 observable direct，不能代替 Authority 验证。
+
+`retrieval.vcp.readout` 是 Developer/SystemOnly/Live/QueryPolicy typed policy，包含独立 DTSC/V3 numerical config。实际 index→observation→两种 readout 的 lab case 返回原 CognitiveRef，并确认 observation 不变；将已知独立根加入候选 self roots 后，V3 edge topology score 降低，未知 root/重复候选被拒绝。20 项 frozen reference 检查继续通过。完整公共查询仍待当前 Authority 候选/self-root 图视图和 topology lane 接线，此处没有检索质量或权限完成声明。
 
 ## 需要保留的实现边界
 

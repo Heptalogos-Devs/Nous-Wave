@@ -13,7 +13,7 @@ pub struct ReferenceTopologyInput {
     pub provenance: Vec<ReferenceProvenanceEdge>,
     pub config: ReferenceTopologyConfig,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceTopologyConfig {
     pub semantic_node_threshold: f64,

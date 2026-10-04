@@ -1692,6 +1692,7 @@ async fn check_vcp_nonempty_observation(
     assert!(!observation.numerical().sense.source_field.is_empty());
     assert!(!observation.numerical().fields.local_field.is_empty());
     assert!(observation.numerical().fields.local_converged);
+    check_vcp_readouts(&generation, &observation, &bound);
     let mut query_policy = baseline_policy;
     query_policy.sense.fir_gamma = 0.9;
     runtime
@@ -1753,6 +1754,84 @@ async fn check_vcp_nonempty_observation(
     assert_eq!(changed.generation_id(), observation.generation_id());
 }
 
+fn check_vcp_readouts(
+    generation: &nous_retrieval::VcpServingGeneration,
+    observation: &nous_retrieval::VcpQueryObservation,
+    bound: &nous_runtime::BoundQuery,
+) {
+    let body = bound.exact_bindings[0].bound_ref.clone();
+    let candidate = nous_retrieval::VcpReadoutCandidate {
+        reference: body.clone(),
+        base_score: 0.9,
+        bm25_score: 0.2,
+        time_score: 0.0,
+        anchor_score: 0.0,
+        self_evidence_roots: Default::default(),
+    };
+    let policy = bound
+        .config_snapshot
+        .get(nous_retrieval::VCP_READOUT)
+        .unwrap();
+    let before = serde_json::to_value(observation).unwrap();
+    let dtsc = nous_retrieval::vcp_dtsc_readout(
+        generation,
+        observation,
+        std::slice::from_ref(&candidate),
+        &policy.dtsc,
+        1,
+    )
+    .unwrap();
+    let v3 = nous_retrieval::vcp_v3_readout(
+        generation,
+        observation,
+        std::slice::from_ref(&candidate),
+        &policy.v3,
+        1,
+    )
+    .unwrap();
+    assert_eq!(dtsc.results.len(), 1);
+    assert_eq!(v3.results.len(), 1);
+    assert_eq!(
+        generation.identities.reference(dtsc.results[0].id).unwrap(),
+        &body
+    );
+    assert_eq!(
+        generation.identities.reference(v3.results[0].id).unwrap(),
+        &body
+    );
+    assert!(dtsc.results[0].score.is_finite() && v3.results[0].score.is_finite());
+    assert_eq!(serde_json::to_value(observation).unwrap(), before);
+    let mut own = candidate.clone();
+    own.self_evidence_roots
+        .insert("occurrence:lab-independent".into());
+    let owned = nous_retrieval::vcp_v3_readout(
+        generation,
+        observation,
+        std::slice::from_ref(&own),
+        &policy.v3,
+        1,
+    )
+    .unwrap();
+    assert!(
+        owned.results[0].relative_topology.edge_topology_score
+            < v3.results[0].relative_topology.edge_topology_score
+    );
+    own.self_evidence_roots.insert("unknown:root".into());
+    assert!(
+        nous_retrieval::vcp_v3_readout(generation, observation, &[own], &policy.v3, 1).is_err()
+    );
+    assert!(
+        nous_retrieval::vcp_dtsc_readout(
+            generation,
+            observation,
+            &[candidate.clone(), candidate],
+            &policy.dtsc,
+            1
+        )
+        .is_err()
+    );
+}
+
 fn nonempty_vcp_lab_material(
     bound: &nous_runtime::BoundQuery,
     embedding: &nous_retrieval::TextEmbeddingOutput,
@@ -1774,7 +1853,15 @@ fn nonempty_vcp_lab_material(
             tag_a.clone(),
             tag_b.clone(),
         ]),
-        edges: Vec::new(),
+        edges: vec![nous_persistence::TopologyEdgeSource {
+            from: tag_a.clone(),
+            to: tag_b.clone(),
+            support_class: "source_evidence".into(),
+            association_kind: "assoc.related".into(),
+            polarity: "positive".into(),
+            support_mass: 0.6,
+            provenance_root: Some("occurrence:lab-independent".into()),
+        }],
         documents: vec![
             VcpProjectedDocument {
                 reference: body,
@@ -1793,7 +1880,7 @@ fn nonempty_vcp_lab_material(
             VcpProjectedDocument {
                 reference: tag_b,
                 representation_text: "其他线索".into(),
-                vector: vec![0.0, 1.0, 0.0],
+                vector: vec![0.6, 0.8, 0.0],
                 concept_refs: Vec::new(),
                 curve_order: VcpCurveOrder::StableIdentity,
             },

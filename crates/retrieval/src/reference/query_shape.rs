@@ -43,7 +43,7 @@ pub struct ReferenceMorphology {
     pub growth_persistence: f64,
     pub dominant_mode: String,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceOmegaConfig {
     pub kappa_edge: f64,

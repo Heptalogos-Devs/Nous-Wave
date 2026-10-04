@@ -23,7 +23,7 @@ pub struct ReferenceDtscFieldInput {
     pub sample_tags: Vec<(i64, Vec<f32>)>,
     pub config: ReferenceDtscFieldConfig,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceDtscFieldConfig {
     pub min_field_tags: usize,

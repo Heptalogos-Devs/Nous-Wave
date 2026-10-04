@@ -22,7 +22,7 @@ pub struct ReferenceScoreCandidate {
     pub topology_reliability: f64,
     pub anchor_strength: f64,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceScoreConfig {
     pub conditional_bandwidth: f64,

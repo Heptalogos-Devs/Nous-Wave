@@ -32,7 +32,7 @@ pub struct ReferenceCandidateCurve {
     pub time_score: f64,
     pub anchor_score: f64,
 }
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone, Serialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct ReferenceReadoutConfig {
     pub pool: ReferencePoolConfig,
@@ -49,6 +49,10 @@ pub struct ReferenceReadoutInput {
     pub candidates: Vec<ReferenceCandidateCurve>,
     pub transport: ReferenceTransport,
     pub edge_provenance: Vec<ReferenceProvenanceEdge>,
+    /// Optional owner-supplied per-candidate evidence view. Frozen file-owned
+    /// provenance remains the default numerical contract.
+    #[serde(default)]
+    pub candidate_provenance: Vec<(i64, Vec<ReferenceProvenanceEdge>)>,
     pub tag_vectors: Vec<(i64, Vec<f32>)>,
     pub inbound: Vec<(i64, f64)>,
     pub allowed_file_ids: Vec<i64>,
@@ -185,7 +189,12 @@ fn candidate(
         file_id: curve.file_id,
         river: o.river.clone(),
         query_tag_vectors: input.tag_vectors.clone(),
-        provenance: input.edge_provenance.clone(),
+        provenance: input
+            .candidate_provenance
+            .iter()
+            .find(|(id, _)| *id == curve.curve.id)
+            .map(|(_, edges)| edges.clone())
+            .unwrap_or_else(|| input.edge_provenance.clone()),
         config: input.config.topology.clone(),
     });
     let observables = reference_observables(&ReferenceObservableInput {

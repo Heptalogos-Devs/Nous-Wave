@@ -22,7 +22,7 @@ pub struct ReferenceAnchorInput {
     pub fallback: bool,
     pub config: ReferenceAnchorConfig,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ReferenceAnchorConfig {
     pub semantic_anchor_threshold: f64,
