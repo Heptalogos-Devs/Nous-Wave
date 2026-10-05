@@ -1,36 +1,20 @@
 {
   "schema_version": 1,
-  "suite": "nous-cognitive-cc0-v1",
+  "suite": "nous-cognitive-structure-fixture-v1",
   "license": "CC0-1.0",
+  "status": "deterministic_host_explicit_structure_fixture_not_quality_benchmark",
   "scenario_files": [
     {
       "path": "scenarios/observatory.json",
-      "sha256": "a54f2193f348384f3057c9626183573042893ef3e85309d9fbaca141cf5bd15e",
-      "events": 100,
+      "sha256": "e7a6e04b362ab362f303c08c4d7a17bb32c7d3f7e38fdecab2a80f793b2f021c",
+      "events": 10,
       "start": "2026-05-01T09:00:00Z",
-      "end": "2026-08-26T09:00:00Z"
-    },
-    {
-      "path": "scenarios/garden.json",
-      "sha256": "9ba85e405d5300db9531ee0d5a3ef36d4188710fb946d6f5e2db1b3a4a54d428",
-      "events": 100,
-      "start": "2026-05-01T09:00:00Z",
-      "end": "2026-08-26T09:00:00Z"
-    },
-    {
-      "path": "scenarios/archive.json",
-      "sha256": "359259c5a2a585efd2190570ee15bf428ee1140f67604aaaa170a2d3ba80ecdb",
-      "events": 100,
-      "start": "2026-05-01T09:00:00Z",
-      "end": "2026-08-26T09:00:00Z"
+      "end": "2026-05-10T09:00:00Z"
     }
   ],
-  "event_count": 300,
-  "query_count": 249,
-  "queries_sha256": "9a12b2ef09e27f197b65648d98cafd5961f1af74efbff6e9ae40fbea6bb1385e",
-  "associations_sha256": "c6af581d7100c7a0cae6308187ac73f631ebab94388b93d49d7854f89bd91c4c",
-  "status": "authored_not_imported_not_benchmarked",
-  "generation": "fixed authored phase templates with 30 distinct projects; no retrieval-output-derived oracle",
-  "query_set_revision": 2,
-  "query_input": "project Tag cues and Runtime current reminder refs declared independently of oracle"
+  "event_count": 10,
+  "query_count": 15,
+  "queries_sha256": "b058320f88385d9b1aec324edadc8e85f4c11dd6489399a2c840ffaf91973f0c",
+  "associations_sha256": "020281057b8a86d098715eb06da2d107365fe2d42c1699c90de44735a9ae0e26",
+  "query_input": "host-explicit structural cues; not automatic maintenance validation"
 }

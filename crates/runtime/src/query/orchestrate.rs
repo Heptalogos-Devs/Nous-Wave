@@ -86,6 +86,7 @@ impl CognitiveRuntimeService {
                 .collect(),
         }];
         Ok(super::QueryExecution {
+            read_lease: None,
             bound,
             leaves,
             result,

@@ -65,8 +65,8 @@ pub(super) fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Re
         CognitiveProfile::default(),
         ConfigExposure::Developer,
         ConfigScopePolicy::SystemOnly,
-        ConfigApplyMode::ServingRebuild,
-        ConfigSemanticEffect::ServingProjection,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::QueryPolicy,
         |_: &CognitiveProfile| Ok(()),
     )
 }

@@ -247,7 +247,9 @@ it("frames without a transcript cannot acquire audio evidence in either structur
     const structuredText = modelInputs.find(
       (input) => typeof input === "string",
     ) as string;
-    expect(JSON.parse(structuredText).modalities.audio).toBe(false);
+    expect(JSON.parse(structuredText) as unknown).toMatchObject({
+      modalities: { audio: false },
+    });
   } finally {
     await rm(instance, { recursive: true, force: true });
   }

@@ -187,8 +187,12 @@ async fn prepare_signals(
         && query.capabilities.text_embedding != RequirementStrength::Forbidden
         && (!snapshot.dense.is_empty()
             || (cognitive_embedding
-                && snapshot.vcp.as_ref().is_some_and(|generation| {
-                    generation.cognitive_profile == plan.cognitive_profile
+                && snapshot.vcp.as_ref().is_some_and(|_| {
+                    matches!(
+                        plan.cognitive_profile,
+                        nous_runtime::CognitiveProfile::VcpDtsc
+                            | nous_runtime::CognitiveProfile::VcpRiverMemo
+                    )
                 })))
     {
         if let Some(provider) = provider {
@@ -232,9 +236,21 @@ async fn prepare_signals(
 #[async_trait::async_trait]
 impl SharedLaneProvider for ServingService {
     async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
+        let _reader = self.read_gate.clone().read_owned().await;
         let snapshot = self.publisher.snapshot_for(bound.source_query.subject);
+        self.lanes_from_snapshot(&snapshot, bound, plan).await
+    }
+}
+
+impl ServingService {
+    async fn lanes_from_snapshot(
+        &self,
+        snapshot: &ServingSnapshot,
+        bound: &BoundQuery,
+        plan: &QueryPlan,
+    ) -> Result<Vec<LaneOutput>> {
         let signals = prepare_signals(
-            &snapshot,
+            snapshot,
             &bound.source_query,
             &bound.enabled_lanes,
             plan,
@@ -250,9 +266,9 @@ impl SharedLaneProvider for ServingService {
                             | nous_runtime::CognitiveProfile::VcpRiverMemo
                     )
                 {
-                    self.vcp_lane(&snapshot, bound, plan, &signals).await?
+                    self.vcp_lane(snapshot, bound, plan, &signals).await?
                 } else {
-                    topology_lane(&snapshot, bound, plan, &signals)?
+                    topology_lane(snapshot, bound, plan, &signals)?
                 },
             )
         } else {
@@ -284,3 +300,94 @@ fn domain_dense_matches(
 #[cfg(test)]
 #[path = "query_signals_tests.rs"]
 mod tests;
+
+/// Request-scoped immutable Serving view, retained through final validation.
+pub struct ServingQuery {
+    service: ServingService,
+    snapshot: Arc<ServingSnapshot>,
+    _lease: tokio::sync::OwnedRwLockReadGuard<()>,
+}
+impl std::fmt::Debug for ServingQuery {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ServingQuery")
+            .field("generation", &self.snapshot.generation)
+            .finish()
+    }
+}
+impl nous_runtime::QueryReadLease for ServingQuery {}
+#[async_trait::async_trait]
+impl SharedLaneProvider for ServingQuery {
+    async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
+        self.service
+            .lanes_from_snapshot(&self.snapshot, bound, plan)
+            .await
+    }
+}
+impl ServingService {
+    pub async fn prepare_query(
+        &self,
+        bound: &BoundQuery,
+        plan: &QueryPlan,
+    ) -> Result<(ProjectionStatus, Arc<ServingQuery>)> {
+        let lease = self.read_gate.clone().read_owned().await;
+        let status = self
+            .prepare_with_snapshot(
+                bound.source_query.subject,
+                plan.serving_need(&bound.source_query),
+                &bound.config_snapshot,
+            )
+            .await?;
+        // Resolve the exact generations prepared for this request. A concurrent
+        // profile switch must not replace this query's immutable view.
+        let records = self
+            .store
+            .serving_reusable(bound.source_query.subject)
+            .await?;
+        let current = self.publisher.snapshot_for(bound.source_query.subject);
+        let mut snapshot = current.as_ref().clone();
+        for record in records.iter().filter(|record| {
+            status
+                .generations
+                .values()
+                .any(|id| *id == record.generation_id)
+        }) {
+            if current.contains_generation(record.generation_id) {
+                continue;
+            }
+            match self.open_record(record)? {
+                crate::lifecycle::OpenArtifact::Lexical(index) => snapshot.lexical = Some(index),
+                crate::lifecycle::OpenArtifact::Dense(index, basis) => {
+                    snapshot
+                        .dense
+                        .retain(|old| old.space.space_hash != index.space.space_hash);
+                    snapshot
+                        .epa
+                        .retain(|old| old.basis.embedding_space != index.space.space_hash);
+                    snapshot.dense.push(index);
+                    snapshot.epa.extend(basis);
+                }
+                crate::lifecycle::OpenArtifact::Topology(graph) => {
+                    snapshot.topology = Some(graph);
+                    snapshot.vcp = None;
+                }
+                crate::lifecycle::OpenArtifact::Vcp(assets) => {
+                    snapshot.vcp = Some(assets);
+                    snapshot.topology = None;
+                }
+                crate::lifecycle::OpenArtifact::Exact(postings) => {
+                    snapshot.postings = postings;
+                    snapshot.postings_generation = Some(record.generation_id);
+                }
+            }
+        }
+        Ok((
+            status,
+            Arc::new(ServingQuery {
+                service: self.clone(),
+                snapshot: Arc::new(snapshot),
+                _lease: lease,
+            }),
+        ))
+    }
+}

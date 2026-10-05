@@ -1,5 +1,7 @@
 # Configuration Service 当前参考
 
+[返回 Reference](README.md)
+
 操作者配置位于 `ConfigurationRoot/nous.toml`，声明 `config_revision = 2`。配置使用自然 TOML section；完整示例见 [nous.toml](examples/nous.toml)。[bootstrap.toml](examples/bootstrap.toml) 只定位独立运行目录。
 
 ## Catalog 与所有权
@@ -107,4 +109,4 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 `video.frame_end_margin_seconds` 默认 0.1；frame sampling 将最后一个采样点留在该 configured end margin 之前。
 
-[返回 Reference](README.md)
+`retrieval.cognitive.profile` 使用 Live / QueryPolicy，后续 query 固定 profile；DTSC/RiverMemo 共享 VCP asset，不因 readout 切换重建。`serving.retired_grace_seconds` 默认 300，范围 0..604800，Developer/SystemOnly/Live；active readers、validation tickets、current artifacts 和 research pins 保护回收边界。运行时 expiry/release 后可在后续 query 机会清理 retired artifact，metadata 保留简短 audit。

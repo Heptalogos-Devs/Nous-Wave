@@ -1,5 +1,7 @@
 # Retrieval 与媒体观测
 
+[返回文档目录](../INDEX.md)
+
 ## 2026-10-02 文本检索
 
 测量使用 6 个文本来源、105 个语义单元和 40 条 grounded query。controlled 与 end-to-end 各使用固定 Authority；end-to-end 完成 105 次 formation。四个 track/variant 组合各执行 40 条查询。
@@ -107,4 +109,8 @@ Contact sheet 复核发现原始 frames envelope 只给一组 timestamps 与一�
 
 定向图复现了两个旧 Wave 缺陷：remaining budget 只递减却不限制传播；合流状态保留单个 origin，后续节点丢失其他来源。修复后，不足边成本的状态停止传播，合流携带所有来源，输出 provenance 和等能量 tie 顺序稳定。原 default golden 数值与排序仍通过；预算与多源 regression、共享信号 unit 和真实 PostgreSQL association/query integration 通过。typed profile registry 与仅 cognitive lane 所需 embedding 已接入；真实 PostgreSQL regression 验证冻结旧 plan、baseline lane 省略、profile 切换 generation/config 身份与 mismatch unavailable。VCP parity 和 benchmark utility 仍在本轮后续工作中，不能由这次 native refactor 代替。
 
-[返回文档目录](../INDEX.md)
+## 2026-10-05 核心认知恢复
+
+PR #15 的大型 observatory/garden/archive 模板结果与全量配对 rerank 降级为探索性接线记录；不能据此判定自动 Tag/Association、Accretion、真实情境 recall 或算法胜负。已付费 provider cache 与原始输出保持 ignored 保存，tracked 模板只保留小型结构 fixture。VCP frozen parity 保留关键数学输入/输出、source hash 和 tolerance，完整探索 matrix 保存 ignored。
+
+本轮暂停 LongMemEval/LoCoMo 全量、批量 rerank、重复 embedding。按 Prepared Query 功能集、独立 raw-text compatibility、少量 Agent CLI loop 三条输入条件分别验收；当前尚未完成新功能集，不提供新的质量分数。

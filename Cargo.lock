@@ -2125,6 +2125,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "usearch",
+ "uuid",
 ]
 
 [[package]]

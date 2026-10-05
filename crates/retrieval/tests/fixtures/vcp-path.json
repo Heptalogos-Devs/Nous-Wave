@@ -4,110 +4,21 @@
     "owner": "rust-vexus-lite/src/rivermemo_topology_v3.rs evaluate_path",
     "probe": "read-only native evaluate_path export on neutral fields/CSR/curves"
   },
-  "tolerance": {
-    "absolute": 1e-12,
-    "relative": 1e-12
-  },
+  "tolerance": {"absolute":1e-12,"relative":1e-12},
   "cases": [
     {
       "name": "ordered-local-transfer",
       "input": {
         "curve": {
           "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": [
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            },
-            {
-              "id": 2,
-              "vector": [
-                0.8,
-                0.6,
-                0
-              ],
-              "position": 2
-            },
-            {
-              "id": 3,
-              "vector": [
-                0.2,
-                0.9,
-                0.35
-              ],
-              "position": 3
-            }
-          ]
+          "chunk_vector": [0.6,0.6,0.2],
+          "tags": [{"id":1,"vector":[1,0,0],"position":1},{"id":2,"vector":[0.8,0.6,0],"position":2},{"id":3,"vector":[0.2,0.9,0.35],"position":3}]
         },
-        "local_field": [
-          [
-            1,
-            1
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            0.2
-          ]
-        ],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
-        "local_domain": [
-          1,
-          2
-        ],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
+        "local_field": [[1,1],[2,0.7],[3,0.2]],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
+        "local_domain": [1,2],
+        "transfer_domain": [1,2,3],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
         "config": {}
       },
       "expected": {
@@ -129,100 +40,14 @@
       "input": {
         "curve": {
           "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": [
-            {
-              "id": 3,
-              "vector": [
-                0.2,
-                0.9,
-                0.35
-              ],
-              "position": 3
-            },
-            {
-              "id": 2,
-              "vector": [
-                0.8,
-                0.6,
-                0
-              ],
-              "position": 2
-            },
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            }
-          ]
+          "chunk_vector": [0.6,0.6,0.2],
+          "tags": [{"id":3,"vector":[0.2,0.9,0.35],"position":3},{"id":2,"vector":[0.8,0.6,0],"position":2},{"id":1,"vector":[1,0,0],"position":1}]
         },
-        "local_field": [
-          [
-            1,
-            1
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            0.2
-          ]
-        ],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
-        "local_domain": [
-          1,
-          2
-        ],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
+        "local_field": [[1,1],[2,0.7],[3,0.2]],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
+        "local_domain": [1,2],
+        "transfer_domain": [1,2,3],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
         "config": {}
       },
       "expected": {
@@ -244,84 +69,14 @@
       "input": {
         "curve": {
           "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": [
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            },
-            {
-              "id": 2,
-              "vector": [
-                0.8,
-                0.6,
-                0
-              ],
-              "position": 2
-            },
-            {
-              "id": 3,
-              "vector": [
-                0.2,
-                0.9,
-                0.35
-              ],
-              "position": 3
-            }
-          ]
+          "chunk_vector": [0.6,0.6,0.2],
+          "tags": [{"id":1,"vector":[1,0,0],"position":1},{"id":2,"vector":[0.8,0.6,0],"position":2},{"id":3,"vector":[0.2,0.9,0.35],"position":3}]
         },
         "local_field": [],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
         "local_domain": [],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
+        "transfer_domain": [1,2,3],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
         "config": {}
       },
       "expected": {
@@ -343,93 +98,14 @@
       "input": {
         "curve": {
           "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": [
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            },
-            {
-              "id": 2,
-              "vector": [
-                0.8,
-                0.6,
-                0
-              ],
-              "position": 2
-            },
-            {
-              "id": 3,
-              "vector": [
-                0.2,
-                0.9,
-                0.35
-              ],
-              "position": 3
-            }
-          ]
+          "chunk_vector": [0.6,0.6,0.2],
+          "tags": [{"id":1,"vector":[1,0,0],"position":1},{"id":2,"vector":[0.8,0.6,0],"position":2},{"id":3,"vector":[0.2,0.9,0.35],"position":3}]
         },
-        "local_field": [
-          [
-            1,
-            1
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            0.2
-          ]
-        ],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
+        "local_field": [[1,1],[2,0.7],[3,0.2]],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
         "local_domain": [],
         "transfer_domain": [],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
         "config": {}
       },
       "expected": {
@@ -451,78 +127,13 @@
       "input": {
         "curve": {
           "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": [
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            },
-            {
-              "id": 2,
-              "vector": [
-                0.8,
-                0.6,
-                0
-              ],
-              "position": 2
-            },
-            {
-              "id": 3,
-              "vector": [
-                0.2,
-                0.9,
-                0.35
-              ],
-              "position": 3
-            }
-          ]
+          "chunk_vector": [0.6,0.6,0.2],
+          "tags": [{"id":1,"vector":[1,0,0],"position":1},{"id":2,"vector":[0.8,0.6,0],"position":2},{"id":3,"vector":[0.2,0.9,0.35],"position":3}]
         },
-        "local_field": [
-          [
-            1,
-            1
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            0.2
-          ]
-        ],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
-        "local_domain": [
-          1,
-          2
-        ],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
+        "local_field": [[1,1],[2,0.7],[3,0.2]],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
+        "local_domain": [1,2],
+        "transfer_domain": [1,2,3],
         "edges": [],
         "config": {}
       },
@@ -543,84 +154,12 @@
     {
       "name": "single-tag",
       "input": {
-        "curve": {
-          "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": [
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            }
-          ]
-        },
-        "local_field": [
-          [
-            1,
-            1
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            0.2
-          ]
-        ],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
-        "local_domain": [
-          1,
-          2
-        ],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
+        "curve": {"id":1,"chunk_vector":[0.6,0.6,0.2],"tags":[{"id":1,"vector":[1,0,0],"position":1}]},
+        "local_field": [[1,1],[2,0.7],[3,0.2]],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
+        "local_domain": [1,2],
+        "transfer_domain": [1,2,3],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
         "config": {}
       },
       "expected": {
@@ -640,74 +179,12 @@
     {
       "name": "empty-curve",
       "input": {
-        "curve": {
-          "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": []
-        },
-        "local_field": [
-          [
-            1,
-            1
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            0.2
-          ]
-        ],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
-        "local_domain": [
-          1,
-          2
-        ],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
+        "curve": {"id":1,"chunk_vector":[0.6,0.6,0.2],"tags":[]},
+        "local_field": [[1,1],[2,0.7],[3,0.2]],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
+        "local_domain": [1,2],
+        "transfer_domain": [1,2,3],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
         "config": {}
       },
       "expected": {
@@ -729,100 +206,14 @@
       "input": {
         "curve": {
           "id": 1,
-          "chunk_vector": [
-            -1,
-            -1,
-            -1
-          ],
-          "tags": [
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            },
-            {
-              "id": 2,
-              "vector": [
-                0.8,
-                0.6,
-                0
-              ],
-              "position": 2
-            },
-            {
-              "id": 3,
-              "vector": [
-                0.2,
-                0.9,
-                0.35
-              ],
-              "position": 3
-            }
-          ]
+          "chunk_vector": [-1,-1,-1],
+          "tags": [{"id":1,"vector":[1,0,0],"position":1},{"id":2,"vector":[0.8,0.6,0],"position":2},{"id":3,"vector":[0.2,0.9,0.35],"position":3}]
         },
-        "local_field": [
-          [
-            1,
-            1
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            0.2
-          ]
-        ],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
-        "local_domain": [
-          1,
-          2
-        ],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
+        "local_field": [[1,1],[2,0.7],[3,0.2]],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
+        "local_domain": [1,2],
+        "transfer_domain": [1,2,3],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
         "config": {}
       },
       "expected": {
@@ -844,106 +235,15 @@
       "input": {
         "curve": {
           "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": [
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            },
-            {
-              "id": 2,
-              "vector": [
-                0.8,
-                0.6,
-                0
-              ],
-              "position": 2
-            },
-            {
-              "id": 3,
-              "vector": [
-                0.2,
-                0.9,
-                0.35
-              ],
-              "position": 3
-            }
-          ]
+          "chunk_vector": [0.6,0.6,0.2],
+          "tags": [{"id":1,"vector":[1,0,0],"position":1},{"id":2,"vector":[0.8,0.6,0],"position":2},{"id":3,"vector":[0.2,0.9,0.35],"position":3}]
         },
-        "local_field": [
-          [
-            1,
-            1
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            0.2
-          ]
-        ],
-        "transfer_field": [
-          [
-            1,
-            0.3
-          ],
-          [
-            2,
-            0.7
-          ],
-          [
-            3,
-            1
-          ]
-        ],
-        "local_domain": [
-          1,
-          2
-        ],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
-        "config": {
-          "localWeight": 0.2,
-          "transferWeight": 0.8,
-          "directionFloor": 0.2,
-          "closureFloor": 0.4
-        }
+        "local_field": [[1,1],[2,0.7],[3,0.2]],
+        "transfer_field": [[1,0.3],[2,0.7],[3,1]],
+        "local_domain": [1,2],
+        "transfer_domain": [1,2,3],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
+        "config": {"localWeight":0.2,"transferWeight":0.8,"directionFloor":0.2,"closureFloor":0.4}
       },
       "expected": {
         "pathQuality": 0.47531348629645015,
@@ -964,74 +264,14 @@
       "input": {
         "curve": {
           "id": 1,
-          "chunk_vector": [
-            0.6,
-            0.6,
-            0.2
-          ],
-          "tags": [
-            {
-              "id": 1,
-              "vector": [
-                1,
-                0,
-                0
-              ],
-              "position": 1
-            },
-            {
-              "id": 2,
-              "vector": [
-                0.8,
-                0.6,
-                0
-              ],
-              "position": 2
-            },
-            {
-              "id": 3,
-              "vector": [
-                0.2,
-                0.9,
-                0.35
-              ],
-              "position": 3
-            }
-          ]
+          "chunk_vector": [0.6,0.6,0.2],
+          "tags": [{"id":1,"vector":[1,0,0],"position":1},{"id":2,"vector":[0.8,0.6,0],"position":2},{"id":3,"vector":[0.2,0.9,0.35],"position":3}]
         },
         "local_field": [],
         "transfer_field": [],
-        "local_domain": [
-          1,
-          2
-        ],
-        "transfer_domain": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            1,
-            0.2
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            2,
-            0.3
-          ]
-        ],
+        "local_domain": [1,2],
+        "transfer_domain": [1,2,3],
+        "edges": [[1,2,0.8],[2,1,0.2],[2,3,0.7],[3,2,0.3]],
         "config": {}
       },
       "expected": {

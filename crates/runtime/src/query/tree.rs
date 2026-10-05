@@ -361,6 +361,7 @@ impl CognitiveRuntimeService {
         }
         finalize(&bound, &mut result, outputs, output_limit);
         Ok(super::QueryExecution {
+            read_lease: None,
             bound,
             result,
             leaves: snapshots,

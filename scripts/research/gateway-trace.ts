@@ -118,8 +118,8 @@ export class TraceBody {
           headers: { "Content-Type": this.contentType },
         }).formData();
         const fields: Record<string, unknown> = {};
-        for (const [name, value] of form) {
-          if (sensitiveKey.test(name)) continue;
+        for (const [fieldName, value] of form) {
+          if (sensitiveKey.test(fieldName)) continue;
           const entry =
             typeof value === "string"
               ? redact(value, secrets)
@@ -131,7 +131,8 @@ export class TraceBody {
                     .update(new Uint8Array(await value.arrayBuffer()))
                     .digest("hex"),
                 };
-          fields[name] = name in fields ? [fields[name], entry].flat() : entry;
+          fields[fieldName] =
+            fieldName in fields ? [fields[fieldName], entry].flat() : entry;
         }
         body = fields;
       } catch {

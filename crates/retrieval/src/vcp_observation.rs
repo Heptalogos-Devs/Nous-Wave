@@ -28,8 +28,10 @@ impl VcpQueryObservation {
                 "bound query forbids VCP embedding observation".into(),
             ));
         }
-        if generation.cognitive_profile != plan.cognitive_profile
-            || bound.retrieval_policy.cognitive_profile != plan.cognitive_profile
+        if !matches!(
+            plan.cognitive_profile,
+            nous_runtime::CognitiveProfile::VcpDtsc | nous_runtime::CognitiveProfile::VcpRiverMemo
+        ) || bound.retrieval_policy.cognitive_profile != plan.cognitive_profile
             || crate::artifacts::digest(&generation.policy)?
                 != crate::artifacts::digest(&bound.config_snapshot.get(VCP_ASSETS)?)?
         {

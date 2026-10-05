@@ -63,7 +63,11 @@ impl ServingService {
             built_at: chrono::Utc::now(),
             metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": implementation_revision, "config_digest": config_digest, "checksums": sums, "cognitive_profile": cognitive_profile }),
         };
-        self.store.publish_generation(record).await
+        let published = self.store.publish_generation(record).await?;
+        if published.generation_id != id {
+            std::fs::remove_dir_all(&target).map_err(io)?;
+        }
+        Ok(published)
     }
 
     async fn build_text(

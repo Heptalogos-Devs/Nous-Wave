@@ -6,6 +6,8 @@ pub use mechanisms::*;
 mod artifacts;
 mod build;
 mod lifecycle;
+mod reclamation;
+pub use reclamation::ReclamationReport;
 mod material;
 mod observation;
 mod provider;
@@ -54,6 +56,9 @@ pub const DENSE_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
 pub const TOPOLOGY_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
     nous_configuration::ConfigKey::new("serving.topology.enabled");
 
+pub const RETIRED_GRACE_SECONDS: nous_configuration::ConfigKey<u64> =
+    nous_configuration::ConfigKey::new("serving.retired_grace_seconds");
+
 pub const LEXICAL_WRITER_BYTES: nous_configuration::ConfigKey<usize> =
     nous_configuration::ConfigKey::new("serving.lexical.writer_memory_bytes");
 pub const MINIMUM_LEXICAL_WRITER_BYTES: usize = 15_000_000;
@@ -90,6 +95,24 @@ pub fn register_configuration(
         )?;
     }
     use nous_configuration::*;
+    registry.register(
+        RETIRED_GRACE_SECONDS,
+        "serving",
+        "Grace period before reclaiming unpinned retired artifacts.",
+        300,
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SystemOnly,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::Operational,
+        |value| {
+            if *value <= 604800 {
+                Ok(())
+            } else {
+                Err(Error::Invalid("retired grace exceeds seven days".into()))
+            }
+        },
+    )?;
+    registry.bounds(RETIRED_GRACE_SECONDS, 0, 604800, Some("seconds"))?;
     registry.register(
         LEXICAL_WRITER_BYTES,
         "serving",
@@ -139,6 +162,7 @@ pub struct ServingService {
     pub configuration: nous_configuration::ConfigurationService,
     pub publisher: ServingPublisher,
     pub options: ServingOptions,
+    read_gate: Arc<tokio::sync::RwLock<()>>,
     embedding: Arc<std::sync::OnceLock<Arc<dyn TextEmbeddingProvider>>>,
 }
 
@@ -184,6 +208,7 @@ impl ServingService {
                 Arc::new(slot)
             },
             publisher: ServingPublisher::default(),
+            read_gate: Arc::new(tokio::sync::RwLock::new(())),
         })
     }
 }

@@ -92,3 +92,21 @@ impl ServingPublisher {
         });
     }
 }
+
+impl ServingSnapshot {
+    pub(crate) fn contains_generation(&self, id: nous_core::ServingGenerationId) -> bool {
+        self.lexical
+            .as_ref()
+            .is_some_and(|value| value.generation_id == id)
+            || self.dense.iter().any(|value| value.generation_id == id)
+            || self
+                .topology
+                .as_ref()
+                .is_some_and(|value| value.generation_id == id)
+            || self
+                .vcp
+                .as_ref()
+                .is_some_and(|value| value.generation_id == id)
+            || self.postings_generation == Some(id)
+    }
+}

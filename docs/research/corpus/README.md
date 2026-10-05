@@ -1,5 +1,7 @@
 # 研究语料
 
+[返回 Research 入口](../README.md)
+
 - [manifest.json](manifest.json)：6 个文本来源、105 个语义单元及来源 locator、digest、主题和使用说明。
 - [queries.json](queries.json)：80 条 grounded query 与 acceptable/expected source units。
 - [media.json](media.json)：14 个图像、音频和视频样本（含保留对照）。
@@ -13,9 +15,7 @@
 
 2026-10-02 文本检索及 2026-10-04 真实模型验证见 [Research](../observations.md)。原始来源内容、媒体、逐条输出和运行日志位于 ignored 的 `data/research/`。
 
-[返回 Research 入口](../README.md)
-
-[原创 Cognitive Recall Corpus](cognitive/README.md) 保存三条事件图、249 个查询 oracle 和有依据的来源路径；已由独立 research harness 导入，已完成首轮四个 no-rerank profile 的前缀比较，完整 Spec tracks 仍待完成。
+[Deterministic Cognitive Structure Fixture](cognitive/README.md) 保留一条 10-event 时间线、15 条查询和有依据的路径，仅验证 host-explicit 结构接线。原三条大型模板实验已停止，其质量结论降级为探索；新的自动认知 Functional Corpus 独立验收。
 
 ## 外部长期记忆 retrieval-only 数据
 

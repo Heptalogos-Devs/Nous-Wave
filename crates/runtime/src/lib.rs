@@ -24,7 +24,7 @@ pub use maintenance_policy::*;
 pub use query::{
     BoundQuery, COGNITIVE_PROFILE, CognitiveContributor, CognitiveContributors, CognitiveProfile,
     CognitiveProfileRequirements, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput, LaneStatus,
-    QueryExecution, QueryPlan, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
+    QueryExecution, QueryPlan, QueryReadLease, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
     register_retrieval_configuration,
 };
 pub use segmentation::{EpisodeDraft, SegmentationProgress};

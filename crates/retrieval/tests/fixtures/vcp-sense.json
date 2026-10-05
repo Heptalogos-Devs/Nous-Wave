@@ -4,10 +4,7 @@
     "owner": "rust-vexus-lite/src/memo_sensing.rs sense_typed",
     "probe": "read-only evaluateResearchSense; unchanged frozen function"
   },
-  "tolerance": {
-    "absolute": 1e-12,
-    "relative": 1e-12
-  },
+  "tolerance": {"absolute":1e-12,"relative":1e-12},
   "nondeterminism": [
     "Frozen Sense merges source lineage by first HashMap encounter. For converging multi-root states, seedId/originType may vary; numeric fields and retained state set must be checked separately.",
     "State and parent exact energy ties have no total comparator in frozen source. Controlled truncation fixture uses distinct energy."
@@ -15,80 +12,16 @@
   "cases": [
     {
       "name": "chain",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            4,
-            0.6
-          ],
-          [
-            4,
-            5,
-            0.5
-          ]
-        ]
-      },
-      "input": {
-        "queryId": "chain",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000
-        }
-      },
+      "graph": {"node_ids":[1,2,3,4,5],"edges":[[1,2,0.8],[2,3,0.7],[3,4,0.6],[4,5,0.5]]},
+      "input": {"queryId":"chain","seeds":[{"id":1,"energy":1,"sourceType":"seed"}],"config":{"maxTransitionRecords":16000}},
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "chain",
-        "sourceField": [
-          [
-            1,
-            0.8829242450997704
-          ],
-          [
-            2,
-            0.10595090941197247
-          ],
-          [
-            3,
-            0.011124845488257104
-          ]
-        ],
+        "sourceField": [[1,0.8829242450997704],[2,0.10595090941197247],[3,0.011124845488257104]],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
           {
             "id": 2,
             "energy": 0.05204718945176961,
@@ -97,12 +30,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.2,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.2,"hop":1,"wormhole":false}
           },
           {
             "id": 3,
@@ -112,12 +40,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.034999999999999996,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.034999999999999996,"hop":2,"wormhole":false}
           }
         ],
         "edges": [
@@ -153,116 +76,29 @@
           "maximumEdgeFlow": 0.2,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.2,
-            0.034999999999999996,
-            0
-          ],
+          "hopInFlightMass": [0.2,0.034999999999999996,0],
           "artifactNodes": 5,
           "artifactEdges": 4
         },
         "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.2,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 3,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.034999999999999996,
-            "wormhole": false,
-            "immediateReturn": false
-          }
+          {"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.2,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":3,"previousId":1,"hop":2,"flow":0.034999999999999996,"wormhole":false,"immediateReturn":false}
         ],
         "transitionsTruncated": false
       }
     },
     {
       "name": "fork",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3,
-          4
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.55
-          ],
-          [
-            1,
-            3,
-            0.35
-          ],
-          [
-            2,
-            4,
-            0.7
-          ],
-          [
-            3,
-            4,
-            0.6
-          ]
-        ]
-      },
-      "input": {
-        "queryId": "fork",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000
-        }
-      },
+      "graph": {"node_ids":[1,2,3,4],"edges":[[1,2,0.55],[1,3,0.35],[2,4,0.7],[3,4,0.6]]},
+      "input": {"queryId":"fork","seeds":[{"id":1,"energy":1,"sourceType":"seed"}],"config":{"maxTransitionRecords":16000}},
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "fork",
-        "sourceField": [
-          [
-            1,
-            0.8743838326429344
-          ],
-          [
-            2,
-            0.0721366661930421
-          ],
-          [
-            3,
-            0.045905151213754054
-          ],
-          [
-            4,
-            0.007574349950269419
-          ]
-        ],
+        "sourceField": [[1,0.8743838326429344],[2,0.0721366661930421],[3,0.045905151213754054],[4,0.007574349950269419]],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
           {
             "id": 2,
             "energy": 0.03578244274809161,
@@ -271,12 +107,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.1375,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.1375,"hop":1,"wormhole":false}
           },
           {
             "id": 3,
@@ -286,12 +117,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0875,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0875,"hop":1,"wormhole":false}
           },
           {
             "id": 4,
@@ -301,12 +127,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.0240625,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.0240625,"hop":2,"wormhole":false}
           }
         ],
         "edges": [
@@ -353,148 +174,35 @@
           "maximumEdgeFlow": 0.1375,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.225,
-            0.0240625,
-            0
-          ],
+          "hopInFlightMass": [0.225,0.0240625,0],
           "artifactNodes": 4,
           "artifactEdges": 4
         },
         "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.1375,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 3,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0875,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 4,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.0240625,
-            "wormhole": false,
-            "immediateReturn": false
-          }
+          {"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.1375,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":3,"previousId":null,"hop":1,"flow":0.0875,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":4,"previousId":1,"hop":2,"flow":0.0240625,"wormhole":false,"immediateReturn":false}
         ],
         "transitionsTruncated": false
       }
     },
     {
       "name": "merge",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ],
-        "edges": [
-          [
-            1,
-            3,
-            0.8
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            4,
-            0.6
-          ],
-          [
-            4,
-            5,
-            0.5
-          ]
-        ]
-      },
+      "graph": {"node_ids":[1,2,3,4,5],"edges":[[1,3,0.8],[2,3,0.7],[3,4,0.6],[4,5,0.5]]},
       "input": {
         "queryId": "merge",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          },
-          {
-            "id": 2,
-            "energy": 0.6,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000,
-          "firingThreshold": 0,
-          "minimumInjectedCurrent": 0,
-          "baseMomentum": 5
-        }
+        "seeds": [{"id":1,"energy":1,"sourceType":"seed"},{"id":2,"energy":0.6,"sourceType":"seed"}],
+        "config": {"maxTransitionRecords":16000,"firingThreshold":0,"minimumInjectedCurrent":0,"baseMomentum":5}
       },
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "merge",
-        "sourceField": [
-          [
-            1,
-            0.555337971053286
-          ],
-          [
-            2,
-            0.3332027826319716
-          ],
-          [
-            3,
-            0.10162684870275134
-          ],
-          [
-            4,
-            0.009146416383247619
-          ],
-          [
-            5,
-            0.0006859812287435714
-          ]
-        ],
+        "sourceField": [[1,0.555337971053286],[2,0.3332027826319716],[3,0.10162684870275134],[4,0.009146416383247619],[5,0.0006859812287435714]],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
-          {
-            "id": 2,
-            "energy": 0.260235947258848,
-            "normalizedEnergy": 0.6,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 2,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
+          {"id":2,"energy":0.260235947258848,"normalizedEnergy":0.6,"sourceType":"seed","originType":null,"hop":0,"seedId":2,"strongestParent":null},
           {
             "id": 3,
             "energy": 0.07937196391394864,
@@ -503,12 +211,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 2,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.2,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.2,"hop":1,"wormhole":false}
           },
           {
             "id": 4,
@@ -518,12 +221,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 2,
-            "strongestParent": {
-              "parentId": 3,
-              "flow": 0.03,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":3,"flow":0.03,"hop":2,"wormhole":false}
           },
           {
             "id": 5,
@@ -533,12 +231,7 @@
             "originType": "seed",
             "hop": 3,
             "seedId": 2,
-            "strongestParent": {
-              "parentId": 4,
-              "flow": 0.00571875,
-              "hop": 3,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":4,"flow":0.00571875,"hop":3,"wormhole":false}
           }
         ],
         "edges": [
@@ -596,115 +289,34 @@
           "maximumEdgeFlow": 0.2,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.305,
-            0.04575,
-            0.00571875,
-            0
-          ],
+          "hopInFlightMass": [0.305,0.04575,0.00571875,0],
           "artifactNodes": 5,
           "artifactEdges": 4
         },
         "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 3,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.2,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 3,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.105,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 3,
-            "targetId": 4,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.03,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 3,
-            "targetId": 4,
-            "previousId": 2,
-            "hop": 2,
-            "flow": 0.01575,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 4,
-            "targetId": 5,
-            "previousId": 3,
-            "hop": 3,
-            "flow": 0.00571875,
-            "wormhole": false,
-            "immediateReturn": false
-          }
+          {"sourceId":1,"targetId":3,"previousId":null,"hop":1,"flow":0.2,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":3,"previousId":null,"hop":1,"flow":0.105,"wormhole":false,"immediateReturn":false},
+          {"sourceId":3,"targetId":4,"previousId":1,"hop":2,"flow":0.03,"wormhole":false,"immediateReturn":false},
+          {"sourceId":3,"targetId":4,"previousId":2,"hop":2,"flow":0.01575,"wormhole":false,"immediateReturn":false},
+          {"sourceId":4,"targetId":5,"previousId":3,"hop":3,"flow":0.00571875,"wormhole":false,"immediateReturn":false}
         ],
         "transitionsTruncated": false
       }
     },
     {
       "name": "immediate-return",
-      "graph": {
-        "node_ids": [
-          1,
-          2
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.9
-          ],
-          [
-            2,
-            1,
-            0.8
-          ]
-        ]
-      },
+      "graph": {"node_ids":[1,2],"edges":[[1,2,0.9],[2,1,0.8]]},
       "input": {
         "queryId": "immediate-return",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000,
-          "firingThreshold": 0,
-          "minimumInjectedCurrent": 0
-        }
+        "seeds": [{"id":1,"energy":1,"sourceType":"seed"}],
+        "config": {"maxTransitionRecords":16000,"firingThreshold":0,"minimumInjectedCurrent":0}
       },
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "immediate-return",
-        "sourceField": [
-          [
-            1,
-            0.8813113774034447
-          ],
-          [
-            2,
-            0.11868862259655541
-          ]
-        ],
+        "sourceField": [[1,0.8813113774034447],[2,0.11868862259655541]],
         "nodes": [
           {
             "id": 1,
@@ -714,12 +326,7 @@
             "originType": null,
             "hop": 0,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.006750000000000001,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.006750000000000001,"hop":2,"wormhole":false}
           },
           {
             "id": 2,
@@ -729,12 +336,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.225,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.225,"hop":1,"wormhole":false}
           }
         ],
         "edges": [
@@ -770,90 +372,24 @@
           "maximumEdgeFlow": 0.2252278125,
           "returnFlowSuppressedMass": 0.039540937500000005,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.225,
-            0.006750000000000001,
-            0
-          ],
+          "hopInFlightMass": [0.225,0.006750000000000001,0],
           "artifactNodes": 2,
           "artifactEdges": 2
         },
         "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.225,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 1,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.006750000000000001,
-            "wormhole": false,
-            "immediateReturn": true
-          }
+          {"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.225,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":1,"previousId":1,"hop":2,"flow":0.006750000000000001,"wormhole":false,"immediateReturn":true}
         ],
         "transitionsTruncated": false
       }
     },
     {
       "name": "hub",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.9
-          ],
-          [
-            2,
-            3,
-            0.4
-          ],
-          [
-            2,
-            4,
-            0.25
-          ],
-          [
-            2,
-            5,
-            0.15
-          ],
-          [
-            2,
-            6,
-            0.1
-          ]
-        ]
-      },
+      "graph": {"node_ids":[1,2,3,4,5,6],"edges":[[1,2,0.9],[2,3,0.4],[2,4,0.25],[2,5,0.15],[2,6,0.1]]},
       "input": {
         "queryId": "hub",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000,
-          "firingThreshold": 0,
-          "minimumInjectedCurrent": 0
-        }
+        "seeds": [{"id":1,"energy":1,"sourceType":"seed"}],
+        "config": {"maxTransitionRecords":16000,"firingThreshold":0,"minimumInjectedCurrent":0}
       },
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
@@ -861,42 +397,15 @@
         "artifactSig": "controlled-reference",
         "queryId": "hub",
         "sourceField": [
-          [
-            1,
-            0.8671334735199117
-          ],
-          [
-            2,
-            0.11706301892518807
-          ],
-          [
-            3,
-            0.007023781135511284
-          ],
-          [
-            4,
-            0.0043898632096945524
-          ],
-          [
-            5,
-            0.0026339179258167314
-          ],
-          [
-            6,
-            0.001755945283877821
-          ]
+          [1,0.8671334735199117],
+          [2,0.11706301892518807],
+          [3,0.007023781135511284],
+          [4,0.0043898632096945524],
+          [5,0.0026339179258167314],
+          [6,0.001755945283877821]
         ],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
           {
             "id": 2,
             "energy": 0.058553088133240803,
@@ -905,12 +414,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.225,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.225,"hop":1,"wormhole":false}
           },
           {
             "id": 3,
@@ -920,12 +424,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.022500000000000003,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.022500000000000003,"hop":2,"wormhole":false}
           },
           {
             "id": 4,
@@ -935,12 +434,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.0140625,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.0140625,"hop":2,"wormhole":false}
           },
           {
             "id": 5,
@@ -950,12 +444,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.0084375,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.0084375,"hop":2,"wormhole":false}
           },
           {
             "id": 6,
@@ -965,12 +454,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.005625000000000001,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.005625000000000001,"hop":2,"wormhole":false}
           }
         ],
         "edges": [
@@ -1039,148 +523,37 @@
           "maximumEdgeFlow": 0.225,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.225,
-            0.050625,
-            0
-          ],
+          "hopInFlightMass": [0.225,0.050625,0],
           "artifactNodes": 6,
           "artifactEdges": 5
         },
         "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.225,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 3,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.022500000000000003,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 4,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.0140625,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 5,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.0084375,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 6,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.005625000000000001,
-            "wormhole": false,
-            "immediateReturn": false
-          }
+          {"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.225,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":3,"previousId":1,"hop":2,"flow":0.022500000000000003,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":4,"previousId":1,"hop":2,"flow":0.0140625,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":5,"previousId":1,"hop":2,"flow":0.0084375,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":6,"previousId":1,"hop":2,"flow":0.005625000000000001,"wormhole":false,"immediateReturn":false}
         ],
         "transitionsTruncated": false
       }
     },
     {
       "name": "independent-roots",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3,
-          4
-        ],
-        "edges": [
-          [
-            1,
-            3,
-            0.8
-          ],
-          [
-            2,
-            4,
-            0.7
-          ]
-        ]
-      },
+      "graph": {"node_ids":[1,2,3,4],"edges":[[1,3,0.8],[2,4,0.7]]},
       "input": {
         "queryId": "independent-roots",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "core"
-          },
-          {
-            "id": 2,
-            "energy": 0.6,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000
-        }
+        "seeds": [{"id":1,"energy":1,"sourceType":"core"},{"id":2,"energy":0.6,"sourceType":"seed"}],
+        "config": {"maxTransitionRecords":16000}
       },
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "independent-roots",
-        "sourceField": [
-          [
-            1,
-            0.5608524957936063
-          ],
-          [
-            2,
-            0.3365114974761638
-          ],
-          [
-            3,
-            0.06730229949523277
-          ],
-          [
-            4,
-            0.0353337072349972
-          ]
-        ],
+        "sourceField": [[1,0.5608524957936063],[2,0.3365114974761638],[3,0.06730229949523277],[4,0.0353337072349972]],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "core",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
-          {
-            "id": 2,
-            "energy": 0.260235947258848,
-            "normalizedEnergy": 0.6,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 2,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"core","originType":null,"hop":0,"seedId":1,"strongestParent":null},
+          {"id":2,"energy":0.260235947258848,"normalizedEnergy":0.6,"sourceType":"seed","originType":null,"hop":0,"seedId":2,"strongestParent":null},
           {
             "id": 3,
             "energy": 0.05204718945176961,
@@ -1189,12 +562,7 @@
             "originType": "core",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.2,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.2,"hop":1,"wormhole":false}
           },
           {
             "id": 4,
@@ -1204,12 +572,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 2,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.105,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.105,"hop":1,"wormhole":false}
           }
         ],
         "edges": [
@@ -1245,138 +608,33 @@
           "maximumEdgeFlow": 0.2,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.305,
-            0
-          ],
+          "hopInFlightMass": [0.305,0],
           "artifactNodes": 4,
           "artifactEdges": 2
         },
         "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 3,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.2,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 4,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.105,
-            "wormhole": false,
-            "immediateReturn": false
-          }
+          {"sourceId":1,"targetId":3,"previousId":null,"hop":1,"flow":0.2,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":4,"previousId":null,"hop":1,"flow":0.105,"wormhole":false,"immediateReturn":false}
         ],
         "transitionsTruncated": false
       }
     },
     {
       "name": "wormhole-long-bridge",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3,
-          4,
-          5
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.7
-          ],
-          [
-            2,
-            3,
-            0.7
-          ],
-          [
-            3,
-            4,
-            0.7
-          ],
-          [
-            4,
-            5,
-            0.7
-          ]
-        ],
-        "wormholes": [
-          [
-            2,
-            3
-          ],
-          [
-            3,
-            4
-          ]
-        ],
-        "anchor_gain": [
-          [
-            3,
-            1.4
-          ]
-        ]
-      },
+      "graph": {"node_ids":[1,2,3,4,5],"edges":[[1,2,0.7],[2,3,0.7],[3,4,0.7],[4,5,0.7]],"wormholes":[[2,3],[3,4]],"anchor_gain":[[3,1.4]]},
       "input": {
         "queryId": "wormhole-long-bridge",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000,
-          "firingThreshold": 0,
-          "minimumInjectedCurrent": 0
-        }
+        "seeds": [{"id":1,"energy":1,"sourceType":"seed"}],
+        "config": {"maxTransitionRecords":16000,"firingThreshold":0,"minimumInjectedCurrent":0}
       },
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "wormhole-long-bridge",
-        "sourceField": [
-          [
-            1,
-            0.8726774607547785
-          ],
-          [
-            2,
-            0.09163113337925173
-          ],
-          [
-            3,
-            0.0269395532135
-          ],
-          [
-            4,
-            0.007920228644769
-          ],
-          [
-            5,
-            0.000831624007700745
-          ]
-        ],
+        "sourceField": [[1,0.8726774607547785],[2,0.09163113337925173],[3,0.0269395532135],[4,0.007920228644769],[5,0.000831624007700745]],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
           {
             "id": 2,
             "energy": 0.0455412907702984,
@@ -1385,12 +643,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.175,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.175,"hop":1,"wormhole":false}
           },
           {
             "id": 3,
@@ -1400,12 +653,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.08574999999999998,
-              "hop": 2,
-              "wormhole": true
-            }
+            "strongestParent": {"parentId":2,"flow":0.08574999999999998,"hop":2,"wormhole":true}
           },
           {
             "id": 4,
@@ -1415,12 +663,7 @@
             "originType": "seed",
             "hop": 3,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 3,
-              "flow": 0.042017499999999985,
-              "hop": 3,
-              "wormhole": true
-            }
+            "strongestParent": {"parentId":3,"flow":0.042017499999999985,"hop":3,"wormhole":true}
           },
           {
             "id": 5,
@@ -1430,12 +673,7 @@
             "originType": "seed",
             "hop": 4,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 4,
-              "flow": 0.007353062499999997,
-              "hop": 4,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":4,"flow":0.007353062499999997,"hop":4,"wormhole":false}
           }
         ],
         "edges": [
@@ -1493,117 +731,31 @@
           "maximumEdgeFlow": 0.175,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.175,
-            0.08574999999999998,
-            0.042017499999999985,
-            0.007353062499999997
-          ],
+          "hopInFlightMass": [0.175,0.08574999999999998,0.042017499999999985,0.007353062499999997],
           "artifactNodes": 5,
           "artifactEdges": 4
         },
         "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.175,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 2,
-            "targetId": 3,
-            "previousId": 1,
-            "hop": 2,
-            "flow": 0.08574999999999998,
-            "wormhole": true,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 3,
-            "targetId": 4,
-            "previousId": 2,
-            "hop": 3,
-            "flow": 0.042017499999999985,
-            "wormhole": true,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 4,
-            "targetId": 5,
-            "previousId": 3,
-            "hop": 4,
-            "flow": 0.007353062499999997,
-            "wormhole": false,
-            "immediateReturn": false
-          }
+          {"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.175,"wormhole":false,"immediateReturn":false},
+          {"sourceId":2,"targetId":3,"previousId":1,"hop":2,"flow":0.08574999999999998,"wormhole":true,"immediateReturn":false},
+          {"sourceId":3,"targetId":4,"previousId":2,"hop":3,"flow":0.042017499999999985,"wormhole":true,"immediateReturn":false},
+          {"sourceId":4,"targetId":5,"previousId":3,"hop":4,"flow":0.007353062499999997,"wormhole":false,"immediateReturn":false}
         ],
         "transitionsTruncated": false
       }
     },
     {
       "name": "disconnected-distractor",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3,
-          4
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ],
-          [
-            3,
-            4,
-            0.9
-          ]
-        ]
-      },
-      "input": {
-        "queryId": "disconnected-distractor",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000
-        }
-      },
+      "graph": {"node_ids":[1,2,3,4],"edges":[[1,2,0.8],[3,4,0.9]]},
+      "input": {"queryId":"disconnected-distractor","seeds":[{"id":1,"energy":1,"sourceType":"seed"}],"config":{"maxTransitionRecords":16000}},
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "disconnected-distractor",
-        "sourceField": [
-          [
-            1,
-            0.8928571428571428
-          ],
-          [
-            2,
-            0.10714285714285715
-          ]
-        ],
+        "sourceField": [[1,0.8928571428571428],[2,0.10714285714285715]],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
           {
             "id": 2,
             "energy": 0.05204718945176961,
@@ -1612,12 +764,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.2,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.2,"hop":1,"wormhole":false}
           }
         ],
         "edges": [
@@ -1642,87 +789,26 @@
           "maximumEdgeFlow": 0.2,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.2,
-            0
-          ],
+          "hopInFlightMass": [0.2,0],
           "artifactNodes": 4,
           "artifactEdges": 2
         },
-        "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.2,
-            "wormhole": false,
-            "immediateReturn": false
-          }
-        ],
+        "transitions": [{"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.2,"wormhole":false,"immediateReturn":false}],
         "transitionsTruncated": false
       }
     },
     {
       "name": "weak-strong",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.899
-          ],
-          [
-            1,
-            3,
-            0.001
-          ]
-        ]
-      },
-      "input": {
-        "queryId": "weak-strong",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 16000
-        }
-      },
+      "graph": {"node_ids":[1,2,3],"edges":[[1,2,0.899],[1,3,0.001]]},
+      "input": {"queryId":"weak-strong","seeds":[{"id":1,"energy":1,"sourceType":"seed"}],"config":{"maxTransitionRecords":16000}},
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "weak-strong",
-        "sourceField": [
-          [
-            1,
-            0.8811737233995682
-          ],
-          [
-            2,
-            0.1188262766004318
-          ]
-        ],
+        "sourceField": [[1,0.8811737233995682],[2,0.1188262766004318]],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
           {
             "id": 2,
             "energy": 0.0584880291464261,
@@ -1731,12 +817,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.22475,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.22475,"hop":1,"wormhole":false}
           }
         ],
         "edges": [
@@ -1761,24 +842,11 @@
           "maximumEdgeFlow": 0.22475,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.22475,
-            0
-          ],
+          "hopInFlightMass": [0.22475,0],
           "artifactNodes": 3,
           "artifactEdges": 2
         },
-        "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.22475,
-            "wormhole": false,
-            "immediateReturn": false
-          }
-        ],
+        "transitions": [{"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.22475,"wormhole":false,"immediateReturn":false}],
         "transitionsTruncated": false
       }
     },
@@ -1895,547 +963,117 @@
           107
         ],
         "edges": [
-          [
-            1,
-            2,
-            0.016822429906542057
-          ],
-          [
-            1,
-            3,
-            0.016663727737612415
-          ],
-          [
-            1,
-            4,
-            0.016505025568682774
-          ],
-          [
-            1,
-            5,
-            0.01634632339975313
-          ],
-          [
-            1,
-            6,
-            0.016187621230823488
-          ],
-          [
-            1,
-            7,
-            0.016028919061893847
-          ],
-          [
-            1,
-            8,
-            0.015870216892964206
-          ],
-          [
-            1,
-            9,
-            0.01571151472403456
-          ],
-          [
-            1,
-            10,
-            0.01555281255510492
-          ],
-          [
-            1,
-            11,
-            0.015394110386175278
-          ],
-          [
-            1,
-            12,
-            0.015235408217245637
-          ],
-          [
-            1,
-            13,
-            0.015076706048315994
-          ],
-          [
-            1,
-            14,
-            0.014918003879386353
-          ],
-          [
-            1,
-            15,
-            0.01475930171045671
-          ],
-          [
-            1,
-            16,
-            0.014600599541527069
-          ],
-          [
-            1,
-            17,
-            0.014441897372597426
-          ],
-          [
-            1,
-            18,
-            0.014283195203667784
-          ],
-          [
-            1,
-            19,
-            0.014124493034738141
-          ],
-          [
-            1,
-            20,
-            0.0139657908658085
-          ],
-          [
-            1,
-            21,
-            0.013807088696878857
-          ],
-          [
-            1,
-            22,
-            0.013648386527949216
-          ],
-          [
-            1,
-            23,
-            0.013489684359019575
-          ],
-          [
-            1,
-            24,
-            0.013330982190089932
-          ],
-          [
-            1,
-            25,
-            0.01317228002116029
-          ],
-          [
-            1,
-            26,
-            0.013013577852230647
-          ],
-          [
-            1,
-            27,
-            0.012854875683301006
-          ],
-          [
-            1,
-            28,
-            0.012696173514371363
-          ],
-          [
-            1,
-            29,
-            0.012537471345441722
-          ],
-          [
-            1,
-            30,
-            0.012378769176512079
-          ],
-          [
-            1,
-            31,
-            0.012220067007582438
-          ],
-          [
-            1,
-            32,
-            0.012061364838652795
-          ],
-          [
-            1,
-            33,
-            0.011902662669723153
-          ],
-          [
-            1,
-            34,
-            0.011743960500793512
-          ],
-          [
-            1,
-            35,
-            0.011585258331863869
-          ],
-          [
-            1,
-            36,
-            0.011426556162934228
-          ],
-          [
-            1,
-            37,
-            0.011267853994004585
-          ],
-          [
-            1,
-            38,
-            0.011109151825074944
-          ],
-          [
-            1,
-            39,
-            0.0109504496561453
-          ],
-          [
-            1,
-            40,
-            0.01079174748721566
-          ],
-          [
-            1,
-            41,
-            0.010633045318286016
-          ],
-          [
-            1,
-            42,
-            0.010474343149356375
-          ],
-          [
-            1,
-            43,
-            0.010315640980426732
-          ],
-          [
-            1,
-            44,
-            0.01015693881149709
-          ],
-          [
-            1,
-            45,
-            0.00999823664256745
-          ],
-          [
-            1,
-            46,
-            0.009839534473637807
-          ],
-          [
-            1,
-            47,
-            0.009680832304708165
-          ],
-          [
-            1,
-            48,
-            0.009522130135778522
-          ],
-          [
-            1,
-            49,
-            0.009363427966848881
-          ],
-          [
-            1,
-            50,
-            0.009204725797919238
-          ],
-          [
-            1,
-            51,
-            0.009046023628989597
-          ],
-          [
-            1,
-            52,
-            0.008887321460059954
-          ],
-          [
-            1,
-            53,
-            0.008728619291130313
-          ],
-          [
-            1,
-            54,
-            0.00856991712220067
-          ],
-          [
-            1,
-            55,
-            0.008411214953271028
-          ],
-          [
-            1,
-            56,
-            0.008252512784341387
-          ],
-          [
-            1,
-            57,
-            0.008093810615411744
-          ],
-          [
-            1,
-            58,
-            0.007935108446482103
-          ],
-          [
-            1,
-            59,
-            0.00777640627755246
-          ],
-          [
-            1,
-            60,
-            0.0076177041086228185
-          ],
-          [
-            1,
-            61,
-            0.007459001939693176
-          ],
-          [
-            1,
-            62,
-            0.007300299770763534
-          ],
-          [
-            1,
-            63,
-            0.007141597601833892
-          ],
-          [
-            1,
-            64,
-            0.00698289543290425
-          ],
-          [
-            1,
-            65,
-            0.006824193263974608
-          ],
-          [
-            1,
-            66,
-            0.006665491095044966
-          ],
-          [
-            1,
-            67,
-            0.006506788926115324
-          ],
-          [
-            1,
-            68,
-            0.0063480867571856815
-          ],
-          [
-            1,
-            69,
-            0.006189384588256039
-          ],
-          [
-            1,
-            70,
-            0.006030682419326397
-          ],
-          [
-            1,
-            71,
-            0.005871980250396756
-          ],
-          [
-            1,
-            72,
-            0.005713278081467114
-          ],
-          [
-            1,
-            73,
-            0.005554575912537472
-          ],
-          [
-            1,
-            74,
-            0.00539587374360783
-          ],
-          [
-            1,
-            75,
-            0.0052371715746781875
-          ],
-          [
-            1,
-            76,
-            0.005078469405748545
-          ],
-          [
-            1,
-            77,
-            0.004919767236818903
-          ],
-          [
-            1,
-            78,
-            0.004761065067889261
-          ],
-          [
-            1,
-            79,
-            0.004602362898959619
-          ],
-          [
-            1,
-            80,
-            0.004443660730029977
-          ],
-          [
-            1,
-            81,
-            0.004284958561100335
-          ],
-          [
-            1,
-            82,
-            0.0041262563921706935
-          ],
-          [
-            1,
-            83,
-            0.003967554223241051
-          ],
-          [
-            1,
-            84,
-            0.0038088520543114093
-          ],
-          [
-            1,
-            85,
-            0.003650149885381767
-          ],
-          [
-            1,
-            86,
-            0.003491447716452125
-          ],
-          [
-            1,
-            87,
-            0.003332745547522483
-          ],
-          [
-            1,
-            88,
-            0.0031740433785928408
-          ],
-          [
-            1,
-            89,
-            0.0030153412096631986
-          ],
-          [
-            1,
-            90,
-            0.002856639040733557
-          ],
-          [
-            1,
-            91,
-            0.002697936871803915
-          ],
-          [
-            1,
-            92,
-            0.0025392347028742727
-          ],
-          [
-            1,
-            93,
-            0.0023805325339446306
-          ],
-          [
-            1,
-            94,
-            0.0022218303650149884
-          ],
-          [
-            1,
-            95,
-            0.0020631281960853468
-          ],
-          [
-            1,
-            96,
-            0.0019044260271557046
-          ],
-          [
-            1,
-            97,
-            0.0017457238582260625
-          ],
-          [
-            1,
-            98,
-            0.0015870216892964204
-          ],
-          [
-            1,
-            99,
-            0.0014283195203667785
-          ],
-          [
-            1,
-            100,
-            0.0012696173514371363
-          ],
-          [
-            1,
-            101,
-            0.0011109151825074942
-          ],
-          [
-            1,
-            102,
-            0.0009522130135778523
-          ],
-          [
-            1,
-            103,
-            0.0007935108446482102
-          ],
-          [
-            1,
-            104,
-            0.0006348086757185682
-          ],
-          [
-            1,
-            105,
-            0.00047610650678892616
-          ],
-          [
-            1,
-            106,
-            0.0003174043378592841
-          ],
-          [
-            1,
-            107,
-            0.00015870216892964204
-          ]
+          [1,2,0.016822429906542057],
+          [1,3,0.016663727737612415],
+          [1,4,0.016505025568682774],
+          [1,5,0.01634632339975313],
+          [1,6,0.016187621230823488],
+          [1,7,0.016028919061893847],
+          [1,8,0.015870216892964206],
+          [1,9,0.01571151472403456],
+          [1,10,0.01555281255510492],
+          [1,11,0.015394110386175278],
+          [1,12,0.015235408217245637],
+          [1,13,0.015076706048315994],
+          [1,14,0.014918003879386353],
+          [1,15,0.01475930171045671],
+          [1,16,0.014600599541527069],
+          [1,17,0.014441897372597426],
+          [1,18,0.014283195203667784],
+          [1,19,0.014124493034738141],
+          [1,20,0.0139657908658085],
+          [1,21,0.013807088696878857],
+          [1,22,0.013648386527949216],
+          [1,23,0.013489684359019575],
+          [1,24,0.013330982190089932],
+          [1,25,0.01317228002116029],
+          [1,26,0.013013577852230647],
+          [1,27,0.012854875683301006],
+          [1,28,0.012696173514371363],
+          [1,29,0.012537471345441722],
+          [1,30,0.012378769176512079],
+          [1,31,0.012220067007582438],
+          [1,32,0.012061364838652795],
+          [1,33,0.011902662669723153],
+          [1,34,0.011743960500793512],
+          [1,35,0.011585258331863869],
+          [1,36,0.011426556162934228],
+          [1,37,0.011267853994004585],
+          [1,38,0.011109151825074944],
+          [1,39,0.0109504496561453],
+          [1,40,0.01079174748721566],
+          [1,41,0.010633045318286016],
+          [1,42,0.010474343149356375],
+          [1,43,0.010315640980426732],
+          [1,44,0.01015693881149709],
+          [1,45,0.00999823664256745],
+          [1,46,0.009839534473637807],
+          [1,47,0.009680832304708165],
+          [1,48,0.009522130135778522],
+          [1,49,0.009363427966848881],
+          [1,50,0.009204725797919238],
+          [1,51,0.009046023628989597],
+          [1,52,0.008887321460059954],
+          [1,53,0.008728619291130313],
+          [1,54,0.00856991712220067],
+          [1,55,0.008411214953271028],
+          [1,56,0.008252512784341387],
+          [1,57,0.008093810615411744],
+          [1,58,0.007935108446482103],
+          [1,59,0.00777640627755246],
+          [1,60,0.0076177041086228185],
+          [1,61,0.007459001939693176],
+          [1,62,0.007300299770763534],
+          [1,63,0.007141597601833892],
+          [1,64,0.00698289543290425],
+          [1,65,0.006824193263974608],
+          [1,66,0.006665491095044966],
+          [1,67,0.006506788926115324],
+          [1,68,0.0063480867571856815],
+          [1,69,0.006189384588256039],
+          [1,70,0.006030682419326397],
+          [1,71,0.005871980250396756],
+          [1,72,0.005713278081467114],
+          [1,73,0.005554575912537472],
+          [1,74,0.00539587374360783],
+          [1,75,0.0052371715746781875],
+          [1,76,0.005078469405748545],
+          [1,77,0.004919767236818903],
+          [1,78,0.004761065067889261],
+          [1,79,0.004602362898959619],
+          [1,80,0.004443660730029977],
+          [1,81,0.004284958561100335],
+          [1,82,0.0041262563921706935],
+          [1,83,0.003967554223241051],
+          [1,84,0.0038088520543114093],
+          [1,85,0.003650149885381767],
+          [1,86,0.003491447716452125],
+          [1,87,0.003332745547522483],
+          [1,88,0.0031740433785928408],
+          [1,89,0.0030153412096631986],
+          [1,90,0.002856639040733557],
+          [1,91,0.002697936871803915],
+          [1,92,0.0025392347028742727],
+          [1,93,0.0023805325339446306],
+          [1,94,0.0022218303650149884],
+          [1,95,0.0020631281960853468],
+          [1,96,0.0019044260271557046],
+          [1,97,0.0017457238582260625],
+          [1,98,0.0015870216892964204],
+          [1,99,0.0014283195203667785],
+          [1,100,0.0012696173514371363],
+          [1,101,0.0011109151825074942],
+          [1,102,0.0009522130135778523],
+          [1,103,0.0007935108446482102],
+          [1,104,0.0006348086757185682],
+          [1,105,0.00047610650678892616],
+          [1,106,0.0003174043378592841],
+          [1,107,0.00015870216892964204]
         ]
       },
       "input": {
         "queryId": "state-budget-truncation",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
+        "seeds": [{"id":1,"energy":1,"sourceType":"seed"}],
         "config": {
           "maxTransitionRecords": 16000,
           "maxNeighborsPerNode": 106,
@@ -2451,422 +1089,110 @@
         "artifactSig": "controlled-reference",
         "queryId": "state-budget-truncation",
         "sourceField": [
-          [
-            1,
-            0.8814455022343112
-          ],
-          [
-            2,
-            0.0022242082766660187
-          ],
-          [
-            3,
-            0.0022032251797163395
-          ],
-          [
-            4,
-            0.0021822420827666603
-          ],
-          [
-            5,
-            0.0021612589858169807
-          ],
-          [
-            6,
-            0.002140275888867301
-          ],
-          [
-            7,
-            0.002119292791917622
-          ],
-          [
-            8,
-            0.0020983096949679426
-          ],
-          [
-            9,
-            0.002077326598018263
-          ],
-          [
-            10,
-            0.0020563435010685833
-          ],
-          [
-            11,
-            0.002035360404118904
-          ],
-          [
-            12,
-            0.002014377307169225
-          ],
-          [
-            13,
-            0.0019933942102195452
-          ],
-          [
-            14,
-            0.001972411113269866
-          ],
-          [
-            15,
-            0.0019514280163201866
-          ],
-          [
-            16,
-            0.001930444919370507
-          ],
-          [
-            17,
-            0.0019094618224208275
-          ],
-          [
-            18,
-            0.0018884787254711483
-          ],
-          [
-            19,
-            0.0018674956285214684
-          ],
-          [
-            20,
-            0.0018465125315717892
-          ],
-          [
-            21,
-            0.0018255294346221093
-          ],
-          [
-            22,
-            0.0018045463376724306
-          ],
-          [
-            23,
-            0.0017835632407227514
-          ],
-          [
-            24,
-            0.0017625801437730715
-          ],
-          [
-            25,
-            0.0017415970468233925
-          ],
-          [
-            26,
-            0.0017206139498737128
-          ],
-          [
-            27,
-            0.0016996308529240334
-          ],
-          [
-            28,
-            0.001678647755974354
-          ],
-          [
-            29,
-            0.0016576646590246746
-          ],
-          [
-            30,
-            0.0016366815620749951
-          ],
-          [
-            31,
-            0.0016156984651253157
-          ],
-          [
-            32,
-            0.0015947153681756363
-          ],
-          [
-            33,
-            0.0015737322712259566
-          ],
-          [
-            34,
-            0.0015527491742762774
-          ],
-          [
-            35,
-            0.0015317660773265978
-          ],
-          [
-            36,
-            0.0015107829803769185
-          ],
-          [
-            37,
-            0.0014897998834272391
-          ],
-          [
-            38,
-            0.0014688167864775597
-          ],
-          [
-            39,
-            0.0014478336895278803
-          ],
-          [
-            40,
-            0.0014268505925782008
-          ],
-          [
-            41,
-            0.0014058674956285214
-          ],
-          [
-            42,
-            0.0013848843986788422
-          ],
-          [
-            43,
-            0.0013639013017291625
-          ],
-          [
-            44,
-            0.001342918204779483
-          ],
-          [
-            45,
-            0.0013219351078298037
-          ],
-          [
-            46,
-            0.0013009520108801245
-          ],
-          [
-            47,
-            0.0012799689139304448
-          ],
-          [
-            48,
-            0.0012589858169807654
-          ],
-          [
-            49,
-            0.0012380027200310857
-          ],
-          [
-            50,
-            0.0012170196230814065
-          ],
-          [
-            51,
-            0.001196036526131727
-          ],
-          [
-            52,
-            0.0011750534291820477
-          ],
-          [
-            53,
-            0.0011540703322323682
-          ],
-          [
-            54,
-            0.0011330872352826888
-          ],
-          [
-            55,
-            0.0011121041383330094
-          ],
-          [
-            56,
-            0.0010911210413833302
-          ],
-          [
-            57,
-            0.0010701379444336505
-          ],
-          [
-            58,
-            0.0010491548474839713
-          ],
-          [
-            59,
-            0.0010281717505342916
-          ],
-          [
-            60,
-            0.0010071886535846127
-          ],
-          [
-            61,
-            0.000986205556634933
-          ],
-          [
-            62,
-            0.0009652224596852535
-          ],
-          [
-            63,
-            0.0009442393627355741
-          ],
-          [
-            64,
-            0.0009232562657858946
-          ],
-          [
-            65,
-            0.0009022731688362153
-          ],
-          [
-            66,
-            0.0008812900718865357
-          ],
-          [
-            67,
-            0.0008603069749368564
-          ],
-          [
-            68,
-            0.0008393238779871769
-          ],
-          [
-            69,
-            0.0008183407810374975
-          ],
-          [
-            70,
-            0.000797357684087818
-          ],
-          [
-            71,
-            0.0007763745871381387
-          ],
-          [
-            72,
-            0.0007553914901884593
-          ],
-          [
-            73,
-            0.0007344083932387798
-          ],
-          [
-            74,
-            0.0007134252962891004
-          ],
-          [
-            75,
-            0.000692442199339421
-          ],
-          [
-            76,
-            0.0006714591023897416
-          ],
-          [
-            77,
-            0.0006504760054400621
-          ],
-          [
-            78,
-            0.0006294929084903827
-          ],
-          [
-            79,
-            0.0006085098115407033
-          ],
-          [
-            80,
-            0.0005875267145910238
-          ],
-          [
-            81,
-            0.0005665436176413444
-          ],
-          [
-            82,
-            0.0005455605206916651
-          ],
-          [
-            83,
-            0.0005245774237419856
-          ],
-          [
-            84,
-            0.0005035943267923063
-          ],
-          [
-            85,
-            0.00048261122984262673
-          ],
-          [
-            86,
-            0.0004616281328929473
-          ],
-          [
-            87,
-            0.0004406450359432679
-          ],
-          [
-            88,
-            0.00041966193899358844
-          ],
-          [
-            89,
-            0.00039867884204390896
-          ],
-          [
-            90,
-            0.00037769574509422964
-          ],
-          [
-            91,
-            0.0003567126481445502
-          ],
-          [
-            92,
-            0.0003357295511948708
-          ],
-          [
-            93,
-            0.00031474645424519135
-          ],
-          [
-            94,
-            0.0002937633572955119
-          ],
-          [
-            95,
-            0.00027278026034583254
-          ],
-          [
-            96,
-            0.00025179716339615316
-          ],
-          [
-            97,
-            0.00023081406644647365
-          ],
-          [
-            98,
-            0.00020983096949679422
-          ],
-          [
-            99,
-            0.00018884787254711482
-          ],
-          [
-            100,
-            0.0001678647755974354
-          ],
-          [
-            101,
-            0.00014688167864775596
-          ]
+          [1,0.8814455022343112],
+          [2,0.0022242082766660187],
+          [3,0.0022032251797163395],
+          [4,0.0021822420827666603],
+          [5,0.0021612589858169807],
+          [6,0.002140275888867301],
+          [7,0.002119292791917622],
+          [8,0.0020983096949679426],
+          [9,0.002077326598018263],
+          [10,0.0020563435010685833],
+          [11,0.002035360404118904],
+          [12,0.002014377307169225],
+          [13,0.0019933942102195452],
+          [14,0.001972411113269866],
+          [15,0.0019514280163201866],
+          [16,0.001930444919370507],
+          [17,0.0019094618224208275],
+          [18,0.0018884787254711483],
+          [19,0.0018674956285214684],
+          [20,0.0018465125315717892],
+          [21,0.0018255294346221093],
+          [22,0.0018045463376724306],
+          [23,0.0017835632407227514],
+          [24,0.0017625801437730715],
+          [25,0.0017415970468233925],
+          [26,0.0017206139498737128],
+          [27,0.0016996308529240334],
+          [28,0.001678647755974354],
+          [29,0.0016576646590246746],
+          [30,0.0016366815620749951],
+          [31,0.0016156984651253157],
+          [32,0.0015947153681756363],
+          [33,0.0015737322712259566],
+          [34,0.0015527491742762774],
+          [35,0.0015317660773265978],
+          [36,0.0015107829803769185],
+          [37,0.0014897998834272391],
+          [38,0.0014688167864775597],
+          [39,0.0014478336895278803],
+          [40,0.0014268505925782008],
+          [41,0.0014058674956285214],
+          [42,0.0013848843986788422],
+          [43,0.0013639013017291625],
+          [44,0.001342918204779483],
+          [45,0.0013219351078298037],
+          [46,0.0013009520108801245],
+          [47,0.0012799689139304448],
+          [48,0.0012589858169807654],
+          [49,0.0012380027200310857],
+          [50,0.0012170196230814065],
+          [51,0.001196036526131727],
+          [52,0.0011750534291820477],
+          [53,0.0011540703322323682],
+          [54,0.0011330872352826888],
+          [55,0.0011121041383330094],
+          [56,0.0010911210413833302],
+          [57,0.0010701379444336505],
+          [58,0.0010491548474839713],
+          [59,0.0010281717505342916],
+          [60,0.0010071886535846127],
+          [61,0.000986205556634933],
+          [62,0.0009652224596852535],
+          [63,0.0009442393627355741],
+          [64,0.0009232562657858946],
+          [65,0.0009022731688362153],
+          [66,0.0008812900718865357],
+          [67,0.0008603069749368564],
+          [68,0.0008393238779871769],
+          [69,0.0008183407810374975],
+          [70,0.000797357684087818],
+          [71,0.0007763745871381387],
+          [72,0.0007553914901884593],
+          [73,0.0007344083932387798],
+          [74,0.0007134252962891004],
+          [75,0.000692442199339421],
+          [76,0.0006714591023897416],
+          [77,0.0006504760054400621],
+          [78,0.0006294929084903827],
+          [79,0.0006085098115407033],
+          [80,0.0005875267145910238],
+          [81,0.0005665436176413444],
+          [82,0.0005455605206916651],
+          [83,0.0005245774237419856],
+          [84,0.0005035943267923063],
+          [85,0.00048261122984262673],
+          [86,0.0004616281328929473],
+          [87,0.0004406450359432679],
+          [88,0.00041966193899358844],
+          [89,0.00039867884204390896],
+          [90,0.00037769574509422964],
+          [91,0.0003567126481445502],
+          [92,0.0003357295511948708],
+          [93,0.00031474645424519135],
+          [94,0.0002937633572955119],
+          [95,0.00027278026034583254],
+          [96,0.00025179716339615316],
+          [97,0.00023081406644647365],
+          [98,0.00020983096949679422],
+          [99,0.00018884787254711482],
+          [100,0.0001678647755974354],
+          [101,0.00014688167864775596]
         ],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.5102040816326531,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.5102040816326531,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
           {
             "id": 2,
             "energy": 0.0012874308601945451,
@@ -2875,12 +1201,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.004205607476635514,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.004205607476635514,"hop":1,"wormhole":false}
           },
           {
             "id": 3,
@@ -2890,12 +1211,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.004165931934403104,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.004165931934403104,"hop":1,"wormhole":false}
           },
           {
             "id": 4,
@@ -2905,12 +1221,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0041262563921706935,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0041262563921706935,"hop":1,"wormhole":false}
           },
           {
             "id": 5,
@@ -2920,12 +1231,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.004086580849938282,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.004086580849938282,"hop":1,"wormhole":false}
           },
           {
             "id": 6,
@@ -2935,12 +1241,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.004046905307705872,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.004046905307705872,"hop":1,"wormhole":false}
           },
           {
             "id": 7,
@@ -2950,12 +1251,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.004007229765473462,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.004007229765473462,"hop":1,"wormhole":false}
           },
           {
             "id": 8,
@@ -2965,12 +1261,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003967554223241051,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003967554223241051,"hop":1,"wormhole":false}
           },
           {
             "id": 9,
@@ -2980,12 +1271,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.00392787868100864,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.00392787868100864,"hop":1,"wormhole":false}
           },
           {
             "id": 10,
@@ -2995,12 +1281,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.00388820313877623,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.00388820313877623,"hop":1,"wormhole":false}
           },
           {
             "id": 11,
@@ -3010,12 +1291,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0038485275965438196,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0038485275965438196,"hop":1,"wormhole":false}
           },
           {
             "id": 12,
@@ -3025,12 +1301,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003808852054311409,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003808852054311409,"hop":1,"wormhole":false}
           },
           {
             "id": 13,
@@ -3040,12 +1311,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0037691765120789985,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0037691765120789985,"hop":1,"wormhole":false}
           },
           {
             "id": 14,
@@ -3055,12 +1321,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003729500969846588,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003729500969846588,"hop":1,"wormhole":false}
           },
           {
             "id": 15,
@@ -3070,12 +1331,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0036898254276141774,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0036898254276141774,"hop":1,"wormhole":false}
           },
           {
             "id": 16,
@@ -3085,12 +1341,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003650149885381767,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003650149885381767,"hop":1,"wormhole":false}
           },
           {
             "id": 17,
@@ -3100,12 +1351,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0036104743431493564,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0036104743431493564,"hop":1,"wormhole":false}
           },
           {
             "id": 18,
@@ -3115,12 +1361,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003570798800916946,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003570798800916946,"hop":1,"wormhole":false}
           },
           {
             "id": 19,
@@ -3130,12 +1371,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003531123258684535,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003531123258684535,"hop":1,"wormhole":false}
           },
           {
             "id": 20,
@@ -3145,12 +1381,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003491447716452125,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003491447716452125,"hop":1,"wormhole":false}
           },
           {
             "id": 21,
@@ -3160,12 +1391,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003451772174219714,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003451772174219714,"hop":1,"wormhole":false}
           },
           {
             "id": 22,
@@ -3175,12 +1401,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003412096631987304,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003412096631987304,"hop":1,"wormhole":false}
           },
           {
             "id": 23,
@@ -3190,12 +1411,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003372421089754894,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003372421089754894,"hop":1,"wormhole":false}
           },
           {
             "id": 24,
@@ -3205,12 +1421,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003332745547522483,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003332745547522483,"hop":1,"wormhole":false}
           },
           {
             "id": 25,
@@ -3220,12 +1431,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0032930700052900726,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0032930700052900726,"hop":1,"wormhole":false}
           },
           {
             "id": 26,
@@ -3235,12 +1441,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003253394463057662,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003253394463057662,"hop":1,"wormhole":false}
           },
           {
             "id": 27,
@@ -3250,12 +1451,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0032137189208252515,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0032137189208252515,"hop":1,"wormhole":false}
           },
           {
             "id": 28,
@@ -3265,12 +1461,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003174043378592841,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003174043378592841,"hop":1,"wormhole":false}
           },
           {
             "id": 29,
@@ -3280,12 +1471,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0031343678363604304,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0031343678363604304,"hop":1,"wormhole":false}
           },
           {
             "id": 30,
@@ -3295,12 +1481,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.00309469229412802,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.00309469229412802,"hop":1,"wormhole":false}
           },
           {
             "id": 31,
@@ -3310,12 +1491,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0030550167518956094,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0030550167518956094,"hop":1,"wormhole":false}
           },
           {
             "id": 32,
@@ -3325,12 +1501,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.003015341209663199,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.003015341209663199,"hop":1,"wormhole":false}
           },
           {
             "id": 33,
@@ -3340,12 +1511,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002975665667430788,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002975665667430788,"hop":1,"wormhole":false}
           },
           {
             "id": 34,
@@ -3355,12 +1521,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002935990125198378,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002935990125198378,"hop":1,"wormhole":false}
           },
           {
             "id": 35,
@@ -3370,12 +1531,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002896314582965967,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002896314582965967,"hop":1,"wormhole":false}
           },
           {
             "id": 36,
@@ -3385,12 +1541,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002856639040733557,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002856639040733557,"hop":1,"wormhole":false}
           },
           {
             "id": 37,
@@ -3400,12 +1551,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002816963498501146,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002816963498501146,"hop":1,"wormhole":false}
           },
           {
             "id": 38,
@@ -3415,12 +1561,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002777287956268736,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002777287956268736,"hop":1,"wormhole":false}
           },
           {
             "id": 39,
@@ -3430,12 +1571,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002737612414036325,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002737612414036325,"hop":1,"wormhole":false}
           },
           {
             "id": 40,
@@ -3445,12 +1581,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002697936871803915,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002697936871803915,"hop":1,"wormhole":false}
           },
           {
             "id": 41,
@@ -3460,12 +1591,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002658261329571504,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002658261329571504,"hop":1,"wormhole":false}
           },
           {
             "id": 42,
@@ -3475,12 +1601,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002618585787339094,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002618585787339094,"hop":1,"wormhole":false}
           },
           {
             "id": 43,
@@ -3490,12 +1611,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002578910245106683,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002578910245106683,"hop":1,"wormhole":false}
           },
           {
             "id": 44,
@@ -3505,12 +1621,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0025392347028742727,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0025392347028742727,"hop":1,"wormhole":false}
           },
           {
             "id": 45,
@@ -3520,12 +1631,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0024995591606418624,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0024995591606418624,"hop":1,"wormhole":false}
           },
           {
             "id": 46,
@@ -3535,12 +1641,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002459883618409452,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002459883618409452,"hop":1,"wormhole":false}
           },
           {
             "id": 47,
@@ -3550,12 +1651,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002420208076177041,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002420208076177041,"hop":1,"wormhole":false}
           },
           {
             "id": 48,
@@ -3565,12 +1661,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0023805325339446306,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0023805325339446306,"hop":1,"wormhole":false}
           },
           {
             "id": 49,
@@ -3580,12 +1671,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.00234085699171222,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.00234085699171222,"hop":1,"wormhole":false}
           },
           {
             "id": 50,
@@ -3595,12 +1681,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0023011814494798095,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0023011814494798095,"hop":1,"wormhole":false}
           },
           {
             "id": 51,
@@ -3610,12 +1691,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002261505907247399,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002261505907247399,"hop":1,"wormhole":false}
           },
           {
             "id": 52,
@@ -3625,12 +1701,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0022218303650149884,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0022218303650149884,"hop":1,"wormhole":false}
           },
           {
             "id": 53,
@@ -3640,12 +1711,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002182154822782578,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002182154822782578,"hop":1,"wormhole":false}
           },
           {
             "id": 54,
@@ -3655,12 +1721,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0021424792805501674,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0021424792805501674,"hop":1,"wormhole":false}
           },
           {
             "id": 55,
@@ -3670,12 +1731,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002102803738317757,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002102803738317757,"hop":1,"wormhole":false}
           },
           {
             "id": 56,
@@ -3685,12 +1741,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0020631281960853468,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0020631281960853468,"hop":1,"wormhole":false}
           },
           {
             "id": 57,
@@ -3700,12 +1751,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.002023452653852936,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.002023452653852936,"hop":1,"wormhole":false}
           },
           {
             "id": 58,
@@ -3715,12 +1761,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0019837771116205257,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0019837771116205257,"hop":1,"wormhole":false}
           },
           {
             "id": 59,
@@ -3730,12 +1771,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.001944101569388115,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.001944101569388115,"hop":1,"wormhole":false}
           },
           {
             "id": 60,
@@ -3745,12 +1781,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0019044260271557048,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0019044260271557048,"hop":1,"wormhole":false}
           },
           {
             "id": 61,
@@ -3760,12 +1791,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.001864750484923294,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.001864750484923294,"hop":1,"wormhole":false}
           },
           {
             "id": 62,
@@ -3775,12 +1801,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0018250749426908836,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0018250749426908836,"hop":1,"wormhole":false}
           },
           {
             "id": 63,
@@ -3790,12 +1811,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.001785399400458473,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.001785399400458473,"hop":1,"wormhole":false}
           },
           {
             "id": 64,
@@ -3805,12 +1821,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0017457238582260625,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0017457238582260625,"hop":1,"wormhole":false}
           },
           {
             "id": 65,
@@ -3820,12 +1831,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.001706048315993652,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.001706048315993652,"hop":1,"wormhole":false}
           },
           {
             "id": 66,
@@ -3835,12 +1841,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0016663727737612414,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0016663727737612414,"hop":1,"wormhole":false}
           },
           {
             "id": 67,
@@ -3850,12 +1851,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.001626697231528831,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.001626697231528831,"hop":1,"wormhole":false}
           },
           {
             "id": 68,
@@ -3865,12 +1861,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0015870216892964204,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0015870216892964204,"hop":1,"wormhole":false}
           },
           {
             "id": 69,
@@ -3880,12 +1871,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0015473461470640098,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0015473461470640098,"hop":1,"wormhole":false}
           },
           {
             "id": 70,
@@ -3895,12 +1881,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0015076706048315993,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0015076706048315993,"hop":1,"wormhole":false}
           },
           {
             "id": 71,
@@ -3910,12 +1891,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.001467995062599189,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.001467995062599189,"hop":1,"wormhole":false}
           },
           {
             "id": 72,
@@ -3925,12 +1901,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0014283195203667785,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0014283195203667785,"hop":1,"wormhole":false}
           },
           {
             "id": 73,
@@ -3940,12 +1911,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.001388643978134368,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.001388643978134368,"hop":1,"wormhole":false}
           },
           {
             "id": 74,
@@ -3955,12 +1921,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0013489684359019574,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0013489684359019574,"hop":1,"wormhole":false}
           },
           {
             "id": 75,
@@ -3970,12 +1931,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0013092928936695469,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0013092928936695469,"hop":1,"wormhole":false}
           },
           {
             "id": 76,
@@ -3985,12 +1941,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0012696173514371363,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0012696173514371363,"hop":1,"wormhole":false}
           },
           {
             "id": 77,
@@ -4000,12 +1951,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0012299418092047258,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0012299418092047258,"hop":1,"wormhole":false}
           },
           {
             "id": 78,
@@ -4015,12 +1961,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0011902662669723153,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0011902662669723153,"hop":1,"wormhole":false}
           },
           {
             "id": 79,
@@ -4030,12 +1971,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0011505907247399048,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0011505907247399048,"hop":1,"wormhole":false}
           },
           {
             "id": 80,
@@ -4045,12 +1981,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0011109151825074942,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0011109151825074942,"hop":1,"wormhole":false}
           },
           {
             "id": 81,
@@ -4060,12 +1991,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0010712396402750837,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0010712396402750837,"hop":1,"wormhole":false}
           },
           {
             "id": 82,
@@ -4075,12 +2001,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0010315640980426734,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0010315640980426734,"hop":1,"wormhole":false}
           },
           {
             "id": 83,
@@ -4090,12 +2011,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0009918885558102628,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0009918885558102628,"hop":1,"wormhole":false}
           },
           {
             "id": 84,
@@ -4105,12 +2021,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0009522130135778524,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0009522130135778524,"hop":1,"wormhole":false}
           },
           {
             "id": 85,
@@ -4120,12 +2031,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0009125374713454418,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0009125374713454418,"hop":1,"wormhole":false}
           },
           {
             "id": 86,
@@ -4135,12 +2041,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0008728619291130313,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0008728619291130313,"hop":1,"wormhole":false}
           },
           {
             "id": 87,
@@ -4150,12 +2051,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0008331863868806207,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0008331863868806207,"hop":1,"wormhole":false}
           },
           {
             "id": 88,
@@ -4165,12 +2061,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0007935108446482102,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0007935108446482102,"hop":1,"wormhole":false}
           },
           {
             "id": 89,
@@ -4180,12 +2071,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0007538353024157996,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0007538353024157996,"hop":1,"wormhole":false}
           },
           {
             "id": 90,
@@ -4195,12 +2081,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0007141597601833892,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0007141597601833892,"hop":1,"wormhole":false}
           },
           {
             "id": 91,
@@ -4210,12 +2091,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0006744842179509787,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0006744842179509787,"hop":1,"wormhole":false}
           },
           {
             "id": 92,
@@ -4225,12 +2101,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0006348086757185682,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0006348086757185682,"hop":1,"wormhole":false}
           },
           {
             "id": 93,
@@ -4240,12 +2111,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0005951331334861576,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0005951331334861576,"hop":1,"wormhole":false}
           },
           {
             "id": 94,
@@ -4255,12 +2121,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0005554575912537471,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0005554575912537471,"hop":1,"wormhole":false}
           },
           {
             "id": 95,
@@ -4270,12 +2131,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0005157820490213367,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0005157820490213367,"hop":1,"wormhole":false}
           },
           {
             "id": 96,
@@ -4285,12 +2141,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0004761065067889262,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0004761065067889262,"hop":1,"wormhole":false}
           },
           {
             "id": 97,
@@ -4300,12 +2151,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0004364309645565156,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0004364309645565156,"hop":1,"wormhole":false}
           },
           {
             "id": 98,
@@ -4315,12 +2161,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0003967554223241051,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0003967554223241051,"hop":1,"wormhole":false}
           },
           {
             "id": 99,
@@ -4330,42 +2171,27 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0003570798800916946,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0003570798800916946,"hop":1,"wormhole":false}
           },
           {
             "id": 100,
-            "energy": 0.00009716459322222982,
+            "energy": 9.716459322222982e-05,
             "normalizedEnergy": 0.00019044260271557044,
             "sourceType": "emergent",
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0003174043378592841,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0003174043378592841,"hop":1,"wormhole":false}
           },
           {
             "id": 101,
-            "energy": 0.00008501901906945109,
+            "energy": 8.501901906945109e-05,
             "normalizedEnergy": 0.00016663727737612413,
             "sourceType": "emergent",
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.00027772879562687356,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.00027772879562687356,"hop":1,"wormhole":false}
           }
         ],
         "edges": [
@@ -5516,8 +3342,8 @@
           {
             "sourceId": 1,
             "targetId": 106,
-            "flow": 0.00007935108446482102,
-            "maxFlow": 0.00007935108446482102,
+            "flow": 7.935108446482102e-05,
+            "maxFlow": 7.935108446482102e-05,
             "normalizedFlow": 0.018867924528301886,
             "conductance": 0.0003174043378592841,
             "minHop": 1,
@@ -5527,8 +3353,8 @@
           {
             "sourceId": 1,
             "targetId": 107,
-            "flow": 0.00003967554223241051,
-            "maxFlow": 0.00003967554223241051,
+            "flow": 3.967554223241051e-05,
+            "maxFlow": 3.967554223241051e-05,
             "normalizedFlow": 0.009433962264150943,
             "conductance": 0.00015870216892964204,
             "minHop": 1,
@@ -5545,940 +3371,119 @@
           "maximumEdgeFlow": 0.004205607476635514,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 6,
-          "hopInFlightMass": [
-            0.22416681361311944,
-            0
-          ],
+          "hopInFlightMass": [0.22416681361311944,0],
           "artifactNodes": 107,
           "artifactEdges": 106
         },
         "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.004205607476635514,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 3,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.004165931934403104,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 4,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0041262563921706935,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 5,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.004086580849938282,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 6,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.004046905307705872,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 7,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.004007229765473462,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 8,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003967554223241051,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 9,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.00392787868100864,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 10,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.00388820313877623,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 11,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0038485275965438196,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 12,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003808852054311409,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 13,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0037691765120789985,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 14,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003729500969846588,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 15,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0036898254276141774,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 16,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003650149885381767,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 17,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0036104743431493564,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 18,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003570798800916946,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 19,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003531123258684535,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 20,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003491447716452125,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 21,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003451772174219714,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 22,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003412096631987304,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 23,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003372421089754894,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 24,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003332745547522483,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 25,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0032930700052900726,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 26,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003253394463057662,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 27,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0032137189208252515,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 28,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003174043378592841,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 29,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0031343678363604304,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 30,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.00309469229412802,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 31,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0030550167518956094,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 32,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.003015341209663199,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 33,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002975665667430788,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 34,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002935990125198378,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 35,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002896314582965967,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 36,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002856639040733557,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 37,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002816963498501146,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 38,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002777287956268736,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 39,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002737612414036325,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 40,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002697936871803915,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 41,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002658261329571504,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 42,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002618585787339094,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 43,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002578910245106683,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 44,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0025392347028742727,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 45,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0024995591606418624,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 46,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002459883618409452,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 47,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002420208076177041,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 48,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0023805325339446306,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 49,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.00234085699171222,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 50,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0023011814494798095,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 51,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002261505907247399,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 52,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0022218303650149884,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 53,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002182154822782578,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 54,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0021424792805501674,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 55,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002102803738317757,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 56,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0020631281960853468,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 57,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.002023452653852936,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 58,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0019837771116205257,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 59,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.001944101569388115,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 60,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0019044260271557048,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 61,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.001864750484923294,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 62,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0018250749426908836,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 63,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.001785399400458473,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 64,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0017457238582260625,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 65,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.001706048315993652,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 66,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0016663727737612414,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 67,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.001626697231528831,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 68,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0015870216892964204,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 69,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0015473461470640098,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 70,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0015076706048315993,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 71,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.001467995062599189,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 72,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0014283195203667785,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 73,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.001388643978134368,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 74,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0013489684359019574,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 75,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0013092928936695469,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 76,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0012696173514371363,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 77,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0012299418092047258,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 78,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0011902662669723153,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 79,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0011505907247399048,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 80,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0011109151825074942,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 81,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0010712396402750837,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 82,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0010315640980426734,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 83,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0009918885558102628,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 84,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0009522130135778524,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 85,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0009125374713454418,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 86,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0008728619291130313,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 87,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0008331863868806207,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 88,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0007935108446482102,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 89,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0007538353024157996,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 90,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0007141597601833892,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 91,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0006744842179509787,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 92,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0006348086757185682,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 93,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0005951331334861576,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 94,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0005554575912537471,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 95,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0005157820490213367,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 96,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0004761065067889262,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 97,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0004364309645565156,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 98,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0003967554223241051,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 99,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0003570798800916946,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 100,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.0003174043378592841,
-            "wormhole": false,
-            "immediateReturn": false
-          },
-          {
-            "sourceId": 1,
-            "targetId": 101,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.00027772879562687356,
-            "wormhole": false,
-            "immediateReturn": false
-          }
+          {"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.004205607476635514,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":3,"previousId":null,"hop":1,"flow":0.004165931934403104,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":4,"previousId":null,"hop":1,"flow":0.0041262563921706935,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":5,"previousId":null,"hop":1,"flow":0.004086580849938282,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":6,"previousId":null,"hop":1,"flow":0.004046905307705872,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":7,"previousId":null,"hop":1,"flow":0.004007229765473462,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":8,"previousId":null,"hop":1,"flow":0.003967554223241051,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":9,"previousId":null,"hop":1,"flow":0.00392787868100864,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":10,"previousId":null,"hop":1,"flow":0.00388820313877623,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":11,"previousId":null,"hop":1,"flow":0.0038485275965438196,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":12,"previousId":null,"hop":1,"flow":0.003808852054311409,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":13,"previousId":null,"hop":1,"flow":0.0037691765120789985,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":14,"previousId":null,"hop":1,"flow":0.003729500969846588,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":15,"previousId":null,"hop":1,"flow":0.0036898254276141774,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":16,"previousId":null,"hop":1,"flow":0.003650149885381767,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":17,"previousId":null,"hop":1,"flow":0.0036104743431493564,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":18,"previousId":null,"hop":1,"flow":0.003570798800916946,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":19,"previousId":null,"hop":1,"flow":0.003531123258684535,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":20,"previousId":null,"hop":1,"flow":0.003491447716452125,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":21,"previousId":null,"hop":1,"flow":0.003451772174219714,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":22,"previousId":null,"hop":1,"flow":0.003412096631987304,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":23,"previousId":null,"hop":1,"flow":0.003372421089754894,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":24,"previousId":null,"hop":1,"flow":0.003332745547522483,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":25,"previousId":null,"hop":1,"flow":0.0032930700052900726,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":26,"previousId":null,"hop":1,"flow":0.003253394463057662,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":27,"previousId":null,"hop":1,"flow":0.0032137189208252515,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":28,"previousId":null,"hop":1,"flow":0.003174043378592841,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":29,"previousId":null,"hop":1,"flow":0.0031343678363604304,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":30,"previousId":null,"hop":1,"flow":0.00309469229412802,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":31,"previousId":null,"hop":1,"flow":0.0030550167518956094,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":32,"previousId":null,"hop":1,"flow":0.003015341209663199,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":33,"previousId":null,"hop":1,"flow":0.002975665667430788,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":34,"previousId":null,"hop":1,"flow":0.002935990125198378,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":35,"previousId":null,"hop":1,"flow":0.002896314582965967,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":36,"previousId":null,"hop":1,"flow":0.002856639040733557,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":37,"previousId":null,"hop":1,"flow":0.002816963498501146,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":38,"previousId":null,"hop":1,"flow":0.002777287956268736,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":39,"previousId":null,"hop":1,"flow":0.002737612414036325,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":40,"previousId":null,"hop":1,"flow":0.002697936871803915,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":41,"previousId":null,"hop":1,"flow":0.002658261329571504,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":42,"previousId":null,"hop":1,"flow":0.002618585787339094,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":43,"previousId":null,"hop":1,"flow":0.002578910245106683,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":44,"previousId":null,"hop":1,"flow":0.0025392347028742727,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":45,"previousId":null,"hop":1,"flow":0.0024995591606418624,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":46,"previousId":null,"hop":1,"flow":0.002459883618409452,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":47,"previousId":null,"hop":1,"flow":0.002420208076177041,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":48,"previousId":null,"hop":1,"flow":0.0023805325339446306,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":49,"previousId":null,"hop":1,"flow":0.00234085699171222,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":50,"previousId":null,"hop":1,"flow":0.0023011814494798095,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":51,"previousId":null,"hop":1,"flow":0.002261505907247399,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":52,"previousId":null,"hop":1,"flow":0.0022218303650149884,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":53,"previousId":null,"hop":1,"flow":0.002182154822782578,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":54,"previousId":null,"hop":1,"flow":0.0021424792805501674,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":55,"previousId":null,"hop":1,"flow":0.002102803738317757,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":56,"previousId":null,"hop":1,"flow":0.0020631281960853468,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":57,"previousId":null,"hop":1,"flow":0.002023452653852936,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":58,"previousId":null,"hop":1,"flow":0.0019837771116205257,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":59,"previousId":null,"hop":1,"flow":0.001944101569388115,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":60,"previousId":null,"hop":1,"flow":0.0019044260271557048,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":61,"previousId":null,"hop":1,"flow":0.001864750484923294,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":62,"previousId":null,"hop":1,"flow":0.0018250749426908836,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":63,"previousId":null,"hop":1,"flow":0.001785399400458473,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":64,"previousId":null,"hop":1,"flow":0.0017457238582260625,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":65,"previousId":null,"hop":1,"flow":0.001706048315993652,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":66,"previousId":null,"hop":1,"flow":0.0016663727737612414,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":67,"previousId":null,"hop":1,"flow":0.001626697231528831,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":68,"previousId":null,"hop":1,"flow":0.0015870216892964204,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":69,"previousId":null,"hop":1,"flow":0.0015473461470640098,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":70,"previousId":null,"hop":1,"flow":0.0015076706048315993,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":71,"previousId":null,"hop":1,"flow":0.001467995062599189,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":72,"previousId":null,"hop":1,"flow":0.0014283195203667785,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":73,"previousId":null,"hop":1,"flow":0.001388643978134368,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":74,"previousId":null,"hop":1,"flow":0.0013489684359019574,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":75,"previousId":null,"hop":1,"flow":0.0013092928936695469,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":76,"previousId":null,"hop":1,"flow":0.0012696173514371363,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":77,"previousId":null,"hop":1,"flow":0.0012299418092047258,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":78,"previousId":null,"hop":1,"flow":0.0011902662669723153,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":79,"previousId":null,"hop":1,"flow":0.0011505907247399048,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":80,"previousId":null,"hop":1,"flow":0.0011109151825074942,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":81,"previousId":null,"hop":1,"flow":0.0010712396402750837,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":82,"previousId":null,"hop":1,"flow":0.0010315640980426734,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":83,"previousId":null,"hop":1,"flow":0.0009918885558102628,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":84,"previousId":null,"hop":1,"flow":0.0009522130135778524,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":85,"previousId":null,"hop":1,"flow":0.0009125374713454418,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":86,"previousId":null,"hop":1,"flow":0.0008728619291130313,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":87,"previousId":null,"hop":1,"flow":0.0008331863868806207,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":88,"previousId":null,"hop":1,"flow":0.0007935108446482102,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":89,"previousId":null,"hop":1,"flow":0.0007538353024157996,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":90,"previousId":null,"hop":1,"flow":0.0007141597601833892,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":91,"previousId":null,"hop":1,"flow":0.0006744842179509787,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":92,"previousId":null,"hop":1,"flow":0.0006348086757185682,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":93,"previousId":null,"hop":1,"flow":0.0005951331334861576,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":94,"previousId":null,"hop":1,"flow":0.0005554575912537471,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":95,"previousId":null,"hop":1,"flow":0.0005157820490213367,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":96,"previousId":null,"hop":1,"flow":0.0004761065067889262,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":97,"previousId":null,"hop":1,"flow":0.0004364309645565156,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":98,"previousId":null,"hop":1,"flow":0.0003967554223241051,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":99,"previousId":null,"hop":1,"flow":0.0003570798800916946,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":100,"previousId":null,"hop":1,"flow":0.0003174043378592841,"wormhole":false,"immediateReturn":false},
+          {"sourceId":1,"targetId":101,"previousId":null,"hop":1,"flow":0.00027772879562687356,"wormhole":false,"immediateReturn":false}
         ],
         "transitionsTruncated": false
       }
     },
     {
       "name": "empty-seeds",
-      "graph": {
-        "node_ids": [
-          1,
-          2
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.8
-          ]
-        ]
-      },
-      "input": {
-        "queryId": "empty-seeds",
-        "seeds": [],
-        "config": {
-          "maxTransitionRecords": 16000
-        }
-      },
+      "graph": {"node_ids":[1,2],"edges":[[1,2,0.8]]},
+      "input": {"queryId":"empty-seeds","seeds":[],"config":{"maxTransitionRecords":16000}},
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
@@ -6496,9 +3501,7 @@
           "maximumEdgeFlow": 0,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0
-          ],
+          "hopInFlightMass": [0],
           "artifactNodes": 2,
           "artifactEdges": 1
         },
@@ -6508,84 +3511,20 @@
     },
     {
       "name": "transition-record-truncation",
-      "graph": {
-        "node_ids": [
-          1,
-          2,
-          3,
-          4
-        ],
-        "edges": [
-          [
-            1,
-            2,
-            0.55
-          ],
-          [
-            1,
-            3,
-            0.35
-          ],
-          [
-            2,
-            4,
-            0.7
-          ],
-          [
-            3,
-            4,
-            0.6
-          ]
-        ]
-      },
+      "graph": {"node_ids":[1,2,3,4],"edges":[[1,2,0.55],[1,3,0.35],[2,4,0.7],[3,4,0.6]]},
       "input": {
         "queryId": "transition-record-truncation",
-        "seeds": [
-          {
-            "id": 1,
-            "energy": 1,
-            "sourceType": "seed"
-          }
-        ],
-        "config": {
-          "maxTransitionRecords": 1,
-          "firingThreshold": 0
-        }
+        "seeds": [{"id":1,"energy":1,"sourceType":"seed"}],
+        "config": {"maxTransitionRecords":1,"firingThreshold":0}
       },
       "expected": {
         "schema": "vexus-unified-memo-observation-v1",
         "algorithmVersion": "tagmemo.spike-v9.1-rust-shared",
         "artifactSig": "controlled-reference",
         "queryId": "transition-record-truncation",
-        "sourceField": [
-          [
-            1,
-            0.8707862111003473
-          ],
-          [
-            2,
-            0.07183986241577865
-          ],
-          [
-            3,
-            0.04571627608276823
-          ],
-          [
-            4,
-            0.011657650401105897
-          ]
-        ],
+        "sourceField": [[1,0.8707862111003473],[2,0.07183986241577865],[3,0.04571627608276823],[4,0.011657650401105897]],
         "nodes": [
-          {
-            "id": 1,
-            "energy": 0.4337265787647467,
-            "normalizedEnergy": 1,
-            "sourceType": "seed",
-            "originType": null,
-            "hop": 0,
-            "seedId": 1,
-            "strongestParent": null
-          },
+          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"sourceType":"seed","originType":null,"hop":0,"seedId":1,"strongestParent":null},
           {
             "id": 2,
             "energy": 0.03578244274809161,
@@ -6594,12 +3533,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.1375,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.1375,"hop":1,"wormhole":false}
           },
           {
             "id": 3,
@@ -6609,12 +3543,7 @@
             "originType": "seed",
             "hop": 1,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 1,
-              "flow": 0.0875,
-              "hop": 1,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":1,"flow":0.0875,"hop":1,"wormhole":false}
           },
           {
             "id": 4,
@@ -6624,12 +3553,7 @@
             "originType": "seed",
             "hop": 2,
             "seedId": 1,
-            "strongestParent": {
-              "parentId": 2,
-              "flow": 0.0240625,
-              "hop": 2,
-              "wormhole": false
-            }
+            "strongestParent": {"parentId":2,"flow":0.0240625,"hop":2,"wormhole":false}
           }
         ],
         "edges": [
@@ -6687,25 +3611,11 @@
           "maximumEdgeFlow": 0.1375,
           "returnFlowSuppressedMass": 0,
           "stateTruncations": 0,
-          "hopInFlightMass": [
-            0.225,
-            0.0371875,
-            0
-          ],
+          "hopInFlightMass": [0.225,0.0371875,0],
           "artifactNodes": 4,
           "artifactEdges": 4
         },
-        "transitions": [
-          {
-            "sourceId": 1,
-            "targetId": 2,
-            "previousId": null,
-            "hop": 1,
-            "flow": 0.1375,
-            "wormhole": false,
-            "immediateReturn": false
-          }
-        ],
+        "transitions": [{"sourceId":1,"targetId":2,"previousId":null,"hop":1,"flow":0.1375,"wormhole":false,"immediateReturn":false}],
         "transitionsTruncated": true
       }
     }

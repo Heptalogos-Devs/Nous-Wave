@@ -60,8 +60,11 @@ pub struct AccessibilityQueryPolicy {
     pub exact_target_bypasses_auto_level: bool,
 }
 
+pub trait QueryReadLease: std::fmt::Debug + Send + Sync {}
+
 #[derive(Debug, Clone)]
 pub struct QueryExecution {
+    pub read_lease: Option<std::sync::Arc<dyn QueryReadLease>>,
     pub result: CognitiveQueryResult,
     pub bound: BoundQuery,
     pub(super) leaves: Vec<BoundLeaf>,

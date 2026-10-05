@@ -17,9 +17,7 @@ fn check_view(
     observation: &VcpQueryObservation,
     offered: &[VcpReadoutCandidate],
 ) -> Result<()> {
-    if generation.generation_id != observation.generation_id()
-        || generation.cognitive_profile.id() != observation.profile_id()
-    {
+    if generation.generation_id != observation.generation_id() {
         return Err(Error::Unavailable(
             "VCP readout observation generation/profile mismatch".into(),
         ));

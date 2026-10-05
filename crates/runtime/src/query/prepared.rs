@@ -12,6 +12,15 @@ pub(crate) struct PendingQuery {
 }
 
 impl CognitiveRuntimeService {
+    pub fn expire_query_leases(&self) -> Result<()> {
+        let mut pending = self
+            .pending_queries
+            .lock()
+            .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
+        pending.retain(|_, value| value.created.elapsed() < value.lease);
+        Ok(())
+    }
+
     pub fn retain_query(
         &self,
         execution: QueryExecution,

@@ -1,5 +1,7 @@
 # Nous Wave 当前状态
 
+[返回文档目录](../INDEX.md)
+
 ## Available
 
 - Memory-only Subject：Subject capability、Memory/CognitiveSchema/Tag/AssociationEvidence Authority、不可变 revision、provenance、幂等和 lifecycle。
@@ -13,7 +15,7 @@
 
 ## Experimental
 
-Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential ranking。当前检索语料没有真实 topology signal。
+Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential ranking。VCP DTSC/RiverMemo reference 与 Nous adapters 已接线；旧模板结果只作探索。自动 topology maintenance、完整 Prepared Query Representation、Accretion 与 Agent CLI 闭环正在 PR #15 恢复，尚未验收。
 
 真实 New API 验证已覆盖七个 Structured Output 角色、四类代表性媒体的三种派生策略、六篇个人博客的 formation/query，以及 Episode/Journal/consolidation proposal。稳定结论与剩余质量范围见 [Research 观测](../research/observations.md#2026-10-04-真实-new-api-验证)。大样本分段边界与 Schema 泛化质量仍未测量。
 
@@ -23,6 +25,4 @@ Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual deco
 
 ## Deferred
 
-完整 VCP topology、Self、Social Cognition、Motivation、Heptalogos integration 与 Linux source-less portable。
-
-[返回文档目录](../INDEX.md)
+Self、Social Cognition、Motivation、Heptalogos integration 与 Linux source-less portable。

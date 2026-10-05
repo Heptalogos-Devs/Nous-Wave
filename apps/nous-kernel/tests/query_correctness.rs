@@ -1338,7 +1338,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .expect("baseline profile");
     assert_eq!(
         receipt.apply_mode,
-        nous_configuration::ConfigApplyMode::ServingRebuild
+        nous_configuration::ConfigApplyMode::Live
     );
     assert_eq!(
         plan.cognitive_profile,
@@ -1812,7 +1812,13 @@ async fn check_vcp_native_switch_freshness(
         dense: false,
         topology: true,
     };
-    for profile in ["vcp-dtsc-v9.2.1-adapter-v1", "nous-node-potential-v1"] {
+    let mut visited = std::collections::HashSet::new();
+    for index in 0..100 {
+        let profile = match index % 4 {
+            0 | 2 => "vcp-dtsc-v9.2.1-adapter-v1",
+            1 => "vcp-rivermemo-v3.1-adapter-v1",
+            _ => "nous-node-potential-v1",
+        };
         runtime
             .configuration
             .set_system_override(
@@ -1829,7 +1835,16 @@ async fn check_vcp_native_switch_freshness(
             .await
             .unwrap();
         assert!(status.degradation.is_empty());
+        visited.insert(status.generations["topology"]);
+        if index > 3 {
+            assert!(status.rebuilt.is_empty());
+        }
     }
+    assert_eq!(
+        visited.len(),
+        2,
+        "readout switches reuse VCP/native artifacts"
+    );
     let snapshot = runtime.serving.publisher.snapshot_for(subject);
     assert!(snapshot.vcp.is_none());
     assert_eq!(
@@ -1844,6 +1859,75 @@ async fn check_vcp_native_switch_freshness(
             .unwrap()
             .authority_watermark,
         full
+    );
+    check_generation_reclamation(runtime, subject, &visited).await;
+}
+
+async fn check_generation_reclamation(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+    visited: &std::collections::HashSet<nous_core::ServingGenerationId>,
+) {
+    let retired = runtime
+        .store
+        .serving_reusable(subject)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|record| {
+            visited.contains(&record.generation_id)
+                && record.metadata["cognitive_profile"] == "vcp-dtsc-v9.2.1-adapter-v1"
+        })
+        .unwrap();
+    runtime
+        .serving
+        .pin_research_generation(retired.generation_id, true)
+        .await
+        .unwrap();
+    let mut lease_query = query(subject);
+    lease_query.expression.cues.push(Cue::Entity(EntityCue {
+        entity_ref: EntityRef::new("entity:association").unwrap(),
+    }));
+    let held = runtime.execute_query(lease_query, Some(5)).await.unwrap();
+    let (_, ticket) = runtime.cognition.retain_query(held).unwrap();
+    let ticket = ticket.unwrap();
+    let busy = runtime
+        .serving
+        .reclaim_retired(subject, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(busy.readers_active);
+    assert!(std::path::Path::new(&retired.artifact_location).exists());
+    runtime.cognition.release_query(subject, ticket).unwrap();
+    let pinned = runtime
+        .serving
+        .reclaim_retired(subject, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(!pinned.reclaimed.contains(&retired.generation_id));
+    runtime
+        .serving
+        .pin_research_generation(retired.generation_id, false)
+        .await
+        .unwrap();
+    let orphan = runtime.serving.options.root.join(".staging-abandoned");
+    std::fs::create_dir(&orphan).unwrap();
+    std::fs::write(orphan.join("partial"), b"orphan").unwrap();
+    let collected = runtime
+        .serving
+        .reclaim_retired(subject, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(collected.reclaimed.contains(&retired.generation_id));
+    assert!(collected.bytes_reclaimed > 0);
+    assert_eq!(collected.orphan_directories, 1);
+    assert!(!orphan.exists());
+    assert!(!std::path::Path::new(&retired.artifact_location).exists());
+    let active = runtime.store.serving_current(subject).await.unwrap();
+    assert!(
+        active
+            .iter()
+            .all(|record| std::path::Path::new(&record.artifact_location).exists())
     );
 }
 

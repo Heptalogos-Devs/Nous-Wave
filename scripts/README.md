@@ -160,7 +160,7 @@ Runner 通过真实配置角色和 canonical Structured Output 生成一次 prop
 
 ### Cognitive recall research import
 
-[CC0 corpus importer](../apps/nous-kernel/examples/cognitive-import.rs) 使用正常 Rust semantic owners 和显式 research CognitiveClock 导入独立 PostgreSQL，保存 event/revision 映射。用法及时间/关系映射限制见 [Cognitive Corpus](../docs/research/corpus/cognitive/README.md#研究-importer)。该入口不调用付费模型；embedding 和完整 query/profile runner 另行执行。
+[CC0 corpus importer](../apps/nous-kernel/examples/cognitive-import.rs) 使用正常 Rust semantic owners 和显式 research CognitiveClock 导入独立 PostgreSQL，保存 event/revision 映射。用法及时间/关系映射限制见 [Cognitive Corpus](../docs/research/corpus/cognitive/README.md)。该入口不调用付费模型；embedding 和完整 query/profile runner 另行执行。
 
 ### Cognitive embedding material
 

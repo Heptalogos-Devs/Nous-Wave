@@ -39,11 +39,9 @@ impl ServingService {
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
             config["producer"] = serde_json::to_value(provider.producer())
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
-            config["policy_digest"] = serde_json::Value::String(snapshot.digest_for(&[
-                "retrieval.cognitive.profile",
-                "retrieval.vcp.assets",
-                "episode.synopsis",
-            ])?);
+            config["policy_digest"] = serde_json::Value::String(
+                snapshot.digest_for(&["retrieval.vcp.assets", "episode.synopsis"])?,
+            );
             return digest(&config);
         }
         if family == "topology" {
@@ -62,7 +60,6 @@ impl ServingService {
             "lexical" => &["serving.lexical.enabled", "episode.synopsis"],
             "dense" => &["serving.dense.enabled", "retrieval.epa", "episode.synopsis"],
             "topology" => &[
-                "retrieval.cognitive.profile",
                 "topology.wave.hub_beta",
                 "topology.wave.hub_penalty_min",
                 "topology.wave.hub_penalty_max",
@@ -124,8 +121,10 @@ impl ServingService {
         need: ServingNeed,
         snapshot: &nous_configuration::ConfigSnapshot,
     ) -> Result<ProjectionStatus> {
+        let _reader = self.read_gate.clone().read_owned().await;
         self.store.require_subject(subject).await?;
         let current = self.store.serving_current(subject).await?;
+        let reusable = self.store.serving_reusable(subject).await?;
         let mut requested = Vec::new();
         if need.exact {
             requested.push(("exact", String::new()));
@@ -171,11 +170,21 @@ impl ServingService {
                     .projection_watermark(subject, family, &space)
                     .await?
             };
-            let compatible = if let Some(record) = existing {
-                self.compatible(record, snapshot).await.then_some(record)
-            } else {
-                None
-            };
+            let mut compatible = None;
+            if let Some(record) = existing
+                && self.compatible(record, snapshot).await
+            {
+                compatible = Some(record);
+            }
+            if compatible.is_none_or(|record| record.authority_watermark < watermark)
+                && let Some(record) = self
+                    .reuse_artifact(&reusable, family, &space, watermark, snapshot)
+                    .await?
+            {
+                compatible = Some(record);
+                result.reopened.push(key.clone());
+            }
+
             if let Some(record) = compatible
                 .filter(|record| record.authority_watermark >= watermark && self.loaded(record))
             {
@@ -224,6 +233,34 @@ impl ServingService {
             }
         }
         Ok(result)
+    }
+
+    async fn reuse_artifact<'a>(
+        &self,
+        records: &'a [ServingRecord],
+        family: &str,
+        space: &str,
+        watermark: i64,
+        snapshot: &nous_configuration::ConfigSnapshot,
+    ) -> Result<Option<&'a ServingRecord>> {
+        for record in records {
+            if record.family != family
+                || record.space != space
+                || record.authority_watermark < watermark
+                || !self.compatible(record, snapshot).await
+            {
+                continue;
+            }
+            let Ok(artifact) = self.open_record(record) else {
+                continue;
+            };
+            if !self.store.promote_generation(record.generation_id).await? {
+                continue;
+            }
+            self.publish_snapshot(record, artifact);
+            return Ok(Some(record));
+        }
+        Ok(None)
     }
 
     /// Administrative operation: refresh every configured family.
@@ -306,7 +343,7 @@ impl ServingService {
         }
     }
 
-    fn open_record(&self, record: &ServingRecord) -> Result<OpenArtifact> {
+    pub(crate) fn open_record(&self, record: &ServingRecord) -> Result<OpenArtifact> {
         let path = Path::new(&record.artifact_location);
         let sums = checksums(path)?;
         if digest(&sums)? != record.artifact_hash {
