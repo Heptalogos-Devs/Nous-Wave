@@ -71,7 +71,7 @@ const plan = {
     values["query-ids"]?.split(","),
   )),
   formationSchedule:
-    "deterministic-experience-then-due-model-maintenance-at-query-time-v1",
+    "deterministic-experience-then-bounded-five-minute-opportunities-v2",
   subjects: scenarios.length,
   events: scenarios.reduce((n, s) => n + s.events.length, 0),
   queries: corpus.queries.filter((query) =>
@@ -118,6 +118,7 @@ function operation(key: string) {
 interface SubjectState {
   id: string;
   workContext?: string;
+  cognitiveInstant?: string;
   sessions: Record<string, string>;
   events: Record<string, unknown>;
 }
@@ -389,7 +390,7 @@ async function run() {
       await host.control({
         command: "advance",
         subject: saved.id,
-        instant: "2026-09-16T12:30:00Z",
+        instant: saved.cognitiveInstant ?? "2026-09-16T12:30:00Z",
       });
       // Close deterministic experience formation before spending model budget.
       // Episode acceptance creates delayed journal/consolidation needs; expose
@@ -410,7 +411,7 @@ async function run() {
       await host.control({
         command: "advance",
         subject: saved.id,
-        instant: "2026-09-16T18:00:00Z",
+        instant: saved.cognitiveInstant ?? "2026-09-16T18:00:00Z",
       });
       if (plan.reviewNeedIds.length && scenarios.length !== 1)
         throw new Error("Explicit review requires one selected Subject");
@@ -422,7 +423,24 @@ async function run() {
             need_ids: plan.reviewNeedIds,
           }),
         );
+      const queryHorizon = Math.min(
+        ...corpus.queries
+          .filter((query) => query.scenario_key === scenario.key)
+          .map((query) => Date.parse(query.prepared_query.as_of)),
+      );
       for (let pass = 0; pass < 40; pass++) {
+        const instant = Math.max(
+          Date.parse("2026-09-16T18:00:00Z"),
+          Date.parse(saved.cognitiveInstant ?? "2026-09-16T18:00:00Z"),
+        );
+        if (instant > queryHorizon) break;
+        await host.control({
+          command: "advance",
+          subject: saved.id,
+          instant: new Date(instant).toISOString(),
+        });
+        saved.cognitiveInstant = new Date(instant + 5 * 60_000).toISOString();
+        await flush();
         const grant = await mutation(() =>
           client.cognition.grantMaintenance(
             {
@@ -464,12 +482,11 @@ async function run() {
             )
             .map((need) => Date.parse(need.due_at))
             .sort((a, b) => a - b)[0];
-          if (due !== undefined && due < Date.parse("2026-09-16T18:00:00Z")) {
-            await host.control({
-              command: "advance",
-              subject: saved.id,
-              instant: new Date(due + 1000).toISOString(),
-            });
+          if (due !== undefined && due > instant && due <= queryHorizon) {
+            saved.cognitiveInstant = new Date(
+              Math.max(instant, due + 1000),
+            ).toISOString();
+            await flush();
             continue;
           }
           break;

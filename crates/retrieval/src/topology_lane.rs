@@ -94,6 +94,9 @@ pub(crate) fn topology_lane(
                 "complete": river.complete,
                 "activated_route": routes.get(&node).map(|path| path.iter().map(|id|
                     graph.nodes[*id as usize].reference.to_string()).collect::<Vec<_>>()),
+                "route_hop_limit": river.max_hops.min(32),
+                "route_seed": routes.get(&node).and_then(|path| path.first()).map(|seed_node|
+                    observation.source_seeds().iter().filter(|seed| seed.node == *seed_node).collect::<Vec<_>>()),
                 "route_evidence": routes.get(&node).map(|path| path.windows(2).map(|pair| {
                     let support = graph.edge_evidence(pair[0], pair[1]).take(16).collect::<Vec<_>>();
                     serde_json::json!({

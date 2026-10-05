@@ -7,7 +7,7 @@
       "surface_example": "What is the double-lamp gate?",
       "prepared_query": {
         "canonical_text": "Definition and requirements of the Tide double-lamp gate.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "entity_keys": ["tide"]
       },
       "oracle": {
@@ -23,7 +23,7 @@
       "surface_example": "What approval rule applies now?",
       "prepared_query": {
         "canonical_text": "Current Tide deployment approval procedure.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "entity_keys": ["tide"],
         "work_context_key": "release-review",
         "time_axis": "valid_time",
@@ -42,7 +42,7 @@
       "surface_example": "How did approvals work before the incident?",
       "prepared_query": {
         "canonical_text": "Historical Tide deployment approval before the policy replacement.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "entity_keys": ["tide"],
         "time_axis": "occurred_time",
         "time_end": "2026-09-03T00:00:00Z"
@@ -60,7 +60,7 @@
       "surface_example": "What did 小林 decide for 潮汐项目?",
       "prepared_query": {
         "canonical_text": "Lin Chen decisions concerning Tide deployment approval and readiness.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "entity_keys": ["lin", "tide"],
         "resolved_aliases": ["小林", "潮汐项目"]
       },
@@ -77,7 +77,7 @@
       "surface_example": "Does paired-light check add another stage?",
       "prepared_query": {
         "canonical_text": "Meaning and relationship of the paired-light check and double-lamp gate.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "concept_keys": ["gate"]
       },
       "oracle": {
@@ -93,7 +93,7 @@
       "surface_example": "Show experiences using this approval concept.",
       "prepared_query": {
         "canonical_text": "Experiences using the recorded paired reviewer approval concept.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "concept_keys": ["gate"],
         "exploration": "around_tag"
       },
@@ -114,7 +114,7 @@
       "surface_example": "Did Aya still write late at night?",
       "prepared_query": {
         "canonical_text": "Current journal writing preference of Aya Mori, including changes from earlier sessions.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "entity_keys": ["aya"]
       },
       "oracle": {
@@ -130,7 +130,7 @@
       "surface_example": "Was the breakfast routine a one-off?",
       "prepared_query": {
         "canonical_text": "Recurrence of Aya journal writing preference across independent sessions.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "concept_keys": ["morning-journal"]
       },
       "oracle": {
@@ -146,7 +146,7 @@
       "surface_example": "What is Aya current routine, despite the visitor suggestion?",
       "prepared_query": {
         "canonical_text": "Current journal writing routine adopted by Aya Mori, distinguished from visitor suggestions.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "entity_keys": ["aya"],
         "work_context_key": "routine-review"
       },
@@ -163,7 +163,7 @@
       "surface_example": "A consumer fails after cleanup; any related experience?",
       "prepared_query": {
         "canonical_text": "Unexpected consumer failure after old resource cleanup while the consumer remains active.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "entity_keys": ["builder"],
         "exploration": "associative"
       },
@@ -180,7 +180,7 @@
       "surface_example": "How did the snapshot fix help the tools incident?",
       "prepared_query": {
         "canonical_text": "Prior snapshot experience that informed the joint build-cache incident review.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "exact_event_keys": ["snapshot-fix"],
         "exploration": "associative",
         "minimum_hops": 2
@@ -198,7 +198,7 @@
       "surface_example": "Starting with the old snapshot failure, find the build fix.",
       "prepared_query": {
         "canonical_text": "Build-cache remedy analogous to the earlier snapshot reader failure.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "exact_event_keys": ["snapshot-cause"],
         "exploration": "associative",
         "minimum_hops": 3
@@ -216,7 +216,7 @@
       "surface_example": "Why did the second snapshot block fail and what fixed it?",
       "prepared_query": {
         "canonical_text": "Cause of the second snapshot block failure and the subsequent remedy.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "entity_keys": ["snapshot"]
       },
       "oracle": {
@@ -236,7 +236,7 @@
       "surface_example": "What lease mechanism matters, ignoring generic project talk?",
       "prepared_query": {
         "canonical_text": "Specific prior mechanism relevant to a stale consumer resource investigation.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "concept_keys": ["lease-reclamation"],
         "forbidden_generic_concepts": ["work", "problem", "project"]
       },
@@ -253,7 +253,7 @@
       "surface_example": "I am investigating stale consumer resources.",
       "prepared_query": {
         "canonical_text": "Prior experience potentially helpful to the current build-cache investigation.",
-        "as_of": "2026-09-16T18:00:00Z",
+        "as_of": "2026-09-16T19:00:00Z",
         "work_context_key": "lease-investigation",
         "entity_keys": ["sam-tools", "builder"],
         "exploration": "associative"
