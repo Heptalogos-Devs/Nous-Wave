@@ -57,6 +57,8 @@ impl TextEmbeddingProvider for EmbeddingProbe {
 
 fn query() -> CognitiveQuery {
     CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: API_VERSION,
         subject: SubjectId::new(),
         session: None,
@@ -121,6 +123,7 @@ async fn one_preparation_shares_embedding_and_deduplicates_dense_generations() {
         &query,
         &[EvidenceFamily::Dense],
         &plan,
+        "query",
         Some(&provider),
     )
     .await
@@ -154,6 +157,7 @@ async fn forbidden_and_missing_generation_do_not_call_embedding() {
         &query,
         &[EvidenceFamily::Dense],
         &plan,
+        "query",
         Some(&provider),
     )
     .await
@@ -166,6 +170,7 @@ async fn forbidden_and_missing_generation_do_not_call_embedding() {
         &query,
         &[EvidenceFamily::Dense],
         &plan,
+        "query",
         Some(&provider),
     )
     .await
@@ -191,6 +196,7 @@ async fn provider_failure_remains_unavailable_lane_for_runtime_requirement_polic
         &query,
         &[EvidenceFamily::Dense],
         &plan,
+        "query",
         Some(&provider),
     )
     .await
@@ -221,6 +227,7 @@ async fn cognitive_embedding_is_shared_even_when_dense_lane_is_disabled() {
         &query,
         &[EvidenceFamily::TopologyWave],
         &plan,
+        "query",
         Some(&provider),
     )
     .await
@@ -234,6 +241,7 @@ async fn cognitive_embedding_is_shared_even_when_dense_lane_is_disabled() {
         &query,
         &[EvidenceFamily::TopologyWave],
         &plan,
+        "query",
         Some(&provider),
     )
     .await
@@ -297,4 +305,21 @@ fn vcp_snapshot(provider: &EmbeddingProbe) -> (ServingSnapshot, TagId) {
         },
         first,
     )
+}
+
+#[tokio::test]
+async fn concurrent_leaf_requests_share_one_embedding_provider_invocation() {
+    let provider = Arc::new(EmbeddingProbe {
+        calls: AtomicUsize::new(0),
+        fail: false,
+    });
+    let shared = crate::provider::RequestEmbedding::new(provider.clone(), "query".into());
+    let request = TextEmbeddingRequest {
+        subject: SubjectId::new(),
+        text: "query".into(),
+        query: true,
+    };
+    let (a, b) = tokio::join!(shared.embed(request.clone()), shared.embed(request));
+    assert_eq!(a.unwrap().vector, b.unwrap().vector);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
 }

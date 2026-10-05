@@ -195,6 +195,8 @@ impl KernelService {
 fn consolidation_query(subject: SubjectId, cue: String, limit: usize) -> CognitiveQuery {
     let constraints = QueryConstraints::default();
     CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: 1,
         subject,
         session: None,

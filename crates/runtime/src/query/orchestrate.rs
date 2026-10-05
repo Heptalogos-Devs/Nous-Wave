@@ -153,17 +153,17 @@ impl CognitiveRuntimeService {
                         | QueryTarget::Evidence
                 )
             });
-        if runtime_allowed && let Some(session) = query.session {
-            for (reference, source) in self.runtime_references(query.subject, session).await? {
+        if runtime_allowed && bound.lane_enabled(EvidenceFamily::Runtime) {
+            for (reference, source) in &bound.runtime_sources {
                 lane_outputs.push(LaneOutput {
                     family: EvidenceFamily::Runtime,
                     status: LaneStatus::Ready,
                     generation_ref: None,
                     authority_watermark: None,
                     candidates: vec![LaneCandidate {
-                        reference,
+                        reference: reference.clone(),
                         rank: 1,
-                        variants: vec![source.into()],
+                        variants: vec![source.clone()],
                         provider_metadata: serde_json::Value::Null,
                     }],
                     diagnostics: Vec::new(),

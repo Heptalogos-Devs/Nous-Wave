@@ -32,3 +32,9 @@ Kernel 保留整棵 expression：AND 对 canonical candidate identity 取交集�
 [返回文档目录](../INDEX.md)
 
 相对时间窗口 `within` 以该 Subject 的 CognitiveClock 当前时间为基准，由 Core 在编译时固定；执行 timeout 与 retry 继续使用基础设施时间。
+
+`client.cognition.prepareQuery` 与 Query 共用 NousQL compiler/Identity resolver。正式 TextCue 必须可独立解释；`我和她这个项目` 等未闭合表达返回 `UNRESOLVED_QUERY_REFERENCE` 的 span/kind，Agent 应先 resolve 再提交明确人物、项目和时间。`boundQuery` 现在为 resolved query/representation/source refs/profile/config digest 的 JSON inspection。
+
+Query/prepare 可以显式提供 `sessionId`、`workContextId`、`situation.currentRefs/currentObjects/objectDescriptions/consumer`。Text-only research 使用 typed standalone TextCue 加 `textOnlyCompatibility: true`，与 cognitive input 分开。
+
+QueryRequest 的 typed `capabilities` 传递 text embedding、multimodal interpretation、residual sensing 与 rerank requirement。`rerank: "forbidden"` 明确关闭 model rerank，适用于 deterministic algorithm/Agent wiring run；`text_embedding: "forbidden"`（Client 为 `textEmbedding`）禁止 embedding provider。Required 需求的失败不静默回退。

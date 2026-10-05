@@ -128,6 +128,8 @@ mod tests {
 
     fn query(effort: CognitiveEffort) -> CognitiveQuery {
         CognitiveQuery {
+            text_only_compatibility: false,
+            work_context: None,
             api_version: API_VERSION,
             subject: SubjectId::new(),
             session: None,

@@ -64,3 +64,23 @@ Topology/Wave/Residual/EPA 只作为显式实验 lane；默认 Reference Query �
 Kernel 固定 request-scoped immutable Serving view；并发 profile 切换不替换在途视图。QueryExecution 持有 opaque read lease，retained validation ticket 沿用该 lease；finalize/release/expiry 释放它，Runtime 不依赖 concrete Retrieval。
 
 Query 进入 Serving prepare 前检查 retired collection。`serving.retired_grace_seconds` 为 Developer/SystemOnly/Live，默认 300 秒，范围 0..604800。当前 generation、active query readers/tickets 和显式 research pins 不回收；collection 只跳过被 active reader/ticket 引用的 generation；无关 retired generation 仍可回收，避免持续流量阻塞全部 collection。过 grace 的 unpinned retired artifact 删除物理目录并压缩 metadata 为 checksum/reclaimed audit summary。该 pass 同时清理 owner root 下超过 grace 的未引用 UUID generation 和 orphan staging。配置/watermark 不兼容时不复用；重复并发 publication 复用已发布的相同内容身份并删除多余目录。
+
+## Prepared Query 与 Query Representation
+
+公开 `CognitionService.PrepareQuery` 与官方 Client `cognition.prepareQuery` 编译 NousQL 或 typed expression、解析 exact selectors、读取 Session/active WorkContext，并返回既有 `bound_query` 字段语义的 JSON inspection；不执行 retrieval、Serving build 或 provider。Inspection 包含 resolved CognitiveQuery、representation/version/SHA256/source refs/truncation flags、current refs、topology seeds、exact bindings、profile 与 ConfigSnapshot digest。
+
+正式 query 在 binding 时检查 TextCue/ExampleCue 的 referential closure。中文 pronoun/deictic phrase 与英文 whole token 规则返回 `UNRESOLVED_QUERY_REFERENCE`，detail 保存 offending span、UTF-8 byte offsets 与 pronoun/deictic/temporal_deictic kind；不猜测 referent。Core 的 Entity/Tag/name selectors 仍通过 Identity Directory 唯一解析。
+
+QueryRequest 支持 `work_context_id` 和 `situation`（consumer、current refs、current objects、object descriptions）。显式 context 覆盖 foreground selection，须为同 Subject 的 open WorkContext。Runtime 在 preparation 捕获 ResidentSet references、WorkContext 与 request situation，保留来源；Runtime lane 和 topology 使用冻结 refs，执行时不重新读取另一个 Session/context。Embedding 只消费有界 current descriptors，不复制全部 ResidentSet 或 Session transcript。
+
+Representation 顺序固定：Intent、Temporal orientation、Entities、Concepts、Schemas、Current cognition、Resources、Current objects、Current work、Consumer/task。Entity 使用 display name/必要 aliases，Tag 使用 label/description/kind，cognition 使用 bounded owner text；opaque identity 留在 exact/source refs，不当语义正文。缺失 descriptor 和超界截断显式报告；total budget 保持 UTF-8 完整字符。
+
+`retrieval.query.representation` 是 typed Developer/SubjectOverrideAllowed/Live policy：默认 intent 2048 chars、WorkContext 1024、Entity/Tag descriptor 256、current descriptor 512、最多 16 Entity/Tag/current refs、total 8192。Intent 和 explicit cues 优先于 current descriptors 与 WorkContext。`sha256` 对实际 representation text 计算。
+
+Core 查询先取得一次冻结 BoundQuery 的 bounded preparation token，再为完整 representation 生成最多一份 embedding，Kernel 直接消费该 token，保持 ConfigSnapshot 与 context 一致。Preparation/validation tickets 共用 query slots/lease，single-use、Subject-bound，并在 failure/finalize/release/expiry 清理。Dense、EPA/VCP sensing 与 expression leaves 共享 request embedding（包括 provider failure），lexical leaf 仍使用该 leaf intent；All/Any 的集合语义保持不变。Rerank 接收同一完整 representation 和原 validated candidates。
+
+`text_only_compatibility=true` 是独立研究输入条件，只接受一个 standalone TextCue，不带 Session/WorkContext/situation/exploration。它保留原 query text 的 embedding 和原数据集第一人称表达，不冒充 Prepared cognitive input，结果须独立报告。
+
+QueryRequest 的 typed `capabilities` 传递 text embedding、multimodal interpretation、residual sensing 与 rerank requirement。`rerank: "forbidden"` 明确关闭 model rerank，适用于 deterministic algorithm/Agent wiring run；`text_embedding: "forbidden"`（Client 为 `textEmbedding`）禁止 embedding provider。Required 需求的失败不静默回退。
+
+内部算法比较使用 `BoundQuery::for_profile` 从同一 prepared/context snapshot 生成只读 readout plan。Configuration 的 `query_override` 只允许 Live QueryPolicy，记录 OperationOverride 来源并计算独立 digest；不改变 active/desired/persisted 配置。Serving 根据对应 asset contract 复用 shared artifacts。

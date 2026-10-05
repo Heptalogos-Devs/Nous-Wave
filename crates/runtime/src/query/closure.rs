@@ -164,6 +164,50 @@ pub fn validate_query_closure(query: &CognitiveQuery) -> Result<()> {
     }).to_string()))
 }
 
+pub(super) fn validate_query_input(query: &CognitiveQuery) -> Result<()> {
+    query.validate()?;
+    if query.text_only_compatibility {
+        if query.session.is_some()
+            || query.work_context.is_some()
+            || !query.situation.current_refs.is_empty()
+            || !query.situation.current_objects.is_empty()
+            || !query.situation.object_descriptions.is_empty()
+            || query.situation.consumer.is_some()
+            || query.exploration != ExplorationIntent::None
+            || query.expression.operation != QueryOperation::Atom
+            || query.expression.cues.len() != 1
+            || !matches!(query.expression.cues.first(), Some(Cue::Text(_)))
+            || !query.expression.preferences.is_empty()
+            || query.expression.targets.iter().any(|target| {
+                !matches!(
+                    target,
+                    QueryTarget::AnyRelevantCognition
+                        | QueryTarget::Memory
+                        | QueryTarget::Schema
+                        | QueryTarget::Episode
+                        | QueryTarget::Journal
+                        | QueryTarget::Evidence
+                )
+            })
+            || serde_json::to_value(&query.expression.constraints)
+                .map_err(|error| Error::Invalid(error.to_string()))?
+                != serde_json::to_value(QueryConstraints::default())
+                    .map_err(|error| Error::Invalid(error.to_string()))?
+            || query.capabilities.residual_sensing == RequirementStrength::Required
+            || query.resources.synopsis_only
+        {
+            return Err(Error::Invalid(
+                "text compatibility requires one standalone text cue without cognitive context"
+                    .into(),
+            ));
+        }
+    } else {
+        validate_query_closure(query)?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

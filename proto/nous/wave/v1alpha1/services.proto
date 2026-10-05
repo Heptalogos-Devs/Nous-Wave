@@ -24,6 +24,7 @@ service RuntimeService {
 }
 service CognitionService {
   rpc GrantMaintenance(MaintenanceGrantRequest) returns (MaintenanceGrantResponse);
+  rpc PrepareQuery(QueryRequest) returns (PreparedQueryResponse);
   rpc Query(QueryRequest) returns (QueryResponse);
   rpc BuildProjection(ProjectionRequest) returns (Projection);
   rpc BuildManagedContext(ManagedContextRequest) returns (ManagedContextResponse);

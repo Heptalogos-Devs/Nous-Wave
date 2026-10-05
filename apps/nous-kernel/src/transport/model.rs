@@ -21,8 +21,14 @@ impl KernelService {
         &self,
         input: k::KernelQueryRequest,
     ) -> Result<k::KernelQueryResponse> {
-        if input.embeddings.len() > 64 {
-            return Err(Error::Invalid("too many query embeddings".into()));
+        let bound = self.0.cognition.take_prepared_query(
+            SubjectId(id(&input.subject_id)?),
+            id(&input.preparation_token)?,
+        )?;
+        if input.embeddings.len() > 1 {
+            return Err(Error::Invalid(
+                "one prepared query accepts at most one embedding".into(),
+            ));
         }
         let mut materials = vec![];
         for material in input.embeddings {
@@ -33,7 +39,8 @@ impl KernelService {
                 .ok_or_else(|| Error::Unavailable("embedding space not configured".into()))?;
             let space = provider.space();
             let producer = provider.producer();
-            if material.text.len() > 32768
+            if material.text != bound.representation.text
+                || material.text.len() > 131072
                 || material.space_hash != space.space_hash
                 || material.producer_hash != producer.signature_hash
                 || material.vector.len() != space.dimension as usize
@@ -55,7 +62,7 @@ impl KernelService {
         nous_retrieval::with_query_material(
             materials,
             self.query(
-                required(input.query, "query")?,
+                bound,
                 input.validated_candidate_limit.map(|limit| limit as usize),
             ),
         )

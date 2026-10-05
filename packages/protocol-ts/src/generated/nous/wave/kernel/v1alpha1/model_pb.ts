@@ -16,7 +16,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file nous/wave/kernel/v1alpha1/model.proto.
  */
 export const file_nous_wave_kernel_v1alpha1_model: GenFile = /*@__PURE__*/
-  fileDesc("CiVub3VzL3dhdmUva2VybmVsL3YxYWxwaGExL21vZGVsLnByb3RvEhlub3VzLndhdmUua2VybmVsLnYxYWxwaGExIl4KD0VtYmVkZGluZ0NvbmZpZxISCgpzcGFjZV9oYXNoGAEgASgJEhUKDXByb2R1Y2VyX2hhc2gYAiABKAkSDQoFbW9kZWwYAyABKAkSEQoJZGltZW5zaW9uGAQgASgNIlkKDlF1ZXJ5RW1iZWRkaW5nEgwKBHRleHQYASABKAkSEgoKc3BhY2VfaGFzaBgCIAEoCRIVCg1wcm9kdWNlcl9oYXNoGAMgASgJEg4KBnZlY3RvchgEIAMoAiLKAQoSS2VybmVsUXVlcnlSZXF1ZXN0Ei8KBXF1ZXJ5GAEgASgLMiAubm91cy53YXZlLnYxYWxwaGExLlF1ZXJ5UmVxdWVzdBI9CgplbWJlZGRpbmdzGAIgAygLMikubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5RdWVyeUVtYmVkZGluZxImChl2YWxpZGF0ZWRfY2FuZGlkYXRlX2xpbWl0GAMgASgNSACIAQFCHAoaX3ZhbGlkYXRlZF9jYW5kaWRhdGVfbGltaXQigAEKE0tlcm5lbFF1ZXJ5UmVzcG9uc2USMwoIcmVzcG9uc2UYASABKAsyIS5ub3VzLndhdmUudjFhbHBoYTEuUXVlcnlSZXNwb25zZRIeChF2YWxpZGF0aW9uX3RpY2tldBgCIAEoCUgAiAEBQhQKEl92YWxpZGF0aW9uX3RpY2tldCJVCg9SZXJhbmtDYW5kaWRhdGUSMwoJcmVmZXJlbmNlGAEgASgLMiAubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVJlZhINCgVzY29yZRgCIAEoASKOAQoWRXh0ZXJuYWxSZXNvdXJjZVJlc3VsdBIRCglhY3Rpb25faWQYASABKAkSFAoMcmVzb3VyY2VfcmVmGAIgASgJEg4KBnN0YXR1cxgDIAEoCRI7CgdyZWNvcmRzGAQgAygLMioubm91cy53YXZlLnYxYWxwaGExLkV4dGVybmFsUmVzb3VyY2VSZWNvcmQizQEKFEZpbmFsaXplUXVlcnlSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSGQoRdmFsaWRhdGlvbl90aWNrZXQYAiABKAkSOQoFb3JkZXIYAyADKAsyKi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlJlcmFua0NhbmRpZGF0ZRJLChBleHRlcm5hbF9yZXN1bHRzGAQgAygLMjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FeHRlcm5hbFJlc291cmNlUmVzdWx0IkQKE1JlbGVhc2VRdWVyeVJlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRIZChF2YWxpZGF0aW9uX3RpY2tldBgCIAEoCSI6ChVFbWJlZGRpbmdOZWVkc1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRINCgVsaW1pdBgCIAEoDSJiCg1FbWJlZGRpbmdOZWVkEjMKCXJlZmVyZW5jZRgBIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYSDAoEdGV4dBgCIAEoCRIOCgZkaWdlc3QYAyABKAkijQEKFkVtYmVkZGluZ05lZWRzUmVzcG9uc2USOgoGY29uZmlnGAEgASgLMioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdDb25maWcSNwoFbmVlZHMYAiADKAsyKC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkVtYmVkZGluZ05lZWQingEKFkNvbW1pdEVtYmVkZGluZ1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRIzCglyZWZlcmVuY2UYAiABKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlUmVmEjsKCG1hdGVyaWFsGAMgASgLMikubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5RdWVyeUVtYmVkZGluZyLUAgobQ29tbWl0SW50ZXJwcmV0YXRpb25SZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSMwoGaW5wdXRzGAIgAygLMiMubm91cy53YXZlLnYxYWxwaGExLkRlcml2YXRpb25JbnB1dBIMCgR0ZXh0GAMgASgJEgwKBGtpbmQYByABKAkSNwoIcHJvZHVjZXIYCCABKAsyJS5ub3VzLndhdmUudjFhbHBoYTEuUHJvZHVjZXJTaWduYXR1cmUSEAoIc3RyYXRlZ3kYCiABKAkSFwoKc3VwZXJzZWRlcxgLIAEoCUgAiAEBEigKB3F1YWxpdHkYDCABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0EjMKEnN0cnVjdHVyZWRfcGF5bG9hZBgNIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RCDQoLX3N1cGVyc2VkZXMiZAoSRGVzY3JpcHRpb25TZWdtZW50EgsKA2tleRgBIAEoCRIMCgR0ZXh0GAIgASgJEjMKCXJlZmVyZW5jZRgDIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYiVgoTRGVzY3JpcHRpb25TZWdtZW50cxI/CghzZWdtZW50cxgBIAMoCzItLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRGVzY3JpcHRpb25TZWdtZW50Is8CChZSZXNlcnZlV29ya2Zsb3dSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSDQoFb3duZXIYAiABKAkSFQoNb3BlcmF0aW9uX2tleRgDIAEoCRIXCg9zZW1hbnRpY19kaWdlc3QYBCABKAkSFQoNc25hcHNob3RfanNvbhgFIAEoCRIgChNtYWludGVuYW5jZV9uZWVkX2lkGAYgASgJSACIAQESJAoXbWFpbnRlbmFuY2VfbGVhc2VfdG9rZW4YByABKAlIAYgBARIpCiFtYWludGVuYW5jZV90cmlnZ2VyX2F1dGhvcml0eV9zZXEYCCABKAMSJAocbWFpbnRlbmFuY2VfdHJpZ2dlcl9yZXZpc2lvbhgJIAEoBEIWChRfbWFpbnRlbmFuY2VfbmVlZF9pZEIaChhfbWFpbnRlbmFuY2VfbGVhc2VfdG9rZW4ivgEKE1dvcmtmbG93UmVzZXJ2YXRpb24SFQoNc25hcHNob3RfanNvbhgBIAEoCRIaCg1wcm9wb3NhbF9qc29uGAIgASgJSACIAQESGQoMb3V0Y29tZV9qc29uGAMgASgJSAGIAQESGAoLbGVhc2VfdG9rZW4YBCABKAlIAogBARIMCgRidXN5GAUgASgIQhAKDl9wcm9wb3NhbF9qc29uQg8KDV9vdXRjb21lX2pzb25CDgoMX2xlYXNlX3Rva2VuIr4BChNTYXZlV29ya2Zsb3dSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSDQoFb3duZXIYAiABKAkSFQoNb3BlcmF0aW9uX2tleRgDIAEoCRITCgtsZWFzZV90b2tlbhgEIAEoCRIaCg1wcm9wb3NhbF9qc29uGAUgASgJSACIAQESGQoMb3V0Y29tZV9qc29uGAYgASgJSAGIAQFCEAoOX3Byb3Bvc2FsX2pzb25CDwoNX291dGNvbWVfanNvbiJnChZSZWxlYXNlV29ya2Zsb3dSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSDQoFb3duZXIYAiABKAkSFQoNb3BlcmF0aW9uX2tleRgDIAEoCRITCgtsZWFzZV90b2tlbhgEIAEoCSJEChdSZXNvbHZlZE1lbnRpb25zUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEhUKDW9jY3VycmVuY2VfaWQYAiABKAkiQwoPUmVzb2x2ZWRNZW50aW9uEgsKA2tleRgBIAEoCRIPCgdzdXJmYWNlGAIgASgJEhIKCmVudGl0eV9yZWYYAyABKAkiWgoYUmVzb2x2ZWRNZW50aW9uc1Jlc3BvbnNlEj4KCmNhbmRpZGF0ZXMYASADKAsyKi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlJlc29sdmVkTWVudGlvbiJoChNGaW5kV29ya2Zsb3dSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSDQoFb3duZXIYAiABKAkSFQoNb3BlcmF0aW9uX2tleRgDIAEoCRIXCg9zZW1hbnRpY19kaWdlc3QYBCABKAkipgEKDUZvdW5kV29ya2Zsb3cSDQoFZm91bmQYASABKAgSGgoNc25hcHNob3RfanNvbhgCIAEoCUgAiAEBEhoKDXByb3Bvc2FsX2pzb24YAyABKAlIAYgBARIZCgxvdXRjb21lX2pzb24YBCABKAlIAogBAUIQCg5fc25hcHNob3RfanNvbkIQCg5fcHJvcG9zYWxfanNvbkIPCg1fb3V0Y29tZV9qc29uMrIDChpLZXJuZWxNb2RlbFdvcmtmbG93U2VydmljZRJoCgxGaW5kV29ya2Zsb3cSLi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkZpbmRXb3JrZmxvd1JlcXVlc3QaKC5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkZvdW5kV29ya2Zsb3cSdAoPUmVzZXJ2ZVdvcmtmbG93EjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5SZXNlcnZlV29ya2Zsb3dSZXF1ZXN0Gi4ubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Xb3JrZmxvd1Jlc2VydmF0aW9uElYKDFNhdmVXb3JrZmxvdxIuLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuU2F2ZVdvcmtmbG93UmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJcCg9SZWxlYXNlV29ya2Zsb3cSMS5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlJlbGVhc2VXb3JrZmxvd1JlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkytgUKHUtlcm5lbE1hdGVyaWFsV29ya2Zsb3dTZXJ2aWNlEmcKElNlZ21lbnREZXNjcmlwdGlvbhIhLm5vdXMud2F2ZS52MWFscGhhMS5PYmplY3RSZXF1ZXN0Gi4ubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5EZXNjcmlwdGlvblNlZ21lbnRzEn4KE0dldFJlc29sdmVkTWVudGlvbnMSMi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlJlc29sdmVkTWVudGlvbnNSZXF1ZXN0GjMubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5SZXNvbHZlZE1lbnRpb25zUmVzcG9uc2USWAoSR2V0RW1iZWRkaW5nQ29uZmlnEhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5Gioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdDb25maWcSeQoSTGlzdEVtYmVkZGluZ05lZWRzEjAubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdOZWVkc1JlcXVlc3QaMS5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkVtYmVkZGluZ05lZWRzUmVzcG9uc2USXAoPQ29tbWl0RW1iZWRkaW5nEjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Db21taXRFbWJlZGRpbmdSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5EnkKFENvbW1pdEludGVycHJldGF0aW9uEjYubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Db21taXRJbnRlcnByZXRhdGlvblJlcXVlc3QaKS5ub3VzLndhdmUudjFhbHBoYTEuRGVyaXZlZFJlcHJlc2VudGF0aW9uYgZwcm90bzM", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management, file_google_protobuf_empty, file_google_protobuf_struct]);
+  fileDesc("CiVub3VzL3dhdmUva2VybmVsL3YxYWxwaGExL21vZGVsLnByb3RvEhlub3VzLndhdmUua2VybmVsLnYxYWxwaGExIl4KD0VtYmVkZGluZ0NvbmZpZxISCgpzcGFjZV9oYXNoGAEgASgJEhUKDXByb2R1Y2VyX2hhc2gYAiABKAkSDQoFbW9kZWwYAyABKAkSEQoJZGltZW5zaW9uGAQgASgNIlkKDlF1ZXJ5RW1iZWRkaW5nEgwKBHRleHQYASABKAkSEgoKc3BhY2VfaGFzaBgCIAEoCRIVCg1wcm9kdWNlcl9oYXNoGAMgASgJEg4KBnZlY3RvchgEIAMoAiJhChNQcmVwYXJlUXVlcnlSZXF1ZXN0Ei8KBXF1ZXJ5GAEgASgLMiAubm91cy53YXZlLnYxYWxwaGExLlF1ZXJ5UmVxdWVzdBIZChFyZXNlcnZlX2V4ZWN1dGlvbhgCIAEoCCLOAQoSS2VybmVsUXVlcnlSZXF1ZXN0Ej0KCmVtYmVkZGluZ3MYAiADKAsyKS5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlF1ZXJ5RW1iZWRkaW5nEiYKGXZhbGlkYXRlZF9jYW5kaWRhdGVfbGltaXQYAyABKA1IAIgBARIZChFwcmVwYXJhdGlvbl90b2tlbhgEIAEoCRISCgpzdWJqZWN0X2lkGAUgASgJQhwKGl92YWxpZGF0ZWRfY2FuZGlkYXRlX2xpbWl0SgQIARACIoABChNLZXJuZWxRdWVyeVJlc3BvbnNlEjMKCHJlc3BvbnNlGAEgASgLMiEubm91cy53YXZlLnYxYWxwaGExLlF1ZXJ5UmVzcG9uc2USHgoRdmFsaWRhdGlvbl90aWNrZXQYAiABKAlIAIgBAUIUChJfdmFsaWRhdGlvbl90aWNrZXQiVQoPUmVyYW5rQ2FuZGlkYXRlEjMKCXJlZmVyZW5jZRgBIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYSDQoFc2NvcmUYAiABKAEijgEKFkV4dGVybmFsUmVzb3VyY2VSZXN1bHQSEQoJYWN0aW9uX2lkGAEgASgJEhQKDHJlc291cmNlX3JlZhgCIAEoCRIOCgZzdGF0dXMYAyABKAkSOwoHcmVjb3JkcxgEIAMoCzIqLm5vdXMud2F2ZS52MWFscGhhMS5FeHRlcm5hbFJlc291cmNlUmVjb3JkIs0BChRGaW5hbGl6ZVF1ZXJ5UmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEhkKEXZhbGlkYXRpb25fdGlja2V0GAIgASgJEjkKBW9yZGVyGAMgAygLMioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5SZXJhbmtDYW5kaWRhdGUSSwoQZXh0ZXJuYWxfcmVzdWx0cxgEIAMoCzIxLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRXh0ZXJuYWxSZXNvdXJjZVJlc3VsdCJEChNSZWxlYXNlUXVlcnlSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSGQoRdmFsaWRhdGlvbl90aWNrZXQYAiABKAkiOgoVRW1iZWRkaW5nTmVlZHNSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSDQoFbGltaXQYAiABKA0iYgoNRW1iZWRkaW5nTmVlZBIzCglyZWZlcmVuY2UYASABKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlUmVmEgwKBHRleHQYAiABKAkSDgoGZGlnZXN0GAMgASgJIo0BChZFbWJlZGRpbmdOZWVkc1Jlc3BvbnNlEjoKBmNvbmZpZxgBIAEoCzIqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRW1iZWRkaW5nQ29uZmlnEjcKBW5lZWRzGAIgAygLMigubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdOZWVkIp4BChZDb21taXRFbWJlZGRpbmdSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSMwoJcmVmZXJlbmNlGAIgASgLMiAubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVJlZhI7CghtYXRlcmlhbBgDIAEoCzIpLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuUXVlcnlFbWJlZGRpbmci1AIKG0NvbW1pdEludGVycHJldGF0aW9uUmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEjMKBmlucHV0cxgCIAMoCzIjLm5vdXMud2F2ZS52MWFscGhhMS5EZXJpdmF0aW9uSW5wdXQSDAoEdGV4dBgDIAEoCRIMCgRraW5kGAcgASgJEjcKCHByb2R1Y2VyGAggASgLMiUubm91cy53YXZlLnYxYWxwaGExLlByb2R1Y2VyU2lnbmF0dXJlEhAKCHN0cmF0ZWd5GAogASgJEhcKCnN1cGVyc2VkZXMYCyABKAlIAIgBARIoCgdxdWFsaXR5GAwgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIzChJzdHJ1Y3R1cmVkX3BheWxvYWQYDSABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0Qg0KC19zdXBlcnNlZGVzImQKEkRlc2NyaXB0aW9uU2VnbWVudBILCgNrZXkYASABKAkSDAoEdGV4dBgCIAEoCRIzCglyZWZlcmVuY2UYAyABKAsyIC5ub3VzLndhdmUudjFhbHBoYTEuQ29nbml0aXZlUmVmIlYKE0Rlc2NyaXB0aW9uU2VnbWVudHMSPwoIc2VnbWVudHMYASADKAsyLS5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLkRlc2NyaXB0aW9uU2VnbWVudCLPAgoWUmVzZXJ2ZVdvcmtmbG93UmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEg0KBW93bmVyGAIgASgJEhUKDW9wZXJhdGlvbl9rZXkYAyABKAkSFwoPc2VtYW50aWNfZGlnZXN0GAQgASgJEhUKDXNuYXBzaG90X2pzb24YBSABKAkSIAoTbWFpbnRlbmFuY2VfbmVlZF9pZBgGIAEoCUgAiAEBEiQKF21haW50ZW5hbmNlX2xlYXNlX3Rva2VuGAcgASgJSAGIAQESKQohbWFpbnRlbmFuY2VfdHJpZ2dlcl9hdXRob3JpdHlfc2VxGAggASgDEiQKHG1haW50ZW5hbmNlX3RyaWdnZXJfcmV2aXNpb24YCSABKARCFgoUX21haW50ZW5hbmNlX25lZWRfaWRCGgoYX21haW50ZW5hbmNlX2xlYXNlX3Rva2VuIr4BChNXb3JrZmxvd1Jlc2VydmF0aW9uEhUKDXNuYXBzaG90X2pzb24YASABKAkSGgoNcHJvcG9zYWxfanNvbhgCIAEoCUgAiAEBEhkKDG91dGNvbWVfanNvbhgDIAEoCUgBiAEBEhgKC2xlYXNlX3Rva2VuGAQgASgJSAKIAQESDAoEYnVzeRgFIAEoCEIQCg5fcHJvcG9zYWxfanNvbkIPCg1fb3V0Y29tZV9qc29uQg4KDF9sZWFzZV90b2tlbiK+AQoTU2F2ZVdvcmtmbG93UmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEg0KBW93bmVyGAIgASgJEhUKDW9wZXJhdGlvbl9rZXkYAyABKAkSEwoLbGVhc2VfdG9rZW4YBCABKAkSGgoNcHJvcG9zYWxfanNvbhgFIAEoCUgAiAEBEhkKDG91dGNvbWVfanNvbhgGIAEoCUgBiAEBQhAKDl9wcm9wb3NhbF9qc29uQg8KDV9vdXRjb21lX2pzb24iZwoWUmVsZWFzZVdvcmtmbG93UmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEg0KBW93bmVyGAIgASgJEhUKDW9wZXJhdGlvbl9rZXkYAyABKAkSEwoLbGVhc2VfdG9rZW4YBCABKAkiRAoXUmVzb2x2ZWRNZW50aW9uc1JlcXVlc3QSEgoKc3ViamVjdF9pZBgBIAEoCRIVCg1vY2N1cnJlbmNlX2lkGAIgASgJIkMKD1Jlc29sdmVkTWVudGlvbhILCgNrZXkYASABKAkSDwoHc3VyZmFjZRgCIAEoCRISCgplbnRpdHlfcmVmGAMgASgJIloKGFJlc29sdmVkTWVudGlvbnNSZXNwb25zZRI+CgpjYW5kaWRhdGVzGAEgAygLMioubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5SZXNvbHZlZE1lbnRpb24iaAoTRmluZFdvcmtmbG93UmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEg0KBW93bmVyGAIgASgJEhUKDW9wZXJhdGlvbl9rZXkYAyABKAkSFwoPc2VtYW50aWNfZGlnZXN0GAQgASgJIqYBCg1Gb3VuZFdvcmtmbG93Eg0KBWZvdW5kGAEgASgIEhoKDXNuYXBzaG90X2pzb24YAiABKAlIAIgBARIaCg1wcm9wb3NhbF9qc29uGAMgASgJSAGIAQESGQoMb3V0Y29tZV9qc29uGAQgASgJSAKIAQFCEAoOX3NuYXBzaG90X2pzb25CEAoOX3Byb3Bvc2FsX2pzb25CDwoNX291dGNvbWVfanNvbjKyAwoaS2VybmVsTW9kZWxXb3JrZmxvd1NlcnZpY2USaAoMRmluZFdvcmtmbG93Ei4ubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5GaW5kV29ya2Zsb3dSZXF1ZXN0Gigubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5Gb3VuZFdvcmtmbG93EnQKD1Jlc2VydmVXb3JrZmxvdxIxLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuUmVzZXJ2ZVdvcmtmbG93UmVxdWVzdBouLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuV29ya2Zsb3dSZXNlcnZhdGlvbhJWCgxTYXZlV29ya2Zsb3cSLi5ub3VzLndhdmUua2VybmVsLnYxYWxwaGExLlNhdmVXb3JrZmxvd1JlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSXAoPUmVsZWFzZVdvcmtmbG93EjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5SZWxlYXNlV29ya2Zsb3dSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5MrYFCh1LZXJuZWxNYXRlcmlhbFdvcmtmbG93U2VydmljZRJnChJTZWdtZW50RGVzY3JpcHRpb24SIS5ub3VzLndhdmUudjFhbHBoYTEuT2JqZWN0UmVxdWVzdBouLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRGVzY3JpcHRpb25TZWdtZW50cxJ+ChNHZXRSZXNvbHZlZE1lbnRpb25zEjIubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5SZXNvbHZlZE1lbnRpb25zUmVxdWVzdBozLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuUmVzb2x2ZWRNZW50aW9uc1Jlc3BvbnNlElgKEkdldEVtYmVkZGluZ0NvbmZpZxIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRoqLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRW1iZWRkaW5nQ29uZmlnEnkKEkxpc3RFbWJlZGRpbmdOZWVkcxIwLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuRW1iZWRkaW5nTmVlZHNSZXF1ZXN0GjEubm91cy53YXZlLmtlcm5lbC52MWFscGhhMS5FbWJlZGRpbmdOZWVkc1Jlc3BvbnNlElwKD0NvbW1pdEVtYmVkZGluZxIxLm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuQ29tbWl0RW1iZWRkaW5nUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJ5ChRDb21taXRJbnRlcnByZXRhdGlvbhI2Lm5vdXMud2F2ZS5rZXJuZWwudjFhbHBoYTEuQ29tbWl0SW50ZXJwcmV0YXRpb25SZXF1ZXN0Gikubm91cy53YXZlLnYxYWxwaGExLkRlcml2ZWRSZXByZXNlbnRhdGlvbmIGcHJvdG8z", [file_nous_wave_v1alpha1_types, file_nous_wave_v1alpha1_management, file_google_protobuf_empty, file_google_protobuf_struct]);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.EmbeddingConfig
@@ -83,14 +83,31 @@ export const QueryEmbeddingSchema: GenMessage<QueryEmbedding> = /*@__PURE__*/
   messageDesc(file_nous_wave_kernel_v1alpha1_model, 1);
 
 /**
- * @generated from message nous.wave.kernel.v1alpha1.KernelQueryRequest
+ * @generated from message nous.wave.kernel.v1alpha1.PrepareQueryRequest
  */
-export type KernelQueryRequest = Message<"nous.wave.kernel.v1alpha1.KernelQueryRequest"> & {
+export type PrepareQueryRequest = Message<"nous.wave.kernel.v1alpha1.PrepareQueryRequest"> & {
   /**
    * @generated from field: nous.wave.v1alpha1.QueryRequest query = 1;
    */
   query?: QueryRequest | undefined;
 
+  /**
+   * @generated from field: bool reserve_execution = 2;
+   */
+  reserveExecution: boolean;
+};
+
+/**
+ * Describes the message nous.wave.kernel.v1alpha1.PrepareQueryRequest.
+ * Use `create(PrepareQueryRequestSchema)` to create a new message.
+ */
+export const PrepareQueryRequestSchema: GenMessage<PrepareQueryRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 2);
+
+/**
+ * @generated from message nous.wave.kernel.v1alpha1.KernelQueryRequest
+ */
+export type KernelQueryRequest = Message<"nous.wave.kernel.v1alpha1.KernelQueryRequest"> & {
   /**
    * @generated from field: repeated nous.wave.kernel.v1alpha1.QueryEmbedding embeddings = 2;
    */
@@ -100,6 +117,16 @@ export type KernelQueryRequest = Message<"nous.wave.kernel.v1alpha1.KernelQueryR
    * @generated from field: optional uint32 validated_candidate_limit = 3;
    */
   validatedCandidateLimit?: number | undefined;
+
+  /**
+   * @generated from field: string preparation_token = 4;
+   */
+  preparationToken: string;
+
+  /**
+   * @generated from field: string subject_id = 5;
+   */
+  subjectId: string;
 };
 
 /**
@@ -107,7 +134,7 @@ export type KernelQueryRequest = Message<"nous.wave.kernel.v1alpha1.KernelQueryR
  * Use `create(KernelQueryRequestSchema)` to create a new message.
  */
 export const KernelQueryRequestSchema: GenMessage<KernelQueryRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 2);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 3);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.KernelQueryResponse
@@ -129,7 +156,7 @@ export type KernelQueryResponse = Message<"nous.wave.kernel.v1alpha1.KernelQuery
  * Use `create(KernelQueryResponseSchema)` to create a new message.
  */
 export const KernelQueryResponseSchema: GenMessage<KernelQueryResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 3);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 4);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.RerankCandidate
@@ -151,7 +178,7 @@ export type RerankCandidate = Message<"nous.wave.kernel.v1alpha1.RerankCandidate
  * Use `create(RerankCandidateSchema)` to create a new message.
  */
 export const RerankCandidateSchema: GenMessage<RerankCandidate> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 4);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 5);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.ExternalResourceResult
@@ -183,7 +210,7 @@ export type ExternalResourceResult = Message<"nous.wave.kernel.v1alpha1.External
  * Use `create(ExternalResourceResultSchema)` to create a new message.
  */
 export const ExternalResourceResultSchema: GenMessage<ExternalResourceResult> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 5);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 6);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.FinalizeQueryRequest
@@ -215,7 +242,7 @@ export type FinalizeQueryRequest = Message<"nous.wave.kernel.v1alpha1.FinalizeQu
  * Use `create(FinalizeQueryRequestSchema)` to create a new message.
  */
 export const FinalizeQueryRequestSchema: GenMessage<FinalizeQueryRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 6);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 7);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.ReleaseQueryRequest
@@ -237,7 +264,7 @@ export type ReleaseQueryRequest = Message<"nous.wave.kernel.v1alpha1.ReleaseQuer
  * Use `create(ReleaseQueryRequestSchema)` to create a new message.
  */
 export const ReleaseQueryRequestSchema: GenMessage<ReleaseQueryRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 7);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 8);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.EmbeddingNeedsRequest
@@ -259,7 +286,7 @@ export type EmbeddingNeedsRequest = Message<"nous.wave.kernel.v1alpha1.Embedding
  * Use `create(EmbeddingNeedsRequestSchema)` to create a new message.
  */
 export const EmbeddingNeedsRequestSchema: GenMessage<EmbeddingNeedsRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 8);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 9);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.EmbeddingNeed
@@ -286,7 +313,7 @@ export type EmbeddingNeed = Message<"nous.wave.kernel.v1alpha1.EmbeddingNeed"> &
  * Use `create(EmbeddingNeedSchema)` to create a new message.
  */
 export const EmbeddingNeedSchema: GenMessage<EmbeddingNeed> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 9);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 10);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.EmbeddingNeedsResponse
@@ -308,7 +335,7 @@ export type EmbeddingNeedsResponse = Message<"nous.wave.kernel.v1alpha1.Embeddin
  * Use `create(EmbeddingNeedsResponseSchema)` to create a new message.
  */
 export const EmbeddingNeedsResponseSchema: GenMessage<EmbeddingNeedsResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 10);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 11);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.CommitEmbeddingRequest
@@ -335,7 +362,7 @@ export type CommitEmbeddingRequest = Message<"nous.wave.kernel.v1alpha1.CommitEm
  * Use `create(CommitEmbeddingRequestSchema)` to create a new message.
  */
 export const CommitEmbeddingRequestSchema: GenMessage<CommitEmbeddingRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 11);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 12);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.CommitInterpretationRequest
@@ -392,7 +419,7 @@ export type CommitInterpretationRequest = Message<"nous.wave.kernel.v1alpha1.Com
  * Use `create(CommitInterpretationRequestSchema)` to create a new message.
  */
 export const CommitInterpretationRequestSchema: GenMessage<CommitInterpretationRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 12);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 13);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.DescriptionSegment
@@ -419,7 +446,7 @@ export type DescriptionSegment = Message<"nous.wave.kernel.v1alpha1.DescriptionS
  * Use `create(DescriptionSegmentSchema)` to create a new message.
  */
 export const DescriptionSegmentSchema: GenMessage<DescriptionSegment> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 13);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 14);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.DescriptionSegments
@@ -436,7 +463,7 @@ export type DescriptionSegments = Message<"nous.wave.kernel.v1alpha1.Description
  * Use `create(DescriptionSegmentsSchema)` to create a new message.
  */
 export const DescriptionSegmentsSchema: GenMessage<DescriptionSegments> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 14);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 15);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.ReserveWorkflowRequest
@@ -493,7 +520,7 @@ export type ReserveWorkflowRequest = Message<"nous.wave.kernel.v1alpha1.ReserveW
  * Use `create(ReserveWorkflowRequestSchema)` to create a new message.
  */
 export const ReserveWorkflowRequestSchema: GenMessage<ReserveWorkflowRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 15);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 16);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.WorkflowReservation
@@ -530,7 +557,7 @@ export type WorkflowReservation = Message<"nous.wave.kernel.v1alpha1.WorkflowRes
  * Use `create(WorkflowReservationSchema)` to create a new message.
  */
 export const WorkflowReservationSchema: GenMessage<WorkflowReservation> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 16);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 17);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.SaveWorkflowRequest
@@ -572,7 +599,7 @@ export type SaveWorkflowRequest = Message<"nous.wave.kernel.v1alpha1.SaveWorkflo
  * Use `create(SaveWorkflowRequestSchema)` to create a new message.
  */
 export const SaveWorkflowRequestSchema: GenMessage<SaveWorkflowRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 17);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 18);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.ReleaseWorkflowRequest
@@ -604,7 +631,7 @@ export type ReleaseWorkflowRequest = Message<"nous.wave.kernel.v1alpha1.ReleaseW
  * Use `create(ReleaseWorkflowRequestSchema)` to create a new message.
  */
 export const ReleaseWorkflowRequestSchema: GenMessage<ReleaseWorkflowRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 18);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 19);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.ResolvedMentionsRequest
@@ -626,7 +653,7 @@ export type ResolvedMentionsRequest = Message<"nous.wave.kernel.v1alpha1.Resolve
  * Use `create(ResolvedMentionsRequestSchema)` to create a new message.
  */
 export const ResolvedMentionsRequestSchema: GenMessage<ResolvedMentionsRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 19);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 20);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.ResolvedMention
@@ -653,7 +680,7 @@ export type ResolvedMention = Message<"nous.wave.kernel.v1alpha1.ResolvedMention
  * Use `create(ResolvedMentionSchema)` to create a new message.
  */
 export const ResolvedMentionSchema: GenMessage<ResolvedMention> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 20);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 21);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.ResolvedMentionsResponse
@@ -670,7 +697,7 @@ export type ResolvedMentionsResponse = Message<"nous.wave.kernel.v1alpha1.Resolv
  * Use `create(ResolvedMentionsResponseSchema)` to create a new message.
  */
 export const ResolvedMentionsResponseSchema: GenMessage<ResolvedMentionsResponse> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 21);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 22);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.FindWorkflowRequest
@@ -702,7 +729,7 @@ export type FindWorkflowRequest = Message<"nous.wave.kernel.v1alpha1.FindWorkflo
  * Use `create(FindWorkflowRequestSchema)` to create a new message.
  */
 export const FindWorkflowRequestSchema: GenMessage<FindWorkflowRequest> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 22);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 23);
 
 /**
  * @generated from message nous.wave.kernel.v1alpha1.FoundWorkflow
@@ -734,7 +761,7 @@ export type FoundWorkflow = Message<"nous.wave.kernel.v1alpha1.FoundWorkflow"> &
  * Use `create(FoundWorkflowSchema)` to create a new message.
  */
 export const FoundWorkflowSchema: GenMessage<FoundWorkflow> = /*@__PURE__*/
-  messageDesc(file_nous_wave_kernel_v1alpha1_model, 23);
+  messageDesc(file_nous_wave_kernel_v1alpha1_model, 24);
 
 /**
  * @generated from service nous.wave.kernel.v1alpha1.KernelModelWorkflowService

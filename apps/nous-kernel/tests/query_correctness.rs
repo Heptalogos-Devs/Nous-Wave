@@ -20,6 +20,8 @@ use uuid::Uuid;
 
 fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
     CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
         session: None,
@@ -807,6 +809,8 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     );
     let historical = runtime
         .query(CognitiveQuery {
+            text_only_compatibility: false,
+            work_context: None,
             api_version: nous_core::API_VERSION,
             subject,
             session: None,
@@ -1685,7 +1689,13 @@ async fn check_public_vcp_queries(
         request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
         request.diagnostics = nous_core::DiagnosticsRequest::Summary;
         let material = vec![nous_retrieval::QueryEmbedding {
-            text: "association memory".into(),
+            text: runtime
+                .cognition
+                .bind_query(request.clone())
+                .await
+                .unwrap()
+                .representation
+                .text,
             output: embedding.clone(),
         }];
         let result =
@@ -2341,6 +2351,8 @@ async fn check_vcp_projection_material(
 
 fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {
     CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
         session: None,

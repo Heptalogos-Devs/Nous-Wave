@@ -286,10 +286,13 @@ fn request_for(query: &Query, subject: SubjectId, state: &State) -> Result<Cogni
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: API_VERSION,
         subject,
         session: None,
         situation: SituationDescriptor {
+            object_descriptions: Default::default(),
             consumer: Some("research-cognitive-recall".into()),
             current_refs,
             current_objects: Vec::new(),

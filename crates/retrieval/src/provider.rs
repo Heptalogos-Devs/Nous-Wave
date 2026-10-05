@@ -21,3 +21,44 @@ pub trait TextEmbeddingProvider: Send + Sync {
     fn producer(&self) -> ProducerSignature;
     async fn embed(&self, request: TextEmbeddingRequest) -> Result<TextEmbeddingOutput>;
 }
+
+pub(crate) struct RequestEmbedding {
+    inner: std::sync::Arc<dyn TextEmbeddingProvider>,
+    text: String,
+    output: tokio::sync::OnceCell<std::result::Result<TextEmbeddingOutput, String>>,
+}
+impl RequestEmbedding {
+    pub(crate) fn new(inner: std::sync::Arc<dyn TextEmbeddingProvider>, text: String) -> Self {
+        Self {
+            inner,
+            text,
+            output: Default::default(),
+        }
+    }
+}
+#[async_trait::async_trait]
+impl TextEmbeddingProvider for RequestEmbedding {
+    fn space(&self) -> EmbeddingSpaceSignature {
+        self.inner.space()
+    }
+    fn producer(&self) -> ProducerSignature {
+        self.inner.producer()
+    }
+    async fn embed(&self, request: TextEmbeddingRequest) -> Result<TextEmbeddingOutput> {
+        if !request.query || request.text != self.text {
+            return Err(Error::Invalid(
+                "embedding disagrees with immutable query representation".into(),
+            ));
+        }
+        self.output
+            .get_or_init(|| async {
+                self.inner
+                    .embed(request)
+                    .await
+                    .map_err(|error| error.to_string())
+            })
+            .await
+            .clone()
+            .map_err(Error::Unavailable)
+    }
+}

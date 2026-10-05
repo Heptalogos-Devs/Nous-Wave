@@ -4,19 +4,11 @@ use nous_core::*;
 impl KernelService {
     pub(super) async fn query(
         &self,
-        input: p::QueryRequest,
+        bound: nous_runtime::BoundQuery,
         pool_limit: Option<usize>,
     ) -> Result<k::KernelQueryResponse> {
-        let default_limit = self
-            .0
-            .configuration
-            .snapshot_for_subject(SubjectId(id(&input.subject_id)?))?
-            .get(nous_runtime::DEFAULT_RESULT_LIMIT)?;
-        let execution = Box::pin(
-            self.0
-                .execute_query(compile_query(input, default_limit)?, pool_limit),
-        )
-        .await?;
+        let inspection = inspect_bound_query(&bound)?;
+        let execution = Box::pin(self.0.execute_bound_query(bound, pool_limit)).await?;
         let (result, ticket) =
             if pool_limit.is_some() || !execution.result.resource_actions.is_empty() {
                 let (result, ticket) = self.0.cognition.retain_query(execution)?;
@@ -24,8 +16,10 @@ impl KernelService {
             } else {
                 (execution.result, None)
             };
+        let mut response = query_response(result);
+        response.bound_query = Some(inspection);
         Ok(k::KernelQueryResponse {
-            response: Some(query_response(result)),
+            response: Some(response),
             validation_ticket: ticket,
         })
     }
@@ -186,10 +180,15 @@ fn from_resource_record(value: p::ExternalResourceRecord) -> Result<ExternalReso
         access_status: value.access_status,
     })
 }
-fn compile_query(input: p::QueryRequest, default_limit: usize) -> Result<CognitiveQuery> {
+pub(super) fn compile_query(
+    input: p::QueryRequest,
+    default_limit: usize,
+) -> Result<CognitiveQuery> {
     let expression = required(input.expression, "expression")?;
     let modifiers = expression.modifiers.clone().unwrap_or_default();
     let query = CognitiveQuery {
+        text_only_compatibility: input.text_only_compatibility,
+        work_context: input.work_context_id.as_deref().map(id).transpose()?,
         api_version: API_VERSION,
         subject: SubjectId(id(&input.subject_id)?),
         session: input
@@ -198,9 +197,26 @@ fn compile_query(input: p::QueryRequest, default_limit: usize) -> Result<Cogniti
             .map(id)
             .transpose()?
             .map(SessionId),
-        situation: SituationDescriptor::default(),
+        situation: if let Some(situation) = input.situation {
+            SituationDescriptor {
+                consumer: situation.consumer,
+                current_refs: situation
+                    .current_refs
+                    .into_iter()
+                    .map(from_ref)
+                    .collect::<Result<_>>()?,
+                current_objects: situation
+                    .current_objects
+                    .into_iter()
+                    .map(ObjectRef::new)
+                    .collect::<Result<_>>()?,
+                object_descriptions: situation.object_descriptions.into_iter().collect(),
+            }
+        } else {
+            SituationDescriptor::default()
+        },
         expression: compile_expression(expression, true, 0)?,
-        exploration: enum_value(&modifiers.exploration).unwrap_or_default(),
+        exploration: enum_or_default(&modifiers.exploration)?,
         resources: ResourceIntent {
             synopsis_only: false,
         },
@@ -211,9 +227,20 @@ fn compile_query(input: p::QueryRequest, default_limit: usize) -> Result<Cogniti
             need_evidence: true,
             need_materialization_handles: modifiers.materialize,
         },
-        effort: enum_value(&modifiers.effort).unwrap_or_default(),
-        capabilities: CapabilityPolicy::default(),
-        diagnostics: enum_value(&modifiers.diagnostics).unwrap_or_default(),
+        effort: enum_or_default(&modifiers.effort)?,
+        capabilities: if let Some(capabilities) = input.capabilities {
+            CapabilityPolicy {
+                text_embedding: enum_or_default(&capabilities.text_embedding)?,
+                multimodal_interpretation: enum_or_default(
+                    &capabilities.multimodal_interpretation,
+                )?,
+                residual_sensing: enum_or_default(&capabilities.residual_sensing)?,
+                rerank: enum_or_default(&capabilities.rerank)?,
+            }
+        } else {
+            CapabilityPolicy::default()
+        },
+        diagnostics: enum_or_default(&modifiers.diagnostics)?,
     };
     query.validate()?;
     Ok(query)
@@ -433,5 +460,55 @@ fn hit(value: CognitiveHit, rank: usize) -> p::Hit {
             best_lane_rank: value.match_evidence.best_lane_rank,
             variants: value.match_evidence.variants,
         }),
+    }
+}
+
+pub(super) fn inspect_bound_query(bound: &nous_runtime::BoundQuery) -> Result<String> {
+    let mut seeds = bound.topology_seed_refs.clone();
+    seeds.extend(
+        bound
+            .runtime_refs
+            .iter()
+            .cloned()
+            .map(|reference| (reference, "runtime_situation".into())),
+    );
+    seeds.extend(
+        bound
+            .exact_bindings
+            .iter()
+            .map(|binding| (binding.bound_ref.clone(), "exact_target".into())),
+    );
+    seeds.extend(
+        bound
+            .representation
+            .source_refs
+            .iter()
+            .filter(|(reference, source)| {
+                source.starts_with("explicit")
+                    && matches!(reference, CognitiveRef::Tag(_) | CognitiveRef::Entity(_))
+            })
+            .cloned(),
+    );
+    seeds.sort_by_key(|(reference, source)| (reference.to_string(), source.clone()));
+    seeds.dedup();
+    serde_json::to_string(&serde_json::json!({
+        "prepared_query":bound.source_query, "query_id":bound.query_id,
+        "representation":bound.representation, "current_refs":bound.runtime_refs,
+        "topology_seeds":seeds, "exact_bindings":bound.exact_bindings,
+        "profile_id":bound.retrieval_policy.cognitive_profile.id(),
+        "profile_source":bound.config_snapshot.source(nous_runtime::COGNITIVE_PROFILE.path()),
+        "config_snapshot_digest":bound.config_snapshot.effective_digest,
+        "authority_watermark":bound.bound_at_authority_seq,
+        "embedding_digest":bound.representation.sha256,
+        "embedding_space":bound.selected_embedding_space,
+    }))
+    .map_err(|error| Error::Infrastructure(error.to_string()))
+}
+
+fn enum_or_default<T: serde::de::DeserializeOwned + Default>(input: &str) -> Result<T> {
+    if input.is_empty() {
+        Ok(T::default())
+    } else {
+        enum_value(input)
     }
 }

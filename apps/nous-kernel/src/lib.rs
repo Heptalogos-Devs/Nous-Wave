@@ -156,8 +156,18 @@ impl NousRuntime {
         query: CognitiveQuery,
         pool_limit: Option<usize>,
     ) -> Result<nous_runtime::QueryExecution> {
-        let mut bound = self.cognition.bind_query(query).await?;
-        bound.selected_embedding_space = self.serving.embedding().map(|provider| provider.space());
+        let bound = Box::pin(self.cognition.bind_query(query)).await?;
+        Box::pin(self.execute_bound_query(bound, pool_limit)).await
+    }
+    pub async fn execute_bound_query(
+        &self,
+        mut bound: nous_runtime::BoundQuery,
+        pool_limit: Option<usize>,
+    ) -> Result<nous_runtime::QueryExecution> {
+        if bound.selected_embedding_space.is_none() {
+            bound.selected_embedding_space =
+                self.serving.embedding().map(|provider| provider.space());
+        }
         self.cognition.expire_query_leases()?;
         self.serving
             .reclaim_retired(

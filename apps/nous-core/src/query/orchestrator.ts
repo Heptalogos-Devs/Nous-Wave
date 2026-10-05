@@ -14,7 +14,6 @@ import { canonicalDigest } from "../digest.js";
 
 import type { ResourceRegistry } from "../resources/registry.js";
 import { executeResourceActions } from "../resources/execute.js";
-const MAX_QUERY_EMBEDDING_MATERIALS = 64;
 export class QueryOrchestrator {
   private readonly queryVectors = new Map<string, number[]>();
   constructor(
@@ -25,199 +24,204 @@ export class QueryOrchestrator {
   async execute(input: QueryRequest, options: CallOptions = {}) {
     const material: QueryEmbedding[] = [];
     let failure: string | undefined;
-    const texts = new Set<string>();
-    const collect = (node: QueryExpr) => {
-      const text = node.cues
-        .map((c) =>
-          c.cue.case === "text" || c.cue.case === "concept" ? c.cue.value : "",
-        )
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-      if (text) texts.add(text);
-      node.children.forEach(collect);
-    };
-    if (input.expression) collect(input.expression);
-    if (texts.size > MAX_QUERY_EMBEDDING_MATERIALS)
-      throw new ConnectError(
-        "Query material bound exceeded",
-        Code.ResourceExhausted,
-      );
-    if (texts.size) {
-      try {
-        if (!this.models.embeddingModel)
-          throw new ConnectError(
-            "Query embedding role unavailable",
-            Code.FailedPrecondition,
-          );
-        const config = await this.kernel.materialWorkflow.getEmbeddingConfig(
-          {},
-          options,
-        );
-        const keys = new Map(
-          [...texts].map((text) => [
-            text,
-            canonicalDigest({
-              text,
-              space: config.spaceHash,
-              producer: config.producerHash,
-            }),
-          ]),
-        );
-        const missing = [...texts].filter(
-          (text) => !this.queryVectors.has(keys.get(text)!),
-        );
-        if (missing.length) {
-          const vectors = await this.models.invocations.embeddingBatch(
-            missing,
-            config.model,
-            options.signal ?? undefined,
-          );
-          missing.forEach((text, index) =>
-            this.queryVectors.set(keys.get(text)!, vectors.value[index]!),
-          );
-        }
-        for (const text of texts)
-          material.push(
-            create(QueryEmbeddingSchema, {
-              text,
-              spaceHash: config.spaceHash,
-              producerHash: config.producerHash,
-              vector: this.queryVectors.get(keys.get(text)!)!,
-            }),
-          );
-        while (
-          this.queryVectors.size >
-          this.kernel.execution.query_embedding_cache_entries
-        )
-          this.queryVectors.delete(this.queryVectors.keys().next().value!);
-      } catch (error) {
-        if (options.signal?.aborted) throw error;
-        if (
-          this.models.invocations.requirement("query_embedding") === "required"
-        )
-          throw new ConnectError(
-            "Required query embedding unavailable",
-            Code.FailedPrecondition,
-          );
-        failure =
-          error instanceof Error ? error.message : "Embedding unavailable";
-      }
-    }
-    const intent = input.expression ? positiveIntent(input.expression) : "";
-    const profile = this.models.invocations.profile("query_rerank");
-    if (
-      intent &&
-      !profile &&
-      this.models.invocations.requirement("query_rerank") === "required"
-    )
-      throw new ConnectError(
-        "Required query rerank role unavailable",
-        Code.FailedPrecondition,
-      );
-    const prepared = await this.kernel.queryWorkflow.query(
-      {
-        query: input,
-        embeddings: material,
-        validatedCandidateLimit:
-          intent && profile
-            ? this.kernel.execution.query_rerank_candidate_limit
-            : undefined,
-      },
+    const preparation = await this.kernel.queryWorkflow.prepareQuery(
+      { query: input, reserveExecution: true },
       options,
     );
-    if (!prepared.response)
-      throw new ConnectError("Kernel query response missing", Code.Internal);
-    let result = prepared.response;
-    const ticket = prepared.validationTicket;
-    if (
-      !ticket &&
-      intent &&
-      profile &&
-      this.models.invocations.requirement("query_rerank") === "required"
-    )
-      throw new ConnectError(
-        "Required rerank validation snapshot unavailable",
-        Code.ResourceExhausted,
+    if (!preparation.preparationToken)
+      throw new ConnectError("Prepared query token missing", Code.Internal);
+    try {
+      const texts = new Set(
+        preparation.embeddingRequired && preparation.embeddingText
+          ? [preparation.embeddingText]
+          : [],
       );
-    if (ticket) {
-      const candidates = result.hits
-        .filter((hit) => hit.text?.trim())
-        .slice(0, this.kernel.execution.query_rerank_candidate_limit);
-      let order: {
-        reference: NonNullable<(typeof candidates)[number]["reference"]>;
-        score: number;
-      }[] = [];
-      let rerankFailed = false;
-      try {
-        if (intent && profile && candidates.length >= 2) {
-          try {
-            const ranking = await this.models.invocations.rerank(
-              intent,
-              candidates.map((hit) => hit.text!),
-              candidates.length,
+      if (texts.size) {
+        try {
+          if (!this.models.embeddingModel)
+            throw new ConnectError(
+              "Query embedding role unavailable",
+              Code.FailedPrecondition,
+            );
+          const config = await this.kernel.materialWorkflow.getEmbeddingConfig(
+            {},
+            options,
+          );
+          const keys = new Map(
+            [...texts].map((text) => [
+              text,
+              canonicalDigest({
+                text,
+                space: config.spaceHash,
+                producer: config.producerHash,
+              }),
+            ]),
+          );
+          const missing = [...texts].filter(
+            (text) => !this.queryVectors.has(keys.get(text)!),
+          );
+          if (missing.length) {
+            const vectors = await this.models.invocations.embeddingBatch(
+              missing,
+              config.model,
               options.signal ?? undefined,
             );
-            order = ranking.value.map((item) => {
-              const reference = candidates[item.index]!.reference;
-              if (!reference)
-                throw new ConnectError(
-                  "Kernel candidate reference missing",
-                  Code.Internal,
-                );
-              return { reference, score: item.relevance_score };
-            });
-          } catch (error) {
-            if (options.signal?.aborted) throw error;
-            if (
-              this.models.invocations.requirement("query_rerank") === "required"
-            )
-              throw new ConnectError(
-                "Required rerank invocation unavailable",
-                Code.FailedPrecondition,
-              );
-            rerankFailed = true;
+            missing.forEach((text, index) =>
+              this.queryVectors.set(keys.get(text)!, vectors.value[index]!),
+            );
           }
+          for (const text of texts)
+            material.push(
+              create(QueryEmbeddingSchema, {
+                text,
+                spaceHash: config.spaceHash,
+                producerHash: config.producerHash,
+                vector: this.queryVectors.get(keys.get(text)!)!,
+              }),
+            );
+          while (
+            this.queryVectors.size >
+            this.kernel.execution.query_embedding_cache_entries
+          )
+            this.queryVectors.delete(this.queryVectors.keys().next().value!);
+        } catch (error) {
+          if (options.signal?.aborted) throw error;
+          if (
+            preparation.textEmbeddingRequirement === "required" ||
+            this.models.invocations.requirement("query_embedding") ===
+              "required"
+          )
+            throw new ConnectError(
+              "Required query embedding unavailable",
+              Code.FailedPrecondition,
+            );
+          failure =
+            error instanceof Error ? error.message : "Embedding unavailable";
         }
-        result = await this.kernel.queryWorkflow.finalizeQuery(
+      }
+      const intent = input.expression ? positiveIntent(input.expression) : "";
+      const rerankAllowed = preparation.rerankRequirement !== "forbidden";
+      const rerankRequired =
+        rerankAllowed &&
+        (preparation.rerankRequirement === "required" ||
+          this.models.invocations.requirement("query_rerank") === "required");
+      const profile = rerankAllowed
+        ? this.models.invocations.profile("query_rerank")
+        : undefined;
+      if (intent && !profile && rerankRequired)
+        throw new ConnectError(
+          "Required query rerank role unavailable",
+          Code.FailedPrecondition,
+        );
+      const prepared = await this.kernel.queryWorkflow.query(
+        {
+          subjectId: input.subjectId,
+          preparationToken: preparation.preparationToken,
+          embeddings: material,
+          validatedCandidateLimit:
+            intent && profile
+              ? this.kernel.execution.query_rerank_candidate_limit
+              : undefined,
+        },
+        options,
+      );
+      if (!prepared.response)
+        throw new ConnectError("Kernel query response missing", Code.Internal);
+      let result = prepared.response;
+      const ticket = prepared.validationTicket;
+      if (!ticket && intent && profile && rerankRequired)
+        throw new ConnectError(
+          "Required rerank validation snapshot unavailable",
+          Code.ResourceExhausted,
+        );
+      if (ticket) {
+        const candidates = result.hits
+          .filter((hit) => hit.text?.trim())
+          .slice(0, this.kernel.execution.query_rerank_candidate_limit);
+        let order: {
+          reference: NonNullable<(typeof candidates)[number]["reference"]>;
+          score: number;
+        }[] = [];
+        let rerankFailed = false;
+        try {
+          if (intent && profile && candidates.length >= 2) {
+            try {
+              const ranking = await this.models.invocations.rerank(
+                preparation.embeddingText || intent,
+                candidates.map((hit) => hit.text!),
+                candidates.length,
+                options.signal ?? undefined,
+              );
+              order = ranking.value.map((item) => {
+                const reference = candidates[item.index]!.reference;
+                if (!reference)
+                  throw new ConnectError(
+                    "Kernel candidate reference missing",
+                    Code.Internal,
+                  );
+                return { reference, score: item.relevance_score };
+              });
+            } catch (error) {
+              if (options.signal?.aborted) throw error;
+              if (rerankRequired)
+                throw new ConnectError(
+                  "Required rerank invocation unavailable",
+                  Code.FailedPrecondition,
+                );
+              rerankFailed = true;
+            }
+          }
+          result = await this.kernel.queryWorkflow.finalizeQuery(
+            {
+              subjectId: input.subjectId,
+              validationTicket: ticket,
+              order,
+              externalResults: await executeResourceActions(
+                this.resources,
+                result.resourceActions,
+                options.signal ?? undefined,
+              ),
+            },
+            options,
+          );
+          if (rerankFailed) {
+            result.degradation.push({
+              $typeName: "nous.wave.v1alpha1.Degradation",
+              code: "query_rerank_unavailable",
+              detail: "Validated baseline retained after model rerank failure",
+            });
+            if (result.status === "complete") result.status = "degraded";
+          }
+        } finally {
+          await this.kernel.queryWorkflow
+            .releaseQuery(
+              { subjectId: input.subjectId, validationTicket: ticket },
+              { timeoutMs: this.kernel.execution.workflow_ack_timeout_ms },
+            )
+            .catch(() => {});
+        }
+      }
+      if (failure) {
+        result.degradation.push({
+          $typeName: "nous.wave.v1alpha1.Degradation",
+          code: "query_embedding_unavailable",
+          detail: failure,
+        });
+        if (result.status === "complete") result.status = "degraded";
+      }
+      result.boundQuery = preparation.boundQuery;
+      return result;
+    } finally {
+      await this.kernel.queryWorkflow
+        .releaseQuery(
           {
             subjectId: input.subjectId,
-            validationTicket: ticket,
-            order,
-            externalResults: await executeResourceActions(
-              this.resources,
-              result.resourceActions,
-              options.signal ?? undefined,
-            ),
+            validationTicket: preparation.preparationToken,
           },
-          options,
-        );
-        if (rerankFailed) {
-          result.degradation.push({
-            $typeName: "nous.wave.v1alpha1.Degradation",
-            code: "query_rerank_unavailable",
-            detail: "Validated baseline retained after model rerank failure",
-          });
-          if (result.status === "complete") result.status = "degraded";
-        }
-      } finally {
-        await this.kernel.queryWorkflow
-          .releaseQuery(
-            { subjectId: input.subjectId, validationTicket: ticket },
-            { timeoutMs: this.kernel.execution.workflow_ack_timeout_ms },
-          )
-          .catch(() => {});
-      }
+          { timeoutMs: this.kernel.execution.workflow_ack_timeout_ms },
+        )
+        .catch(() => {});
     }
-    if (failure) {
-      result.degradation.push({
-        $typeName: "nous.wave.v1alpha1.Degradation",
-        code: "query_embedding_unavailable",
-        detail: failure,
-      });
-      if (result.status === "complete") result.status = "degraded";
-    }
-    return result;
   }
 }
 function positiveIntent(node: QueryExpr): string {

@@ -713,6 +713,8 @@ async fn assert_longitudinal_materialization(
         CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
     ];
     let query = CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
         session: None,
@@ -1634,9 +1636,9 @@ async fn assert_longitudinal_query_protocol(
         ("episode", "object source", &refs[0]),
         ("journal", "Point-only detail", &refs[1]),
     ] {
-        let response = Kernel::query(
+        let prepared = Kernel::prepare_query(
             &service,
-            tonic::Request::new(k::KernelQueryRequest {
+            tonic::Request::new(k::PrepareQueryRequest {
                 query: Some(p::QueryRequest {
                     subject_id: subject.0.to_string(),
                     expression: Some(p::QueryExpr {
@@ -1653,6 +1655,17 @@ async fn assert_longitudinal_query_protocol(
                     }),
                     ..Default::default()
                 }),
+                reserve_execution: true,
+            }),
+        )
+        .await
+        .unwrap()
+        .into_inner();
+        let response = Kernel::query(
+            &service,
+            tonic::Request::new(k::KernelQueryRequest {
+                preparation_token: prepared.preparation_token.unwrap(),
+                subject_id: subject.0.to_string(),
                 ..Default::default()
             }),
         )
@@ -2039,6 +2052,8 @@ async fn assert_synopsis_policy(rt: &NousRuntime, subject: nous_core::SubjectId)
 fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::CognitiveQuery {
     use nous_core::{CognitiveQuery, CognitiveQueryExpr, Cue, QueryTarget, TextCue};
     let mut query = CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
         session: None,

@@ -139,6 +139,7 @@ impl RetrievalPolicy {
 
 pub fn register_retrieval_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     super::cognitive_profile::register_configuration(registry)?;
+    super::representation::register(registry)?;
     let reference = nous_configuration::ReferenceProfile::parse(include_str!(
         "../../../../config/reference/retrieval-ranking-v1.json"
     ))?;

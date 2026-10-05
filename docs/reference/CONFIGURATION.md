@@ -110,3 +110,5 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 `video.frame_end_margin_seconds` 默认 0.1；frame sampling 将最后一个采样点留在该 configured end margin 之前。
 
 `retrieval.cognitive.profile` 使用 Live / QueryPolicy，后续 query 固定 profile；DTSC/RiverMemo 共享 VCP asset，不因 readout 切换重建。`serving.retired_grace_seconds` 默认 300，范围 0..604800，Developer/SystemOnly/Live；active readers、validation tickets、current artifacts 和 research pins 保护回收边界。运行时 expiry/release 后可在后续 query 机会清理 retired artifact，metadata 保留简短 audit。
+
+`retrieval.query.representation` 控制完整 query embedding 的 typed character/descriptor/count budgets，Developer、SubjectOverrideAllowed、Live。默认 intent 2048 chars、WorkContext 1024、Entity/Tag descriptor 256、current descriptor 512、Entity/Tag/current refs 各 16、total 8192。一次 prepare 固定 policy；inspection 返回实际 SHA256 与截断/缺失 descriptor 诊断。Preparation token 与 validation ticket 共用 `runtime.query_lease_slots`/query lease 的现有预算机制。

@@ -230,6 +230,7 @@ export function createNousClient(transport: Transport) {
       closeSession: call(runtime.closeSession),
       observe: call(runtime.recordObservation),
       query: call(cognition.query),
+      prepareQuery: call(cognition.prepareQuery),
       reportUse: call(runtime.reportUse),
       grantMaintenance: call(cognition.grantMaintenance),
       recall: async (

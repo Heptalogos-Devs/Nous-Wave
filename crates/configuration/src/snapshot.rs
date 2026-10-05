@@ -108,6 +108,42 @@ impl ConfigSnapshot {
         .to_string())
     }
 
+    /// An immutable query-local policy overlay; never writes desired/active configuration.
+    pub fn query_override<T: serde::Serialize>(
+        &self,
+        key: crate::ConfigKey<T>,
+        value: T,
+    ) -> Result<Self> {
+        let descriptor = self
+            .registry
+            .descriptor(key.path())
+            .ok_or_else(|| Error::Invalid("query override key is not registered".into()))?;
+        if descriptor.apply_mode != crate::ConfigApplyMode::Live
+            || descriptor.semantic_effect != crate::ConfigSemanticEffect::QueryPolicy
+        {
+            return Err(Error::Invalid(
+                "operation override is limited to live query policy".into(),
+            ));
+        }
+        let value =
+            serde_json::to_value(value).map_err(|error| Error::Invalid(error.to_string()))?;
+        self.registry.validate(key.path(), &value)?;
+        let mut values = self.values.as_ref().clone();
+        values.insert(
+            key.path().into(),
+            ResolvedConfigValue {
+                json: value,
+                source: ConfigSource::OperationOverride,
+            },
+        );
+        Self::new(
+            self.subject_id,
+            self.revision,
+            self.registry.clone(),
+            values,
+        )
+    }
+
     pub fn descriptors(&self) -> impl Iterator<Item = &crate::ConfigDescriptor> {
         self.registry.descriptors()
     }

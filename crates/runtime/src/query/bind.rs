@@ -168,20 +168,10 @@ fn budget_values(
 }
 
 impl CognitiveRuntimeService {
-    pub async fn bind_query(&self, query: CognitiveQuery) -> Result<BoundQuery> {
-        query.validate()?;
-        for node in query.scopes() {
-            let mut scoped = query.clone();
-            scoped.expression = node.clone();
-            validate_hard_constraints(&scoped)?;
-        }
-        self.require_subject(query.subject).await?;
-        let config_snapshot = self.configuration.snapshot_for_subject(query.subject)?;
-        let retrieval_policy = resolve_retrieval_policy(&config_snapshot)?;
-        if let Some(session) = query.session {
-            self.require_session(query.subject, session).await?;
-        }
-
+    async fn bind_exact_targets(
+        &self,
+        query: &CognitiveQuery,
+    ) -> Result<(Vec<ExactBinding>, HashSet<CognitiveRef>)> {
         let mut exact_bindings = Vec::new();
         let mut allowed_revision_refs = HashSet::new();
         for target in query.scopes().into_iter().flat_map(|node| &node.targets) {
@@ -211,15 +201,63 @@ impl CognitiveRuntimeService {
             });
         }
 
-        let mut runtime_refs = Vec::new();
-        for reference in &query.situation.current_refs {
-            let (bound_ref, _, _) = self
-                .store
-                .bind_exact_reference(query.subject, reference)
-                .await?;
-            runtime_refs.push(bound_ref);
+        Ok((exact_bindings, allowed_revision_refs))
+    }
+    async fn bind_runtime_sources(
+        &self,
+        subject: SubjectId,
+        sources: &[(CognitiveRef, String)],
+    ) -> Result<(Vec<CognitiveRef>, Vec<(CognitiveRef, String)>)> {
+        let mut cache = std::collections::HashMap::<CognitiveRef, CognitiveRef>::new();
+        let mut resolved = Vec::new();
+        for (reference, source) in sources {
+            let canonical = if let Some(canonical) = cache.get(reference) {
+                canonical.clone()
+            } else {
+                let (canonical, _, _) = self.store.bind_exact_reference(subject, reference).await?;
+                cache.insert(reference.clone(), canonical.clone());
+                canonical
+            };
+            let family = match source.as_str() {
+                "active_work_context" => "runtime_work_context",
+                "caller_situation" => "runtime_situation",
+                other => other,
+            };
+            resolved.push((canonical, family.to_owned()));
+        }
+        let mut refs = cache.into_values().collect::<Vec<_>>();
+        refs.sort_by_key(ToString::to_string);
+        refs.dedup();
+        resolved.sort_by_key(|(reference, source)| (reference.to_string(), source.clone()));
+        resolved.dedup();
+        Ok((refs, resolved))
+    }
+    pub async fn bind_query(&self, query: CognitiveQuery) -> Result<BoundQuery> {
+        let snapshot = self.configuration.snapshot_for_subject(query.subject)?;
+        self.bind_query_with_snapshot(query, snapshot).await
+    }
+    pub async fn bind_query_with_snapshot(
+        &self,
+        mut query: CognitiveQuery,
+        config_snapshot: nous_configuration::ConfigSnapshot,
+    ) -> Result<BoundQuery> {
+        super::closure::validate_query_input(&query)?;
+        for node in query.scopes() {
+            let mut scoped = query.clone();
+            scoped.expression = node.clone();
+            validate_hard_constraints(&scoped)?;
+        }
+        self.require_subject(query.subject).await?;
+        let retrieval_policy = resolve_retrieval_policy(&config_snapshot)?;
+        if let Some(session) = query.session {
+            self.require_session(query.subject, session).await?;
         }
 
+        let (work_context, mut representation_sources) = self.query_context(&mut query).await?;
+        let (exact_bindings, allowed_revision_refs) = self.bind_exact_targets(&query).await?;
+        let (runtime_refs, runtime_sources) = self
+            .bind_runtime_sources(query.subject, &representation_sources)
+            .await?;
         let mut topology_seed_refs = Vec::new();
         for target in query.scopes().into_iter().flat_map(|node| &node.targets) {
             if let QueryTarget::SchemaNeighborhood { schema } = target {
@@ -269,7 +307,27 @@ impl CognitiveRuntimeService {
         let lane_budgets = budget_values(&query, &enabled_lanes, &retrieval_policy);
         let bound_at_authority_seq = self.store.authority_seq(query.subject).await?;
         let exact_target_bypasses_auto_level = !exact_bindings.is_empty();
+        representation_sources.extend(
+            exact_bindings
+                .iter()
+                .map(|binding| (binding.bound_ref.clone(), "explicit_exact".into())),
+        );
+        representation_sources.extend(
+            runtime_refs
+                .iter()
+                .cloned()
+                .map(|reference| (reference, "runtime_context".into())),
+        );
+        let representation = self
+            .resolve_query_representation(
+                &query,
+                work_context,
+                representation_sources,
+                &config_snapshot,
+            )
+            .await?;
         Ok(BoundQuery {
+            representation,
             query_id: Uuid::now_v7(),
             bound_at: self.now(query.subject),
             source_query: query.clone(),
@@ -277,6 +335,7 @@ impl CognitiveRuntimeService {
             revision_policy,
             exact_bindings,
             runtime_refs,
+            runtime_sources,
             topology_seed_refs,
             enabled_lanes: enabled_lanes.clone(),
             lane_budgets,
@@ -291,5 +350,25 @@ impl CognitiveRuntimeService {
             config_snapshot,
             retrieval_policy,
         })
+    }
+}
+
+impl BoundQuery {
+    /// Research readout selection from the same closed query/context snapshot.
+    pub fn for_profile(&self, profile: super::CognitiveProfile) -> Result<Self> {
+        let mut bound = self.clone();
+        bound.config_snapshot = self
+            .config_snapshot
+            .query_override(super::COGNITIVE_PROFILE, profile)?;
+        bound.retrieval_policy = resolve_retrieval_policy(&bound.config_snapshot)?;
+        bound.enabled_lanes = planned_profile_lanes(&bound.source_query, profile);
+        bound.lane_budgets = budget_values(
+            &bound.source_query,
+            &bound.enabled_lanes,
+            &bound.retrieval_policy,
+        );
+        bound.topology_required =
+            explicit_topology(&bound.source_query) && profile.requirements().topology;
+        Ok(bound)
     }
 }

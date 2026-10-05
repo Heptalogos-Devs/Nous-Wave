@@ -540,13 +540,22 @@ pub struct QueryEmbedding {
     pub vector: ::prost::alloc::vec::Vec<f32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct KernelQueryRequest {
+pub struct PrepareQueryRequest {
     #[prost(message, optional, tag="1")]
     pub query: ::core::option::Option<super::super::v1alpha1::QueryRequest>,
+    #[prost(bool, tag="2")]
+    pub reserve_execution: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct KernelQueryRequest {
     #[prost(message, repeated, tag="2")]
     pub embeddings: ::prost::alloc::vec::Vec<QueryEmbedding>,
     #[prost(uint32, optional, tag="3")]
     pub validated_candidate_limit: ::core::option::Option<u32>,
+    #[prost(string, tag="4")]
+    pub preparation_token: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub subject_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct KernelQueryResponse {

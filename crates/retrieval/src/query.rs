@@ -166,6 +166,7 @@ async fn prepare_signals(
     query: &nous_core::CognitiveQuery,
     enabled_lanes: &[EvidenceFamily],
     plan: &QueryPlan,
+    embedding_text: &str,
     provider: Option<&dyn TextEmbeddingProvider>,
 ) -> Result<PreparedQuerySignals> {
     let query_text = text_query(query);
@@ -183,7 +184,7 @@ async fn prepare_signals(
     // Generation absence preserves the existing unavailable-lane semantics.
     // FORBIDDEN is checked before reaching the sole provider invocation.
     if (dense_enabled || cognitive_embedding)
-        && !query_text.trim().is_empty()
+        && !embedding_text.trim().is_empty()
         && query.capabilities.text_embedding != RequirementStrength::Forbidden
         && (!snapshot.dense.is_empty()
             || (cognitive_embedding
@@ -199,7 +200,7 @@ async fn prepare_signals(
             match provider
                 .embed(TextEmbeddingRequest {
                     subject: query.subject,
-                    text: query_text.clone(),
+                    text: embedding_text.to_owned(),
                     query: true,
                 })
                 .await
@@ -238,7 +239,13 @@ impl SharedLaneProvider for ServingService {
     async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
         let _reader = self.read_gate.clone().read_owned().await;
         let snapshot = self.publisher.snapshot_for(bound.source_query.subject);
-        self.lanes_from_snapshot(&snapshot, bound, plan).await
+        self.lanes_from_snapshot(
+            &snapshot,
+            bound,
+            plan,
+            self.embedding().map(|provider| provider.as_ref()),
+        )
+        .await
     }
 }
 
@@ -248,13 +255,15 @@ impl ServingService {
         snapshot: &ServingSnapshot,
         bound: &BoundQuery,
         plan: &QueryPlan,
+        provider: Option<&dyn TextEmbeddingProvider>,
     ) -> Result<Vec<LaneOutput>> {
         let signals = prepare_signals(
             snapshot,
             &bound.source_query,
             &bound.enabled_lanes,
             plan,
-            self.embedding().map(|provider| provider.as_ref()),
+            &bound.representation.text,
+            provider,
         )
         .await?;
         let topology = if bound.lane_enabled(EvidenceFamily::TopologyWave) {
@@ -305,6 +314,7 @@ mod tests;
 pub struct ServingQuery {
     service: ServingService,
     pub(crate) snapshot: Arc<ServingSnapshot>,
+    embedding: Option<crate::provider::RequestEmbedding>,
 }
 impl std::fmt::Debug for ServingQuery {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -319,7 +329,14 @@ impl nous_runtime::QueryReadLease for ServingQuery {}
 impl SharedLaneProvider for ServingQuery {
     async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
         self.service
-            .lanes_from_snapshot(&self.snapshot, bound, plan)
+            .lanes_from_snapshot(
+                &self.snapshot,
+                bound,
+                plan,
+                self.embedding
+                    .as_ref()
+                    .map(|provider| provider as &dyn TextEmbeddingProvider),
+            )
             .await
     }
 }
@@ -384,6 +401,12 @@ impl ServingService {
         let reader = Arc::new(ServingQuery {
             service: self.clone(),
             snapshot: Arc::new(snapshot),
+            embedding: self.embedding().map(|provider| {
+                crate::provider::RequestEmbedding::new(
+                    provider.clone(),
+                    bound.representation.text.clone(),
+                )
+            }),
         });
         let mut readers = self
             .query_readers

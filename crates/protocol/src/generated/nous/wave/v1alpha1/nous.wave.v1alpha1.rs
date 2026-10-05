@@ -552,6 +552,28 @@ pub struct QueryExpr {
     #[prost(message, optional, tag="4")]
     pub modifiers: ::core::option::Option<QueryModifiers>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryCapabilities {
+    #[prost(string, tag="1")]
+    pub text_embedding: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub multimodal_interpretation: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub residual_sensing: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub rerank: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QuerySituation {
+    #[prost(string, optional, tag="1")]
+    pub consumer: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="2")]
+    pub current_refs: ::prost::alloc::vec::Vec<CognitiveRef>,
+    #[prost(string, repeated, tag="3")]
+    pub current_objects: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(map="string, string", tag="4")]
+    pub object_descriptions: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryRequest {
     #[prost(string, tag="1")]
@@ -562,6 +584,29 @@ pub struct QueryRequest {
     pub expression: ::core::option::Option<QueryExpr>,
     #[prost(string, optional, tag="4")]
     pub nousql: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="5")]
+    pub work_context_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="6")]
+    pub situation: ::core::option::Option<QuerySituation>,
+    #[prost(bool, tag="7")]
+    pub text_only_compatibility: bool,
+    #[prost(message, optional, tag="8")]
+    pub capabilities: ::core::option::Option<QueryCapabilities>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PreparedQueryResponse {
+    #[prost(string, tag="1")]
+    pub bound_query: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub preparation_token: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="3")]
+    pub embedding_text: ::prost::alloc::string::String,
+    #[prost(bool, tag="4")]
+    pub embedding_required: bool,
+    #[prost(string, tag="5")]
+    pub text_embedding_requirement: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub rerank_requirement: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Evidence {

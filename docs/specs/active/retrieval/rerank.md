@@ -26,7 +26,7 @@ Public HitScore 保留 baseline、preference、optional rerank、final scores �
 
 Normalized RRF baseline 位于 [0,1]。每个满足的 soft cue 增加 signed 0.02，总 preference clamp 到 [-0.06,0.06]。recent(axis) 只接受 occurred、observed、valid、formed、recorded；未知时间得 0；recency 为 `1/(1 + age/(30 days))`。Rerank ordinal affinity 为 `(k+1)/(k+rank)`。Candidate pool 上限为 64 个候选与 2 MiB text。
 
-Lexical relevance 只来自 Lexical Serving hit。Query embedding 使用 candidate text，不包含 soft-preference text；按 exact text/space/producer digest 最多缓存 128 vectors。Required embedding 失败拒绝 operation；optional/preferred 的 lexical fallback 返回显式 degradation。
+Lexical relevance 只来自 Lexical Serving hit。Query embedding 使用 preparation 固定的完整 Query Representation，包含 normalized temporal orientation 与当前 context；text compatibility 独立使用原始文本；按 exact text/space/producer digest 最多缓存 128 vectors。Required embedding 失败拒绝 operation；optional/preferred 的 lexical fallback 返回显式 degradation。
 
 Topology 默认关闭，只能显式请求实验 lane，标识为 `experimental-node-potential-v1`。当前实现使用 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential；完整 VCP topology 尚未实现。
 

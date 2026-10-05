@@ -1,4 +1,5 @@
 use super::*;
+use nous_core::{EvidenceFamily, RequirementStrength, Result};
 
 #[tonic::async_trait]
 impl k::kernel_query_service_server::KernelQueryService for KernelService {
@@ -10,6 +11,57 @@ impl k::kernel_query_service_server::KernelQueryService for KernelService {
             let subject = SubjectId(id(&request.into_inner().subject_id)?);
             self.0.store.require_subject(subject).await?;
             Ok(timestamp(self.0.cognition.now(subject)))
+        }
+        .await;
+        result.map(Response::new).map_err(status)
+    }
+    async fn prepare_query(
+        &self,
+        request: Request<k::PrepareQueryRequest>,
+    ) -> std::result::Result<Response<p::PreparedQueryResponse>, Status> {
+        let input = request.into_inner();
+        let result: Result<_> = async {
+            let query = required(input.query, "query")?;
+            let subject = SubjectId(id(&query.subject_id)?);
+            let snapshot = self.0.configuration.snapshot_for_subject(subject)?;
+            let limit = snapshot.get(nous_runtime::DEFAULT_RESULT_LIMIT)?;
+            let mut bound = self
+                .0
+                .cognition
+                .bind_query_with_snapshot(super::query::compile_query(query, limit)?, snapshot)
+                .await?;
+            bound.selected_embedding_space =
+                self.0.serving.embedding().map(|provider| provider.space());
+            let embedding_text = bound.representation.text.clone();
+            let embedding_required = bound.source_query.capabilities.text_embedding
+                != RequirementStrength::Forbidden
+                && !embedding_text.is_empty()
+                && bound.enabled_lanes.iter().any(|lane| {
+                    *lane == EvidenceFamily::Dense
+                        || (*lane == EvidenceFamily::TopologyWave
+                            && bound
+                                .retrieval_policy
+                                .cognitive_profile
+                                .requirements()
+                                .query_embedding)
+                });
+            let inspection = super::query::inspect_bound_query(&bound)?;
+            let text_embedding_requirement =
+                enum_name(bound.source_query.capabilities.text_embedding);
+            let rerank_requirement = enum_name(bound.source_query.capabilities.rerank);
+            let token = if input.reserve_execution {
+                Some(self.0.cognition.retain_prepared_query(bound)?.to_string())
+            } else {
+                None
+            };
+            Ok(p::PreparedQueryResponse {
+                bound_query: inspection,
+                preparation_token: token,
+                embedding_text,
+                embedding_required,
+                text_embedding_requirement,
+                rerank_requirement,
+            })
         }
         .await;
         result.map(Response::new).map_err(status)

@@ -491,6 +491,8 @@ pub struct ContextContribution {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SituationDescriptor {
+    #[serde(default)]
+    pub object_descriptions: std::collections::BTreeMap<String, String>,
     pub consumer: Option<String>,
     #[serde(default)]
     pub current_refs: Vec<CognitiveRef>,
