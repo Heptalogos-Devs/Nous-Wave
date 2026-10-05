@@ -172,3 +172,10 @@ routine 新建了独立 post-breakfast field-journal Tag，描述涵盖 Sep 7 �
 [首批语义核对](functional-review.json) 绑定 frozen readout digest，保留原始 source diagnostic。routine-interference 四 profile 的当前早餐后习惯均为 rank 1；旧习惯 Memory 明确写退休，visitor Memory 明确写拒绝。引用这两条事件不等同于把它们当作当前采用的习惯，因此来源 forbidden-root 计数不能独立证明此语义错误。另一方面，gate-history 的 occurred cutoff 为 Sep 3，Native rank 1 的 generic occurrence 却来自 Sep 12 release-verify；这是实际时间合同缺陷，待修复 generic evidence materialization/finalization。
 
 incident 的两个正常机会提交了第三个 Journal，以及 build-cache 过早删除故障 Memory、snapshot procedure 启发 retirement/deletion 分离的类比 Memory和独立来源支持的资源回收 Schema。类比 Memory 明确保留实施/验证尚未被该来源建立的边界，最终 build-fix cognition 和关联维护仍待继续。provider 两次请求、零 embedding/rerank，后续请求在上限前截停。
+
+
+### 历史查询时间泄漏修复
+
+generic evidence 的首次 materialization 与最终复核现已消费实际来源时间；批量读取对每个 source row 联合检查 occurred/observed/recorded，derived formation 与 owner recorded 时间分别保留，Unknown 不通过已请求的时间条件。SourceRegion 使用同 Subject 的来源 Observation，derived evidence 使用实际 representation source roots。Schema owner 也补齐五轴过滤和实际 lineage freshness，沿 Memory evidence/dependencies 解析 source 时间。
+
+无 provider 的真实 past/future Occurrence/SourceRegion 回归通过，finalization 仍排除 future；多来源交叉满足时间条件的误匹配测试通过，15 项 query correctness 全通过。原 gate-history 两个结构 profile 预检后重跑，provider/embedding/rerank 为零，最终 top-1 是 Sep 1 Journal，随后为 Sep 1 原始 evidence；原 Sep 12 occurrence/region 与时间不合格 Schema 不再返回。本修复证明此时间缺陷已消除；完整语义四 profile 和其他功能验收仍需随新的 cognition 重跑。

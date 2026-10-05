@@ -2471,3 +2471,147 @@ async fn query_reports_validation_budget_exhaustion() {
             .any(|value| value.code == "validation_budget_exhausted")
     );
 }
+
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one real evidence cohort verifies past/future occurrence and region filters through finalization"
+)]
+async fn evidence_time_constraints_filter_occurrences_and_regions_through_finalization() {
+    use nous_material::{
+        ObservationInput, ObservationMaterial, OccurrenceDescriptor, RuntimeDirective,
+    };
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime_with_serving(&url, &root, true, false, false).await;
+    let subject = subject(&runtime).await;
+    let now = Utc::now();
+    let mut observations = Vec::new();
+    for (time, text) in [
+        (now - Duration::days(2), "chronicle historical approval"),
+        (now + Duration::days(2), "chronicle future approval"),
+    ] {
+        observations.push(
+            runtime
+                .material
+                .record_observation(ObservationInput {
+                    subject,
+                    session: None,
+                    occurrence: OccurrenceDescriptor {
+                        source_class: nous_core::SourceClass::Message,
+                        external_object_ref: None,
+                        occurred_time: TemporalExtent::Instant { at: time },
+                        observed_at: Some(now),
+                        conversation_ref: None,
+                        actor_entity_ref: None,
+                        context: serde_json::json!({}),
+                    },
+                    material: ObservationMaterial::InlineText {
+                        text: text.into(),
+                        media_type: "text/plain".into(),
+                    },
+                    entities: Vec::new(),
+                    runtime: RuntimeDirective::default(),
+                })
+                .await
+                .unwrap(),
+        );
+    }
+    let mut input = query(subject);
+    input.expression.cues.push(Cue::Text(TextCue {
+        text: "chronicle approval".into(),
+    }));
+    input.expression.constraints.occurred = Some(TimeInterval {
+        start: None,
+        end: Some(now),
+    });
+    let execution = runtime.execute_query(input, Some(32)).await.unwrap();
+    let past = CognitiveRef::Occurrence(observations[0].occurrence.occurrence_id);
+    let future = CognitiveRef::Occurrence(observations[1].occurrence.occurrence_id);
+    let past_region = CognitiveRef::SourceRegion(
+        observations[0]
+            .source_region
+            .as_ref()
+            .unwrap()
+            .source_region_id,
+    );
+    let future_region = CognitiveRef::SourceRegion(
+        observations[1]
+            .source_region
+            .as_ref()
+            .unwrap()
+            .source_region_id,
+    );
+    assert!(
+        execution
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == past_region)
+    );
+    assert!(
+        !execution
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == future_region)
+    );
+    assert!(
+        execution
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == past)
+    );
+    assert!(
+        !execution
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == future)
+    );
+    assert!(
+        execution
+            .result
+            .results
+            .iter()
+            .filter(|hit| matches!(
+                hit.reference,
+                CognitiveRef::Occurrence(_) | CognitiveRef::SourceRegion(_)
+            ))
+            .all(|hit| !hit.freshness.occurred.is_empty()
+                && hit
+                    .freshness
+                    .occurred
+                    .iter()
+                    .all(|time| time.overlaps_interval(&TimeInterval {
+                        start: None,
+                        end: Some(now)
+                    })))
+    );
+    let (_, ticket) = runtime.cognition.retain_query(execution).unwrap();
+    let result = runtime
+        .cognition
+        .finalize_query(
+            subject,
+            ticket.unwrap(),
+            Vec::new(),
+            Vec::new(),
+            nous_runtime::CognitiveContributors {
+                shared: None,
+                memory: runtime
+                    .memory
+                    .as_ref()
+                    .map(|owner| owner as &dyn nous_runtime::CognitiveContributor),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(result.results.iter().any(|hit| hit.reference == past));
+    assert!(!result.results.iter().any(|hit| hit.reference == future));
+    assert!(
+        !result
+            .results
+            .iter()
+            .any(|hit| hit.reference == future_region)
+    );
+}

@@ -310,14 +310,21 @@ impl CognitiveRuntimeService {
                 }
             }
         }
+        let times = self.store.reference_times(query.subject, &generic).await?;
         for reference in generic {
             self.store
                 .validate_reference(query.subject, &reference)
                 .await?;
-            materialized.insert(
-                reference.clone(),
-                reference_hit(reference, EvidenceFamily::Exact, query),
-            );
+            let metadata = &times[&reference];
+            if !metadata.matches(&query.expression.constraints) {
+                *validation_drops
+                    .entry("temporal_ineligible".into())
+                    .or_default() += 1;
+                continue;
+            }
+            let mut hit = reference_hit(reference.clone(), EvidenceFamily::Exact, query);
+            hit.freshness = metadata.freshness();
+            materialized.insert(reference, hit);
         }
         for candidate in ranked.into_iter().take(validation_bound) {
             if let Some(mut hit) = materialized.remove(&candidate.reference) {

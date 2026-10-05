@@ -322,7 +322,13 @@ impl CognitiveRuntimeService {
             }
         }
         match self.store.validate_reference(subject, reference).await {
-            Ok(()) => Ok(true),
+            Ok(()) => {
+                let times = self
+                    .store
+                    .reference_times(subject, std::slice::from_ref(reference))
+                    .await?;
+                Ok(times[reference].matches(&bound.source_query.expression.constraints))
+            }
             Err(Error::NotFound(_)) | Err(Error::Invalid(_)) => Ok(false),
             Err(error) => Err(error),
         }

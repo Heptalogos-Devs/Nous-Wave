@@ -225,6 +225,13 @@ pub(crate) async fn materialize_schema_revisions(
         .fetch_all(service.store.pool())
         .await
         .map_err(nous_persistence::database_error)?;
+    let mut metadata = super::longitudinal_query::longitudinal_metadata(
+        service,
+        bound.source_query.subject,
+        "cognitive_schema",
+        &revision_ids,
+    )
+    .await?;
     let mut drops = BTreeMap::new();
     let mut hits = Vec::new();
     for row in rows {
@@ -310,6 +317,52 @@ pub(crate) async fn materialize_schema_revisions(
             *drops.entry("query_constraints".into()).or_default() += 1;
             continue;
         }
+        let source_times = metadata.remove(&revision.0).unwrap_or_default();
+        let freshness = FreshnessDescriptor {
+            occurred: source_times.occurred,
+            observed_at: source_times.observed_at,
+            valid_time: temporal_from_columns(
+                row.try_get("valid_time_kind")
+                    .map_err(nous_persistence::database_error)?,
+                row.try_get("valid_time_start")
+                    .map_err(nous_persistence::database_error)?,
+                row.try_get("valid_time_end")
+                    .map_err(nous_persistence::database_error)?,
+            )?,
+            formed_at: Some(
+                row.try_get("formed_at")
+                    .map_err(nous_persistence::database_error)?,
+            ),
+            recorded_at: Some(
+                row.try_get("recorded_at")
+                    .map_err(nous_persistence::database_error)?,
+            ),
+        };
+        let constraints = &bound.source_query.expression.constraints;
+        if !constraints.occurred.is_none_or(|interval| {
+            freshness
+                .occurred
+                .iter()
+                .any(|time| time.overlaps_interval(&interval))
+        }) || !constraints.observed.is_none_or(|interval| {
+            freshness
+                .observed_at
+                .is_some_and(|at| interval.contains(at))
+        }) || !constraints
+            .valid
+            .is_none_or(|interval| freshness.valid_time.overlaps_interval(&interval))
+            || !constraints
+                .formed
+                .is_none_or(|interval| freshness.formed_at.is_some_and(|at| interval.contains(at)))
+            || !constraints.recorded.is_none_or(|interval| {
+                freshness
+                    .recorded_at
+                    .is_some_and(|at| interval.contains(at))
+            })
+        {
+            *drops.entry("temporal_ineligible".into()).or_default() += 1;
+            continue;
+        }
         hits.push(CognitiveHit {
             authority_epoch: Some(
                 row.try_get("object_epoch")
@@ -329,26 +382,7 @@ pub(crate) async fn materialize_schema_revisions(
                     .map_err(nous_persistence::database_error)?,
             ),
             authority: AuthorityClass::SubjectCognition,
-            freshness: FreshnessDescriptor {
-                occurred: Vec::new(),
-                observed_at: None,
-                valid_time: temporal_from_columns(
-                    row.try_get("valid_time_kind")
-                        .map_err(nous_persistence::database_error)?,
-                    row.try_get("valid_time_start")
-                        .map_err(nous_persistence::database_error)?,
-                    row.try_get("valid_time_end")
-                        .map_err(nous_persistence::database_error)?,
-                )?,
-                formed_at: Some(
-                    row.try_get("formed_at")
-                        .map_err(nous_persistence::database_error)?,
-                ),
-                recorded_at: Some(
-                    row.try_get("recorded_at")
-                        .map_err(nous_persistence::database_error)?,
-                ),
-            },
+            freshness,
             entity_refs: aboutness,
             evidence: Vec::new(),
             match_evidence: MatchEvidence::default(),
