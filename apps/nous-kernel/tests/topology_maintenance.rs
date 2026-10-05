@@ -65,6 +65,34 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         .unwrap()
         .subject_id;
     let owner = rt.require_memory().unwrap();
+    let entity = CognitiveRef::Entity(EntityRef::new("entity:fixture:release-engineer").unwrap());
+    assert!(
+        !rt.store
+            .reference_in_subject(subject, &entity)
+            .await
+            .unwrap()
+    );
+    rt.store
+        .bind_identity(
+            subject,
+            entity.clone(),
+            "Alice".into(),
+            vec!["Release engineer".into()],
+        )
+        .await
+        .unwrap();
+    assert!(
+        rt.store
+            .reference_in_subject(subject, &entity)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !rt.store
+            .reference_in_subject(SubjectId::new(), &entity)
+            .await
+            .unwrap()
+    );
     let mut revisions = Vec::new();
     for text in [
         "Alice requires recorded reviewer approval before deployment",

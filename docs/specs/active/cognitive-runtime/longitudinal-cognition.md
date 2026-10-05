@@ -83,3 +83,5 @@ Accretion 是可重建的派生信号，聚合独立根、当前成员、跨 Epi
 维护 catalog 的 sourceContext 包含有界原始文本或派生 descriptor，并链接 cognition.sourceSupportKeys；Episode 的 idle/boundary 机制不作为领域概念文本。每项 cognition 显式提供 exactSupportKey。create_tag 使用必填 cognitionKeys 指定 accepted cognition 锚点，由 owner 生成精确 revision supports，再与所选 source supports 去重；attachment/association 从显式局部 endpoint keys 记录 exact revision anchors；模型选择 source 或额外 cognition witness，owner 仍执行关系证据和 provenance 校验。
 
 Consolidation 的候选查找使用独立 text-only lookup：输入是引用的 source 原文，不作为待闭合的用户意图。实体目录提供 source 文本中出现的 display name/alias 的有界候选，加上已有候选的 aboutness；目录匹配本身不写入 aboutness，仍由模型选择、owner 校验。形成阶段需要 lexical Serving 为 continuing claim 提供当前候选，dense/topology 与付费 embedding 在检索验证前保持关闭。
+
+Directory 的当前有效 Entity binding 是 Subject 内可引用身份，即使尚未被 Memory aboutness 或 observation actor 使用。通用 reference 校验承认该 binding；不把它自动转换成 aboutness。跨 Subject 和 tombstoned binding 仍不能仅凭目录获得可引用资格。

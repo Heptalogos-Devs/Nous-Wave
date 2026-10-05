@@ -39,6 +39,7 @@ const { values } = parseArgs({
     "env-file": { type: "string" },
     "query-ids": { type: "string" },
     "scenario-ids": { type: "string" },
+    "review-need-ids": { type: "string" },
     "execution-id": { type: "string", default: "formation-1" },
   },
 });
@@ -70,6 +71,7 @@ const plan = {
     scenarios.flatMap((s) => s.events.map((event) => event.text)),
   ).size,
   scenarioIds: selected,
+  reviewNeedIds: values["review-need-ids"]?.split(",") ?? [],
   newServingGenerations: scenarios.reduce(
     (total, scenario) => total + scenario.events.length + 1,
     0,
@@ -375,6 +377,16 @@ async function run() {
         subject: saved.id,
         instant: "2026-09-16T12:30:00Z",
       });
+      if (plan.reviewNeedIds.length && scenarios.length !== 1)
+        throw new Error("Explicit review requires one selected Subject");
+      if (plan.reviewNeedIds.length)
+        await mutation(() =>
+          host!.control({
+            command: "review",
+            subject: saved.id,
+            need_ids: plan.reviewNeedIds,
+          }),
+        );
       for (let pass = 0; pass < 40; pass++) {
         const grant = await mutation(() =>
           client.cognition.grantMaintenance(

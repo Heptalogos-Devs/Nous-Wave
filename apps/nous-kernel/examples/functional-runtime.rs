@@ -7,6 +7,7 @@ use nous_runtime::{BoundQuery, CognitiveProfile, ManualCognitiveClock};
 use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use sqlx::Row;
 use std::collections::HashMap;
 use std::{
     path::{Path, PathBuf},
@@ -14,6 +15,7 @@ use std::{
 };
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio_stream::wrappers::TcpListenerStream;
+use uuid::Uuid;
 fn failure(error: impl std::fmt::Display) -> Error {
     Error::Infrastructure(error.to_string())
 }
@@ -31,6 +33,10 @@ enum Control {
     Execute {
         key: String,
         profile: CognitiveProfile,
+    },
+    Review {
+        subject: SubjectId,
+        need_ids: Vec<Uuid>,
     },
     Inspect,
     Metrics,
@@ -118,6 +124,7 @@ async fn run() -> Result<()> {
                     ))
                 }
             }
+            Control::Review { subject, need_ids } => review(&runtime, subject, &need_ids).await,
             Control::Inspect => inspect(&runtime, &root).await,
             Control::Metrics => metrics(&runtime, &root).await,
             Control::Done => {
@@ -317,4 +324,33 @@ async fn generation_count(url: &str) -> Result<i64> {
     };
     catalog.close().await;
     Ok(count)
+}
+
+async fn review(runtime: &NousRuntime, subject: SubjectId, ids: &[Uuid]) -> Result<Value> {
+    if ids.is_empty() || ids.len() > 32 {
+        return Err(Error::Invalid(
+            "review requires 1..32 exact need IDs".into(),
+        ));
+    }
+    let rows=sqlx::query("SELECT need_id,kind,scope_kind,scope_ref,priority FROM maintenance_needs WHERE subject_id=$1 AND need_id=ANY($2::uuid[]) AND state<>'leased'").bind(subject.0).bind(ids).fetch_all(runtime.store.pool()).await.map_err(failure)?;
+    if rows.len() != ids.len() {
+        return Err(Error::Invalid(
+            "review need is missing or currently leased in this Subject".into(),
+        ));
+    }
+    for row in rows {
+        runtime
+            .cognition
+            .enqueue_maintenance(nous_runtime::MaintenanceRequest {
+                subject,
+                kind: row.try_get("kind").map_err(failure)?,
+                scope_kind: row.try_get("scope_kind").map_err(failure)?,
+                scope_ref: row.try_get("scope_ref").map_err(failure)?,
+                trigger_authority_seq: runtime.store.authority_seq(subject).await?,
+                due_at: runtime.cognition.now(subject),
+                priority: row.try_get("priority").map_err(failure)?,
+            })
+            .await?;
+    }
+    Ok(json!({"reviewedNeeds":ids.len()}))
 }
