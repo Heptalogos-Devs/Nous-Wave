@@ -119,3 +119,59 @@ it("counts real forwarded attempts including failure and preserves the run cap a
     await rm(root, { recursive: true, force: true });
   }
 });
+
+it("blocks embedding batches before the wire when their item budget is exhausted", async () => {
+  const { ExecutionBudget } = await import("./execution-budget.js");
+  const root = await mkdtemp(join(tmpdir(), "nous-items-wire-"));
+  let seen = 0;
+  const upstream = createServer((_request, response) => {
+    seen++;
+    response.writeHead(200, { "Content-Type": "application/json" }).end("{}");
+  });
+  upstream.listen(0, "127.0.0.1");
+  await once(upstream, "listening");
+  const address = upstream.address();
+  if (!address || typeof address === "string")
+    throw new Error("fixture address");
+  const budget = await ExecutionBudget.open(
+    join(root, "budget.json"),
+    "fixture",
+    {
+      providerCalls: 5,
+      newEmbeddingItems: 2,
+      rerankCalls: 0,
+      newServingGenerations: 1,
+      newArtifactBytes: 4096,
+      runtimeSeconds: 30,
+    },
+  );
+  const proxy = await startResearchGateway({
+    upstream: `http://127.0.0.1:${address.port}/v1`,
+    ledger: join(root, "wire"),
+    maxCalls: 0,
+    port: 0,
+    executionBudget: budget,
+  });
+  try {
+    const invoke = (input: string[]) =>
+      fetch(proxy.endpoint + "/embeddings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "fixture", input }),
+      });
+    expect((await invoke(["first", "second"])).status).toBe(200);
+    expect((await invoke(["third"])).status).toBe(429);
+    expect(seen).toBe(1);
+    expect(budget.snapshot().used).toMatchObject({
+      providerCalls: 1,
+      newEmbeddingItems: 2,
+    });
+    expect(budget.signal.aborted).toBe(true);
+  } finally {
+    await proxy.close();
+    await budget.close();
+    upstream.closeAllConnections();
+    await new Promise<void>((done) => upstream.close(() => done()));
+    await rm(root, { recursive: true, force: true });
+  }
+});

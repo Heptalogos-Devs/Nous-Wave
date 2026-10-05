@@ -13,3 +13,11 @@ Execute formation and automatic maintenance first. Inspect Tag reuse, fragmentat
 Run preflight `--plan` before providers or Serving construction. The runner requires provider, new embedding item, rerank, new generation, artifact byte and runtime budgets; default provider/rerank budgets are zero. Keep generated receipts, model outputs, vectors and results under ignored `data/research`. No full external dataset or repeated embedding belongs in this workflow.
 
 Status: fixture authored; natural execution and quality acceptance pending. No benchmark result is claimed by this directory.
+
+Formation preflight is executable:
+
+```sh
+pnpm exec tsx scripts/research/functional-plan.ts --plan
+```
+
+It accepts all six `--max-*` limits and `--query-ids`. Formation preflight reports zero embedding/rerank/Serving work because this phase only forms and inspects cognition. Model-dependent output/disk forecasts are explicit upper bounds. Retrieval requires a second preflight over the actual frozen representations and cache inventory. The common run ledger reserves work before dispatch and survives restart; the research gateway applies provider, embedding-item and rerank accounting to real wire attempts and aborts in-flight requests at the runtime deadline. Owner execution and its disk/Serving accounting are still being connected; this preflight does not claim natural execution has passed.
