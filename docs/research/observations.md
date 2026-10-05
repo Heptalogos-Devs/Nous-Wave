@@ -165,3 +165,10 @@ routine 新建了独立 post-breakfast field-journal Tag，描述涵盖 Sep 7 �
 检查发现 topology projection 只从 Memory text sources 加入节点，未显式关联的 current Episode/Journal exact anchor 无法进入图。现在投影所有当前 accepted/valid cognition，并沿已有 Episode members/exact supports、Journal sources、Memory dependencies、active supporting Schema evidence 提供双向 `cognition_support` 结构邻接；不改写成因果关系，不使用 oracle 生成边。inactive cognition association endpoints、撤销/counterexample/contradiction 支持不作为正向来源连接，Memory capability 关闭时不提供这些节点。资产 revision 9 区分本轮图合同，原向量复用。
 
 真实 PostgreSQL 回归验证 Episode→Memory 成员连接、逆向同支持连接与 capability 隔离。完整缓存语义集重跑 60 arms，provider/embedding/rerank 均零，generation 增量 5、artifact 增量 11,081,027 bytes。Native weak-cue case 增加有来源支持的路径，结构检查 10 supported/5 failed；其他三个 profile 各 9 supported/6 failed。跨系统二/三跳、部分 causal/spontaneous 路径及 visitor interference 仍未验收。没有将来源连接数量当作完整认知恢复。
+
+
+### 来源检查与语义核对的区分
+
+[首批语义核对](functional-review.json) 绑定 frozen readout digest，保留原始 source diagnostic。routine-interference 四 profile 的当前早餐后习惯均为 rank 1；旧习惯 Memory 明确写退休，visitor Memory 明确写拒绝。引用这两条事件不等同于把它们当作当前采用的习惯，因此来源 forbidden-root 计数不能独立证明此语义错误。另一方面，gate-history 的 occurred cutoff 为 Sep 3，Native rank 1 的 generic occurrence 却来自 Sep 12 release-verify；这是实际时间合同缺陷，待修复 generic evidence materialization/finalization。
+
+incident 的两个正常机会提交了第三个 Journal，以及 build-cache 过早删除故障 Memory、snapshot procedure 启发 retirement/deletion 分离的类比 Memory和独立来源支持的资源回收 Schema。类比 Memory 明确保留实施/验证尚未被该来源建立的边界，最终 build-fix cognition 和关联维护仍待继续。provider 两次请求、零 embedding/rerank，后续请求在上限前截停。
