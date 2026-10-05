@@ -139,6 +139,9 @@ export function consolidationRequest(
       });
     if (value.index >= index)
       invalid("Consolidation relation requires an earlier action");
+    const prior = proposal.actions[value.index];
+    if (prior?.action !== "create_memory" && prior?.action !== "revise_memory")
+      invalid("Strong Memory relations require Memory action endpoints");
     return create(ConsolidationResultRefSchema, {
       target: { case: "actionIndex", value: value.index },
     });

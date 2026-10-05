@@ -4,7 +4,7 @@ use nous_core::{CognitiveRef, Cue, EvidenceFamily};
 use nous_runtime::{
     BoundQuery, LaneCandidate, LaneOutput, LaneStatus, QueryPlan, TopologyWorkSummary,
 };
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 
 pub(crate) fn topology_lane(
     snapshot: &ServingSnapshot,
@@ -63,7 +63,19 @@ pub(crate) fn topology_lane(
     if !river.complete {
         output.status = LaneStatus::Truncated;
     }
-    let routes = activated_routes(river, observation.source_seeds());
+    let routes = crate::activated_routes::activated_routes(
+        observation
+            .source_seeds()
+            .iter()
+            .filter(|seed| seed.weight > 0.0)
+            .map(|seed| seed.node),
+        river
+            .edges
+            .iter()
+            .filter(|edge| edge.flow > 0.0)
+            .map(|edge| (edge.from, edge.to)),
+        river.max_hops,
+    );
     let mut values = river
         .node_potential
         .iter()
@@ -181,43 +193,4 @@ fn source_seeds(graph: &crate::WaveGraphGeneration, bound: &BoundQuery) -> Vec<S
             });
     }
     merged.into_values().collect()
-}
-
-// Multi-source breadth-first traversal visits each activated node once. A route
-// witnesses connectivity in this observation; it does not explain every unit of
-// accumulated potential or invent relation provenance absent from the artifact.
-fn activated_routes(river: &crate::QueryRiver, seeds: &[SourceSeed]) -> BTreeMap<u32, Vec<u32>> {
-    let mut outgoing = BTreeMap::<u32, Vec<u32>>::new();
-    for edge in &river.edges {
-        if edge.flow > 0.0 {
-            outgoing.entry(edge.from).or_default().push(edge.to);
-        }
-    }
-    for targets in outgoing.values_mut() {
-        targets.sort_unstable();
-        targets.dedup();
-    }
-    let mut routes = BTreeMap::new();
-    let mut queue = VecDeque::new();
-    for seed in seeds {
-        if seed.weight > 0.0 && !routes.contains_key(&seed.node) {
-            routes.insert(seed.node, vec![seed.node]);
-            queue.push_back(seed.node);
-        }
-    }
-    while let Some(node) = queue.pop_front() {
-        let path = routes[&node].clone();
-        if path.len() > river.max_hops.min(32) {
-            continue;
-        }
-        for target in outgoing.get(&node).into_iter().flatten() {
-            if !routes.contains_key(target) {
-                let mut next = path.clone();
-                next.push(*target);
-                routes.insert(*target, next);
-                queue.push_back(*target);
-            }
-        }
-    }
-    routes
 }

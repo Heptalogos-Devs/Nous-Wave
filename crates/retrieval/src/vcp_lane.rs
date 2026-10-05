@@ -42,7 +42,7 @@ impl ServingService {
         policy.validate()?;
         let offered = offered_candidates(generation, &observation, bound, plan, signals, &policy)?;
         let limit = plan.lane_budget(EvidenceFamily::TopologyWave);
-        let ranked = match plan.cognitive_profile {
+        let mut ranked = match plan.cognitive_profile {
             nous_runtime::CognitiveProfile::VcpDtsc => {
                 let readout =
                     vcp_dtsc_readout(generation, &observation, &offered, &policy.dtsc, limit)?;
@@ -89,6 +89,7 @@ impl ServingService {
             }
             _ => return Err(Error::Invalid("VCP lane received a non-VCP profile".into())),
         };
+        crate::vcp_routes::explain_routes(generation, &observation, &mut ranked)?;
         // A fallback artifact or concurrent Authority mutation must not supply
         // a supposedly current graph observation. Runtime revalidates results too.
         if !self.vcp_generation_current(bound, generation).await? {

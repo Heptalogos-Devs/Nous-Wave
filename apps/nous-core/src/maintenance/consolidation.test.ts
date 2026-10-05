@@ -87,6 +87,44 @@ describe("consolidation exact catalog resolution", () => {
     expect(request.source?.expectedEpoch).toBe(2n);
     expect(request.actions[2]!.action.case).toBe("linkRelation");
   });
+  it("rejects Schema/skip action endpoints before committing a consistency group", () => {
+    for (const first of [
+      { action: "skip", reason: "No update" },
+      {
+        action: "create_schema",
+        content: {
+          title: null,
+          structuralClaim: "A bounded recurring pattern.",
+          applicability: "Two independently observed events.",
+          boundaryDefinition: "Only these events.",
+          formationKind: "synthesized",
+          entityKeys: [],
+          validTime: { kind: "unknown" },
+          evidence: [{ role: "support", supportKey: "source" }],
+        },
+      },
+    ]) {
+      const proposal = consolidationSchema.parse({
+        actions: [
+          first,
+          {
+            action: "link_relation",
+            from: { kind: "action", index: 0 },
+            to: { kind: "candidate", key: "target" },
+            relation: "derived_from",
+          },
+        ],
+      });
+      expect(() =>
+        consolidationRequest(
+          plan,
+          proposal,
+          "operation",
+          create(ProducerSignatureSchema),
+        ),
+      ).toThrow("Strong Memory relations require Memory action endpoints");
+    }
+  });
   it("rejects invented support, entity, target and forward relation keys", () => {
     for (const changed of [
       { ...content, supportKeys: ["invented"] },

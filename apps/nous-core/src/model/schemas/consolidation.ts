@@ -98,7 +98,7 @@ const endpoint = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("candidate"),
     key: key.describe(
-      "Exact candidates[].key for a Memory or CognitiveSchema; source context is not a candidate.",
+      "Exact candidates[].key for a Memory revision; strong Memory relations do not accept CognitiveSchema or source context endpoints.",
     ),
   }),
   z.strictObject({
@@ -149,7 +149,7 @@ export const consolidationSchema = z
       .min(1)
       .max(16)
       .describe(
-        "Ordered proposals; action endpoints use zero-based indices in this array.",
+        "Ordered proposals; relation action endpoints use zero-based indices of earlier create_memory or revise_memory actions in this array.",
       ),
   })
   .meta({

@@ -130,3 +130,12 @@ Native topology artifact 保存投影证据并以版本 7 重新构建，按边�
 自然 routine 已通过正常 consolidation 修订旧 late-night 偏好，并形成疲劳归因和 breakfast 后写作的新偏好 Memory，保留直接 occurrence 与 Journal 支持；一次 180 秒机会内使用一个实际 HTTP 请求，约 108 秒完成。incident 在两个请求内完成一次 Episode organization 与一个 snapshot incident Journal，尚未形成跨系统关联。所有失败、预算截停与 retry 均保留 owner/workflow receipts。
 
 闭合检查定位了关系从句 `experience that informed` 被当作开放指代的误判。guard 区分已命名 cognitive noun 后的常用关系从句连接词，保留真正的 demonstrative/pronoun 拒绝，并补齐 possessive/object pronoun 检查。复合 Episode 和原子 Episode 可以合法共享来源；exact event intent 绑定唯一最小 scope，等粒度冲突仍显式 unresolved。
+
+
+### VCP 实际激活路径出口
+
+VCP readout 现在附带从实际 gating seed 出发的有界 Sense 连通路径、种子权重、激活 flow、wormhole 标记和可用支持来源。显式 Authority evidence 与实际文档 cooccurrence 分别保留关系名称；无来源的 semantic transition 保持空支持。路径是观察中的连通见证，数值排名保持原样。Native/VCP 共享一个有界路径构造器；cycle、不可达节点、hop 边界回归及 23 项 reference parity 通过。
+
+复用原 29-vector cache 的两题四 profile 小试完成 8 个最终 readout，provider/new embedding/rerank 为零、新增 generation 3、net artifact growth 约 1.14 MiB。与修改前的同题结果顺序完全一致；Native 每题 7 个命中有路径，DTSC 最终命中没有 Sense 路径，RiverMemo 每题 1 个命中有路径。没有把缺失路径修补成关联成功。
+
+routine 本轮正常 consolidation 新增了 Sep 9 的 breakfast 后重复习惯 Memory。下一份 consistency group 含 Schema→Memory 的 `link_relation`，被 owner 原有强 Memory relation 合同拒绝而回滚；发现模型 schema 描述错误允许 Schema endpoint。Prompt/schema 已对齐 Memory-only 合同，Core 提前拒绝 Schema/skip action endpoints，来源关系继续使用 Schema evidence links。该失败保留，未手工注入期望 Memory/Tag。
