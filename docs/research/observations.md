@@ -139,3 +139,6 @@ VCP readout 现在附带从实际 gating seed 出发的有界 Sense 连通路径
 复用原 29-vector cache 的两题四 profile 小试完成 8 个最终 readout，provider/new embedding/rerank 为零、新增 generation 3、net artifact growth 约 1.14 MiB。与修改前的同题结果顺序完全一致；Native 每题 7 个命中有路径，DTSC 最终命中没有 Sense 路径，RiverMemo 每题 1 个命中有路径。没有把缺失路径修补成关联成功。
 
 routine 本轮正常 consolidation 新增了 Sep 9 的 breakfast 后重复习惯 Memory。下一份 consistency group 含 Schema→Memory 的 `link_relation`，被 owner 原有强 Memory relation 合同拒绝而回滚；发现模型 schema 描述错误允许 Schema endpoint。Prompt/schema 已对齐 Memory-only 合同，Core 提前拒绝 Schema/skip action endpoints，来源关系继续使用 Schema evidence links。该失败保留，未手工注入期望 Memory/Tag。
+
+
+incident 本批三次 provider 请求完成 snapshot 原因/修复 Memory 与后续 Journal；第三份 consistency group 同样使用 Schema relation endpoint，运行进程启动于合同修复前，owner 拒绝并回滚。新合同需由下一批启动验证。独立 text-only compatibility 选择已人工核对：两个 LongMemEval、两个 LoCoMo、两个 Python 官方真实文本问题，共 13 个唯一来源段落。选择 manifest 保存 locator/hash，原文与执行输入 ignored；未执行检索或 embedding，未扩大外部全集。

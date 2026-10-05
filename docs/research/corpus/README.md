@@ -10,6 +10,7 @@
 - [audio-negative-controls.json](audio-negative-controls.json)：两段 NASA 音频的人工听辨事实。
 - [cognitive-retrieval-sources.json](cognitive-retrieval-sources.json)：PR #14 后 Cognitive Retrieval 实验的 Nous/Vault/VCP/New API 基线与 VCP blob 身份。
 - [hard-text.json](hard-text.json)：冻结 30 篇真实文本、5,627 个带 digest/段落 locator 的 source blocks；[query oracle](hard-text-queries.json) 已有 150 条查询（140 条正例来源核对、10 条 scoped absence 核对）；全候选审计和实际检索评测仍在进行。
+- [text-compatibility-selection.json](text-compatibility-selection.json)：本轮独立 raw-text compatibility 小集，人工读取确认的 2 个 LongMemEval、2 个 LoCoMo 和 2 个真实文本问题，原文保留 ignored；执行尚待完成。
 - [external-memory-sources.json](external-memory-sources.json)：LongMemEval-S / LoCoMo 的官方数据版本、SHA-256、许可、分类与 annotation 适配状态。第三方原文和 prepared fixture 均保存在 ignored `data/research/external/`。
 - [observed-results.json](observed-results.json)：2026-10-01 初始文本检索测量。
 
