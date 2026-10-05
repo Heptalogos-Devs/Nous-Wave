@@ -148,3 +148,6 @@ incident 本批三次 provider 请求完成 snapshot 原因/修复 Memory 与后
 
 
 routine 的 topology-only 机会通过正常自动 need 完成两次模型维护：修订复用 late-night routine Tag，增加有证据的 attachments，保留其已退休语义。它仍不代表 morning-journal，故该绑定继续 unresolved。只开放 topology 模型角色用于已形成 cognition 的维护阶段；其他高优先 consolidation/repair needs 保留。embedding 预检自身现已使用六项 ledger，在 host 启动前预留 generation/disk，在运行中观察实际变化，并在报告写入前计入字节。零 generation cap 的预检在启动前截停；原缓存的两题盘点零 misses、零 provider、零新 generation。
+
+
+incident 两次 topology-only 请求自动创建了 snapshot premature-deletion/reader-lease 概念中心，提交原因→修复的 `assoc.related`，并为两个 Memory 添加 Tag attachment。按实际目录描述核对后，`lease-reclamation` 绑定该中心。新一轮 14-intent baseline/native 结构 readout 完成 28 arms，provider/embedding/rerank 为零、generation 增量 2、artifact 增量约 2.15 MiB。完整 30-item 分母仍只有 14 项结构支持、14 项失败、2 项缺失；lease-hub 来源覆盖支持，但跨系统二/三跳和 morning-journal 仍未闭合。完整语义四算法与人工质量验收继续待执行。
