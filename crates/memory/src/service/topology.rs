@@ -112,7 +112,7 @@ impl MemoryService {
             ));
         }
         self.store.require_subject(subject).await?;
-        self.store.validate_reference(subject, &root).await?;
+        let (root, _, _) = self.store.bind_exact_reference(subject, &root).await?;
         let mut seen = std::collections::HashSet::from([root.clone()]);
         let mut frontier = vec![root.clone()];
         let mut nodes = vec![root];
@@ -124,7 +124,7 @@ impl MemoryService {
                 break;
             }
             let (kinds, refs): (Vec<_>, Vec<_>) = frontier.iter().map(reference_parts).unzip();
-            let rows = sqlx::query("WITH frontier AS (SELECT * FROM unnest($2::text[], $3::text[]) AS f(kind,ref)) SELECT a.association_evidence_id,a.from_ref_kind,a.from_ref,a.to_ref_kind,a.to_ref FROM association_evidence a WHERE a.subject_id=$1 AND a.revoked_at IS NULL AND EXISTS(SELECT 1 FROM frontier f WHERE (f.kind=a.from_ref_kind AND f.ref=a.from_ref) OR (f.kind=a.to_ref_kind AND f.ref=a.to_ref)) ORDER BY a.association_evidence_id LIMIT 257")
+            let rows = sqlx::query("WITH frontier AS (SELECT * FROM unnest($2::text[], $3::text[]) AS f(kind,ref)), active AS (SELECT association_evidence_id,from_ref_kind,to_ref_kind,CASE WHEN from_ref_kind='tag' THEN canonical_tag($1,from_ref::uuid)::text ELSE from_ref END AS from_ref,CASE WHEN to_ref_kind='tag' THEN canonical_tag($1,to_ref::uuid)::text ELSE to_ref END AS to_ref FROM association_evidence WHERE subject_id=$1 AND revoked_at IS NULL) SELECT a.* FROM active a WHERE a.from_ref IS NOT NULL AND a.to_ref IS NOT NULL AND (a.from_ref_kind<>a.to_ref_kind OR a.from_ref<>a.to_ref) AND EXISTS(SELECT 1 FROM frontier f WHERE (f.kind=a.from_ref_kind AND f.ref=a.from_ref) OR (f.kind=a.to_ref_kind AND f.ref=a.to_ref)) ORDER BY a.association_evidence_id LIMIT 257")
                 .bind(subject.0).bind(kinds).bind(refs).fetch_all(self.store.pool()).await.map_err(db)?;
             truncated |= rows.len() > 256;
             let mut next = Vec::new();
@@ -149,6 +149,9 @@ impl MemoryService {
                     truncated = true;
                     continue;
                 }
+                let mut association = self.association(subject, AssociationEvidenceId(id)).await?;
+                association.from = from.clone();
+                association.to = to.clone();
                 for reference in [from, to]
                     .into_iter()
                     .filter(|reference| seen.insert(reference.clone()))
@@ -157,7 +160,7 @@ impl MemoryService {
                     next.push(reference);
                 }
                 edge_ids.insert(id);
-                associations.push(self.association(subject, AssociationEvidenceId(id)).await?);
+                associations.push(association);
             }
             frontier = next;
         }
@@ -582,67 +585,4 @@ fn parse_use_event_key(value: &str) -> Result<(String, Uuid)> {
         .parse()
         .map_err(|_| Error::Infrastructure("invalid association UseEvent id".into()))?;
     Ok((consumer.into(), event))
-}
-
-impl MemoryService {
-    pub async fn create_tag(&self, subject: SubjectId, input: CreateTagRequest) -> Result<Tag> {
-        if input.label.trim().is_empty() || input.label.len() > 256 {
-            return Err(Error::Invalid("tag label is invalid".into()));
-        }
-        let digest = operation_digest(
-            "create_tag",
-            subject,
-            &serde_json::json!({"label":input.label,"description":input.description,"kind_hint":input.kind_hint,"origin":input.origin}),
-        )?;
-        let mut mutation = match self
-            .start_mutation(subject, input.operation_id, "create_tag", &digest)
-            .await?
-        {
-            MutationStart::Replay(receipt) => {
-                let id = receipt.result_ref;
-                if receipt.state == "committed" {
-                    return self
-                        .tag(
-                            subject,
-                            TagId(
-                                id.ok_or_else(|| {
-                                    Error::Infrastructure("tag receipt missing result".into())
-                                })?
-                                .parse()
-                                .map_err(|_| Error::Infrastructure("invalid tag receipt".into()))?,
-                            ),
-                        )
-                        .await;
-                }
-                return Err(Error::Unavailable(
-                    "tag operation is already in progress".into(),
-                ));
-            }
-            MutationStart::Active(mutation) => mutation,
-        };
-        let tag_id = TagId::new();
-        let revision_id = Uuid::now_v7();
-        let now = self.cognition.now(subject);
-        sqlx::query("INSERT INTO tags(tag_id,subject_id,current_revision_id,created_at,status) VALUES($1,$2,$3,$4,'active')").bind(tag_id.0).bind(subject.0).bind(revision_id).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
-        sqlx::query("INSERT INTO tag_revisions(tag_revision_id,tag_id,revision_no,label,description,kind_hint,origin,created_at) VALUES($1,$2,1,$3,$4,$5,$6,$7)").bind(revision_id).bind(tag_id.0).bind(&input.label).bind(&input.description).bind(&input.kind_hint).bind(&input.origin).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
-        mutation
-            .invalidate(ProjectionInvalidation::topology())
-            .await?;
-
-        mutation
-            .commit("tag", Some(&tag_id.0.to_string()), None, None)
-            .await?;
-        self.tag(subject, tag_id).await
-    }
-
-    pub(in crate::service) async fn tag(&self, subject: SubjectId, tag_id: TagId) -> Result<Tag> {
-        let row=sqlx::query("SELECT tag_id,subject_id,current_revision_id,created_at,status FROM tags WHERE subject_id=$1 AND tag_id=$2").bind(subject.0).bind(tag_id.0).fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(||Error::NotFound("tag not found".into()))?;
-        Ok(Tag {
-            tag_id: TagId(row.try_get("tag_id").map_err(db)?),
-            subject_id: SubjectId(row.try_get("subject_id").map_err(db)?),
-            current_revision_id: row.try_get("current_revision_id").map_err(db)?,
-            status: row.try_get("status").map_err(db)?,
-            created_at: row.try_get("created_at").map_err(db)?,
-        })
-    }
 }

@@ -97,8 +97,8 @@ pub(crate) async fn memory_sources(
         let revision: Uuid = row.try_get("memory_revision_id").map_err(db)?;
         let entities = sqlx::query_scalar("SELECT DISTINCT entity_ref FROM memory_revision_aboutness WHERE memory_revision_id=$1 ORDER BY entity_ref")
             .bind(revision).fetch_all(&mut **tx).await.map_err(db)?;
-        let tags = sqlx::query_scalar("SELECT tag_id::text FROM memory_revision_tags WHERE memory_revision_id=$1 ORDER BY tag_id")
-            .bind(revision).fetch_all(&mut **tx).await.map_err(db)?;
+        let tags = sqlx::query_scalar("SELECT DISTINCT canonical_tag($2,tag_id)::text FROM memory_revision_tags WHERE memory_revision_id=$1 AND canonical_tag($2,tag_id) IS NOT NULL ORDER BY 1")
+            .bind(revision).bind(subject.0).fetch_all(&mut **tx).await.map_err(db)?;
         let schema_ids = sqlx::query_scalar("SELECT DISTINCT s.schema_id::text FROM cognitive_schemas s JOIN cognitive_schema_revisions sr ON sr.schema_revision_id=s.current_revision_id JOIN cognitive_schema_evidence_links l ON l.schema_revision_id=sr.schema_revision_id WHERE s.subject_id=$1 AND s.acceptance_state='accepted' AND s.integrity_state='valid' AND s.suppression_state='normal' AND s.purge_state='normal' AND l.revoked_at IS NULL AND l.support_kind='memory_revision' AND l.support_ref=$2")
             .bind(subject.0).bind(revision.to_string()).fetch_all(&mut **tx).await.map_err(db)?;
         sources.push(TextProjectionSource {

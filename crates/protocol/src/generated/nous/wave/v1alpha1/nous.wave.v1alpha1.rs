@@ -1750,6 +1750,12 @@ pub struct Tag {
     pub kind_hint: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="5")]
     pub origin: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub current_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="8")]
+    pub canonical_tag_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateTagRequest {
@@ -1768,6 +1774,64 @@ pub struct SearchTagsRequest {
     pub text: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub page: ::core::option::Option<Page>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TagContent {
+    #[prost(string, tag="1")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub description: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="3")]
+    pub kind_hint: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TagRevisionTarget {
+    #[prost(string, tag="1")]
+    pub tag_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub expected_revision_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReviseTagRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub target: ::core::option::Option<TagRevisionTarget>,
+    #[prost(message, optional, tag="4")]
+    pub content: ::core::option::Option<TagContent>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MergeTagsRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub survivor: ::core::option::Option<TagRevisionTarget>,
+    #[prost(message, repeated, tag="4")]
+    pub retired: ::prost::alloc::vec::Vec<TagRevisionTarget>,
+    #[prost(message, repeated, tag="5")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SplitTagRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub parent: ::core::option::Option<TagRevisionTarget>,
+    #[prost(message, repeated, tag="4")]
+    pub children: ::prost::alloc::vec::Vec<TagContent>,
+    #[prost(message, repeated, tag="5")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SplitTagResponse {
+    #[prost(message, repeated, tag="1")]
+    pub children: ::prost::alloc::vec::Vec<Tag>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListTagsResponse {

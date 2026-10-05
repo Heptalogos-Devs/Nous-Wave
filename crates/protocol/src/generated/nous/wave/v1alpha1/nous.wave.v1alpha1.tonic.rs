@@ -1350,6 +1350,24 @@ pub mod topology_service_server {
             tonic::Status,
         >;
         ///
+        async fn revise_tag(
+            &self,
+            request: tonic::Request<super::ReviseTagRequest>,
+        ) -> std::result::Result<tonic::Response<super::Tag>, tonic::Status>;
+        ///
+        async fn merge_tags(
+            &self,
+            request: tonic::Request<super::MergeTagsRequest>,
+        ) -> std::result::Result<tonic::Response<super::Tag>, tonic::Status>;
+        ///
+        async fn split_tag(
+            &self,
+            request: tonic::Request<super::SplitTagRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SplitTagResponse>,
+            tonic::Status,
+        >;
+        ///
         async fn create_association(
             &self,
             request: tonic::Request<super::CreateAssociationRequest>,
@@ -1648,6 +1666,141 @@ pub mod topology_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = SearchTagsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.TopologyService/ReviseTag" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReviseTagSvc<T: TopologyService>(pub Arc<T>);
+                    impl<
+                        T: TopologyService,
+                    > tonic::server::UnaryService<super::ReviseTagRequest>
+                    for ReviseTagSvc<T> {
+                        type Response = super::Tag;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReviseTagRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as TopologyService>::revise_tag(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReviseTagSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.TopologyService/MergeTags" => {
+                    #[allow(non_camel_case_types)]
+                    struct MergeTagsSvc<T: TopologyService>(pub Arc<T>);
+                    impl<
+                        T: TopologyService,
+                    > tonic::server::UnaryService<super::MergeTagsRequest>
+                    for MergeTagsSvc<T> {
+                        type Response = super::Tag;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::MergeTagsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as TopologyService>::merge_tags(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = MergeTagsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.TopologyService/SplitTag" => {
+                    #[allow(non_camel_case_types)]
+                    struct SplitTagSvc<T: TopologyService>(pub Arc<T>);
+                    impl<
+                        T: TopologyService,
+                    > tonic::server::UnaryService<super::SplitTagRequest>
+                    for SplitTagSvc<T> {
+                        type Response = super::SplitTagResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SplitTagRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as TopologyService>::split_tag(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SplitTagSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

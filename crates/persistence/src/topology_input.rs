@@ -217,6 +217,16 @@ async fn topology_snapshot_in(
                 &row.try_get::<String, _>("to_ref_kind").map_err(db)?,
                 &row.try_get::<String, _>("to_ref").map_err(db)?,
             )?;
+            let Some(from) = crate::tags::canonical_topology_ref_in(tx, subject, from).await?
+            else {
+                continue;
+            };
+            let Some(to) = crate::tags::canonical_topology_ref_in(tx, subject, to).await? else {
+                continue;
+            };
+            if from == to {
+                continue;
+            }
             if !allowed(&from) || !allowed(&to) {
                 continue;
             }

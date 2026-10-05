@@ -54,6 +54,13 @@ impl AuthorityStore {
                 id.0,
                 false,
             ),
+            CognitiveRef::Tag(tag) => {
+                return Ok((
+                    CognitiveRef::Tag(self.canonical_tag_id(subject, *tag).await?),
+                    None,
+                    false,
+                ));
+            }
             _ => {
                 self.validate_reference(subject, reference).await?;
                 return Ok((reference.clone(), None, false));

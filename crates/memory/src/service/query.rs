@@ -126,6 +126,21 @@ impl CognitiveContributor for MemoryService {
             }
             let hit_reference = CognitiveRef::MemoryRevision(revision);
             let mut hit = to_hit(&bound.source_query, &candidate, hit_reference);
+            let mut current_preferences = Vec::new();
+            for preference in hit.preference_refs {
+                let CognitiveRef::Tag(tag) = preference else {
+                    current_preferences.push(preference);
+                    continue;
+                };
+                match self.store.canonical_tag_id(subject, tag).await {
+                    Ok(tag) => current_preferences.push(CognitiveRef::Tag(tag)),
+                    Err(Error::NotFound(_)) => {}
+                    Err(error) => return Err(error),
+                }
+            }
+            current_preferences.sort_by_key(ToString::to_string);
+            current_preferences.dedup();
+            hit.preference_refs = current_preferences;
             hit.preference_refs
                 .extend(source_objects.get(&revision.0).cloned().unwrap_or_default());
             hits.push(hit);

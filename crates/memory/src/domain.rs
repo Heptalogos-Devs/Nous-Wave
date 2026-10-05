@@ -164,6 +164,7 @@ pub struct Tag {
     pub subject_id: SubjectId,
     pub current_revision_id: Uuid,
     pub status: String,
+    pub canonical_tag_id: Option<TagId>,
     pub created_at: DateTime<Utc>,
 }
 

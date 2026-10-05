@@ -27,7 +27,7 @@ catalog AS (
  WHERE r.kind IN ('entity','resource','external_object') AND v.subject_id=$1 AND b.tombstoned_at IS NULL
  UNION ALL
  SELECT r.kind,r.value,left(t.label || COALESCE(': '||t.description,'') || COALESCE(' ['||t.kind_hint||']',''),2048)
- FROM requested r JOIN tags o ON r.kind='tag' AND o.tag_id::text=r.value JOIN tag_revisions t ON t.tag_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.status='active'
+ FROM requested r JOIN tags o ON r.kind='tag' AND o.tag_id=canonical_tag($1,CASE WHEN r.kind='tag' THEN r.value::uuid END) JOIN tag_revisions t ON t.tag_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.status='active'
  UNION ALL
  SELECT r.kind,r.value,left(COALESCE(t.title||': ','')||t.structural_claim||' Scope: '||t.applicability_description||' Boundary: '||t.boundary_definition,2048)
  FROM requested r JOIN cognitive_schemas o ON r.kind='cognitive_schema' AND o.schema_id::text=r.value JOIN cognitive_schema_revisions t ON t.schema_revision_id=o.current_revision_id

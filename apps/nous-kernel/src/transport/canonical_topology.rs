@@ -26,6 +26,24 @@ impl p::topology_service_server::TopologyService for KernelService {
     ) -> std::result::Result<Response<p::ListTagsResponse>, Status> {
         rpc_reply(KernelService::search_tags(self, request.into_inner())).await
     }
+    async fn revise_tag(
+        &self,
+        request: Request<p::ReviseTagRequest>,
+    ) -> std::result::Result<Response<p::Tag>, Status> {
+        rpc_reply(KernelService::revise_tag(self, request.into_inner())).await
+    }
+    async fn merge_tags(
+        &self,
+        request: Request<p::MergeTagsRequest>,
+    ) -> std::result::Result<Response<p::Tag>, Status> {
+        rpc_reply(KernelService::merge_tags(self, request.into_inner())).await
+    }
+    async fn split_tag(
+        &self,
+        request: Request<p::SplitTagRequest>,
+    ) -> std::result::Result<Response<p::SplitTagResponse>, Status> {
+        rpc_reply(KernelService::split_tag(self, request.into_inner())).await
+    }
     async fn create_association(
         &self,
         request: Request<p::CreateAssociationRequest>,

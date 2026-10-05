@@ -15,3 +15,5 @@ Node consumers use `connectNousInstance({ runRoot })` from `@nous-wave/client/no
 Research raw-text compatibility 使用 typed standalone expression 与 `textOnlyCompatibility: true`，不带 cognitive context，独立报告结果。
 
 QueryRequest 的 typed `capabilities` 传递 text embedding、multimodal interpretation、residual sensing 与 rerank requirement。`rerank: "forbidden"` 明确关闭 model rerank，适用于 deterministic algorithm/Agent wiring run；`text_embedding: "forbidden"`（Client 为 `textEmbedding`）禁止 embedding provider。Required 需求的失败不静默回退。
+
+Tag owner 操作使用 `topology.reviseTag/mergeTags/splitTag`。所有 target 带 `tagId/expectedRevisionId`，mutation 带 `operationId/subjectId`；merge/split 带 exact cognition `RevisionSupport`。Tag 响应包含 `currentRevisionId/status/canonicalTagId`。merge 保持 survivor，split 返回 child Tags；历史关联不会被批量改写。

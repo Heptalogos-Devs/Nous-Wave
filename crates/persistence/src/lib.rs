@@ -16,6 +16,7 @@ mod references;
 pub use identity::{IdentityBinding, lexical_prefix, validate_lexical};
 pub use query_descriptors::QueryDescriptor;
 mod serving;
+mod tags;
 mod topology_input;
 pub use projection_input::{TextProjectionFragment, TextProjectionInput, TextProjectionSource};
 pub use projections::{DenseInvalidation, ProjectionInvalidation};

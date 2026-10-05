@@ -22,33 +22,91 @@ impl KernelService {
                 },
             )
             .await?;
-        let revision = sqlx::query(
-            "SELECT label,description,kind_hint,origin FROM tag_revisions WHERE tag_revision_id=$1",
-        )
-        .bind(created.current_revision_id)
-        .fetch_one(self.0.store.pool())
-        .await
-        .map_err(db)?;
-        Ok(p::Tag {
-            tag_id: created.tag_id.0.to_string(),
-            label: revision.try_get("label").map_err(db)?,
-            description: revision.try_get("description").map_err(db)?,
-            kind_hint: revision.try_get("kind_hint").map_err(db)?,
-            origin: revision.try_get("origin").map_err(db)?,
+        self.get_tag(p::ObjectRequest {
+            subject_id: subject.0.to_string(),
+            id: created.tag_id.0.to_string(),
         })
+        .await
     }
     pub(super) async fn get_tag(&self, input: p::ObjectRequest) -> Result<p::Tag> {
-        let row=sqlx::query("SELECT t.tag_id,r.label,r.description,r.kind_hint,r.origin FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id WHERE t.subject_id=$1 AND t.tag_id=$2").bind(id(&input.subject_id)?).bind(id(&input.id)?).fetch_optional(self.0.store.pool()).await.map_err(db)?.ok_or_else(||Error::NotFound("tag not found".into()))?;
-        Ok(p::Tag {
-            tag_id: row
-                .try_get::<uuid::Uuid, _>("tag_id")
-                .map_err(db)?
-                .to_string(),
-            label: row.try_get("label").map_err(db)?,
-            description: row.try_get("description").map_err(db)?,
-            kind_hint: row.try_get("kind_hint").map_err(db)?,
-            origin: row.try_get("origin").map_err(db)?,
+        let row=sqlx::query("SELECT t.tag_id,t.current_revision_id,t.status,t.canonical_tag_id,r.label,r.description,r.kind_hint,r.origin FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id WHERE t.subject_id=$1 AND t.tag_id=$2")
+            .bind(id(&input.subject_id)?).bind(id(&input.id)?).fetch_optional(self.0.store.pool()).await.map_err(db)?.ok_or_else(||Error::NotFound("Tag not found".into()))?;
+        tag_row(row)
+    }
+    pub(super) async fn revise_tag(&self, input: p::ReviseTagRequest) -> Result<p::Tag> {
+        let result = self
+            .require_memory()?
+            .revise_tag(
+                SubjectId(id(&input.subject_id)?),
+                nous_memory::ReviseTagInput {
+                    operation_id: OperationId(id(&input.operation_id)?),
+                    target: tag_target(required(input.target, "target")?)?,
+                    content: tag_content(required(input.content, "content")?),
+                    producer: None,
+                },
+            )
+            .await?;
+        self.get_tag(p::ObjectRequest {
+            subject_id: input.subject_id,
+            id: result.tag_id.0.to_string(),
         })
+        .await
+    }
+    pub(super) async fn merge_tags(&self, input: p::MergeTagsRequest) -> Result<p::Tag> {
+        let result = self
+            .require_memory()?
+            .merge_tags(
+                SubjectId(id(&input.subject_id)?),
+                nous_memory::MergeTagsInput {
+                    operation_id: OperationId(id(&input.operation_id)?),
+                    survivor: tag_target(required(input.survivor, "survivor")?)?,
+                    retired: input
+                        .retired
+                        .into_iter()
+                        .map(tag_target)
+                        .collect::<Result<Vec<_>>>()?,
+                    supports: input
+                        .supports
+                        .into_iter()
+                        .map(super::support)
+                        .collect::<Result<Vec<_>>>()?,
+                },
+            )
+            .await?;
+        self.get_tag(p::ObjectRequest {
+            subject_id: input.subject_id,
+            id: result.tag_id.0.to_string(),
+        })
+        .await
+    }
+    pub(super) async fn split_tag(&self, input: p::SplitTagRequest) -> Result<p::SplitTagResponse> {
+        let results = self
+            .require_memory()?
+            .split_tag(
+                SubjectId(id(&input.subject_id)?),
+                nous_memory::SplitTagInput {
+                    operation_id: OperationId(id(&input.operation_id)?),
+                    parent: tag_target(required(input.parent, "parent")?)?,
+                    children: input.children.into_iter().map(tag_content).collect(),
+                    supports: input
+                        .supports
+                        .into_iter()
+                        .map(super::support)
+                        .collect::<Result<Vec<_>>>()?,
+                },
+            )
+            .await?;
+        let mut children = Vec::new();
+        for result in results {
+            children.push(
+                self.get_tag(p::ObjectRequest {
+                    subject_id: input.subject_id.clone(),
+                    id: result.tag_id.0.to_string(),
+                })
+                .await?,
+            );
+        }
+        Ok(p::SplitTagResponse { children })
     }
     pub(super) async fn list_tags(&self, input: p::ListRequest) -> Result<p::ListTagsResponse> {
         self.read_tags(&input.subject_id, "", input.page, &input.status)
@@ -81,21 +139,12 @@ impl KernelService {
         }
         let scope = format!("tags:{}:{status}:{text}", subject.0);
         let (limit, last) = page(request_page, &scope)?;
-        let rows = sqlx::query("SELECT t.tag_id,r.label,r.description,r.kind_hint,r.origin FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id WHERE t.subject_id=$1 AND t.status=$2 AND ($3::uuid IS NULL OR t.tag_id>$3) AND ($4='' OR strpos(lower(r.label || ' ' || COALESCE(r.description,'')),lower($4))>0 OR EXISTS(SELECT 1 FROM lexical_bindings b JOIN lexical_visibility v ON v.lexical_ref=b.lexical_ref WHERE v.subject_id=t.subject_id AND b.object_kind='tag' AND b.canonical_ref=t.tag_id::text AND b.tombstoned_at IS NULL AND (strpos(lower(v.display_name),lower($4))>0 OR EXISTS(SELECT 1 FROM unnest(v.aliases) alias WHERE strpos(lower(alias),lower($4))>0)))) ORDER BY t.tag_id LIMIT $5")
+        let rows = sqlx::query("SELECT t.tag_id,t.current_revision_id,t.status,t.canonical_tag_id,r.label,r.description,r.kind_hint,r.origin FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id WHERE t.subject_id=$1 AND t.status=$2 AND ($3::uuid IS NULL OR t.tag_id>$3) AND ($4='' OR strpos(lower(r.label || ' ' || COALESCE(r.description,'')),lower($4))>0 OR EXISTS(SELECT 1 FROM lexical_bindings b JOIN lexical_visibility v ON v.lexical_ref=b.lexical_ref WHERE v.subject_id=t.subject_id AND b.object_kind='tag' AND canonical_tag(t.subject_id,CASE WHEN b.object_kind='tag' THEN b.canonical_ref::uuid END)=t.tag_id AND b.tombstoned_at IS NULL AND (strpos(lower(v.display_name),lower($4))>0 OR EXISTS(SELECT 1 FROM unnest(v.aliases) alias WHERE strpos(lower(alias),lower($4))>0)))) ORDER BY t.tag_id LIMIT $5")
             .bind(subject.0).bind(status).bind(last).bind(text).bind(limit+1).fetch_all(self.0.store.pool()).await.map_err(db)?;
         let truncated = rows.len() > usize::try_from(limit).unwrap_or(200);
         let mut items = Vec::new();
         for row in rows.into_iter().take(usize::try_from(limit).unwrap_or(200)) {
-            items.push(p::Tag {
-                tag_id: row
-                    .try_get::<uuid::Uuid, _>("tag_id")
-                    .map_err(db)?
-                    .to_string(),
-                label: row.try_get("label").map_err(db)?,
-                description: row.try_get("description").map_err(db)?,
-                kind_hint: row.try_get("kind_hint").map_err(db)?,
-                origin: row.try_get("origin").map_err(db)?,
-            });
+            items.push(tag_row(row)?);
         }
         let next_page_token = if truncated {
             next_token(
@@ -262,5 +311,40 @@ fn association_support_proto(value: AssociationSupport) -> p::AssociationSupport
     };
     p::AssociationSupport {
         support: Some(support),
+    }
+}
+
+fn tag_row(row: sqlx::postgres::PgRow) -> Result<p::Tag> {
+    Ok(p::Tag {
+        tag_id: row
+            .try_get::<uuid::Uuid, _>("tag_id")
+            .map_err(db)?
+            .to_string(),
+        current_revision_id: row
+            .try_get::<uuid::Uuid, _>("current_revision_id")
+            .map_err(db)?
+            .to_string(),
+        status: row.try_get("status").map_err(db)?,
+        canonical_tag_id: row
+            .try_get::<Option<uuid::Uuid>, _>("canonical_tag_id")
+            .map_err(db)?
+            .map(|id| id.to_string()),
+        label: row.try_get("label").map_err(db)?,
+        description: row.try_get("description").map_err(db)?,
+        kind_hint: row.try_get("kind_hint").map_err(db)?,
+        origin: row.try_get("origin").map_err(db)?,
+    })
+}
+fn tag_target(target: p::TagRevisionTarget) -> Result<nous_memory::TagExpectation> {
+    Ok(nous_memory::TagExpectation {
+        tag_id: nous_core::TagId(id(&target.tag_id)?),
+        expected_revision_id: id(&target.expected_revision_id)?,
+    })
+}
+fn tag_content(content: p::TagContent) -> nous_memory::TagContent {
+    nous_memory::TagContent {
+        label: content.label,
+        description: content.description,
+        kind_hint: content.kind_hint,
     }
 }

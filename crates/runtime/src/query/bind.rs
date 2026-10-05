@@ -248,6 +248,17 @@ impl CognitiveRuntimeService {
             validate_hard_constraints(&scoped)?;
         }
         self.require_subject(query.subject).await?;
+        let mut tag_ids = HashSet::new();
+        visit_expression_tags(&mut query.expression, &mut |tag| {
+            tag_ids.insert(*tag);
+        });
+        let mut canonical_tags = std::collections::HashMap::new();
+        for tag in tag_ids {
+            canonical_tags.insert(tag, self.store.canonical_tag_id(query.subject, tag).await?);
+        }
+        visit_expression_tags(&mut query.expression, &mut |tag| {
+            *tag = canonical_tags[tag];
+        });
         let retrieval_policy = resolve_retrieval_policy(&config_snapshot)?;
         if let Some(session) = query.session {
             self.require_session(query.subject, session).await?;
@@ -370,5 +381,42 @@ impl BoundQuery {
         bound.topology_required =
             explicit_topology(&bound.source_query) && profile.requirements().topology;
         Ok(bound)
+    }
+}
+
+fn visit_expression_tags(expression: &mut CognitiveQueryExpr, visit: &mut impl FnMut(&mut TagId)) {
+    for cue in &mut expression.cues {
+        visit_cue_tags(cue, visit);
+    }
+    for target in &mut expression.targets {
+        if let QueryTarget::Exact { reference } = target {
+            visit_ref_tag(reference, visit);
+        }
+    }
+    for preference in &mut expression.preferences {
+        match &mut preference.operand {
+            PreferenceOperand::Cue(cue) => visit_cue_tags(cue, visit),
+            PreferenceOperand::Exact(reference) => visit_ref_tag(reference, visit),
+            PreferenceOperand::Recent(_) => {}
+        }
+    }
+    for child in &mut expression.children {
+        visit_expression_tags(child, visit);
+    }
+}
+fn visit_cue_tags(cue: &mut Cue, visit: &mut impl FnMut(&mut TagId)) {
+    match cue {
+        Cue::Tag(value) => visit(&mut value.tag),
+        Cue::Relation(value) => {
+            visit_ref_tag(&mut value.from, visit);
+            visit_ref_tag(&mut value.to, visit);
+        }
+        Cue::MediaRegion(value) => visit_ref_tag(&mut value.region, visit),
+        _ => {}
+    }
+}
+fn visit_ref_tag(reference: &mut CognitiveRef, visit: &mut impl FnMut(&mut TagId)) {
+    if let CognitiveRef::Tag(tag) = reference {
+        visit(tag);
     }
 }

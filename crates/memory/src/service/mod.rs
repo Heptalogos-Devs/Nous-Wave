@@ -20,6 +20,7 @@ pub mod schema;
 mod schema_lane;
 mod source_classes;
 mod state;
+mod tag;
 mod topology;
 
 use crate::*;
@@ -50,6 +51,7 @@ pub use longitudinal_policy::{
 };
 pub use maintenance_planning::MaintenanceScope;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
+pub use tag::*;
 
 #[derive(Clone)]
 pub struct MemoryService {
