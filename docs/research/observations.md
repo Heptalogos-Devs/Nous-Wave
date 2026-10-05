@@ -121,3 +121,12 @@ PR #15 的大型 observatory/garden/archive 模板结果与全量配对 rerank �
 自然 release 场景现有 cognition 的一个冻结 Prepared Query 在 baseline/native/DTSC/RiverMemo 四个 profile 上复用同一 query vector 与 source cache；本次算法执行 provider、新增 embedding、rerank 均为零。Native 命中可读出 `Tag → Memory → Memory` 两跳激活路径、`tag_attachment`/`elaborates` 关系及支持来源；VCP 数值 readout metadata 经过融合后保留。Full diagnostics 汇集各命中的 readout，复合表达式保留分支 trace。路径是实际激活边上的连通见证，不代表全部势能的因果归属；传播不完整和每边最多 16 条支持的截断明确报告。
 
 Native topology artifact 保存投影证据并以版本 7 重新构建，按边索引支持来源；旧版本 asset 不复用。数值 golden 和真实 PostgreSQL 自动 maintenance→Serving→Tag-only query 回归通过。该单题接线结果尚不能代表完整 Functional Corpus 或算法质量验收。
+
+
+### Prepared 功能集首轮完整闭合检查
+
+13 个已解析 intent 的 baseline/native 结构轨道完成 26 个 owner-finalized readout：provider、新增 embedding、rerank 均为零，新增 Serving generation 为零，net artifact growth 约 1.99 MiB。所有最终输出遵守 limit 16；32-hit pool 独立保存。按相同 profile 连续处理问题，避免每题重复切换 generation。source/path grader 对完整 15-intent 分母记录 30 项：12 项结构支持、14 项失败、4 项缺失 readout；这不是语义质量分数，也不是完整功能验收。两个缺失自动 Tag、未形成的 incident 关联、部分 source coverage 与 visitor interference 仍需处理。四个语义 profile 的完整集合尚未运行。
+
+自然 routine 已通过正常 consolidation 修订旧 late-night 偏好，并形成疲劳归因和 breakfast 后写作的新偏好 Memory，保留直接 occurrence 与 Journal 支持；一次 180 秒机会内使用一个实际 HTTP 请求，约 108 秒完成。incident 在两个请求内完成一次 Episode organization 与一个 snapshot incident Journal，尚未形成跨系统关联。所有失败、预算截停与 retry 均保留 owner/workflow receipts。
+
+闭合检查定位了关系从句 `experience that informed` 被当作开放指代的误判。guard 区分已命名 cognitive noun 后的常用关系从句连接词，保留真正的 demonstrative/pronoun 拒绝，并补齐 possessive/object pronoun 检查。复合 Episode 和原子 Episode 可以合法共享来源；exact event intent 绑定唯一最小 scope，等粒度冲突仍显式 unresolved。

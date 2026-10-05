@@ -100,13 +100,24 @@ const queries = corpus.queries.flatMap((intent) => {
               member.ref_value === occurrence,
           ),
       );
-      if (episodes.length !== 1)
-        throw new Error(`Event ${key} has ${episodes.length} Episode bindings`);
+      // A composed Episode can legitimately retain the same occurrence as its
+      // atomic source Episode. An exact event intent binds the unique smallest
+      // owner scope; equal-specificity alternatives remain unresolved.
+      const width = Math.min(
+        ...episodes.map((episode) => episode.members.length),
+      );
+      const exact = episodes.filter(
+        (episode) => episode.members.length === width,
+      );
+      if (exact.length !== 1)
+        throw new Error(
+          `Event ${key} has ${exact.length} most-specific Episode bindings`,
+        );
       targets.push({
         kind: "exact",
         reference: {
           kind: "episode_revision",
-          id: episodes[0]!.episode_revision_id,
+          id: exact[0]!.episode_revision_id,
         },
       });
     }

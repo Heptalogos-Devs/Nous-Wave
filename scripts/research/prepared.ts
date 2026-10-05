@@ -82,6 +82,8 @@ if (
 const limits = executionLimits(values);
 const plan = {
   suite: "prepared-owner-native",
+  readout:
+    "owner-finalized-result-need-limit; candidate pool retained separately-v1",
   queries: queries.length,
   subjects: new Set(queries.map((q) => q.query.subject)).size,
   profiles,
@@ -93,7 +95,9 @@ const plan = {
   estimatedEmbeddingRequests: 0,
   rerankRequests: 0,
   sharedServingAssetsReused: "existing compatible families reused",
-  newAlgorithmAssets: queries.length ? 1 : 0,
+  newAlgorithmAssets:
+    new Set(queries.map((q) => q.query.subject)).size *
+    profiles.filter((profile) => profile !== "baseline-rrf").length,
   newServingGenerations: new Set(queries.map((q) => q.query.subject)).size * 3,
   estimatedNewArtifactBytes: { upperBound: limits.newArtifactBytes },
   externalDownloads: 0,
@@ -156,6 +160,7 @@ async function run() {
       );
       budget.signal.throwIfAborted();
     };
+    results.push({ inspection: await host.control({ command: "inspect" }) });
     // Freeze every representation and context before executing any algorithm arm.
     for (const query of queries) {
       await host.control({
@@ -182,8 +187,10 @@ async function run() {
       });
     }
     await checkpoint();
-    for (const query of queries) {
-      for (const profile of profiles) {
+    // Keep one profile active across all frozen queries to reuse each Subject's
+    // compatible generation instead of repeatedly switching per question.
+    for (const profile of profiles) {
+      for (const query of queries) {
         await budget.reserve({ newArtifactBytes: 32 * 1024 * 1024 });
         if (
           last!.generations - host!.baselineGenerations >=

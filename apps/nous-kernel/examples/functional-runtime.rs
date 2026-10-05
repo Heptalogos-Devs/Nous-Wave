@@ -279,8 +279,8 @@ async fn inspect(runtime: &NousRuntime, root: &Path) -> Result<Value> {
     .await
     .map_err(failure)?;
     let episodes:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('members',(SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.ordinal),'[]') FROM episode_revision_members m WHERE m.episode_revision_id=r.episode_revision_id)) FROM episode_revisions r JOIN episode_objects o ON o.current_revision_id=r.episode_revision_id ORDER BY r.recorded_at LIMIT 128").fetch_all(pool).await.map_err(failure)?;
-    let schemas:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('subject',o.subject_id) FROM cognitive_schema_revisions r JOIN cognitive_schemas o ON o.current_revision_id=r.schema_revision_id ORDER BY r.recorded_at LIMIT 128").fetch_all(pool).await.map_err(failure)?;
-    let journals:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM journal_revisions r JOIN journal_objects o ON o.current_revision_id=r.journal_revision_id ORDER BY r.recorded_at LIMIT 128").fetch_all(pool).await.map_err(failure)?;
+    let schemas:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('subject',o.subject_id,'supports',(SELECT COALESCE(jsonb_agg(to_jsonb(s)),'[]') FROM cognitive_schema_evidence_links s WHERE s.schema_revision_id=r.schema_revision_id)) FROM cognitive_schema_revisions r JOIN cognitive_schemas o ON o.current_revision_id=r.schema_revision_id ORDER BY r.recorded_at LIMIT 128").fetch_all(pool).await.map_err(failure)?;
+    let journals:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('sources',(SELECT COALESCE(jsonb_agg(to_jsonb(s)),'[]') FROM journal_revision_sources s WHERE s.journal_revision_id=r.journal_revision_id)) FROM journal_revisions r JOIN journal_objects o ON o.current_revision_id=r.journal_revision_id ORDER BY r.recorded_at LIMIT 128").fetch_all(pool).await.map_err(failure)?;
     Ok(
         json!({"memories":memories,"tags":tags,"associations":associations,"needs":needs,"episodes":episodes,"journals":journals,"schemas":schemas,"metrics":metrics(runtime,root).await?}),
     )
@@ -327,9 +327,33 @@ async fn execute(
     } else {
         runtime.execute_bound_query(bound, Some(32)).await?
     };
-    let result = json!({"key":key,"profile":profile,"embeddingDigest":digest,"configSnapshotDigest":snapshot,"result":execution.result});
-    drop(execution);
-    Ok(result)
+    let subject = execution.bound.source_query.subject;
+    let requested_limit = execution.bound.source_query.result_need.limit;
+    let candidate_pool = execution.result.results.clone();
+    let (pool, ticket) = runtime.cognition.retain_query(execution)?;
+    let finalized = if let Some(ticket) = ticket {
+        runtime
+            .cognition
+            .finalize_query(
+                subject,
+                ticket,
+                Vec::new(),
+                Vec::new(),
+                nous_runtime::CognitiveContributors {
+                    shared: None,
+                    memory: runtime
+                        .memory
+                        .as_ref()
+                        .map(|owner| owner as &dyn nous_runtime::CognitiveContributor),
+                },
+            )
+            .await?
+    } else {
+        pool
+    };
+    Ok(json!({"key":key,"profile":profile,"embeddingDigest":digest,
+        "configSnapshotDigest":snapshot,"requestedLimit":requested_limit,
+        "candidatePool":candidate_pool,"result":finalized}))
 }
 
 async fn generation_count(url: &str) -> Result<i64> {

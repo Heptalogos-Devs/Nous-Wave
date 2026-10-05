@@ -71,7 +71,7 @@ const plan = {
     values["query-ids"]?.split(","),
   )),
   formationSchedule:
-    "deterministic-experience-then-bounded-five-minute-opportunities-v2",
+    "deterministic-experience-then-due-priority-opportunities-v3",
   subjects: scenarios.length,
   events: scenarios.reduce((n, s) => n + s.events.length, 0),
   queries: corpus.queries.filter((query) =>
@@ -429,17 +429,53 @@ async function run() {
           .map((query) => Date.parse(query.prepared_query.as_of)),
       );
       for (let pass = 0; pass < 40; pass++) {
-        const instant = Math.max(
+        let instant = Math.max(
           Date.parse("2026-09-16T18:00:00Z"),
           Date.parse(saved.cognitiveInstant ?? "2026-09-16T18:00:00Z"),
         );
+        const queue = (
+          (await host.control({
+            command: "inspect",
+          })) as unknown as RuntimeInspection
+        ).needs as {
+          subject_id: string;
+          state: string;
+          due_at: string;
+          priority: number;
+          retry_not_before?: string | null;
+        }[];
+        const pending = queue.filter(
+          (need) =>
+            need.subject_id === saved.id &&
+            need.state === "pending" &&
+            (!need.retry_not_before ||
+              Date.parse(need.retry_not_before) <= Date.now()),
+        );
+        const readyPriority = Math.max(
+          ...pending
+            .filter((need) => Date.parse(need.due_at) <= instant)
+            .map((need) => need.priority),
+        );
+        const future = pending
+          .filter(
+            (need) =>
+              Date.parse(need.due_at) > instant &&
+              Date.parse(need.due_at) <= queryHorizon &&
+              need.priority > readyPriority,
+          )
+          .map((need) => Date.parse(need.due_at))
+          .sort((a, b) => a - b)[0];
+        // Advance only to a higher-priority future opportunity. Several pieces
+        // of already-due work can finish at one cognitive instant; zero-model
+        // repairs must not consume an invented five-minute interval.
+        if (future !== undefined) instant = future;
         if (instant > queryHorizon) break;
         await host.control({
           command: "advance",
           subject: saved.id,
           instant: new Date(instant).toISOString(),
         });
-        saved.cognitiveInstant = new Date(instant + 5 * 60_000).toISOString();
+        saved.cognitiveInstant = new Date(instant).toISOString();
         await flush();
         const grant = await mutation(() =>
           client.cognition.grantMaintenance(

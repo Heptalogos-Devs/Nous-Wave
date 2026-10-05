@@ -107,9 +107,13 @@ pub fn unresolved_query_references(text: &str) -> Vec<UnresolvedQueryReference> 
             let token = &text[begin..offset];
             let lower = token.to_ascii_lowercase();
             let kind = match lower.as_str() {
-                "i" | "we" | "you" | "he" | "she" | "it" | "they" | "i'm" | "we're" | "you're"
-                | "he's" | "she's" | "it's" | "they're" => Some("pronoun"),
-                "this" | "that" | "here" | "there" => Some("deictic"),
+                "us" | "it" if matches!(token, "US" | "IT") => None,
+                "i" | "me" | "my" | "mine" | "we" | "us" | "our" | "ours" | "you" | "your"
+                | "yours" | "he" | "him" | "his" | "she" | "her" | "hers" | "it" | "its"
+                | "they" | "them" | "their" | "theirs" | "i'm" | "we're" | "you're" | "he's"
+                | "she's" | "it's" | "they're" => Some("pronoun"),
+                "that" if relative_clause_connector(text, begin, offset) => None,
+                "this" | "that" | "these" | "those" | "here" | "there" => Some("deictic"),
                 _ => None,
             };
             if let Some(kind) = kind {
@@ -124,6 +128,60 @@ pub fn unresolved_query_references(text: &str) -> Vec<UnresolvedQueryReference> 
     }
     spans.sort_by_key(|span| (span.start, span.end));
     spans
+}
+
+// Distinguish a connective after a named cognitive noun from a demonstrative.
+// This classifies syntax only; other open pronouns in the clause still fail.
+fn relative_clause_connector(text: &str, start: usize, end: usize) -> bool {
+    let before = text[..start]
+        .split_whitespace()
+        .next_back()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let after = text[end..]
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    matches!(
+        before.as_str(),
+        "experience"
+            | "experiences"
+            | "memory"
+            | "memories"
+            | "event"
+            | "events"
+            | "decision"
+            | "decisions"
+            | "policy"
+            | "policies"
+            | "rule"
+            | "rules"
+            | "procedure"
+            | "procedures"
+            | "schema"
+            | "schemas"
+            | "routine"
+            | "routines"
+    ) && matches!(
+        after.as_str(),
+        "informed"
+            | "caused"
+            | "changed"
+            | "replaced"
+            | "explains"
+            | "explained"
+            | "records"
+            | "recorded"
+            | "requires"
+            | "required"
+            | "contains"
+            | "contained"
+            | "links"
+            | "linked"
+            | "supports"
+            | "supported"
+    )
 }
 
 fn pronoun_context(text: &str, start: usize, end: usize) -> bool {
@@ -220,6 +278,12 @@ mod tests {
             "他昨天说的模型",
             "How did we progress on that project?",
             "the previous one",
+            "Retrieve that memory",
+            "Summarize my deployment policy",
+            "Recall their previous decision",
+            "Experience that informed us about Tide",
+            "Memory about that project",
+            "Experience that informed us about that project",
         ] {
             assert!(!unresolved_query_references(text).is_empty(), "{text}");
         }
@@ -228,6 +292,9 @@ mod tests {
             "Alice 在 2026-10-04 讨论的 doubao-seed-2.0-mini 模型",
             "Arsvine 自我认知与其他认知",
             "Alice researches iteration and white noise",
+            "Prior snapshot experience that informed the joint build-cache incident review.",
+            "Memory that records the Tide approval policy.",
+            "US deployment policies and IT procedures",
             "Alice 查询他莫昔芬的作用",
         ] {
             assert!(unresolved_query_references(text).is_empty(), "{text}");
