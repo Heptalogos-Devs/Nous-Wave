@@ -138,6 +138,17 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
     assert!(!model.contains(&reference_parts(&focus).1));
     assert!(model.contains("exact_cognition"));
     let proof = support(&plan, &focus);
+    let source = plan
+        .supports
+        .iter()
+        .find_map(|(key, value)| {
+            matches!(
+                value,
+                AssociationSupport::Revision(RevisionSupport::Evidence(_))
+            )
+            .then(|| key.clone())
+        })
+        .unwrap();
     let input = CommitTopologyInput {
         operation_id: OperationId::new(),
         claimed: first.clone(),
@@ -146,6 +157,7 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         proposal: TopologyProposal {
             actions: vec![
                 TopologyAction::CreateTag {
+                    cognition_keys: vec!["c0".into()],
                     key: "new_release_approval".into(),
                     content: TagContent {
                         label: "Release approval".into(),
@@ -205,13 +217,14 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         proposal: TopologyProposal {
             actions: vec![
                 TopologyAction::CreateTag {
+                    cognition_keys: vec!["c0".into()],
                     key: "new_bogus".into(),
                     content: TagContent {
                         label: "Must roll back".into(),
                         description: None,
                         kind_hint: None,
                     },
-                    support_keys: vec![proof.clone()],
+                    support_keys: vec![source],
                     reason: "Fixture checks atomic rollback before invalid reference".into(),
                 },
                 TopologyAction::AttachTag {
@@ -499,6 +512,11 @@ async fn episode_relations(rt: &NousRuntime, subject: SubjectId, revisions: &[Co
             .key
             .clone()
     };
+    let source_text = plan.model_input()["sourceContext"].to_string();
+    assert!(
+        source_text.contains("recorded reviewer approval"),
+        "{source_text}"
+    );
     let evidence = vec![
         support(&plan, &revisions[0]),
         support(&plan, &revisions[1]),

@@ -6,7 +6,7 @@ WITH current AS (
  UNION ALL
  SELECT 'cognitive_schema_revision',r.schema_revision_id,o.object_epoch,left(r.structural_claim||' '||r.applicability_description||' '||r.boundary_definition,4096),r.recorded_at FROM cognitive_schemas o JOIN cognitive_schema_revisions r ON r.schema_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal'
  UNION ALL
- SELECT 'episode_revision',r.episode_revision_id,o.object_epoch,left(COALESCE(r.title,'')||' '||r.boundary_explanation,4096),r.recorded_at FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal'
+ SELECT 'episode_revision',r.episode_revision_id,o.object_epoch,left(COALESCE(r.title,''),4096),r.recorded_at FROM episode_objects o JOIN episode_revisions r ON r.episode_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal'
  UNION ALL
  SELECT 'journal_revision',r.journal_revision_id,o.object_epoch,left(COALESCE(r.title,'')||' '||r.narrative,4096),r.recorded_at FROM journal_objects o JOIN journal_revisions r ON r.journal_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal'
 )
@@ -165,9 +165,22 @@ impl MemoryService {
                     partial = true;
                     break;
                 }
-                let support_key = format!("s{}", supports.len());
-                context.source_support_keys.push(support_key.clone());
-                supports.insert(support_key, AssociationSupport::Revision(support));
+                let canonical = support.canonical_key();
+                let existing = supports.iter().find_map(|(key, value)| match value {
+                    AssociationSupport::Revision(revision)
+                        if revision.canonical_key() == canonical =>
+                    {
+                        Some(key.clone())
+                    }
+                    _ => None,
+                });
+                let support_key = existing.unwrap_or_else(|| format!("s{}", supports.len()));
+                if !context.source_support_keys.contains(&support_key) {
+                    context.source_support_keys.push(support_key.clone());
+                }
+                supports
+                    .entry(support_key)
+                    .or_insert(AssociationSupport::Revision(support));
             }
             let (kind, value) = reference_parts(&reference);
             let use_rows=sqlx::query("SELECT use_kind,count(*)::bigint count FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind=$2 AND ref_value=$3 GROUP BY use_kind ORDER BY use_kind")

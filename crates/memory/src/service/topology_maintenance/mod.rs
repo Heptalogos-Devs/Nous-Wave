@@ -118,7 +118,7 @@ pub struct TopologyPlan {
 impl TopologyPlan {
     pub fn model_input(&self) -> serde_json::Value {
         let mut value = serde_json::json!({"focusKey":"c0","policy":self.policy,"partial":self.partial,
-            "cognition":self.cognition.iter().map(|c|serde_json::json!({"key":c.key,"text":c.text,"semanticSimilarity":c.semantic_similarity,"use":c.use_summary,"provenanceRoots":c.provenance_roots,
+            "cognition":self.cognition.iter().map(|c|serde_json::json!({"key":c.key,"exactSupportKey":self.supports.iter().find_map(|(key,support)|match support {AssociationSupport::Revision(RevisionSupport::CognitionDependency(d)) if d.target_revision==c.reference=>Some(key),_=>None}),"text":c.text,"semanticSimilarity":c.semantic_similarity,"use":c.use_summary,"provenanceRoots":c.provenance_roots,
                 "kind":reference_parts(&c.reference).0,"context":{
                     "cognitiveRole":c.context.cognitive_role,"semanticRole":c.context.semantic_role,"time":c.context.time,
                     "sourceSupportKeys":c.context.source_support_keys,
@@ -178,6 +178,7 @@ pub enum TopologyAction {
     },
     CreateTag {
         key: String,
+        cognition_keys: Vec<String>,
         content: TagContent,
         support_keys: Vec<String>,
         reason: String,

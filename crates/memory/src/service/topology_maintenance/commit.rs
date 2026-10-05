@@ -175,14 +175,14 @@ impl MemoryService {
             }
             TopologyAction::CreateTag {
                 key,
+                cognition_keys,
                 content,
                 support_keys,
                 reason,
             } => {
                 new_key(refs, key)?;
                 reason_valid(reason)?;
-                let supports = selected_revisions(plan, support_keys)?;
-                require_cognition_support(&supports)?;
+                let supports = anchored_revisions(plan, cognition_keys, support_keys)?;
                 self.validate_supports_in_tx(tx, subject, &supports).await?;
                 let tag = self
                     .create_tag_in(
@@ -378,7 +378,29 @@ impl MemoryService {
         if from == to {
             return Err(Error::Invalid("topology self-loop rejected".into()));
         }
-        let supports = selected_supports(plan, keys)?;
+        let mut supports = selected_supports(plan, keys)?;
+        // Invocation-local endpoint keys already bind exact accepted revisions.
+        // Record those anchors rather than requiring the model to duplicate them as support keys.
+        for endpoint in [&from, &to] {
+            if !is_cognition(endpoint) {
+                continue;
+            }
+            if !plan.cognition.iter().any(|c| &c.reference == endpoint) {
+                return Err(Error::Invalid(
+                    "association endpoint outside cognition catalog".into(),
+                ));
+            }
+            let anchor = RevisionSupport::CognitionDependency(CognitionDependency {
+                target_revision: endpoint.clone(),
+                support_role: SupportRole::Direct,
+            });
+            if !supports.iter().any(|support|matches!(support,AssociationSupport::Revision(revision) if revision.canonical_key()==anchor.canonical_key())) {
+                supports.push(AssociationSupport::Revision(anchor));
+            }
+        }
+        if supports.len() > plan.policy.max_supports {
+            return Err(Error::Invalid("association support budget exceeded".into()));
+        }
         let revisions = supports
             .iter()
             .filter_map(|s| {
@@ -549,4 +571,39 @@ fn reason_valid(reason: &str) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn anchored_revisions(
+    plan: &TopologyPlan,
+    cognition_keys: &[String],
+    support_keys: &[String],
+) -> Result<Vec<RevisionSupport>> {
+    if cognition_keys.is_empty()
+        || cognition_keys.len() > 16
+        || cognition_keys.iter().collect::<HashSet<_>>().len() != cognition_keys.len()
+    {
+        return Err(Error::Invalid(
+            "new Tag requires 1..16 distinct cognition anchors".into(),
+        ));
+    }
+    let mut supports = selected_revisions(plan, support_keys)?;
+    for key in cognition_keys {
+        let reference = plan
+            .cognition
+            .iter()
+            .find(|c| &c.key == key)
+            .ok_or_else(|| Error::Invalid("Tag anchor outside cognition catalog".into()))?
+            .reference
+            .clone();
+        supports.push(RevisionSupport::CognitionDependency(CognitionDependency {
+            target_revision: reference,
+            support_role: SupportRole::Direct,
+        }));
+    }
+    let mut seen = HashSet::new();
+    supports.retain(|support| seen.insert(support.canonical_key()));
+    if supports.len() > plan.policy.max_supports {
+        return Err(Error::Invalid("Tag anchor support budget exceeded".into()));
+    }
+    Ok(supports)
 }

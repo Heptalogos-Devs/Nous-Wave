@@ -136,7 +136,19 @@ export async function loadFunctionalCorpus(path: string, queryIds?: string[]) {
       throw new Error("Unknown --query-ids");
     queries = queries.filter((q) => queryIds.includes(q.key));
   }
-  return { manifest, scenarios, queries, digest };
+  const sourceDigest = createHash("sha256")
+    .update(
+      JSON.stringify(
+        scenarios.map(({ key, entities, events, work_context }) => ({
+          key,
+          entities,
+          events,
+          work_context,
+        })),
+      ),
+    )
+    .digest("hex");
+  return { manifest, scenarios, queries, digest, sourceDigest };
 }
 export async function formationPlan(
   corpusPath: string,

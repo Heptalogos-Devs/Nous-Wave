@@ -14,10 +14,12 @@ Run preflight `--plan` before providers or Serving construction. The runner requ
 
 Status: fixture authored; natural execution and quality acceptance pending. No benchmark result is claimed by this directory.
 
-Formation preflight is executable:
+Formation preflight and owner execution are executable:
 
 ```sh
-pnpm exec tsx scripts/research/functional-plan.ts --plan
+pnpm exec tsx scripts/research/functional.ts --plan --root data/research/runs/functional-cognition-v1
 ```
 
-It accepts all six `--max-*` limits and `--query-ids`. Formation preflight reports zero embedding/rerank/Serving work because this phase only forms and inspects cognition. Model-dependent output/disk forecasts are explicit upper bounds. Retrieval requires a second preflight over the actual frozen representations and cache inventory. The common run ledger reserves work before dispatch and survives restart; the research gateway applies provider, embedding-item and rerank accounting to real wire attempts and aborts in-flight requests at the runtime deadline. Owner execution and its disk/Serving accounting are still being connected; this preflight does not claim natural execution has passed.
+It accepts all six `--max-*` limits and `--query-ids`. Formation preflight reports zero embedding/rerank work. Normal Core context handling can lazily open a tiny exact catalog per Subject; the preflight reports that bounded generation estimate. Model-dependent output/disk forecasts are explicit upper bounds. Retrieval requires a second preflight over the actual frozen representations and cache inventory. The common run ledger reserves work before dispatch and survives restart; the research gateway applies provider, embedding-item and rerank accounting to real wire attempts and aborts in-flight requests at the runtime deadline. Build the local owner host with `cargo build -p nous-kernel --example functional-runtime`, then invoke the same command without `--plan`. The exact corpus/config/selection/limit identity must match the saved plan. Use a distinct `--execution-id` for a deliberately new bounded attempt; stop reasons and old counters remain in their ledgers. Optional `--config` and `--env-file` select locally stored model settings and credentials. Only episode, journal, consolidation and topology roles are enabled in this phase; paid attempts run through the budget gateway. The host reuses the installed PostgreSQL runtime and preserves run-owned Authority data. Resume uses durable observation receipts and stable model gateway ports. The observation identity derives from source events, independent of query-oracle edits.
+
+Disk is measured at startup and after each operation, with a startup reservation of 128 MiB and per-operation reservation of 32 MiB. The ledger compares new run bytes to the pre-start baseline; database/Serving bytes, generation/retired counts, research-wide delta and largest run paths are reported. A model proposal failure stops the run and flushes state, inspection and budget results before further calls. Source quality remains pending natural inspection; a zero-provider host run is only an execution check.

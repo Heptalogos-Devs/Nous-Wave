@@ -79,3 +79,5 @@ Owner 校验关系特有的结构证据：共现需要共享 occurrence 或选�
 Accretion 是可重建的派生信号，聚合独立根、当前成员、跨 Episode 重现、观察跨度、关系多样性、语义 coherence、meaningful use 与反证。缓存缺失时 coherence 保持 unknown；不调用 embedding。有效使用提高有限 usefulness，不更改 epistemic class、不增加独立根。宽泛中心被降权并进入 split review；成员高度重叠且至少两独立根的中心提供 merge hint；最终动作仍由独立 role 提案、owner 验证。配置可关闭 Accretion 作 ablation。
 
 数据库场景验证新 Tag、后续复用、关联、非法 key 原子回滚、Tag-only Prepared Serving、无凭据关系拒绝与 Episode 顺序/共现/程序 witness。有效使用提高 usefulness，原 observed 类别与独立根不变；Episode review 不受 Accretion 中心类型限制。Core 测试验证固定输入、预算 reservation 与 proposal 重试。全类别 Functional Corpus、真实 provider/Agent Loop 和独立文本兼容性仍待本 PR 验收。
+
+维护 catalog 的 sourceContext 包含有界原始文本或派生 descriptor，并链接 cognition.sourceSupportKeys；Episode 的 idle/boundary 机制不作为领域概念文本。每项 cognition 显式提供 exactSupportKey。create_tag 使用必填 cognitionKeys 指定 accepted cognition 锚点，由 owner 生成精确 revision supports，再与所选 source supports 去重；attachment/association 从显式局部 endpoint keys 记录 exact revision anchors；模型选择 source 或额外 cognition witness，owner 仍执行关系证据和 provenance 校验。

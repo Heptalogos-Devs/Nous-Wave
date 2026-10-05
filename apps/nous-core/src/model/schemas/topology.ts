@@ -18,6 +18,7 @@ export const topologyMaintenanceSchema = z.strictObject({
         z.strictObject({ action: z.literal("reuse_tag"), tagKey: key }),
         z.strictObject({
           action: z.literal("create_tag"),
+          cognitionKeys: z.array(key).min(1).max(16),
           key: newTag.shape.key,
           content,
           supportKeys: supports,

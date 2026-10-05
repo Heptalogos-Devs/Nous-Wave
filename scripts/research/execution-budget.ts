@@ -129,8 +129,22 @@ export class ExecutionBudget {
   async observeArtifactBytes(delta: number) {
     if (!Number.isSafeInteger(delta) || delta < 0)
       throw new Error("Invalid artifact delta");
-    if (delta >= this.ledger.limits.newArtifactBytes)
-      await this.stop("newArtifactBytes exhausted");
+    await this.serial(async () => {
+      this.ledger.used.newArtifactBytes = delta;
+      if (delta >= this.ledger.limits.newArtifactBytes)
+        await this.stopInQueue("newArtifactBytes exhausted");
+      else await this.persist();
+    });
+  }
+  async observeServingGenerations(delta: number) {
+    if (!Number.isSafeInteger(delta) || delta < 0)
+      throw new Error("Invalid generation delta");
+    await this.serial(async () => {
+      this.ledger.used.newServingGenerations = delta;
+      if (delta > this.ledger.limits.newServingGenerations)
+        await this.stopInQueue("newServingGenerations exhausted");
+      else await this.persist();
+    });
   }
   async stop(reason: string) {
     await this.serial(() => this.stopInQueue(reason));
