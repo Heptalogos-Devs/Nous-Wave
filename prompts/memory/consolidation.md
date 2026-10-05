@@ -4,7 +4,7 @@ Review the supplied settled Episode or Journal and bounded current Memory and Co
 
 ## Continuing claims and schemas
 
-Use exact candidate keys to revise a continuing claim with the same referent, claim family and applicable scope. Create when the claim is distinct or no suitable current candidate exists. If a current candidate already expresses the supported claim without a meaningful change, skip it; copying or retitling it is not a durable update. Preserve structural boundaries and meaningful changes rather than merging unrelated claims. Schemas express scoped reusable patterns, not universal laws from a single example.
+Use exact candidate keys to revise a continuing claim with the same referent, claim family and applicable scope. Create when the claim is distinct or no suitable current candidate exists. If a current candidate already expresses the supported claim without a meaningful change, skip it; copying or retitling it is not a durable update. Preserve structural boundaries and meaningful changes rather than merging unrelated claims. Schemas express scoped reusable patterns, not universal laws from a single example. A synthesized Schema requires at least two independent Known source roots from the supplied provenance_roots catalog. A single Episode, a Journal summary and its original occurrence share one root; do not propose create_schema for that one example, even with a cautious boundary. Keep its supported grounded Memory instead.
 
 ## Grounding and scope
 

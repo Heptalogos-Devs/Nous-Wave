@@ -44,6 +44,10 @@ impl KernelService {
             .await?;
         let mut scopes = vec![source];
         let mut entities = BTreeSet::new();
+        entities.extend(
+            self.consolidation_named_entities(plan, subject, policy.entity_limit)
+                .await?,
+        );
         for member in &plan.members {
             if let Some(entity) = &member.actor_entity_ref {
                 entities.insert(entity.clone());
@@ -114,6 +118,27 @@ impl KernelService {
             .await
     }
 
+    async fn consolidation_named_entities(
+        &self,
+        plan: &k::MaintenancePlan,
+        subject: SubjectId,
+        limit: usize,
+    ) -> Result<Vec<String>> {
+        // Directory candidates are selectors, not asserted aboutness. The model must select them.
+        let cue = plan
+            .journal
+            .as_ref()
+            .map(|journal| journal.narrative.clone())
+            .unwrap_or_else(|| {
+                plan.members
+                    .iter()
+                    .map(|member| member.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            });
+        sqlx::query_scalar("SELECT DISTINCT b.canonical_ref FROM lexical_bindings b JOIN lexical_visibility v USING(lexical_ref) WHERE v.subject_id=$1 AND b.object_kind='entity' AND b.tombstoned_at IS NULL AND ((length(v.display_name)>1 AND strpos(lower($2),lower(v.display_name))>0) OR EXISTS(SELECT 1 FROM unnest(v.aliases) alias WHERE length(alias)>1 AND strpos(lower($2),lower(alias))>0)) ORDER BY b.canonical_ref LIMIT $3")
+            .bind(subject.0).bind(cue).bind(i64::try_from(limit).map_err(|_|Error::Invalid("entity catalog limit exceeded".into()))?).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)
+    }
     async fn finish_consolidation_catalog(
         &self,
         plan: &mut k::MaintenancePlan,
@@ -195,7 +220,8 @@ impl KernelService {
 fn consolidation_query(subject: SubjectId, cue: String, limit: usize) -> CognitiveQuery {
     let constraints = QueryConstraints::default();
     CognitiveQuery {
-        text_only_compatibility: false,
+        // This cue is quoted source content for similarity lookup, not a user intent.
+        text_only_compatibility: true,
         work_context: None,
         api_version: 1,
         subject,
@@ -216,5 +242,23 @@ fn consolidation_query(subject: SubjectId, cue: String, limit: usize) -> Cogniti
         effort: CognitiveEffort::Light,
         capabilities: Default::default(),
         diagnostics: Default::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn consolidation_source_lookup_does_not_require_closing_pronouns_in_quoted_content() {
+        let query = consolidation_query(
+            SubjectId::new(),
+            "Lin said this was her preferred trial rule.".into(),
+            8,
+        );
+        assert!(query.text_only_compatibility);
+        assert!(query.validate().is_ok());
+        let mut intent = query;
+        intent.text_only_compatibility = false;
+        assert!(nous_runtime::validate_query_closure(&intent).is_err());
     }
 }

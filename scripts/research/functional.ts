@@ -70,9 +70,12 @@ const plan = {
     scenarios.flatMap((s) => s.events.map((event) => event.text)),
   ).size,
   scenarioIds: selected,
-  newServingGenerations: scenarios.length,
+  newServingGenerations: scenarios.reduce(
+    (total, scenario) => total + scenario.events.length + 1,
+    0,
+  ),
   servingExplanation:
-    "Normal Core context handling may lazily open one tiny exact catalog per Subject; dense, lexical and topology are disabled during formation.",
+    "Formation needs lexical context lookup for existing Memory/Schema reuse. Each accepted mutation may refresh that shared lexical catalog; estimate one refresh per source event plus startup. Dense and topology readout stay disabled until validation.",
   startupArtifactAllowance: 128 * 1024 * 1024,
   perMutationArtifactAllowance: 32 * 1024 * 1024,
 };
@@ -154,6 +157,10 @@ async function run() {
     await budget.observeArtifactBytes(
       Math.max(0, last.runBytes - host!.baselineBytes),
     );
+    await budget.observeServingGenerations(
+      Math.max(0, initial.generations - host.baselineGenerations),
+    );
+    budget.signal.throwIfAborted();
     const checkpoint = async () => {
       last = (await host!.control({
         command: "metrics",
@@ -162,7 +169,7 @@ async function run() {
         Math.max(0, last.runBytes - host!.baselineBytes),
       );
       await budget.observeServingGenerations(
-        Math.max(0, last.generations - initial!.generations),
+        Math.max(0, last.generations - host!.baselineGenerations),
       );
       await flush();
       budget.signal.throwIfAborted();

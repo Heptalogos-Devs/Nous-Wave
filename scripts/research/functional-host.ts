@@ -22,10 +22,11 @@ export async function launchFunctionalRuntime(
   root: string,
   token: string,
   signal: AbortSignal,
+  queryMode = false,
 ) {
   const child = spawn(
     resolve("target/debug/examples/functional-runtime"),
-    [root],
+    queryMode ? [root, "query"] : [root],
     {
       stdio: ["pipe", "pipe", "inherit"],
       env: { ...process.env, NOUS_RESEARCH_TOKEN: token },
@@ -66,6 +67,7 @@ export async function launchFunctionalRuntime(
       endpoint: ready.endpoint,
       metrics: ready.metrics as unknown as RuntimeMetrics,
       baselineBytes: Number(ready.baselineBytes),
+      baselineGenerations: Number(ready.baselineGenerations),
       control,
       close: async () => {
         signal.removeEventListener("abort", abort);

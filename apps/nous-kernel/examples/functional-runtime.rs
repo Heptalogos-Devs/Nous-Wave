@@ -3,10 +3,11 @@ use chrono::{DateTime, Utc};
 use nous_core::*;
 use nous_kernel::{NousRuntime, RuntimeOptions};
 use nous_retrieval::ServingOptions;
-use nous_runtime::ManualCognitiveClock;
+use nous_runtime::{BoundQuery, CognitiveProfile, ManualCognitiveClock};
 use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -22,6 +23,14 @@ enum Control {
     Advance {
         subject: SubjectId,
         instant: DateTime<Utc>,
+    },
+    Prepare {
+        key: String,
+        query: Box<CognitiveQuery>,
+    },
+    Execute {
+        key: String,
+        profile: CognitiveProfile,
     },
     Inspect,
     Metrics,
@@ -48,17 +57,22 @@ async fn run() -> Result<()> {
     }
     let token = std::env::var("NOUS_RESEARCH_TOKEN")
         .map_err(|_| Error::Invalid("run credential required".into()))?;
+    let query_mode = std::env::args()
+        .nth(2)
+        .is_some_and(|value| value == "query");
     let baseline = directory_bytes(&root)?;
     let postgres = open_database(&root).await?;
+    let database_url = postgres.settings().url("functional_cognition");
+    let baseline_generations = generation_count(&database_url).await?;
     let clock = Arc::new(ManualCognitiveClock::new(
         "2026-09-01T00:00:00Z".parse().map_err(failure)?,
     ));
     let runtime = NousRuntime::open_with_clock(RuntimeOptions {
         postgres_url:postgres.settings().url("functional_cognition"),max_connections:8,acquire_timeout_ms:15000,
         object_root:root.join("objects").to_string_lossy().into_owned(),
-        serving_options:ServingOptions {root:root.join("serving"),lexical:false,dense:false,topology:false,memory_enabled:true},
+        serving_options:ServingOptions {root:root.join("serving"),lexical:true,dense:false,topology:query_mode,memory_enabled:true},
         embedding:None,stored_embedding:None,core_descriptors:vec![],
-        deployment_document:json!({"serving":{"lexical":{"enabled":false},"dense":{"enabled":false},"topology":{"enabled":false}}}),
+        deployment_document:json!({"serving":{"lexical":{"enabled":true},"dense":{"enabled":false},"topology":{"enabled":query_mode}}}),
     },clock.clone()).await?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -74,19 +88,36 @@ async fn run() -> Result<()> {
     );
     println!(
         "{}",
-        json!({"ready":true,"endpoint":endpoint,"baselineBytes":baseline,"metrics":metrics(&runtime,&root).await?})
+        json!({"ready":true,"endpoint":endpoint,"baselineBytes":baseline,"baselineGenerations":baseline_generations,"metrics":metrics(&runtime,&root).await?})
     );
+    let mut prepared = HashMap::<String, BoundQuery>::new();
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     loop {
         let next = tokio::select! {line=lines.next_line()=>line.map_err(failure)?, signal=tokio::signal::ctrl_c()=>{signal.map_err(failure)?;None}};
         let Some(line) = next else {
             break;
         };
-        let command = serde_json::from_str::<Control>(&line).map_err(failure)?;
+        let command = match serde_json::from_str::<Control>(&line) {
+            Ok(command) => command,
+            Err(error) => {
+                println!("{}", json!({"error":error.to_string()}));
+                continue;
+            }
+        };
         let result = match command {
             Control::Advance { subject, instant } => clock
                 .advance_to(subject, instant)
                 .map(|()| json!({"advanced":true})),
+            Control::Prepare { key, query } => prepare(&runtime, &mut prepared, key, *query).await,
+            Control::Execute { key, profile } => {
+                if query_mode {
+                    execute(&runtime, &prepared, &key, profile).await
+                } else {
+                    Err(Error::Invalid(
+                        "query execution requires explicit query mode".into(),
+                    ))
+                }
+            }
             Control::Inspect => inspect(&runtime, &root).await,
             Control::Metrics => metrics(&runtime, &root).await,
             Control::Done => {
@@ -228,4 +259,62 @@ async fn inspect(runtime: &NousRuntime, root: &Path) -> Result<Value> {
     Ok(
         json!({"memories":memories,"tags":tags,"associations":associations,"needs":needs,"episodes":episodes,"journals":journals,"metrics":metrics(runtime,root).await?}),
     )
+}
+
+async fn prepare(
+    runtime: &NousRuntime,
+    queries: &mut HashMap<String, BoundQuery>,
+    key: String,
+    query: CognitiveQuery,
+) -> Result<Value> {
+    if key.is_empty() || key.len() > 128 || queries.contains_key(&key) || queries.len() >= 40 {
+        return Err(Error::Invalid(
+            "invalid or duplicate Prepared Query key".into(),
+        ));
+    }
+    let bound = runtime.cognition.bind_query(query).await?;
+    let result = json!({"key":key,"preparedQuery":bound.source_query,"representation":bound.representation,"authorityWatermark":bound.bound_at_authority_seq,"configSnapshotDigest":bound.config_snapshot.effective_digest,"enabledLanes":bound.enabled_lanes});
+    queries.insert(key, bound);
+    Ok(result)
+}
+async fn execute(
+    runtime: &NousRuntime,
+    queries: &HashMap<String, BoundQuery>,
+    key: &str,
+    profile: CognitiveProfile,
+) -> Result<Value> {
+    let bound = queries
+        .get(key)
+        .ok_or_else(|| Error::Invalid("query key was not prepared in this runtime".into()))?
+        .clone()
+        .for_profile(profile)?;
+    let digest = bound.representation.sha256.clone();
+    let snapshot = bound.config_snapshot.effective_digest.clone();
+    let execution = runtime.execute_bound_query(bound, Some(32)).await?;
+    let result = json!({"key":key,"profile":profile,"embeddingDigest":digest,"configSnapshotDigest":snapshot,"result":execution.result});
+    drop(execution);
+    Ok(result)
+}
+
+async fn generation_count(url: &str) -> Result<i64> {
+    let catalog = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(url)
+        .await
+        .map_err(failure)?;
+    let existing: bool =
+        sqlx::query_scalar("SELECT to_regclass('public.serving_generations') IS NOT NULL")
+            .fetch_one(&catalog)
+            .await
+            .map_err(failure)?;
+    let count = if existing {
+        sqlx::query_scalar("SELECT count(*) FROM serving_generations")
+            .fetch_one(&catalog)
+            .await
+            .map_err(failure)?
+    } else {
+        0
+    };
+    catalog.close().await;
+    Ok(count)
 }
