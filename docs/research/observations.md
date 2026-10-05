@@ -145,3 +145,6 @@ incident 本批三次 provider 请求完成 snapshot 原因/修复 Memory 与后
 
 
 修正合同后的 routine 单请求机会实际处理了正常队列中更高优先的 Journal consolidation（约 78 秒），成功形成 Sep 14 重复早餐后写作和 Sep 15 拒绝 visitor 午夜建议的两个 grounded Memory。routine 当前 6 个 Memory；显式复核的旧 need 尚未被该请求执行，不能将此结果当作该 exact need 的 replay 验证。未新增 embedding/rerank，provider 上限 1 在后续请求前截停，普通 retry 和 obsolete 结果保留。
+
+
+routine 的 topology-only 机会通过正常自动 need 完成两次模型维护：修订复用 late-night routine Tag，增加有证据的 attachments，保留其已退休语义。它仍不代表 morning-journal，故该绑定继续 unresolved。只开放 topology 模型角色用于已形成 cognition 的维护阶段；其他高优先 consolidation/repair needs 保留。embedding 预检自身现已使用六项 ledger，在 host 启动前预留 generation/disk，在运行中观察实际变化，并在报告写入前计入字节。零 generation cap 的预检在启动前截停；原缓存的两题盘点零 misses、零 provider、零新 generation。

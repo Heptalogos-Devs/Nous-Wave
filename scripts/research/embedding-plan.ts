@@ -8,6 +8,7 @@ import {
 } from "../../apps/nous-core/src/config.js";
 import { resolvedEmbedding } from "../../apps/nous-core/src/model/embedding-profile.js";
 import { launchFunctionalRuntime } from "./functional-host.js";
+import { ExecutionBudget } from "./execution-budget.js";
 import { executionLimits, budgetOptions } from "./functional-plan.js";
 const { values } = parseArgs({
   options: {
@@ -55,29 +56,59 @@ try {
 } catch (error) {
   if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 }
-await mkdir(resolve(cachePath, ".."), { recursive: true });
-await writeFile(cachePath, JSON.stringify(cache, null, 2) + "\n", {
-  mode: 0o600,
-});
 const inputs = (
   JSON.parse(await readFile(values.input, "utf8")) as {
     queries: { key: string; as_of: string; query: { subject: string } }[];
   }
 ).queries;
 if (inputs.length > 40) throw new Error("Prepared query envelope exceeded");
-const deadline = new AbortController();
-const timer = setTimeout(
-  () => deadline.abort(new Error("Embedding preflight runtime exhausted")),
-  executionLimits(values).runtimeSeconds * 1000,
+const limits = executionLimits(values);
+const identity = createHash("sha256")
+  .update(
+    JSON.stringify({
+      config,
+      inputs,
+      cacheIdentity: cache.config,
+      output,
+      limits,
+    }),
+  )
+  .digest("hex");
+await mkdir(resolve(output, ".."), { recursive: true });
+const budget = await ExecutionBudget.open(
+  output + ".budget.json",
+  identity,
+  limits,
 );
-const host = await launchFunctionalRuntime(
-  root,
-  randomUUID() + randomUUID(),
-  deadline.signal,
-  false,
-  cachePath,
-);
+let host: Awaited<ReturnType<typeof launchFunctionalRuntime>> | undefined;
 try {
+  await budget.reserve({
+    newArtifactBytes: 32 * 1024 * 1024,
+    newServingGenerations: new Set(inputs.map((input) => input.query.subject))
+      .size,
+  });
+  await mkdir(resolve(cachePath, ".."), { recursive: true });
+  await writeFile(cachePath, JSON.stringify(cache, null, 2) + "\n", {
+    mode: 0o600,
+  });
+  host = await launchFunctionalRuntime(
+    root,
+    randomUUID() + randomUUID(),
+    budget.signal,
+    false,
+    cachePath,
+  );
+  const checkpoint = async () => {
+    const metrics = await host!.control({ command: "metrics" });
+    await budget.observeArtifactBytes(
+      Math.max(0, Number(metrics.runBytes) - host!.baselineBytes),
+    );
+    await budget.observeServingGenerations(
+      Math.max(0, Number(metrics.generations) - host!.baselineGenerations),
+    );
+    budget.signal.throwIfAborted();
+  };
+  await checkpoint();
   const queries: unknown[] = [];
   const texts = new Set<string>();
   for (const input of inputs) {
@@ -91,6 +122,7 @@ try {
       key: input.key,
       query: input.query,
     });
+    await checkpoint();
     queries.push(prepared);
     texts.add((prepared.representation as { text: string }).text);
   }
@@ -136,11 +168,13 @@ try {
       .update(JSON.stringify({ config, queries, texts: [...texts] }))
       .digest("hex"),
     metrics: await host.control({ command: "metrics" }),
+    budget: budget.snapshot(),
   };
   await mkdir(resolve(output, ".."), { recursive: true });
-  await writeFile(output, JSON.stringify(report, null, 2) + "\n", {
-    mode: 0o600,
-  });
+  const reportBytes = JSON.stringify(report, null, 2) + "\n";
+  await budget.reserve({ newArtifactBytes: Buffer.byteLength(reportBytes) });
+  await writeFile(output, reportBytes, { mode: 0o600 });
+  report.budget = budget.snapshot();
   console.log(
     JSON.stringify(
       {
@@ -154,7 +188,12 @@ try {
       2,
     ),
   );
+} catch (error) {
+  await budget.stop(
+    error instanceof Error ? error.message : "Embedding preflight failed",
+  );
+  throw error;
 } finally {
-  clearTimeout(timer);
-  await host.close();
+  await host?.close();
+  await budget.close();
 }
