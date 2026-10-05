@@ -126,7 +126,7 @@ CREATE TABLE tag_lineage (
     created_at timestamptz NOT NULL,
     FOREIGN KEY(parent_tag_id,subject_id) REFERENCES tags(tag_id,subject_id),
     FOREIGN KEY(child_tag_id,subject_id) REFERENCES tags(tag_id,subject_id),
-    UNIQUE(subject_id,operation_id,child_index),
+    UNIQUE(subject_id,operation_id,parent_tag_id,child_tag_id,relation),
     CHECK(parent_tag_id<>child_tag_id)
 );
 CREATE TABLE memory_revision_tags (

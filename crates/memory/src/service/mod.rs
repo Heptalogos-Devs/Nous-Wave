@@ -22,6 +22,7 @@ mod source_classes;
 mod state;
 mod tag;
 mod topology;
+mod topology_maintenance;
 
 use crate::*;
 use chrono::{DateTime, Utc};
@@ -50,8 +51,10 @@ pub use longitudinal_policy::{
     CONSOLIDATION_CONTEXT, CONSOLIDATION_MAX_ACTIONS, ConsolidationContextPolicy, EPISODE_SYNOPSIS,
 };
 pub use maintenance_planning::MaintenanceScope;
+pub use nous_core::TopologyRelation;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
 pub use tag::*;
+pub use topology_maintenance::*;
 
 #[derive(Clone)]
 pub struct MemoryService {

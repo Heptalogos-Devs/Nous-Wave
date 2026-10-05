@@ -15,6 +15,7 @@ service KernelQueryService {
   rpc ReleaseQuery(ReleaseQueryRequest) returns (google.protobuf.Empty);
 }
 service KernelMaintenanceService {
+  rpc CommitTopology(CommitTopologyRequest) returns (CommitTopologyResponse);
   rpc CommitLongitudinalConsolidation(CommitLongitudinalConsolidationRequest) returns (CommitLongitudinalConsolidationResponse);
   rpc RefreshMaintenance(RefreshMaintenanceRequest) returns (google.protobuf.Empty);
   rpc PlanMaintenance(PlanMaintenanceRequest) returns (MaintenancePlan);

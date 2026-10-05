@@ -78,6 +78,19 @@ export class ModelRuntime {
       snapshot,
     );
   }
+  async maintainTopology(
+    input: string,
+    signal?: AbortSignal,
+    snapshot?: ModelRoleSnapshot,
+  ) {
+    return this.invocations.generate(
+      "topology_maintenance",
+      input,
+      signal,
+      undefined,
+      snapshot,
+    );
+  }
   async consolidate(
     input: string,
     signal?: AbortSignal,

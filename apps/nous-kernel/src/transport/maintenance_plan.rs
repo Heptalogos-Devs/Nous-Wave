@@ -11,13 +11,7 @@ impl KernelService {
         input: k::PlanMaintenanceRequest,
     ) -> Result<k::MaintenancePlan> {
         let claimed = longitudinal::need(required(input.claimed, "claimed")?)?;
-        let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp())")
-            .bind(claimed.subject_id.0).bind(claimed.need_id).bind(claimed.lease_token).fetch_one(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
-        if !valid {
-            return Err(Error::Conflict(
-                "maintenance planning lease expired or replaced".into(),
-            ));
-        }
+        self.require_plan_lease(&claimed).await?;
         let subject = claimed.subject_id;
         let member_bytes = self
             .0
@@ -26,6 +20,9 @@ impl KernelService {
             .get(nous_runtime::MEMBER_TEXT_MAX_BYTES)?;
         let sequence = self.0.store.authority_seq(subject).await?;
         let memory = self.require_memory()?;
+        if claimed.kind == "topology_maintenance" {
+            return self.topology_maintenance_plan(&claimed).await;
+        }
         let scope = match claimed.kind.as_str() {
             "episode_resegment" => {
                 memory
@@ -128,6 +125,77 @@ impl KernelService {
         Ok(plan)
     }
 
+    async fn require_plan_lease(&self, claimed: &nous_runtime::MaintenanceNeed) -> Result<()> {
+        let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp() AND kind=$4 AND scope_kind=$5 AND scope_ref=$6)")
+            .bind(claimed.subject_id.0).bind(claimed.need_id).bind(claimed.lease_token).bind(&claimed.kind).bind(&claimed.scope_kind).bind(&claimed.scope_ref).fetch_one(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
+        if !valid {
+            return Err(Error::Conflict(
+                "maintenance planning lease expired or replaced".into(),
+            ));
+        }
+        Ok(())
+    }
+    async fn topology_maintenance_plan(
+        &self,
+        claimed: &nous_runtime::MaintenanceNeed,
+    ) -> Result<k::MaintenancePlan> {
+        let subject = claimed.subject_id;
+        let sequence = self.0.store.authority_seq(subject).await?;
+        let memory = self.require_memory()?;
+        {
+            let focus = parse_reference(&claimed.scope_kind, &claimed.scope_ref)?;
+            let topology = match memory.plan_topology(subject, focus).await {
+                Ok(plan) => plan,
+                Err(Error::NotFound(_)) => {
+                    return Ok(k::MaintenancePlan {
+                        subject_id: subject.0.to_string(),
+                        authority_seq: sequence,
+                        status: "obsolete".into(),
+                        ..Default::default()
+                    });
+                }
+                Err(error) => return Err(error),
+            };
+            Ok(k::MaintenancePlan {
+                subject_id: subject.0.to_string(),
+                authority_seq: topology.authority_seq,
+                cognitive_now: Some(timestamp(self.0.cognition.now(subject))),
+                status: "ready".into(),
+                topology_model_input_json: Some(topology.model_input().to_string()),
+                topology_plan_json: Some(
+                    serde_json::to_string(&topology)
+                        .map_err(|e| Error::Infrastructure(e.to_string()))?,
+                ),
+                ..Default::default()
+            })
+        }
+    }
+    pub(super) async fn commit_topology(
+        &self,
+        input: k::CommitTopologyRequest,
+    ) -> Result<k::CommitTopologyResponse> {
+        if input.plan_json.len() > 1024 * 1024 || input.proposal_json.len() > 65536 {
+            return Err(Error::Invalid("topology request envelope exceeded".into()));
+        }
+        let plan = serde_json::from_str(&input.plan_json)
+            .map_err(|e| Error::Invalid(format!("invalid topology plan: {e}")))?;
+        let proposal = serde_json::from_str(&input.proposal_json)
+            .map_err(|e| Error::Invalid(format!("invalid topology proposal: {e}")))?;
+        let outcome = self
+            .require_memory()?
+            .commit_topology(nous_memory::CommitTopologyInput {
+                operation_id: OperationId(id(&input.operation_id)?),
+                claimed: longitudinal::need(required(input.claimed, "claimed")?)?,
+                plan,
+                proposal,
+                producer: super::convert::from_producer(required(input.producer, "producer")?)?,
+            })
+            .await?;
+        Ok(k::CommitTopologyResponse {
+            outcome_json: serde_json::to_string(&outcome)
+                .map_err(|e| Error::Infrastructure(e.to_string()))?,
+        })
+    }
     async fn maintenance_member_catalog(
         &self,
         subject: SubjectId,

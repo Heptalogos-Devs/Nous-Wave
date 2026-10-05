@@ -170,6 +170,50 @@ impl CognitiveRuntimeService {
         } else {
             None
         };
+        if !meaningful_times.is_empty() {
+            let threshold = self
+                .configuration
+                .snapshot_for_subject(input.subject)?
+                .get(crate::maintenance_policy::TOPOLOGY_USE_THRESHOLD)?;
+            let sequence: i64 =
+                sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+                    .bind(input.subject.0)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(db)?;
+            let mut queued = std::collections::HashSet::new();
+            for (kind, value, _) in &meaningful_times {
+                if !queued.insert((kind, value)) {
+                    continue;
+                }
+                let count:i64=sqlx::query_scalar("SELECT count(*) FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind=$2 AND ref_value=$3 AND use_kind IN ('referenced','acted_on','result_supported','corrected','pinned')")
+                    .bind(input.subject.0).bind(kind).bind(value).fetch_one(&mut *tx).await.map_err(db)?;
+                let count = u64::try_from(count)
+                    .map_err(|_| Error::Infrastructure("invalid use count".into()))?;
+                let added = u64::try_from(
+                    meaningful_times
+                        .iter()
+                        .filter(|(k, v, _)| k == kind && v == value)
+                        .count(),
+                )
+                .map_err(|_| Error::Infrastructure("invalid use count".into()))?;
+                if count / threshold > count.saturating_sub(added) / threshold {
+                    self.enqueue_maintenance_in(
+                        &mut tx,
+                        &MaintenanceRequest {
+                            subject: input.subject,
+                            kind: "topology_maintenance".into(),
+                            scope_kind: kind.clone(),
+                            scope_ref: value.clone(),
+                            trigger_authority_seq: sequence,
+                            due_at: recorded_at,
+                            priority: 25,
+                        },
+                    )
+                    .await?;
+                }
+            }
+        }
         tx.commit().await.map_err(db)?;
         Ok((accepted, duplicates, session_revision))
     }

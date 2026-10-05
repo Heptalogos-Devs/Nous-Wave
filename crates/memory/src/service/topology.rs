@@ -60,12 +60,30 @@ impl MemoryService {
             }
             MutationStart::Active(mutation) => mutation,
         };
+        let id = self
+            .insert_association_in(mutation.tx(), subject, &input)
+            .await?;
+        mutation
+            .invalidate(ProjectionInvalidation::topology())
+            .await?;
+        mutation
+            .commit("association", Some(&id.0.to_string()), None, None)
+            .await?;
+        self.association(subject, id).await
+    }
+
+    pub(crate) async fn insert_association_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        input: &CreateAssociationRequest,
+    ) -> Result<AssociationEvidenceId> {
         let id = AssociationEvidenceId::new();
         let now = self.cognition.now(subject);
         let (valid_kind, valid_start, valid_end) = temporal_columns(&input.valid_time);
         let (from_kind, from_ref) = reference_parts(&input.from);
         let (to_kind, to_ref) = reference_parts(&input.to);
-        sqlx::query("INSERT INTO association_evidence(association_evidence_id,subject_id,from_ref_kind,from_ref,to_ref_kind,to_ref,relation_kind,polarity,support_class,valid_time_kind,valid_time_start,valid_time_end,producer_signature_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(id.0).bind(subject.0).bind(from_kind).bind(from_ref).bind(to_kind).bind(to_ref).bind(&input.relation_kind).bind(input.polarity.as_str()).bind(input.support_class.as_str()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.producer_signature_id).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
+        sqlx::query("INSERT INTO association_evidence(association_evidence_id,subject_id,from_ref_kind,from_ref,to_ref_kind,to_ref,relation_kind,polarity,support_class,valid_time_kind,valid_time_start,valid_time_end,producer_signature_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(id.0).bind(subject.0).bind(from_kind).bind(from_ref).bind(to_kind).bind(to_ref).bind(&input.relation_kind).bind(input.polarity.as_str()).bind(input.support_class.as_str()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.producer_signature_id).bind(now).execute(&mut **tx).await.map_err(db)?;
         for support in &input.supports {
             let (
                 kind,
@@ -85,19 +103,12 @@ impl MemoryService {
                 .bind(source_region)
                 .bind(derived_representation)
                 .bind(derived_region)
-                .execute(&mut **mutation.tx())
+                .execute(&mut **tx)
                 .await
                 .map_err(db)?;
         }
-        mutation
-            .invalidate(ProjectionInvalidation::topology())
-            .await?;
-        mutation
-            .commit("association", Some(&id.0.to_string()), None, None)
-            .await?;
-        self.association(subject, id).await
+        Ok(id)
     }
-
     /// Bounded undirected read of active, supported AssociationEvidence.
     pub async fn association_neighborhood(
         &self,
@@ -171,7 +182,7 @@ impl MemoryService {
         })
     }
 
-    async fn association(
+    pub(crate) async fn association(
         &self,
         subject: SubjectId,
         id: AssociationEvidenceId,
@@ -565,6 +576,8 @@ fn validate_association_endpoint(reference: &CognitiveRef) -> Result<()> {
         )),
         CognitiveRef::MemoryRevision(_)
         | CognitiveRef::CognitiveSchemaRevision(_)
+        | CognitiveRef::EpisodeRevision(_)
+        | CognitiveRef::JournalRevision(_)
         | CognitiveRef::Entity(_)
         | CognitiveRef::Tag(_)
         | CognitiveRef::Resource(_) => Ok(()),

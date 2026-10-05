@@ -286,8 +286,23 @@ async fn topology_snapshot_in(
                     association_kind: relation_kind.clone(),
                     polarity: polarity.clone(),
                     support_mass: 1.0,
-                    provenance_root: Some(root),
+                    provenance_root: Some(root.clone()),
                 });
+                let symmetric = serde_json::from_value::<TopologyRelation>(
+                    serde_json::Value::String(relation_kind.clone()),
+                )
+                .is_ok_and(|kind| kind.is_symmetric());
+                if symmetric {
+                    edges.push(TopologyEdgeSource {
+                        from: to.clone(),
+                        to: from.clone(),
+                        support_class: support_class.clone(),
+                        association_kind: relation_kind.clone(),
+                        polarity: polarity.clone(),
+                        support_mass: 1.0,
+                        provenance_root: Some(root),
+                    });
+                }
             }
         }
 
@@ -538,6 +553,8 @@ fn allowed(reference: &CognitiveRef) -> bool {
         reference,
         CognitiveRef::MemoryRevision(_)
             | CognitiveRef::CognitiveSchemaRevision(_)
+            | CognitiveRef::EpisodeRevision(_)
+            | CognitiveRef::JournalRevision(_)
             | CognitiveRef::Tag(_)
             | CognitiveRef::Entity(_)
             | CognitiveRef::Resource(_)

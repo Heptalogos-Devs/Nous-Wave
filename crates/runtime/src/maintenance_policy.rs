@@ -1,5 +1,7 @@
 use nous_configuration::*;
 use nous_core::{Error, Result};
+pub const TOPOLOGY_USE_THRESHOLD: ConfigKey<u64> =
+    ConfigKey::new("maintenance.topology_use_threshold");
 pub const MAINTENANCE_ENABLED: ConfigKey<bool> = ConfigKey::new("maintenance.enabled");
 pub const POLL_INTERVAL: ConfigKey<u64> = ConfigKey::new("maintenance.poll_interval_seconds");
 pub const MAX_OPERATIONS: ConfigKey<u64> = ConfigKey::new("maintenance.max_operations_per_grant");
@@ -22,6 +24,25 @@ pub const EPISODE_NEIGHBOR_SPAN: ConfigKey<u64> =
     ConfigKey::new("episode.max_neighbor_span_seconds");
 
 pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    registry.register(
+        TOPOLOGY_USE_THRESHOLD,
+        "cognitive-runtime",
+        "Meaningful-use count interval for topology review.",
+        3,
+        ConfigExposure::Advanced,
+        ConfigScopePolicy::SubjectOverrideAllowed,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::AuthorityFormation,
+        |value| {
+            if (1..=128).contains(value) {
+                Ok(())
+            } else {
+                Err(Error::Invalid(
+                    "topology use threshold requires 1..128".into(),
+                ))
+            }
+        },
+    )?;
     let reference = ReferenceProfile::parse(include_str!(
         "../../../config/reference/longitudinal-v1.json"
     ))?;

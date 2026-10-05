@@ -81,6 +81,13 @@ impl MemoryService {
         sqlx::query("UPDATE journal_objects SET current_revision_id=$2,object_epoch=object_epoch+CASE WHEN $3 THEN 1 ELSE 0 END,integrity_state='valid' WHERE journal_id=$1")
             .bind(journal.0).bind(revision.0).bind(parent.is_some()).execute(&mut **mutation.tx()).await.map_err(db)?;
         let sequence = mutation.invalidate(ProjectionInvalidation::text()).await?;
+        self.enqueue_topology_in(
+            mutation.tx(),
+            input.subject,
+            CognitiveRef::JournalRevision(revision),
+            sequence,
+        )
+        .await?;
         if parent.is_some() {
             self.invalidate_object_dependents_in(
                 mutation.tx(),

@@ -200,6 +200,19 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         .await
         .unwrap();
     assert_eq!(binding[0].canonical, CognitiveRef::Tag(tags[0].tag_id));
+    let catalog = owner
+        .plan_topology(subject, CognitiveRef::MemoryRevision(revisions[0]))
+        .await
+        .unwrap();
+    assert!(
+        catalog
+            .tags
+            .iter()
+            .find(|t| t.target.tag_id == tags[0].tag_id)
+            .unwrap()
+            .aliases
+            .contains(&"Release authorization".to_string())
+    );
     let unchanged: uuid::Uuid =
         sqlx::query_scalar("SELECT tag_id FROM memory_revision_tags WHERE memory_revision_id=$1")
             .bind(revisions[0].0)

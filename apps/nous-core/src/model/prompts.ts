@@ -10,6 +10,7 @@ const defaults: Partial<Record<ModelRole, string>> = {
   episode_segmentation: "episode/segmentation.md",
   journal_synthesis: "journal/synthesis.md",
   memory_consolidation: "memory/consolidation.md",
+  topology_maintenance: "topology/maintenance.md",
   material_description: "material/description.md",
   material_structuring: "material/structure.md",
   material_direct_structuring: "material/direct-structure.md",

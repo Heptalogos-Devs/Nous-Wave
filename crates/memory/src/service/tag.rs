@@ -4,6 +4,7 @@ use sqlx::{Postgres, Transaction};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TagContent {
     pub label: String,
     pub description: Option<String>,
@@ -22,6 +23,7 @@ impl TagContent {
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TagExpectation {
     pub tag_id: TagId,
     pub expected_revision_id: Uuid,
@@ -292,6 +294,8 @@ impl MemoryService {
             )
             .await?;
         }
+        sqlx::query("UPDATE lexical_visibility v SET aliases=ARRAY(SELECT DISTINCT a FROM (SELECT unnest(v.aliases) a UNION ALL SELECT rv.display_name FROM lexical_bindings rb JOIN lexical_visibility rv USING(lexical_ref) WHERE rv.subject_id=$1 AND rb.object_kind='tag' AND canonical_tag($1,CASE WHEN rb.object_kind='tag' THEN rb.canonical_ref::uuid END)=$2 UNION ALL SELECT unnest(rv.aliases) FROM lexical_bindings rb JOIN lexical_visibility rv USING(lexical_ref) WHERE rv.subject_id=$1 AND rb.object_kind='tag' AND canonical_tag($1,CASE WHEN rb.object_kind='tag' THEN rb.canonical_ref::uuid END)=$2) names WHERE a<>v.display_name ORDER BY a) FROM lexical_bindings b WHERE v.subject_id=$1 AND v.lexical_ref=b.lexical_ref AND b.object_kind='tag' AND b.canonical_ref=$2::uuid::text")
+            .bind(subject.0).bind(input.survivor.tag_id.0).execute(&mut **tx).await.map_err(db)?;
         Ok(())
     }
     pub(crate) async fn split_tag_in(

@@ -103,6 +103,8 @@ message MaintenancePlan {
   uint32 max_consolidation_actions = 17;
   bool support_catalog_partial = 18;
   bool provenance_roots_partial = 19;
+  optional string topology_plan_json = 20;
+  optional string topology_model_input_json = 21;
 }
 message RefreshMaintenanceRequest { MaintenanceNeed claimed = 1; }
 
@@ -110,3 +112,6 @@ message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; s
 message ConsolidationEntity { string key = 1; string entity_ref = 2; }
 message ProvenanceRoot { string key = 1; string certainty = 2; }
 message UseSummary { string kind = 1; uint64 count = 2; google.protobuf.Timestamp last_used_at = 3; }
+
+message CommitTopologyRequest { string operation_id = 1; MaintenanceNeed claimed = 2; string plan_json = 3; string proposal_json = 4; nous.wave.v1alpha1.ProducerSignature producer = 5; }
+message CommitTopologyResponse { string outcome_json = 1; }

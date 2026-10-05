@@ -63,3 +63,15 @@ proposal action 为 skip、create/revise Memory、create/revise CognitiveSchema�
 Query/Serving、WorkContext、UseEvent 和下游失效合同分别见 [Query](../memory-reference-profile/03-query-serving.md)、[WorkContext](work-context.md)、[Use](../memory-reference-profile/02-runtime-use.md) 和 [Authority](../memory-reference-profile/01-memory-authority-provenance.md)。
 
 [返回当前产品合同](../../INDEX.md)
+
+## Independent topology maintenance
+
+`topology_maintenance` 是独立 kind，复用 durable need、host grant、lease、retry、固定 ModelWorkflow snapshot 与全局模型调用/elapsed 预算。accepted/revised Memory、Episode、Journal、CognitiveSchema 的 owner mutation 在同一事务用实际 Authority sequence 排入 exact focus；meaningful use 跨过 typed threshold 时排入 review，exposure 不触发。
+
+Memory owner 的 planner 使用有界当前 cognition、Tag、association、Entity、exact/source/use support 与 provenance catalog。Semantic similarity 只读取兼容 space/producer 下的既有 embedding material，不调用 provider；没有材料时保留显式 partial。模型仅看到 invocation-local keys 与语义描述，owner snapshot 保存 exact identities/epochs；proposal 只引用 catalog keys 或顺序创建的 `new_` keys。
+
+Core role `topology_maintenance` 使用独立 Structured Contract 与 Prompt，支持 reuse/create/revise/attach/detach Tag、create/revoke association、merge/split Tag、no_change。Merge/split 沿用 Tag owner 的 exact support 与 independent root 条件。owner 在一个 MutationEnvelope 中复核 lease、focus、当前 catalog/policy、局部 key、self-loop、duplicate/action/support budget、exact cognition endpoint 支持和 provenance，再写入所有动作与一个 receipt；非法动作整体回滚。没有变化不重建 Serving，已提交 proposal 在丢失 response 后幂等重放。
+
+post-hoc `tag_attachment` 保存在 AssociationEvidence，不改变旧 MemoryRevision。共享 relation registry 将 tag_attachment、assoc.related、assoc.co_occurs、assoc.shared_outcome 投影为对称 adjacency，sequence/procedural 保留方向。Authority evidence 保留原端点、方向和支持；逆向 Serving edge 使用同一 provenance root。Episode/Journal exact revisions 可以作为显式 association endpoint。
+
+当前两条 accepted Memory 的 owner 场景已验证新 Tag、后续复用、关联形成、非法 key 原子回滚和 Tag-only Prepared Query 的 topology readout；Core 测试验证固定输入、预算 reservation 与 proposal 重试。关系特有的 chronology/co-occurrence/outcome 证据校验、全类别 Functional Corpus 和真实 provider/Agent Loop 尚在本 PR 收敛，不能据此宣称完整质量验收。

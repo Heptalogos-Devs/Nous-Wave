@@ -1,3 +1,5 @@
+import { topologyMaintenanceSchema } from "../model/schemas/topology.js";
+import { CommitTopologyRequestSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import { consolidationRequest } from "./consolidation.js";
 import { consolidationSchema } from "../model/schemas/consolidation.js";
 import { CommitLongitudinalConsolidationRequestSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
@@ -50,6 +52,7 @@ const proposalSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("partition"), request: z.unknown() }),
   z.strictObject({ action: z.literal("journal"), request: z.unknown() }),
   z.strictObject({ action: z.literal("consolidation"), request: z.unknown() }),
+  z.strictObject({ action: z.literal("topology"), request: z.unknown() }),
   z.strictObject({
     action: z.literal("withdraw"),
     journalId: z.string().uuid(),
@@ -131,9 +134,11 @@ export async function runModelMaintenance(
     const role =
       need.kind === "episode_resegment"
         ? "episode_segmentation"
-        : need.kind === "memory_consolidate"
-          ? "memory_consolidation"
-          : "journal_synthesis";
+        : need.kind === "topology_maintenance"
+          ? "topology_maintenance"
+          : need.kind === "memory_consolidate"
+            ? "memory_consolidation"
+            : "journal_synthesis";
     const model =
       plan.status === "withdraw" ? null : models.invocations.snapshot(role);
     snapshotJson = JSON.stringify({
@@ -254,6 +259,37 @@ export async function runModelMaintenance(
               request,
             );
           }
+        } else if (need.kind === "topology_maintenance") {
+          if (!plan.topologyPlanJson || !plan.topologyModelInputJson)
+            throw new ConnectError(
+              "Missing topology catalog",
+              Code.InvalidArgument,
+            );
+          const result = await models.maintainTopology(
+            plan.topologyModelInputJson,
+            options.signal ?? undefined,
+            snapshot.model as ModelRoleSnapshot,
+          );
+          const proposal = topologyMaintenanceSchema.parse(result.value);
+          proposed = {
+            action: "topology",
+            request: toJson(
+              CommitTopologyRequestSchema,
+              create(CommitTopologyRequestSchema, {
+                operationId,
+                claimed: need,
+                planJson: plan.topologyPlanJson,
+                proposalJson: JSON.stringify(proposal),
+                producer: create(
+                  ProducerSignatureSchema,
+                  producer(
+                    result.producerMetadata,
+                    "topology_maintenance_text",
+                  ),
+                ),
+              }),
+            ),
+          };
         } else if (need.kind === "memory_consolidate") {
           const result = await models.consolidate(
             JSON.stringify(snapshot.plan),
@@ -364,7 +400,22 @@ export async function runModelMaintenance(
         fromJson(CommitJournalRequestSchema, proposed.request as JsonValue),
         options,
       );
-    else if (proposed.action === "consolidation") {
+    else if (proposed.action === "topology") {
+      const result = await kernel.maintenance.commitTopology(
+        fromJson(CommitTopologyRequestSchema, proposed.request as JsonValue),
+        options,
+      );
+      const parsed: unknown = JSON.parse(result.outcomeJson);
+      const committed = z
+        .object({ status: z.enum(["committed", "no_change"]) })
+        .parse(parsed);
+      const outcome = { status: committed.status };
+      await kernel.modelWorkflow.saveWorkflow(
+        { ...lease, outcomeJson: JSON.stringify(outcome) },
+        options,
+      );
+      return outcome;
+    } else if (proposed.action === "consolidation") {
       const result = await kernel.maintenance.commitLongitudinalConsolidation(
         fromJson(
           CommitLongitudinalConsolidationRequestSchema,

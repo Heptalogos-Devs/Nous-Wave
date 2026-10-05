@@ -4,9 +4,11 @@
 //! or object-store mechanics. It is the vocabulary shared by Authority,
 //! runtime, projections, and the host-facing API.
 
+mod topology;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
+pub use topology::TopologyRelation;
 use uuid::Uuid;
 
 pub const API_VERSION: u32 = 1;
@@ -216,6 +218,7 @@ pub enum CapabilityOperation {
     TextInterpretation,
     MemoryFormationText,
     MemoryConsolidationText,
+    TopologyMaintenanceText,
     EpisodeSegmentationText,
     JournalSynthesisText,
     ImageInterpretation,
@@ -232,6 +235,7 @@ impl CapabilityOperation {
             Self::TextInterpretation => "text.interpretation",
             Self::MemoryFormationText => "memory.formation.text",
             Self::MemoryConsolidationText => "memory.consolidation.text",
+            Self::TopologyMaintenanceText => "topology.maintenance.text",
             Self::EpisodeSegmentationText => "episode.segmentation.text",
             Self::JournalSynthesisText => "journal.synthesis.text",
             Self::ImageInterpretation => "image.interpretation",

@@ -169,6 +169,15 @@ impl MemoryService {
             sequence
         };
         if changed {
+            for reference in results.iter().flatten() {
+                self.enqueue_topology_in(
+                    mutation.tx(),
+                    input.subject,
+                    reference.clone(),
+                    authority_seq,
+                )
+                .await?;
+            }
             self.invalidate_consolidation_targets_in(mutation.tx(), &input, authority_seq)
                 .await?;
         }

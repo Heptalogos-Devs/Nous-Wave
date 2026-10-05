@@ -14,6 +14,7 @@ const roles = {
   journal_review: "journal_synthesis",
   journal_revalidate: "journal_synthesis",
   memory_consolidate: "memory_consolidation",
+  topology_maintenance: "topology_maintenance",
 } as const;
 function allowedKinds(models: ModelRuntime, modelBudget: number) {
   const ready = new Set(

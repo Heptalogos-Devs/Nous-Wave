@@ -465,6 +465,10 @@ pub struct MaintenancePlan {
     pub support_catalog_partial: bool,
     #[prost(bool, tag="19")]
     pub provenance_roots_partial: bool,
+    #[prost(string, optional, tag="20")]
+    pub topology_plan_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="21")]
+    pub topology_model_input_json: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RefreshMaintenanceRequest {
@@ -516,6 +520,24 @@ pub struct UseSummary {
     pub count: u64,
     #[prost(message, optional, tag="3")]
     pub last_used_at: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CommitTopologyRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub claimed: ::core::option::Option<MaintenanceNeed>,
+    #[prost(string, tag="3")]
+    pub plan_json: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub proposal_json: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="5")]
+    pub producer: ::core::option::Option<super::super::v1alpha1::ProducerSignature>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CommitTopologyResponse {
+    #[prost(string, tag="1")]
+    pub outcome_json: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingConfig {

@@ -7,6 +7,7 @@ import {
   episodePartitionSchema,
   journalSynthesisSchema,
 } from "./longitudinal.js";
+import { topologyMaintenanceSchema } from "./topology.js";
 import { consolidationSchema } from "./consolidation.js";
 import { structuredOutputContract } from "./provider.js";
 
@@ -44,6 +45,11 @@ const structuredRoleContracts = {
     "journal.synthesis",
     "journal_synthesis",
     journalSynthesisSchema,
+  ),
+  topology_maintenance: contract(
+    "topology.maintenance",
+    "topology_maintenance",
+    topologyMaintenanceSchema,
   ),
   memory_consolidation: contract(
     "memory.consolidation",

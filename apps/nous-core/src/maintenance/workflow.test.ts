@@ -7,6 +7,7 @@ import { create } from "@bufbuild/protobuf";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import {
   MaintenanceNeedSchema,
+  CommitTopologyResponseSchema,
   MaintenancePlanSchema,
 } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import type { KernelClient } from "../kernel-client.js";
@@ -428,4 +429,77 @@ describe("maintenance fixed workflow retry", () => {
     expect(model).toHaveBeenCalledTimes(1);
     expect(commit).toHaveBeenCalledTimes(1);
   });
+});
+
+it("routes topology through the bounded model input and replays its saved proposal without another model call", async () => {
+  const state = fixture();
+  const topoNeed = create(MaintenanceNeedSchema, {
+    ...need,
+    kind: "topology_maintenance",
+    scopeKind: "memory_revision",
+    scopeRef: revision,
+  });
+  const modelInput = JSON.stringify({
+    focusKey: "c0",
+    cognition: [{ key: "c0", text: "Recorded approval before rollout" }],
+    tags: [],
+    supports: [{ key: "s0", kind: "exact_cognition", targetKey: "c0" }],
+  });
+  state.getPlan.mockResolvedValue(
+    create(MaintenancePlanSchema, {
+      subjectId: subject,
+      authoritySeq: 1n,
+      status: "ready",
+      topologyPlanJson: '{"owner":"opaque-frozen-catalog"}',
+      topologyModelInputJson: modelInput,
+    }),
+  );
+  const generate = vi
+    .spyOn(state.models, "maintainTopology")
+    .mockResolvedValue({
+      value: { actions: [{ action: "no_change" }] },
+      producerMetadata: {
+        implementation: "semantic-stub",
+        protocol: "openai-chat",
+        model: "stub",
+        profileDigest: "a".repeat(64),
+        promptId: "program/topology/maintenance.md",
+        promptDigest: "b".repeat(64),
+        outputSchemaDigest: "c".repeat(64),
+        configDigest: "d".repeat(64),
+      },
+    });
+  const commit = vi.fn(
+    async (
+      request: Parameters<KernelClient["maintenance"]["commitTopology"]>[0],
+    ) => {
+      expect(request.planJson).toBe('{"owner":"opaque-frozen-catalog"}');
+      expect(request.proposalJson).toBe('{"actions":[{"action":"no_change"}]}');
+      return create(CommitTopologyResponseSchema, {
+        outcomeJson: '{"status":"no_change","changes":0,"results":{}}',
+      });
+    },
+  );
+  state.kernel.maintenance.commitTopology = commit;
+  commit.mockRejectedValueOnce(
+    new ConnectError("Response lost after commit", Code.Unavailable),
+  );
+  const reserveCall = vi.fn();
+  await expect(
+    runModelMaintenance(state.kernel, state.models, topoNeed, {}, reserveCall),
+  ).rejects.toThrow();
+  expect(
+    await runModelMaintenance(
+      state.kernel,
+      state.models,
+      topoNeed,
+      {},
+      reserveCall,
+    ),
+  ).toEqual({ status: "no_change" });
+  expect(generate).toHaveBeenCalledTimes(1);
+  expect(generate.mock.calls[0]?.[0]).toBe(modelInput);
+  expect(reserveCall).toHaveBeenCalledTimes(1);
+  expect(state.synthesize).not.toHaveBeenCalled();
+  expect(commit).toHaveBeenCalledTimes(2);
 });
