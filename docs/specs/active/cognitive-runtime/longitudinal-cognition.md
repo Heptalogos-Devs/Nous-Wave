@@ -74,4 +74,8 @@ Core role `topology_maintenance` 使用独立 Structured Contract 与 Prompt，�
 
 post-hoc `tag_attachment` 保存在 AssociationEvidence，不改变旧 MemoryRevision。共享 relation registry 将 tag_attachment、assoc.related、assoc.co_occurs、assoc.shared_outcome 投影为对称 adjacency，sequence/procedural 保留方向。Authority evidence 保留原端点、方向和支持；逆向 Serving edge 使用同一 provenance root。Episode/Journal exact revisions 可以作为显式 association endpoint。
 
-当前两条 accepted Memory 的 owner 场景已验证新 Tag、后续复用、关联形成、非法 key 原子回滚和 Tag-only Prepared Query 的 topology readout；Core 测试验证固定输入、预算 reservation 与 proposal 重试。关系特有的 chronology/co-occurrence/outcome 证据校验、全类别 Functional Corpus 和真实 provider/Agent Loop 尚在本 PR 收敛，不能据此宣称完整质量验收。
+Owner 校验关系特有的结构证据：共现需要共享 occurrence 或选中的 Episode 成员；顺序需要 Episode 成员顺序或不重叠的 occurred time，observed time 不证明先后；程序/共同结果需要覆盖两端的已分类 cognition witness。Planner 提供认知类型/角色、Entity aboutness、时间、Episode 局部成员顺序和 source context；Tag 候选优先已关联概念与文本相关候选。
+
+Accretion 是可重建的派生信号，聚合独立根、当前成员、跨 Episode 重现、观察跨度、关系多样性、语义 coherence、meaningful use 与反证。缓存缺失时 coherence 保持 unknown；不调用 embedding。有效使用提高有限 usefulness，不更改 epistemic class、不增加独立根。宽泛中心被降权并进入 split review；成员高度重叠且至少两独立根的中心提供 merge hint；最终动作仍由独立 role 提案、owner 验证。配置可关闭 Accretion 作 ablation。
+
+数据库场景验证新 Tag、后续复用、关联、非法 key 原子回滚、Tag-only Prepared Serving、无凭据关系拒绝与 Episode 顺序/共现/程序 witness。有效使用提高 usefulness，原 observed 类别与独立根不变；Episode review 不受 Accretion 中心类型限制。Core 测试验证固定输入、预算 reservation 与 proposal 重试。全类别 Functional Corpus、真实 provider/Agent Loop 和独立文本兼容性仍待本 PR 验收。

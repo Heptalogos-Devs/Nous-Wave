@@ -24,7 +24,8 @@ impl MemoryService {
     ) -> Result<TopologyPlan> {
         let snapshot = self.configuration.snapshot_for_subject(subject)?;
         let policy = snapshot.get(TOPOLOGY_MAINTENANCE)?;
-        let config_digest = snapshot.digest_for(&[TOPOLOGY_MAINTENANCE.path()])?;
+        let config_digest =
+            snapshot.digest_for(&[TOPOLOGY_MAINTENANCE.path(), ACCRETION.path()])?;
         let sequence = self.store.authority_seq(subject).await?;
         let (focus_kind, focus_value) = reference_parts(&focus);
         if !matches!(
@@ -90,13 +91,26 @@ impl MemoryService {
                 );
             }
             let mut direct_sources = Vec::new();
+            let mut context = TopologyContext::default();
             match reference {
                 CognitiveRef::MemoryRevision(id) => {
                     direct_sources = self.load_supports(id).await?;
+                    context = self.memory_topology_context(subject, id).await?;
                     let entities:Vec<String>=sqlx::query_scalar("SELECT entity_ref FROM memory_revision_aboutness WHERE memory_revision_id=$1 ORDER BY entity_ref LIMIT 16").bind(id.0).fetch_all(self.store.pool()).await.map_err(db)?;
+                    context.entities = entities
+                        .iter()
+                        .map(|value| EntityRef::new(value.clone()))
+                        .collect::<Result<Vec<_>>>()?;
                     entity_refs.extend(entities);
                 }
                 CognitiveRef::CognitiveSchemaRevision(id) => {
+                    context = self.schema_topology_context(subject, id).await?;
+                    entity_refs.extend(
+                        context
+                            .entities
+                            .iter()
+                            .map(|entity| entity.as_str().to_owned()),
+                    );
                     direct_sources = self
                         .schema_links(subject, id)
                         .await?
@@ -106,6 +120,14 @@ impl MemoryService {
                 }
                 CognitiveRef::EpisodeRevision(id) => {
                     let episode = self.episode_revision(subject, id).await?;
+                    context.time = Some(episode.revision.experience_time);
+                    context.members = episode
+                        .members
+                        .iter()
+                        .take(16)
+                        .map(|member| (member.reference.clone(), member.role.clone()))
+                        .collect();
+                    partial |= episode.members.len() > 16;
                     direct_sources = episode.supports;
                     direct_sources.extend(episode.members.into_iter().take(16).filter_map(
                         |member| match member.reference {
@@ -122,6 +144,13 @@ impl MemoryService {
                 }
                 CognitiveRef::JournalRevision(id) => {
                     let journal = self.journal_revision(subject, id).await?;
+                    context.time = Some(journal.revision.temporal_scope);
+                    context.members = journal
+                        .sources
+                        .into_iter()
+                        .take(16)
+                        .map(|reference| (reference, "source".into()))
+                        .collect();
                     direct_sources = journal
                         .points
                         .into_iter()
@@ -136,10 +165,9 @@ impl MemoryService {
                     partial = true;
                     break;
                 }
-                supports.insert(
-                    format!("s{}", supports.len()),
-                    AssociationSupport::Revision(support),
-                );
+                let support_key = format!("s{}", supports.len());
+                context.source_support_keys.push(support_key.clone());
+                supports.insert(support_key, AssociationSupport::Revision(support));
             }
             let (kind, value) = reference_parts(&reference);
             let use_rows=sqlx::query("SELECT use_kind,count(*)::bigint count FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind=$2 AND ref_value=$3 GROUP BY use_kind ORDER BY use_kind")
@@ -176,6 +204,7 @@ impl MemoryService {
                 semantic_similarity: None,
                 use_summary,
                 provenance_roots,
+                context,
             });
         }
         if cognition.first().is_none_or(|c| c.reference != focus) {
@@ -192,8 +221,8 @@ impl MemoryService {
         for (c, score) in cognition.iter_mut().zip(scores) {
             c.semantic_similarity = score;
         }
-        let rows=sqlx::query("SELECT t.tag_id,t.current_revision_id,r.label,r.description,r.kind_hint,COALESCE(v.aliases,ARRAY[]::text[]) aliases FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id LEFT JOIN lexical_bindings b ON b.object_kind='tag' AND b.canonical_ref=t.tag_id::text LEFT JOIN lexical_visibility v ON v.lexical_ref=b.lexical_ref AND v.subject_id=t.subject_id WHERE t.subject_id=$1 AND t.status='active' ORDER BY t.tag_id LIMIT $2")
-            .bind(subject.0).bind(i64::try_from(policy.max_tags+1).map_err(|_|Error::Invalid("tag bound exceeded".into()))?).fetch_all(self.store.pool()).await.map_err(db)?;
+        let rows=sqlx::query("SELECT t.tag_id,t.current_revision_id,r.label,r.description,r.kind_hint,COALESCE(v.aliases,ARRAY[]::text[]) aliases FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id LEFT JOIN lexical_bindings b ON b.object_kind='tag' AND b.canonical_ref=t.tag_id::text LEFT JOIN lexical_visibility v ON v.lexical_ref=b.lexical_ref AND v.subject_id=t.subject_id WHERE t.subject_id=$1 AND t.status='active' ORDER BY CASE WHEN EXISTS(SELECT 1 FROM association_evidence a WHERE a.subject_id=$1 AND a.from_ref_kind=$3 AND a.from_ref=$4 AND a.to_ref_kind='tag' AND canonical_tag($1,CASE WHEN a.to_ref_kind='tag' THEN a.to_ref::uuid END)=t.tag_id AND a.relation_kind='tag_attachment' AND a.revoked_at IS NULL) THEN 0 ELSE 1 END,ts_rank_cd(to_tsvector('simple',r.label||' '||COALESCE(r.description,'')),plainto_tsquery('simple',$5)) DESC,t.created_at DESC,t.tag_id LIMIT $2")
+            .bind(subject.0).bind(i64::try_from(policy.max_tags+1).map_err(|_|Error::Invalid("tag bound exceeded".into()))?).bind(reference_parts(&focus).0).bind(reference_parts(&focus).1).bind(&cognition[0].text).fetch_all(self.store.pool()).await.map_err(db)?;
         partial |= rows.len() > policy.max_tags;
         let mut tags = Vec::new();
         for (index, row) in rows.into_iter().take(policy.max_tags).enumerate() {
@@ -208,6 +237,7 @@ impl MemoryService {
                     description: row.try_get("description").map_err(db)?,
                     kind_hint: row.try_get("kind_hint").map_err(db)?,
                 },
+                accretion: None,
                 aliases: row
                     .try_get::<Vec<String>, _>("aliases")
                     .map_err(db)?
@@ -215,6 +245,51 @@ impl MemoryService {
                     .take(16)
                     .collect(),
             });
+        }
+        let accretion_policy = snapshot.get(ACCRETION)?;
+        let centers = tags
+            .iter()
+            .take(accretion_policy.max_centers)
+            .map(|t| CognitiveRef::Tag(t.target.tag_id))
+            .collect::<Vec<_>>();
+        let mut signals = self.accretion_signals(subject, &centers).await?;
+        let mut merge_candidates = Vec::new();
+        let mut split_candidates = Vec::new();
+        for tag in &mut tags {
+            tag.accretion = signals.remove(&CognitiveRef::Tag(tag.target.tag_id));
+            if tag
+                .accretion
+                .as_ref()
+                .is_some_and(|s| s.broad_center && s.attached_cognition >= 4)
+            {
+                split_candidates.push(tag.key.clone());
+            }
+        }
+        for (index, left) in tags.iter().enumerate() {
+            for right in tags.iter().skip(index + 1) {
+                let (Some(a), Some(b)) = (&left.accretion, &right.accretion) else {
+                    continue;
+                };
+                if a.partial || b.partial || a.independent_roots < 2 || b.independent_roots < 2 {
+                    continue;
+                }
+                let a = a
+                    .member_keys
+                    .iter()
+                    .collect::<std::collections::HashSet<_>>();
+                let b = b
+                    .member_keys
+                    .iter()
+                    .collect::<std::collections::HashSet<_>>();
+                let union = a.union(&b).count();
+                if union == 0 {
+                    continue;
+                }
+                let overlap = a.intersection(&b).count() as f64 / union as f64;
+                if overlap >= accretion_policy.merge_overlap {
+                    merge_candidates.push((left.key.clone(), right.key.clone(), overlap));
+                }
+            }
         }
         let mut entities = BTreeMap::new();
         let entity_refs = entity_refs
@@ -272,6 +347,7 @@ impl MemoryService {
         if self.store.authority_seq(subject).await? != sequence {
             return Err(Error::Conflict("topology planning snapshot changed".into()));
         }
+        let source_context = self.topology_source_context(subject, &supports).await?;
         Ok(TopologyPlan {
             subject,
             focus,
@@ -283,7 +359,10 @@ impl MemoryService {
             associations,
             entities,
             supports,
+            source_context,
             partial,
+            merge_candidates,
+            split_candidates,
         })
     }
 }

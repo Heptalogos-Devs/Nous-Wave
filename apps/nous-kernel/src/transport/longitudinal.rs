@@ -109,6 +109,15 @@ impl KernelService {
         &self,
         input: k::ClaimMaintenanceRequest,
     ) -> Result<k::ClaimMaintenanceResponse> {
+        if input
+            .allowed_kinds
+            .iter()
+            .any(|kind| kind == "topology_maintenance")
+        {
+            self.require_memory()?
+                .prioritize_topology_needs(SubjectId(id(&input.subject_id)?))
+                .await?;
+        }
         Ok(k::ClaimMaintenanceResponse {
             needs: self
                 .0

@@ -131,6 +131,7 @@ impl CognitiveRuntimeService {
         let mut accepted = 0u32;
         let mut duplicates = 0u32;
         let mut meaningful_times = Vec::new();
+        let mut topology_times = Vec::new();
         for item in prepared {
             if item.duplicate {
                 duplicates += 1;
@@ -139,6 +140,20 @@ impl CognitiveRuntimeService {
             sqlx::query("INSERT INTO cognitive_use_events(subject_id,consumer_ref,event_id,ref_kind,ref_value,use_kind,session_id,occurred_at,recorded_at,context,request_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
                 .bind(input.subject.0).bind(&input.consumer_ref).bind(item.event.event_id.0).bind(&item.kind).bind(&item.value).bind(item.event.use_kind.as_str()).bind(input.session_id.map(|id|id.0)).bind(item.event.occurred_at).bind(recorded_at).bind(&item.event.context).bind(&item.digest).execute(&mut *tx).await.map_err(db)?;
             accepted += 1;
+            if matches!(
+                item.event.use_kind,
+                UseKind::Referenced
+                    | UseKind::ActedOn
+                    | UseKind::ResultSupported
+                    | UseKind::Corrected
+                    | UseKind::Pinned
+            ) {
+                topology_times.push((
+                    item.kind.clone(),
+                    item.value.clone(),
+                    item.event.occurred_at,
+                ));
+            }
             if item.event.use_kind.meaningful() {
                 meaningful_times.push((item.kind, item.value, item.event.occurred_at));
             }
@@ -170,7 +185,7 @@ impl CognitiveRuntimeService {
         } else {
             None
         };
-        if !meaningful_times.is_empty() {
+        if !topology_times.is_empty() {
             let threshold = self
                 .configuration
                 .snapshot_for_subject(input.subject)?
@@ -182,7 +197,7 @@ impl CognitiveRuntimeService {
                     .await
                     .map_err(db)?;
             let mut queued = std::collections::HashSet::new();
-            for (kind, value, _) in &meaningful_times {
+            for (kind, value, _) in &topology_times {
                 if !queued.insert((kind, value)) {
                     continue;
                 }
@@ -191,7 +206,7 @@ impl CognitiveRuntimeService {
                 let count = u64::try_from(count)
                     .map_err(|_| Error::Infrastructure("invalid use count".into()))?;
                 let added = u64::try_from(
-                    meaningful_times
+                    topology_times
                         .iter()
                         .filter(|(k, v, _)| k == kind && v == value)
                         .count(),

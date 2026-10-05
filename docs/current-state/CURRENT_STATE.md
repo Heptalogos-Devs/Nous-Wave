@@ -15,7 +15,7 @@
 
 ## Experimental
 
-Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential ranking。VCP DTSC/RiverMemo reference 与 Nous adapters 已接线；旧模板结果只作探索。Prepared Query/完整 Representation、request context 与共享 query embedding 已实现；CLI 身份/Tag/关联与 prepare/inspect 已接到官方 Client，显式上下文和结构化错误已覆盖；Tag revision/merge/split、Directory aliases 与 Query/Serving canonicalization 已实现；独立 topology maintenance 的 trigger/planner/role/atomic commit 主路径已接通，Tag-only Serving 场景通过；关系特有的证据规则、Accretion、完整 Functional Corpus、真实 Agent Loop 与外部文本兼容性仍在 PR #15 收敛，尚未验收。
+Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential ranking。VCP DTSC/RiverMemo reference 与 Nous adapters 已接线；旧模板结果只作探索。Prepared Query/完整 Representation、request context 与共享 query embedding 已实现；CLI 身份/Tag/关联与 prepare/inspect 已接到官方 Client，显式上下文和结构化错误已覆盖；Tag revision/merge/split、Directory aliases 与 Query/Serving canonicalization 已实现；独立 topology maintenance 的 trigger/planner/role/atomic commit 主路径已接通，Tag-only Serving 场景通过；关系特有的 owner 证据规则和派生 Accretion 已接通，并通过小型数据库场景；完整 Functional Corpus、真实 Agent Loop 与外部文本兼容性仍在 PR #15 收敛，尚未验收。
 
 真实 New API 验证已覆盖七个 Structured Output 角色、四类代表性媒体的三种派生策略、六篇个人博客的 formation/query，以及 Episode/Journal/consolidation proposal。稳定结论与剩余质量范围见 [Research 观测](../research/observations.md#2026-10-04-真实-new-api-验证)。大样本分段边界与 Schema 泛化质量仍未测量。
 

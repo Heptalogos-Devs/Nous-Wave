@@ -78,6 +78,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | --- | --- | --- |
 | `maintenance.topology` | 8 actions / 16 cognition / 32 tags / 32 associations / 64 supports / 16384 text chars | Developer、Live、AuthorityFormation：独立 topology catalog/proposal envelope |
 | `maintenance.topology_use_threshold` | 3 | Advanced、Live、AuthorityFormation：meaningful use count 跨 interval 时排入 topology review，范围 1..128 |
+| `maintenance.accretion` | enabled / 64 centers / 32 members / generic degree 32 / priority bonus 10 / merge overlap 0.8 / split coherence 0.35 | Developer、Live、AuthorityFormation：派生聚合信号、维护优先级与 merge/split hints；可关闭作 ablation，无 provider 调用 |
 | `maintenance.enabled` | true | host maintenance 开关 |
 | `maintenance.poll_interval_seconds` | 30 | standalone loop 的基础设施秒 |
 | `maintenance.worker_lease_seconds` | 120 | worker lease 的基础设施秒 |

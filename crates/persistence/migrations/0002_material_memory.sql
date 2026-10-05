@@ -218,7 +218,7 @@ CREATE TABLE association_evidence (
 );
 CREATE TABLE association_evidence_supports (
     association_evidence_id uuid NOT NULL REFERENCES association_evidence(association_evidence_id) ON DELETE CASCADE,
-    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision','use_event')),
+    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision','episode_revision','journal_revision','use_event')),
     support_ref text NOT NULL,
     support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
     occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,

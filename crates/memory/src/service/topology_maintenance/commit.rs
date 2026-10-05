@@ -420,19 +420,16 @@ impl MemoryService {
                 "semantic association needs two exact cognition inputs".into(),
             ));
         }
-        if matches!(
+        self.validate_relation_proof_in(
+            tx,
+            subject,
+            &from,
+            &to,
             relation,
-            TopologyRelation::Procedural | TopologyRelation::SharedOutcome
-        ) && !exact.iter().any(|reference| {
-            matches!(
-                reference,
-                CognitiveRef::MemoryRevision(_) | CognitiveRef::EpisodeRevision(_)
-            )
-        }) {
-            return Err(Error::Invalid(
-                "procedural/outcome association requires experience supports".into(),
-            ));
-        }
+            &exact,
+            plan.policy.max_supports,
+        )
+        .await?;
         if self
             .provenance_summary(subject, &revisions)
             .await?

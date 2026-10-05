@@ -1,6 +1,7 @@
 //! Memory Authority orchestration for the R1 reference profile.
 
 mod accessibility;
+mod accretion;
 mod batch;
 mod consolidation;
 mod dependencies;
@@ -44,6 +45,7 @@ pub use accessibility::{
     AccessibilityPolicy, eligible as accessibility_eligible, register_configuration,
     resolve_accessibility_policy,
 };
+pub use accretion::{ACCRETION, AccretionPolicy, AccretionSignal};
 pub use consolidation::*;
 pub use episode::*;
 pub use journal::*;
