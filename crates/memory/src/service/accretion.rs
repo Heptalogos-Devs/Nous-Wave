@@ -267,7 +267,7 @@ impl MemoryService {
                 "SELECT 'memory_revision'::text kind,m.memory_revision_id::text value FROM memory_revision_tags m JOIN memory_revisions r USING(memory_revision_id) WHERE r.subject_id=$1 AND canonical_tag($1,m.tag_id)=canonical_tag($1,$2) UNION SELECT a.from_ref_kind,a.from_ref FROM association_evidence a WHERE a.subject_id=$1 AND a.to_ref_kind='tag' AND canonical_tag($1,CASE WHEN a.to_ref_kind='tag' THEN a.to_ref::uuid END)=canonical_tag($1,$2) AND a.relation_kind='tag_attachment' AND a.polarity='positive' AND a.revoked_at IS NULL"
             }
             CognitiveRef::CognitiveSchema(_) | CognitiveRef::CognitiveSchemaRevision(_) => {
-                "SELECT support_kind kind,support_ref value FROM cognitive_schema_evidence_links l JOIN cognitive_schema_revisions r USING(schema_revision_id) WHERE r.subject_id=$1 AND r.schema_revision_id=$2 AND l.revoked_at IS NULL AND support_kind IN ('memory_revision','cognitive_schema_revision','episode_revision','journal_revision')"
+                "SELECT support_kind kind,support_ref value FROM cognitive_schema_evidence_links l JOIN cognitive_schema_revisions r USING(schema_revision_id) JOIN cognitive_schemas o USING(schema_id) WHERE o.subject_id=$1 AND r.schema_revision_id=$2 AND l.revoked_at IS NULL AND support_kind IN ('memory_revision','cognitive_schema_revision','episode_revision','journal_revision')"
             }
             CognitiveRef::MemoryRevision(_) => return Ok((vec![center.clone()], 1)),
             _ => {

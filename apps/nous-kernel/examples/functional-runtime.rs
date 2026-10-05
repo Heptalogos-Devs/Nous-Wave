@@ -1,4 +1,6 @@
 //! Run-owned persistent research runtime. Semantic writes go through normal Core/Kernel owners.
+#[path = "functional_runtime/embeddings.rs"]
+mod embeddings;
 use chrono::{DateTime, Utc};
 use nous_core::*;
 use nous_kernel::{NousRuntime, RuntimeOptions};
@@ -38,11 +40,27 @@ enum Control {
         subject: SubjectId,
         need_ids: Vec<Uuid>,
     },
+    CheckMaintenance {
+        subject: SubjectId,
+    },
+    EmbeddingNeeds {
+        subjects: Vec<SubjectId>,
+    },
+    InstallCache {
+        path: PathBuf,
+        subjects: Vec<SubjectId>,
+    },
     Inspect,
     Metrics,
     Done,
 }
 fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_max_level(tracing::Level::ERROR)
+        .with_target(false)
+        .without_time()
+        .init();
     let executor = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -66,6 +84,11 @@ async fn run() -> Result<()> {
     let query_mode = std::env::args()
         .nth(2)
         .is_some_and(|value| value == "query");
+    let mut cache = std::env::args()
+        .nth(3)
+        .map(|path| embeddings::load(Path::new(&path)))
+        .transpose()?;
+    let dense = cache.is_some() && query_mode;
     let baseline = directory_bytes(&root)?;
     let postgres = open_database(&root).await?;
     let database_url = postgres.settings().url("functional_cognition");
@@ -73,13 +96,15 @@ async fn run() -> Result<()> {
     let clock = Arc::new(ManualCognitiveClock::new(
         "2026-09-01T00:00:00Z".parse().map_err(failure)?,
     ));
-    let runtime = NousRuntime::open_with_clock(RuntimeOptions {
-        postgres_url:postgres.settings().url("functional_cognition"),max_connections:8,acquire_timeout_ms:15000,
-        object_root:root.join("objects").to_string_lossy().into_owned(),
-        serving_options:ServingOptions {root:root.join("serving"),lexical:true,dense:false,topology:query_mode,memory_enabled:true},
-        embedding:None,stored_embedding:None,core_descriptors:vec![],
-        deployment_document:json!({"serving":{"lexical":{"enabled":true},"dense":{"enabled":false},"topology":{"enabled":query_mode}}}),
-    },clock.clone()).await?;
+    let runtime = open_runtime(
+        &root,
+        &database_url,
+        clock.clone(),
+        query_mode,
+        dense,
+        cache.as_ref(),
+    )
+    .await?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(failure)?;
@@ -110,31 +135,23 @@ async fn run() -> Result<()> {
                 continue;
             }
         };
-        let result = match command {
-            Control::Advance { subject, instant } => clock
-                .advance_to(subject, instant)
-                .map(|()| json!({"advanced":true})),
-            Control::Prepare { key, query } => prepare(&runtime, &mut prepared, key, *query).await,
-            Control::Execute { key, profile } => {
-                if query_mode {
-                    execute(&runtime, &prepared, &key, profile).await
-                } else {
-                    Err(Error::Invalid(
-                        "query execution requires explicit query mode".into(),
-                    ))
-                }
-            }
-            Control::Review { subject, need_ids } => review(&runtime, subject, &need_ids).await,
-            Control::Inspect => inspect(&runtime, &root).await,
-            Control::Metrics => metrics(&runtime, &root).await,
-            Control::Done => {
-                println!(
-                    "{}",
-                    json!({"done":true,"metrics":metrics(&runtime,&root).await?})
-                );
-                break;
-            }
-        };
+        if matches!(command, Control::Done) {
+            println!(
+                "{}",
+                json!({"done":true,"metrics":metrics(&runtime,&root).await?})
+            );
+            break;
+        }
+        let result = Box::pin(control(
+            command,
+            &runtime,
+            &root,
+            &clock,
+            &mut prepared,
+            &mut cache,
+            query_mode,
+        ))
+        .await;
         println!(
             "{}",
             match result {
@@ -262,9 +279,10 @@ async fn inspect(runtime: &NousRuntime, root: &Path) -> Result<Value> {
     .await
     .map_err(failure)?;
     let episodes:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('members',(SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.ordinal),'[]') FROM episode_revision_members m WHERE m.episode_revision_id=r.episode_revision_id)) FROM episode_revisions r JOIN episode_objects o ON o.current_revision_id=r.episode_revision_id ORDER BY r.recorded_at LIMIT 128").fetch_all(pool).await.map_err(failure)?;
+    let schemas:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r)||jsonb_build_object('subject',o.subject_id) FROM cognitive_schema_revisions r JOIN cognitive_schemas o ON o.current_revision_id=r.schema_revision_id ORDER BY r.recorded_at LIMIT 128").fetch_all(pool).await.map_err(failure)?;
     let journals:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM journal_revisions r JOIN journal_objects o ON o.current_revision_id=r.journal_revision_id ORDER BY r.recorded_at LIMIT 128").fetch_all(pool).await.map_err(failure)?;
     Ok(
-        json!({"memories":memories,"tags":tags,"associations":associations,"needs":needs,"episodes":episodes,"journals":journals,"metrics":metrics(runtime,root).await?}),
+        json!({"memories":memories,"tags":tags,"associations":associations,"needs":needs,"episodes":episodes,"journals":journals,"schemas":schemas,"metrics":metrics(runtime,root).await?}),
     )
 }
 
@@ -279,7 +297,8 @@ async fn prepare(
             "invalid or duplicate Prepared Query key".into(),
         ));
     }
-    let bound = runtime.cognition.bind_query(query).await?;
+    let mut bound = runtime.cognition.bind_query(query).await?;
+    bound.selected_embedding_space = runtime.serving.embedding().map(|provider| provider.space());
     let result = json!({"key":key,"preparedQuery":bound.source_query,"representation":bound.representation,"authorityWatermark":bound.bound_at_authority_seq,"configSnapshotDigest":bound.config_snapshot.effective_digest,"enabledLanes":bound.enabled_lanes});
     queries.insert(key, bound);
     Ok(result)
@@ -289,6 +308,7 @@ async fn execute(
     queries: &HashMap<String, BoundQuery>,
     key: &str,
     profile: CognitiveProfile,
+    cache: Option<&embeddings::VectorCache>,
 ) -> Result<Value> {
     let bound = queries
         .get(key)
@@ -297,7 +317,16 @@ async fn execute(
         .for_profile(profile)?;
     let digest = bound.representation.sha256.clone();
     let snapshot = bound.config_snapshot.effective_digest.clone();
-    let execution = runtime.execute_bound_query(bound, Some(32)).await?;
+    let execution = if let Some(cache) = cache {
+        let material = embeddings::query_material(cache, &bound.representation.text)?;
+        Box::pin(nous_retrieval::with_query_material(
+            material,
+            runtime.execute_bound_query(bound, Some(32)),
+        ))
+        .await?
+    } else {
+        runtime.execute_bound_query(bound, Some(32)).await?
+    };
     let result = json!({"key":key,"profile":profile,"embeddingDigest":digest,"configSnapshotDigest":snapshot,"result":execution.result});
     drop(execution);
     Ok(result)
@@ -353,4 +382,63 @@ async fn review(runtime: &NousRuntime, subject: SubjectId, ids: &[Uuid]) -> Resu
             .await?;
     }
     Ok(json!({"reviewedNeeds":ids.len()}))
+}
+
+async fn open_runtime(
+    root: &Path,
+    database_url: &str,
+    clock: Arc<ManualCognitiveClock>,
+    query_mode: bool,
+    dense: bool,
+    cache: Option<&embeddings::VectorCache>,
+) -> Result<NousRuntime> {
+    NousRuntime::open_with_clock(RuntimeOptions {
+        postgres_url:database_url.into(),max_connections:8,acquire_timeout_ms:15000,
+        object_root:root.join("objects").to_string_lossy().into_owned(),
+        serving_options:ServingOptions {root:root.join("serving"),lexical:true,dense,topology:query_mode,memory_enabled:true},
+        embedding:None,stored_embedding:cache.map(|cache|cache.config.clone()),core_descriptors:vec![],
+        deployment_document:json!({"serving":{"lexical":{"enabled":true},"dense":{"enabled":dense},"topology":{"enabled":query_mode}}}),
+    },clock).await
+}
+
+async fn control(
+    command: Control,
+    runtime: &NousRuntime,
+    root: &Path,
+    clock: &ManualCognitiveClock,
+    prepared: &mut HashMap<String, BoundQuery>,
+    cache: &mut Option<embeddings::VectorCache>,
+    query_mode: bool,
+) -> Result<Value> {
+    match command {
+        Control::Advance { subject, instant } => clock
+            .advance_to(subject, instant)
+            .map(|()| json!({"advanced":true})),
+        Control::Prepare { key, query } => prepare(runtime, prepared, key, *query).await,
+        Control::Execute { key, profile } => {
+            if query_mode {
+                Box::pin(execute(runtime, prepared, &key, profile, cache.as_ref())).await
+            } else {
+                Err(Error::Invalid(
+                    "query execution requires explicit query mode".into(),
+                ))
+            }
+        }
+        Control::Review { subject, need_ids } => review(runtime, subject, &need_ids).await,
+        Control::CheckMaintenance { subject } => runtime
+            .require_memory()?
+            .prioritize_topology_needs(subject)
+            .await
+            .map(|()| json!({"checked":true})),
+        Control::EmbeddingNeeds { subjects } => embeddings::needs(runtime, &subjects).await,
+        Control::InstallCache { path, subjects } => {
+            let loaded = embeddings::load(&path)?;
+            let result = embeddings::install(runtime, &subjects, &loaded).await?;
+            *cache = Some(loaded);
+            Ok(result)
+        }
+        Control::Inspect => inspect(runtime, root).await,
+        Control::Metrics => metrics(runtime, root).await,
+        Control::Done => unreachable!("shutdown handled before command dispatch"),
+    }
 }

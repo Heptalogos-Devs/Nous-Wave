@@ -40,6 +40,7 @@ const { values } = parseArgs({
     "query-ids": { type: "string" },
     "scenario-ids": { type: "string" },
     "review-need-ids": { type: "string" },
+    "operation-timeout-seconds": { type: "string", default: "90" },
     "execution-id": { type: "string", default: "formation-1" },
   },
 });
@@ -47,6 +48,13 @@ const root = resolve(values.root!);
 if (!root.startsWith(resolve("data/research") + "/"))
   throw new Error("Run root must be under data/research");
 const limits = executionLimits(values);
+const operationTimeoutSeconds = Number(values["operation-timeout-seconds"]);
+if (
+  !Number.isSafeInteger(operationTimeoutSeconds) ||
+  operationTimeoutSeconds < 1 ||
+  operationTimeoutSeconds > 300
+)
+  throw new Error("Operation timeout must be 1..300 seconds");
 const corpus = await loadFunctionalCorpus(
   values.corpus!,
   values["query-ids"]?.split(","),
@@ -71,6 +79,7 @@ const plan = {
     scenarios.flatMap((s) => s.events.map((event) => event.text)),
   ).size,
   scenarioIds: selected,
+  operationTimeoutSeconds,
   reviewNeedIds: values["review-need-ids"]?.split(",") ?? [],
   newServingGenerations: scenarios.reduce(
     (total, scenario) => total + scenario.events.length + 1,
@@ -261,7 +270,10 @@ async function run() {
       await app.listen({ host: "127.0.0.1", port: 0 }),
       token,
     );
-    const options = { signal: budget.signal, timeoutMs: 120000 };
+    const options = {
+      signal: budget.signal,
+      timeoutMs: (operationTimeoutSeconds + 15) * 1000,
+    };
     for (const scenario of scenarios) {
       let saved = state.subjects[scenario.key];
       if (!saved) {
@@ -394,7 +406,7 @@ async function run() {
               subjectId: saved.id,
               maxOperations: 1,
               maxModelCalls: 1,
-              maxElapsedMs: 90000,
+              maxElapsedMs: operationTimeoutSeconds * 1000,
             },
             options,
           ),

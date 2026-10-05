@@ -23,10 +23,15 @@ export async function launchFunctionalRuntime(
   token: string,
   signal: AbortSignal,
   queryMode = false,
+  embeddingCache?: string,
 ) {
   const child = spawn(
     resolve("target/debug/examples/functional-runtime"),
-    queryMode ? [root, "query"] : [root],
+    embeddingCache
+      ? [root, queryMode ? "query" : "formation", resolve(embeddingCache)]
+      : queryMode
+        ? [root, "query"]
+        : [root],
     {
       stdio: ["pipe", "pipe", "inherit"],
       env: { ...process.env, NOUS_RESEARCH_TOKEN: token },

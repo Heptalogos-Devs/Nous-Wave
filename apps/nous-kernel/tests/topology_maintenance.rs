@@ -495,6 +495,43 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
     }));
     drop(execution);
     episode_relations(&rt, subject, &revisions).await;
+    let schema = owner
+        .create_schema(CreateSchemaInput {
+            operation_id: OperationId::new(),
+            subject,
+            title: Some("Independent reviewer approval pattern".into()),
+            structural_claim: "Release approval requires a recorded reviewer signoff".into(),
+            applicability_scope: SchemaScope {
+                description: "The two independent release observations".into(),
+                aboutness: vec![],
+                tags: vec![],
+                valid_time: TemporalExtent::Unknown,
+            },
+            boundary_definition: "Does not establish approval policies for other projects".into(),
+            formation_kind: SchemaFormationKind::Synthesized,
+            evidence_links: revisions
+                .iter()
+                .map(|reference| SchemaEvidenceLinkInput {
+                    role: SchemaEvidenceRole::Support,
+                    support: RevisionSupport::CognitionDependency(CognitionDependency {
+                        target_revision: reference.clone(),
+                        support_role: SupportRole::Direct,
+                    }),
+                })
+                .collect(),
+        })
+        .await
+        .unwrap();
+    let schema_ref = CognitiveRef::CognitiveSchemaRevision(schema.schema.current_revision_id);
+    let signal = owner
+        .accretion_signals(subject, std::slice::from_ref(&schema_ref))
+        .await
+        .unwrap()
+        .remove(&schema_ref)
+        .unwrap();
+    assert_eq!(signal.attached_cognition, 2);
+    assert_eq!(signal.independent_roots, 2);
+    owner.prioritize_topology_needs(subject).await.unwrap();
 }
 
 async fn episode_relations(rt: &NousRuntime, subject: SubjectId, revisions: &[CognitiveRef]) {

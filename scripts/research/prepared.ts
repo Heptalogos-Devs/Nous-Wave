@@ -22,6 +22,7 @@ const { values } = parseArgs({
     ...budgetOptions,
     plan: { type: "boolean" },
     input: { type: "string" },
+    "embedding-cache": { type: "string" },
     root: { type: "string" },
     "query-ids": { type: "string" },
     profiles: {
@@ -50,25 +51,33 @@ if (
   new Set(queries.map((q) => q.key)).size !== queries.length
 )
   throw new Error("Invalid Prepared query set");
+const cache = values["embedding-cache"]
+  ? (JSON.parse(await readFile(values["embedding-cache"], "utf8")) as {
+      config: unknown;
+      vectors: { text: string; vector: number[] }[];
+    })
+  : undefined;
 const profiles = values.profiles!.split(",");
-if (
-  profiles.some(
-    (profile) => !["baseline-rrf", "nous-node-potential-v1"].includes(profile),
-  )
-)
-  throw new Error(
-    "VCP arms require the shared embedding-cache stage; this provider-free arm only supports baseline/native",
-  );
+const supported = cache
+  ? [
+      "baseline-rrf",
+      "nous-node-potential-v1",
+      "vcp-dtsc-v9.2.1-adapter-v1",
+      "vcp-rivermemo-v3.1-adapter-v1",
+    ]
+  : ["baseline-rrf", "nous-node-potential-v1"];
+if (profiles.some((profile) => !supported.includes(profile)))
+  throw new Error("VCP arms require the shared embedding cache");
 if (
   queries.some(
-    (q) =>
-      q.query.capabilities.text_embedding !== "forbidden" ||
-      q.query.capabilities.rerank !== "forbidden" ||
-      !Number.isFinite(Date.parse(q.as_of)),
+    (query) =>
+      query.query.capabilities.rerank !== "forbidden" ||
+      (!cache && query.query.capabilities.text_embedding !== "forbidden") ||
+      !Number.isFinite(Date.parse(query.as_of)),
   )
 )
   throw new Error(
-    "Provider-free Prepared arm requires embedding/rerank forbidden and exact as_of",
+    "Rerank must be forbidden; uncached readout also forbids embedding",
   );
 const limits = executionLimits(values);
 const plan = {
@@ -77,8 +86,10 @@ const plan = {
   subjects: new Set(queries.map((q) => q.query.subject)).size,
   profiles,
   uniqueTexts: new Set(queries.map((q) => JSON.stringify(q.query))).size,
-  existingEmbeddings: 0,
-  embeddingMisses: 0,
+  existingEmbeddings: cache?.vectors.length ?? 0,
+  embeddingMisses: cache
+    ? "must be zero in the separate exact cache preflight"
+    : 0,
   estimatedEmbeddingRequests: 0,
   rerankRequests: 0,
   sharedServingAssetsReused: "existing compatible families reused",
@@ -88,11 +99,14 @@ const plan = {
   externalDownloads: 0,
   estimatedRuntimeClass: `bounded by ${limits.runtimeSeconds} seconds`,
   limits,
-  scope:
-    "Provider-free structural Prepared readout; VCP semantic comparison follows the shared embedding cache preflight.",
+  scope: cache
+    ? "All profiles consume cached source materials and one vector for each frozen query representation; no provider calls in algorithm arms."
+    : "Provider-free structural Prepared readout; VCP semantic comparison follows the shared embedding cache preflight.",
 };
 const identity = createHash("sha256")
-  .update(JSON.stringify({ inputBytes, plan }))
+  .update(
+    JSON.stringify({ inputBytes, plan, embeddingIdentity: cache?.config }),
+  )
   .digest("hex");
 const planPath = resolve(root, `${values["execution-id"]}.plan.json`);
 if (values.plan) {
@@ -127,6 +141,7 @@ async function run() {
       randomUUID() + randomUUID(),
       budget.signal,
       true,
+      values["embedding-cache"],
     );
     initial = host.metrics;
     const checkpoint = async () => {
@@ -153,6 +168,16 @@ async function run() {
           command: "prepare",
           key: query.key,
           query: query.query,
+        }),
+      });
+    }
+    if (cache) {
+      await budget.reserve({ newArtifactBytes: 32 * 1024 * 1024 });
+      results.push({
+        cacheInstall: await host.control({
+          command: "install_cache",
+          path: resolve(values["embedding-cache"]!),
+          subjects: [...new Set(queries.map((query) => query.query.subject))],
         }),
       });
     }
