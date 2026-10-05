@@ -398,6 +398,7 @@ pub struct WaveGraphGeneration {
     node_by_ref: std::collections::HashMap<CognitiveRef, u32>,
     adjacency: Vec<Vec<(u32, f64)>>,
     raw_support: std::collections::HashMap<(u32, u32), f64>,
+    evidence: std::collections::BTreeMap<(u32, u32), Vec<WaveEdgeEvidence>>,
     pub config: WaveConfig,
 }
 
@@ -418,6 +419,7 @@ impl WaveGraphGeneration {
             generation_id: self.generation_id,
             cognitive_profile: self.cognitive_profile,
             nodes: self.nodes.clone(),
+            evidence: self.evidence.values().flatten().cloned().collect(),
             edges,
             config: self.config.clone(),
         }
@@ -443,11 +445,13 @@ impl WaveGraphGeneration {
             .nodes
             .iter()
             .map(|node| (node.reference.clone(), node.serving_id))
-            .collect();
+            .collect::<std::collections::HashMap<_, _>>();
+        let evidence = index_evidence(artifact.evidence, &node_by_ref);
         Ok(Self {
             generation_id: artifact.generation_id,
             cognitive_profile: artifact.cognitive_profile,
             nodes: artifact.nodes,
+            evidence,
             node_by_ref,
             adjacency,
             raw_support,
@@ -534,8 +538,25 @@ impl WaveGraphGeneration {
                 }
             }
         }
+        let retained_evidence = evidence
+            .iter()
+            .filter(|item| {
+                let (Some(from), Some(to)) =
+                    (node_by_ref.get(&item.from), node_by_ref.get(&item.to))
+                else {
+                    return false;
+                };
+                raw_support.contains_key(&(*from, *to))
+                    && !item.polarity.eq_ignore_ascii_case("negative")
+                    && supported_relation(&item.association_kind)
+                    && item.support_mass.is_finite()
+                    && item.support_mass > 0.0
+            })
+            .cloned()
+            .collect();
         Ok(Self {
             generation_id: ServingGenerationId::new(),
+            evidence: index_evidence(retained_evidence, &node_by_ref),
             cognitive_profile: nous_runtime::CognitiveProfile::default(),
             nodes,
             node_by_ref,
@@ -545,6 +566,9 @@ impl WaveGraphGeneration {
         })
     }
 
+    pub fn edge_evidence(&self, from: u32, to: u32) -> impl Iterator<Item = &WaveEdgeEvidence> {
+        self.evidence.get(&(from, to)).into_iter().flatten()
+    }
     pub fn node_id(&self, reference: &CognitiveRef) -> Option<u32> {
         self.node_by_ref.get(reference).copied()
     }
@@ -562,12 +586,26 @@ impl WaveGraphGeneration {
     }
 }
 
+fn index_evidence(
+    evidence: Vec<WaveEdgeEvidence>,
+    nodes: &std::collections::HashMap<CognitiveRef, u32>,
+) -> std::collections::BTreeMap<(u32, u32), Vec<WaveEdgeEvidence>> {
+    let mut indexed = std::collections::BTreeMap::<_, Vec<_>>::new();
+    for item in evidence {
+        if let (Some(from), Some(to)) = (nodes.get(&item.from), nodes.get(&item.to)) {
+            indexed.entry((*from, *to)).or_default().push(item);
+        }
+    }
+    indexed
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopologyArtifact {
     pub generation_id: ServingGenerationId,
     pub cognitive_profile: nous_runtime::CognitiveProfile,
     pub nodes: Vec<WaveNode>,
     pub edges: Vec<(u32, u32, f64, f64)>,
+    pub evidence: Vec<WaveEdgeEvidence>,
     pub config: WaveConfig,
 }
 

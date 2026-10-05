@@ -4,7 +4,7 @@ use nous_core::{CognitiveRef, Cue, EvidenceFamily};
 use nous_runtime::{
     BoundQuery, LaneCandidate, LaneOutput, LaneStatus, QueryPlan, TopologyWorkSummary,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 pub(crate) fn topology_lane(
     snapshot: &ServingSnapshot,
@@ -63,6 +63,7 @@ pub(crate) fn topology_lane(
     if !river.complete {
         output.status = LaneStatus::Truncated;
     }
+    let routes = activated_routes(river, observation.source_seeds());
     let mut values = river
         .node_potential
         .iter()
@@ -70,7 +71,7 @@ pub(crate) fn topology_lane(
             graph
                 .nodes
                 .get(*node as usize)
-                .map(|value| (value.reference.clone(), *potential))
+                .map(|value| (value.reference.clone(), *potential, *node))
         })
         .collect::<Vec<_>>();
     values.sort_by(|left, right| {
@@ -83,11 +84,29 @@ pub(crate) fn topology_lane(
         .into_iter()
         .take(plan.lane_budget(EvidenceFamily::TopologyWave))
         .enumerate()
-        .map(|(index, (reference, _))| LaneCandidate {
+        .map(|(index, (reference, potential, node))| LaneCandidate {
             reference,
             rank: (index + 1) as u32,
             variants: vec!["topology:wave".into()],
-            provider_metadata: serde_json::Value::Null,
+            provider_metadata: serde_json::json!({
+                "mechanism": NATIVE_MECHANISM_ID,
+                "node_potential": potential,
+                "complete": river.complete,
+                "activated_route": routes.get(&node).map(|path| path.iter().map(|id|
+                    graph.nodes[*id as usize].reference.to_string()).collect::<Vec<_>>()),
+                "route_evidence": routes.get(&node).map(|path| path.windows(2).map(|pair| {
+                    let support = graph.edge_evidence(pair[0], pair[1]).take(16).collect::<Vec<_>>();
+                    serde_json::json!({
+                        "from": graph.nodes[pair[0] as usize].reference,
+                        "to": graph.nodes[pair[1] as usize].reference,
+                        "flow": river.edges.iter().find(|edge| edge.from == pair[0] && edge.to == pair[1]).map(|edge| edge.flow),
+                        "support": support,
+                        "support_truncated": graph.edge_evidence(pair[0], pair[1]).count() > 16,
+                    })
+                }).collect::<Vec<_>>()),
+                "route_semantics": "shortest witnessed route through activated edges; not score attribution",
+                "provenance": river.provenance.iter().find(|value| value.node == node),
+            }),
         })
         .collect();
     Ok(output)
@@ -159,4 +178,43 @@ fn source_seeds(graph: &crate::WaveGraphGeneration, bound: &BoundQuery) -> Vec<S
             });
     }
     merged.into_values().collect()
+}
+
+// Multi-source breadth-first traversal visits each activated node once. A route
+// witnesses connectivity in this observation; it does not explain every unit of
+// accumulated potential or invent relation provenance absent from the artifact.
+fn activated_routes(river: &crate::QueryRiver, seeds: &[SourceSeed]) -> BTreeMap<u32, Vec<u32>> {
+    let mut outgoing = BTreeMap::<u32, Vec<u32>>::new();
+    for edge in &river.edges {
+        if edge.flow > 0.0 {
+            outgoing.entry(edge.from).or_default().push(edge.to);
+        }
+    }
+    for targets in outgoing.values_mut() {
+        targets.sort_unstable();
+        targets.dedup();
+    }
+    let mut routes = BTreeMap::new();
+    let mut queue = VecDeque::new();
+    for seed in seeds {
+        if seed.weight > 0.0 && !routes.contains_key(&seed.node) {
+            routes.insert(seed.node, vec![seed.node]);
+            queue.push_back(seed.node);
+        }
+    }
+    while let Some(node) = queue.pop_front() {
+        let path = routes[&node].clone();
+        if path.len() > river.max_hops.min(32) {
+            continue;
+        }
+        for target in outgoing.get(&node).into_iter().flatten() {
+            if !routes.contains_key(target) {
+                let mut next = path.clone();
+                next.push(*target);
+                routes.insert(*target, next);
+                queue.push_back(*target);
+            }
+        }
+    }
+    routes
 }

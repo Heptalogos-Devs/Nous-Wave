@@ -467,7 +467,7 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
             text_embedding: RequirementStrength::Forbidden,
             ..Default::default()
         },
-        diagnostics: Default::default(),
+        diagnostics: DiagnosticsRequest::Full,
     };
     let bound = rt
         .cognition
@@ -477,6 +477,38 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         .for_profile(CognitiveProfile::NousNodePotential)
         .unwrap();
     let execution = rt.execute_bound_query(bound, Some(32)).await.unwrap();
+    assert!(
+        execution
+            .result
+            .diagnostics
+            .as_ref()
+            .unwrap()
+            .trace
+            .is_some()
+    );
+    for hit in &execution.result.results {
+        if hit
+            .match_evidence
+            .families
+            .contains(&EvidenceFamily::TopologyWave)
+        {
+            let readout: serde_json::Value =
+                serde_json::from_str(hit.match_evidence.explanation.as_deref().unwrap()).unwrap();
+            assert!(readout["topologywave"]["activated_route"].is_array());
+            for edge in readout["topologywave"]["route_evidence"]
+                .as_array()
+                .unwrap()
+            {
+                let support = edge["support"].as_array().unwrap();
+                assert!(!support.is_empty());
+                assert!(
+                    support
+                        .iter()
+                        .all(|item| item["provenance_root"].is_string())
+                );
+            }
+        }
+    }
     for revision in &revisions {
         assert!(
             execution

@@ -114,3 +114,10 @@ Contact sheet 复核发现原始 frames envelope 只给一组 timestamps 与一�
 PR #15 的大型 observatory/garden/archive 模板结果与全量配对 rerank 降级为探索性接线记录；不能据此判定自动 Tag/Association、Accretion、真实情境 recall 或算法胜负。已付费 provider cache 与原始输出保持 ignored 保存，tracked 模板只保留小型结构 fixture。VCP frozen parity 保留关键数学输入/输出、source hash 和 tolerance，完整探索 matrix 保存 ignored。
 
 本轮暂停 LongMemEval/LoCoMo 全量、批量 rerank、重复 embedding。按 Prepared Query 功能集、独立 raw-text compatibility、少量 Agent CLI loop 三条输入条件分别验收；当前尚未完成新功能集，不提供新的质量分数。
+
+
+### 有界联想解释与共享缓存小试
+
+自然 release 场景现有 cognition 的一个冻结 Prepared Query 在 baseline/native/DTSC/RiverMemo 四个 profile 上复用同一 query vector 与 source cache；本次算法执行 provider、新增 embedding、rerank 均为零。Native 命中可读出 `Tag → Memory → Memory` 两跳激活路径、`tag_attachment`/`elaborates` 关系及支持来源；VCP 数值 readout metadata 经过融合后保留。Full diagnostics 汇集各命中的 readout，复合表达式保留分支 trace。路径是实际激活边上的连通见证，不代表全部势能的因果归属；传播不完整和每边最多 16 条支持的截断明确报告。
+
+Native topology artifact 保存投影证据并以版本 7 重新构建，按边索引支持来源；旧版本 asset 不复用。数值 golden 和真实 PostgreSQL 自动 maintenance→Serving→Tag-only query 回归通过。该单题接线结果尚不能代表完整 Functional Corpus 或算法质量验收。

@@ -175,6 +175,7 @@ impl CognitiveRuntimeService {
             output.candidates.truncate(plan.lane_budget(output.family));
         }
         let mut candidates = HashMap::<CognitiveRef, CandidateRankInput>::new();
+        let mut readouts = HashMap::<CognitiveRef, BTreeMap<String, serde_json::Value>>::new();
         let mut lane_drops = BTreeMap::new();
         for output in &lane_outputs {
             for diagnostic in &output.diagnostics {
@@ -199,6 +200,15 @@ impl CognitiveRuntimeService {
                 });
             }
             for candidate in &output.candidates {
+                if !candidate.provider_metadata.is_null() {
+                    readouts
+                        .entry(candidate.reference.clone())
+                        .or_default()
+                        .insert(
+                            format!("{:?}", output.family).to_lowercase(),
+                            candidate.provider_metadata.clone(),
+                        );
+                }
                 let entry = candidates
                     .entry(candidate.reference.clone())
                     .or_insert_with(|| CandidateRankInput {
@@ -322,7 +332,11 @@ impl CognitiveRuntimeService {
                     enabled_lane_count: candidate.families.len() as u32,
                     final_score: candidate.final_score,
                     variants: candidate.variants,
-                    explanation: None,
+                    explanation: readouts
+                        .get(&candidate.reference)
+                        .map(serde_json::to_string)
+                        .transpose()
+                        .map_err(|error| Error::Infrastructure(error.to_string()))?,
                 };
                 result.results.push(hit);
             }
@@ -353,6 +367,13 @@ impl CognitiveRuntimeService {
         }
         explain_plan(&mut result, query, &plan);
         if let Some(diagnostics) = result.diagnostics.as_mut() {
+            if query.diagnostics == DiagnosticsRequest::Full {
+                diagnostics.trace = Some(serde_json::json!({
+                    "readouts": result.results.iter().filter_map(|hit| readouts.get(&hit.reference)
+                        .map(|value| serde_json::json!({"reference": hit.reference, "lanes": value})))
+                        .collect::<Vec<_>>()
+                }));
+            }
             for lane in &lane_outputs {
                 let name = format!("{:?}", lane.family).to_lowercase();
                 diagnostics

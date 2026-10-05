@@ -371,6 +371,7 @@ mod tests {
                     intrinsic_residual_gain: None,
                 })
                 .collect(),
+            evidence: Vec::new(),
             edges: vec![
                 (0, 2, 0.8, 1.0),
                 (1, 2, 0.8, 1.0),
