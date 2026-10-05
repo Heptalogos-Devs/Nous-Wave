@@ -1760,6 +1760,15 @@ pub struct CreateTagRequest {
     #[prost(message, optional, tag="3")]
     pub tag: ::core::option::Option<Tag>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SearchTagsRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub page: ::core::option::Option<Page>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListTagsResponse {
     #[prost(message, repeated, tag="1")]

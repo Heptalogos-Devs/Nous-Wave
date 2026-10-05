@@ -20,6 +20,12 @@ impl p::topology_service_server::TopologyService for KernelService {
     ) -> std::result::Result<Response<p::ListTagsResponse>, Status> {
         rpc_reply(KernelService::list_tags(self, request.into_inner())).await
     }
+    async fn search_tags(
+        &self,
+        request: Request<p::SearchTagsRequest>,
+    ) -> std::result::Result<Response<p::ListTagsResponse>, Status> {
+        rpc_reply(KernelService::search_tags(self, request.into_inner())).await
+    }
     async fn create_association(
         &self,
         request: Request<p::CreateAssociationRequest>,

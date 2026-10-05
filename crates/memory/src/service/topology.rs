@@ -98,6 +98,76 @@ impl MemoryService {
         self.association(subject, id).await
     }
 
+    /// Bounded undirected read of active, supported AssociationEvidence.
+    pub async fn association_neighborhood(
+        &self,
+        subject: SubjectId,
+        root: CognitiveRef,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<AssociationNeighborhood> {
+        if !(1..=256).contains(&max_nodes) || !(1..=4).contains(&max_depth) {
+            return Err(Error::Invalid(
+                "neighborhood requires 1..256 nodes and 1..4 depth".into(),
+            ));
+        }
+        self.store.require_subject(subject).await?;
+        self.store.validate_reference(subject, &root).await?;
+        let mut seen = std::collections::HashSet::from([root.clone()]);
+        let mut frontier = vec![root.clone()];
+        let mut nodes = vec![root];
+        let mut edge_ids = std::collections::HashSet::new();
+        let mut associations = Vec::new();
+        let mut truncated = false;
+        for _ in 0..max_depth {
+            if frontier.is_empty() {
+                break;
+            }
+            let (kinds, refs): (Vec<_>, Vec<_>) = frontier.iter().map(reference_parts).unzip();
+            let rows = sqlx::query("WITH frontier AS (SELECT * FROM unnest($2::text[], $3::text[]) AS f(kind,ref)) SELECT a.association_evidence_id,a.from_ref_kind,a.from_ref,a.to_ref_kind,a.to_ref FROM association_evidence a WHERE a.subject_id=$1 AND a.revoked_at IS NULL AND EXISTS(SELECT 1 FROM frontier f WHERE (f.kind=a.from_ref_kind AND f.ref=a.from_ref) OR (f.kind=a.to_ref_kind AND f.ref=a.to_ref)) ORDER BY a.association_evidence_id LIMIT 257")
+                .bind(subject.0).bind(kinds).bind(refs).fetch_all(self.store.pool()).await.map_err(db)?;
+            truncated |= rows.len() > 256;
+            let mut next = Vec::new();
+            for row in rows.into_iter().take(256) {
+                let id: Uuid = row.try_get("association_evidence_id").map_err(db)?;
+                if edge_ids.contains(&id) {
+                    continue;
+                }
+                let from = parse_reference(
+                    &row.try_get::<String, _>("from_ref_kind").map_err(db)?,
+                    &row.try_get::<String, _>("from_ref").map_err(db)?,
+                )?;
+                let to = parse_reference(
+                    &row.try_get::<String, _>("to_ref_kind").map_err(db)?,
+                    &row.try_get::<String, _>("to_ref").map_err(db)?,
+                )?;
+                let added = [&from, &to]
+                    .iter()
+                    .filter(|reference| !seen.contains(*reference))
+                    .count();
+                if nodes.len() + added > max_nodes || associations.len() == 256 {
+                    truncated = true;
+                    continue;
+                }
+                for reference in [from, to]
+                    .into_iter()
+                    .filter(|reference| seen.insert(reference.clone()))
+                {
+                    nodes.push(reference.clone());
+                    next.push(reference);
+                }
+                edge_ids.insert(id);
+                associations.push(self.association(subject, AssociationEvidenceId(id)).await?);
+            }
+            frontier = next;
+        }
+        Ok(AssociationNeighborhood {
+            nodes,
+            associations,
+            truncated,
+        })
+    }
+
     async fn association(
         &self,
         subject: SubjectId,

@@ -256,6 +256,13 @@ pub struct AssociationEvidence {
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone)]
+pub struct AssociationNeighborhood {
+    pub nodes: Vec<CognitiveRef>,
+    pub associations: Vec<AssociationEvidence>,
+    pub truncated: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExplicitMemoryInput {
     #[serde(default)]
