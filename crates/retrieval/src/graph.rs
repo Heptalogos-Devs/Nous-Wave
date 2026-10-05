@@ -612,7 +612,8 @@ pub struct TopologyArtifact {
 fn supported_relation(kind: &str) -> bool {
     matches!(
         kind,
-        "aboutness"
+        "cognition_support"
+            | "aboutness"
             | "tag_attachment"
             | "schema_support"
             | "derived_from"

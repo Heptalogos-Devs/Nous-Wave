@@ -15,6 +15,7 @@ mod query_descriptors;
 mod references;
 pub use identity::{IdentityBinding, lexical_prefix, validate_lexical};
 pub use query_descriptors::QueryDescriptor;
+mod longitudinal_topology;
 mod semantic_catalog;
 mod serving;
 mod tags;

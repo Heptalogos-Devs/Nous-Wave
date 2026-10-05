@@ -158,3 +158,10 @@ incident 两次 topology-only 请求自动创建了 snapshot premature-deletion/
 routine 新建了独立 post-breakfast field-journal Tag，描述涵盖 Sep 7 变更及 Sep 9/14 重复；按实际目录绑定后，全部 15 intent 无 unresolved。Native 之前没有消费配置中的 lexical/dense promoted seed 权重，弱文本即使已有 prepared retrieval signals 也无图入口。现在在无直接图 anchor 时，以每 lane 最多四个当前图节点、weight/rank 提供弱 seed，不再请求 embedding；直接 anchor 与传播计算保持原语义。golden、seed 边界和直接 Tag maintenance→Serving 回归通过。
 
 精确预检列出 60 个新文本 misses（15 query representation 加实际 owner 新材料），按上限 6 个 provider batch/60 items 补齐，旧 29 个向量保留。复检 60 个所需文本全在缓存、零 misses。15 intent × baseline/native/DTSC/RiverMemo 的 60 个 finalized readout 随后完成：每题四 profile 使用同一冻结 representation digest，算法阶段 provider/embedding/rerank 全零，新增 generation 5，net artifact growth 9,560,166 bytes。所有四个 profile 的结构检查各 9 supported/6 failed；无 missing readout。语义相关性、时态/visitor 干扰以及跨系统二/三跳仍需继续恢复和人工核对。弱线索可激活 Native 图，但现有最终命中多数是 promoted/direct seed，不能将其算作多跳成功。没有扩大外部 benchmark。
+
+
+### 当前 cognition 的来源拓扑
+
+检查发现 topology projection 只从 Memory text sources 加入节点，未显式关联的 current Episode/Journal exact anchor 无法进入图。现在投影所有当前 accepted/valid cognition，并沿已有 Episode members/exact supports、Journal sources、Memory dependencies、active supporting Schema evidence 提供双向 `cognition_support` 结构邻接；不改写成因果关系，不使用 oracle 生成边。inactive cognition association endpoints、撤销/counterexample/contradiction 支持不作为正向来源连接，Memory capability 关闭时不提供这些节点。资产 revision 9 区分本轮图合同，原向量复用。
+
+真实 PostgreSQL 回归验证 Episode→Memory 成员连接、逆向同支持连接与 capability 隔离。完整缓存语义集重跑 60 arms，provider/embedding/rerank 均零，generation 增量 5、artifact 增量 11,081,027 bytes。Native weak-cue case 增加有来源支持的路径，结构检查 10 supported/5 failed；其他三个 profile 各 9 supported/6 failed。跨系统二/三跳、部分 causal/spontaneous 路径及 visitor interference 仍未验收。没有将来源连接数量当作完整认知恢复。

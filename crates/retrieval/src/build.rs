@@ -390,7 +390,7 @@ fn is_text(media: &str) -> bool {
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
         "lexical" | "dense" | "exact" => 4,
-        "topology" => 7,
+        "topology" => 9,
         _ => 1,
     }
 }

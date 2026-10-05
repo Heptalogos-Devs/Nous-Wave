@@ -128,6 +128,7 @@ async fn topology_snapshot_in(
     let mut nodes = HashSet::new();
     let mut edges = Vec::new();
     if memory_enabled {
+        crate::longitudinal_topology::append(tx, subject, &mut nodes, &mut edges).await?;
         let sources = crate::projection_input::memory_sources(tx, subject).await?;
         for source in sources {
             nodes.insert(source.reference.clone());
@@ -228,6 +229,18 @@ async fn topology_snapshot_in(
                 continue;
             }
             if !allowed(&from) || !allowed(&to) {
+                continue;
+            }
+            let current_cognition = |reference: &CognitiveRef| {
+                !matches!(
+                    reference,
+                    CognitiveRef::MemoryRevision(_)
+                        | CognitiveRef::EpisodeRevision(_)
+                        | CognitiveRef::JournalRevision(_)
+                        | CognitiveRef::CognitiveSchemaRevision(_)
+                ) || nodes.contains(reference)
+            };
+            if !current_cognition(&from) || !current_cognition(&to) {
                 continue;
             }
             nodes.insert(from.clone());

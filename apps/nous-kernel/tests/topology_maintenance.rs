@@ -598,6 +598,29 @@ async fn episode_relations(rt: &NousRuntime, subject: SubjectId, revisions: &[Co
         })
         .await
         .unwrap();
+    let projection = rt
+        .store
+        .topology_projection_input(subject, true)
+        .await
+        .unwrap();
+    let episode_ref = CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id);
+    assert!(projection.nodes.contains(&episode_ref));
+    for reference in revisions {
+        assert!(projection.edges.iter().any(|edge| edge.from == episode_ref
+            && &edge.to == reference
+            && edge.association_kind == "cognition_support"));
+        assert!(projection.edges.iter().any(|edge| &edge.from == reference
+            && edge.to == episode_ref
+            && edge.association_kind == "cognition_support"));
+    }
+    assert!(
+        !rt.store
+            .topology_projection_input(subject, false)
+            .await
+            .unwrap()
+            .nodes
+            .contains(&episode_ref)
+    );
     let claimed = claim(rt, subject).await;
     let focus = parse_reference(&claimed.scope_kind, &claimed.scope_ref).unwrap();
     let plan = owner.plan_topology(subject, focus).await.unwrap();
