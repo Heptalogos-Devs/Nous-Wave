@@ -1,3 +1,5 @@
+mod closure;
+pub use closure::{UnresolvedQueryReference, unresolved_query_references, validate_query_closure};
 mod cognitive_profile;
 pub use cognitive_profile::{COGNITIVE_PROFILE, CognitiveProfile, CognitiveProfileRequirements};
 mod bind;

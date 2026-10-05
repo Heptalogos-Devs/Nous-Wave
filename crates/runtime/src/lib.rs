@@ -24,8 +24,9 @@ pub use maintenance_policy::*;
 pub use query::{
     BoundQuery, COGNITIVE_PROFILE, CognitiveContributor, CognitiveContributors, CognitiveProfile,
     CognitiveProfileRequirements, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput, LaneStatus,
-    QueryExecution, QueryPlan, QueryReadLease, SharedLaneProvider, TopologyWorkSummary, WorkCycle,
-    register_retrieval_configuration,
+    QueryExecution, QueryPlan, QueryReadLease, SharedLaneProvider, TopologyWorkSummary,
+    UnresolvedQueryReference, WorkCycle, register_retrieval_configuration,
+    unresolved_query_references, validate_query_closure,
 };
 pub use segmentation::{EpisodeDraft, SegmentationProgress};
 pub use work_contexts::*;
