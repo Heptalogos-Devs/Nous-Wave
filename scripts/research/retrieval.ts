@@ -91,6 +91,16 @@ const { values, positionals } = parseArgs({
 if (positionals[0] === "prepare") {
   if (!values["raw-file"] || !values["prepared-root"])
     throw new Error("prepare requires --raw-file --prepared-root");
+  if (values.suite === "hard-text") {
+    const { prepareHardText } = await import("./retrieval/hard-text.js");
+    await prepareHardText(
+      values["raw-file"],
+      values.queries,
+      values.texts,
+      values["prepared-root"],
+    );
+    process.exit(0);
+  }
   const { prepareExternal } = await import("./retrieval/external.js");
   await prepareExternal(
     values.suite,

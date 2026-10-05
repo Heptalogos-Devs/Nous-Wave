@@ -19,6 +19,7 @@ type Event = { event_id: string; subject: string; session?: string };
 type Row = {
   query_id: string;
   subject?: string;
+  judged_absence?: boolean;
   session_oracle?: string[];
   unresolved_evidence?: string[];
   required_paths?: RecallPath[];
@@ -46,7 +47,11 @@ type Row = {
 const events: Event[] = [];
 const manifest = JSON.parse(
   await readFile(resolve(values.corpus!, "manifest.json"), "utf8"),
-) as { scenario_files: { path: string }[] };
+) as {
+  scenario_files: { path: string }[];
+  oracle_policy?: string;
+  source_set_unit?: string;
+};
 for (const file of manifest.scenario_files)
   events.push(
     ...(
@@ -77,27 +82,40 @@ const rows = raw.map((row) => {
   if (seen.has(key)) throw new Error(`Duplicate result ${key}`);
   seen.add(key);
   const subject = row.subject ?? row.query_id.split("-q")[0]!;
-  const oracle: Record<string, RecallOracle> = Object.fromEntries(
+  const subjectEvents = new Map(
     events
       .filter((event) => event.subject === subject)
-      .map((event) => [
-        event.event_id,
-        { grade: 0 as const, reason: "distractor", source: event.event_id },
-      ]),
+      .map((event) => [event.event_id, event]),
   );
+  const sourceFor = (id: string) =>
+    manifest.source_set_unit === "document_session"
+      ? (subjectEvents.get(id)!.session ?? id)
+      : id;
+  const oracle: Record<string, RecallOracle> =
+    manifest.oracle_policy === "explicit_qrels_unjudged_others" &&
+    !row.judged_absence
+      ? {}
+      : Object.fromEntries(
+          [...subjectEvents.keys()].map((id) => [
+            id,
+            { grade: 0 as const, reason: "distractor", source: sourceFor(id) },
+          ]),
+        );
   for (const [id, entry] of Object.entries(row.oracle)) {
-    if (!(id in oracle)) throw new Error("Oracle event outside Subject");
+    if (!subjectEvents.has(id)) throw new Error("Oracle event outside Subject");
     oracle[id] = {
       grade: entry.grade,
       reason: entry.reason,
-      source: id,
+      source: sourceFor(id),
       harmfulKind: entry.harmful_kind,
     };
   }
   const returned = row.returned.map(
     (item, index) => item.event_id ?? `unmapped:${index}`,
   );
-  if (returned.some((id) => !id.startsWith("unmapped:") && !(id in oracle)))
+  if (
+    returned.some((id) => !id.startsWith("unmapped:") && !subjectEvents.has(id))
+  )
     throw new Error("Returned event outside Subject");
   const expectedSessions = new Set(row.session_oracle ?? []);
   const sessionRecall = Object.fromEntries(

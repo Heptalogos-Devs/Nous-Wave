@@ -70,7 +70,7 @@ results = []
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
     for result in pool.map(acquire, sources):
         results.append(result)
-manifest = {'version': 1, 'status': 'sources_frozen_queries_pending_audit', 'sources': [s for s, u in results], 'units': [{k: v for k, v in unit.items() if k != 'text'} for s, u in results for unit in u]}
+manifest = {'version': 1, 'status': 'sources_frozen_queries_pending_audit', 'sources': [s for s, u in results], 'units': [{k: v for k, v in unit.items() if k not in ('text', 'heading_path')} for s, u in results for unit in u]}
 manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 (root / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 (root / 'unit-texts.json').write_text(json.dumps({u['id']: u['text'] for s, units in results for u in units}, ensure_ascii=False) + '\n')

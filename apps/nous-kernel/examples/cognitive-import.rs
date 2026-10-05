@@ -27,6 +27,14 @@ struct Scenario {
     #[serde(default = "default_suite")]
     suite: String,
     events: Vec<Event>,
+    #[serde(default)]
+    source_documents: BTreeMap<String, SourceDocument>,
+}
+#[derive(Clone, Deserialize)]
+struct SourceDocument {
+    text: String,
+    url: String,
+    raw_sha256: String,
 }
 #[derive(Clone, Deserialize)]
 struct Event {
@@ -41,6 +49,7 @@ struct Event {
     tags: Vec<String>,
     renders: Vec<Render>,
     relations: Vec<Relation>,
+    source_document: Option<String>,
 }
 #[derive(Clone, Deserialize)]
 struct ValidTime {
@@ -65,6 +74,7 @@ struct State {
     sessions: BTreeMap<String, SessionId>,
     tags: BTreeMap<String, TagId>,
     corpus_digest: String,
+    source_digest: String,
     associations: BTreeMap<String, AssociationEvidenceId>,
 }
 #[derive(Serialize, Deserialize)]
@@ -365,13 +375,7 @@ async fn import_scenario(
             save(state_path, state)?;
             session
         };
-        let accepted = runtime.material.record_observation_once(ObservationInput {
-            subject, session: Some(session), occurrence: OccurrenceDescriptor {
-                source_class: SourceClass::Message, external_object_ref: Some(ObjectRef::new(format!("object:cc0:{}",event.event_id))?),
-                occurred_time: TemporalExtent::Instant { at: event.occurred_at }, observed_at: Some(event.observed_at),
-                conversation_ref: None, actor_entity_ref: None, context: serde_json::json!({"event_id":event.event_id,"suite":scenario.suite,"clock_source":"research-serial-clock"}),
-            }, material: ObservationMaterial::InlineText { text: event.renders.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join("\n"), media_type: "text/plain".into() }, entities: Vec::new(), runtime: RuntimeDirective::default(),
-        }, Some(id(&format!("{}:observe", event.event_id)))).await?;
+        let accepted = record_event_source(runtime, &scenario, event, subject, session).await?;
         if accepted.occurrence.observed_at != event.observed_at
             || accepted.occurrence.occurred_time
                 != (TemporalExtent::Instant {
@@ -413,6 +417,68 @@ async fn import_scenario(
         scenario.events.len()
     );
     Ok(())
+}
+
+async fn record_event_source(
+    runtime: &NousRuntime,
+    scenario: &Scenario,
+    event: &Event,
+    subject: SubjectId,
+    session: SessionId,
+) -> Result<nous_material::AcceptedObservation> {
+    let (key, text, source_class, object, context) = if let Some(key) = &event.source_document {
+        let document = scenario
+            .source_documents
+            .get(key)
+            .ok_or_else(|| Error::Invalid("event source document is absent".into()))?;
+        (
+            format!("{}:document:{key}", scenario.scenario_id),
+            document.text.clone(),
+            SourceClass::Web,
+            format!("object:research:{}:{key}", scenario.scenario_id),
+            serde_json::json!({"source_document":key,"source_url":document.url,"raw_html_sha256":document.raw_sha256,"suite":scenario.suite,"clock_source":"research-serial-clock"}),
+        )
+    } else {
+        (
+            event.event_id.clone(),
+            event
+                .renders
+                .iter()
+                .map(|r| r.text.as_str())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            SourceClass::Message,
+            format!("object:cc0:{}", event.event_id),
+            serde_json::json!({"event_id":event.event_id,"suite":scenario.suite,"clock_source":"research-serial-clock"}),
+        )
+    };
+    runtime
+        .material
+        .record_observation_once(
+            ObservationInput {
+                subject,
+                session: Some(session),
+                occurrence: OccurrenceDescriptor {
+                    source_class,
+                    external_object_ref: Some(ObjectRef::new(object)?),
+                    occurred_time: TemporalExtent::Instant {
+                        at: event.occurred_at,
+                    },
+                    observed_at: Some(event.observed_at),
+                    conversation_ref: None,
+                    actor_entity_ref: None,
+                    context,
+                },
+                material: ObservationMaterial::InlineText {
+                    text,
+                    media_type: "text/plain".into(),
+                },
+                entities: Vec::new(),
+                runtime: RuntimeDirective::default(),
+            },
+            Some(id(&format!("{key}:observe"))),
+        )
+        .await
 }
 
 fn memory_input(
@@ -727,11 +793,20 @@ fn load_import_state(corpus: &std::path::Path, state_path: &std::path::Path) -> 
     };
     let manifest = std::fs::read(corpus.join("manifest.json")).map_err(failure)?;
     let corpus_digest = blake3::hash(&manifest).to_hex().to_string();
-    if !state.corpus_digest.is_empty() && state.corpus_digest != corpus_digest {
+    let definition: serde_json::Value = serde_json::from_slice(&manifest).map_err(failure)?;
+    let source_digest = blake3::hash(
+        &serde_json::to_vec(&serde_json::json!({"schema":"research-source-corpus-v1","scenario_files":definition["scenario_files"]})).map_err(failure)?
+    ).to_hex().to_string();
+    if (!state.source_digest.is_empty() && state.source_digest != source_digest)
+        || (state.source_digest.is_empty()
+            && !state.corpus_digest.is_empty()
+            && state.corpus_digest != corpus_digest)
+    {
         return Err(Error::Conflict(
-            "corpus changed since import; use a separate run root".into(),
+            "source corpus changed since import; use a separate run root".into(),
         ));
     }
+    state.source_digest = source_digest;
     load_receipts(state_path, &mut state)?;
     state.corpus_digest = corpus_digest;
     save(state_path, &state)?;

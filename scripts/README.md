@@ -208,3 +208,11 @@ NOUS_RESEARCH_RERANK_CONFIG=<research-nous.toml> NOUS_RESEARCH_RERANK_LOCATOR=<b
 LoCoMo embeddings / CC0 rerank 阶段使用累计上限 2000；全量 LongMemEval 阶段使用 30000（246457 个唯一文本，batch=10，另保留既有累计调用和后续比较容量）。上限按实际阶段输入规模声明，ledger 保留累计计数。Gateway 切换在模型调用间完成，确认新 gateway ready 后继续。
 
 Hard Text 原始来源冻结：`python3 scripts/research/retrieval/hard-text.py`，源目录和 unit texts 位于 ignored `data/research/corpus/hard-text/`，摘要/locator 位于 [hard-text manifest](../docs/research/corpus/hard-text.json)。该命令只准备 source，query 审计和实际检索使用对应研究流程。
+
+## Hard Text IR preparation
+
+```text
+corepack pnpm exec tsx scripts/research/retrieval.ts prepare --suite hard-text --raw-file docs/research/corpus/hard-text.json --queries docs/research/corpus/hard-text-queries.json --texts data/research/corpus/hard-text/unit-texts.json --prepared-root data/research/external/hard-text/prepared
+```
+
+同一 CLI 使用 source/unit SHA-256 复核文本，生成 manifest/scenarios/queries 供已有 `cognitive-import` 使用。准备本身不调用模型，不改变 oracle 审计状态。第三方正文仅写入 ignored prepared root。所有版本/项目共处一个 Subject，每篇 source 为一个 Session；Tag 来自来源版本/作者，query cue 来自问题 literal surface。Hard Text 的 `explicit_qrels_unjudged_others` policy 保留未审定候选；普通 closed oracle suites 保持原语义。来源文档用 `source_set_unit=document_session` 分组，避免把每个段落误称一份独立 source。

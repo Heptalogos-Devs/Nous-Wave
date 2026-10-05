@@ -2161,6 +2161,2084 @@
       ],
       "verification_note": "Positive source block read and confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
       "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q081",
+      "text": "Simon Willison 的博客从哪一天开始？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-twenty-years-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-06-12"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-twenty-years-u0001",
+          "url": "https://simonwillison.net/2022/jun/12/twenty-years/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "193edbbd66e080abefeb8debe70c745dacfdddadc3ae2766ff3b639557a0661e"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q082",
+      "text": "Simon Willison 早期发布的 PHP XML-RPC 库是什么，后来哪些项目继续使用它？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-twenty-years-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-06-12"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-twenty-years-u0002",
+          "url": "https://simonwillison.net/2022/jun/12/twenty-years/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "1f009c914de17cc1a668841385a7d2fd3771d17a5fd01b6b1d80ab88cd4d1508"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q083",
+      "text": "Simon Willison 的 getElementsBySelector 函数接受什么输入并返回什么？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-twenty-years-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-06-12"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-twenty-years-u0003",
+          "url": "https://simonwillison.net/2022/jun/12/twenty-years/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "302f91601055bea3b44685a245ea056ca8d5b930e1f55366a9e03f0786800adf"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q084",
+      "text": "Simon Willison 回忆最初的 Django 项目时，他们当时称它为什么？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "simon-twenty-years-u0005"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-06-12"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-twenty-years-u0005",
+          "url": "https://simonwillison.net/2022/jun/12/twenty-years/",
+          "anchor": "primary",
+          "ordinal": 4,
+          "sha256": "4f26709a241ac2ca364c83e0acc3da8f424ec02370b87faf7f1d5c500fd5a542"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q085",
+      "text": "Simon Willison 为什么认为要求每篇博客都独一无二会妨碍写作？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-what-to-blog-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-11-06"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-what-to-blog-u0002",
+          "url": "https://simonwillison.net/2022/Nov/6/what-to-blog-about/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "270b3fc533503accd3fddff3d56e7885ef3b8db8a3269c29019b7c345de57417"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q086",
+      "text": "Simon Willison 在 2022 年建议优先写哪两种低门槛博客内容？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-what-to-blog-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-11-06"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-what-to-blog-u0003",
+          "url": "https://simonwillison.net/2022/Nov/6/what-to-blog-about/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "cbc76d831c5fd00d02ca02b547f9b6c2a83b5ae4b4acc8a125b6526573f89ca8"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q087",
+      "text": "Simon Willison 对 TIL 的定位是深入教程，还是刚学到东西的个人笔记？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "simon-what-to-blog-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-11-06"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-what-to-blog-u0004",
+          "url": "https://simonwillison.net/2022/Nov/6/what-to-blog-about/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "6be791a8b2480b7bc232818b05136308bfa67127c06ef7a966d96b25b12000e6"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q088",
+      "text": "到 2022 年 what-to-blog 文章时，Simon Willison 何时开始发布 TIL，并累计多少篇？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-what-to-blog-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-11-06"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-what-to-blog-u0006",
+          "url": "https://simonwillison.net/2022/Nov/6/what-to-blog-about/",
+          "anchor": "primary",
+          "ordinal": 5,
+          "sha256": "dc0bfe550037b76b20076d6969c515c4918d0458d1f1d1da01384111ebe45977"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q089",
+      "text": "Simon Willison 的 2022 项目回顾中，sqlite-utils 3.20/3.21 哪些 CLI 选项扩展了日志处理？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "simon-2022-projects-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-12-31"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-2022-projects-u0002",
+          "url": "https://simonwillison.net/2022/Dec/31/2022-in-projects/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "0f40c5a10dacafbda239a9944abf5acc99589b3a38bfc85846a7a4f6339e1d64"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q090",
+      "text": "Simon Willison 回顾 Datasette 0.60 时，数据库写入 API 和表过滤 hook 有什么更新？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-2022-projects-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-12-31"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-2022-projects-u0003",
+          "url": "https://simonwillison.net/2022/Dec/31/2022-in-projects/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "586a9833d7788e3be4dd2cbc82b079f5cd79844c071948bb5fe5854e5d846af0"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q091",
+      "text": "Simon Willison 怎样借助 Git 记录命令帮助文本来跟踪 AWS Lambda Function URLs？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-2022-projects-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-12-31"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-2022-projects-u0004",
+          "url": "https://simonwillison.net/2022/Dec/31/2022-in-projects/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "b1f871650b4cf09945e94bd1a6bfbd9969bcc05d0240e95c2fc9bbe5b26349ae"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q092",
+      "text": "Simon Willison 的 Google Drive to SQLite 项目把哪种 Drive 信息保存到数据库？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "simon-2022-projects-u0005"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-12-31"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-2022-projects-u0005",
+          "url": "https://simonwillison.net/2022/Dec/31/2022-in-projects/",
+          "anchor": "primary",
+          "ordinal": 4,
+          "sha256": "4ba301c141f532d6495e03df512f6526810094a16bd880a3340aa6ae38878141"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q093",
+      "text": "Simon Willison 在 2022 项目回顾中提到的首个官方 Datasette tutorial 讲什么？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-2022-projects-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-12-31"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-2022-projects-u0006",
+          "url": "https://simonwillison.net/2022/Dec/31/2022-in-projects/",
+          "anchor": "primary",
+          "ordinal": 5,
+          "sha256": "d48d3df4762258f8038e3836acdffc55385eabb50a3e094d24f0289ea442c482"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q094",
+      "text": "Simon Willison 何时开始 link blog，最初 blogmark 包含哪些信息？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-link-blog-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2024-12-22"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-link-blog-u0001",
+          "url": "https://simonwillison.net/2024/Dec/22/link-blog/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "33339fbef75400d3e48da281c0fe252e48172a9f14eea2f7058be6bd308a038f"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q095",
+      "text": "Simon Willison 在 2024 年几月给 link blog 增加 Markdown 支持？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "simon-link-blog-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2024-12-22"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-link-blog-u0002",
+          "url": "https://simonwillison.net/2024/Dec/22/link-blog/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "a3949158559ef878acbb6f1800953c018332fda98f37e538e33fe6bf9cb318e8"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q096",
+      "text": "Simon Willison 为什么认为没有读者时频繁博客仍然有价值？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-link-blog-u0005"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2024-12-22"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-link-blog-u0005",
+          "url": "https://simonwillison.net/2024/Dec/22/link-blog/",
+          "anchor": "primary",
+          "ordinal": 4,
+          "sha256": "b698001303720d427d9598e6115c62261c93ef172158178f0eafe3aba7694551"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q097",
+      "text": "Simon Willison 在 link-blog 文章回顾此前建议时，哪两类内容被称为低风险高价值？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "simon-link-blog-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2024-12-22"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-link-blog-u0006",
+          "url": "https://simonwillison.net/2024/Dec/22/link-blog/",
+          "anchor": "primary",
+          "ordinal": 5,
+          "sha256": "761f614ffd6f01f28126035277ea114c7556354121350758302878a10f36478e"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q098",
+      "text": "Simon Willison 的 beats 如何显示，并进入网站的哪些 timeline views？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-beats-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2026-02-20"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-beats-u0002",
+          "url": "https://simonwillison.net/2026/Feb/20/beats/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "501f1c0d4ba87f2b2b268f0c41c028ec4561d7eb350a843a52ebcd071a144134"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q099",
+      "text": "Simon Willison 的 beats 怎样获得开源项目 GitHub releases 的输入数据？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-beats-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2026-02-20"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-beats-u0003",
+          "url": "https://simonwillison.net/2026/Feb/20/beats/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "bb327b3278ed243e2b628a0e348d3fbe199270993d7a3fb2e5a75361c42ec1cb"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q100",
+      "text": "Simon Willison 的 beats 怎样从 TIL 网站的 Datasette instance 导入文章？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "simon-beats-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2026-02-20"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-beats-u0004",
+          "url": "https://simonwillison.net/2026/Feb/20/beats/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "31f94ddbab0e3c6ff8edd72675d3bfeac31b6042505d9e560e93c2bf258e294b"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q101",
+      "text": "Simon Willison 的 museum beats 来源是哪一个网站和什么 feed？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-beats-u0005"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2026-02-20"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-beats-u0005",
+          "url": "https://simonwillison.net/2026/Feb/20/beats/",
+          "anchor": "primary",
+          "ordinal": 4,
+          "sha256": "21dba58b0531c09bda69b91c67f11acf56b0a796521cfe2a0e5243c4f34405cc"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q102",
+      "text": "Simon Willison 的 tool beats 对应什么类型的程序和站点？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-beats-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2026-02-20"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-beats-u0006",
+          "url": "https://simonwillison.net/2026/Feb/20/beats/",
+          "anchor": "primary",
+          "ordinal": 5,
+          "sha256": "3fa507a4ed63d4014b88cf6fd105fbba0c79788b046e0a36a36ac01f858c5210"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q103",
+      "text": "Simon Willison 宣布建立官方 Datasette blog 的原因是什么？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-datasette-blog-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2026-05-13"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-blog-u0001",
+          "url": "https://simonwillison.net/2026/may/13/welcome-to-the-datasette-blog/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "cc443c5b1cd044e2a57962d74f4edd0dc480fb03308977e98b759daefacd32f1"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q104",
+      "text": "Simon Willison 建 Datasette blog 时使用了哪个桌面工具，尤其看重哪个 transcript 功能？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "simon-datasette-blog-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2026-05-13"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-blog-u0002",
+          "url": "https://simonwillison.net/2026/may/13/welcome-to-the-datasette-blog/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "5d7996e55d5b6fa7c28a055c5d1a8c6a25f26b6a3b8dd6b1a3ee26d1cc28eb3e"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q105",
+      "text": "Simon Willison 的个人项目生产力演讲是在什么会议和城市进行的？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-productivity-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-11-26"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-productivity-u0001",
+          "url": "https://simonwillison.net/2022/Nov/26/productivity/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "7e5c8b2ee1fd69fc99aa15a9decc149ec37543600484adda8971545ca9255b06"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q106",
+      "text": "Simon Willison 的 Coping strategies for the serial project hoarder 是什么演讲的替代标题？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "simon-productivity-u0001",
+        "simon-productivity-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-11-26"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-productivity-u0001",
+          "url": "https://simonwillison.net/2022/Nov/26/productivity/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "7e5c8b2ee1fd69fc99aa15a9decc149ec37543600484adda8971545ca9255b06"
+        },
+        {
+          "unit": "simon-productivity-u0002",
+          "url": "https://simonwillison.net/2022/Nov/26/productivity/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "0546f71399e60d291f86586d5c86f6383a36d6f5fb213459d775d939d3fde156"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q107",
+      "text": "Simon Willison 用什么规模团队的工作方法来组织多个个人项目？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-productivity-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-11-26"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-productivity-u0003",
+          "url": "https://simonwillison.net/2022/Nov/26/productivity/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "e516ea4f3148e192850a24d0f27b4b6d2cb43a5c03b89ef29e8c11cb7e0ba52e"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q108",
+      "text": "Simon Willison 如何借助文档和测试免于同时记住各项目全部细节？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-productivity-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-11-26"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-productivity-u0004",
+          "url": "https://simonwillison.net/2022/Nov/26/productivity/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "68a7c53dfa1fe80587b9a283b00c4cddea9d287eea84d15912a2a6ef85b61bb4"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q109",
+      "text": "Simon Willison 的 Datasette Lite 通过哪项技术让 Python 服务端应用在浏览器运行？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "simon-datasette-lite-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-05-04"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-lite-u0001",
+          "url": "https://simonwillison.net/2022/May/4/datasette-lite/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "5dcae9470eeb9cdc704eef918b63cfea5765a3e7d42e94e3709086523b438c4b"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q110",
+      "text": "Simon Willison 在 2022 年 6 月 20 日更新 Datasette Lite 的什么数据加载能力？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-datasette-lite-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-05-04"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-lite-u0002",
+          "url": "https://simonwillison.net/2022/May/4/datasette-lite/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "2f13211740c689167aed99744e8f48a3fe358afc3a2e90539d2797b17d82cd2f"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q111",
+      "text": "Simon Willison 的 Datasette Lite 最初示例默认加载哪两个 SQLite databases？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-datasette-lite-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-05-04"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-lite-u0003",
+          "url": "https://simonwillison.net/2022/May/4/datasette-lite/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "9c2d5f008eca08304eb43dc390e0824c26ac99db5f149594e32df84550df884f"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q112",
+      "text": "Simon Willison 的 Datasette Lite 按 URL 加载用户 SQLite 文件时需要什么 HTTP 访问条件？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-datasette-lite-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-05-04"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-lite-u0004",
+          "url": "https://simonwillison.net/2022/May/4/datasette-lite/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "df73a9961ad266fdc54bc75fe2691cacc802e8a7a872c03d69fe0758b508aa6b"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q113",
+      "text": "Simon Willison 的 Datasette Lite 保留哪些查询、过滤和导出能力？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-datasette-lite-u0005"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2022-05-04"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-lite-u0005",
+          "url": "https://simonwillison.net/2022/May/4/datasette-lite/",
+          "anchor": "primary",
+          "ordinal": 4,
+          "sha256": "a9e0f752fc326d5f8021622accc209cc4518e0608b7b411baa305819cc35ecf3"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q114",
+      "text": "Simon Willison 在 2025 年强调 URL-addressable Python 环境时，起因是哪种应用中的 bug？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-url-python-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2025-02-13"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-url-python-u0001",
+          "url": "https://simonwillison.net/2025/Feb/13/url-addressable-python/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "5385d319a7f51f8dc7b2b54ea0bbdb19c016b2cced9147c590226f7529495ce8"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q115",
+      "text": "Simon Willison 回顾 Datasette Lite 起源时，它最初属于什么类型的个人项目？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-url-python-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2025-02-13"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-url-python-u0004",
+          "url": "https://simonwillison.net/2025/Feb/13/url-addressable-python/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "b9535060bcfbf09fe206a6625d7289817b3d672009084cea6088ec9e663570a6"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q116",
+      "text": "到 Simon Willison 的 2025 年 URL-addressable Python 文章，URL 参数可加载哪四种数据格式？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "simon-url-python-u0005"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2025-02-13"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-url-python-u0005",
+          "url": "https://simonwillison.net/2025/Feb/13/url-addressable-python/",
+          "anchor": "primary",
+          "ordinal": 4,
+          "sha256": "ae354eb69ebfa9e31764ae53d62783db59cc6d633940515ba6287a3bc717cce6"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q117",
+      "text": "Simon Willison 为什么后来认为等待完整浏览器 Python interpreter 下载仍然值得？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-url-python-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2025-02-13"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-url-python-u0006",
+          "url": "https://simonwillison.net/2025/Feb/13/url-addressable-python/",
+          "anchor": "primary",
+          "ordinal": 5,
+          "sha256": "fa6551dc38fb7455661bf8c3da2dda3a8568ba1d8765101e0c568fd907fc6ced"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q118",
+      "text": "Simon Willison 在 2025 年回顾中把 reasoning/RLVR 革命的起点归于何时及哪两个模型？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-year-llms-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2025-12-31"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-year-llms-u0002",
+          "url": "https://simonwillison.net/2025/Dec/31/the-year-in-llms/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "f5868cfc83889df7097069377310c0dd4789c4f394d36893b256daaf61c1d3e7"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q119",
+      "text": "Simon Willison 引用谁解释 RLVR 的可验证奖励如何让模型形成分步求解策略？",
+      "category": "direct_fact",
+      "expected_units": [
+        "simon-year-llms-u0003",
+        "simon-year-llms-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2025-12-31"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-year-llms-u0003",
+          "url": "https://simonwillison.net/2025/Dec/31/the-year-in-llms/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "f7b0b70248d3548fad9cca0dac36f8d3b190c98ae622f0069b9f11774779204f"
+        },
+        {
+          "unit": "simon-year-llms-u0004",
+          "url": "https://simonwillison.net/2025/Dec/31/the-year-in-llms/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "f40c5b34fdb93afd490d486e4dbcfc5c240834237af722d9878512efe0711a68"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q120",
+      "text": "Simon Willison 的 2025 回顾怎样描述 hybrid reasoning models 与 API reasoning dials？",
+      "category": "paraphrase",
+      "expected_units": [
+        "simon-year-llms-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_publication_date": "2025-12-31"
+      },
+      "source_locators": [
+        {
+          "unit": "simon-year-llms-u0006",
+          "url": "https://simonwillison.net/2025/Dec/31/the-year-in-llms/",
+          "anchor": "primary",
+          "ordinal": 5,
+          "sha256": "84782c0ce3da337bf45f1f0f964ebe185631459104faf4f08d5017c9b526770f"
+        }
+      ],
+      "verification_note": "Positive source blocks read and author/date context confirmed independently of retrieval outputs; exhaustive acceptable/harmful coverage remains pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q121",
+      "text": "字典插入顺序在 Python 3.6 与 Python 3.7 文档中分别属于什么保证？",
+      "category": "stale_current",
+      "expected_units": [
+        "python-3-6-u0058",
+        "python-3-7-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-6": "3.6",
+          "python-3-7": "3.7"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-6-u0058",
+          "url": "https://docs.python.org/3.6/whatsnew/3.6.html",
+          "anchor": "new-dict-implementation",
+          "ordinal": 57,
+          "sha256": "32ed8f6d02068b3b29e25c75b717fd47fc297645b7a4328eeb9ae6174d697d1d"
+        },
+        {
+          "unit": "python-3-7-u0002",
+          "url": "https://docs.python.org/3.7/whatsnew/3.7.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 1,
+          "sha256": "89449c559a90737732d816a0dd4e2a4e33681d9e30b3a614bf49e1193aa6d8e8"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q122",
+      "text": "Python 3.5 引入协程支持后，Python 3.6 又解除什么 await/yield 限制？",
+      "category": "chronology",
+      "expected_units": [
+        "python-3-5-u0021",
+        "python-3-6-u0028"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-5": "3.5",
+          "python-3-6": "3.6"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-5-u0021",
+          "url": "https://docs.python.org/3.5/whatsnew/3.5.html",
+          "anchor": "pep-492-coroutines-with-async-and-await-syntax",
+          "ordinal": 20,
+          "sha256": "2519fa2fd2586709a720452b613ee2059b84b36d4454d572330fa6cf25df1c67"
+        },
+        {
+          "unit": "python-3-6-u0028",
+          "url": "https://docs.python.org/3.6/whatsnew/3.6.html",
+          "anchor": "pep-525-asynchronous-generators",
+          "ordinal": 27,
+          "sha256": "b86806218763ee7cbb868e5170871c17e7aa5fb93ad27d9df7949cd71829faa9"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q123",
+      "text": "Python 3.6 引入 f-strings 后，Python 3.8 增加了什么用于显示表达式的语法？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-6-u0016",
+        "python-3-8-u0031"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-6": "3.6",
+          "python-3-8": "3.8"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-6-u0016",
+          "url": "https://docs.python.org/3.6/whatsnew/3.6.html",
+          "anchor": "pep-498-formatted-string-literals",
+          "ordinal": 15,
+          "sha256": "f0f039d167e3b2a2defe9ae371be25dadd9759c1f6934df699f86d0e19cafce4"
+        },
+        {
+          "unit": "python-3-8-u0031",
+          "url": "https://docs.python.org/3.8/whatsnew/3.8.html",
+          "anchor": "f-strings-support-for-self-documenting-expressions-and-debugging",
+          "ordinal": 30,
+          "sha256": "7e60bd33e4fcf359ccf1686c5c596a1134790c6bce070800d2945d4ec7eb4de0"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q124",
+      "text": "Python 3.5 的 typing 与 Python 3.6 的变量类型标注分别提供什么层面的能力？",
+      "category": "multi_source",
+      "expected_units": [
+        "python-3-5-u0083",
+        "python-3-6-u0019"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-5": "3.5",
+          "python-3-6": "3.6"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-5-u0083",
+          "url": "https://docs.python.org/3.5/whatsnew/3.5.html",
+          "anchor": "typing",
+          "ordinal": 82,
+          "sha256": "4b51f1d9f850552537f0de69bbb8e24ca4b4cae949f127056e6042dc6b52999e"
+        },
+        {
+          "unit": "python-3-6-u0019",
+          "url": "https://docs.python.org/3.6/whatsnew/3.6.html",
+          "anchor": "pep-526-syntax-for-variable-annotations",
+          "ordinal": 18,
+          "sha256": "d9ad5f5cac8bf69c21447939a40377857a36b4aca09c0212affeb7fdd6cde59d"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q125",
+      "text": "竖线运算符在 Python 3.9 的字典合并与 Python 3.10 的类型提示中含义有什么区别？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "python-3-9-u0013",
+        "python-3-10-u0077"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-9": "3.9",
+          "python-3-10": "3.10"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-9-u0013",
+          "url": "https://docs.python.org/3.9/whatsnew/3.9.html",
+          "anchor": "dictionary-merge-update-operators",
+          "ordinal": 12,
+          "sha256": "ef3b35dba41d6ee152a1ec6b8101a2da70b10166326acd2950b723f24ebd6dc0"
+        },
+        {
+          "unit": "python-3-10-u0077",
+          "url": "https://docs.python.org/3.10/whatsnew/3.10.html",
+          "anchor": "pep-604-new-type-union-operator",
+          "ordinal": 76,
+          "sha256": "bacf831ed54107eb898ad989e2ccb8375b9ee87b9a6cdf2c5bf10e48596ec4c7"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q126",
+      "text": "Python 3.13 与 PostgreSQL 11 的发布说明怎样分别描述 JIT 的用途和成熟度？",
+      "category": "multi_source",
+      "expected_units": [
+        "python-3-13-u0008",
+        "postgresql-11-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python",
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-13": "3.13",
+          "postgresql-11": "11"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-13-u0008",
+          "url": "https://docs.python.org/3.13/whatsnew/3.13.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 7,
+          "sha256": "abe29037490c46eb5905ee73f665e112f4df76a7adafe7a2a8cee7e8a0fe586e"
+        },
+        {
+          "unit": "postgresql-11-u0003",
+          "url": "https://www.postgresql.org/docs/release/11.0/",
+          "anchor": "id-1.11.6.27.3",
+          "ordinal": 2,
+          "sha256": "5cfb1105c5483aa51fb4ea3362323c364b17d02a39769f6c58739f831230bfeb"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q127",
+      "text": "Python 3.14 与 PostgreSQL 15 中的 Zstandard 支持分别位于哪里并服务什么用途？",
+      "category": "entity_ambiguity",
+      "expected_units": [
+        "python-3-14-u0003",
+        "postgresql-15-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python",
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-14": "3.14",
+          "postgresql-15": "15"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-14-u0003",
+          "url": "https://docs.python.org/3.14/whatsnew/3.14.html",
+          "anchor": "summary-release-highlights",
+          "ordinal": 2,
+          "sha256": "e11472e5ec330cdfbb002ef40851d6536dd79111f61800ef9a86e65ed60650f4"
+        },
+        {
+          "unit": "postgresql-15-u0002",
+          "url": "https://www.postgresql.org/docs/release/15.0/",
+          "anchor": "id-1.11.6.25.3",
+          "ordinal": 1,
+          "sha256": "0c6c5839aa18945a66a075b273dbc90572c923bfb36b63bb8a1a4765dddba1c0"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q128",
+      "text": "Python 3.11 读取 TOML 和 PostgreSQL 17 将 JSON 转成表分别新增什么入口？",
+      "category": "multi_source",
+      "expected_units": [
+        "python-3-11-u0054",
+        "postgresql-17-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python",
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-11": "3.11",
+          "postgresql-17": "17"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-11-u0054",
+          "url": "https://docs.python.org/3.11/whatsnew/3.11.html",
+          "anchor": "new-modules",
+          "ordinal": 53,
+          "sha256": "b0f7cc6f8303d6bf2d323a18c8ee820da5b4b51bc0a758d57a709a20a27f9212"
+        },
+        {
+          "unit": "postgresql-17-u0002",
+          "url": "https://www.postgresql.org/docs/release/17.0/",
+          "anchor": "RELEASE-17-HIGHLIGHTS",
+          "ordinal": 1,
+          "sha256": "a5e5a9d9e3a8ec9f8da7c7742e96049cc322d6bf9f05fceac21cd27dc8a3891e"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q129",
+      "text": "Simon Willison 的 2022 写作建议与 2026 beats 文章分别怎样描述 TIL 的数量/起源和导入方式？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-what-to-blog-u0006",
+        "simon-beats-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-what-to-blog": "2022-11-06",
+          "simon-beats": "2026-02-20"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-what-to-blog-u0006",
+          "url": "https://simonwillison.net/2022/Nov/6/what-to-blog-about/",
+          "anchor": "primary",
+          "ordinal": 5,
+          "sha256": "dc0bfe550037b76b20076d6969c515c4918d0458d1f1d1da01384111ebe45977"
+        },
+        {
+          "unit": "simon-beats-u0004",
+          "url": "https://simonwillison.net/2026/Feb/20/beats/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "31f94ddbab0e3c6ff8edd72675d3bfeac31b6042505d9e560e93c2bf258e294b"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q130",
+      "text": "Simon Willison 在 2022 与 2024 两篇文章中重复推荐哪两类低门槛写作？",
+      "category": "multi_source",
+      "expected_units": [
+        "simon-what-to-blog-u0003",
+        "simon-link-blog-u0006"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-what-to-blog": "2022-11-06",
+          "simon-link-blog": "2024-12-22"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-what-to-blog-u0003",
+          "url": "https://simonwillison.net/2022/Nov/6/what-to-blog-about/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "cbc76d831c5fd00d02ca02b547f9b6c2a83b5ae4b4acc8a125b6526573f89ca8"
+        },
+        {
+          "unit": "simon-link-blog-u0006",
+          "url": "https://simonwillison.net/2024/Dec/22/link-blog/",
+          "anchor": "primary",
+          "ordinal": 5,
+          "sha256": "761f614ffd6f01f28126035277ea114c7556354121350758302878a10f36478e"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q131",
+      "text": "Simon Willison 的 2022 Datasette Lite 更新与 2025 回顾分别列出哪些 URL 数据加载格式？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "simon-datasette-lite-u0002",
+        "simon-url-python-u0005"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-datasette-lite": "2022-05-04",
+          "simon-url-python": "2025-02-13"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-lite-u0002",
+          "url": "https://simonwillison.net/2022/May/4/datasette-lite/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "2f13211740c689167aed99744e8f48a3fe358afc3a2e90539d2797b17d82cd2f"
+        },
+        {
+          "unit": "simon-url-python-u0005",
+          "url": "https://simonwillison.net/2025/Feb/13/url-addressable-python/",
+          "anchor": "primary",
+          "ordinal": 4,
+          "sha256": "ae354eb69ebfa9e31764ae53d62783db59cc6d633940515ba6287a3bc717cce6"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q132",
+      "text": "Simon Willison 的普通博客与 link blog 分别始于何时？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-twenty-years-u0001",
+        "simon-link-blog-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-twenty-years": "2022-06-12",
+          "simon-link-blog": "2024-12-22"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-twenty-years-u0001",
+          "url": "https://simonwillison.net/2022/jun/12/twenty-years/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "193edbbd66e080abefeb8debe70c745dacfdddadc3ae2766ff3b639557a0661e"
+        },
+        {
+          "unit": "simon-link-blog-u0001",
+          "url": "https://simonwillison.net/2024/Dec/22/link-blog/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "33339fbef75400d3e48da281c0fe252e48172a9f14eea2f7058be6bd308a038f"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q133",
+      "text": "Simon Willison 在 2022 提出什么办法减轻记忆项目细节的负担，2026 建项目博客时又看重哪种开发记录？",
+      "category": "multi_source",
+      "expected_units": [
+        "simon-productivity-u0004",
+        "simon-datasette-blog-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-productivity": "2022-11-26",
+          "simon-datasette-blog": "2026-05-13"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-productivity-u0004",
+          "url": "https://simonwillison.net/2022/Nov/26/productivity/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "68a7c53dfa1fe80587b9a283b00c4cddea9d287eea84d15912a2a6ef85b61bb4"
+        },
+        {
+          "unit": "simon-datasette-blog-u0002",
+          "url": "https://simonwillison.net/2026/may/13/welcome-to-the-datasette-blog/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "5d7996e55d5b6fa7c28a055c5d1a8c6a25f26b6a3b8dd6b1a3ee26d1cc28eb3e"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q134",
+      "text": "Python 3.9 内置集合泛型与 Python 3.10 联合类型分别怎样简化 typing 写法？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "python-3-9-u0017",
+        "python-3-10-u0077"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:python"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "python-3-9": "3.9",
+          "python-3-10": "3.10"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "python-3-9-u0017",
+          "url": "https://docs.python.org/3.9/whatsnew/3.9.html",
+          "anchor": "type-hinting-generics-in-standard-collections",
+          "ordinal": 16,
+          "sha256": "b301aad0f267067986f01010f0c70d6a7bb1ebc6bf4dedd9cb47066ac5469f77"
+        },
+        {
+          "unit": "python-3-10-u0077",
+          "url": "https://docs.python.org/3.10/whatsnew/3.10.html",
+          "anchor": "pep-604-new-type-union-operator",
+          "ordinal": 76,
+          "sha256": "bacf831ed54107eb898ad989e2ccb8375b9ee87b9a6cdf2c5bf10e48596ec4c7"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q135",
+      "text": "Simon Willison 在 2022 与 2025 怎样描述 Datasette Lite 的浏览器 Python 运行基础？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "simon-datasette-lite-u0001",
+        "simon-url-python-u0003"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-datasette-lite": "2022-05-04",
+          "simon-url-python": "2025-02-13"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-datasette-lite-u0001",
+          "url": "https://simonwillison.net/2022/May/4/datasette-lite/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "5dcae9470eeb9cdc704eef918b63cfea5765a3e7d42e94e3709086523b438c4b"
+        },
+        {
+          "unit": "simon-url-python-u0003",
+          "url": "https://simonwillison.net/2025/Feb/13/url-addressable-python/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "483657a821bd8903ac64daf446a950ae07937c327fc94268cb272e7ef3fe30d4"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q136",
+      "text": "Simon Willison 在 2024 扩充 link blog 表达格式后，2026 的 beats 又怎样扩充活动时间线？",
+      "category": "chronology",
+      "expected_units": [
+        "simon-link-blog-u0002",
+        "simon-beats-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-link-blog": "2024-12-22",
+          "simon-beats": "2026-02-20"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-link-blog-u0002",
+          "url": "https://simonwillison.net/2024/Dec/22/link-blog/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "a3949158559ef878acbb6f1800953c018332fda98f37e538e33fe6bf9cb318e8"
+        },
+        {
+          "unit": "simon-beats-u0002",
+          "url": "https://simonwillison.net/2026/Feb/20/beats/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "501f1c0d4ba87f2b2b268f0c41c028ec4561d7eb350a843a52ebcd071a144134"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q137",
+      "text": "PostgreSQL 10 的 range/list 分区路由与 PostgreSQL 11 的分区键更新各有什么支持？",
+      "category": "temporal_revision",
+      "expected_units": [
+        "postgresql-10-u0084",
+        "postgresql-11-u0001"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "postgresql-10": "10",
+          "postgresql-11": "11"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-10-u0084",
+          "url": "https://www.postgresql.org/docs/release/10.0/",
+          "anchor": "id-1.11.6.28.5.6",
+          "ordinal": 83,
+          "sha256": "866bcd36117951eff5b45f8dd85702e347f205d15df92cb60e8ce5bdf55fed93"
+        },
+        {
+          "unit": "postgresql-11-u0001",
+          "url": "https://www.postgresql.org/docs/release/11.0/",
+          "anchor": "id-1.11.6.27.3",
+          "ordinal": 0,
+          "sha256": "9e2d4bbd5bb38ad54685f7a1cd7a8f73304bb2e88c18140e3a8c419e63aa5df9"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q138",
+      "text": "PostgreSQL 9.6 的最初并行查询范围与 PostgreSQL 11 的并行索引创建有什么差别？",
+      "category": "stale_current",
+      "expected_units": [
+        "postgresql-9-6-u0019",
+        "postgresql-11-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:project:postgresql"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "postgresql-9-6": "9.6",
+          "postgresql-11": "11"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "postgresql-9-6-u0019",
+          "url": "https://www.postgresql.org/docs/release/9.6/",
+          "anchor": "docContent",
+          "ordinal": 18,
+          "sha256": "4a028983c94ae5d4d015c818e6042945a003f7038b17a7ded44837ced8e1f106"
+        },
+        {
+          "unit": "postgresql-11-u0002",
+          "url": "https://www.postgresql.org/docs/release/11.0/",
+          "anchor": "id-1.11.6.27.3",
+          "ordinal": 1,
+          "sha256": "c00e177831013d14c54df702697230111ea22a8b44ced4b76c362a87c86263f7"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q139",
+      "text": "Simon Willison 的 2022 个人项目生产力演讲原题与替代题分别是什么？",
+      "category": "near_duplicate_discrimination",
+      "expected_units": [
+        "simon-productivity-u0001",
+        "simon-productivity-u0002"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-productivity": "2022-11-26"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-productivity-u0001",
+          "url": "https://simonwillison.net/2022/Nov/26/productivity/",
+          "anchor": "primary",
+          "ordinal": 0,
+          "sha256": "7e5c8b2ee1fd69fc99aa15a9decc149ec37543600484adda8971545ca9255b06"
+        },
+        {
+          "unit": "simon-productivity-u0002",
+          "url": "https://simonwillison.net/2022/Nov/26/productivity/",
+          "anchor": "primary",
+          "ordinal": 1,
+          "sha256": "0546f71399e60d291f86586d5c86f6383a36d6f5fb213459d775d939d3fde156"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q140",
+      "text": "Simon Willison 的 Datasette 0.60 回顾与后来 TIL beats 导入分别体现哪种数据库写入/查询用途？",
+      "category": "multi_source",
+      "expected_units": [
+        "simon-2022-projects-u0003",
+        "simon-beats-u0004"
+      ],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "entity:research:person:simon-willison"
+      ],
+      "time_oracle": {
+        "source_revisions": {
+          "simon-2022-projects": "2022-12-31",
+          "simon-beats": "2026-02-20"
+        }
+      },
+      "source_locators": [
+        {
+          "unit": "simon-2022-projects-u0003",
+          "url": "https://simonwillison.net/2022/Dec/31/2022-in-projects/",
+          "anchor": "primary",
+          "ordinal": 2,
+          "sha256": "586a9833d7788e3be4dd2cbc82b079f5cd79844c071948bb5fe5854e5d846af0"
+        },
+        {
+          "unit": "simon-beats-u0004",
+          "url": "https://simonwillison.net/2026/Feb/20/beats/",
+          "anchor": "primary",
+          "ordinal": 3,
+          "sha256": "31f94ddbab0e3c6ff8edd72675d3bfeac31b6042505d9e560e93c2bf258e294b"
+        }
+      ],
+      "verification_note": "Both frozen source blocks read; comparison constrained to their explicit version/date statements, without inventing implementation equivalence. Other relevance coverage pending.",
+      "oracle_status": "positive_anchor_confirmed_coverage_pending"
+    },
+    {
+      "id": "hard-q141",
+      "text": "VCPToolBox 的 EPA 密度基训练算法在这些文档哪里定义？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "VCPToolBox"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "VCPToolBox"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q142",
+      "text": "RiverMemo Topology V3 的双场 readout 公式在这些来源哪里给出？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "RiverMemo Topology V3"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "RiverMemo Topology V3"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q143",
+      "text": "Nous-Wave 的认知 profile 默认值在这组来源中是什么？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "Nous-Wave"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "Nous-Wave"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q144",
+      "text": "experimental-node-potential-v1 的扩散预算在这些来源中如何设置？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "experimental-node-potential-v1"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "experimental-node-potential-v1"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q145",
+      "text": "Stronghold Protocol 的商店折叠相机行为在这些来源哪里解释？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "Stronghold Protocol"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "Stronghold Protocol"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q146",
+      "text": "Heptalogos 的 Subject Cognition 设计决策在这些来源哪里给出？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "Heptalogos"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "Heptalogos"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q147",
+      "text": "LongMemEval-S 的官方 500-query 规模在这些来源哪里说明？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "LongMemEval-S"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "LongMemEval-S"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q148",
+      "text": "LoCoMo10 的十个会话样本如何在这些来源中构建检索 oracle？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "LoCoMo10"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "LoCoMo10"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q149",
+      "text": "doubao-seed-2.1-lite 在这组来源中使用什么 rerank 协议？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "doubao-seed-2.1-lite"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "doubao-seed-2.1-lite"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
+    },
+    {
+      "id": "hard-q150",
+      "text": "VolcEngine ASR 的认证 header 在这些文档哪里定义？",
+      "category": "negative_absence",
+      "expected_units": [],
+      "acceptable_units": [],
+      "harmful_stale_units": [],
+      "entity_oracle": [
+        "VolcEngine ASR"
+      ],
+      "time_oracle": null,
+      "source_locators": [
+        {
+          "manifest_sha256": "1d5d057d76c6487295781a25fffe1660c8a80c0c028b232176ad54f0d1436020",
+          "scope": "all 30 frozen documents / 5627 included source blocks",
+          "absent_literal_entity": "VolcEngine ASR"
+        }
+      ],
+      "verification_note": "Exact named entity is absent from every included source block; the requested project-specific fact has no scoped source evidence. This is corpus absence, not a claim about the world.",
+      "oracle_status": "scoped_absence_confirmed",
+      "judged_absence": true
     }
   ]
 }
