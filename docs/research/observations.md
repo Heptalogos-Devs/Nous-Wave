@@ -151,3 +151,10 @@ routine 的 topology-only 机会通过正常自动 need 完成两次模型维护
 
 
 incident 两次 topology-only 请求自动创建了 snapshot premature-deletion/reader-lease 概念中心，提交原因→修复的 `assoc.related`，并为两个 Memory 添加 Tag attachment。按实际目录描述核对后，`lease-reclamation` 绑定该中心。新一轮 14-intent baseline/native 结构 readout 完成 28 arms，provider/embedding/rerank 为零、generation 增量 2、artifact 增量约 2.15 MiB。完整 30-item 分母仍只有 14 项结构支持、14 项失败、2 项缺失；lease-hub 来源覆盖支持，但跨系统二/三跳和 morning-journal 仍未闭合。完整语义四算法与人工质量验收继续待执行。
+
+
+### 完整小型 Prepared 语义输入首轮
+
+routine 新建了独立 post-breakfast field-journal Tag，描述涵盖 Sep 7 变更及 Sep 9/14 重复；按实际目录绑定后，全部 15 intent 无 unresolved。Native 之前没有消费配置中的 lexical/dense promoted seed 权重，弱文本即使已有 prepared retrieval signals 也无图入口。现在在无直接图 anchor 时，以每 lane 最多四个当前图节点、weight/rank 提供弱 seed，不再请求 embedding；直接 anchor 与传播计算保持原语义。golden、seed 边界和直接 Tag maintenance→Serving 回归通过。
+
+精确预检列出 60 个新文本 misses（15 query representation 加实际 owner 新材料），按上限 6 个 provider batch/60 items 补齐，旧 29 个向量保留。复检 60 个所需文本全在缓存、零 misses。15 intent × baseline/native/DTSC/RiverMemo 的 60 个 finalized readout 随后完成：每题四 profile 使用同一冻结 representation digest，算法阶段 provider/embedding/rerank 全零，新增 generation 5，net artifact growth 9,560,166 bytes。所有四个 profile 的结构检查各 9 supported/6 failed；无 missing readout。语义相关性、时态/visitor 干扰以及跨系统二/三跳仍需继续恢复和人工核对。弱线索可激活 Native 图，但现有最终命中多数是 promoted/direct seed，不能将其算作多跳成功。没有扩大外部 benchmark。

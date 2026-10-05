@@ -47,7 +47,8 @@ pub(crate) fn topology_lane(
         return Ok(output);
     }
     output.generation_ref = Some(graph.generation_id);
-    let observation = QueryObservation::native(graph, bound, plan, source_seeds(graph, bound))?;
+    let seeds = prepared_source_seeds(graph, bound, signals);
+    let observation = QueryObservation::native(graph, bound, plan, seeds)?;
     let river = observation.river();
     output.topology_work = Some(TopologyWorkSummary {
         mechanism: NATIVE_MECHANISM_ID.into(),
@@ -127,6 +128,27 @@ pub(crate) fn topology_lane(
     Ok(output)
 }
 
+fn prepared_source_seeds(
+    graph: &crate::WaveGraphGeneration,
+    bound: &BoundQuery,
+    signals: &crate::PreparedQuerySignals,
+) -> Vec<SourceSeed> {
+    let mut seeds = source_seeds(graph, bound);
+    // Closed graph anchors lead associative queries. When none maps into the
+    // graph, use the already-prepared retrieval signals as weak source cues.
+    if seeds.is_empty() {
+        for (lane, family) in [
+            (signals.lexical(), "lexical_promoted"),
+            (signals.dense(), "dense_promoted"),
+        ] {
+            if let Some(lane) = lane {
+                seeds.extend(promoted_seeds(graph, lane, family));
+            }
+        }
+    }
+    seeds
+}
+
 fn source_seeds(graph: &crate::WaveGraphGeneration, bound: &BoundQuery) -> Vec<SourceSeed> {
     let seed_weight = |name: &str, default: f64| {
         graph
@@ -193,4 +215,96 @@ fn source_seeds(graph: &crate::WaveGraphGeneration, bound: &BoundQuery) -> Vec<S
             });
     }
     merged.into_values().collect()
+}
+
+fn promoted_seeds(
+    graph: &crate::WaveGraphGeneration,
+    lane: &LaneOutput,
+    family: &str,
+) -> Vec<SourceSeed> {
+    if !matches!(lane.status, LaneStatus::Ready | LaneStatus::Truncated) {
+        return Vec::new();
+    }
+    let weight = graph
+        .config
+        .seed_weights
+        .get(family)
+        .copied()
+        .unwrap_or(0.6);
+    let mut seen = std::collections::BTreeSet::new();
+    lane.candidates
+        .iter()
+        .filter_map(|candidate| {
+            let node = graph.node_id(&candidate.reference)?;
+            if candidate.rank == 0 || !seen.insert(node) {
+                return None;
+            }
+            Some(SourceSeed {
+                node,
+                weight: weight / f64::from(candidate.rank),
+                seed_family: family.into(),
+                origin_cue: format!("{family}:{}", candidate.reference),
+                hop_zero: true,
+            })
+        })
+        .take(4.min(graph.config.max_neighbors_per_node))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{WaveConfig, WaveGraphGeneration, WaveNode, WaveNodeKind};
+    use nous_core::MemoryRevisionId;
+    #[test]
+    fn promotion_uses_only_bounded_current_graph_signals_and_configured_weight() {
+        let references = (0..8)
+            .map(|_| CognitiveRef::MemoryRevision(MemoryRevisionId::new()))
+            .collect::<Vec<_>>();
+        let mut config = WaveConfig::default();
+        config.seed_weights.insert("lexical_promoted".into(), 0.4);
+        let graph = WaveGraphGeneration::build(
+            references
+                .iter()
+                .enumerate()
+                .map(|(id, reference)| WaveNode {
+                    serving_id: id as u32,
+                    reference: reference.clone(),
+                    node_kind: WaveNodeKind::Memory,
+                    embedding_key: None,
+                    posting_key: None,
+                    intrinsic_residual_gain: None,
+                })
+                .collect(),
+            &[],
+            config,
+        )
+        .unwrap();
+        let mut lane = LaneOutput::empty(EvidenceFamily::Lexical, LaneStatus::Ready);
+        lane.candidates = references
+            .iter()
+            .enumerate()
+            .map(|(index, reference)| LaneCandidate {
+                reference: reference.clone(),
+                rank: index as u32 + 1,
+                variants: Vec::new(),
+                provider_metadata: serde_json::Value::Null,
+            })
+            .collect();
+        lane.candidates.insert(
+            0,
+            LaneCandidate {
+                reference: CognitiveRef::MemoryRevision(MemoryRevisionId::new()),
+                rank: 1,
+                variants: Vec::new(),
+                provider_metadata: serde_json::Value::Null,
+            },
+        );
+        let seeds = promoted_seeds(&graph, &lane, "lexical_promoted");
+        assert_eq!(seeds.len(), 4);
+        assert_eq!(seeds[0].weight, 0.4);
+        assert_eq!(seeds[1].weight, 0.2);
+        lane.status = LaneStatus::Unavailable;
+        assert!(promoted_seeds(&graph, &lane, "lexical_promoted").is_empty());
+    }
 }
