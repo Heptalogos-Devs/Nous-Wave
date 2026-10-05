@@ -120,7 +120,17 @@ export async function grantMaintenance(
           ),
         ),
         limit: 1,
-        leaseSeconds: policy.workerLeaseSeconds,
+        // The lease must outlive the opportunity, including timeout cleanup and
+        // workflow release and the independent acknowledgement RPC. Otherwise a timed-out model call
+        // cannot record retry disposition under its still-owned lease.
+        leaseSeconds: Math.max(
+          policy.workerLeaseSeconds,
+          Math.ceil(
+            (input.maxElapsedMs +
+              2 * kernel.execution.workflow_ack_timeout_ms) /
+              1000,
+          ) + 1,
+        ),
       },
       calls,
     );

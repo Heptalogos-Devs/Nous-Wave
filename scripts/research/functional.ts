@@ -70,6 +70,8 @@ const plan = {
     limits,
     values["query-ids"]?.split(","),
   )),
+  formationSchedule:
+    "deterministic-experience-then-due-model-maintenance-at-query-time-v1",
   subjects: scenarios.length,
   events: scenarios.reduce((n, s) => n + s.events.length, 0),
   queries: corpus.queries.filter((query) =>
@@ -388,6 +390,27 @@ async function run() {
         command: "advance",
         subject: saved.id,
         instant: "2026-09-16T12:30:00Z",
+      });
+      // Close deterministic experience formation before spending model budget.
+      // Episode acceptance creates delayed journal/consolidation needs; expose
+      // those due opportunities at the corpus query time before Tag maintenance.
+      const organized = await mutation(() =>
+        client.cognition.grantMaintenance(
+          {
+            subjectId: saved.id,
+            maxOperations: 1,
+            maxModelCalls: 0,
+            maxElapsedMs: operationTimeoutSeconds * 1000,
+          },
+          options,
+        ),
+      );
+      state.grants.push(organized);
+      await flush();
+      await host.control({
+        command: "advance",
+        subject: saved.id,
+        instant: "2026-09-16T18:00:00Z",
       });
       if (plan.reviewNeedIds.length && scenarios.length !== 1)
         throw new Error("Explicit review requires one selected Subject");

@@ -33,3 +33,15 @@ For semantic arms, run `embedding-plan.ts --plan --config <local-config> --input
 Re-run exact cache preflight and require zero misses. Then `prepared.ts --embedding-cache <run-cache.json> --profiles baseline-rrf,nous-node-potential-v1,vcp-dtsc-v9.2.1-adapter-v1,vcp-rivermemo-v3.1-adapter-v1` supports the four semantic arms, still with provider/rerank budgets zero and a saved matching `--plan`. Cache source vectors are installed through the material owner; every algorithm arm receives the same frozen representation vector via the normal query-material scope. Neither an arm nor a profile switch generates embeddings. These commands are bounded execution tools; acceptance still requires the full selected Functional corpus and inspection of source grounding and explained paths.
 
 `--operation-timeout-seconds` controls the finite per-grant deadline and is part of formation preflight identity; the client deadline adds a small response allowance. The total runtime hard cap always remains in force.
+
+
+Export actual owner bindings without provider work:
+
+```sh
+pnpm exec tsx scripts/research/functional-input.ts --root data/research/runs/functional-cognition-v1 --output data/research/runs/functional-cognition-v1/prepared-input.json
+```
+
+The exporter reads the durable formation state and latest inspection, checks the source digest, resolves Entity and WorkContext receipts, and binds exact event anchors to a unique Episode revision. `--query-ids` selects intents. Optional `--concept-bindings` contains inspected `scenario:concept` → active Tag ID choices; the exporter verifies each choice against the same Subject's actual catalog. Missing/ambiguous bindings are listed as `unresolved` and excluded from executable queries. Record these as formation/representation failures, rather than counting a smaller resolved subset as full-suite success. Outputs contain canonical question text and owner bindings; surface examples and oracles remain in the corpus. Run exact embedding preflight over this file before cache filling and shared-profile Prepared execution.
+
+
+The owner runner first grants zero-model experience formation, then advances to the corpus query time before model maintenance, so delayed Journal/Memory needs compete at their normal priorities rather than leaving only immediate Tag work eligible. Grant leases cover the requested execution envelope plus bounded workflow release and acknowledgement; timeout still stops model work and records a normal retry disposition.
