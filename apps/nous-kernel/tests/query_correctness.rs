@@ -1880,24 +1880,59 @@ async fn check_generation_reclamation(
         })
         .unwrap();
     runtime
-        .serving
-        .pin_research_generation(retired.generation_id, true)
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("vcp-dtsc-v9.2.1-adapter-v1"),
+        )
         .await
         .unwrap();
     let mut lease_query = query(subject);
     lease_query.expression.cues.push(Cue::Entity(EntityCue {
         entity_ref: EntityRef::new("entity:association").unwrap(),
     }));
+    lease_query.exploration = nous_core::ExplorationIntent::BoundedAssociative;
     let held = runtime.execute_query(lease_query, Some(5)).await.unwrap();
     let (_, ticket) = runtime.cognition.retain_query(held).unwrap();
     let ticket = ticket.unwrap();
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("nous-node-potential-v1"),
+        )
+        .await
+        .unwrap();
+    runtime
+        .serving
+        .prepare(
+            subject,
+            nous_core::ServingNeed {
+                topology: true,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
     let busy = runtime
         .serving
         .reclaim_retired(subject, std::time::Duration::ZERO)
         .await
         .unwrap();
     assert!(busy.readers_active);
+    assert!(!busy.reclaimed.contains(&retired.generation_id));
+    assert!(
+        !busy.reclaimed.is_empty(),
+        "active ticket does not block unrelated retired assets"
+    );
     assert!(std::path::Path::new(&retired.artifact_location).exists());
+    runtime
+        .serving
+        .pin_research_generation(retired.generation_id, true)
+        .await
+        .unwrap();
     runtime.cognition.release_query(subject, ticket).unwrap();
     let pinned = runtime
         .serving

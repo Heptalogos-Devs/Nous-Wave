@@ -94,6 +94,34 @@ impl ServingPublisher {
 }
 
 impl ServingSnapshot {
+    pub(crate) fn retain_generations(
+        &mut self,
+        ids: impl Iterator<Item = nous_core::ServingGenerationId>,
+    ) {
+        let ids: std::collections::HashSet<_> = ids.collect();
+        self.lexical = self
+            .lexical
+            .take()
+            .filter(|value| ids.contains(&value.generation_id));
+        self.dense
+            .retain(|value| ids.contains(&value.generation_id));
+        self.epa.retain(|value| ids.contains(&value.generation_id));
+        self.topology = self
+            .topology
+            .take()
+            .filter(|value| ids.contains(&value.generation_id));
+        self.vcp = self
+            .vcp
+            .take()
+            .filter(|value| ids.contains(&value.generation_id));
+        if self
+            .postings_generation
+            .is_some_and(|id| !ids.contains(&id))
+        {
+            self.postings_generation = None;
+            self.postings = Arc::new(ExactPostings::default());
+        }
+    }
     pub(crate) fn contains_generation(&self, id: nous_core::ServingGenerationId) -> bool {
         self.lexical
             .as_ref()

@@ -23,18 +23,35 @@ impl ServingService {
                 ..Default::default()
             });
         };
+        let readers = self
+            .query_readers
+            .lock()
+            .map_err(|_| Error::Infrastructure("serving reader registry unavailable".into()))?
+            .iter()
+            .filter_map(std::sync::Weak::upgrade)
+            .collect::<Vec<_>>();
         let cutoff = chrono::Utc::now()
             - chrono::Duration::from_std(grace)
                 .map_err(|error| Error::Invalid(error.to_string()))?;
         let mut tx = self.store.begin().await?;
         let rows = sqlx::query("SELECT generation_id,artifact_location FROM serving_generations g WHERE subject_id=$1 AND state='retired' AND published_at<$2 AND COALESCE(metadata->>'research_pinned','false')<>'true' AND NOT EXISTS (SELECT 1 FROM serving_current c WHERE c.generation_id=g.generation_id) FOR UPDATE")
             .bind(subject.0).bind(cutoff).fetch_all(&mut *tx).await.map_err(nous_persistence::database_error)?;
-        let mut report = ReclamationReport::default();
+        let mut report = ReclamationReport {
+            readers_active: !readers.is_empty(),
+            ..Default::default()
+        };
         for row in rows {
             let id = ServingGenerationId(
                 row.try_get("generation_id")
                     .map_err(nous_persistence::database_error)?,
             );
+            if readers
+                .iter()
+                .any(|reader| reader.snapshot.contains_generation(id))
+            {
+                report.readers_active = true;
+                continue;
+            }
             let location: String = row
                 .try_get("artifact_location")
                 .map_err(nous_persistence::database_error)?;

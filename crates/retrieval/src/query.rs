@@ -304,8 +304,7 @@ mod tests;
 /// Request-scoped immutable Serving view, retained through final validation.
 pub struct ServingQuery {
     service: ServingService,
-    snapshot: Arc<ServingSnapshot>,
-    _lease: tokio::sync::OwnedRwLockReadGuard<()>,
+    pub(crate) snapshot: Arc<ServingSnapshot>,
 }
 impl std::fmt::Debug for ServingQuery {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -381,13 +380,19 @@ impl ServingService {
                 }
             }
         }
-        Ok((
-            status,
-            Arc::new(ServingQuery {
-                service: self.clone(),
-                snapshot: Arc::new(snapshot),
-                _lease: lease,
-            }),
-        ))
+        snapshot.retain_generations(status.generations.values().copied());
+        let reader = Arc::new(ServingQuery {
+            service: self.clone(),
+            snapshot: Arc::new(snapshot),
+        });
+        let mut readers = self
+            .query_readers
+            .lock()
+            .map_err(|_| Error::Infrastructure("serving reader registry unavailable".into()))?;
+        readers.retain(|reader| reader.strong_count() > 0);
+        readers.push(Arc::downgrade(&reader));
+        drop(readers);
+        drop(lease);
+        Ok((status, reader))
     }
 }

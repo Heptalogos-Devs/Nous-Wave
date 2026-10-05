@@ -163,6 +163,7 @@ pub struct ServingService {
     pub publisher: ServingPublisher,
     pub options: ServingOptions,
     read_gate: Arc<tokio::sync::RwLock<()>>,
+    query_readers: Arc<std::sync::Mutex<Vec<std::sync::Weak<query::ServingQuery>>>>,
     embedding: Arc<std::sync::OnceLock<Arc<dyn TextEmbeddingProvider>>>,
 }
 
@@ -209,6 +210,7 @@ impl ServingService {
             },
             publisher: ServingPublisher::default(),
             read_gate: Arc::new(tokio::sync::RwLock::new(())),
+            query_readers: Default::default(),
         })
     }
 }
