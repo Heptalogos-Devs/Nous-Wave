@@ -142,3 +142,6 @@ routine 本轮正常 consolidation 新增了 Sep 9 的 breakfast 后重复习惯
 
 
 incident 本批三次 provider 请求完成 snapshot 原因/修复 Memory 与后续 Journal；第三份 consistency group 同样使用 Schema relation endpoint，运行进程启动于合同修复前，owner 拒绝并回滚。新合同需由下一批启动验证。独立 text-only compatibility 选择已人工核对：两个 LongMemEval、两个 LoCoMo、两个 Python 官方真实文本问题，共 13 个唯一来源段落。选择 manifest 保存 locator/hash，原文与执行输入 ignored；未执行检索或 embedding，未扩大外部全集。
+
+
+修正合同后的 routine 单请求机会实际处理了正常队列中更高优先的 Journal consolidation（约 78 秒），成功形成 Sep 14 重复早餐后写作和 Sep 15 拒绝 visitor 午夜建议的两个 grounded Memory。routine 当前 6 个 Memory；显式复核的旧 need 尚未被该请求执行，不能将此结果当作该 exact need 的 replay 验证。未新增 embedding/rerank，provider 上限 1 在后续请求前截停，普通 retry 和 obsolete 结果保留。
