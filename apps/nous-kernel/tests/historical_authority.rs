@@ -166,7 +166,10 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
         .project_as_of(subject, later, RevisionView::History)
         .await
         .unwrap();
-    assert_eq!(history.cognition[0].revisions, vec![new, old]);
+    assert_eq!(
+        history.cognition[0].revisions,
+        vec![new.clone(), old.clone()]
+    );
     assert_ne!(history.snapshot_digest, current.snapshot_digest);
     clock
         .advance_to(subject, start + chrono::Duration::seconds(15))
@@ -338,6 +341,15 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
             .canonical_tag(tag.tag_id),
         Some(survivor.tag_id)
     );
+    check_historical_binding(
+        &rt,
+        subject,
+        &baseline,
+        memory.object.memory_id,
+        (old, new),
+        (tag.tag_id, survivor.tag_id),
+    )
+    .await;
     owner
         .purge_memory(
             subject,
@@ -355,4 +367,119 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
             .cognition
             .is_empty()
     );
+}
+
+async fn check_historical_binding(
+    rt: &nous_kernel::NousRuntime,
+    subject: SubjectId,
+    view: &HistoricalAuthoritySnapshot,
+    memory: MemoryId,
+    references: (CognitiveRef, CognitiveRef),
+    tags: (TagId, TagId),
+) {
+    let (old, future) = references;
+    let (tag, future_tag) = tags;
+    let context = rt
+        .cognition
+        .create_work_context(nous_runtime::CreateWorkContextInput {
+            operation_id: OperationId::new(),
+            subject,
+            purpose: "CURRENT_QUESTION PURPOSE about old knowledge".into(),
+            unresolved_questions: vec![],
+            constraints: serde_json::json!({}),
+            resume_conditions: vec![],
+            budget_summary: serde_json::json!({}),
+            references: vec![old.clone(), future.clone()],
+        })
+        .await
+        .unwrap();
+    let query = CognitiveQuery {
+        api_version: API_VERSION,
+        subject,
+        session: None,
+        work_context: Some(context.work_context_id),
+        projection: Default::default(),
+        temporal_frame: TemporalFrame {
+            authority_view: AuthorityView::AsOf(view.as_of),
+            ..Default::default()
+        },
+        text_only_compatibility: false,
+        situation: SituationDescriptor {
+            current_refs: vec![CognitiveRef::Tag(future_tag)],
+            ..Default::default()
+        },
+        expression: CognitiveQueryExpr {
+            targets: vec![QueryTarget::Exact {
+                reference: CognitiveRef::Memory(memory),
+            }],
+            cues: vec![
+                Cue::Text(TextCue {
+                    text: "what was known".into(),
+                }),
+                Cue::Tag(TagCue { tag }),
+            ],
+            ..Default::default()
+        },
+        exploration: Default::default(),
+        resources: Default::default(),
+        result_need: Default::default(),
+        effort: Default::default(),
+        capabilities: Default::default(),
+        diagnostics: Default::default(),
+    };
+    let config = rt.configuration.snapshot_for_subject(subject).unwrap();
+    let bound = rt
+        .cognition
+        .bind_query_with_authority_view(query.clone(), config.clone(), Some(Arc::new(view.clone())))
+        .await
+        .unwrap();
+    assert_eq!(bound.exact_bindings[0].bound_ref, old);
+    assert!(bound.runtime_refs.contains(&old));
+    assert!(!bound.runtime_refs.contains(&future));
+    assert!(!bound.runtime_refs.contains(&CognitiveRef::Tag(future_tag)));
+    assert!(bound.representation.text.contains("PAST_DESCRIPTION"));
+    assert!(
+        bound
+            .representation
+            .text
+            .contains("original authority fact")
+    );
+    assert!(
+        bound
+            .representation
+            .text
+            .contains("CURRENT_QUESTION PURPOSE")
+    );
+    assert!(!bound.representation.text.contains("FUTURE_DESCRIPTION"));
+    assert!(
+        !bound
+            .representation
+            .text
+            .contains("rephrased authority fact")
+    );
+    assert!(
+        bound
+            .activation
+            .degradation
+            .iter()
+            .any(|degradation| degradation.code == "future_context_ref_excluded")
+    );
+    assert_eq!(bound.activation.explicit_tags[0].tag, tag);
+    let composed = rt
+        .bind_query_with_snapshot(query.clone(), config.clone())
+        .await
+        .unwrap();
+    assert!(composed.historical_authority.is_some());
+    assert_eq!(composed.exact_bindings[0].bound_ref, old);
+    let mut future_query = query;
+    future_query
+        .expression
+        .cues
+        .push(Cue::Tag(TagCue { tag: future_tag }));
+    assert!(matches!(
+        rt.cognition
+            .bind_query_with_authority_view(future_query, config, Some(Arc::new(view.clone())))
+            .await,
+        Err(Error::NotFound(_))
+    ));
 }

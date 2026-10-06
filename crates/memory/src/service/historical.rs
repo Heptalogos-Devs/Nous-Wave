@@ -71,14 +71,12 @@ impl MemoryService {
             associations: rows.associations,
             schema_evidence_links: rows.schema_evidence_links,
             entity_bindings: rows.entity_bindings,
+            material_documents: rows.material.clone(),
             material_visibility: rows.material,
             lexical_visibility: rows.lexical,
             snapshot_digest: String::new(),
         };
-        let identities=snapshot.cognition.iter().map(|state|serde_json::json!({"object":state.object,"head":state.head,"revisions":state.revisions,"acceptance":state.state["acceptance_state"],"integrity":state.state["integrity_state"],"suppression":state.state["suppression_state"],"purge":state.state["purge_state"],"accessibility":state.state["accessibility_mode"]})).collect::<Vec<_>>();
-        let canonical = serde_json::json!({"subject":subject,"revision_view":revision_view,"cognition":identities,"tags":snapshot.tags,"associations":snapshot.associations,"schema_evidence_links":snapshot.schema_evidence_links,"entity_bindings":snapshot.entity_bindings,"material":snapshot.material_visibility,"lexical":snapshot.lexical_visibility});
-        snapshot.snapshot_digest =
-            operation_digest("historical_authority_snapshot_v1", subject, &canonical)?;
+        snapshot.refresh_digest()?;
         Ok(snapshot)
     }
 }

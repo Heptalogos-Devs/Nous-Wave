@@ -30,7 +30,6 @@ impl k::kernel_query_service_server::KernelQueryService for KernelService {
             let limit = snapshot.get(nous_runtime::DEFAULT_RESULT_LIMIT)?;
             let mut bound = self
                 .0
-                .cognition
                 .bind_query_with_snapshot(super::query::compile_query(query, limit)?, snapshot)
                 .await?;
             bound.selected_embedding_space =

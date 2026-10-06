@@ -282,6 +282,7 @@ impl CognitiveRuntimeService {
         work_context: Option<WorkContextView>,
         mut representation_sources: Vec<(CognitiveRef, String)>,
         config_snapshot: &ConfigSnapshot,
+        historical: Option<&HistoricalAuthoritySnapshot>,
     ) -> Result<QueryRepresentation> {
         for cue in query.scopes().iter().flat_map(|node| &node.cues) {
             let reference = match cue {
@@ -329,7 +330,7 @@ impl CognitiveRuntimeService {
         let descriptor_refs = selected;
         let descriptors = self
             .store
-            .query_descriptors(query.subject, &descriptor_refs)
+            .query_descriptors_in_view(query.subject, &descriptor_refs, historical)
             .await?;
         let mut representation = build_query_representation(
             query,

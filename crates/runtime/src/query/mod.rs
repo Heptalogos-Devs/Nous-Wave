@@ -1,4 +1,5 @@
 mod concept_model;
+mod historical_context;
 pub use concept_model::*;
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0

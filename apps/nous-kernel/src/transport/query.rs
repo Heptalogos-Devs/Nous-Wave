@@ -529,6 +529,7 @@ pub(super) fn inspect_bound_query(bound: &nous_runtime::BoundQuery) -> Result<St
         "representation":bound.representation, "current_refs":bound.runtime_refs,
         "query_activation":bound.activation, "concept_enrichment":bound.concept_enrichment,
         "query_concept_requirement":bound.source_query.capabilities.query_concept_enrichment,
+        "historical_view":bound.historical_authority.as_ref().map(|view|serde_json::json!({"digest":view.snapshot_digest,"as_of":view.as_of,"revision_view":view.revision_view})),
         "temporal_frame":bound.source_query.temporal_frame, "result_projection":bound.source_query.projection,
         "topology_seeds":seeds, "exact_bindings":bound.exact_bindings,
         "profile_id":bound.retrieval_policy.cognitive_profile.id(),

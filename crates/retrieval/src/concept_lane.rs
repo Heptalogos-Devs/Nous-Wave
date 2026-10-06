@@ -22,6 +22,15 @@ pub(crate) async fn activate(
     bound: &BoundQuery,
     provider: Option<&dyn TextEmbeddingProvider>,
 ) -> Result<QueryActivation> {
+    if bound
+        .historical_authority
+        .as_ref()
+        .is_some_and(|view| snapshot.view_digest.as_ref() != Some(&view.snapshot_digest))
+    {
+        return Err(Error::Unavailable(
+            "query activation requires a compatible historical Serving view".into(),
+        ));
+    }
     let mut activation = bound.activation.clone();
     if activation.frozen {
         return Ok(activation);

@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 #[derive(Clone)]
 pub struct ServingSnapshot {
     pub generation: u64,
+    pub view_digest: Option<String>,
     pub lexical: Option<Arc<LexicalGeneration>>,
     pub dense: Vec<Arc<DenseGeneration>>,
     pub concept: Vec<Arc<ConceptGeneration>>,
@@ -22,6 +23,7 @@ impl Default for ServingSnapshot {
     fn default() -> Self {
         Self {
             generation: 0,
+            view_digest: None,
             lexical: None,
             dense: Vec::new(),
             concept: Vec::new(),

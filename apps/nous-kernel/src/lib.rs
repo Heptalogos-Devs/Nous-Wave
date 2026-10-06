@@ -154,12 +154,45 @@ impl NousRuntime {
     pub async fn query(&self, query: CognitiveQuery) -> Result<CognitiveQueryResult> {
         Ok(self.execute_query(query, None).await?.result)
     }
+    pub async fn bind_query_with_snapshot(
+        &self,
+        mut query: CognitiveQuery,
+        config: nous_configuration::ConfigSnapshot,
+    ) -> Result<nous_runtime::BoundQuery> {
+        if query.temporal_frame.clock_now == chrono::DateTime::<chrono::Utc>::UNIX_EPOCH {
+            query.temporal_frame.clock_now = self.cognition.now(query.subject);
+        }
+        let historical = query.temporal_frame.authority_view != AuthorityView::Current
+            || query.temporal_frame.revision_view != RevisionView::Current;
+        let view = if historical {
+            let at = match query.temporal_frame.authority_view {
+                AuthorityView::AsOf(at) => at,
+                AuthorityView::Current => query.temporal_frame.clock_now,
+            };
+            let mut view = self
+                .require_memory()?
+                .project_as_of(query.subject, at, query.temporal_frame.revision_view)
+                .await?;
+            let material = self.material.project_as_of(query.subject, at).await?;
+            view.material_visibility = material.known_references;
+            view.material_documents = material.document_references;
+            view.entity_bindings = material.entity_bindings;
+            view.refresh_digest()?;
+            Some(Arc::new(view))
+        } else {
+            None
+        };
+        self.cognition
+            .bind_query_with_authority_view(query, config, view)
+            .await
+    }
     pub async fn execute_query(
         &self,
         query: CognitiveQuery,
         pool_limit: Option<usize>,
     ) -> Result<nous_runtime::QueryExecution> {
-        let bound = Box::pin(self.cognition.bind_query(query)).await?;
+        let snapshot = self.configuration.snapshot_for_subject(query.subject)?;
+        let bound = Box::pin(self.bind_query_with_snapshot(query, snapshot)).await?;
         Box::pin(self.execute_bound_query(bound, pool_limit)).await
     }
     pub async fn execute_bound_query(

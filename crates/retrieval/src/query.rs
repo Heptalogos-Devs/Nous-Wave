@@ -275,6 +275,15 @@ impl ServingService {
         plan: &QueryPlan,
         provider: Option<&dyn TextEmbeddingProvider>,
     ) -> Result<Vec<LaneOutput>> {
+        if bound
+            .historical_authority
+            .as_ref()
+            .is_some_and(|view| snapshot.view_digest.as_ref() != Some(&view.snapshot_digest))
+        {
+            return Err(Error::Unavailable(
+                "candidate generation requires a compatible historical Serving view".into(),
+            ));
+        }
         let signals = prepare_signals(
             snapshot,
             &bound.source_query,
@@ -383,6 +392,11 @@ impl ServingService {
         bound: &BoundQuery,
         plan: &QueryPlan,
     ) -> Result<(ProjectionStatus, Arc<ServingQuery>)> {
+        if bound.historical_authority.is_some() {
+            return Err(Error::Unavailable(
+                "historical Serving view has not been prepared".into(),
+            ));
+        }
         let lease = self.read_gate.clone().read_owned().await;
         let mut need = plan.serving_need(&bound.source_query);
         if bound.source_query.capabilities.text_embedding == RequirementStrength::Forbidden

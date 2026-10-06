@@ -13,6 +13,7 @@ mod episode_text;
 pub use episode_text::EpisodeTextBudget;
 mod concept_input;
 mod historical;
+mod historical_binding;
 pub use historical::*;
 mod producer;
 mod projection_input;
