@@ -211,6 +211,7 @@ CREATE TABLE purged_use_receipts (
 );
 
 CREATE TABLE serving_generations (
+    view_descriptor jsonb NOT NULL DEFAULT '{"kind":"current"}' CHECK (view_descriptor->>'kind' IN ('current','historical')),
     generation_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     family text NOT NULL CHECK (family IN ('exact','lexical','dense','concept','topology')),

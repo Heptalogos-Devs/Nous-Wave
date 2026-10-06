@@ -11,6 +11,7 @@ mod consolidation_context;
 mod dependencies;
 mod episode;
 mod historical;
+mod historical_query;
 mod journal;
 mod lane;
 mod longitudinal_policy;

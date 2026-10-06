@@ -19,6 +19,25 @@ impl ServingService {
         space: &str,
         snapshot: &nous_configuration::ConfigSnapshot,
     ) -> Result<ServingRecord> {
+        self.build_family_in_view(
+            subject,
+            family,
+            space,
+            snapshot,
+            None,
+            &self.publisher.snapshot_for(subject),
+        )
+        .await
+    }
+    pub(crate) async fn build_family_in_view(
+        &self,
+        subject: SubjectId,
+        family: &str,
+        space: &str,
+        snapshot: &nous_configuration::ConfigSnapshot,
+        view: Option<&HistoricalAuthoritySnapshot>,
+        serving: &ServingSnapshot,
+    ) -> Result<ServingRecord> {
         let staging = tempfile::Builder::new()
             .prefix(".staging-")
             .tempdir_in(&self.options.root)
@@ -27,20 +46,35 @@ impl ServingService {
         let capabilities = self.projection_capabilities(subject).await?;
         let watermark = match family {
             "topology" => {
-                self.build_topology(subject, id, staging.path(), snapshot, capabilities)
-                    .await?
+                self.build_topology(
+                    subject,
+                    id,
+                    staging.path(),
+                    snapshot,
+                    capabilities,
+                    view,
+                    serving,
+                )
+                .await?
             }
             "concept" => {
-                self.build_concept(subject, id, space, staging.path())
+                self.build_concept(subject, id, space, staging.path(), view)
                     .await?
             }
             "dense" => {
-                self.build_dense(subject, id, space, staging.path(), capabilities, snapshot)
+                self.build_dense(subject, id, space, staging.path(), snapshot, view, serving)
                     .await?
             }
             "lexical" | "exact" => {
-                self.build_text(subject, family, staging.path(), capabilities, snapshot)
-                    .await?
+                self.build_text(
+                    subject,
+                    family,
+                    staging.path(),
+                    capabilities,
+                    snapshot,
+                    view,
+                )
+                .await?
             }
             _ => return Err(Error::Invalid("unknown serving family".into())),
         };
@@ -60,6 +94,13 @@ impl ServingService {
             generation_id: id,
             subject,
             family: family.into(),
+            view: view.map_or(nous_persistence::ServingView::Current, |v| {
+                nous_persistence::ServingView::Historical {
+                    snapshot_digest: v.snapshot_digest.clone(),
+                    as_of: v.as_of,
+                    revision_view: v.revision_view,
+                }
+            }),
             space: space.into(),
             authority_watermark: watermark,
             implementation_id: implementation_id.clone(),
@@ -84,13 +125,24 @@ impl ServingService {
         dir: &std::path::Path,
         capabilities: ProjectionCapabilities,
         snapshot: &nous_configuration::ConfigSnapshot,
+        view: Option<&HistoricalAuthoritySnapshot>,
     ) -> Result<i64> {
         let writer_bytes = snapshot.get(crate::LEXICAL_WRITER_BYTES)?;
         let budget = snapshot.get(crate::EPISODE_SYNOPSIS)?;
-        let input = self
-            .store
-            .text_projection_input(subject, family, "", capabilities.memory, budget)
-            .await?;
+        let input = match view {
+            Some(view) => {
+                let input = self.store.historical_projection_input(view, budget).await?;
+                nous_persistence::TextProjectionInput {
+                    watermark: 0,
+                    sources: input.sources,
+                }
+            }
+            None => {
+                self.store
+                    .text_projection_input(subject, family, "", capabilities.memory, budget)
+                    .await?
+            }
+        };
         if family == "exact" {
             let mut postings = ExactPostings::default();
             for (index, source) in input.sources.iter().enumerate() {
@@ -132,6 +184,30 @@ impl ServingService {
         Ok(input.watermark)
     }
 
+    async fn text_input_in_view(
+        &self,
+        subject: SubjectId,
+        family: &str,
+        space: &str,
+        memory: bool,
+        budget: nous_persistence::EpisodeTextBudget,
+        view: Option<&HistoricalAuthoritySnapshot>,
+    ) -> Result<nous_persistence::TextProjectionInput> {
+        match view {
+            Some(view) => {
+                let input = self.store.historical_projection_input(view, budget).await?;
+                Ok(nous_persistence::TextProjectionInput {
+                    watermark: 0,
+                    sources: input.sources,
+                })
+            }
+            None => {
+                self.store
+                    .text_projection_input(subject, family, space, memory, budget)
+                    .await
+            }
+        }
+    }
     pub(crate) async fn documents(
         &self,
         sources: Vec<TextProjectionSource>,
@@ -200,13 +276,17 @@ impl ServingService {
         dir: &std::path::Path,
         snapshot: &nous_configuration::ConfigSnapshot,
         capabilities: ProjectionCapabilities,
+        view: Option<&HistoricalAuthoritySnapshot>,
+        serving: &ServingSnapshot,
     ) -> Result<i64> {
         let profile = snapshot.get(nous_runtime::COGNITIVE_PROFILE)?;
         if matches!(
             profile,
             nous_runtime::CognitiveProfile::VcpDtsc | nous_runtime::CognitiveProfile::VcpRiverMemo
         ) {
-            let material = self.vcp_projection_material(subject, snapshot).await?;
+            let material = self
+                .vcp_projection_material_in_view(subject, snapshot, view, serving)
+                .await?;
             let watermark = material.authority_watermark;
             let policy = snapshot.get(crate::VCP_ASSETS)?;
             let directory = dir.to_path_buf();
@@ -220,10 +300,19 @@ impl ServingService {
             .map_err(|e| Error::Infrastructure(e.to_string()))??;
             return Ok(watermark);
         }
-        let input = self
-            .store
-            .topology_projection_input(subject, capabilities.memory)
-            .await?;
+        let input = match view {
+            Some(view) => {
+                self.store
+                    .historical_projection_input(view, snapshot.get(crate::EPISODE_SYNOPSIS)?)
+                    .await?
+                    .topology
+            }
+            None => {
+                self.store
+                    .topology_projection_input(subject, capabilities.memory)
+                    .await?
+            }
+        };
         let edges: Vec<_> = input
             .edges
             .into_iter()
@@ -275,15 +364,60 @@ impl ServingService {
         Ok(input.watermark)
     }
 
+    pub(crate) async fn embed_document(
+        &self,
+        subject: SubjectId,
+        document: &LexicalDocument,
+        concepts: Option<&ConceptGeneration>,
+        provider: &dyn TextEmbeddingProvider,
+    ) -> Result<Option<TextEmbeddingOutput>> {
+        let output = if let CognitiveRef::Tag(tag) = document.reference {
+            let Some(vector) = concepts.and_then(|generation| {
+                generation.semantic_vector(tag, &document.representation_text)
+            }) else {
+                return Ok(None);
+            };
+            TextEmbeddingOutput {
+                vector,
+                space: provider.space(),
+                producer: provider.producer(),
+            }
+        } else {
+            provider
+                .embed(TextEmbeddingRequest {
+                    subject,
+                    text: document.representation_text.clone(),
+                    query: false,
+                })
+                .await?
+        };
+        if !output.space.compatible_with(&provider.space())
+            || output.producer.signature_hash != provider.producer().signature_hash
+        {
+            return Err(Error::Conflict(
+                "projection embedding disagrees with configured space/producer".into(),
+            ));
+        }
+        if output.vector.len() != provider.space().dimension as usize
+            || output.vector.iter().any(|value| !value.is_finite())
+        {
+            return Err(Error::Invalid(
+                "projection embedding has invalid dimension or values".into(),
+            ));
+        }
+        Ok(Some(output))
+    }
     async fn build_dense(
         &self,
         subject: SubjectId,
         id: ServingGenerationId,
         space_key: &str,
         dir: &std::path::Path,
-        capabilities: ProjectionCapabilities,
         snapshot: &nous_configuration::ConfigSnapshot,
+        view: Option<&HistoricalAuthoritySnapshot>,
+        serving: &ServingSnapshot,
     ) -> Result<i64> {
+        let capabilities = self.projection_capabilities(subject).await?;
         let budget = snapshot.get(crate::EPISODE_SYNOPSIS)?;
         let epa_policy = snapshot.get(crate::EPA_POLICY)?;
         let provider = self
@@ -296,8 +430,14 @@ impl ServingService {
             ));
         }
         let input = self
-            .store
-            .text_projection_input(subject, "dense", space_key, capabilities.memory, budget)
+            .text_input_in_view(
+                subject,
+                "dense",
+                space_key,
+                capabilities.memory,
+                budget,
+                view,
+            )
             .await?;
         let source_regions: std::collections::HashMap<_, _> = input
             .sources
@@ -305,7 +445,6 @@ impl ServingService {
             .map(|source| (source.reference.clone(), source.source_region))
             .collect();
         let documents = self.documents(input.sources, budget).await?;
-        let serving = self.publisher.snapshot_for(subject);
         let concepts = serving.concept.iter().find(|generation| {
             generation
                 .space
@@ -318,33 +457,17 @@ impl ServingService {
         });
         let mut vectors = Vec::new();
         for document in documents {
-            let output = if let CognitiveRef::Tag(tag) = document.reference {
-                let Some(vector) = concepts.and_then(|generation| {
-                    generation.semantic_vector(tag, &document.representation_text)
-                }) else {
-                    continue;
-                };
-                TextEmbeddingOutput {
-                    vector,
-                    space: space.clone(),
-                    producer: provider.producer(),
-                }
-            } else {
-                provider
-                    .embed(TextEmbeddingRequest {
-                        subject,
-                        text: document.representation_text,
-                        query: false,
-                    })
-                    .await?
+            let Some(output) = self
+                .embed_document(
+                    subject,
+                    &document,
+                    concepts.map(AsRef::as_ref),
+                    provider.as_ref(),
+                )
+                .await?
+            else {
+                continue;
             };
-            if !output.space.compatible_with(&space)
-                || output.producer.signature_hash != provider.producer().signature_hash
-            {
-                return Err(Error::Conflict(
-                    "embedding output disagrees with configured space/producer".into(),
-                ));
-            }
             let source_region = source_regions
                 .get(&document.reference)
                 .copied()

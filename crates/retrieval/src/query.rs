@@ -343,9 +343,9 @@ mod tests;
 
 /// Request-scoped immutable Serving view, retained through final validation.
 pub struct ServingQuery {
-    service: ServingService,
+    pub(crate) service: ServingService,
     pub(crate) snapshot: Arc<ServingSnapshot>,
-    embedding: Option<crate::provider::RequestEmbedding>,
+    pub(crate) embedding: Option<crate::provider::RequestEmbedding>,
 }
 impl std::fmt::Debug for ServingQuery {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -392,10 +392,8 @@ impl ServingService {
         bound: &BoundQuery,
         plan: &QueryPlan,
     ) -> Result<(ProjectionStatus, Arc<ServingQuery>)> {
-        if bound.historical_authority.is_some() {
-            return Err(Error::Unavailable(
-                "historical Serving view has not been prepared".into(),
-            ));
+        if let Some(view) = bound.historical_authority.as_deref() {
+            return self.prepare_historical_query(bound, plan, view).await;
         }
         let lease = self.read_gate.clone().read_owned().await;
         let mut need = plan.serving_need(&bound.source_query);
@@ -458,6 +456,15 @@ impl ServingService {
             }
         }
         snapshot.retain_generations(status.generations.values().copied());
+        let reader = self.query_reader(bound, snapshot)?;
+        drop(lease);
+        Ok((status, reader))
+    }
+    pub(crate) fn query_reader(
+        &self,
+        bound: &BoundQuery,
+        snapshot: ServingSnapshot,
+    ) -> Result<Arc<ServingQuery>> {
         let reader = Arc::new(ServingQuery {
             service: self.clone(),
             snapshot: Arc::new(snapshot),
@@ -475,7 +482,6 @@ impl ServingService {
         readers.retain(|reader| reader.strong_count() > 0);
         readers.push(Arc::downgrade(&reader));
         drop(readers);
-        drop(lease);
-        Ok((status, reader))
+        Ok(reader)
     }
 }

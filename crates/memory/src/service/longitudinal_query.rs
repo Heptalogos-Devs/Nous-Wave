@@ -56,9 +56,17 @@ pub(super) async fn materialize_longitudinal(
             bound
                 .config_snapshot
                 .get(super::longitudinal_policy::EPISODE_SYNOPSIS)?,
+            bound.historical_authority.as_deref(),
         )
         .await?;
-        let mut metadata = longitudinal_metadata(service, subject, kind, &ids).await?;
+        let mut metadata = longitudinal_metadata(
+            service,
+            subject,
+            kind,
+            &ids,
+            bound.historical_authority.as_deref(),
+        )
+        .await?;
         for row in rows {
             let revision: Uuid = row.get("revision_id");
             let object: Uuid = row.get("object_id");
@@ -77,26 +85,10 @@ pub(super) async fn materialize_longitudinal(
             } else {
                 &mutable
             };
-            let historical = bound.revision_policy.allows_historical(requested)
-                && row.get::<Uuid, _>("current_revision_id") != revision;
-            let changed_binding = bound.exact_bindings.iter().any(|binding| {
-                binding.bound_ref == exact
-                    && binding.mutable_object
-                    && (binding.bound_object_epoch != Some(row.get("object_epoch"))
-                        || row.get::<Uuid, _>("current_revision_id") != revision)
-            });
-            if changed_binding
-                || row.get::<String, _>("purge_state") != "normal"
-                || (!historical
-                    && (row.get::<Uuid, _>("current_revision_id") != revision
-                        || row.get::<String, _>("acceptance_state") != "accepted"
-                        || row.get::<String, _>("integrity_state") != "valid"
-                        || (row.get::<String, _>("suppression_state") != "normal"
-                            && !bound.source_query.expression.constraints.include_suppressed)))
-            {
+            let Some(epoch) = longitudinal_availability(bound, &row, &exact, requested)? else {
                 *drops.entry("longitudinal_unavailable".into()).or_default() += 1;
                 continue;
-            }
+            };
             let time = temporal_from_columns(
                 row.get("time_kind"),
                 row.get("time_start"),
@@ -112,18 +104,61 @@ pub(super) async fn materialize_longitudinal(
             } else {
                 vec![]
             };
-            hits.push(longitudinal_hit(
+            let mut hit = longitudinal_hit(
                 &row,
                 kind,
                 exact,
                 supports,
                 renderings.remove(&revision).unwrap_or_default(),
                 metadata,
-            ));
+            );
+            hit.authority_epoch = Some(epoch);
+            hits.push(hit);
         }
     }
     Ok((hits, drops))
 }
+fn longitudinal_availability(
+    bound: &BoundQuery,
+    row: &sqlx::postgres::PgRow,
+    exact: &CognitiveRef,
+    requested: &CognitiveRef,
+) -> Result<Option<i64>> {
+    let revision: Uuid = row.get("revision_id");
+    let header = match super::historical::historical_header(bound, exact) {
+        Ok(header) => header,
+        Err(Error::NotFound(_)) => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let epoch = super::historical::header_epoch(header, row)?;
+    let historical = header.is_some()
+        || (bound.revision_policy.allows_historical(requested)
+            && row.get::<Uuid, _>("current_revision_id") != revision);
+    let changed_binding = bound.exact_bindings.iter().any(|binding| {
+        binding.bound_ref == *exact
+            && binding.mutable_object
+            && (binding.bound_object_epoch != Some(epoch)
+                || (header.is_none() && row.get::<Uuid, _>("current_revision_id") != revision))
+    });
+    let lifecycle = super::historical::header_text(header, row, "acceptance_state")? == "accepted"
+        && super::historical::header_text(header, row, "integrity_state")? == "valid"
+        && (super::historical::header_text(header, row, "suppression_state")? == "normal"
+            || bound.source_query.expression.constraints.include_suppressed);
+    if changed_binding
+        || row.get::<String, _>("purge_state") != "normal"
+        || (header.is_some() && !lifecycle)
+        || (!historical
+            && (row.get::<Uuid, _>("current_revision_id") != revision
+                || row.get::<String, _>("acceptance_state") != "accepted"
+                || row.get::<String, _>("integrity_state") != "valid"
+                || (row.get::<String, _>("suppression_state") != "normal"
+                    && !bound.source_query.expression.constraints.include_suppressed)))
+    {
+        return Ok(None);
+    }
+    Ok(Some(epoch))
+}
+
 fn longitudinal_hit(
     row: &sqlx::postgres::PgRow,
     kind: &str,
@@ -317,6 +352,7 @@ async fn longitudinal_renderings(
     kind: &str,
     ids: &[Uuid],
     budget: nous_persistence::EpisodeTextBudget,
+    view: Option<&HistoricalAuthoritySnapshot>,
 ) -> Result<BTreeMap<Uuid, LongitudinalRendering>> {
     let mut result = BTreeMap::<Uuid, LongitudinalRendering>::new();
     if kind == "journal" {
@@ -335,7 +371,7 @@ async fn longitudinal_renderings(
     } else {
         let fragments = service
             .store
-            .episode_member_text_input(subject, ids, budget)
+            .episode_member_text_input_in_view(subject, ids, budget, view)
             .await?;
         for (revision, members) in fragments {
             for member in members {
@@ -398,6 +434,7 @@ pub(super) async fn longitudinal_metadata(
     subject: SubjectId,
     kind: &str,
     ids: &[Uuid],
+    view: Option<&HistoricalAuthoritySnapshot>,
 ) -> Result<BTreeMap<Uuid, LongitudinalMetadata>> {
     let rows = sqlx::query(r"
 WITH RECURSIVE lineage(root,kind,value) AS (
@@ -421,17 +458,18 @@ WITH RECURSIVE lineage(root,kind,value) AS (
         WHERE e.memory_revision_id=CASE WHEN l.kind='memory_revision' THEN l.value::uuid END
         UNION SELECT CASE WHEN e.support_kind='evidence' THEN 'occurrence' ELSE e.support_kind END,
             CASE WHEN e.support_kind='evidence' THEN e.occurrence_id::text ELSE e.support_ref END
-        FROM cognitive_schema_evidence_links e WHERE e.schema_revision_id=CASE WHEN l.kind='cognitive_schema_revision' THEN l.value::uuid END AND e.revoked_at IS NULL
+        FROM cognitive_schema_evidence_links e WHERE e.schema_revision_id=CASE WHEN l.kind='cognitive_schema_revision' THEN l.value::uuid END AND (($4 AND e.link_id=ANY($5::uuid[])) OR (NOT $4 AND e.revoked_at IS NULL))
     ) e WHERE e.value IS NOT NULL
 )
 SELECT DISTINCT l.root,o.occurrence_id,o.source_class,o.actor_entity_ref,
     o.occurred_time_kind,o.occurred_time_start,o.occurred_time_end,o.observed_at,
     ARRAY(SELECT DISTINCT b.entity_ref FROM entity_mentions m CROSS JOIN LATERAL (
-        SELECT entity_ref,binding_state FROM entity_binding_revisions WHERE mention_id=m.mention_id ORDER BY revision_no DESC LIMIT 1
+        SELECT entity_ref,binding_state FROM entity_binding_revisions WHERE mention_id=m.mention_id AND (NOT $4 OR binding_revision_id=ANY($6::uuid[])) ORDER BY revision_no DESC LIMIT 1
     ) b WHERE m.subject_id=$1 AND m.occurrence_id=o.occurrence_id AND b.binding_state='bound' AND b.entity_ref IS NOT NULL) AS entities
 FROM lineage l JOIN observation_occurrences o ON o.occurrence_id=CASE WHEN l.kind='occurrence' THEN l.value::uuid END
-WHERE o.subject_id=$1 ORDER BY l.root,o.occurrence_id")
+WHERE o.subject_id=$1 AND (NOT $4 OR o.created_at<=$7) ORDER BY l.root,o.occurrence_id")
         .bind(subject.0).bind(ids).bind(format!("{kind}_revision"))
+        .bind(view.is_some()).bind(view.map(|v|v.schema_evidence_links.clone()).unwrap_or_default()).bind(view.map(|v|v.entity_bindings.clone()).unwrap_or_default()).bind(view.map(|v|v.as_of))
         .fetch_all(service.store.pool()).await.map_err(db)?;
     let mut result = BTreeMap::<Uuid, LongitudinalMetadata>::new();
     for row in rows {

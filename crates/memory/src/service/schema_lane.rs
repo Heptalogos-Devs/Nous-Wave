@@ -233,6 +233,7 @@ pub(crate) async fn materialize_schema_revisions(
         bound.source_query.subject,
         "cognitive_schema",
         &revision_ids,
+        bound.historical_authority.as_deref(),
     )
     .await?;
     let mut drops = BTreeMap::new();
@@ -243,6 +244,14 @@ pub(crate) async fn materialize_schema_revisions(
                 .map_err(nous_persistence::database_error)?,
         );
         let reference = CognitiveRef::CognitiveSchemaRevision(revision);
+        let header = match super::historical::historical_header(bound, &reference) {
+            Ok(header) => header,
+            Err(Error::NotFound(_)) => {
+                *drops.entry("outside_historical_view".into()).or_default() += 1;
+                continue;
+            }
+            Err(error) => return Err(error),
+        };
         let historical = bound.revision_policy.allows_historical(&reference);
         let current: Uuid = row
             .try_get("current_revision_id")
@@ -251,15 +260,9 @@ pub(crate) async fn materialize_schema_revisions(
             *drops.entry("not_current".into()).or_default() += 1;
             continue;
         }
-        let accepted: String = row
-            .try_get("acceptance_state")
-            .map_err(nous_persistence::database_error)?;
-        let valid: String = row
-            .try_get("integrity_state")
-            .map_err(nous_persistence::database_error)?;
-        let suppression: String = row
-            .try_get("suppression_state")
-            .map_err(nous_persistence::database_error)?;
+        let accepted = super::historical::header_text(header, &row, "acceptance_state")?;
+        let valid = super::historical::header_text(header, &row, "integrity_state")?;
+        let suppression = super::historical::header_text(header, &row, "suppression_state")?;
         let purge: String = row
             .try_get("purge_state")
             .map_err(nous_persistence::database_error)?;
@@ -276,11 +279,7 @@ pub(crate) async fn materialize_schema_revisions(
             .iter()
             .find(|binding| binding.bound_ref == reference)
             && binding.mutable_object
-            && binding.bound_object_epoch
-                != Some(
-                    row.try_get("object_epoch")
-                        .map_err(nous_persistence::database_error)?,
-                )
+            && binding.bound_object_epoch != Some(super::historical::header_epoch(header, &row)?)
         {
             *drops.entry("stale_exact_binding".into()).or_default() += 1;
             continue;
@@ -367,10 +366,7 @@ pub(crate) async fn materialize_schema_revisions(
             continue;
         }
         hits.push(CognitiveHit {
-            authority_epoch: Some(
-                row.try_get("object_epoch")
-                    .map_err(nous_persistence::database_error)?,
-            ),
+            authority_epoch: Some(super::historical::header_epoch(header, &row)?),
             preference_refs: vec![CognitiveRef::CognitiveSchema(CognitiveSchemaId(
                 row.try_get("schema_id")
                     .map_err(nous_persistence::database_error)?,

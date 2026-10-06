@@ -1495,7 +1495,15 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     assert_eq!(observation.generation_id(), graph.generation_id);
     assert_eq!(observation.profile_id(), "vcp-rivermemo-v3.1-adapter-v1");
     assert!(!observation.numerical().epa.cache_available);
-    assert!(observation.numerical().sense.source_field.is_empty());
+    let exact_id = graph.identities.id(&memory_reference).unwrap();
+    assert!(
+        observation
+            .numerical()
+            .sense
+            .source_field
+            .iter()
+            .any(|(id, strength)| *id == exact_id && *strength > 0.0)
+    );
     check_vcp_nonempty_observation(
         &runtime,
         subject,
@@ -1615,7 +1623,16 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         )
         .await
         .unwrap();
-    assert_eq!(reopened.reopened, vec!["exact", "topology"]);
+    assert!(reopened.rebuilt.is_empty());
+    assert_eq!(
+        reopened.reopened,
+        vec![
+            "concept".to_owned(),
+            format!("concept:{}", graph.space.space_hash),
+            "exact".to_owned(),
+            "topology".to_owned()
+        ]
+    );
     assert_eq!(
         runtime
             .serving
@@ -1708,7 +1725,14 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         )
         .await
         .unwrap();
-    assert_eq!(changed.rebuilt, vec!["topology"]);
+    assert_eq!(
+        changed.rebuilt,
+        vec![
+            "concept".to_owned(),
+            format!("concept:{}", graph.space.space_hash),
+            "topology".to_owned()
+        ]
+    );
     let published = runtime.serving.publisher.snapshot_for(subject);
     let assets = published.vcp.as_ref().unwrap();
     assert_ne!(assets.generation_id, previous_vcp);
@@ -2625,6 +2649,7 @@ async fn evidence_time_constraints_filter_occurrences_and_regions_through_finali
         );
     }
     let mut input = query(subject);
+    input.projection.domains = vec![nous_core::ResultDomain::Evidence];
     input.expression.cues.push(Cue::Text(TextCue {
         text: "chronicle approval".into(),
     }));
@@ -2818,6 +2843,7 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
     let derived_ref = CognitiveRef::DerivedRepresentation(derived.derived_representation_id);
     for reference in [source, derived_ref.clone()] {
         let mut input = query(subject);
+        input.projection.domains = vec![nous_core::ResultDomain::Evidence];
         input.expression.targets = vec![QueryTarget::Exact {
             reference: reference.clone(),
         }];
@@ -2858,6 +2884,7 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
         CognitiveRef::Occurrence(observations[0].occurrence.occurrence_id)
     );
     let mut input = query(subject);
+    input.projection.domains = vec![nous_core::ResultDomain::Evidence];
     input.expression.targets = vec![QueryTarget::Exact {
         reference: derived_ref,
     }];

@@ -60,3 +60,61 @@ pub(crate) async fn resolve_memory_references(
     }
     Ok(result)
 }
+
+pub(super) async fn resolve_memory_references_in_view(
+    service: &MemoryService,
+    subject: SubjectId,
+    references: &[CognitiveRef],
+    view: Option<&HistoricalAuthoritySnapshot>,
+) -> Result<HashMap<CognitiveRef, (MemoryId, MemoryRevisionId)>> {
+    let Some(view) = view else {
+        return resolve_memory_references(service, subject, references).await;
+    };
+    let mut resolved = HashMap::new();
+    for requested in references {
+        let Some(state) = view.cognition_for(requested) else {
+            continue;
+        };
+        let CognitiveRef::Memory(memory) = state.object else {
+            continue;
+        };
+        let reference = if &state.object == requested {
+            &state.head
+        } else {
+            requested
+        };
+        if let CognitiveRef::MemoryRevision(revision) = reference {
+            resolved.insert(requested.clone(), (memory, *revision));
+        }
+    }
+    Ok(resolved)
+}
+
+pub(super) async fn canonical_preferences(
+    service: &MemoryService,
+    subject: SubjectId,
+    references: Vec<CognitiveRef>,
+    view: Option<&HistoricalAuthoritySnapshot>,
+) -> Result<Vec<CognitiveRef>> {
+    let mut result = Vec::new();
+    for reference in references {
+        let CognitiveRef::Tag(tag) = reference else {
+            result.push(reference);
+            continue;
+        };
+        let canonical = if let Some(view) = view {
+            view.canonical_tag(tag)
+                .ok_or_else(|| Error::NotFound("historical Tag unavailable".into()))
+        } else {
+            service.store.canonical_tag_id(subject, tag).await
+        };
+        match canonical {
+            Ok(tag) => result.push(CognitiveRef::Tag(tag)),
+            Err(Error::NotFound(_)) => {}
+            Err(error) => return Err(error),
+        }
+    }
+    result.sort_by_key(ToString::to_string);
+    result.dedup();
+    Ok(result)
+}

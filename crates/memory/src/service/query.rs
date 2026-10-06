@@ -3,7 +3,6 @@
 
 use super::lane::{LaneCandidate, LaneOutput, LaneStatus};
 use super::query_materialization::*;
-use super::query_support::resolve_memory_references;
 use super::schema_lane::{materialize_schema_revisions, schema_direct_lane};
 use super::*;
 use async_trait::async_trait;
@@ -41,6 +40,9 @@ impl CognitiveContributor for MemoryService {
     }
 
     async fn direct_lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
+        if bound.historical_authority.is_some() {
+            return super::historical_query::direct_lanes(self, bound, plan).await;
+        }
         let mut outputs = Vec::new();
         if bound.lane_enabled(EvidenceFamily::Entity) {
             outputs.push(entity_lane(self, bound, plan).await?);
@@ -72,13 +74,24 @@ impl CognitiveContributor for MemoryService {
             })
             .cloned()
             .collect::<Vec<_>>();
-        let resolved = resolve_memory_references(self, subject, &memory_references).await?;
+        let resolved = super::query_support::resolve_memory_references_in_view(
+            self,
+            subject,
+            &memory_references,
+            bound.historical_authority.as_deref(),
+        )
+        .await?;
         let revision_ids = resolved
             .values()
             .map(|(_, revision)| revision.0)
             .collect::<Vec<_>>();
         let views = self
-            .memories_for_query(subject, &revision_ids, &accessibility_policy)
+            .memories_for_query(
+                subject,
+                &revision_ids,
+                &accessibility_policy,
+                bound.historical_authority.as_deref(),
+            )
             .await?;
         let mut drops = BTreeMap::new();
         let source_objects = self
@@ -90,10 +103,16 @@ impl CognitiveContributor for MemoryService {
                 increment_drop(&mut drops, "not_in_subject");
                 continue;
             };
-            let Some(view) = views.get(&revision.0).cloned() else {
+            let Some(mut view) = views.get(&revision.0).cloned() else {
                 increment_drop(&mut drops, "not_materialized");
                 continue;
             };
+            if let Some(reason) =
+                super::query_materialization::apply_historical_header(&mut view, bound)?
+            {
+                increment_drop(&mut drops, reason);
+                continue;
+            }
             let historical = bound.revision_policy.allows_historical(reference)
                 && view.object.current_revision_id != revision;
             let exact = bound.exact_bindings.iter().any(|binding| {
@@ -129,21 +148,13 @@ impl CognitiveContributor for MemoryService {
             }
             let hit_reference = CognitiveRef::MemoryRevision(revision);
             let mut hit = to_hit(&bound.source_query, &candidate, hit_reference);
-            let mut current_preferences = Vec::new();
-            for preference in hit.preference_refs {
-                let CognitiveRef::Tag(tag) = preference else {
-                    current_preferences.push(preference);
-                    continue;
-                };
-                match self.store.canonical_tag_id(subject, tag).await {
-                    Ok(tag) => current_preferences.push(CognitiveRef::Tag(tag)),
-                    Err(Error::NotFound(_)) => {}
-                    Err(error) => return Err(error),
-                }
-            }
-            current_preferences.sort_by_key(ToString::to_string);
-            current_preferences.dedup();
-            hit.preference_refs = current_preferences;
+            hit.preference_refs = super::query_support::canonical_preferences(
+                self,
+                subject,
+                hit.preference_refs,
+                bound.historical_authority.as_deref(),
+            )
+            .await?;
             hit.preference_refs
                 .extend(source_objects.get(&revision.0).cloned().unwrap_or_default());
             hits.push(hit);

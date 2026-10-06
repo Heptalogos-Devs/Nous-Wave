@@ -221,7 +221,7 @@ impl ServingService {
         Ok(result)
     }
 
-    fn requested_families(
+    pub(crate) fn requested_families(
         &self,
         need: ServingNeed,
         current: &[ServingRecord],
@@ -235,7 +235,10 @@ impl ServingService {
             } else {
                 String::new()
             };
-            requested.push(("concept", space));
+            requested.push(("concept", String::new()));
+            if !space.is_empty() {
+                requested.push(("concept", space));
+            }
         }
         if need.exact {
             requested.push(("exact", String::new()));
@@ -318,7 +321,7 @@ impl ServingService {
         Ok(record)
     }
 
-    async fn compatible(
+    pub(crate) async fn compatible(
         &self,
         record: &ServingRecord,
         snapshot: &nous_configuration::ConfigSnapshot,

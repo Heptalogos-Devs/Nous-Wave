@@ -327,6 +327,7 @@ async fn direct_concept_recall_is_independent_and_vectors_are_shared_across_prof
         1
     );
     let old_snapshot = rt.serving.publisher.snapshot_for(subject);
+    let historical_cut = rt.cognition.now(subject);
     let revised = owner
         .revise_tag(
             subject,
@@ -444,6 +445,7 @@ async fn direct_concept_recall_is_independent_and_vectors_are_shared_across_prof
             .any(|hit| hit.reference == revision)
     );
     check_model_catalog_activity(&rt, subject, tag.tag_id, &probe).await;
+    check_historical_profiles(&rt, subject, tag.tag_id, &revision, historical_cut).await;
 }
 
 #[expect(
@@ -616,4 +618,107 @@ async fn check_model_catalog_activity(
     let disabled = rt.execute_query(input, None).await.unwrap();
     assert_eq!(disabled.bound.activation.model_calls, 0);
     assert_eq!(rt.store.authority_seq(subject).await.unwrap(), before);
+}
+
+async fn check_historical_profiles(
+    rt: &NousRuntime,
+    subject: SubjectId,
+    tag: TagId,
+    revision: &CognitiveRef,
+    cut: chrono::DateTime<chrono::Utc>,
+) {
+    rt.configuration
+        .set_subject_override(
+            OperationId::new(),
+            subject,
+            CONCEPT_ENRICHMENT.path(),
+            serde_json::json!("existing"),
+        )
+        .await
+        .unwrap();
+    for profile in [
+        "nous-node-potential-v1",
+        "vcp-dtsc-v9.2.1-adapter-v1",
+        "vcp-rivermemo-v3.1-adapter-v1",
+    ] {
+        rt.configuration
+            .set_subject_override(
+                OperationId::new(),
+                subject,
+                COGNITIVE_PROFILE.path(),
+                serde_json::json!(profile),
+            )
+            .await
+            .unwrap();
+        let mut query = query(
+            subject,
+            vec![
+                Cue::Text(TextCue {
+                    text: "reader reclamation".into(),
+                }),
+                Cue::Tag(TagCue { tag }),
+            ],
+        );
+        query.temporal_frame.authority_view = AuthorityView::AsOf(cut);
+        query.exploration = ExplorationIntent::BoundedAssociative;
+        let result = rt.execute_query(query, None).await.unwrap();
+        assert!(
+            result
+                .result
+                .results
+                .iter()
+                .any(|hit| &hit.reference == revision)
+        );
+        let records = rt
+            .store
+            .historical_serving_reusable(
+                subject,
+                &result
+                    .bound
+                    .historical_authority
+                    .as_ref()
+                    .unwrap()
+                    .snapshot_digest,
+            )
+            .await
+            .unwrap();
+        assert!(records.iter().any(|r| r.family == "dense"));
+        assert!(records.iter().any(|r| r.family == "topology"));
+        let concepts = records
+            .iter()
+            .find(|r| r.family == "concept" && !r.space.is_empty())
+            .unwrap();
+        let content =
+            std::fs::read(std::path::Path::new(&concepts.artifact_location).join("concept.json"))
+                .unwrap();
+        let generation: nous_retrieval::ConceptGeneration =
+            serde_json::from_slice(&content).unwrap();
+        let record = generation.record(tag).unwrap();
+        assert!(record.semantic.text.contains("Wait for all active readers"));
+        assert!(!record.semantic.text.contains("historical assets"));
+        assert!(record.vector.is_some());
+        let (_, reader) = rt
+            .serving
+            .prepare_query(
+                &result.bound,
+                &nous_runtime::QueryPlan::for_bound_query(&result.bound),
+            )
+            .await
+            .unwrap();
+        let lanes = nous_runtime::QueryActivationView::provider(reader.as_ref())
+            .lanes(
+                &result.bound,
+                &nous_runtime::QueryPlan::for_bound_query(&result.bound),
+            )
+            .await
+            .unwrap();
+        for family in [EvidenceFamily::Dense, EvidenceFamily::TopologyWave] {
+            let lane = lanes.iter().find(|lane| lane.family == family).unwrap();
+            assert!(
+                !matches!(lane.status, nous_runtime::LaneStatus::Unavailable),
+                "{profile}: {:?}",
+                lane.diagnostics
+            );
+        }
+    }
 }

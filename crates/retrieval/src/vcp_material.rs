@@ -29,6 +29,21 @@ impl ServingService {
         subject: SubjectId,
         snapshot: &nous_configuration::ConfigSnapshot,
     ) -> Result<VcpProjectionMaterial> {
+        self.vcp_projection_material_in_view(
+            subject,
+            snapshot,
+            None,
+            &self.publisher.snapshot_for(subject),
+        )
+        .await
+    }
+    pub(crate) async fn vcp_projection_material_in_view(
+        &self,
+        subject: SubjectId,
+        snapshot: &nous_configuration::ConfigSnapshot,
+        view: Option<&HistoricalAuthoritySnapshot>,
+        serving: &ServingSnapshot,
+    ) -> Result<VcpProjectionMaterial> {
         let provider = self.embedding().ok_or_else(|| {
             Error::Unavailable("VCP serving build requires configured embedding material".into())
         })?;
@@ -36,11 +51,22 @@ impl ServingService {
         let producer = provider.producer();
         let budget = snapshot.get(crate::EPISODE_SYNOPSIS)?;
         let capabilities = self.projection_capabilities(subject).await?;
-        let input = self
-            .store
-            .cognitive_projection_input(subject, capabilities.memory, budget)
-            .await?;
-        let serving = self.publisher.snapshot_for(subject);
+        let input = match view {
+            Some(view) => {
+                let input = self.store.historical_projection_input(view, budget).await?;
+                nous_persistence::CognitiveProjectionInput {
+                    authority_watermark: 0,
+                    topology: input.topology,
+                    evidence_roots: input.evidence_roots,
+                    sources: input.sources,
+                }
+            }
+            None => {
+                self.store
+                    .cognitive_projection_input(subject, capabilities.memory, budget)
+                    .await?
+            }
+        };
         let concepts = serving.concept.iter().find(|generation| {
             generation
                 .space
@@ -66,43 +92,17 @@ impl ServingService {
                         })
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let output = if let CognitiveRef::Tag(tag) = document.reference {
-                let record = concepts
-                    .and_then(|generation| generation.record(tag))
-                    .filter(|record| record.semantic.text == document.representation_text)
-                    .ok_or_else(|| {
-                        Error::Unavailable("VCP requires compatible shared concept material".into())
-                    })?;
-                TextEmbeddingOutput {
-                    vector: record.vector.clone().ok_or_else(|| {
-                        Error::Unavailable("shared concept vector is unavailable".into())
-                    })?,
-                    space: space.clone(),
-                    producer: producer.clone(),
-                }
-            } else {
-                provider
-                    .embed(TextEmbeddingRequest {
-                        subject,
-                        text: document.representation_text.clone(),
-                        query: false,
-                    })
-                    .await?
-            };
-            if !output.space.compatible_with(&space)
-                || output.producer.signature_hash != producer.signature_hash
-            {
-                return Err(Error::Conflict(
-                    "VCP embedding material disagrees with generation space/producer".into(),
-                ));
-            }
-            if output.vector.len() != space.dimension as usize
-                || output.vector.iter().any(|v| !v.is_finite())
-            {
-                return Err(Error::Invalid(
-                    "VCP embedding material has invalid dimension or values".into(),
-                ));
-            }
+            let output = self
+                .embed_document(
+                    subject,
+                    &document,
+                    concepts.map(AsRef::as_ref),
+                    provider.as_ref(),
+                )
+                .await?
+                .ok_or_else(|| {
+                    Error::Unavailable("VCP requires compatible shared concept material".into())
+                })?;
             let evidence_roots = input
                 .evidence_roots
                 .get(&document.reference)

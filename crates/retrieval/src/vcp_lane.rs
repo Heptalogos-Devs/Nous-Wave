@@ -144,18 +144,20 @@ impl ServingService {
         let capabilities = self
             .projection_capabilities(bound.source_query.subject)
             .await?;
-        Ok(seq == generation.authority_watermark
-            && (capabilities.memory
-                || !generation.identities.references().iter().any(|r| {
-                    matches!(
-                        r,
-                        CognitiveRef::Memory(_)
-                            | CognitiveRef::MemoryRevision(_)
-                            | CognitiveRef::EpisodeRevision(_)
-                            | CognitiveRef::JournalRevision(_)
-                            | CognitiveRef::CognitiveSchemaRevision(_)
-                    )
-                })))
+        Ok(
+            (bound.historical_authority.is_some() || seq == generation.authority_watermark)
+                && (capabilities.memory
+                    || !generation.identities.references().iter().any(|r| {
+                        matches!(
+                            r,
+                            CognitiveRef::Memory(_)
+                                | CognitiveRef::MemoryRevision(_)
+                                | CognitiveRef::EpisodeRevision(_)
+                                | CognitiveRef::JournalRevision(_)
+                                | CognitiveRef::CognitiveSchemaRevision(_)
+                        )
+                    })),
+        )
     }
 }
 

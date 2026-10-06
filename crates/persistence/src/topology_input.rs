@@ -388,10 +388,6 @@ async fn occurrence_roots(
     Ok(HashSet::from([root]))
 }
 
-#[expect(
-    clippy::excessive_nesting,
-    reason = "iterative provenance closure keeps exact support semantics together"
-)]
 async fn revision_roots(
     tx: &mut Transaction<'_, Postgres>,
     subject: SubjectId,
@@ -399,10 +395,30 @@ async fn revision_roots(
     value: &str,
     visited: &mut HashSet<(String, String)>,
 ) -> Result<HashSet<String>> {
+    revision_roots_in_view(tx, subject, kind, value, visited, None).await
+}
+#[expect(
+    clippy::excessive_nesting,
+    clippy::too_many_lines,
+    reason = "iterative provenance closure keeps exact historical support semantics together"
+)]
+pub(crate) async fn revision_roots_in_view(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    kind: &str,
+    value: &str,
+    visited: &mut HashSet<(String, String)>,
+    view: Option<&HistoricalAuthoritySnapshot>,
+) -> Result<HashSet<String>> {
     let mut stack = vec![(kind.to_owned(), value.to_owned())];
     let mut roots = HashSet::new();
     while let Some((kind, value)) = stack.pop() {
         if !visited.insert((kind.clone(), value.clone())) {
+            continue;
+        }
+        if view.is_some_and(|view| {
+            parse_reference(&kind, &value).is_ok_and(|reference| !view.contains(&reference))
+        }) {
             continue;
         }
         if matches!(
@@ -425,8 +441,13 @@ async fn revision_roots(
             .map_err(db)?;
             for row in rows {
                 roots.extend(
-                    occurrence_roots(tx, subject, row.try_get("occurrence_id").map_err(db)?)
-                        .await?,
+                    occurrence_roots_in_view(
+                        tx,
+                        subject,
+                        row.try_get("occurrence_id").map_err(db)?,
+                        view,
+                    )
+                    .await?,
                 );
             }
             let rows = sqlx::query(
@@ -445,10 +466,11 @@ async fn revision_roots(
             }
         } else if kind == "cognitive_schema_revision" {
             let rows = sqlx::query(
-                "SELECT support_kind,support_ref,occurrence_id FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND schema_revision_id=$2 AND revoked_at IS NULL",
+                "SELECT support_kind,support_ref,occurrence_id FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND schema_revision_id=$2 AND (($3 AND link_id=ANY($4::uuid[])) OR (NOT $3 AND revoked_at IS NULL))",
             )
             .bind(subject.0)
             .bind(id)
+            .bind(view.is_some()).bind(view.map(|v|v.schema_evidence_links.clone()).unwrap_or_default())
             .fetch_all(&mut **tx)
             .await
             .map_err(db)?;
@@ -459,16 +481,17 @@ async fn revision_roots(
                         .try_get::<Option<Uuid>, _>("occurrence_id")
                         .map_err(db)?
                     {
-                        roots.extend(occurrence_roots(tx, subject, occurrence).await?);
+                        roots
+                            .extend(occurrence_roots_in_view(tx, subject, occurrence, view).await?);
                     }
                 } else {
                     stack.push((support_kind, row.try_get("support_ref").map_err(db)?));
                 }
             }
         } else if kind == "occurrence" {
-            roots.extend(occurrence_roots(tx, subject, id).await?);
+            roots.extend(occurrence_roots_in_view(tx, subject, id, view).await?);
         } else if kind == "source_region" {
-            roots.extend(source_region_roots(tx, subject, id).await?);
+            roots.extend(source_region_roots(tx, subject, id, view).await?);
         } else if kind == "derived_representation" || kind == "derived_region" {
             stack.extend(
                 derived_source_regions(tx, subject, &kind, id)
@@ -486,7 +509,8 @@ async fn revision_roots(
                         .try_get::<Option<Uuid>, _>("occurrence_id")
                         .map_err(db)?
                     {
-                        roots.extend(occurrence_roots(tx, subject, occurrence).await?);
+                        roots
+                            .extend(occurrence_roots_in_view(tx, subject, occurrence, view).await?);
                     }
                 } else {
                     stack.push((support_kind, row.try_get("support_ref").map_err(db)?));
@@ -541,6 +565,7 @@ async fn source_region_roots(
     tx: &mut Transaction<'_, Postgres>,
     subject: SubjectId,
     id: Uuid,
+    view: Option<&HistoricalAuthoritySnapshot>,
 ) -> Result<HashSet<String>> {
     let artifact: Option<Uuid> = sqlx::query_scalar(
         "SELECT artifact_id FROM source_regions WHERE subject_id=$1 AND source_region_id=$2",
@@ -552,13 +577,13 @@ async fn source_region_roots(
     .map_err(db)?;
     let mut roots = HashSet::new();
     if let Some(artifact) = artifact {
-        let occurrences = sqlx::query_scalar::<_, Uuid>("SELECT occurrence_id FROM observation_occurrences WHERE subject_id=$1 AND artifact_id=$2")
-            .bind(subject.0).bind(artifact).fetch_all(&mut **tx).await.map_err(db)?;
+        let occurrences = sqlx::query_scalar::<_, Uuid>("SELECT occurrence_id FROM observation_occurrences WHERE subject_id=$1 AND artifact_id=$2 AND ($3::timestamptz IS NULL OR created_at<=$3)")
+            .bind(subject.0).bind(artifact).bind(view.map(|v|v.as_of)).fetch_all(&mut **tx).await.map_err(db)?;
         if occurrences.is_empty() {
             roots.insert(format!("artifact:{artifact}"));
         }
         for occurrence in occurrences {
-            roots.extend(occurrence_roots(tx, subject, occurrence).await?);
+            roots.extend(occurrence_roots_in_view(tx, subject, occurrence, view).await?);
         }
     }
     Ok(roots)
@@ -575,4 +600,20 @@ fn allowed(reference: &CognitiveRef) -> bool {
             | CognitiveRef::Entity(_)
             | CognitiveRef::Resource(_)
     )
+}
+
+async fn occurrence_roots_in_view(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    occurrence: Uuid,
+    view: Option<&HistoricalAuthoritySnapshot>,
+) -> Result<HashSet<String>> {
+    if view.is_some_and(|view| {
+        !view
+            .material_visibility
+            .contains(&CognitiveRef::Occurrence(OccurrenceId(occurrence)))
+    }) {
+        return Ok(HashSet::new());
+    }
+    occurrence_roots(tx, subject, occurrence).await
 }

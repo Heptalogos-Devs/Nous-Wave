@@ -26,8 +26,19 @@ impl AuthorityStore {
         revisions: &[Uuid],
         budget: EpisodeTextBudget,
     ) -> Result<BTreeMap<Uuid, Vec<TextProjectionFragment>>> {
+        self.episode_member_text_input_in_view(subject, revisions, budget, None)
+            .await
+    }
+    pub async fn episode_member_text_input_in_view(
+        &self,
+        subject: SubjectId,
+        revisions: &[Uuid],
+        budget: EpisodeTextBudget,
+        view: Option<&HistoricalAuthoritySnapshot>,
+    ) -> Result<BTreeMap<Uuid, Vec<TextProjectionFragment>>> {
         let mut tx = self.begin().await?;
-        let result = episode_member_text_input_in(&mut tx, subject, revisions, budget).await?;
+        let result =
+            episode_member_text_input_in_view(&mut tx, subject, revisions, budget, view).await?;
         tx.commit().await.map_err(db)?;
         Ok(result)
     }
@@ -39,6 +50,33 @@ pub(crate) async fn episode_member_text_input_in(
     revisions: &[Uuid],
     budget: EpisodeTextBudget,
 ) -> Result<BTreeMap<Uuid, Vec<TextProjectionFragment>>> {
+    episode_member_text_input_in_view(tx, subject, revisions, budget, None).await
+}
+
+pub(crate) async fn episode_member_text_input_in_view(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    revisions: &[Uuid],
+    budget: EpisodeTextBudget,
+    view: Option<&HistoricalAuthoritySnapshot>,
+) -> Result<BTreeMap<Uuid, Vec<TextProjectionFragment>>> {
+    let historical = view.is_some();
+    let representations: Vec<Uuid> = view
+        .into_iter()
+        .flat_map(|v| &v.material_documents)
+        .filter_map(|r| match r {
+            CognitiveRef::DerivedRepresentation(id) => Some(id.0),
+            _ => None,
+        })
+        .collect();
+    let occurrences: Vec<Uuid> = view
+        .into_iter()
+        .flat_map(|v| &v.material_visibility)
+        .filter_map(|r| match r {
+            CognitiveRef::Occurrence(id) => Some(id.0),
+            _ => None,
+        })
+        .collect();
     let rows = sqlx::query(r"
 SELECT m.episode_revision_id,o.occurrence_id,a.content_hash,a.byte_length,
     (a.media_type LIKE 'text/%' OR a.media_type IN ('application/json','application/xml')) AS raw_text,
@@ -48,10 +86,10 @@ JOIN observation_occurrences o ON o.occurrence_id=CASE WHEN m.ref_kind='occurren
 LEFT JOIN artifacts a USING(artifact_id)
 LEFT JOIN LATERAL (
     SELECT r.derived_representation_id,left(r.payload_text,$3) AS text
-    FROM coverage_needs c JOIN source_regions s USING(source_region_id)
-    JOIN derived_representations r ON r.derived_representation_id=c.current_representation_id
-    WHERE c.subject_id=$1 AND r.subject_id=$1 AND s.artifact_id=o.artifact_id
-        AND c.state='ready' AND r.payload_text IS NOT NULL
+    FROM derived_representations r
+    WHERE (($5 AND r.derived_representation_id=ANY($6::uuid[])) OR (NOT $5 AND EXISTS (SELECT 1 FROM coverage_needs c WHERE c.subject_id=$1 AND c.current_representation_id=r.derived_representation_id AND c.state='ready')))
+        AND EXISTS (SELECT 1 FROM representation_source_regions($1,r.derived_representation_id) roots JOIN source_regions s USING(source_region_id) WHERE s.artifact_id=o.artifact_id)
+        AND r.subject_id=$1 AND r.payload_text IS NOT NULL
         AND r.representation_kind IN ('extracted_text','ocr','transcript','audio_description','image_description','scene_description','summary')
         AND NOT EXISTS (
             SELECT 1 FROM representation_source_regions($1,r.derived_representation_id) roots
@@ -60,9 +98,9 @@ LEFT JOIN LATERAL (
         )
     ORDER BY r.created_at DESC,r.derived_representation_id LIMIT 1
 ) d ON true
-WHERE e.subject_id=$1 AND o.subject_id=$1 AND m.episode_revision_id=ANY($2::uuid[]) AND m.ordinal<$4
+WHERE e.subject_id=$1 AND o.subject_id=$1 AND m.episode_revision_id=ANY($2::uuid[]) AND m.ordinal<$4 AND (NOT $5 OR o.occurrence_id=ANY($7::uuid[]))
 ORDER BY m.episode_revision_id,m.ordinal")
-        .bind(subject.0).bind(revisions).bind(budget.fragment_max_bytes as i32).bind(budget.max_members as i32).fetch_all(&mut **tx).await.map_err(db)?;
+        .bind(subject.0).bind(revisions).bind(budget.fragment_max_bytes as i32).bind(budget.max_members as i32).bind(historical).bind(representations).bind(occurrences).fetch_all(&mut **tx).await.map_err(db)?;
     let mut result = BTreeMap::<Uuid, Vec<TextProjectionFragment>>::new();
     for row in rows {
         let fragment = if row.get::<Option<bool>, _>("raw_text") == Some(true) {

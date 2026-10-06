@@ -19,6 +19,7 @@ mod observation;
 mod provider;
 pub mod reference;
 pub use observation::{QueryObservation, QueryTemporalContext};
+mod historical_serving;
 mod query;
 pub use query::PreparedQuerySignals;
 mod activated_routes;

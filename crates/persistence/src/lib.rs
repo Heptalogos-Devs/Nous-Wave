@@ -14,7 +14,9 @@ pub use episode_text::EpisodeTextBudget;
 mod concept_input;
 mod historical;
 mod historical_binding;
+mod historical_projection;
 pub use historical::*;
+pub use historical_projection::HistoricalProjectionInput;
 mod producer;
 mod projection_input;
 pub use concept_input::{ConceptProjectionInput, ConceptProjectionTag};
@@ -30,7 +32,7 @@ mod tags;
 mod topology_input;
 pub use projection_input::{TextProjectionFragment, TextProjectionInput, TextProjectionSource};
 pub use projections::{DenseInvalidation, ProjectionInvalidation};
-pub use serving::ServingRecord;
+pub use serving::{ServingRecord, ServingView};
 pub use topology_input::{CognitiveProjectionInput, TopologyEdgeSource, TopologyProjectionInput};
 
 use nous_core::{Error, OperationId, Result, SubjectId};
