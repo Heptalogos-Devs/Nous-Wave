@@ -12,6 +12,8 @@ pub use model_workflow::{WORKFLOW_VALUE_MAX_BYTES, WorkflowOwner, WorkflowReserv
 mod episode_text;
 pub use episode_text::EpisodeTextBudget;
 mod concept_input;
+mod historical;
+pub use historical::*;
 mod producer;
 mod projection_input;
 pub use concept_input::{ConceptProjectionInput, ConceptProjectionTag};

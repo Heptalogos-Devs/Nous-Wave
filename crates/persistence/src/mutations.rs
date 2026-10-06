@@ -151,6 +151,17 @@ impl<'a> MutationEnvelope<'a> {
         }))
     }
 
+    pub async fn capture_authority_time(
+        &mut self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<()> {
+        sqlx::query("SELECT set_config('nous.authority_time',$1,true)")
+            .bind(now.to_rfc3339_opts(chrono::SecondsFormat::Micros, true))
+            .execute(&mut *self.tx)
+            .await
+            .map_err(db)?;
+        Ok(())
+    }
     pub fn tx(&mut self) -> &mut sqlx::Transaction<'a, sqlx::Postgres> {
         &mut self.tx
     }
@@ -205,5 +216,16 @@ impl<'a> MutationEnvelope<'a> {
     pub async fn checkpoint(mut self) -> Result<()> {
         self.apply_invalidation().await?;
         self.tx.commit().await.map_err(db)
+    }
+}
+
+impl AuthorityStore {
+    pub async fn authority_time_in(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ) -> Result<chrono::DateTime<chrono::Utc>> {
+        sqlx::query_scalar("SELECT authority_recording_time()")
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(db)
     }
 }

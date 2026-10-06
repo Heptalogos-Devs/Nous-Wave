@@ -230,7 +230,7 @@ impl MemoryService {
         content.validate()?;
         let tag_id = TagId::new();
         let revision_id = Uuid::now_v7();
-        let now = self.cognition.now(subject);
+        let now = AuthorityStore::authority_time_in(tx).await?;
         let producer_id = match producer {
             Some(p) => Some(AuthorityStore::register_producer_in(tx, p).await?),
             None => None,
@@ -266,7 +266,7 @@ impl MemoryService {
             None => None,
         };
         sqlx::query("INSERT INTO tag_revisions(tag_revision_id,tag_id,revision_no,label,description,kind_hint,origin,producer_signature_id,created_at) SELECT $1,tag_id,revision_no+1,$2,$3,$4,origin,$5,$6 FROM tag_revisions WHERE tag_revision_id=$7")
-            .bind(revision_id).bind(&content.label).bind(&content.description).bind(&content.kind_hint).bind(producer_id).bind(self.cognition.now(subject)).bind(target.expected_revision_id).execute(&mut **tx).await.map_err(db)?;
+            .bind(revision_id).bind(&content.label).bind(&content.description).bind(&content.kind_hint).bind(producer_id).bind(AuthorityStore::authority_time_in(tx).await?).bind(target.expected_revision_id).execute(&mut **tx).await.map_err(db)?;
         sqlx::query("UPDATE tags SET current_revision_id=$3 WHERE subject_id=$1 AND tag_id=$2")
             .bind(subject.0)
             .bind(target.tag_id.0)
@@ -412,7 +412,7 @@ impl MemoryService {
         supports: &[RevisionSupport],
     ) -> Result<()> {
         sqlx::query("INSERT INTO tag_lineage(lineage_id,subject_id,operation_id,parent_tag_id,child_tag_id,parent_revision_id,child_revision_id,child_index,relation,supports,created_at) SELECT $1,$2,$3,$4,$5,p.current_revision_id,c.current_revision_id,$6,$7,$8,$9 FROM tags p JOIN tags c ON c.subject_id=p.subject_id WHERE p.subject_id=$2 AND p.tag_id=$4 AND c.tag_id=$5")
-            .bind(Uuid::now_v7()).bind(subject.0).bind(operation.0).bind(parent.0).bind(child.0).bind(i32::try_from(index).map_err(|_| Error::Invalid("lineage index exceeded".into()))?).bind(relation).bind(serde_json::to_value(supports).map_err(|e| Error::Infrastructure(e.to_string()))?).bind(self.cognition.now(subject)).execute(&mut **tx).await.map_err(db)?;
+            .bind(Uuid::now_v7()).bind(subject.0).bind(operation.0).bind(parent.0).bind(child.0).bind(i32::try_from(index).map_err(|_| Error::Invalid("lineage index exceeded".into()))?).bind(relation).bind(serde_json::to_value(supports).map_err(|e| Error::Infrastructure(e.to_string()))?).bind(AuthorityStore::authority_time_in(tx).await?).execute(&mut **tx).await.map_err(db)?;
         Ok(())
     }
     async fn sync_tag_identity_in(

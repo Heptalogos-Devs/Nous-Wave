@@ -1,6 +1,9 @@
 -- Copyright 2026 Aravine Zhu
 -- SPDX-License-Identifier: Apache-2.0
 
+CREATE FUNCTION authority_recording_time() RETURNS timestamptz LANGUAGE sql VOLATILE AS $$
+    SELECT COALESCE(NULLIF(current_setting('nous.authority_time',true),'')::timestamptz,clock_timestamp())
+$$;
 CREATE TABLE mutation_receipts (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     operation_id uuid NOT NULL,
@@ -263,7 +266,7 @@ CREATE TABLE lexical_bindings (
     canonical_ref text NOT NULL,
     wordlist_version integer NOT NULL CHECK (wordlist_version = 1),
     tombstoned_at timestamptz NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz NOT NULL DEFAULT authority_recording_time(),
     UNIQUE (object_kind, canonical_ref)
 );
 CREATE TABLE lexical_visibility (
@@ -274,3 +277,31 @@ CREATE TABLE lexical_visibility (
     PRIMARY KEY(subject_id, lexical_ref)
 );
 CREATE INDEX lexical_aliases ON lexical_visibility USING gin(aliases);
+
+-- Minimal canonical state chronology; immutable revision content is never copied here.
+CREATE TABLE authority_object_states (
+    event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    object_kind text NOT NULL,
+    object_ref text NOT NULL,
+    state jsonb NOT NULL,
+    recorded_at timestamptz NOT NULL
+);
+CREATE INDEX authority_object_state_as_of ON authority_object_states(subject_id,object_kind,object_ref,recorded_at DESC,event_id DESC);
+CREATE FUNCTION capture_authority_object_state() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    payload jsonb := to_jsonb(NEW);
+    captured timestamptz := authority_recording_time();
+BEGIN
+    IF TG_OP='INSERT' OR to_jsonb(OLD) IS DISTINCT FROM payload THEN
+        INSERT INTO authority_object_states(subject_id,object_kind,object_ref,state,recorded_at)
+        VALUES(NEW.subject_id,TG_ARGV[0],payload->>TG_ARGV[1],payload,captured);
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE TRIGGER memory_state_history AFTER INSERT OR UPDATE ON memory_objects FOR EACH ROW EXECUTE FUNCTION capture_authority_object_state('memory','memory_id');
+CREATE TRIGGER schema_state_history AFTER INSERT OR UPDATE ON cognitive_schemas FOR EACH ROW EXECUTE FUNCTION capture_authority_object_state('cognitive_schema','schema_id');
+CREATE TRIGGER episode_state_history AFTER INSERT OR UPDATE ON episode_objects FOR EACH ROW EXECUTE FUNCTION capture_authority_object_state('episode','episode_id');
+CREATE TRIGGER journal_state_history AFTER INSERT OR UPDATE ON journal_objects FOR EACH ROW EXECUTE FUNCTION capture_authority_object_state('journal','journal_id');
+CREATE TRIGGER tag_state_history AFTER INSERT OR UPDATE ON tags FOR EACH ROW EXECUTE FUNCTION capture_authority_object_state('tag','tag_id');
+CREATE TRIGGER lexical_state_history AFTER INSERT OR UPDATE ON lexical_visibility FOR EACH ROW EXECUTE FUNCTION capture_authority_object_state('lexical_visibility','lexical_ref');

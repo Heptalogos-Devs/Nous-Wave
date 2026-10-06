@@ -558,6 +558,8 @@ impl fmt::Display for CognitiveRef {
 mod canonical;
 pub mod cognition;
 mod concept;
+mod history;
+pub use history::*;
 mod query;
 pub use concept::*;
 mod references;

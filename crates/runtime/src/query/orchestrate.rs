@@ -72,6 +72,14 @@ impl CognitiveRuntimeService {
         validated_pool_limit: Option<usize>,
     ) -> Result<super::QueryExecution> {
         let mut bound = bound;
+        if bound.historical_authority.is_none()
+            && (bound.source_query.temporal_frame.authority_view != AuthorityView::Current
+                || bound.source_query.temporal_frame.revision_view != RevisionView::Current)
+        {
+            return Err(Error::Unavailable(
+                "historical query requires its owner-projected Authority and Serving view".into(),
+            ));
+        }
         if let Some(shared) = contributors.shared {
             bound.activation = shared.activate(&bound).await?;
         }

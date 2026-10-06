@@ -328,6 +328,13 @@ impl CognitiveRuntimeService {
         config_snapshot: nous_configuration::ConfigSnapshot,
     ) -> Result<BoundQuery> {
         self.capture_query_clock(&mut query);
+        if query.temporal_frame.authority_view != AuthorityView::Current
+            || query.temporal_frame.revision_view != RevisionView::Current
+        {
+            return Err(Error::Unavailable(
+                "historical query requires its owner-projected Authority and Serving view".into(),
+            ));
+        }
         super::closure::validate_query_input(&query)?;
         for node in query.scopes() {
             let mut scoped = query.clone();
@@ -399,6 +406,7 @@ impl CognitiveRuntimeService {
             &topology_seed_refs,
         );
         Ok(BoundQuery {
+            historical_authority: None,
             activation_view: None,
             activation,
             concept_enrichment,
