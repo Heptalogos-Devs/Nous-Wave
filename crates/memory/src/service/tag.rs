@@ -44,6 +44,7 @@ pub struct MergeTagsInput {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SplitTagInput {
+    pub producer: Option<ProducerSignature>,
     pub operation_id: OperationId,
     pub parent: TagExpectation,
     pub children: Vec<TagContent>,
@@ -51,7 +52,12 @@ pub struct SplitTagInput {
 }
 
 impl MemoryService {
-    pub async fn create_tag(&self, subject: SubjectId, input: CreateTagRequest) -> Result<Tag> {
+    pub async fn create_tag(&self, subject: SubjectId, mut input: CreateTagRequest) -> Result<Tag> {
+        input.producer = input
+            .producer
+            .as_ref()
+            .map(canonical_concept_producer)
+            .transpose()?;
         let content = TagContent {
             label: input.label.clone(),
             description: input.description.clone(),
@@ -61,7 +67,7 @@ impl MemoryService {
         let digest = operation_digest(
             "create_tag",
             subject,
-            &serde_json::json!({"label":input.label,"description":input.description,"kind_hint":input.kind_hint,"origin":input.origin}),
+            &serde_json::json!({"label":input.label,"description":input.description,"kind_hint":input.kind_hint,"origin":input.origin,"producer":input.producer}),
         )?;
         let mut mutation = match self
             .start_mutation(subject, input.operation_id, "create_tag", &digest)
@@ -71,7 +77,13 @@ impl MemoryService {
             MutationStart::Active(mutation) => mutation,
         };
         let tag = self
-            .create_tag_in(mutation.tx(), subject, &content, &input.origin, None)
+            .create_tag_in(
+                mutation.tx(),
+                subject,
+                &content,
+                &input.origin,
+                input.producer.as_ref(),
+            )
             .await?;
         mutation
             .invalidate(ProjectionInvalidation::topology())
@@ -86,7 +98,12 @@ impl MemoryService {
             .await?;
         Ok(tag)
     }
-    pub async fn revise_tag(&self, subject: SubjectId, input: ReviseTagInput) -> Result<Tag> {
+    pub async fn revise_tag(&self, subject: SubjectId, mut input: ReviseTagInput) -> Result<Tag> {
+        input.producer = input
+            .producer
+            .as_ref()
+            .map(canonical_concept_producer)
+            .transpose()?;
         input.content.validate()?;
         let digest = operation_digest("revise_tag", subject, &input)?;
         let mut mutation = match self
@@ -96,21 +113,29 @@ impl MemoryService {
             MutationStart::Replay(receipt) => return self.replay_tag(subject, receipt).await,
             MutationStart::Active(mutation) => mutation,
         };
-        self.revise_tag_in(
-            mutation.tx(),
-            subject,
-            &input.target,
-            &input.content,
-            input.producer.as_ref(),
-        )
-        .await?;
+        let revision_id = self
+            .revise_tag_in(
+                mutation.tx(),
+                subject,
+                &input.target,
+                &input.content,
+                input.producer.as_ref(),
+            )
+            .await?;
         mutation
             .invalidate(ProjectionInvalidation::topology())
             .await?;
         mutation
-            .commit("tag", Some(&input.target.tag_id.0.to_string()), None, None)
+            .commit(
+                "tag",
+                Some(&input.target.tag_id.0.to_string()),
+                Some(revision_id),
+                None,
+            )
             .await?;
-        self.tag(subject, input.target.tag_id).await
+        let mut tag = self.tag(subject, input.target.tag_id).await?;
+        tag.current_revision_id = revision_id;
+        Ok(tag)
     }
     pub async fn merge_tags(&self, subject: SubjectId, input: MergeTagsInput) -> Result<Tag> {
         let digest = operation_digest("merge_tags", subject, &input)?;
@@ -135,7 +160,16 @@ impl MemoryService {
             .await?;
         self.tag(subject, input.survivor.tag_id).await
     }
-    pub async fn split_tag(&self, subject: SubjectId, input: SplitTagInput) -> Result<Vec<Tag>> {
+    pub async fn split_tag(
+        &self,
+        subject: SubjectId,
+        mut input: SplitTagInput,
+    ) -> Result<Vec<Tag>> {
+        input.producer = input
+            .producer
+            .as_ref()
+            .map(canonical_concept_producer)
+            .transpose()?;
         let digest = operation_digest("split_tag", subject, &input)?;
         let mut mutation = match self
             .start_mutation(subject, input.operation_id, "split_tag", &digest)
@@ -145,18 +179,20 @@ impl MemoryService {
                 if receipt.state != "committed" {
                     return Err(Error::Unavailable("tag operation in progress".into()));
                 }
-                let ids: Vec<Uuid> = sqlx::query_scalar("SELECT child_tag_id FROM tag_lineage WHERE subject_id=$1 AND operation_id=$2 AND relation='split_into' ORDER BY child_index")
+                let ids: Vec<(Uuid, Uuid)> = sqlx::query_as("SELECT child_tag_id,child_revision_id FROM tag_lineage WHERE subject_id=$1 AND operation_id=$2 AND relation='split_into' ORDER BY child_index")
                     .bind(subject.0).bind(input.operation_id.0).fetch_all(self.store.pool()).await.map_err(db)?;
                 let mut result = Vec::new();
-                for id in ids {
-                    result.push(self.tag(subject, TagId(id)).await?);
+                for (id, revision) in ids {
+                    let mut tag = self.tag(subject, TagId(id)).await?;
+                    tag.current_revision_id = revision;
+                    result.push(tag);
                 }
                 return Ok(result);
             }
             MutationStart::Active(mutation) => mutation,
         };
         let children = self
-            .split_tag_in(mutation.tx(), subject, &input, None)
+            .split_tag_in(mutation.tx(), subject, &input, input.producer.as_ref())
             .await?;
         mutation
             .invalidate(ProjectionInvalidation::topology())
@@ -184,7 +220,11 @@ impl MemoryService {
             .ok_or_else(|| Error::Infrastructure("tag receipt missing result".into()))?
             .parse()
             .map_err(|_| Error::Infrastructure("invalid Tag receipt".into()))?;
-        self.tag(subject, TagId(id)).await
+        let mut tag = self.tag(subject, TagId(id)).await?;
+        if let Some(revision) = receipt.result_revision {
+            tag.current_revision_id = revision;
+        }
+        Ok(tag)
     }
     pub(crate) async fn create_tag_in(
         &self,
@@ -344,34 +384,23 @@ impl MemoryService {
         subject: SubjectId,
         supports: &[RevisionSupport],
     ) -> Result<()> {
-        if !(2..=16).contains(&supports.len()) {
+        if !(1..=16).contains(&supports.len()) {
             return Err(Error::Invalid(
-                "Tag lineage needs 2..16 exact cognition supports".into(),
+                "Tag lineage needs 1..16 exact supports".into(),
             ));
         }
-        let mut refs = HashSet::new();
+        let mut keys = HashSet::new();
         for support in supports {
-            let RevisionSupport::CognitionDependency(dependency) = support else {
+            if matches!(support, RevisionSupport::Seed(_)) || !keys.insert(support.canonical_key())
+            {
                 return Err(Error::Invalid(
-                    "Tag lineage requires exact cognition inputs".into(),
+                    "invalid or duplicate Tag lineage support".into(),
                 ));
-            };
-            if !refs.insert(dependency.target_revision.clone()) {
-                return Err(Error::Invalid("duplicate Tag lineage support".into()));
             }
         }
+        self.validate_supports_for_subject(subject, supports)
+            .await?;
         self.validate_supports_in_tx(tx, subject, supports).await?;
-        if self
-            .provenance_summary(subject, supports)
-            .await?
-            .roots
-            .len()
-            < 2
-        {
-            return Err(Error::Invalid(
-                "Tag lineage needs independent source roots".into(),
-            ));
-        }
         Ok(())
     }
     #[expect(
@@ -427,4 +456,11 @@ impl MemoryService {
             created_at: row.try_get("created_at").map_err(db)?,
         })
     }
+}
+
+fn canonical_concept_producer(producer: &ProducerSignature) -> Result<ProducerSignature> {
+    if producer.operation != CapabilityOperation::TopologyMaintenanceText {
+        return Err(Error::Invalid("concept producer operation mismatch".into()));
+    }
+    AuthorityStore::canonical_producer(producer)
 }

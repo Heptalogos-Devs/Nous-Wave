@@ -342,6 +342,7 @@ impl MemoryService {
                         tx,
                         subject,
                         &SplitTagInput {
+                            producer: None,
                             operation_id: input.operation_id,
                             parent: tag_target(plan, tag_key)?,
                             children: children.iter().map(|c| c.content.clone()).collect(),
@@ -475,6 +476,7 @@ impl MemoryService {
             tx,
             subject,
             &CreateAssociationRequest {
+                producer: None,
                 operation_id: operation,
                 from,
                 to,

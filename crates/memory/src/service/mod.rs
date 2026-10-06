@@ -132,6 +132,7 @@ pub struct ReviseMemoryInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateTagRequest {
+    pub producer: Option<ProducerSignature>,
     pub operation_id: OperationId,
     pub label: String,
     pub description: Option<String>,
@@ -146,6 +147,7 @@ fn default_explicit_origin() -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateAssociationRequest {
+    pub producer: Option<ProducerSignature>,
     pub operation_id: OperationId,
     pub from: CognitiveRef,
     pub to: CognitiveRef,

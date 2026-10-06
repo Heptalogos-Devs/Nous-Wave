@@ -1236,6 +1236,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .unwrap()
         .create_association(
             nous_memory::CreateAssociationRequest {
+                producer: None,
                 operation_id: OperationId::new(),
                 from: CognitiveRef::Memory(memory.object.memory_id),
                 to: CognitiveRef::Entity(entity.clone()),
@@ -1278,6 +1279,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .unwrap()
         .create_association(
             nous_memory::CreateAssociationRequest {
+                producer: None,
                 operation_id: OperationId::new(),
                 from: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 to: CognitiveRef::Entity(entity.clone()),
@@ -1632,6 +1634,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .unwrap()
         .create_association(
             nous_memory::CreateAssociationRequest {
+                producer: None,
                 operation_id: OperationId::new(),
                 from: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 to: CognitiveRef::Entity(entity),

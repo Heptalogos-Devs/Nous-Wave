@@ -61,6 +61,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
                 .create_tag(
                     subject,
                     CreateTagRequest {
+                        producer: None,
                         operation_id: OperationId::new(),
                         label: label.into(),
                         description: None,
@@ -80,6 +81,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
     let old_lexical = old_binding[0].lexical_ref.clone();
     let service = KernelService(rt.clone());
     let revise = p::ReviseTagRequest {
+        producer: None,
         operation_id: OperationId::new().0.to_string(),
         subject_id: subject.0.to_string(),
         target: Some(p::TagRevisionTarget {
@@ -105,6 +107,32 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         .unwrap()
         .into_inner();
     assert_eq!(revised.current_revision_id, replay.current_revision_id);
+    let later = p::ReviseTagRequest {
+        operation_id: OperationId::new().0.to_string(),
+        target: Some(p::TagRevisionTarget {
+            tag_id: revised.tag_id.clone(),
+            expected_revision_id: revised.current_revision_id.clone(),
+        }),
+        content: Some(p::TagContent {
+            label: "Release approval".into(),
+            description: Some("Approval before a controlled rollout".into()),
+            kind_hint: Some("procedure".into()),
+        }),
+        ..revise.clone()
+    };
+    let later_revision = TopologyService::revise_tag(&service, Request::new(later))
+        .await
+        .unwrap()
+        .into_inner();
+    let exact_replay = TopologyService::revise_tag(&service, Request::new(revise.clone()))
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(
+        exact_replay.current_revision_id,
+        revised.current_revision_id
+    );
+    assert_eq!(exact_replay.description, revised.description);
     let mut stale = revise.clone();
     stale.operation_id = OperationId::new().0.to_string();
     assert_eq!(
@@ -114,7 +142,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
             .code(),
         tonic::Code::Aborted
     );
-    tags[0].current_revision_id = revised.current_revision_id.parse().unwrap();
+    tags[0].current_revision_id = later_revision.current_revision_id.parse().unwrap();
     for alias in ["Deployment approval", "Release approval"] {
         let (status, result) = rt
             .store
@@ -158,6 +186,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
     let association = owner
         .create_association(
             CreateAssociationRequest {
+                producer: None,
                 operation_id: OperationId::new(),
                 from: CognitiveRef::MemoryRevision(revisions[0]),
                 to: CognitiveRef::Tag(tags[1].tag_id),
@@ -176,7 +205,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         operation_id: OperationId::new(),
         survivor: expectation(&tags[0]),
         retired: vec![expectation(&tags[1])],
-        supports: supports.clone(),
+        supports: vec![supports[0].clone()],
     };
     owner.merge_tags(subject, merge.clone()).await.unwrap();
     owner.merge_tags(subject, merge).await.unwrap();
@@ -300,7 +329,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
                 operation_id: OperationId::new(),
                 survivor: expectation(&tags[2]),
                 retired: vec![expectation(&tags[0])],
-                supports: supports.clone(),
+                supports: vec![supports[0].clone()],
             },
         )
         .await
@@ -313,10 +342,11 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         tags[2].tag_id
     );
     let split = SplitTagInput {
+        producer: None,
         operation_id: OperationId::new(),
         parent: expectation(&tags[2]),
         children: vec![content("Approval policy"), content("Rollout procedure")],
-        supports: supports.clone(),
+        supports: vec![supports[0].clone()],
     };
     let children = owner.split_tag(subject, split.clone()).await.unwrap();
     let replay = owner.split_tag(subject, split.clone()).await.unwrap();

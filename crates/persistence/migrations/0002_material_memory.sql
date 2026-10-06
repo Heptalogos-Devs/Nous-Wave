@@ -122,7 +122,7 @@ CREATE TABLE tag_lineage (
     child_revision_id uuid NOT NULL REFERENCES tag_revisions(tag_revision_id),
     child_index integer NOT NULL,
     relation text NOT NULL CHECK(relation IN ('merged_into','split_into')),
-    supports jsonb NOT NULL CHECK(jsonb_typeof(supports)='array' AND jsonb_array_length(supports)>=2),
+    supports jsonb NOT NULL CHECK(jsonb_typeof(supports)='array' AND jsonb_array_length(supports) BETWEEN 1 AND 16),
     created_at timestamptz NOT NULL,
     FOREIGN KEY(parent_tag_id,subject_id) REFERENCES tags(tag_id,subject_id),
     FOREIGN KEY(child_tag_id,subject_id) REFERENCES tags(tag_id,subject_id),

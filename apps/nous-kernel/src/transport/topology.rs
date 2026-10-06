@@ -14,6 +14,7 @@ impl KernelService {
             .create_tag(
                 subject,
                 CreateTagRequest {
+                    producer: input.producer.map(from_producer).transpose()?,
                     operation_id: OperationId(id(&input.operation_id)?),
                     label: tag.label,
                     description: tag.description,
@@ -22,11 +23,8 @@ impl KernelService {
                 },
             )
             .await?;
-        self.get_tag(p::ObjectRequest {
-            subject_id: subject.0.to_string(),
-            id: created.tag_id.0.to_string(),
-        })
-        .await
+        self.read_tag_revision(subject, created.tag_id, created.current_revision_id)
+            .await
     }
     pub(super) async fn get_tag(&self, input: p::ObjectRequest) -> Result<p::Tag> {
         let row=sqlx::query("SELECT t.tag_id,t.current_revision_id,t.status,t.canonical_tag_id,r.label,r.description,r.kind_hint,r.origin FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id WHERE t.subject_id=$1 AND t.tag_id=$2")
@@ -42,14 +40,15 @@ impl KernelService {
                     operation_id: OperationId(id(&input.operation_id)?),
                     target: tag_target(required(input.target, "target")?)?,
                     content: tag_content(required(input.content, "content")?),
-                    producer: None,
+                    producer: input.producer.map(from_producer).transpose()?,
                 },
             )
             .await?;
-        self.get_tag(p::ObjectRequest {
-            subject_id: input.subject_id,
-            id: result.tag_id.0.to_string(),
-        })
+        self.read_tag_revision(
+            SubjectId(id(&input.subject_id)?),
+            result.tag_id,
+            result.current_revision_id,
+        )
         .await
     }
     pub(super) async fn merge_tags(&self, input: p::MergeTagsRequest) -> Result<p::Tag> {
@@ -85,6 +84,7 @@ impl KernelService {
             .split_tag(
                 SubjectId(id(&input.subject_id)?),
                 nous_memory::SplitTagInput {
+                    producer: None,
                     operation_id: OperationId(id(&input.operation_id)?),
                     parent: tag_target(required(input.parent, "parent")?)?,
                     children: input.children.into_iter().map(tag_content).collect(),
@@ -99,14 +99,25 @@ impl KernelService {
         let mut children = Vec::new();
         for result in results {
             children.push(
-                self.get_tag(p::ObjectRequest {
-                    subject_id: input.subject_id.clone(),
-                    id: result.tag_id.0.to_string(),
-                })
+                self.read_tag_revision(
+                    SubjectId(id(&input.subject_id)?),
+                    result.tag_id,
+                    result.current_revision_id,
+                )
                 .await?,
             );
         }
         Ok(p::SplitTagResponse { children })
+    }
+    async fn read_tag_revision(
+        &self,
+        subject: SubjectId,
+        tag: nous_core::TagId,
+        revision: uuid::Uuid,
+    ) -> Result<p::Tag> {
+        let row = sqlx::query("SELECT t.tag_id,r.tag_revision_id current_revision_id,t.status,t.canonical_tag_id,r.label,r.description,r.kind_hint,r.origin FROM tags t JOIN tag_revisions r ON r.tag_id=t.tag_id WHERE t.subject_id=$1 AND t.tag_id=$2 AND r.tag_revision_id=$3")
+            .bind(subject.0).bind(tag.0).bind(revision).fetch_one(self.0.store.pool()).await.map_err(db)?;
+        tag_row(row)
     }
     pub(super) async fn list_tags(&self, input: p::ListRequest) -> Result<p::ListTagsResponse> {
         self.read_tags(&input.subject_id, "", input.page, &input.status)
@@ -179,6 +190,7 @@ impl KernelService {
             .require_memory()?
             .create_association(
                 CreateAssociationRequest {
+                    producer: None,
                     operation_id: OperationId(id(&input.operation_id)?),
                     from: from.clone(),
                     to: to.clone(),

@@ -4,31 +4,19 @@ use nous_persistence::database_error as db;
 impl MemoryService {
     pub async fn create_association(
         &self,
-        input: CreateAssociationRequest,
+        mut input: CreateAssociationRequest,
         subject: SubjectId,
     ) -> Result<AssociationEvidence> {
-        if input.relation_kind.is_empty()
-            || input.relation_kind.len() > 128
-            || !input
-                .relation_kind
-                .bytes()
-                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"_.:-".contains(&b))
-        {
-            return Err(Error::Invalid("relation_kind is invalid".into()));
-        }
-        if input.supports.is_empty() {
-            return Err(Error::Invalid("association needs support".into()));
-        }
-        input.valid_time.validate()?;
-        validate_association_endpoint(&input.from)?;
-        validate_association_endpoint(&input.to)?;
-        self.store.validate_reference(subject, &input.from).await?;
-        self.store.validate_reference(subject, &input.to).await?;
-        self.validate_association_supports(subject, &input).await?;
+        input.producer = input
+            .producer
+            .as_ref()
+            .map(AuthorityStore::canonical_producer)
+            .transpose()?;
+        validate_association_input(&input)?;
         let digest = operation_digest(
             "create_association",
             subject,
-            &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"support_class":input.support_class,"supports":input.supports,"producer_signature_id":input.producer_signature_id,"valid_time":input.valid_time}),
+            &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"support_class":input.support_class,"supports":input.supports,"producer_signature_id":input.producer_signature_id,"producer":input.producer,"valid_time":input.valid_time}),
         )?;
         let mut mutation = match self
             .start_mutation(subject, input.operation_id, "create_association", &digest)
@@ -60,6 +48,27 @@ impl MemoryService {
             }
             MutationStart::Active(mutation) => mutation,
         };
+        self.store.validate_reference(subject, &input.from).await?;
+        self.store.validate_reference(subject, &input.to).await?;
+        self.validate_association_supports(subject, &input).await?;
+        if input.producer.is_some() {
+            self.require_current_concept_endpoint(mutation.tx(), subject, &input.from)
+                .await?;
+            self.require_current_concept_endpoint(mutation.tx(), subject, &input.to)
+                .await?;
+        }
+        if let Some(producer) = &input.producer {
+            let registered = AuthorityStore::register_producer_in(mutation.tx(), producer).await?;
+            if input
+                .producer_signature_id
+                .is_some_and(|id| id != registered)
+            {
+                return Err(Error::Invalid(
+                    "association producer identity mismatch".into(),
+                ));
+            }
+            input.producer_signature_id = Some(registered);
+        }
         let id = self
             .insert_association_in(mutation.tx(), subject, &input)
             .await?;
@@ -70,6 +79,69 @@ impl MemoryService {
             .commit("association", Some(&id.0.to_string()), None, None)
             .await?;
         self.association(subject, id).await
+    }
+
+    async fn require_current_concept_endpoint(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        reference: &CognitiveRef,
+    ) -> Result<()> {
+        let (revision_table, object_table, revision_column, object_column, id) = match reference {
+            CognitiveRef::MemoryRevision(id) => (
+                "memory_revisions",
+                "memory_objects",
+                "memory_revision_id",
+                "memory_id",
+                id.0,
+            ),
+            CognitiveRef::CognitiveSchemaRevision(id) => (
+                "cognitive_schema_revisions",
+                "cognitive_schemas",
+                "schema_revision_id",
+                "schema_id",
+                id.0,
+            ),
+            CognitiveRef::EpisodeRevision(id) => (
+                "episode_revisions",
+                "episode_objects",
+                "episode_revision_id",
+                "episode_id",
+                id.0,
+            ),
+            CognitiveRef::JournalRevision(id) => (
+                "journal_revisions",
+                "journal_objects",
+                "journal_revision_id",
+                "journal_id",
+                id.0,
+            ),
+            CognitiveRef::Tag(id) => {
+                let active: Option<Uuid> = sqlx::query_scalar("SELECT tag_id FROM tags WHERE subject_id=$1 AND tag_id=$2 AND status='active' FOR SHARE")
+                    .bind(subject.0).bind(id.0).fetch_optional(&mut **tx).await.map_err(db)?;
+                return active
+                    .map(|_| ())
+                    .ok_or_else(|| Error::Conflict("concept Tag endpoint is stale".into()));
+            }
+            _ => return Ok(()),
+        };
+        let mut query =
+            sqlx::QueryBuilder::<sqlx::Postgres>::new("SELECT o.current_revision_id FROM ");
+        query.push(revision_table).push(" r JOIN ").push(object_table)
+            .push(" o USING(").push(object_column).push(") WHERE o.subject_id=")
+            .push_bind(subject.0).push(" AND r.").push(revision_column).push("=")
+            .push_bind(id).push(" AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' FOR SHARE OF o");
+        let current: Option<Uuid> = query
+            .build_query_scalar()
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+        if current != Some(id) {
+            return Err(Error::Conflict(
+                "concept cognition endpoint is stale".into(),
+            ));
+        }
+        Ok(())
     }
 
     pub(crate) async fn insert_association_in(
@@ -320,20 +392,28 @@ impl MemoryService {
             }
             AssociationSupportClass::CognitiveDerivation
             | AssociationSupportClass::DerivedStructure => {
-                let producer = input.producer_signature_id.ok_or_else(|| {
-                    Error::Invalid("derived association requires producer_signature_id".into())
-                })?;
-                let exists: bool = sqlx::query_scalar(
-                    "SELECT EXISTS(SELECT 1 FROM producer_signatures WHERE producer_signature_id=$1)",
-                )
-                .bind(producer)
-                .fetch_one(self.store.pool())
-                .await
-                .map_err(db)?;
-                if !exists {
-                    return Err(Error::Invalid(
-                        "producer signature is not registered".into(),
-                    ));
+                if let Some(producer) = &input.producer {
+                    if producer.operation != CapabilityOperation::TopologyMaintenanceText {
+                        return Err(Error::Invalid(
+                            "association producer operation mismatch".into(),
+                        ));
+                    }
+                    serde_json::from_value::<TopologyRelation>(serde_json::json!(
+                        input.relation_kind
+                    ))
+                    .map_err(|_| Error::Invalid("unregistered concept relation".into()))?;
+                } else {
+                    let producer = input.producer_signature_id.ok_or_else(|| {
+                        Error::Invalid("derived association requires producer provenance".into())
+                    })?;
+                    let exists: bool = sqlx::query_scalar(
+                        "SELECT EXISTS(SELECT 1 FROM producer_signatures WHERE producer_signature_id=$1)")
+                        .bind(producer).fetch_one(self.store.pool()).await.map_err(db)?;
+                    if !exists {
+                        return Err(Error::Invalid(
+                            "producer signature is not registered".into(),
+                        ));
+                    }
                 }
                 if input
                     .supports
@@ -598,4 +678,44 @@ fn parse_use_event_key(value: &str) -> Result<(String, Uuid)> {
         .parse()
         .map_err(|_| Error::Infrastructure("invalid association UseEvent id".into()))?;
     Ok((consumer.into(), event))
+}
+
+fn validate_association_input(input: &CreateAssociationRequest) -> Result<()> {
+    if input.relation_kind.is_empty()
+        || input.relation_kind.len() > 128
+        || !input
+            .relation_kind
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"_.:-".contains(&b))
+    {
+        return Err(Error::Invalid("relation_kind is invalid".into()));
+    }
+    if !(1..=16).contains(&input.supports.len()) {
+        return Err(Error::Invalid("association needs 1..16 supports".into()));
+    }
+    input.valid_time.validate()?;
+    validate_association_endpoint(&input.from)?;
+    validate_association_endpoint(&input.to)?;
+    if input.from == input.to {
+        return Err(Error::Invalid("association endpoints must differ".into()));
+    }
+    if input.relation_kind == "tag_attachment" {
+        let cognition = |reference: &CognitiveRef| {
+            matches!(
+                reference,
+                CognitiveRef::MemoryRevision(_)
+                    | CognitiveRef::CognitiveSchemaRevision(_)
+                    | CognitiveRef::EpisodeRevision(_)
+                    | CognitiveRef::JournalRevision(_)
+            )
+        };
+        if input.polarity != AssociationPolarity::Positive
+            || !(cognition(&input.from) && matches!(input.to, CognitiveRef::Tag(_)))
+        {
+            return Err(Error::Invalid(
+                "tag_attachment requires positive cognition to Tag endpoints".into(),
+            ));
+        }
+    }
+    Ok(())
 }

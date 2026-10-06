@@ -36,17 +36,30 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
         .unwrap()
         .subject_id;
     let memory = rt.require_memory().unwrap();
+    let producer = ProducerSignature {
+        signature_hash: String::new(),
+        provider_class: "deterministic_test".into(),
+        operation: CapabilityOperation::TopologyMaintenanceText,
+        implementation: "concept-proposal-test".into(),
+        model_identity: None,
+        model_revision: None,
+        output_schema_digest: None,
+        preprocessing_identity: "concept-maintenance".into(),
+        preprocessing_revision: "1".into(),
+        config_digest: "test-config".into(),
+    };
     let mut tags = Vec::new();
     for label in ["Deployment approval", "Deployment rollout", "Garden"] {
         let tag = memory
             .create_tag(
                 subject,
                 CreateTagRequest {
+                    producer: Some(producer.clone()),
                     operation_id: OperationId::new(),
                     label: label.into(),
                     description: None,
                     kind_hint: Some("topic".into()),
-                    origin: "host_explicit".into(),
+                    origin: "concept_maintenance".into(),
                 },
             )
             .await
@@ -74,26 +87,45 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
         support_role: SupportRole::Direct,
     }));
     let mut edge_ids = Vec::new();
+    let mut requests = Vec::new();
     for (from, to) in [(tags[0], tags[1]), (tags[1], tags[2])] {
+        let request = CreateAssociationRequest {
+            producer: Some(producer.clone()),
+            operation_id: OperationId::new(),
+            from: CognitiveRef::Tag(from),
+            to: CognitiveRef::Tag(to),
+            relation_kind: "assoc.related".into(),
+            polarity: AssociationPolarity::Positive,
+            support_class: AssociationSupportClass::CognitiveDerivation,
+            supports: vec![support.clone()],
+            producer_signature_id: None,
+            valid_time: TemporalExtent::Unknown,
+        };
         let edge = memory
-            .create_association(
-                CreateAssociationRequest {
-                    operation_id: OperationId::new(),
-                    from: CognitiveRef::Tag(from),
-                    to: CognitiveRef::Tag(to),
-                    relation_kind: "related".into(),
-                    polarity: AssociationPolarity::Positive,
-                    support_class: AssociationSupportClass::SourceEvidence,
-                    supports: vec![support.clone()],
-                    producer_signature_id: None,
-                    valid_time: TemporalExtent::Unknown,
-                },
-                subject,
-            )
+            .create_association(request.clone(), subject)
             .await
             .unwrap();
+        let replay = memory
+            .create_association(request.clone(), subject)
+            .await
+            .unwrap();
+        assert_eq!(edge.association_evidence_id, replay.association_evidence_id);
+        requests.push(request.clone());
+        let mut invalid = request;
+        invalid.operation_id = OperationId::new();
+        invalid.relation_kind = "assoc.invented".into();
+        assert!(matches!(
+            memory.create_association(invalid, subject).await,
+            Err(Error::Invalid(_))
+        ));
         edge_ids.push(edge.association_evidence_id);
     }
+    let producers: i64 = sqlx::query_scalar("SELECT count(DISTINCT producer_signature_id) FROM tag_revisions WHERE tag_id=ANY($1::uuid[])")
+        .bind(tags.iter().map(|tag| tag.0).collect::<Vec<_>>()).fetch_one(rt.store.pool()).await.unwrap();
+    assert_eq!(producers, 1);
+    let association_producers: i64 = sqlx::query_scalar("SELECT count(DISTINCT producer_signature_id) FROM association_evidence WHERE subject_id=$1")
+        .bind(subject.0).fetch_one(rt.store.pool()).await.unwrap();
+    assert_eq!(association_producers, 1);
     let service = KernelService(rt.clone());
     let search = |text: &str, token: &str| p::SearchTagsRequest {
         subject_id: subject.0.to_string(),
@@ -173,4 +205,44 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
         .into_inner();
     assert_eq!(revoked.nodes.len(), 1);
     assert!(revoked.associations.is_empty());
+    let store = &rt.store;
+    let revision = |tag: TagId| async move {
+        sqlx::query_scalar::<_, uuid::Uuid>("SELECT current_revision_id FROM tags WHERE tag_id=$1")
+            .bind(tag.0)
+            .fetch_one(store.pool())
+            .await
+            .unwrap()
+    };
+    memory
+        .merge_tags(
+            subject,
+            nous_memory::MergeTagsInput {
+                operation_id: OperationId::new(),
+                survivor: nous_memory::TagExpectation {
+                    tag_id: tags[2],
+                    expected_revision_id: revision(tags[2]).await,
+                },
+                retired: vec![nous_memory::TagExpectation {
+                    tag_id: tags[1],
+                    expected_revision_id: revision(tags[1]).await,
+                }],
+                supports: vec![match support {
+                    AssociationSupport::Revision(support) => support,
+                    _ => unreachable!(),
+                }],
+            },
+        )
+        .await
+        .unwrap();
+    let replay = memory
+        .create_association(requests[1].clone(), subject)
+        .await
+        .unwrap();
+    assert_eq!(replay.association_evidence_id, edge_ids[1]);
+    let mut stale = requests[1].clone();
+    stale.operation_id = OperationId::new();
+    assert!(matches!(
+        memory.create_association(stale, subject).await,
+        Err(Error::Conflict(_))
+    ));
 }

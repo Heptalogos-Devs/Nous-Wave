@@ -9,20 +9,20 @@ message ResourceDescriptor { string resource_ref = 1; string display_label = 2; 
 message PutResourceRequest { string subject_id = 1; ResourceDescriptor descriptor = 2; }
 message ListResourcesResponse { repeated ResourceDescriptor items = 1; string next_page_token = 2; }
 message Tag { string tag_id = 1; string label = 2; optional string description = 3; optional string kind_hint = 4; string origin = 5; string current_revision_id = 6; string status = 7; optional string canonical_tag_id = 8; }
-message CreateTagRequest { string operation_id = 1; string subject_id = 2; Tag tag = 3; }
+message CreateTagRequest { string operation_id = 1; string subject_id = 2; Tag tag = 3; ProducerSignature producer = 4; }
 message SearchTagsRequest { string subject_id = 1; string text = 2; Page page = 3; }
 message TagContent { string label = 1; optional string description = 2; optional string kind_hint = 3; }
 message TagRevisionTarget { string tag_id = 1; string expected_revision_id = 2; }
-message ReviseTagRequest { string operation_id = 1; string subject_id = 2; TagRevisionTarget target = 3; TagContent content = 4; }
+message ReviseTagRequest { string operation_id = 1; string subject_id = 2; TagRevisionTarget target = 3; TagContent content = 4; ProducerSignature producer = 5; }
 message MergeTagsRequest { string operation_id = 1; string subject_id = 2; TagRevisionTarget survivor = 3; repeated TagRevisionTarget retired = 4; repeated RevisionSupport supports = 5; }
-message SplitTagRequest { string operation_id = 1; string subject_id = 2; TagRevisionTarget parent = 3; repeated TagContent children = 4; repeated RevisionSupport supports = 5; }
+message SplitTagRequest { string operation_id = 1; string subject_id = 2; TagRevisionTarget parent = 3; repeated TagContent children = 4; repeated RevisionSupport supports = 5; ProducerSignature producer = 6; }
 message SplitTagResponse { repeated Tag children = 1; }
 message ListTagsResponse { repeated Tag items = 1; string next_page_token = 2; }
 
 message UseEventRef { string subject_id = 1; string consumer_ref = 2; string event_id = 3; }
 message AssociationSupport { oneof support { RevisionSupport revision = 1; UseEventRef use_event = 2; } }
 message Association { string association_id = 1; CognitiveRef from = 2; CognitiveRef to = 3; string relation_kind = 4; string polarity = 5; string support_class = 6; repeated AssociationSupport supports = 7; optional string producer_signature_id = 8; }
-message CreateAssociationRequest { string operation_id = 1; string subject_id = 2; Association association = 3; }
+message CreateAssociationRequest { string operation_id = 1; string subject_id = 2; Association association = 3; ProducerSignature producer = 4; }
 message RevokeAssociationRequest { string operation_id = 1; string subject_id = 2; string association_id = 3; }
 message NeighborhoodRequest { string subject_id = 1; CognitiveRef root = 2; uint32 max_nodes = 3; uint32 max_depth = 4; }
 message NeighborhoodResponse { repeated CognitiveRef nodes = 1; repeated Association associations = 2; bool truncated = 3; }

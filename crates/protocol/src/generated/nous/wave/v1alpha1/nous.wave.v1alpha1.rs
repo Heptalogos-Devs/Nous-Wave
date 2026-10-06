@@ -1765,6 +1765,8 @@ pub struct CreateTagRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub tag: ::core::option::Option<Tag>,
+    #[prost(message, optional, tag="4")]
+    pub producer: ::core::option::Option<ProducerSignature>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SearchTagsRequest {
@@ -1801,6 +1803,8 @@ pub struct ReviseTagRequest {
     pub target: ::core::option::Option<TagRevisionTarget>,
     #[prost(message, optional, tag="4")]
     pub content: ::core::option::Option<TagContent>,
+    #[prost(message, optional, tag="5")]
+    pub producer: ::core::option::Option<ProducerSignature>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MergeTagsRequest {
@@ -1827,6 +1831,8 @@ pub struct SplitTagRequest {
     pub children: ::prost::alloc::vec::Vec<TagContent>,
     #[prost(message, repeated, tag="5")]
     pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(message, optional, tag="6")]
+    pub producer: ::core::option::Option<ProducerSignature>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SplitTagResponse {
@@ -1891,6 +1897,8 @@ pub struct CreateAssociationRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub association: ::core::option::Option<Association>,
+    #[prost(message, optional, tag="4")]
+    pub producer: ::core::option::Option<ProducerSignature>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RevokeAssociationRequest {
