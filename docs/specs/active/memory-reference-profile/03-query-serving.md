@@ -69,13 +69,13 @@ Query 进入 Serving prepare 前检查 retired collection。`serving.retired_gra
 
 公开 `CognitionService.PrepareQuery` 与官方 Client `cognition.prepareQuery` 编译 NousQL 或 typed expression、解析 exact selectors、读取 Session/active WorkContext，并返回既有 `bound_query` 字段语义的 JSON inspection；不执行 retrieval、Serving build 或 provider。Inspection 包含 resolved CognitiveQuery、representation/version/SHA256/source refs/truncation flags、current refs、topology seeds、exact bindings、profile 与 ConfigSnapshot digest。
 
-正式 query 在 binding 时检查 TextCue/ExampleCue 的 referential closure。中文 pronoun/deictic phrase 与英文 whole token 规则返回 `UNRESOLVED_QUERY_REFERENCE`，detail 保存 offending span、UTF-8 byte offsets 与 pronoun/deictic/temporal_deictic kind；不猜测 referent。Core 的 Entity/Tag/name selectors 仍通过 Identity Directory 唯一解析。
+正式 query 在 binding 时检查 TextCue/ExampleCue 的 referential closure。浅层高置信 pronoun/deictic noun phrase 与 `<UNRESOLVED:...>` marker 规则返回 `UNRESOLVED_QUERY_REFERENCE`，detail 保存 offending span、UTF-8 byte offsets 与 pronoun/deictic/temporal_deictic kind；不做 POS、relative-clause parsing 或 referent 猜测，完整语义闭合由 Agent/consumer 负责。Core 的 Entity/Tag/name selectors 仍通过 Identity Directory 唯一解析。
 
 QueryRequest 支持 `work_context_id` 和 `situation`（consumer、current refs、current objects、object descriptions）。显式 context 覆盖 foreground selection，须为同 Subject 的 open WorkContext。Runtime 在 preparation 捕获 ResidentSet references、WorkContext 与 request situation，保留来源；Runtime lane 和 topology 使用冻结 refs，执行时不重新读取另一个 Session/context。Embedding 只消费有界 current descriptors，不复制全部 ResidentSet 或 Session transcript。
 
 Representation 顺序固定：Intent、Temporal orientation、Entities、Concepts、Schemas、Current cognition、Resources、Current objects、Current work、Consumer/task。Entity 使用 display name/必要 aliases，Tag 使用 label/description/kind，cognition 使用 bounded owner text；opaque identity 留在 exact/source refs，不当语义正文。缺失 descriptor 和超界截断显式报告；total budget 保持 UTF-8 完整字符。
 
-`retrieval.query.representation` 是 typed Developer/SubjectOverrideAllowed/Live policy：默认 intent 2048 chars、WorkContext 1024、Entity/Tag descriptor 256、current descriptor 512、最多 16 Entity/Tag/current refs、total 8192。Intent 和 explicit cues 优先于 current descriptors 与 WorkContext。`sha256` 对实际 representation text 计算。
+`retrieval.query.representation` 是 typed Developer/SubjectOverrideAllowed/Live policy：配置只有 `total_chars=8192` 与 `max_context_items=16`；section hard ceilings 由实现持有。Intent、显式时间/selector descriptor、Entity/Tag、current refs、WorkContext 按优先级分配预算，之后按固定 section 顺序渲染。`sha256` 对实际 representation text 计算。
 
 Core 查询先取得一次冻结 BoundQuery 的 bounded preparation token，再为完整 representation 生成最多一份 embedding，Kernel 直接消费该 token，保持 ConfigSnapshot 与 context 一致。Preparation/validation tickets 共用 query slots/lease，single-use、Subject-bound，并在 failure/finalize/release/expiry 清理。Dense、EPA/VCP sensing 与 expression leaves 共享 request embedding（包括 provider failure），lexical leaf 仍使用该 leaf intent；All/Any 的集合语义保持不变。Rerank 接收同一完整 representation 和原 validated candidates。
 

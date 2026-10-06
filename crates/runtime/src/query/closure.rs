@@ -9,197 +9,145 @@ pub struct UnresolvedQueryReference {
     pub kind: &'static str,
 }
 
-/// This guard detects open references; it never guesses their referents.
+/// Shallow fail-fast checks for clear open references. Closure belongs to the caller.
 pub fn unresolved_query_references(text: &str) -> Vec<UnresolvedQueryReference> {
     let mut spans = Vec::new();
-    let phrases = [
+    let mut add = |start: usize, end: usize, kind| {
+        spans.push(UnresolvedQueryReference {
+            span: text[start..end].into(),
+            start,
+            end,
+            kind,
+        });
+    };
+    for (start, _) in text.match_indices("<UNRESOLVED:") {
+        let end = text[start..]
+            .find('>')
+            .map_or(text.len(), |n| start + n + 1);
+        add(start, end, "unresolved_marker");
+    }
+    for (phrase, kind) in [
         ("上次那个", "temporal_deictic"),
         ("刚才那个", "temporal_deictic"),
         ("这个项目", "deictic"),
         ("那个项目", "deictic"),
+        ("这个问题", "deictic"),
+        ("那个问题", "deictic"),
+        ("那个东西", "deictic"),
+        ("这个东西", "deictic"),
         ("这件事", "deictic"),
         ("那件事", "deictic"),
-        ("这个", "deictic"),
-        ("那个", "deictic"),
-        ("这些", "deictic"),
-        ("那些", "deictic"),
-        ("这里", "deictic"),
-        ("那里", "deictic"),
-        ("我们", "pronoun"),
-        ("你们", "pronoun"),
-        ("他们", "pronoun"),
-        ("她们", "pronoun"),
-        ("它们", "pronoun"),
-        ("我", "pronoun"),
-        ("你", "pronoun"),
-        ("他", "pronoun"),
-        ("她", "pronoun"),
-        ("它", "pronoun"),
-    ];
-    let compounds = [
-        "自我",
-        "本我",
-        "超我",
-        "忘我",
-        "无我",
-        "其他",
-        "其它",
-        "他山之石",
-    ];
-    for (phrase, kind) in phrases {
+    ] {
         for (start, _) in text.match_indices(phrase) {
-            let end = start + phrase.len();
-            if spans
+            add(start, start + phrase.len(), kind);
+        }
+    }
+    for pronoun in [
+        "我们", "你们", "他们", "她们", "它们", "我", "你", "他", "她", "它",
+    ] {
+        for (start, _) in text.match_indices(pronoun) {
+            let end = start + pronoun.len();
+            let boundary = |c: char| {
+                c.is_whitespace()
+                    || c.is_ascii_punctuation()
+                    || "，。！？、；：‘’“”（）【】".contains(c)
+            };
+            let left = text[..start].chars().next_back();
+            let right = text[end..].chars().next();
+            // Only a standalone token or a clear pronoun at a phrase boundary.
+            let clear_left =
+                left.is_none_or(boundary) || left.is_some_and(|c| "和与跟".contains(c));
+            let clear_right = right.is_none_or(boundary)
+                || [
+                    "和", "与", "在", "的", "昨天", "最近", "上次", "刚才", "怎么", "如何",
+                ]
                 .iter()
-                .any(|span: &UnresolvedQueryReference| span.start <= start && span.end >= end)
-            {
-                continue;
+                .any(|word| text[end..].starts_with(word));
+            if clear_left && clear_right {
+                add(start, end, "pronoun");
             }
-            let compound = compounds.iter().any(|compound| {
-                text.match_indices(compound)
-                    .any(|(offset, _)| offset <= start && offset + compound.len() >= end)
-            });
-            if compound {
-                continue;
-            }
-            if phrase.chars().count() == 1 && !pronoun_context(text, start, end) {
-                continue;
-            }
-            spans.push(UnresolvedQueryReference {
-                span: phrase.into(),
-                start,
-                end,
-                kind,
-            });
         }
     }
-    let lower_text = text.to_ascii_lowercase();
-    for phrase in ["the previous one", "last time", "just now"] {
-        for (start, _) in lower_text.match_indices(phrase) {
+    let lower = text.to_ascii_lowercase();
+    let token_char = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\'';
+    for (phrase, kind) in [
+        ("the previous one", "temporal_deictic"),
+        ("just now", "temporal_deictic"),
+        ("last time", "temporal_deictic"),
+        ("that project", "deictic"),
+        ("this project", "deictic"),
+        ("that memory", "deictic"),
+        ("this memory", "deictic"),
+        ("that problem", "deictic"),
+        ("this problem", "deictic"),
+    ] {
+        for (start, _) in lower.match_indices(phrase) {
             let end = start + phrase.len();
-            if lower_text[..start]
-                .chars()
-                .next_back()
-                .is_some_and(|c| c.is_ascii_alphanumeric())
-                || lower_text[end..]
-                    .chars()
-                    .next()
-                    .is_some_and(|c| c.is_ascii_alphanumeric())
+            if !lower[..start].chars().next_back().is_some_and(token_char)
+                && !lower[end..].chars().next().is_some_and(token_char)
             {
-                continue;
+                add(start, end, kind);
             }
-            spans.push(UnresolvedQueryReference {
-                span: text[start..end].into(),
-                start,
-                end,
-                kind: "temporal_deictic",
-            });
         }
     }
-    let mut start = None;
-    for (offset, character) in text
+    let mut begin = None;
+    for (offset, c) in text
         .char_indices()
         .chain(std::iter::once((text.len(), ' ')))
     {
-        if character.is_ascii_alphanumeric() || character == '_' || character == '\'' {
-            start.get_or_insert(offset);
-        } else if let Some(begin) = start.take() {
-            let token = &text[begin..offset];
-            let lower = token.to_ascii_lowercase();
-            let kind = match lower.as_str() {
-                "us" | "it" if matches!(token, "US" | "IT") => None,
-                "i" | "me" | "my" | "mine" | "we" | "us" | "our" | "ours" | "you" | "your"
-                | "yours" | "he" | "him" | "his" | "she" | "her" | "hers" | "it" | "its"
-                | "they" | "them" | "their" | "theirs" | "i'm" | "we're" | "you're" | "he's"
-                | "she's" | "it's" | "they're" => Some("pronoun"),
-                "that" if relative_clause_connector(text, begin, offset) => None,
-                "this" | "that" | "these" | "those" | "here" | "there" => Some("deictic"),
-                _ => None,
-            };
-            if let Some(kind) = kind {
-                spans.push(UnresolvedQueryReference {
-                    span: token.into(),
-                    start: begin,
-                    end: offset,
-                    kind,
-                });
+        if token_char(c) {
+            begin.get_or_insert(offset);
+        } else if let Some(start) = begin.take() {
+            let token = &text[start..offset];
+            if !matches!(token, "US" | "IT")
+                && matches!(
+                    token.to_ascii_lowercase().as_str(),
+                    "i" | "me"
+                        | "my"
+                        | "mine"
+                        | "we"
+                        | "us"
+                        | "our"
+                        | "ours"
+                        | "you"
+                        | "your"
+                        | "yours"
+                        | "he"
+                        | "him"
+                        | "his"
+                        | "she"
+                        | "her"
+                        | "hers"
+                        | "it"
+                        | "its"
+                        | "they"
+                        | "them"
+                        | "their"
+                        | "theirs"
+                        | "i'm"
+                        | "we're"
+                        | "you're"
+                        | "he's"
+                        | "she's"
+                        | "it's"
+                        | "they're"
+                )
+            {
+                add(start, offset, "pronoun");
             }
         }
     }
-    spans.sort_by_key(|span| (span.start, span.end));
-    spans
-}
-
-// Distinguish a connective after a named cognitive noun from a demonstrative.
-// This classifies syntax only; other open pronouns in the clause still fail.
-fn relative_clause_connector(text: &str, start: usize, end: usize) -> bool {
-    let before = text[..start]
-        .split_whitespace()
-        .next_back()
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    let after = text[end..]
-        .split_whitespace()
-        .next()
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    matches!(
-        before.as_str(),
-        "experience"
-            | "experiences"
-            | "memory"
-            | "memories"
-            | "event"
-            | "events"
-            | "decision"
-            | "decisions"
-            | "policy"
-            | "policies"
-            | "rule"
-            | "rules"
-            | "procedure"
-            | "procedures"
-            | "schema"
-            | "schemas"
-            | "routine"
-            | "routines"
-    ) && matches!(
-        after.as_str(),
-        "informed"
-            | "caused"
-            | "changed"
-            | "replaced"
-            | "explains"
-            | "explained"
-            | "records"
-            | "recorded"
-            | "requires"
-            | "required"
-            | "contains"
-            | "contained"
-            | "links"
-            | "linked"
-            | "supports"
-            | "supported"
-    )
-}
-
-fn pronoun_context(text: &str, start: usize, end: usize) -> bool {
-    let left = text[..start].chars().next_back();
-    let right = text[end..].chars().next();
-    let boundary = |c: char| {
-        c.is_whitespace() || c.is_ascii_punctuation() || "，。！？、；：‘’“”（）【】".contains(c)
-    };
-    let isolated = left.is_none_or(boundary) && right.is_none_or(boundary);
-    let left_context = left.is_some_and(|c| "与和给对问说是由让跟请向帮把为比告诉".contains(c));
-    let right_context = [
-        "昨天", "最近", "的", "和", "与", "说", "在", "是", "有", "会", "要", "开发", "讨论", "用",
-        "怎么", "如何", "完成", "一起", "已经", "上次", "刚才", "不", "能", "应该", "可能", "想",
-        "好吗",
-    ]
-    .iter()
-    .any(|prefix| text[end..].starts_with(prefix));
-    isolated || left_context || right_context
+    spans.sort_by_key(|span| (span.start, std::cmp::Reverse(span.end)));
+    let mut result: Vec<UnresolvedQueryReference> = Vec::new();
+    for span in spans {
+        if !result
+            .iter()
+            .any(|previous| previous.start <= span.start && previous.end >= span.end)
+        {
+            result.push(span);
+        }
+    }
+    result
 }
 
 pub fn validate_query_closure(query: &CognitiveQuery) -> Result<()> {
@@ -273,6 +221,9 @@ mod tests {
     fn guard_detects_open_references_without_matching_compound_words() {
         for text in [
             "我和他在这个项目进展上如何",
+            "上次那个问题",
+            "她最近怎么了",
+            "<UNRESOLVED:person>",
             "那个东西最近怎么样",
             "我们上次讨论的事",
             "他昨天说的模型",

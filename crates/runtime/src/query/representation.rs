@@ -7,29 +7,17 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashSet};
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct QueryRepresentationLimits {
-    pub intent_chars: usize,
-    pub work_context_chars: usize,
-    pub entity_descriptor_chars: usize,
-    pub tag_descriptor_chars: usize,
-    pub current_descriptor_chars: usize,
-    pub max_entities: usize,
-    pub max_tags: usize,
-    pub max_current_refs: usize,
     pub total_chars: usize,
+    pub max_context_items: usize,
 }
+
 impl Default for QueryRepresentationLimits {
     fn default() -> Self {
         Self {
-            intent_chars: 2048,
-            work_context_chars: 1024,
-            entity_descriptor_chars: 256,
-            tag_descriptor_chars: 256,
-            current_descriptor_chars: 512,
-            max_entities: 16,
-            max_tags: 16,
-            max_current_refs: 16,
             total_chars: 8192,
+            max_context_items: 16,
         }
     }
 }
@@ -46,21 +34,7 @@ pub(super) fn register(registry: &mut ConfigRegistryBuilder) -> Result<()> {
         ConfigApplyMode::Live,
         ConfigSemanticEffect::QueryPolicy,
         |v| {
-            if v.intent_chars == 0
-                || v.total_chars < v.intent_chars + 64
-                || v.total_chars > 32768
-                || [v.max_entities, v.max_tags, v.max_current_refs]
-                    .iter()
-                    .any(|n| *n > 64)
-                || [
-                    v.work_context_chars,
-                    v.entity_descriptor_chars,
-                    v.tag_descriptor_chars,
-                    v.current_descriptor_chars,
-                ]
-                .iter()
-                .any(|n| *n > 4096)
-            {
+            if !(256..=32768).contains(&v.total_chars) || v.max_context_items > 64 {
                 return Err(Error::Invalid("invalid query representation bounds".into()));
             }
             Ok(())
@@ -78,37 +52,54 @@ pub struct QueryRepresentation {
 }
 
 struct Builder {
-    text: String,
+    sections: Vec<(&'static str, String)>,
     remaining: usize,
     flags: BTreeSet<String>,
 }
 impl Builder {
-    fn section(&mut self, label: &str, value: &str, limit: usize) {
+    fn section(&mut self, label: &'static str, value: &str, limit: usize) {
         if value.trim().is_empty() {
             return;
         }
-        let header = format!(
-            "{}{}:\n",
-            if self.text.is_empty() { "" } else { "\n\n" },
-            label
-        );
-        let header_chars = header.chars().count();
-        let budget = self.remaining.saturating_sub(header_chars).min(limit);
-        if budget == 0 {
-            self.flags.insert(label.into());
-            return;
-        }
-        if value.trim().chars().count() > budget {
+        if value.trim().chars().count() > limit {
             self.flags.insert(label.into());
         }
-        let value: String = value.trim().chars().take(budget).collect();
-        self.remaining = self
-            .remaining
-            .saturating_sub(header_chars + value.chars().count());
-        self.text.push_str(&header);
-        self.text.push_str(&value);
+        self.sections
+            .push((label, value.trim().chars().take(limit).collect()));
+    }
+    fn render(&mut self) -> String {
+        // Allocation priority is independent of the fixed semantic section order.
+        let priority = |label| match label {
+            "Intent" => 0,
+            "Temporal orientation" => 1,
+            "Entities" | "Concepts" => 2,
+            "Schemas" | "Current cognition" => 3,
+            "Current work" => 4,
+            _ => 5,
+        };
+        let mut indices = (0..self.sections.len()).collect::<Vec<_>>();
+        indices.sort_by_key(|i| priority(self.sections[*i].0));
+        for index in indices {
+            let (label, value) = &mut self.sections[index];
+            let header = label.chars().count() + 4; // label, colon, newline and section separation
+            let available = self.remaining.saturating_sub(header);
+            if value.chars().count() > available {
+                self.flags.insert((*label).into());
+                *value = value.chars().take(available).collect();
+            }
+            if !value.is_empty() {
+                self.remaining -= header + value.chars().count();
+            }
+        }
+        self.sections
+            .iter()
+            .filter(|(_, value)| !value.is_empty())
+            .map(|(label, value)| format!("{label}:\n{value}"))
+            .collect::<Vec<_>>()
+            .join("\n\n")
     }
 }
+
 fn intent(node: &CognitiveQueryExpr) -> String {
     let own = node
         .cues
@@ -157,11 +148,11 @@ pub fn build_query_representation(
         return finish(raw, sources, BTreeSet::new(), None, "text-compatibility-v1");
     }
     let mut builder = Builder {
-        text: String::new(),
+        sections: Vec::new(),
         remaining: limits.total_chars,
         flags: BTreeSet::new(),
     };
-    builder.section("Intent", &raw, limits.intent_chars);
+    builder.section("Intent", &raw, 2048);
     let temporal = query.scopes().iter().filter_map(|scope| {
         let c=&scope.constraints;
         let recent=scope.preferences.iter().filter_map(|p| match p.operand { PreferenceOperand::Recent(axis) => Some(format!("{}recent({axis:?})",if p.negative { "avoid " } else { "prefer " })), _ => None }).collect::<Vec<_>>();
@@ -170,36 +161,16 @@ pub fn build_query_representation(
     }).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>().join("\n");
     builder.section("Temporal orientation", &temporal, 1024);
     for (label, select, maximum, chars) in [
-        (
-            "Entities",
-            "entity",
-            limits.max_entities,
-            limits.entity_descriptor_chars,
-        ),
-        (
-            "Concepts",
-            "tag",
-            limits.max_tags,
-            limits.tag_descriptor_chars,
-        ),
-        (
-            "Schemas",
-            "cognitive_schema",
-            limits.max_current_refs,
-            limits.current_descriptor_chars,
-        ),
+        ("Entities", "entity", limits.max_context_items, 256),
+        ("Concepts", "tag", limits.max_context_items, 256),
+        ("Schemas", "cognitive_schema", limits.max_context_items, 512),
         (
             "Current cognition",
             "current",
-            limits.max_current_refs,
-            limits.current_descriptor_chars,
+            limits.max_context_items,
+            512,
         ),
-        (
-            "Resources",
-            "resource",
-            limits.max_current_refs,
-            limits.current_descriptor_chars,
-        ),
+        ("Resources", "resource", limits.max_context_items, 512),
     ] {
         let values = descriptors
             .iter()
@@ -243,11 +214,7 @@ pub fn build_query_representation(
         .into_iter()
         .collect::<Vec<_>>()
         .join("\n");
-    builder.section(
-        "Current objects",
-        &objects,
-        limits.current_descriptor_chars * limits.max_current_refs,
-    );
+    builder.section("Current objects", &objects, 512 * limits.max_context_items);
     if let Some(context) = &context {
         builder.section(
             "Current work",
@@ -256,19 +223,14 @@ pub fn build_query_representation(
                 context.purpose,
                 context.unresolved_questions.join("\n")
             ),
-            limits.work_context_chars,
+            1024,
         );
     }
     if let Some(consumer) = &query.situation.consumer {
         builder.section("Consumer/task", consumer, 256);
     }
-    finish(
-        builder.text,
-        sources,
-        builder.flags,
-        context,
-        "cognitive-query-v1",
-    )
+    let text = builder.render();
+    finish(text, sources, builder.flags, context, "cognitive-query-v2")
 }
 fn finish(
     text: String,
@@ -339,7 +301,7 @@ impl CognitiveRuntimeService {
                 .filter(|(_, source)| !source.starts_with("explicit"))
                 .map(|(reference, _)| reference.clone())
                 .filter(|reference| seen.insert(reference.clone()))
-                .take(limits.max_current_refs),
+                .take(limits.max_context_items),
         );
         let catalog_truncated = selected.len() > 256;
         selected.truncate(256);
@@ -355,7 +317,7 @@ impl CognitiveRuntimeService {
             representation_sources,
             &config_snapshot.get(QUERY_REPRESENTATION)?,
         );
-        if current_count > limits.max_current_refs {
+        if current_count > limits.max_context_items {
             representation
                 .truncation_flags
                 .push("current_descriptor_catalog".into());
@@ -476,6 +438,24 @@ mod tests {
             diagnostics: Default::default(),
         }
     }
+    #[test]
+    fn allocation_preserves_context_priority_and_fixed_section_order() {
+        let mut builder = Builder {
+            sections: Vec::new(),
+            remaining: 128,
+            flags: BTreeSet::new(),
+        };
+        builder.section("Intent", "Alice reviews deployment readiness", 2048);
+        builder.section("Resources", &"r".repeat(128), 512);
+        builder.section("Current work", "Review Tide approval", 1024);
+        let text = builder.render();
+        assert!(text.contains("Review Tide approval"));
+        assert!(builder.flags.contains("Resources"));
+        assert!(text.find("Resources").unwrap() < text.find("Current work").unwrap());
+        assert!(text.chars().count() <= 128);
+        assert!(!text.contains("r".repeat(128).as_str()));
+    }
+
     #[test]
     fn representation_is_semantic_deterministic_bounded_and_text_track_is_raw() {
         let mut query = query();
