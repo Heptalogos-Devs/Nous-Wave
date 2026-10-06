@@ -622,6 +622,10 @@ pub struct PreparedQueryResponse {
     pub text_embedding_requirement: ::prost::alloc::string::String,
     #[prost(string, tag="6")]
     pub rerank_requirement: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub concept_enrichment_mode: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub concept_enrichment_requirement: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Evidence {
@@ -742,6 +746,8 @@ pub struct QueryDiagnostics {
     pub topology_complete: ::core::option::Option<bool>,
     #[prost(double, optional, tag="4")]
     pub topology_discarded_mass: ::core::option::Option<f64>,
+    #[prost(string, tag="5")]
+    pub trace: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HitScore {

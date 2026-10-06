@@ -101,11 +101,16 @@ impl QueryPlan {
             .into_iter()
             .flat_map(|node| &node.cues)
             .any(|cue| matches!(cue, Cue::Text(_) | Cue::Example(_)));
+        let has_semantic_cue = query
+            .scopes()
+            .into_iter()
+            .flat_map(|node| &node.cues)
+            .any(|cue| matches!(cue, Cue::Concept(_)));
         ServingNeed {
             exact: self.enabled_lanes.contains(&EvidenceFamily::Exact)
                 || self.enabled_lanes.contains(&EvidenceFamily::SchemaDirect),
             lexical: has_text && self.enabled_lanes.contains(&EvidenceFamily::Lexical),
-            dense: has_text
+            dense: (has_text || has_semantic_cue)
                 && (self.enabled_lanes.contains(&EvidenceFamily::Dense)
                     || (self.expand_topology
                         && self.cognitive_profile.requirements().query_embedding)),

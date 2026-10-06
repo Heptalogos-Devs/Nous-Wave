@@ -71,6 +71,15 @@ fn local_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
             lanes.push(EvidenceFamily::Dense);
         }
     }
+    if query
+        .expression
+        .cues
+        .iter()
+        .any(|cue| matches!(cue, Cue::Concept(_)))
+        && query.capabilities.text_embedding != RequirementStrength::Forbidden
+    {
+        lanes.push(EvidenceFamily::Dense);
+    }
     if query.expression.constraints.valid.is_some()
         || query.expression.constraints.occurred.is_some()
         || query.expression.constraints.observed.is_some()
@@ -390,6 +399,7 @@ impl CognitiveRuntimeService {
             &topology_seed_refs,
         );
         Ok(BoundQuery {
+            activation_view: None,
             activation,
             concept_enrichment,
             representation,

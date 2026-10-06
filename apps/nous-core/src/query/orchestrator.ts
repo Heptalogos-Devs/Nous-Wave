@@ -33,6 +33,7 @@ export class QueryOrchestrator {
     );
     if (!preparation.preparationToken)
       throw new ConnectError("Prepared query token missing", Code.Internal);
+    let executionToken = preparation.preparationToken;
     try {
       const texts = new Set(
         preparation.embeddingRequired && preparation.embeddingText
@@ -102,6 +103,57 @@ export class QueryOrchestrator {
             error instanceof Error ? error.message : "Embedding unavailable";
         }
       }
+      let conceptOutput: string | undefined;
+      let conceptFailure: string | undefined;
+      let conceptModelCalls = 0;
+      if (
+        preparation.conceptEnrichmentMode === "model" &&
+        preparation.conceptEnrichmentRequirement !== "forbidden"
+      ) {
+        const activation = await this.kernel.queryWorkflow.activateQuery(
+          {
+            subjectId: input.subjectId,
+            preparationToken: executionToken,
+            embeddings: material,
+          },
+          options,
+        );
+        executionToken = activation.preparationToken;
+        if (!executionToken)
+          throw new ConnectError(
+            "Query activation token missing",
+            Code.Internal,
+          );
+        try {
+          if (!this.models.invocations.profile("query_concept_enrichment"))
+            throw new ConnectError(
+              "Query concept model role unavailable",
+              Code.FailedPrecondition,
+            );
+          conceptModelCalls = 1;
+          const response = await this.models.invocations.generate(
+            "query_concept_enrichment",
+            activation.modelInput,
+            options.signal ?? undefined,
+          );
+          conceptOutput = JSON.stringify(response.value);
+        } catch (error) {
+          if (options.signal?.aborted) throw error;
+          if (
+            preparation.conceptEnrichmentRequirement === "required" ||
+            this.models.invocations.requirement("query_concept_enrichment") ===
+              "required"
+          )
+            throw new ConnectError(
+              "Required query concept model unavailable",
+              Code.FailedPrecondition,
+            );
+          conceptFailure =
+            error instanceof Error
+              ? error.message
+              : "Query concept model unavailable";
+        }
+      }
       const intent = input.expression ? positiveIntent(input.expression) : "";
       const rerankAllowed = preparation.rerankRequirement !== "forbidden";
       const rerankRequired =
@@ -119,8 +171,11 @@ export class QueryOrchestrator {
       const prepared = await this.kernel.queryWorkflow.query(
         {
           subjectId: input.subjectId,
-          preparationToken: preparation.preparationToken,
-          embeddings: material,
+          preparationToken: executionToken,
+          embeddings: conceptOutput || conceptFailure ? [] : material,
+          conceptOutput,
+          conceptFailure,
+          conceptModelCalls,
           validatedCandidateLimit:
             intent && profile
               ? this.kernel.execution.query_rerank_candidate_limit
@@ -212,14 +267,14 @@ export class QueryOrchestrator {
         });
         if (result.status === "complete") result.status = "degraded";
       }
-      result.boundQuery = preparation.boundQuery;
+      result.boundQuery ??= prepared.response.boundQuery;
       return result;
     } finally {
       await this.kernel.queryWorkflow
         .releaseQuery(
           {
             subjectId: input.subjectId,
-            validationTicket: preparation.preparationToken,
+            validationTicket: executionToken,
           },
           { timeoutMs: this.kernel.execution.workflow_ack_timeout_ms },
         )

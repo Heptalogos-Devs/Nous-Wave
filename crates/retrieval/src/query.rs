@@ -347,6 +347,11 @@ impl std::fmt::Debug for ServingQuery {
     }
 }
 impl nous_runtime::QueryReadLease for ServingQuery {}
+impl nous_runtime::QueryActivationView for ServingQuery {
+    fn provider(&self) -> &dyn SharedLaneProvider {
+        self
+    }
+}
 #[async_trait::async_trait]
 impl SharedLaneProvider for ServingQuery {
     async fn activate(&self, bound: &BoundQuery) -> Result<nous_runtime::QueryActivation> {

@@ -10,8 +10,8 @@ impl KernelService {
         bound: nous_runtime::BoundQuery,
         pool_limit: Option<usize>,
     ) -> Result<k::KernelQueryResponse> {
-        let inspection = inspect_bound_query(&bound)?;
         let execution = Box::pin(self.0.execute_bound_query(bound, pool_limit)).await?;
+        let inspection = inspect_bound_query(&execution.bound)?;
         let (result, ticket) =
             if pool_limit.is_some() || !execution.result.resource_actions.is_empty() {
                 let (result, ticket) = self.0.cognition.retain_query(execution)?;
@@ -123,6 +123,10 @@ fn query_response(result: CognitiveQueryResult) -> p::QueryResponse {
                 .map(|(key, value)| (key, value as u64))
                 .collect(),
             lane_status: value.lane_status.into_iter().collect(),
+            trace: value
+                .trace
+                .map(|trace| trace.to_string())
+                .unwrap_or_default(),
             topology_complete: value.topology_complete,
             topology_discarded_mass: value.topology_discarded_mass,
         }),
@@ -363,7 +367,7 @@ fn append_cue(query: &mut CognitiveQueryExpr, cue: p::Cue) -> Result<()> {
         .ok_or_else(|| Error::Invalid("cue is empty".into()))?
     {
         p::cue::Cue::Text(value) => query.cues.push(Cue::Text(TextCue { text: value })),
-        p::cue::Cue::Concept(value) => query.cues.push(Cue::Text(TextCue { text: value })),
+        p::cue::Cue::Concept(value) => query.cues.push(Cue::Concept(ConceptCue { text: value })),
         p::cue::Cue::SchemaId(value) => query.cues.push(Cue::Schema(SchemaCue {
             schema: CognitiveSchemaId(id(&value)?),
         })),

@@ -127,6 +127,11 @@ pub struct TextCue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConceptCue {
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntityCue {
     pub entity_ref: EntityRef,
 }
@@ -176,6 +181,7 @@ pub struct ResourceCue {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Cue {
     Text(TextCue),
+    Concept(ConceptCue),
     Entity(EntityCue),
     Object(ObjectCue),
     Artifact(ArtifactCue),

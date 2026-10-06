@@ -462,6 +462,12 @@ pub struct KernelQueryRequest {
     pub preparation_token: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
     pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="6")]
+    pub concept_output: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub concept_failure: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, tag="8")]
+    pub concept_model_calls: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct KernelQueryResponse {
@@ -675,6 +681,13 @@ pub struct FoundWorkflow {
     pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="4")]
     pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryActivationResponse {
+    #[prost(string, tag="1")]
+    pub preparation_token: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub model_input: ::prost::alloc::string::String,
 }
 include!("nous.wave.kernel.v1alpha1.tonic.rs");
 // @@protoc_insertion_point(module)

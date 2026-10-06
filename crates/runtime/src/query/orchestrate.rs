@@ -75,6 +75,31 @@ impl CognitiveRuntimeService {
         if let Some(shared) = contributors.shared {
             bound.activation = shared.activate(&bound).await?;
         }
+        if bound.concept_enrichment == super::ConceptEnrichment::Model
+            && bound.source_query.capabilities.query_concept_enrichment
+                != RequirementStrength::Forbidden
+            && !bound.activation.model_completed
+        {
+            if bound.source_query.capabilities.query_concept_enrichment
+                == RequirementStrength::Required
+            {
+                return Err(Error::Unavailable(
+                    "required query concept model unavailable".into(),
+                ));
+            }
+            if !bound
+                .activation
+                .degradation
+                .iter()
+                .any(|d| d.code == "query_concept_model_unavailable")
+            {
+                bound.activation.degradation.push(Degradation {
+                    code: "query_concept_model_unavailable".into(),
+                    detail: Some("Host query concept model result unavailable".into()),
+                });
+            }
+        }
+        bound.activation.frozen = true;
         if validated_pool_limit.is_some_and(|limit| limit == 0 || limit > 64) {
             return Err(Error::Invalid("validated pool limit must be 1..64".into()));
         }

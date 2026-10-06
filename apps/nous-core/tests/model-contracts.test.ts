@@ -21,6 +21,7 @@ it("owns every structured generation role and exports its production schema iden
     "memory_consolidation",
     "memory_formation",
     "projection_steward",
+    "query_concept_enrichment",
   ]);
   const identities = new Set<string>();
   for (const role of roleNames) {
@@ -32,7 +33,7 @@ it("owns every structured generation role and exports its production schema iden
     expect(contract.providerSchema.description).toBeTruthy();
     expect(contract.providerName).toMatch(/^[A-Za-z0-9_-]+$/);
   }
-  expect(identities.size).toBe(7);
+  expect(identities.size).toBe(8);
   expect(providerContractForRole("material_structuring")?.digest).toBe(
     providerContractForRole("material_direct_structuring")?.digest,
   );
@@ -44,4 +45,23 @@ it("owns every structured generation role and exports its production schema iden
     "selectedEntityKeys",
   ]);
   expect(formation.additionalProperties).toBe(false);
+});
+
+it("query concept output accepts only local keys and bounded ephemeral hypotheses", () => {
+  const schema = structuredContractForRole("query_concept_enrichment")!.owner;
+  expect(
+    schema.safeParse({
+      existing_tags: [{ key: "c0", strength: 0.8 }],
+      novel_concepts: [{ text: "reader reclamation" }],
+    }).success,
+  ).toBe(true);
+  for (const existing_tags of [
+    [{ key: "tag:invented", strength: 1 }],
+    [{ key: "c0", strength: 2 }],
+    [{ key: "c0", strength: 0.8, tag_id: "invented" }],
+  ]) {
+    expect(
+      schema.safeParse({ existing_tags, novel_concepts: [] }).success,
+    ).toBe(false);
+  }
 });

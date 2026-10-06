@@ -47,6 +47,7 @@ pub struct TagActivation {
     pub origin: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NovelConceptHypothesis {
     pub text: String,
 }
@@ -64,6 +65,8 @@ pub struct QuerySemanticEmbedding {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryActivation {
+    pub concept_catalog: Vec<super::QueryConceptCandidate>,
+    pub frozen: bool,
     pub semantic_text_digest: String,
     pub exact_refs: Vec<CognitiveRef>,
     pub entity_refs: Vec<EntityRef>,
@@ -81,6 +84,7 @@ pub struct QueryActivation {
     pub embedding: Option<QuerySemanticEmbedding>,
     pub degradation: Vec<Degradation>,
     pub model_calls: usize,
+    pub model_completed: bool,
 }
 impl QueryActivation {
     pub fn prepared(
@@ -177,6 +181,8 @@ impl QueryActivation {
             .map(|s| s.reference.clone())
             .collect();
         Self {
+            concept_catalog: vec![],
+            frozen: false,
             semantic_text_digest: digest,
             exact_refs,
             entity_refs,
@@ -193,6 +199,7 @@ impl QueryActivation {
             embedding: None,
             degradation: vec![],
             model_calls: 0,
+            model_completed: false,
         }
     }
     pub fn tags(&self) -> impl Iterator<Item = &TagActivation> {
@@ -211,6 +218,8 @@ impl QueryActivation {
             self.runtime_refs.clone(),
             structural_seeds,
         );
+        scoped.concept_catalog = self.concept_catalog.clone();
+        scoped.frozen = self.frozen;
         scoped.inferred_tags = self.inferred_tags.clone();
         scoped.novel_concepts = self.novel_concepts.clone();
         scoped.embedding = self.embedding.clone();
@@ -218,11 +227,12 @@ impl QueryActivation {
         scoped.concept_generation = self.concept_generation;
         scoped.degradation = self.degradation.clone();
         scoped.model_calls = self.model_calls;
+        scoped.model_completed = self.model_completed;
         scoped
             .seeds
             .extend(scoped.inferred_tags.iter().map(|tag| ActivationSeed {
                 reference: CognitiveRef::Tag(tag.tag),
-                origin: "semantic_concept_match".into(),
+                origin: tag.origin.clone(),
                 strength: tag.strength,
             }));
         scoped

@@ -188,14 +188,20 @@ impl NousRuntime {
             .subject(bound.source_query.subject)
             .await?
             .capabilities;
-        let (projection, serving_query) = self.serving.prepare_query(&bound, &plan).await?;
+        let (projection, serving_query): (_, Arc<dyn nous_runtime::QueryActivationView>) =
+            if let Some(view) = &bound.activation_view {
+                (nous_retrieval::ProjectionStatus::default(), view.clone())
+            } else {
+                let (projection, view) = self.serving.prepare_query(&bound, &plan).await?;
+                (projection, view)
+            };
         let mut execution = self
             .cognition
             .execute_query_with_plan(
                 bound,
                 nous_runtime::CognitiveContributors {
                     material: Some(&self.material),
-                    shared: Some(serving_query.as_ref()),
+                    shared: Some(serving_query.provider()),
                     memory: subject_capabilities
                         .memory
                         .then(|| {

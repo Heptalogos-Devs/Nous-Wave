@@ -86,7 +86,7 @@ message QueryExpr { string operation = 1; repeated Cue cues = 2; repeated QueryE
 message QueryCapabilities { string text_embedding = 1; string multimodal_interpretation = 2; string residual_sensing = 3; string rerank = 4; string query_concept_enrichment = 5; }
 message QuerySituation { optional string consumer = 1; repeated CognitiveRef current_refs = 2; repeated string current_objects = 3; map<string,string> object_descriptions = 4; }
 message QueryRequest { string subject_id = 1; optional string session_id = 2; QueryExpr expression = 3; optional string nousql = 4; optional string work_context_id = 5; QuerySituation situation = 6; bool text_only_compatibility = 7; QueryCapabilities capabilities = 8; }
-message PreparedQueryResponse { string bound_query = 1; optional string preparation_token = 2; string embedding_text = 3; bool embedding_required = 4; string text_embedding_requirement = 5; string rerank_requirement = 6; }
+message PreparedQueryResponse { string bound_query = 1; optional string preparation_token = 2; string embedding_text = 3; bool embedding_required = 4; string text_embedding_requirement = 5; string rerank_requirement = 6; string concept_enrichment_mode = 7; string concept_enrichment_requirement = 8; }
 message Evidence { CognitiveRef reference = 1; string support_role = 2; }
 message Hit {
   CognitiveRef reference = 1;
@@ -107,7 +107,7 @@ message Hit {
 message ResourceAction { string resource_ref = 1; string action = 2; string reason = 3; bool current_authority = 4; string action_id = 5; string query_text = 6; uint32 limit = 7; bool materialize = 8; string adapter_kind = 9; string provider_profile = 10; string provider_locator = 11; string descriptor_digest = 12; }
 message StableExternalRef { string provider_kind = 1; string provider_profile = 2; string profile_digest = 3; string resource_ref = 4; string provider_resource_id = 5; string entry_id = 6; optional string entry_version = 7; string content_digest = 8; string source_locator = 9; string retrieved_at = 10; string access_scope = 11; }
 message ExternalResourceRecord { string resource_ref = 1; StableExternalRef reference = 2; optional string title = 3; string content = 4; uint32 provider_rank = 5; optional double provider_score = 6; string version_status = 7; string access_status = 8; }
-message QueryDiagnostics { map<string, uint64> candidate_counts = 1; map<string, string> lane_status = 2; optional bool topology_complete = 3; optional double topology_discarded_mass = 4; }
+message QueryDiagnostics { map<string, uint64> candidate_counts = 1; map<string, string> lane_status = 2; optional bool topology_complete = 3; optional double topology_discarded_mass = 4; string trace = 5; }
 message HitScore { double baseline = 1; double preference = 2; optional double rerank = 3; double final = 4; uint32 baseline_rank = 5; uint32 final_rank = 6; uint32 best_lane_rank = 7; repeated string variants = 8; }
 message QueryResponse { string query_id = 1; string status = 2; repeated Hit hits = 3; repeated ResourceAction resource_actions = 4; repeated Degradation degradation = 5; optional string bound_query = 6; QueryDiagnostics diagnostics = 7; repeated ExternalResourceRecord resource_records = 10; }
 

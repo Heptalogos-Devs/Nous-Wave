@@ -13,6 +13,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct BoundQuery {
     pub activation: super::QueryActivation,
+    pub activation_view: Option<std::sync::Arc<dyn QueryActivationView>>,
     pub concept_enrichment: super::ConceptEnrichment,
     pub representation: super::QueryRepresentation,
     pub query_id: Uuid,
@@ -68,6 +69,9 @@ pub struct AccessibilityQueryPolicy {
 }
 
 pub trait QueryReadLease: std::fmt::Debug + Send + Sync {}
+pub trait QueryActivationView: QueryReadLease {
+    fn provider(&self) -> &dyn super::SharedLaneProvider;
+}
 
 #[derive(Debug, Clone)]
 pub struct QueryExecution {

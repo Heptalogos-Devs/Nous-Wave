@@ -24,6 +24,25 @@ pub async fn with_query_material<T>(
     QUERY_MATERIAL.scope(material, operation).await
 }
 
+pub(crate) fn query_material_output(
+    text: &str,
+    space: &EmbeddingSpaceSignature,
+    producer: &ProducerSignature,
+) -> Option<TextEmbeddingOutput> {
+    QUERY_MATERIAL
+        .try_with(|items| {
+            items
+                .iter()
+                .find(|item| {
+                    item.text == text
+                        && item.output.space.compatible_with(space)
+                        && item.output.producer.signature_hash == producer.signature_hash
+                })
+                .map(|item| item.output.clone())
+        })
+        .ok()
+        .flatten()
+}
 pub struct StoredEmbeddingProvider {
     store: AuthorityStore,
     config: StoredEmbeddingConfig,
@@ -73,20 +92,8 @@ impl TextEmbeddingProvider for StoredEmbeddingProvider {
     }
     async fn embed(&self, request: TextEmbeddingRequest) -> Result<TextEmbeddingOutput> {
         if request.query {
-            let output = QUERY_MATERIAL
-                .try_with(|items| {
-                    items
-                        .iter()
-                        .find(|i| {
-                            i.text == request.text
-                                && i.output.space.compatible_with(&self.config.space)
-                                && i.output.producer.signature_hash
-                                    == self.config.producer.signature_hash
-                        })
-                        .map(|i| i.output.clone())
-                })
-                .ok()
-                .flatten();
+            let output =
+                query_material_output(&request.text, &self.config.space, &self.config.producer);
             return output.ok_or_else(|| {
                 Error::Unavailable("Host did not supply compatible query embedding".into())
             });

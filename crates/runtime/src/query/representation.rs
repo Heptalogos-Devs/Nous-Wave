@@ -156,6 +156,20 @@ pub fn build_query_representation(
         flags: BTreeSet::new(),
     };
     builder.section("Intent", &raw, 2048);
+    let semantic_concepts = query
+        .scopes()
+        .into_iter()
+        .flat_map(|node| &node.cues)
+        .filter_map(|cue| {
+            if let Cue::Concept(concept) = cue {
+                Some(concept.text.as_str())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    builder.section("Semantic concepts", &semantic_concepts, 2048);
     let temporal = query.scopes().iter().filter_map(|scope| {
         let c=&scope.constraints;
         let recent=scope.preferences.iter().filter_map(|p| match p.operand { PreferenceOperand::Recent(axis) => Some(format!("{}recent({axis:?})",if p.negative { "avoid " } else { "prefer " })), _ => None }).collect::<Vec<_>>();

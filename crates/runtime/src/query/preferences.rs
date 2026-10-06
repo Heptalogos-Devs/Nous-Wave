@@ -19,6 +19,13 @@ fn cue_match(cue: &Cue, hit: &CognitiveHit) -> f64 {
                 hit.representation.as_deref().unwrap_or_default(),
             );
         }
+        Cue::Concept(value) => {
+            // A soft textual preference is a bounded hint, never a Tag identity binding.
+            return lexical_match(
+                &value.text,
+                hit.representation.as_deref().unwrap_or_default(),
+            );
+        }
         Cue::Example(value) => {
             return lexical_match(
                 &value.text,

@@ -39,19 +39,23 @@ impl k::kernel_query_service_server::KernelQueryService for KernelService {
             let embedding_required = bound.source_query.capabilities.text_embedding
                 != RequirementStrength::Forbidden
                 && !embedding_text.is_empty()
-                && bound.enabled_lanes.iter().any(|lane| {
-                    *lane == EvidenceFamily::Dense
-                        || (*lane == EvidenceFamily::TopologyWave
-                            && bound
-                                .retrieval_policy
-                                .cognitive_profile
-                                .requirements()
-                                .query_embedding)
-                });
+                && (bound.concept_enrichment != nous_runtime::ConceptEnrichment::Off
+                    || bound.enabled_lanes.iter().any(|lane| {
+                        *lane == EvidenceFamily::Dense
+                            || (*lane == EvidenceFamily::TopologyWave
+                                && bound
+                                    .retrieval_policy
+                                    .cognitive_profile
+                                    .requirements()
+                                    .query_embedding)
+                    }));
             let inspection = super::query::inspect_bound_query(&bound)?;
             let text_embedding_requirement =
                 enum_name(bound.source_query.capabilities.text_embedding);
             let rerank_requirement = enum_name(bound.source_query.capabilities.rerank);
+            let concept_enrichment_mode = enum_name(bound.concept_enrichment);
+            let concept_enrichment_requirement =
+                enum_name(bound.source_query.capabilities.query_concept_enrichment);
             let token = if input.reserve_execution {
                 Some(self.0.cognition.retain_prepared_query(bound)?.to_string())
             } else {
@@ -64,10 +68,21 @@ impl k::kernel_query_service_server::KernelQueryService for KernelService {
                 embedding_required,
                 text_embedding_requirement,
                 rerank_requirement,
+                concept_enrichment_mode,
+                concept_enrichment_requirement,
             })
         }
         .await;
         result.map(Response::new).map_err(status)
+    }
+    async fn activate_query(
+        &self,
+        request: Request<k::KernelQueryRequest>,
+    ) -> std::result::Result<Response<k::QueryActivationResponse>, Status> {
+        self.activate_query_with_material(request.into_inner())
+            .await
+            .map(Response::new)
+            .map_err(status)
     }
     async fn query(
         &self,

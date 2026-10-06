@@ -23,10 +23,20 @@ pub(crate) async fn activate(
     provider: Option<&dyn TextEmbeddingProvider>,
 ) -> Result<QueryActivation> {
     let mut activation = bound.activation.clone();
+    if activation.frozen {
+        return Ok(activation);
+    }
     if bound.concept_enrichment == ConceptEnrichment::Off
         || bound.source_query.text_only_compatibility
     {
         return Ok(activation);
+    }
+    if let Some(generation) = snapshot
+        .concept
+        .iter()
+        .max_by_key(|generation| generation.authority_watermark)
+    {
+        activation.concept_catalog = model_catalog(generation, &[]);
     }
     let policy = activation_policy()?;
     let generation = snapshot.concept.iter().find(|g| {
@@ -83,6 +93,8 @@ pub(crate) async fn activate(
                                 origin: tag.origin.clone(),
                                 strength: tag.strength,
                             }));
+                        activation.concept_catalog =
+                            model_catalog(generation, &activation.inferred_tags);
                         activation.concept_generation = Some(generation.generation_id);
                         activation.query_embedding_digest = Some(artifacts::digest(&embedding)?);
                         activation.embedding = Some(QuerySemanticEmbedding {
@@ -186,5 +198,38 @@ fn semantic_matches(
             (similarity.is_finite() && similarity >= policy.minimum_similarity)
                 .then_some((record.tag, similarity.clamp(0.0, 1.0)))
         })
+        .collect()
+}
+
+fn model_catalog(
+    generation: &ConceptGeneration,
+    inferred: &[TagActivation],
+) -> Vec<nous_runtime::QueryConceptCandidate> {
+    let mut candidates = generation
+        .records
+        .iter()
+        .map(|record| {
+            (
+                record,
+                inferred
+                    .iter()
+                    .find(|tag| tag.tag == record.tag)
+                    .map_or(0.0, |tag| tag.strength),
+            )
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.tag.0.cmp(&b.0.tag.0)));
+    candidates
+        .into_iter()
+        .take(32)
+        .enumerate()
+        .map(
+            |(i, (record, strength))| nous_runtime::QueryConceptCandidate {
+                key: format!("c{i}"),
+                tag: record.tag,
+                semantic_text: record.semantic.text.clone(),
+                strength,
+            },
+        )
         .collect()
 }

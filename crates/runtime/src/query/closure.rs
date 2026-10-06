@@ -164,6 +164,7 @@ pub fn validate_query_closure(query: &CognitiveQuery) -> Result<()> {
         .flat_map(|node| &node.cues)
         .filter_map(|cue| match cue {
             Cue::Text(text) => Some(&text.text),
+            Cue::Concept(text) => Some(&text.text),
             Cue::Example(text) => Some(&text.text),
             _ => None,
         })
