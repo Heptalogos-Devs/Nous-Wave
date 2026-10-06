@@ -66,6 +66,67 @@ async fn subject(runtime: &nous_kernel::NousRuntime) -> nous_core::SubjectId {
 }
 
 #[tokio::test]
+async fn self_dependent_revision_is_invalid_and_preserves_current_memory() {
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let source = observation(&runtime, subject, "A supported source fact").await;
+    let owner = runtime.require_memory().unwrap();
+    let original = owner
+        .form_memory(form_input(
+            subject,
+            source.occurrence.occurrence_id,
+            OperationId::new(),
+            "A supported source fact",
+        ))
+        .await
+        .unwrap();
+    let sequence = runtime.store.authority_seq(subject).await.unwrap();
+    let result = owner
+        .revise_memory(nous_memory::ReviseMemoryInput {
+            producer: None,
+            operation_id: OperationId::new(),
+            subject,
+            memory_id: original.object.memory_id,
+            expected_object_epoch: original.object.object_epoch,
+            intent: nous_memory::RevisionIntent::Correct,
+            formation_mode: FormationMode::Grounded,
+            grounding_occurrence_id: Some(source.occurrence.occurrence_id),
+            semantic_role: "fact".into(),
+            representation_text: "A revised source fact".into(),
+            title: None,
+            supports: vec![RevisionSupport::CognitionDependency(
+                nous_core::CognitionDependency {
+                    target_revision: CognitiveRef::MemoryRevision(
+                        original.revision.memory_revision_id,
+                    ),
+                    support_role: SupportRole::Direct,
+                },
+            )],
+            aboutness: vec![],
+            valid_time: TemporalExtent::Unknown,
+            epistemic_class: EpistemicClass::Observed,
+        })
+        .await;
+    assert!(
+        matches!(result, Err(nous_core::Error::Invalid(message)) if message.contains("object cycle"))
+    );
+    let current = owner
+        .memory(subject, original.object.memory_id, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        current.revision.memory_revision_id,
+        original.revision.memory_revision_id
+    );
+    assert_eq!(current.object.object_epoch, original.object.object_epoch);
+    assert_eq!(
+        runtime.store.authority_seq(subject).await.unwrap(),
+        sequence
+    );
+}
+
+#[tokio::test]
 #[expect(
     clippy::too_many_lines,
     reason = "one frozen Resource cohort exercises forged results, single-use tickets and descriptor drift without repeated database setup"

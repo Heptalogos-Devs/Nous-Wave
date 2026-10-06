@@ -181,6 +181,12 @@ Rust harness 验证材料身份后使用普通 `ServingService.commit_embedding`
 
 ## External memory suites
 
+### Selected text-only compatibility
+
+本轮使用 [六题选择 manifest](../docs/research/corpus/text-compatibility-selection.json) 和 ignored 的 selected source bundle。`pnpm exec tsx scripts/research/text-compatibility.ts --input <selected-bundle.json> --root data/research/<run>` 先加 `--plan`，随后以相同参数执行；六项 `--max-provider-calls`、`--max-new-embedding-items`、`--max-rerank-calls`、`--max-new-serving-generations`、`--max-new-artifact-bytes`、`--max-runtime-seconds` 限制实际工作。该导入阶段前三项必须为零，来源最多 20 段、问题最多 8 个。
+
+入口以正常 SDK 创建 Subject，保存未经改写的选定原文和 directly supported Memory；receipt 保留 occurrence/Memory/revision 身份。原问题生成 `text_only_compatibility` Prepared 输入，不注入 Entity、Tag、WorkContext 或答案。来源时间原样保存，检索采用当前研究时点，外部问题日期仅作选择元数据。`embedding-plan.ts --plan` 冻结实际 query representation、盘点 misses；`embedding-cache.ts --plan` 后只补缺失向量；`prepared.ts --plan` 后在同一缓存上执行所选 profile。每阶段独立预算，已有缓存继续复用。结果按 source receipts 与独立选择 oracle 核对，不能据此宣称外部全量成绩。
+
 ```text
 corepack pnpm research:retrieval-live prepare --suite longmemeval-s --raw-file data/research/external/longmemeval/longmemeval_s_cleaned.json --prepared-root data/research/external/longmemeval/prepared
 corepack pnpm research:retrieval-live prepare --suite locomo --raw-file data/research/external/locomo/locomo10.json --prepared-root data/research/external/locomo/prepared

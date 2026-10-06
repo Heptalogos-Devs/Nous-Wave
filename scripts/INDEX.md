@@ -37,6 +37,7 @@
 | [research/model-call-guard.test.ts](research/model-call-guard.test.ts)       | 预算恢复与耗尽合同                    |
 | [research/model-call-guard.ts](research/model-call-guard.ts)                 | 持久化实验调用预算                    |
 | [research/retrieval.ts](research/retrieval.ts)                               | 语料导入与检索策略对比                |
+| [research/text-compatibility.ts](research/text-compatibility.ts) | 小型原始文本选择的无模型导入与查询输入 |
 | [research/serve-gateway.ts](research/serve-gateway.ts)                       | 启动实验代理                          |
 | [runtime/build-ffmpeg.sh](runtime/build-ffmpeg.sh)                           | 固定来源构建 FFmpeg/ffprobe           |
 | [runtime/build-notices.sh](runtime/build-notices.sh)                         | 取得 MinGW/LLVM runtime notices       |

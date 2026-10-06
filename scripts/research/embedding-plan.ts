@@ -84,8 +84,9 @@ let host: Awaited<ReturnType<typeof launchFunctionalRuntime>> | undefined;
 try {
   await budget.reserve({
     newArtifactBytes: 32 * 1024 * 1024,
-    newServingGenerations: new Set(inputs.map((input) => input.query.subject))
-      .size,
+    // Formation mode can build exact and lexical families for every Subject.
+    newServingGenerations:
+      2 * new Set(inputs.map((input) => input.query.subject)).size,
   });
   await mkdir(resolve(cachePath, ".."), { recursive: true });
   await writeFile(cachePath, JSON.stringify(cache, null, 2) + "\n", {

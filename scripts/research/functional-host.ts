@@ -67,7 +67,6 @@ export async function launchFunctionalRuntime(
     const ready = await read();
     if (!ready.ready || typeof ready.endpoint !== "string")
       throw new Error("Functional runtime did not become ready");
-    signal.removeEventListener("abort", abort);
     return {
       endpoint: ready.endpoint,
       metrics: ready.metrics as unknown as RuntimeMetrics,

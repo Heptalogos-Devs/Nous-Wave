@@ -179,3 +179,13 @@ incident 的两个正常机会提交了第三个 Journal，以及 build-cache �
 generic evidence 的首次 materialization 与最终复核现已消费实际来源时间；批量读取对每个 source row 联合检查 occurred/observed/recorded，derived formation 与 owner recorded 时间分别保留，Unknown 不通过已请求的时间条件。SourceRegion 使用同 Subject 的来源 Observation，derived evidence 使用实际 representation source roots。Schema owner 也补齐五轴过滤和实际 lineage freshness，沿 Memory evidence/dependencies 解析 source 时间。
 
 无 provider 的真实 past/future Occurrence/SourceRegion 回归通过，finalization 仍排除 future；多来源交叉满足时间条件的误匹配测试通过，15 项 query correctness 全通过。原 gate-history 两个结构 profile 预检后重跑，provider/embedding/rerank 为零，最终 top-1 是 Sep 1 Journal，随后为 Sep 1 原始 evidence；原 Sep 12 occurrence/region 与时间不合格 Schema 不再返回。本修复证明此时间缺陷已消除；完整语义四 profile 和其他功能验收仍需随新的 cognition 重跑。
+
+### 修订依赖环与文本兼容性
+
+incident 正常维护两次请求形成最终 build consumer lease 实施、joint verification 的第四个 Journal；随后 consolidation 在修订类比 Memory 时引用了同一对象的旧 revision，违反对象依赖环合同，整个 consistency group 回滚。父 revision 已由 owner 自动记录 lineage，模型契约现明确使用原始来源及其他独立 cognition。确定无效的对象依赖环改用 `Invalid`，已有 workflow 将其持久化为拒绝；旧提案在零 provider 的回放中停止重试。真实数据库回归验证无效输入分类、当前 revision/epoch/Authority sequence 未变化，16 项 query correctness 和 workspace Clippy 通过。重新 review 的一个请求在 180 秒时截停，未提交新 consolidation，最终 build-fix Memory 和跨系统关联仍待完成。
+
+独立 text-only 轨道保存 13 段原始选定文本，生成仅含原问题的六个 Memory 查询。精确预检为 19 个唯一 misses，两个 batch 补齐后缓存共享；24 个四算法 finalized readout 全部完成，相关原始来源均为 rank 1，四 profile 的来源顺序一致。人工核对六个 Native top-1 覆盖 Business Administration、更新后 25:50、LGBTQ yesterday、mental health、PEP 492 与 typing。算法阶段 provider/new embedding/rerank 全零，generation 增量 6、net artifact 增量 821,487 bytes。此小型选择未观察到普通 retrieval 退化；不包含历史时间或回答生成验收。
+
+首次文本预检暴露 startup generation 估算只计每 Subject 一份，实际 exact/lexical 两 family 使低上限被越过后才检测。启动前 reservation 现计每 Subject 两份；相同三 Subject 的 cap 4 检查在启动前拒绝，零新 generation。正常 cap 8 预检完成且复用已有资产。旧失败 ledger 保留。
+
+研究 host 现在在 ready 后继续监听预算 abort；原实现过早移除了监听器，运行阶段的控制通道没有子进程终止保证。两秒 runtime budget 的预检/真实运行验证已启动的 host 在 abort 后退出，额外约两秒为既有 Rust executor 关闭过程；provider/embedding/rerank、新 generation 和 net artifact growth 均零。
