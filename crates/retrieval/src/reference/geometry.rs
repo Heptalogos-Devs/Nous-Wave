@@ -1,4 +1,5 @@
 use super::{ReferenceCurve, anchors::reference_cosine};
+use super::{positive, unit};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -44,16 +45,6 @@ pub struct ReferencePathGeometry {
     pub mean_continuity: f64,
     pub mean_local_potential: f64,
     pub mean_transfer_potential: f64,
-}
-fn unit(x: f64) -> f64 {
-    if x.is_finite() {
-        x.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
-}
-fn positive(x: f64) -> f64 {
-    if x.is_finite() { x.max(0.0) } else { 0.0 }
 }
 pub(crate) fn normalized_field(entries: &[(i64, f64)]) -> BTreeMap<i64, f64> {
     let maximum = entries

@@ -2097,51 +2097,6 @@ pub struct SplitCognitiveSchemaResponse {
     #[prost(message, repeated, tag="1")]
     pub children: ::prost::alloc::vec::Vec<CognitiveSchema>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct TopologyTagChange {
-    #[prost(string, optional, tag="1")]
-    pub existing_tag_id: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag="2")]
-    pub tag: ::core::option::Option<Tag>,
-    #[prost(string, repeated, tag="3")]
-    pub attach_to_revision_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TopologyAssociationChange {
-    #[prost(message, optional, tag="1")]
-    pub association: ::core::option::Option<Association>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TopologyChanges {
-    #[prost(message, repeated, tag="1")]
-    pub tags: ::prost::alloc::vec::Vec<TopologyTagChange>,
-    #[prost(message, repeated, tag="2")]
-    pub associations: ::prost::alloc::vec::Vec<TopologyAssociationChange>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ConsolidateMemoryRequest {
-    #[prost(string, tag="1")]
-    pub operation_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, repeated, tag="3")]
-    pub source_revision_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(string, tag="4")]
-    pub target: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
-    pub text: ::prost::alloc::string::String,
-    #[prost(string, tag="6")]
-    pub semantic_role: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="8")]
-    pub topology: ::core::option::Option<TopologyChanges>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ConsolidationResponse {
-    #[prost(message, optional, tag="1")]
-    pub memory: ::core::option::Option<Memory>,
-    #[prost(uint32, tag="2")]
-    pub topology_changes: u32,
-}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Occurrence {
     #[prost(string, tag="1")]

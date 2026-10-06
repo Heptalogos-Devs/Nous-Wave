@@ -4634,14 +4634,6 @@ pub mod memory_service_server {
             request: tonic::Request<super::LinkRevisionsRequest>,
         ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
         ///
-        async fn consolidate_memory(
-            &self,
-            request: tonic::Request<super::ConsolidateMemoryRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ConsolidationResponse>,
-            tonic::Status,
-        >;
-        ///
         async fn get_memory(
             &self,
             request: tonic::Request<super::ObjectRequest>,
@@ -5335,52 +5327,6 @@ pub mod memory_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = LinkRevisionsSvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/nous.wave.v1alpha1.MemoryService/ConsolidateMemory" => {
-                    #[allow(non_camel_case_types)]
-                    struct ConsolidateMemorySvc<T: MemoryService>(pub Arc<T>);
-                    impl<
-                        T: MemoryService,
-                    > tonic::server::UnaryService<super::ConsolidateMemoryRequest>
-                    for ConsolidateMemorySvc<T> {
-                        type Response = super::ConsolidationResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::ConsolidateMemoryRequest>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as MemoryService>::consolidate_memory(&inner, request)
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = ConsolidateMemorySvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

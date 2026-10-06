@@ -1,3 +1,4 @@
+use super::{positive, unit};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -76,20 +77,6 @@ pub struct ReferenceOmega {
     pub reached_nodes: usize,
     pub emergent_nodes: usize,
     pub complete_observation: bool,
-}
-fn positive(value: f64) -> f64 {
-    if value.is_finite() {
-        value.max(0.0)
-    } else {
-        0.0
-    }
-}
-fn unit(value: f64) -> f64 {
-    if value.is_finite() {
-        value.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
 }
 
 pub fn reference_omega(

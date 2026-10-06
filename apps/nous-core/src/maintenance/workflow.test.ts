@@ -13,7 +13,8 @@ import { consolidationSchema } from "../model/schemas/consolidation.js";
 import { ModelRuntime } from "../model/runtime.js";
 import type { ModelRoleSnapshot } from "../model/invocations.js";
 import { grantMaintenance, SubjectMaintenanceScheduler } from "./grants.js";
-import { maintenanceOperationId, runModelMaintenance } from "./workflow.js";
+import { runModelMaintenance } from "./workflow.js";
+import { maintenanceOperationId } from "./identity.js";
 
 const subject = "10000000-0000-4000-8000-000000000001";
 const revision = "20000000-0000-4000-8000-000000000001";

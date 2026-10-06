@@ -1,3 +1,4 @@
+use super::unit;
 use super::{
     ReferenceCurve, ReferenceMorphology, ReferencePathGeometry, ReferenceRelativeTopology,
     anchors::reference_cosine, geometry::normalized_field,
@@ -31,13 +32,6 @@ pub struct ReferenceObservables {
     pub local_potential: f64,
     pub transfer_potential: f64,
     pub tail_only_ratio: f64,
-}
-fn unit(x: f64) -> f64 {
-    if x.is_finite() {
-        x.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
 }
 
 pub fn reference_observables(input: &ReferenceObservableInput) -> ReferenceObservables {

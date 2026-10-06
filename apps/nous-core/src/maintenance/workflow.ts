@@ -9,7 +9,6 @@ import {
 } from "./consolidation.js";
 import { consolidationSchema } from "../model/schemas/consolidation.js";
 import { maintenanceOperationId } from "./identity.js";
-export { maintenanceOperationId } from "./identity.js";
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { z } from "zod";

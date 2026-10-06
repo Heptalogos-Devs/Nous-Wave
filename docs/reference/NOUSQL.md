@@ -1,5 +1,7 @@
 # NousQL 当前实现参考
 
+[返回文档目录](../INDEX.md)
+
 本页描述 `apps/nous-core` 当前 parser/compiler 支持的 NousQL 子集。语义查询最终编译为 Protobuf `QueryExpr`；查询算法与检索通道由 Kernel/Serving 实现。
 
 ## 当前语法
@@ -29,8 +31,6 @@ Kernel 保留整棵 expression：AND 对 canonical candidate identity 取交集�
 
 `$current(none|prefer|required)` 可用于 scope；父级 required 不被子级放宽，最终约束进入该 leaf 的 Resource action。exact 子目标仍受父级 domain 限制，例如 `$memory` 下的 Artifact exact read 不产生返回候选。
 
-[返回文档目录](../INDEX.md)
-
 相对时间窗口 `within` 以该 Subject 的 CognitiveClock 当前时间为基准，由 Core 在编译时固定；执行 timeout 与 retry 继续使用基础设施时间。
 
 `client.cognition.prepareQuery` 与 Query 共用 NousQL compiler/Identity resolver。正式 TextCue 必须可独立解释；`我和她这个项目` 等未闭合表达返回 `UNRESOLVED_QUERY_REFERENCE` 的 span/kind，Agent 应先 resolve 再提交明确人物、项目和时间。`boundQuery` 现在为 resolved query/representation/source refs/profile/config digest 的 JSON inspection。
@@ -38,3 +38,5 @@ Kernel 保留整棵 expression：AND 对 canonical candidate identity 取交集�
 Query/prepare 可以显式提供 `sessionId`、`workContextId`、`situation.currentRefs/currentObjects/objectDescriptions/consumer`。Text-only research 使用 typed standalone TextCue 加 `textOnlyCompatibility: true`，与 cognitive input 分开。
 
 QueryRequest 的 typed `capabilities` 传递 text embedding、multimodal interpretation、residual sensing 与 rerank requirement。`rerank: "forbidden"` 明确关闭 model rerank，适用于 deterministic algorithm/Agent wiring run；`text_embedding: "forbidden"`（Client 为 `textEmbedding`）禁止 embedding provider。Required 需求的失败不静默回退。
+
+Query Representation 使用固定 section order，按优先级分配 `query.representation.policy.total_chars/max_context_items` 预算并报告 truncation；实体与 Tag 的 display/description、WorkContext purpose 和 exact cognition descriptor 进入 semantic text，UUID/LexicalRef 用于定位。`retrieval.cognitive.profile` 的 Subject override 改变后续查询计划，in-flight preparation 保持原 ConfigSnapshot；profile 切换不改变同一 intent 的 semantic representation。

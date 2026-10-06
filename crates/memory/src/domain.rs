@@ -566,57 +566,6 @@ pub struct CreateAssociationInput {
     pub valid_time: TemporalExtent,
 }
 
-// Consolidation remains an owner-level proposal envelope. It is translated
-// into the explicit Memory/Schema operations before Authority commit.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ConsolidationTarget {
-    Synthesized,
-    TopologyOnly,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConsolidationRequest {
-    pub operation_id: OperationId,
-    #[serde(default)]
-    pub subject: SubjectId,
-    pub source_memories: Vec<MemoryRevisionId>,
-    pub target: ConsolidationTarget,
-    pub representation_text: Option<String>,
-    pub semantic_role: Option<String>,
-    #[serde(default)]
-    pub topology: Option<TopologyConsolidationProposal>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TopologyConsolidationProposal {
-    #[serde(default)]
-    pub tags: Vec<TopologyTagProposal>,
-    #[serde(default)]
-    pub associations: Vec<TopologyAssociationProposal>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TopologyTagProposal {
-    pub label: String,
-    pub description: Option<String>,
-    pub kind_hint: Option<String>,
-    pub tag_id: Option<TagId>,
-    #[serde(default)]
-    pub attach_to: Vec<MemoryRevisionId>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TopologyAssociationProposal {
-    pub from: CognitiveRef,
-    pub to: CognitiveRef,
-    pub relation_kind: String,
-    pub polarity: AssociationPolarity,
-    pub support_class: AssociationSupportClass,
-    #[serde(default)]
-    pub supports: Vec<AssociationSupport>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TemporalEvidence {
     pub occurred: Vec<TemporalExtent>,

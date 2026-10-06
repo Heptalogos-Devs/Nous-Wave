@@ -1,3 +1,4 @@
+use super::positive;
 use nous_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -119,9 +120,6 @@ pub struct ReferenceSenseOutput {
 struct State {
     energy: f64,
     momentum: f64,
-}
-fn positive(x: f64) -> f64 {
-    if x.is_finite() { x.max(0.0) } else { 0.0 }
 }
 
 /// Neutral numerical Sense contract. Merged states do not claim a unique root

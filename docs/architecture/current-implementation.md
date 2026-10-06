@@ -28,7 +28,7 @@ Kernel 在同一 authenticated loopback server 上承载 canonical generated `Su
 
 Core 的 `CognitionService` 承载 Query、GrantMaintenance、Projection 和 Managed Context 编排；`ResourceService` 承载外部 Resource materialization；`ModelService` 执行 formation、derivation 和 embedding。Core System capabilities 汇总 Kernel 与当前 model runtime 的状态。
 
-私有 workflow services 按实际执行步骤分组：`KernelQueryService` 负责认知时间读取及 query prepare/finalize/release；`KernelModelWorkflowService` 管理 model retry snapshot/proposal/outcome；`KernelMaterialWorkflowService` 提供 derivation/embedding 输入与提交；`KernelMaintenanceService` 提供 needs 的 claim/plan/finish 和 longitudinal owner commit；`KernelProjectionService` 提供 contribution batch。`KernelConfigurationService` 提供 bootstrap/snapshot，`ArtifactStreamService` 提供流式 Artifact 传输。
+私有 workflow services 按实际执行步骤分组：`KernelQueryService` 负责认知时间读取及 query prepare/finalize/release；`KernelModelWorkflowService` 管理 model retry snapshot/proposal/outcome；`KernelMaterialWorkflowService` 提供 derivation/embedding 输入与提交；`KernelMaintenanceService` 提供 needs 的 claim/plan/finish，以及天然原子的 Episode partition 与 Journal 提交；consolidation/concept proposal 由 Core 逐项调用 canonical Memory/Schema/Tag/Association owner API，保存稳定 action identity 和实际结果；`KernelProjectionService` 提供 contribution batch。`KernelConfigurationService` 提供 bootstrap/snapshot，`ArtifactStreamService` 提供流式 Artifact 传输。
 
 Persistence 的 `MutationEnvelope` 持有 Subject/operation identity、可选 owner Subject lock、operation lock、canonical digest receipt、transaction 和 projection invalidation。owner 选择 invalidation families，envelope 为同一事务分配一个 Authority sequence，并在 commit 时发布合并的 watermarks 与 receipt。Replay 返回 receipt，由领域 owner 解码结果；未提交的事务回滚；Memory purge 使用 checkpoint 和 resume 保留分阶段执行。
 
@@ -59,3 +59,12 @@ Core 解析 model profiles 与 Prompts，调用 embedding、rerank、media deriv
 Windows x64 portable assembly 使用 LLVM-MinGW UCRT 生成 shipping Kernel，并携带所需私有运行时 DLL。独立运行目录、配置、数据和第三方 runtime 布局见 [Runtime Bundle Spec](../specs/active/deployment/runtime-bundle.md)。
 
 [返回文档目录](../INDEX.md)
+
+
+## 认知恢复后的 owner 边界
+
+Query addressing/preparation、automatic concept maintenance、derived Accretion 与逐项 owner mutation 的长期设计 Authority 位于 Architecture-Vault merge `fd93e8c649f5750a290ca524eae055ce025fb9a8`。Prepared Query 的 semantic representation 由当前描述符和 exact refs 在 planning 前固定；readout profile 不改变 semantic input。Material/Memory 分别提供最终材料与时间验证，Runtime 组合 owner contributions；没有通用 persistence reference_times resolver。
+
+Concept planner 围绕 focus 的 aboutness、来源、一跳关系和 bounded Tag candidates；不生成 Subject 全量 cognition catalog。proposal 不是超级事务，Core 保留每项 committed/no_change/invalid/stale/dependency outcome。Natural Tag merge/split、Episode partition 与 Journal mutation 继续由真实 owner 维护自身原子性。Accretion 按需提供来源、成员、recurrence、时间跨度、关联、使用和反证等 derived signals，review hints 在调用点计算。
+
+Research 只使用 official public Client/CLI。小型 runner 不启动额外 Runtime、不管理 Serving installer/embedding store，输出在 ignored data。VCP reference/adapters 与兼容 asset reuse/reclamation 保留；完整数值矩阵移入 ignored source cache，CI 使用 compact discriminating goldens。

@@ -534,59 +534,6 @@ impl MemoryService {
         }
         self.store.validate_reference(subject, reference).await
     }
-
-    pub async fn consolidate(
-        &self,
-        subject: SubjectId,
-        request: ConsolidationRequest,
-    ) -> Result<ConsolidationResult> {
-        if request.subject != subject || request.source_memories.len() < 2 {
-            return Err(Error::Invalid(
-                "consolidation needs at least two source revisions".into(),
-            ));
-        }
-        if matches!(request.target, ConsolidationTarget::TopologyOnly) {
-            return Ok(ConsolidationResult {
-                memory: None,
-                topology_changes: 0,
-            });
-        }
-        let supports = request
-            .source_memories
-            .iter()
-            .map(|revision| {
-                RevisionSupport::CognitionDependency(CognitionDependency {
-                    target_revision: CognitiveRef::MemoryRevision(*revision),
-                    support_role: SupportRole::Direct,
-                })
-            })
-            .collect();
-        let input = ExplicitMemoryInput {
-            producer: None,
-            operation_id: request.operation_id,
-            subject,
-            cognitive_role: CognitiveRole::Declarative,
-            formation_mode: FormationMode::Synthesized,
-            grounding_occurrence_id: None,
-            semantic_role: request
-                .semantic_role
-                .unwrap_or_else(|| "synthesized".into()),
-            representation_text: request
-                .representation_text
-                .unwrap_or_else(|| "synthesized cognition".into()),
-            title: None,
-            supports,
-            aboutness: Vec::new(),
-            tags: Vec::new(),
-            valid_time: TemporalExtent::Unknown,
-
-            epistemic_class: EpistemicClass::Inferred,
-        };
-        Ok(ConsolidationResult {
-            memory: Some(self.form_memory(input).await?),
-            topology_changes: 0,
-        })
-    }
 }
 
 #[expect(

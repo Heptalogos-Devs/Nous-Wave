@@ -138,11 +138,6 @@ powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1 -W
 
 PostgreSQL 清理只处理`data/temp/tests/` 中具有 PostgreSQL cluster 标记的孤立测试根，跳过运行中的 PostgreSQL。省略 `-WhatIf` 执行删除；`-MinimumAgeHours <小时>` 限制最小年龄，默认 0。它不清理语料、手写配置或开发实例。
 
-### 检索评测指标
-
-
-正 nDCG 只使用正 grade 的 `2^grade-1` gain；harmful count 与按 rank 折扣的 exposure 单独输出。重复结果保留排名位置但不重复获得 gain/recall；未审定结果单独计数，不自动标为有害。负例-only oracle 没有正相关分母，Recall/nDCG/AP 返回 null。不同类别的结果应分别报告，不能把这个函数输出解释为统一认知总分。
-
 ### Longitudinal model research
 
 ```text
@@ -162,8 +157,10 @@ Runner 通过真实配置角色和 canonical Structured Output 生成一次 prop
 
 ### 小型认知功能验证
 
-`corepack pnpm research:cognitive-functional --run-root <现有 Core 的 RunRoot> --profiles baseline-rrf,nous-node-potential-v1,vcp-dtsc-v9.2.1-adapter-v1,vcp-rivermemo-v3.1-adapter-v1` 使用 official Client，不启动 PostgreSQL、Kernel 或 Core。它先提交三个手工场景，明确 grant maintenance，检查实际 Tag/Association/identity 形成结果，再 prepare/query；每个 profile 的 semantic representation 必须一致。JSON 输出在 ignored `data/research/cognitive-functional/`。
+`corepack pnpm research:cognitive-functional --run-root <现有 Core 的 RunRoot> --profiles baseline-rrf,nous-node-potential-v1,vcp-dtsc-v9.2.1-adapter-v1,vcp-rivermemo-v3.1-adapter-v1` 使用 official Client，不启动 PostgreSQL、Kernel 或 Core。它先提交三个手工场景，明确 grant maintenance，检查实际 Tag/Association/identity 形成结果，再 prepare/query；每个 profile 的 semantic representation 必须一致。JSON 输出在 ignored `data/research/cognitive-functional/`。`--max-model-calls`（默认 128）限制 formation/maintenance 模型调用，`--max-elapsed-ms`（默认 60000）取消超时 public requests；`--compat-input` 可指定 ignored raw-text cache，执行六项选择的四 profile smoke。
 
 `--compat-input <本地 raw source JSON>` 可附加六项 selected text-only smoke。该输入仅含 manifest 指定的 source pools，源码 text 必须通过对应 SHA256；query 只有原问题、Memory domain 和 `textOnlyCompatibility=true`，不注入 Entity/Tag/WorkContext。完整来源不进入 tracked corpus。
 
 本地 automatic smoke 使用现有 `longitudinal_smoke` Core/Kernel fixture，`NOUS_FUNCTIONAL_SMOKE=1 cargo test -p nous-kernel --test longitudinal_smoke -- --nocapture` 开启 deterministic model 与 embedding provider，外部 provider/rerank calls 为零。fake vectors 用于验证线路与资产复用，不能说明语义排名质量或算法优胜。一般 public runner 会使用所连接实例的模型配置；自动验收连接 deterministic fixture。
+
+CLI Agent smoke 在同一现有 Core fixture 中执行实际 CLI 子进程，验证 JSON help、`AMBIGUOUS_REFERENCE` 候选、选定 LexicalRef、public prepare/query。OpenCode v2.0.23 已安装，但当前 `opencode models` 返回空列表，本轮未运行外部 OpenCode 模型，也未配置付费 provider。

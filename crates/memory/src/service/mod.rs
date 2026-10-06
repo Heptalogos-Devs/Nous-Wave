@@ -168,12 +168,6 @@ pub struct RebindEntityRequest {
     pub reason: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConsolidationResult {
-    pub memory: Option<MemoryView>,
-    pub topology_changes: usize,
-}
-
 fn parse_enum<T: DeserializeOwned>(value: String, name: &str) -> Result<T> {
     serde_json::from_value(serde_json::Value::String(value))
         .map_err(|error| Error::Infrastructure(format!("invalid {name}: {error}")))

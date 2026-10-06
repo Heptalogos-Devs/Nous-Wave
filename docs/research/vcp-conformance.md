@@ -1,5 +1,7 @@
 # VCP source conformance
 
+[返回研究入口](README.md)
+
 ## 来源与状态
 
 本轮冻结 `lioensky/VCPToolBox@e03b891d42055cdf3cab5dc961cc71dd5facd65a`。精确文件 blob 与研究基线由 [source manifest](corpus/cognitive-retrieval-sources.json) 拥有。本页描述已读 production Rust 合同及当前差异；独立 reference kernel 已开始实现，VCP adapter 已进入普通 Kernel query 路线；完整 fixture matrix、外部 benchmark 与算法消融仍未完成，不能将源码研究写成 `reference-parity`。
@@ -185,7 +187,8 @@ V3 pure score 直接混合 original/local/transfer cosine，加有界 path rewar
 
 `::TimeDecay` 是 RAGDiaryPlugin 的后处理，位于 RiverMemo 返回后、外部 rerank/最终截断前。半衰期、最低分优先取修饰符，其次全局配置，fallback 分别为 30 天和 0.5；日期依次取 Tag 行、括号、首行、路径。对有效日期使用非负整数日龄，原分优先 `rerank_score`，乘 `0.5^(days/halfLife)` 后排序并按最低分过滤。`source=time` 跳过衰减乘法，仍参加全批过滤；未匹配 target Tag、无日期或日期无效的候选保留原分。此合同不等于 Nous 的多轴时间约束，后续比较须分别标识。
 
-[返回研究入口](README.md)
+数值 goldens 保留独立的 frozen inputs/expected values；这些常量的重复有意保持，避免共享输入或生成 expected 使 parity oracle 与实现一起漂移。`jscpd` 仅排除 `crates/retrieval/tests/fixtures/vcp-*.json`，生产 reference/adapters 和测试逻辑继续审计。Reference kernels 的有限值 `[0,1]` 夹逼和非负标量规则已共用同一实现，全部数值 contracts 保持不变。
+
 
 VCP Sense 当前测量 activated edges、visited nodes、seed count、max hop 和 truncation；没有测量被预算丢弃的 probability mass。`topology_discarded_mass` 因此为 null，native 则保留其实际 `discarded_state_mass`。此前 raw benchmark 的 VCP 值 0 是未测量占位，不能解释为零丢弃；当前进程仍运行旧 binary 的 raw 输出需按此说明读取。
 

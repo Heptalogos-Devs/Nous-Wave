@@ -46,3 +46,5 @@ nous query inspect --query-file closed-query.nousql --json
 Tag list/search 使用服务端有界分页（默认 50、最大 200）；`--page-token` 继续同一查询。Search 按 label、description 和 Directory display/aliases 匹配，resolve 仍要求 Directory 唯一身份。Neighborhood 是 active AssociationEvidence 的双向有界读取，返回真实 support；默认 64 nodes、2 hops，最大 256 nodes、4 hops、256 edges，达到节点/边上限时报告 `truncated`。隐式 tag attachment/Aboutness 等结构由 Serving topology lane 读取。
 
 `nous topology associate --operation-id <uuid> --association-file association.json --json` 接收官方 Client 的 Association JSON（`from/to` 的 `{kind,value}`、`relationKind`、`polarity`、`supportClass`、`supports`、可选 producer）。CLI 要求显式 operation id 和非空支持；Authority 验证 exact endpoint、Subject 和支持有效性。文件使用 Client 的 discriminated `support: {case,value}` 格式，不能用自由 UUID 替代支持材料。
+
+实际 Agent flow smoke 已在 public Core 上验证 help JSON → ambiguous identity candidates → 选定 LexicalRef → query prepare → query。正式 TextCue 的 closure guard 只拒绝高置信未闭合指代；完整语义输入和配置 snapshot 在 preparation 固定。维护操作使用 bounded grant，概念建议按项提交到 owner。

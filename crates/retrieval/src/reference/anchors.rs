@@ -1,3 +1,4 @@
+use super::unit;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -55,13 +56,6 @@ pub struct ReferenceAnchor {
     pub exact_contacts: usize,
     pub semantic_contacts: usize,
     pub mean_closure: f64,
-}
-fn unit(v: f64) -> f64 {
-    if v.is_finite() {
-        v.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
 }
 /// Positive and signed cosine conventions are selected by the readout caller.
 pub(crate) fn reference_cosine(a: &[f32], b: &[f32]) -> f64 {

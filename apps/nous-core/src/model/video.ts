@@ -12,7 +12,7 @@ import type { ModelConfiguration } from "./configuration.js";
 import { canonicalDigest } from "../digest.js";
 
 type Policy = ModelConfiguration["video"];
-export const videoFrameInputIdentity = "labelled-frame-content-v1";
+const videoFrameInputIdentity = "labelled-frame-content-v1";
 export async function sampleVideo(
   bytes: Uint8Array,
   policy: Policy,

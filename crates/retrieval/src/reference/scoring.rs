@@ -1,3 +1,4 @@
+use super::{positive, unit};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -91,16 +92,6 @@ pub struct ReferenceInnovation {
     pub anchor_threshold: f64,
     pub anchor_activation: f64,
     pub graph_gate: f64,
-}
-fn unit(x: f64) -> f64 {
-    if x.is_finite() {
-        x.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
-}
-fn positive(x: f64) -> f64 {
-    if x.is_finite() { x.max(0.0) } else { 0.0 }
 }
 fn role(c: &ReferenceScoreCandidate, atomic: bool, frontier: f64) -> &'static str {
     if atomic {

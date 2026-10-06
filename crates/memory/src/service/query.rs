@@ -215,147 +215,46 @@ async fn entity_lane(
     Ok(output)
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "Typed temporal axes share one bounded lane and final deterministic ordering"
-)]
 async fn temporal_lane(
     service: &MemoryService,
     bound: &BoundQuery,
     plan: &QueryPlan,
 ) -> Result<LaneOutput> {
     let query = &bound.source_query;
-    let valid = query
-        .expression
-        .constraints
-        .valid
-        .into_iter()
-        .collect::<Vec<_>>();
-    let occurred = query
-        .expression
-        .constraints
-        .occurred
-        .into_iter()
-        .collect::<Vec<_>>();
-    let observed = query
-        .expression
-        .constraints
-        .observed
-        .into_iter()
-        .collect::<Vec<_>>();
-    let formed = query
-        .expression
-        .constraints
-        .formed
-        .into_iter()
-        .collect::<Vec<_>>();
-    let recorded = query
-        .expression
-        .constraints
-        .recorded
-        .into_iter()
-        .collect::<Vec<_>>();
     let mut matches = HashMap::<Uuid, (Uuid, usize)>::new();
     let mut next_rank = 1usize;
-    for interval in valid {
-        let rows = sqlx::query(
+    let constraints = &query.expression.constraints;
+    for (interval, sql) in [
+        (
+            constraints.valid,
             "SELECT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ((r.valid_time_kind='instant' AND ($2::timestamptz IS NULL OR r.valid_time_start >= $2) AND ($3::timestamptz IS NULL OR r.valid_time_start < $3)) OR (r.valid_time_kind='interval' AND (r.valid_time_end IS NULL OR $2::timestamptz IS NULL OR r.valid_time_end>$2) AND (r.valid_time_start IS NULL OR $3::timestamptz IS NULL OR r.valid_time_start<$3))) ORDER BY r.recorded_at DESC,r.memory_revision_id LIMIT $4",
-        )
-        .bind(query.subject.0)
-        .bind(interval.start)
-        .bind(interval.end)
-        .bind(plan.lane_budget(EvidenceFamily::Temporal) as i64)
-        .fetch_all(service.store.pool())
-        .await
-        .map_err(nous_persistence::database_error)?;
-        for row in rows {
-            let revision: Uuid = row
-                .try_get("memory_revision_id")
-                .map_err(nous_persistence::database_error)?;
-            let memory: Uuid = row
-                .try_get("memory_id")
-                .map_err(nous_persistence::database_error)?;
-            matches.entry(revision).or_insert((memory, next_rank));
-            next_rank += 1;
-        }
-    }
-    for interval in occurred {
-        let rows = sqlx::query(
+        ),
+        (
+            constraints.occurred,
             "SELECT DISTINCT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id JOIN memory_revision_evidence e USING(memory_revision_id) JOIN observation_occurrences oc USING(occurrence_id) WHERE o.subject_id=$1 AND ((oc.occurred_time_kind='instant' AND ($2::timestamptz IS NULL OR oc.occurred_time_start >= $2) AND ($3::timestamptz IS NULL OR oc.occurred_time_start < $3)) OR (oc.occurred_time_kind='interval' AND (oc.occurred_time_end IS NULL OR $2::timestamptz IS NULL OR oc.occurred_time_end>$2) AND (oc.occurred_time_start IS NULL OR $3::timestamptz IS NULL OR oc.occurred_time_start<$3))) ORDER BY r.memory_revision_id LIMIT $4",
-        )
-        .bind(query.subject.0)
-        .bind(interval.start)
-        .bind(interval.end)
-        .bind(plan.lane_budget(EvidenceFamily::Temporal) as i64)
-        .fetch_all(service.store.pool())
-        .await
-        .map_err(nous_persistence::database_error)?;
-        for row in rows {
-            let revision: Uuid = row
-                .try_get("memory_revision_id")
-                .map_err(nous_persistence::database_error)?;
-            let memory: Uuid = row
-                .try_get("memory_id")
-                .map_err(nous_persistence::database_error)?;
-            matches.entry(revision).or_insert((memory, next_rank));
-            next_rank += 1;
-        }
-    }
-    for interval in observed {
-        let rows = sqlx::query(
+        ),
+        (
+            constraints.observed,
             "SELECT DISTINCT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id JOIN memory_revision_evidence e USING(memory_revision_id) JOIN observation_occurrences oc USING(occurrence_id) WHERE o.subject_id=$1 AND oc.observed_at IS NOT NULL AND ($2::timestamptz IS NULL OR oc.observed_at>=$2) AND ($3::timestamptz IS NULL OR oc.observed_at<$3) ORDER BY r.memory_revision_id LIMIT $4",
-        )
-        .bind(query.subject.0)
-        .bind(interval.start)
-        .bind(interval.end)
-        .bind(plan.lane_budget(EvidenceFamily::Temporal) as i64)
-        .fetch_all(service.store.pool())
-        .await
-        .map_err(nous_persistence::database_error)?;
-        for row in rows {
-            let revision: Uuid = row
-                .try_get("memory_revision_id")
-                .map_err(nous_persistence::database_error)?;
-            let memory: Uuid = row
-                .try_get("memory_id")
-                .map_err(nous_persistence::database_error)?;
-            matches.entry(revision).or_insert((memory, next_rank));
-            next_rank += 1;
-        }
-    }
-    for interval in formed {
-        let rows = sqlx::query(
+        ),
+        (
+            constraints.formed,
             "SELECT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ($2::timestamptz IS NULL OR r.formed_at >= $2) AND ($3::timestamptz IS NULL OR r.formed_at < $3) ORDER BY r.formed_at DESC,r.memory_revision_id LIMIT $4",
-        )
-        .bind(query.subject.0)
-        .bind(interval.start)
-        .bind(interval.end)
-        .bind(plan.lane_budget(EvidenceFamily::Temporal) as i64)
-        .fetch_all(service.store.pool())
-        .await
-        .map_err(nous_persistence::database_error)?;
-        for row in rows {
-            let revision: Uuid = row
-                .try_get("memory_revision_id")
-                .map_err(nous_persistence::database_error)?;
-            let memory: Uuid = row
-                .try_get("memory_id")
-                .map_err(nous_persistence::database_error)?;
-            matches.entry(revision).or_insert((memory, next_rank));
-            next_rank += 1;
-        }
-    }
-    for interval in recorded {
-        let rows = sqlx::query(
+        ),
+        (
+            constraints.recorded,
             "SELECT r.memory_revision_id,r.memory_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND ($2::timestamptz IS NULL OR r.recorded_at >= $2) AND ($3::timestamptz IS NULL OR r.recorded_at < $3) ORDER BY r.recorded_at DESC,r.memory_revision_id LIMIT $4",
-        )
-        .bind(query.subject.0)
-        .bind(interval.start)
-        .bind(interval.end)
-        .bind(plan.lane_budget(EvidenceFamily::Temporal) as i64)
-        .fetch_all(service.store.pool())
-        .await
-        .map_err(nous_persistence::database_error)?;
+        ),
+    ] {
+        let Some(interval) = interval else { continue };
+        let rows = sqlx::query(sql)
+            .bind(query.subject.0)
+            .bind(interval.start)
+            .bind(interval.end)
+            .bind(plan.lane_budget(EvidenceFamily::Temporal) as i64)
+            .fetch_all(service.store.pool())
+            .await
+            .map_err(nous_persistence::database_error)?;
         for row in rows {
             let revision: Uuid = row
                 .try_get("memory_revision_id")

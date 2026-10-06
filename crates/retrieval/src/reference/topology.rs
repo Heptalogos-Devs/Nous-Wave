@@ -1,6 +1,7 @@
 use super::{
     ReferenceCurve, ReferenceProvenanceEdge, ReferenceRiverShapeInput, anchors::reference_cosine,
 };
+use super::{positive, unit};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -55,16 +56,6 @@ pub struct ReferenceRelativeTopology {
     pub matched_edges: usize,
     pub query_nodes: usize,
     pub query_edges: usize,
-}
-fn unit(v: f64) -> f64 {
-    if v.is_finite() {
-        v.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
-}
-fn positive(v: f64) -> f64 {
-    if v.is_finite() { v.max(0.0) } else { 0.0 }
 }
 struct Alignment {
     index: usize,

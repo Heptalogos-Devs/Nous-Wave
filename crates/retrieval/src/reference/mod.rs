@@ -43,3 +43,19 @@ mod epa_training;
 pub use epa_training::*;
 mod pipeline;
 pub use pipeline::*;
+
+// Shared finite scalar policy for the frozen numerical kernels.
+fn unit(value: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+fn positive(value: f64) -> f64 {
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
+    }
+}

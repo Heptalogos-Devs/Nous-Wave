@@ -1,3 +1,4 @@
+use super::unit;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -43,13 +44,6 @@ pub struct ReferenceSelectedCandidate {
     pub union_score: f64,
     pub union_rank: usize,
     pub sources: Vec<String>,
-}
-fn unit(v: f64) -> f64 {
-    if v.is_finite() {
-        v.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
 }
 pub fn reference_candidate_pool(
     signals: &[ReferencePoolSignals],

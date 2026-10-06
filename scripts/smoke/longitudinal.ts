@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { mkdir, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { workspaceTemp } from "../workspace.js";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
@@ -336,10 +340,8 @@ async function scenario(endpoint: string, token: string) {
     consumers: [],
     models,
   });
-  let client = connectNous(
-    await app.listen({ host: "127.0.0.1", port: 0 }),
-    token,
-  );
+  let publicEndpoint = await app.listen({ host: "127.0.0.1", port: 0 });
+  let client = connectNous(publicEndpoint, token);
   const subjectId = randomUUID();
   const advance = async (seconds: number) =>
     control({ command: "advance", subject: subjectId, seconds });
@@ -457,10 +459,8 @@ async function scenario(endpoint: string, token: string) {
       consumers: [],
       models,
     });
-    client = connectNous(
-      await app.listen({ host: "127.0.0.1", port: 0 }),
-      token,
-    );
+    publicEndpoint = await app.listen({ host: "127.0.0.1", port: 0 });
+    client = connectNous(publicEndpoint, token);
     assert.equal(
       (
         await client.memory.getEpisodeRevision({
@@ -563,12 +563,105 @@ async function scenario(endpoint: string, token: string) {
         }),
       );
       assert.equal(failed.length, 0, "Functional formation contracts");
+      const runRoot = await workspaceTemp("smoke", "cli-functional-");
+      try {
+        await mkdir(runRoot, { recursive: true });
+        await writeFile(
+          join(runRoot, "core.json"),
+          JSON.stringify({ endpoint: publicEndpoint, token }),
+          { mode: 0o600 },
+        );
+        const cli = async (...args: string[]) => {
+          try {
+            const result = await promisify(execFile)(
+              process.execPath,
+              [
+                "node_modules/tsx/dist/cli.mjs",
+                "apps/nous-cli/src/main.ts",
+                "--run-root",
+                runRoot,
+                "--json",
+                ...args,
+              ],
+              { cwd: process.cwd(), maxBuffer: 2 * 1024 * 1024 },
+            );
+            return {
+              code: 0,
+              value: JSON.parse(result.stdout) as Record<string, unknown>,
+            };
+          } catch (error) {
+            const failure = error as { code: number; stderr: string };
+            return {
+              code: failure.code,
+              value: JSON.parse(failure.stderr) as Record<string, unknown>,
+            };
+          }
+        };
+        const help = await cli("help");
+        assert.equal(help.code, 0);
+        const incident = results.find(
+          (result) =>
+            result.stage === "formation" && result.scenario === "incident",
+        )!;
+        const subject = String(incident.subjectId);
+        const ambiguous = await cli(
+          "identity",
+          "resolve",
+          "--subject",
+          subject,
+          "--kind",
+          "entity",
+          "--name",
+          "Sam Lee",
+        );
+        assert.notEqual(ambiguous.code, 0);
+        assert.equal(ambiguous.value.code, "AMBIGUOUS_REFERENCE");
+        const candidates = ambiguous.value.candidates as {
+          lexicalRef: string;
+          aliases: string[];
+        }[];
+        assert.equal(candidates.length, 2);
+        const chosen = candidates.find((candidate) =>
+          candidate.aliases.includes("Tools Sam"),
+        )!;
+        const resolved = await cli(
+          "identity",
+          "resolve",
+          "--subject",
+          subject,
+          "--kind",
+          "entity",
+          "--lexical-ref",
+          chosen.lexicalRef,
+        );
+        assert.equal(resolved.code, 0);
+        assert.equal(resolved.value.status, "BOUND");
+        const expression = `("Prior consumer lease reclamation relevant to the build cache" && @e(${chosen.lexicalRef})) $memory $limit(8)`;
+        const prepared = await cli(
+          "query",
+          "prepare",
+          expression,
+          "--subject",
+          subject,
+        );
+        assert.equal(prepared.code, 0, JSON.stringify(prepared.value));
+        assert(typeof prepared.value.embeddingText === "string");
+        const queried = await cli("query", expression, "--subject", subject);
+        assert.equal(queried.code, 0, JSON.stringify(queried.value));
+        assert(Array.isArray(queried.value.hits));
+        assert(queried.value.hits.length > 0);
+        console.error(
+          "CLI Agent flow passed: help JSON, ambiguity, candidate LexicalRef, prepare, query",
+        );
+      } finally {
+        await rm(runRoot, { recursive: true, force: true });
+      }
       const compatibility = await runSelectedTextCompatibility(
         client,
         "data/research/recovery/text-compatibility-input.json",
         "data/research/cognitive-functional/selected-text-smoke.json",
       );
-      assert.equal(compatibility.length, 6);
+      assert.equal(compatibility.length, 24);
       for (const item of compatibility) {
         assert(
           item.ranks.every((source) => source.rank > 0),
@@ -584,6 +677,7 @@ async function scenario(endpoint: string, token: string) {
         JSON.stringify({
           selectedCompatibility: compatibility.map((item) => ({
             key: item.key,
+            profile: item.profile,
             ranks: item.ranks,
           })),
         }),

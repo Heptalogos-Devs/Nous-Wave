@@ -59,7 +59,24 @@ export async function runCognitiveFunctional(
   client: NousClient,
   profiles: string[],
   output: string,
+  limits = { maxModelCalls: 128, maxElapsedMs: 60000 },
 ) {
+  if (
+    !Number.isSafeInteger(limits.maxModelCalls) ||
+    limits.maxModelCalls < 1 ||
+    !Number.isSafeInteger(limits.maxElapsedMs) ||
+    limits.maxElapsedMs < 1
+  )
+    throw new Error("Functional limits require positive integers");
+  const operationOptions = { signal: AbortSignal.timeout(limits.maxElapsedMs) };
+  let modelCalls = 0;
+  const remainingCalls = () => limits.maxModelCalls - modelCalls;
+  const reserveFormation = () => {
+    operationOptions.signal.throwIfAborted();
+    if (!remainingCalls())
+      throw new Error("Functional model call limit reached");
+    modelCalls++;
+  };
   const { scenarios } = JSON.parse(
     await readFile(
       resolve("docs/research/corpus/functional/scenarios.json"),
@@ -75,32 +92,41 @@ export async function runCognitiveFunctional(
   const results: Record<string, unknown>[] = [];
   for (const scenario of scenarios) {
     const subjectId = randomUUID();
-    await client.subjects.create({
-      subjectId,
-      operationId: randomUUID(),
-      cognitiveSeed: {
-        text: "schema_version = 1",
-        format: "application/vnd.nous-wave.cognitive-seed+toml;version=1",
-        provenance: {},
+    await client.subjects.create(
+      {
+        subjectId,
+        operationId: randomUUID(),
+        cognitiveSeed: {
+          text: "schema_version = 1",
+          format: "application/vnd.nous-wave.cognitive-seed+toml;version=1",
+          provenance: {},
+        },
       },
-    });
+      operationOptions,
+    );
     const entities = new Map<string, string>();
     for (const entity of scenario.entities) {
       const value = `entity:functional:${subjectId}:${entity.key}`;
-      await client.identity.bind({
-        subjectId,
-        canonical: { kind: "entity", value },
-        displayName: entity.display_name,
-        aliases: entity.aliases,
-      });
+      await client.identity.bind(
+        {
+          subjectId,
+          canonical: { kind: "entity", value },
+          displayName: entity.display_name,
+          aliases: entity.aliases,
+        },
+        operationOptions,
+      );
       entities.set(entity.key, value);
     }
-    const work = await client.cognition.createWorkContext({
-      subjectId,
-      operationId: randomUUID(),
-      purpose: scenario.work_context.purpose,
-      unresolvedQuestions: scenario.work_context.open_questions,
-    });
+    const work = await client.cognition.createWorkContext(
+      {
+        subjectId,
+        operationId: randomUUID(),
+        purpose: scenario.work_context.purpose,
+        unresolvedQuestions: scenario.work_context.open_questions,
+      },
+      operationOptions,
+    );
     const sessions = new Map<string, string>();
     const memories = new Map<
       string,
@@ -114,36 +140,44 @@ export async function runCognitiveFunctional(
     for (const event of scenario.events) {
       let sessionId = sessions.get(event.session_key);
       if (!sessionId) {
-        sessionId = (await client.cognition.openSession({ subjectId }))
-          .sessionId;
+        sessionId = (
+          await client.cognition.openSession({ subjectId }, operationOptions)
+        ).sessionId;
         sessions.set(event.session_key, sessionId);
       }
-      const observation = await client.cognition.observe({
-        subjectId,
-        sessionId,
-        requestId: randomUUID(),
-        sourceClass: "host_event",
-        admit: true,
-        occurredTime: {
-          value: { case: "instant", value: at(event.occurred_at) },
+      const observation = await client.cognition.observe(
+        {
+          subjectId,
+          sessionId,
+          requestId: randomUUID(),
+          sourceClass: "host_event",
+          admit: true,
+          occurredTime: {
+            value: { case: "instant", value: at(event.occurred_at) },
+          },
+          observedAt: at(event.observed_at),
+          material: {
+            case: "inlineText",
+            value: { text: event.text, mediaType: "text/plain" },
+          },
+          entities: event.entity_keys.map((key) => ({
+            surface: scenario.entities.find((e) => e.key === key)!.display_name,
+            entityRef: entities.get(key),
+          })),
         },
-        observedAt: at(event.observed_at),
-        material: {
-          case: "inlineText",
-          value: { text: event.text, mediaType: "text/plain" },
+        operationOptions,
+      );
+      reserveFormation();
+      const formation = await client.model.formFromObservation(
+        {
+          subjectId,
+          occurrenceId: observation.occurrenceId,
+          operationId: randomUUID(),
+          aboutnessMode: "explicit",
+          explicitAboutness: event.entity_keys.map((key) => entities.get(key)!),
         },
-        entities: event.entity_keys.map((key) => ({
-          surface: scenario.entities.find((e) => e.key === key)!.display_name,
-          entityRef: entities.get(key),
-        })),
-      });
-      const formation = await client.model.formFromObservation({
-        subjectId,
-        occurrenceId: observation.occurrenceId,
-        operationId: randomUUID(),
-        aboutnessMode: "explicit",
-        explicitAboutness: event.entity_keys.map((key) => entities.get(key)!),
-      });
+        operationOptions,
+      );
       if (!formation.memory)
         throw new Error(`Formation unavailable for ${event.key}`);
       memories.set(event.key, {
@@ -154,35 +188,51 @@ export async function runCognitiveFunctional(
       });
     }
     for (const sessionId of sessions.values())
-      await client.cognition.closeSession({ subjectId, id: sessionId });
+      await client.cognition.closeSession(
+        { subjectId, id: sessionId },
+        operationOptions,
+      );
     const maintenance = [];
     for (let grant = 0; grant < 8; grant++) {
-      const result = await client.cognition.grantMaintenance({
-        subjectId,
-        maxOperations: 16,
-        maxModelCalls: 16,
-        maxElapsedMs: 15000,
-      });
+      operationOptions.signal.throwIfAborted();
+      if (!remainingCalls())
+        throw new Error("Functional model call limit reached");
+      const result = await client.cognition.grantMaintenance(
+        {
+          subjectId,
+          maxOperations: 16,
+          maxModelCalls: Math.min(16, remainingCalls()),
+          maxElapsedMs: Math.min(15000, limits.maxElapsedMs),
+        },
+        operationOptions,
+      );
+      modelCalls += result.modelCalls;
       maintenance.push(result);
       if (!result.results.length) break;
     }
     const tags = (
-      await client.topology.listTags({
-        subjectId,
-        status: "active",
-        page: { pageSize: 64 },
-      })
+      await client.topology.listTags(
+        {
+          subjectId,
+          status: "active",
+          page: { pageSize: 64 },
+        },
+        operationOptions,
+      )
     ).items;
     const concepts = new Map<string, string>();
     const failures: string[] = [];
     for (const concept of scenario.expected_maintenance.concepts) {
       let id: string | undefined;
       for (const name of concept.names) {
-        const resolved = await client.identity.resolve({
-          subjectId,
-          kind: "tag",
-          locator: { case: "name", value: name },
-        });
+        const resolved = await client.identity.resolve(
+          {
+            subjectId,
+            kind: "tag",
+            locator: { case: "name", value: name },
+          },
+          operationOptions,
+        );
         if (resolved.status === "BOUND") {
           const value = resolved.candidates[0]?.canonical?.value;
           if (id && value !== id)
@@ -197,12 +247,15 @@ export async function runCognitiveFunctional(
       concepts.set(concept.key, id);
       for (const key of concept.reuse_events ?? []) {
         const memory = memories.get(key)!;
-        const neighborhood = await client.topology.neighborhood({
-          subjectId,
-          root: { kind: "memory_revision", value: memory.revisionId },
-          maxNodes: 64,
-          maxDepth: 1,
-        });
+        const neighborhood = await client.topology.neighborhood(
+          {
+            subjectId,
+            root: { kind: "memory_revision", value: memory.revisionId },
+            maxNodes: 64,
+            maxDepth: 1,
+          },
+          operationOptions,
+        );
         if (
           !neighborhood.associations.some(
             (a) =>
@@ -223,15 +276,18 @@ export async function runCognitiveFunctional(
     }
     for (const [from, to, relation] of scenario.expected_maintenance
       .supported_relations ?? []) {
-      const neighborhood = await client.topology.neighborhood({
-        subjectId,
-        root: {
-          kind: "memory_revision",
-          value: memories.get(from)!.revisionId,
+      const neighborhood = await client.topology.neighborhood(
+        {
+          subjectId,
+          root: {
+            kind: "memory_revision",
+            value: memories.get(from)!.revisionId,
+          },
+          maxNodes: 64,
+          maxDepth: 1,
         },
-        maxNodes: 64,
-        maxDepth: 1,
-      });
+        operationOptions,
+      );
       if (
         !neighborhood.associations.some(
           (a) =>
@@ -246,14 +302,17 @@ export async function runCognitiveFunctional(
       if (tags.some((tag) => tag.label.toLowerCase() === name.toLowerCase()))
         failures.push(`noise_concept:${name}`);
     if (scenario.expected_maintenance.ambiguity) {
-      const ambiguity = await client.identity.resolve({
-        subjectId,
-        kind: "entity",
-        locator: {
-          case: "name",
-          value: scenario.expected_maintenance.ambiguity.label,
+      const ambiguity = await client.identity.resolve(
+        {
+          subjectId,
+          kind: "entity",
+          locator: {
+            case: "name",
+            value: scenario.expected_maintenance.ambiguity.label,
+          },
         },
-      });
+        operationOptions,
+      );
       if (ambiguity.status !== "AMBIGUOUS_REFERENCE")
         failures.push("identity_ambiguity_missing");
     }
@@ -269,12 +328,15 @@ export async function runCognitiveFunctional(
     for (const item of queries.filter((q) => q.scenario_key === scenario.key)) {
       let semanticInput: string | undefined;
       for (const profile of profiles) {
-        await client.configuration.setSubject({
-          subjectId,
-          operationId: randomUUID(),
-          path: "retrieval.cognitive.profile",
-          value: profile,
-        });
+        await client.configuration.setSubject(
+          {
+            subjectId,
+            operationId: randomUUID(),
+            path: "retrieval.cognitive.profile",
+            value: profile,
+          },
+          operationOptions,
+        );
         const p = item.prepared_query;
         const request: Parameters<NousClient["cognition"]["query"]>[0] = {
           subjectId,
@@ -322,7 +384,10 @@ export async function runCognitiveFunctional(
           },
           capabilities: { rerank: "forbidden", textEmbedding: "optional" },
         };
-        const prepared = await client.cognition.prepareQuery(request);
+        const prepared = await client.cognition.prepareQuery(
+          request,
+          operationOptions,
+        );
         if (
           semanticInput !== undefined &&
           semanticInput !== prepared.embeddingText
@@ -331,7 +396,10 @@ export async function runCognitiveFunctional(
             `Prepared representation changed across profiles: ${item.key}`,
           );
         semanticInput = prepared.embeddingText;
-        const response = await client.cognition.query(request);
+        const response = await client.cognition.query(
+          request,
+          operationOptions,
+        );
         const foundEvents = new Set<string>();
         for (const hit of response.hits) {
           const ids = [
@@ -386,6 +454,8 @@ export async function runCognitiveFunctional(
       {
         scope: "hand-authored functional corpus; no benchmark accuracy claim",
         profiles,
+        modelCalls,
+        limits,
         results,
       },
       (_key, value: unknown) =>
@@ -404,6 +474,8 @@ if (
       "run-root": { type: "string" },
       profiles: { type: "string", default: "baseline-rrf" },
       "compat-input": { type: "string" },
+      "max-model-calls": { type: "string", default: "128" },
+      "max-elapsed-ms": { type: "string", default: "60000" },
       output: {
         type: "string",
         default: "data/research/cognitive-functional/results.json",
@@ -419,6 +491,10 @@ if (
     client,
     values.profiles.split(","),
     resolve(values.output),
+    {
+      maxModelCalls: Number(values["max-model-calls"]),
+      maxElapsedMs: Number(values["max-elapsed-ms"]),
+    },
   );
   if (values["compat-input"])
     await runSelectedTextCompatibility(
@@ -445,6 +521,12 @@ export async function runSelectedTextCompatibility(
   client: NousClient,
   inputPath: string,
   output: string,
+  profiles = [
+    "baseline-rrf",
+    "nous-node-potential-v1",
+    "vcp-dtsc-v9.2.1-adapter-v1",
+    "vcp-rivermemo-v3.1-adapter-v1",
+  ],
 ) {
   interface Selection {
     key: string;
@@ -476,12 +558,6 @@ export async function runSelectedTextCompatibility(
         format: "application/vnd.nous-wave.cognitive-seed+toml;version=1",
         provenance: {},
       },
-    });
-    await client.configuration.setSubject({
-      subjectId,
-      operationId: randomUUID(),
-      path: "retrieval.cognitive.profile",
-      value: "baseline-rrf",
     });
     const refs = new Map<string, string>();
     for (const source of sourceCase.sources) {
@@ -546,23 +622,32 @@ export async function runSelectedTextCompatibility(
         },
       },
     };
-    const prepared = await client.cognition.prepareQuery(request);
-    const response = await client.cognition.query(request);
-    const ranks = selected.required_sources.map((key) => ({
-      key,
-      rank:
-        response.hits.findIndex(
-          (hit) =>
-            hit.revision?.value === refs.get(key) ||
-            hit.reference?.value === refs.get(key),
-        ) + 1,
-    }));
-    results.push({
-      key: selected.key,
-      preparedText: prepared.embeddingText,
-      ranks,
-      response,
-    });
+    for (const profile of profiles) {
+      await client.configuration.setSubject({
+        subjectId,
+        operationId: randomUUID(),
+        path: "retrieval.cognitive.profile",
+        value: profile,
+      });
+      const prepared = await client.cognition.prepareQuery(request);
+      const response = await client.cognition.query(request);
+      const ranks = selected.required_sources.map((key) => ({
+        key,
+        rank:
+          response.hits.findIndex(
+            (hit) =>
+              hit.revision?.value === refs.get(key) ||
+              hit.reference?.value === refs.get(key),
+          ) + 1,
+      }));
+      results.push({
+        key: selected.key,
+        profile,
+        preparedText: prepared.embeddingText,
+        ranks,
+        response,
+      });
+    }
   }
   await mkdir(dirname(output), { recursive: true });
   await writeFile(

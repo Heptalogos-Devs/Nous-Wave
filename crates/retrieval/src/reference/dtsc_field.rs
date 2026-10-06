@@ -1,4 +1,5 @@
 use super::anchors::reference_cosine;
+use super::unit;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -77,13 +78,6 @@ pub struct ReferenceDtscField {
     pub total_energy: f64,
     pub max_energy: f64,
     pub samples: Vec<ReferenceDtscSample>,
-}
-fn unit(x: f64) -> f64 {
-    if x.is_finite() {
-        x.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
 }
 fn energy(n: &ReferenceDtscNode) -> f64 {
     if n.energy > 0.0 {

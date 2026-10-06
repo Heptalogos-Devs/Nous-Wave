@@ -1,5 +1,6 @@
 use super::dtsc_field::dtsc_cosine;
 use super::*;
+use super::{positive, unit};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -95,16 +96,6 @@ pub(crate) struct DtscCurveContext<'a> {
     pub original: &'a [f32],
     pub enhanced: &'a [f32],
     pub geometry: &'a ReferenceDtscGeometryState,
-}
-fn unit(x: f64) -> f64 {
-    if x.is_finite() {
-        x.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
-}
-fn positive(x: f64) -> f64 {
-    if x.is_finite() { x.max(0.0) } else { 0.0 }
 }
 fn query_closure(q: &[f32], c: &[f32]) -> f64 {
     if q.len() == c.len() && !c.is_empty() {

@@ -41,7 +41,6 @@ service MemoryService {
   rpc PurgeJournal(JournalMutationRequest) returns (google.protobuf.Empty);
   rpc SetAccessibility(SetAccessibilityRequest) returns (Memory);
   rpc LinkRevisions(LinkRevisionsRequest) returns (google.protobuf.Empty);
-  rpc ConsolidateMemory(ConsolidateMemoryRequest) returns (ConsolidationResponse);
   rpc GetMemory(ObjectRequest) returns (Memory);
   rpc ListMemories(ListRequest) returns (ListMemoriesResponse);
   rpc GetMemoryRevision(ObjectRequest) returns (Memory);

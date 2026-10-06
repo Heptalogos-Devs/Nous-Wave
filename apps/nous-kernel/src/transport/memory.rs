@@ -128,35 +128,6 @@ impl KernelService {
             )
             .await
     }
-    pub(super) async fn consolidate_memory(
-        &self,
-        input: p::ConsolidateMemoryRequest,
-    ) -> Result<p::ConsolidationResponse> {
-        let subject = SubjectId(id(&input.subject_id)?);
-        let result = self
-            .require_memory()?
-            .consolidate(
-                subject,
-                nous_memory::ConsolidationRequest {
-                    operation_id: OperationId(id(&input.operation_id)?),
-                    subject,
-                    source_memories: input
-                        .source_revision_ids
-                        .into_iter()
-                        .map(|v| Ok(nous_core::MemoryRevisionId(id(&v)?)))
-                        .collect::<Result<_>>()?,
-                    target: enum_value(&input.target)?,
-                    representation_text: (!input.text.is_empty()).then_some(input.text),
-                    semantic_role: (!input.semantic_role.is_empty()).then_some(input.semantic_role),
-                    topology: None,
-                },
-            )
-            .await?;
-        Ok(p::ConsolidationResponse {
-            memory: result.memory.map(view),
-            topology_changes: result.topology_changes as u32,
-        })
-    }
     pub(super) async fn get_memory(&self, input: p::ObjectRequest) -> Result<p::Memory> {
         Ok(view(
             self.require_memory()?

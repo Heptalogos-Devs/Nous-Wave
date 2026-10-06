@@ -277,7 +277,6 @@ export function createNousClient(transport: Transport) {
       withdraw: call(memory.withdrawMemory),
       reaccept: call(memory.reacceptMemory),
       purge: call(memory.purgeMemory),
-      consolidate: call(memory.consolidateMemory),
       createEpisode: call(memory.createEpisode),
       getEpisode: call(memory.getEpisode),
       getEpisodeRevision: call(memory.getEpisodeRevision),
