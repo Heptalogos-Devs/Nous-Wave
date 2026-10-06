@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::*;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};

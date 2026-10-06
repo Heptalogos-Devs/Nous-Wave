@@ -1,3 +1,6 @@
+# Copyright 2026 Aravine Zhu
+# SPDX-License-Identifier: Apache-2.0
+
 param([Parameter(Mandatory=$true)][string]$SourceRoot, [Parameter(Mandatory=$true)][string]$ArchivePath)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem

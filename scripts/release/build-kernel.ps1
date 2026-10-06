@@ -1,3 +1,6 @@
+# Copyright 2026 Aravine Zhu
+# SPDX-License-Identifier: Apache-2.0
+
 param([string]$ToolchainRoot = 'data/tools/llvm-mingw-windows/llvm-mingw-20260922-ucrt-x86_64')
 $ErrorActionPreference = 'Stop'
 $compiler = Join-Path (Resolve-Path -LiteralPath $ToolchainRoot).Path 'bin'

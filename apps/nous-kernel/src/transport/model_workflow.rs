@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::model::{private_workflow_owner, workflow_json};
 use super::*;
 use nous_core::Result;

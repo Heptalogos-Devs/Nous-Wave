@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { defineConfig } from "vitest/config";

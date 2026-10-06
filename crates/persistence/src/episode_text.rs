@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{AuthorityStore, TextProjectionFragment, database_error as db};
 use nous_core::*;
 use sqlx::{Postgres, Row, Transaction};

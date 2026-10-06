@@ -1,4 +1,7 @@
 //! Explicit per-family Authority watermarks for independent serving updates.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{AuthorityStore, database_error as db};
 use nous_core::{Result, SubjectId};
 use serde::{Deserialize, Serialize};

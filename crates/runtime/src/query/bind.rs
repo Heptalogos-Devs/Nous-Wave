@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::resolve_retrieval_policy;
 use super::types::{AccessibilityQueryPolicy, BoundQuery, ExactBinding, RevisionPolicy};
 use crate::CognitiveRuntimeService;

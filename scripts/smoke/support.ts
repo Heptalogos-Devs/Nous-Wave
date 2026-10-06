@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { CONFIG_REVISION } from "../../apps/nous-core/src/config.js";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";

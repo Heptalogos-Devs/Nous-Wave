@@ -1,4 +1,7 @@
 //! Explicit developer runtime preparation.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};
 use std::{path::PathBuf, process::Command, time::Duration};
 

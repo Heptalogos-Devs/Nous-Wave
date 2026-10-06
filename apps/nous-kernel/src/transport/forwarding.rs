@@ -1,4 +1,7 @@
 //! Canonical RPC forwarding keeps transport adaptation separate from owner operations.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 macro_rules! rpc_service {
     ($service:path { forward { $( $method:ident ($input:ty) -> $output:ty; )* } custom { $( $custom:item )* } }) => {
         #[tonic::async_trait]

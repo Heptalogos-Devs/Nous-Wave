@@ -3,6 +3,9 @@
 //! This crate owns configuration mechanics only. Domain meaning stays with the
 //! registering owner, which resolves a snapshot into its typed policy.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod key;
 mod profile;
 pub use profile::ReferenceProfile;

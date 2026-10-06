@@ -1,5 +1,8 @@
 //! Evidence and material semantics.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use chrono::{DateTime, Utc};
 use nous_core::{
     ArtifactId, CapabilityOperation, DerivedRegionId, DerivedRepresentationId, EntityRef, Error,

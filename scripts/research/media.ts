@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { workspacePaths } from "../workspace.js";
 import type { connectNousInstance } from "@nous-wave/client/node";
 import { readFile, writeFile, mkdir } from "node:fs/promises";

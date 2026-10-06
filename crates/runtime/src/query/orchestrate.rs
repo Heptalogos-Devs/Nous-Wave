@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::{
     CandidateRankInput, LaneCandidate, LaneOutput, LaneStatus, rank_candidates_with_policy,
 };

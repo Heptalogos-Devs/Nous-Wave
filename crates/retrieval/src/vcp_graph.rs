@@ -1,4 +1,7 @@
 //! Generation graph assembly from coherent Nous projection material.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::reference::{
     ReferenceFileTags, ReferenceGraphConfig, ReferenceGraphInput, ReferenceGraphOutput,
     ReferenceProvenanceEdge, reference_graph_file_facts, reference_graph_from_facts,

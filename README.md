@@ -27,3 +27,7 @@ corepack pnpm dev
 - [配置、接口与使用参考](docs/reference/README.md)
 - [研究方法与观测](docs/research/README.md)
 - [第一方 CLI](apps/nous-cli/README.md)
+
+## 许可
+
+本项目依据 Apache-2.0 许可，完整条款见 [LICENSE](LICENSE)，版权与 SPDX 声明见 [NOTICE](NOTICE)。

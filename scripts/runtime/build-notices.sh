@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Aravine Zhu
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 # Fixed compiler/runtime notice closure used by both Windows pack builders.
 toolchain=$(realpath "$1")

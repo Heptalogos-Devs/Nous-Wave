@@ -1,4 +1,7 @@
 //! PostgreSQL Authority repositories and migration ownership.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod identity;
 mod mutations;
 pub use mutations::{

@@ -1,4 +1,7 @@
 //! Versioned reference defaults for a jointly tuned algorithm family.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{ConfigKey, ConfigRegistryBuilder};
 use nous_core::{Error, Result};
 use serde::{Deserialize, de::DeserializeOwned};

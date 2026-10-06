@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { createConnectTransport } from "@connectrpc/connect-node";
 import { createNousClient } from "./index.js";
 import { readFile } from "node:fs/promises";

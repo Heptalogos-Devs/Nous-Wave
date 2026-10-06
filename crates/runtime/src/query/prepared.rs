@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::{BoundQuery, CognitiveContributors, QueryExecution};
 use crate::CognitiveRuntimeService;
 use nous_core::*;

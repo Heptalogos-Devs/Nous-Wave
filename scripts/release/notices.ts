@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { workspacePaths } from "../workspace.js";
 import { createHash } from "node:crypto";
 import {
@@ -149,7 +152,11 @@ export async function prepareNotices(
   if (existing) return output;
   await mkdir(output, { recursive: true });
   await mkdir(join(output, "licenses/npm"), { recursive: true });
-  await cp(join(repo, "LICENSE"), join(output, "licenses/Nous-Wave-MIT.txt"));
+  await cp(
+    join(repo, "LICENSE"),
+    join(output, "licenses/Nous-Wave-Apache-2.0.txt"),
+  );
+  await cp(join(repo, "NOTICE"), join(output, "licenses/Nous-Wave-NOTICE.txt"));
   for (const pkg of packages.values()) {
     const destination = join(
       output,

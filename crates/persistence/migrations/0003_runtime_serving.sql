@@ -1,3 +1,6 @@
+-- Copyright 2026 Aravine Zhu
+-- SPDX-License-Identifier: Apache-2.0
+
 CREATE TABLE mutation_receipts (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     operation_id uuid NOT NULL,

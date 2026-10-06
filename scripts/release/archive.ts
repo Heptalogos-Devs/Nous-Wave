@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { workspacePaths } from "../workspace.js";
 import { createHash } from "node:crypto";
 import { readFile, copyFile, mkdir } from "node:fs/promises";

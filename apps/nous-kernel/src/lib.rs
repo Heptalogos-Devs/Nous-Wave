@@ -1,4 +1,7 @@
 //! Static composition of Subject Core, Cognitive Runtime and optional Memory.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod context;
 mod longitudinal;
 pub use longitudinal::ExperienceSegmentationResult;

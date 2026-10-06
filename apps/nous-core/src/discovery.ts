@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, open, readFile, unlink, writeFile } from "node:fs/promises";

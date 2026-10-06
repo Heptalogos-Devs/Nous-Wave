@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{ConfigRegistry, ConfigSource};
 use nous_core::{Error, Result, SubjectId};
 use serde::de::DeserializeOwned;

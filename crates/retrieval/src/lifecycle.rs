@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{
     artifacts::*,
     build::{DenseManifest, implementation, implementation_revision},

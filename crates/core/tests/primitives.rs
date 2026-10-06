@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use chrono::{Duration, Utc};
 use nous_core::{EmbeddingSpaceSignature, EntityRef, ObjectRef, TemporalExtent, TimeInterval};
 

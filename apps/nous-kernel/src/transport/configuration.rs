@@ -1,4 +1,7 @@
 //! Canonical configuration management, shared by public Core and private Kernel.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::*;
 use nous_configuration::{ConfigApplyMode, ConfigChangeOutcome, ConfigDescriptor, ConfigExposure};
 use nous_core::OperationId;

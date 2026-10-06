@@ -1,5 +1,8 @@
 //! Independently implemented numerical contracts extracted from frozen VCP.
 //! Neutral DTOs have no Authority, MemoryRevision or AssociationEvidence owner.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod fields;
 pub use fields::*;
 mod sense;

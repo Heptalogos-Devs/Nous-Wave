@@ -1,5 +1,8 @@
 //! Memory Authority orchestration for the R1 reference profile.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod accessibility;
 mod accretion;
 mod batch;

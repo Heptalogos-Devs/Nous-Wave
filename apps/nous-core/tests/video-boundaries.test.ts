@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { expect, it, vi } from "vitest";
 import { dirname, join } from "node:path";
 import { mkdtemp, rm, stat } from "node:fs/promises";

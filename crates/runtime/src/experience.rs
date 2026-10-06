@@ -1,5 +1,8 @@
 //! Session experience captured in the Material Authority transaction.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::*;
 use nous_persistence::database_error as db;
 use sqlx::{Postgres, Row, Transaction};

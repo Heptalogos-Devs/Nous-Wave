@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use chrono::Utc;
 use nous_core::{EpistemicClass, OperationId, TemporalExtent};
 use nous_kernel::{NousRuntime, RuntimeOptions};

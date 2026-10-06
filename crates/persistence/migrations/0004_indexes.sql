@@ -1,3 +1,6 @@
+-- Copyright 2026 Aravine Zhu
+-- SPDX-License-Identifier: Apache-2.0
+
 CREATE INDEX memory_revisions_subject_time_idx ON memory_revisions(subject_id, recorded_at DESC);
 CREATE INDEX memory_revision_evidence_occurrence_idx ON memory_revision_evidence(occurrence_id);
 CREATE INDEX resident_refs_session_state_idx ON resident_refs(session_id, state, last_meaningful_use_at DESC);

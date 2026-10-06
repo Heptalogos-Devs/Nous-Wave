@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import { create } from "@bufbuild/protobuf";
 import {

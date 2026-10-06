@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ResourceProfiles } from "./configuration.js";
 import type { ExternalResourceAdapter, ResourceBinding } from "./adapter.js";
 import { RagflowAdapter } from "./providers/ragflow.js";

@@ -3,6 +3,9 @@
 //! The domain owns cognitive meaning. SQL, transport, retrieval, and provider
 //! mechanics remain in their respective owners.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use chrono::{DateTime, Utc};
 pub use nous_core::cognition::{
     AcceptanceState, CognitionDependency, DependencyRelation, EvidenceLocator, EvidenceRef,

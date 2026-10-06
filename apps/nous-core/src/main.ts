@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { toJson, type JsonObject } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import { ConfigExposure } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";

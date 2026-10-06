@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { canonicalDigest } from "../digest.js";
 import type { ModelProfile, RoleBinding } from "./configuration.js";
 import type { PromptAsset } from "./prompts.js";
