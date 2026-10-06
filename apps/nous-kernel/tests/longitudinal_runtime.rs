@@ -716,6 +716,8 @@ async fn assert_longitudinal_materialization(
         CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
     ];
     let query = CognitiveQuery {
+        projection: Default::default(),
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         api_version: nous_core::API_VERSION,
@@ -1398,13 +1400,14 @@ async fn assert_longitudinal_lanes(
     exact: &nous_core::CognitiveQuery,
     refs: &[nous_core::CognitiveRef; 2],
 ) {
-    use nous_core::{Cue, EvidenceFamily, QueryTarget, TextCue};
+    use nous_core::{Cue, EvidenceFamily, ResultDomain, TextCue};
     for (domain, text, expected) in [
-        (QueryTarget::Episode, "object source", &refs[0]),
-        (QueryTarget::Journal, "Point-only detail", &refs[1]),
+        (ResultDomain::Episode, "object source", &refs[0]),
+        (ResultDomain::Journal, "Point-only detail", &refs[1]),
     ] {
         let mut query = exact.clone();
-        query.expression.targets = vec![domain];
+        query.expression.targets.clear();
+        query.projection.domains = vec![domain];
         query.expression.cues = vec![Cue::Text(TextCue { text: text.into() })];
         query.result_need.limit = 1;
         let result = rt.query(query).await.unwrap();
@@ -1425,10 +1428,9 @@ async fn assert_longitudinal_lanes(
     }
     assert_longitudinal_query_protocol(rt, exact.subject, refs).await;
     let mut scoped = exact.clone();
-    scoped.expression.targets.push(QueryTarget::Memory);
+    scoped.projection.domains = vec![ResultDomain::Memory];
     assert!(rt.query(scoped.clone()).await.unwrap().results.is_empty());
-    scoped.expression.targets.pop();
-    scoped.expression.targets.push(QueryTarget::Journal);
+    scoped.projection.domains = vec![ResultDomain::Journal];
     assert_eq!(
         rt.query(scoped).await.unwrap().results[0].reference,
         refs[1]
@@ -1458,7 +1460,9 @@ async fn assert_longitudinal_query_protocol(
                             cue: Some(p::cue::Cue::Text(text.into())),
                         }],
                         modifiers: Some(p::QueryModifiers {
-                            domains: vec![domain.into()],
+                            projection: Some(p::ResultProjection {
+                                domains: vec![domain.into()],
+                            }),
                             limit: Some(1),
                             ..Default::default()
                         }),
@@ -1829,8 +1833,10 @@ async fn assert_synopsis_policy(rt: &NousRuntime, subject: nous_core::SubjectId)
 }
 
 fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::CognitiveQuery {
-    use nous_core::{CognitiveQuery, CognitiveQueryExpr, Cue, QueryTarget, TextCue};
+    use nous_core::{CognitiveQuery, CognitiveQueryExpr, Cue, TextCue};
     let mut query = CognitiveQuery {
+        projection: Default::default(),
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         api_version: nous_core::API_VERSION,
@@ -1838,7 +1844,6 @@ fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::
         session: None,
         situation: Default::default(),
         expression: CognitiveQueryExpr {
-            targets: vec![QueryTarget::Episode],
             cues: vec![Cue::Text(TextCue { text: text.into() })],
             ..Default::default()
         },
@@ -1849,6 +1854,7 @@ fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::
         capabilities: Default::default(),
         diagnostics: Default::default(),
     };
+    query.projection.domains = vec![nous_core::ResultDomain::Episode];
     query.capabilities.text_embedding = nous_core::RequirementStrength::Forbidden;
     query
 }

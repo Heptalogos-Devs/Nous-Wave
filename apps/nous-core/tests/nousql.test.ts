@@ -14,10 +14,13 @@ const resolve = async (kind: string, locator: { value: string }) => ({
       : "ent:quiet-piano-mint-cloud",
 });
 it("preserves Boolean scope and simplifies soft preference grouping", () => {
-  const syntax = parse('(@e("Alice") $limit(5)) || (@e("Bob") $limit(2))');
+  const syntax = parse(
+    '(@e("Alice") $source(file)) || (@e("Bob") $source(chat))',
+  );
   expect(syntax.directives).toHaveLength(0);
   expect(syntax.children.map((c) => c.directives[0]?.positional[0])).toEqual([
-    5, 2,
+    "file",
+    "chat",
   ]);
   expect(canonical(parse('@e("Alice") +("school") -"noise"'))).toBe(
     '@e("Alice") +"school" -"noise"',
@@ -28,7 +31,7 @@ it("preserves Boolean scope and simplifies soft preference grouping", () => {
 });
 it("binds names exactly, sorts joint participants, and rejects duplicate identity", async () => {
   const result = await compileNousQL(
-    '@e("Bob","Alice") $memory +"school"',
+    '@e("Bob","Alice") $return(memory) +"school"',
     resolve,
     referenceTime,
   );
@@ -86,28 +89,28 @@ it("keeps independent time axes and rejects ambiguous or duplicate modifiers", a
   ).rejects.toThrow("unavailable");
 });
 
-it("preserves distinct cognition domains and Boolean domain scope", async () => {
+it("projects cognition domains at query root", async () => {
   const result = await compileNousQL(
-    '("experience" $episode $journal) || ("context" $memory $schema)',
+    '("experience" || "context") $return(episode,journal,memory,schema)',
     resolve,
     referenceTime,
   );
-  expect(
-    result.expression.children.map((child) => child.modifiers?.domains),
-  ).toEqual([
-    ["episode", "journal"],
-    ["memory", "schema"],
+  expect(result.expression.modifiers?.projection?.domains).toEqual([
+    "memory",
+    "schema",
+    "episode",
+    "journal",
   ]);
 });
 it("leaves omitted result limits for the Kernel configuration snapshot", async () => {
   const omitted = await compileNousQL(
-    '"sensor" $memory',
+    '"sensor" $return(memory)',
     resolve,
     referenceTime,
   );
   expect(omitted.expression.modifiers?.limit).toBeUndefined();
   const explicit = await compileNousQL(
-    '"sensor" $memory $limit(3)',
+    '"sensor" $return(memory) $limit(3)',
     resolve,
     referenceTime,
   );

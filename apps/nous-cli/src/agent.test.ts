@@ -26,7 +26,7 @@ describe("Agent CLI protocol", () => {
       [
         "query",
         "inspect",
-        '"decision" $memory',
+        '"decision" $return(memory)',
         "--run-root",
         "/tmp/nous",
         "--subject",
@@ -46,7 +46,7 @@ describe("Agent CLI protocol", () => {
       subjectId: "s",
       sessionId: "sess",
       workContextId: "work",
-      nousql: '"decision" $memory',
+      nousql: '"decision" $return(memory)',
     });
     expect(query).not.toHaveBeenCalled();
   });

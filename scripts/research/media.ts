@@ -332,7 +332,7 @@ if (!values["derive-only"] && !values["skip-retrieval"]) {
     const response = await client.cognition.query(
       {
         subjectId,
-        nousql: `${JSON.stringify(unit.query)} $memory $limit(10) $diagnostics(full)`,
+        nousql: `${JSON.stringify(unit.query)} $return(memory) $limit(10) $diagnostics(full)`,
       },
       options,
     );

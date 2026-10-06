@@ -60,6 +60,10 @@ impl TextEmbeddingProvider for EmbeddingProbe {
 
 fn query() -> CognitiveQuery {
     CognitiveQuery {
+        projection: ResultProjection {
+            domains: vec![ResultDomain::Memory],
+        },
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         api_version: API_VERSION,
@@ -70,7 +74,6 @@ fn query() -> CognitiveQuery {
             cues: vec![Cue::Text(TextCue {
                 text: "query".into(),
             })],
-            targets: vec![QueryTarget::Memory],
             ..Default::default()
         },
         exploration: Default::default(),

@@ -13,7 +13,7 @@ corepack pnpm nous observe file ./sample.png
 corepack pnpm nous derive <source-region-id> --strategy describe_then_structure
 corepack pnpm nous form <occurrence-id>
 corepack pnpm nous embeddings prepare --max-batches 16
-corepack pnpm nous query '"检索线索" $memory $limit(5)'
+corepack pnpm nous query '"检索线索" $return(memory) $limit(5)'
 corepack pnpm nous trace memory:<memory-id>
 corepack pnpm nous use memory_revision:<revision-id>
 ```
@@ -37,7 +37,7 @@ nous tag get tag:<uuid> --json
 nous tag search deployment --json
 nous tag resolve deployment --json
 nous topology neighborhood memory_revision:<uuid> --max-nodes 64 --max-depth 2 --json
-nous query prepare '"deployment decision" $memory' --subject <id> --session <id> --work-context <id> --json
+nous query prepare '"deployment decision" $return(memory)' --subject <id> --session <id> --work-context <id> --json
 nous query inspect --query-file closed-query.nousql --json
 ```
 

@@ -140,7 +140,8 @@ export const commandInventory = {
     {
       command: "query",
       parameters: ["<NousQL> | --query-file <path>"],
-      example: "nous query '\"deployment decision\" $memory $limit(5)' --json",
+      example:
+        "nous query '\"deployment decision\" $return(memory) $limit(5)' --json",
     },
     {
       command: "query prepare|inspect",
@@ -148,7 +149,7 @@ export const commandInventory = {
       description:
         "Closed binding and representation inspection; no retrieval or provider call",
       example:
-        "nous query prepare '\"deployment decision\" $memory' --subject <id> --session <id> --work-context <id> --json",
+        "nous query prepare '\"deployment decision\" $return(memory)' --subject <id> --session <id> --work-context <id> --json",
     },
     {
       command: "config list|describe|get|set|clear",

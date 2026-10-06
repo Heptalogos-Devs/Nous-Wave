@@ -426,7 +426,7 @@ try {
   assert.equal(resourceDescriptor.providerProfile, "ragflow");
   const resourceResult = await client.cognition.recall(
     subjectId,
-    '(("external chunk" $resource $current(required)) || ("unrelated" $memory)) $limit(2)',
+    '(("external chunk" $current(required)) || "unrelated") $return(memory,resource) $limit(2)',
   );
   assert.equal(resourceResult.resourceActions.length, 0);
   assert.equal(resourceResult.resourceRecords.length, 1);
@@ -535,7 +535,7 @@ try {
   });
   const unavailableResource = await client.cognition.recall(
     subjectId,
-    '"external chunk" $resource $limit(2)',
+    '"external chunk" $return(resource) $limit(2)',
   );
   assert.equal(unavailableResource.resourceRecords.length, 1);
   assert.equal(unavailableResource.resourceActions.length, 1);
@@ -583,7 +583,7 @@ try {
   });
   const response = await client.cognition.recall(
     subjectId,
-    '"protocol continuity" $memory $limit(5)',
+    '"protocol continuity" $return(memory) $limit(5)',
   );
   assert(memory.producerSignatureId);
   const producer = await client.material.producer({
@@ -596,7 +596,7 @@ try {
   assert(
     response.hits.some((hit) => hit.revision?.value === memory.revisionId),
   );
-  await cli("query", '"protocol continuity" $memory $limit(5)');
+  await cli("query", '"protocol continuity" $return(memory) $limit(5)');
   const trace = await cli("trace", `memory:${memory.memoryId}`);
   assert(Array.isArray(trace.sources) && trace.sources.length === 1);
   assert(Array.isArray(trace.derivations) && trace.derivations.length >= 2);
@@ -644,7 +644,7 @@ model = "local"
   assert(prepared.committed > 0 && prepared.degradation.length === 0);
   const recall = await restarted.cognition.recall(
     subjectId,
-    '"protocol continuity" $memory $limit(5)',
+    '"protocol continuity" $return(memory) $limit(5)',
   );
   assert(recall.hits.some((hit) => hit.revision?.value === memory.revisionId));
   const formationRequest = {

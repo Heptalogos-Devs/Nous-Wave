@@ -203,10 +203,10 @@ impl nous_runtime::CognitiveContributor for MaterialService {
             .iter()
             .any(|target| matches!(target, QueryTarget::Exact { .. }))
             || !bound.lane_enabled(EvidenceFamily::Temporal)
-            || (!bound.source_query.expression.domain_names().is_empty()
+            || (!bound.source_query.projection.domain_names().is_empty()
                 && !bound
                     .source_query
-                    .expression
+                    .projection
                     .domain_names()
                     .contains(&"evidence"))
             || [c.occurred, c.observed, c.recorded]

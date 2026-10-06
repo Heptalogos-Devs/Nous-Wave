@@ -6,35 +6,106 @@ use super::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum QueryTarget {
-    AnyRelevantCognition,
+    EntityNeighborhood { entity_ref: EntityRef },
+    SchemaNeighborhood { schema: CognitiveSchemaId },
+    Exact { reference: CognitiveRef },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResultDomain {
     Memory,
     Schema,
     Episode,
     Journal,
     Evidence,
-    EntityNeighborhood { entity_ref: EntityRef },
-    SchemaNeighborhood { schema: CognitiveSchemaId },
     Resource,
-    Exact { reference: CognitiveRef },
 }
-
-impl QueryTarget {
-    pub fn domain_name(&self) -> Option<&'static str> {
+impl ResultDomain {
+    pub fn name(self) -> &'static str {
         match self {
-            Self::Memory => Some("memory"),
-            Self::Schema => Some("schema"),
-            Self::Episode => Some("episode"),
-            Self::Journal => Some("journal"),
-            Self::Evidence => Some("evidence"),
-            Self::Resource => Some("resource"),
-            _ => None,
+            Self::Memory => "memory",
+            Self::Schema => "schema",
+            Self::Episode => "episode",
+            Self::Journal => "journal",
+            Self::Evidence => "evidence",
+            Self::Resource => "resource",
         }
     }
-    pub fn is_cognition_domain(&self) -> bool {
-        matches!(
-            self,
-            Self::Memory | Self::Schema | Self::Episode | Self::Journal
-        )
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResultProjection {
+    pub domains: Vec<ResultDomain>,
+}
+impl Default for ResultProjection {
+    fn default() -> Self {
+        Self {
+            domains: vec![
+                ResultDomain::Memory,
+                ResultDomain::Schema,
+                ResultDomain::Episode,
+                ResultDomain::Journal,
+            ],
+        }
+    }
+}
+impl ResultProjection {
+    pub fn domain_names(&self) -> Vec<&'static str> {
+        self.domains.iter().map(|domain| domain.name()).collect()
+    }
+    pub fn allows_reference(&self, reference: &CognitiveRef) -> bool {
+        self.domain_names()
+            .contains(&reference_query_domain(reference))
+    }
+    pub fn has_cognition(&self) -> bool {
+        self.domains.iter().any(|domain| {
+            matches!(
+                domain,
+                ResultDomain::Memory
+                    | ResultDomain::Schema
+                    | ResultDomain::Episode
+                    | ResultDomain::Journal
+            )
+        })
+    }
+    pub fn validate(&self) -> Result<()> {
+        let unique: std::collections::BTreeSet<_> = self.domains.iter().collect();
+        if self.domains.is_empty() || unique.len() != self.domains.len() {
+            return Err(Error::Invalid("invalid result projection".into()));
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(tag = "kind", content = "at", rename_all = "snake_case")]
+pub enum AuthorityView {
+    #[default]
+    Current,
+    AsOf(DateTime<Utc>),
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum RevisionView {
+    #[default]
+    Current,
+    History,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemporalFrame {
+    pub clock_now: DateTime<Utc>,
+    pub authority_view: AuthorityView,
+    pub revision_view: RevisionView,
+    #[serde(default)]
+    pub original_expressions: Vec<String>,
+}
+impl Default for TemporalFrame {
+    fn default() -> Self {
+        Self {
+            clock_now: DateTime::<Utc>::UNIX_EPOCH,
+            authority_view: AuthorityView::Current,
+            revision_view: RevisionView::Current,
+            original_expressions: Vec::new(),
+        }
     }
 }
 
@@ -228,6 +299,8 @@ pub struct CapabilityPolicy {
     pub multimodal_interpretation: RequirementStrength,
     #[serde(default)]
     pub residual_sensing: RequirementStrength,
+    #[serde(default)]
+    pub query_concept_enrichment: RequirementStrength,
 }
 
 impl Default for CapabilityPolicy {
@@ -237,6 +310,7 @@ impl Default for CapabilityPolicy {
             text_embedding: RequirementStrength::Optional,
             multimodal_interpretation: RequirementStrength::Optional,
             residual_sensing: RequirementStrength::Optional,
+            query_concept_enrichment: RequirementStrength::Optional,
         }
     }
 }
@@ -263,26 +337,6 @@ pub struct CognitiveQueryExpr {
     pub children: Vec<CognitiveQueryExpr>,
     #[serde(default)]
     pub preferences: Vec<QueryPreference>,
-}
-
-impl CognitiveQueryExpr {
-    pub fn domain_names(&self) -> Vec<&'static str> {
-        if self
-            .targets
-            .iter()
-            .any(|target| matches!(target, QueryTarget::AnyRelevantCognition))
-        {
-            return vec![];
-        }
-        self.targets
-            .iter()
-            .filter_map(QueryTarget::domain_name)
-            .collect()
-    }
-    pub fn allows_reference(&self, reference: &CognitiveRef) -> bool {
-        let domains = self.domain_names();
-        domains.is_empty() || domains.contains(&reference_query_domain(reference))
-    }
 }
 
 impl Default for CognitiveQueryExpr {
@@ -331,6 +385,10 @@ pub struct CognitiveQuery {
     #[serde(default)]
     pub text_only_compatibility: bool,
     #[serde(default)]
+    pub projection: ResultProjection,
+    #[serde(default)]
+    pub temporal_frame: TemporalFrame,
+    #[serde(default)]
     pub work_context: Option<uuid::Uuid>,
     pub api_version: u32,
     #[serde(default)]
@@ -360,10 +418,6 @@ impl CognitiveQuery {
             || self.scopes().iter().any(|scope| {
                 scope.constraints.current_authority != CurrentAuthorityNeed::None
                     || scope.cues.iter().any(|cue| matches!(cue, Cue::Resource(_)))
-                    || scope
-                        .targets
-                        .iter()
-                        .any(|target| matches!(target, QueryTarget::Resource))
             })
     }
     pub fn scopes(&self) -> Vec<&CognitiveQueryExpr> {
@@ -376,6 +430,7 @@ impl CognitiveQuery {
         scopes
     }
     pub fn validate(&self) -> Result<()> {
+        self.projection.validate()?;
         if self.api_version != API_VERSION {
             return Err(Error::Invalid(format!(
                 "unsupported cognitive query api_version {}",
@@ -466,6 +521,7 @@ pub enum EvidenceFamily {
     Dense,
     Temporal,
     SchemaDirect,
+    TagDirect,
     TopologyWave,
     Resource,
     LanguageRerank,
@@ -591,6 +647,7 @@ pub struct ServingNeed {
     pub lexical: bool,
     pub dense: bool,
     pub topology: bool,
+    pub concept: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -607,4 +664,38 @@ pub struct CapabilityStatus {
     pub capability_id: String,
     pub status: Readiness,
     pub reason: Option<String>,
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    #[test]
+    fn default_projection_admits_only_cognition_even_for_exact_refs() {
+        let projection = ResultProjection::default();
+        for reference in [
+            CognitiveRef::MemoryRevision(MemoryRevisionId::new()),
+            CognitiveRef::CognitiveSchemaRevision(CognitiveSchemaRevisionId::new()),
+            CognitiveRef::EpisodeRevision(EpisodeRevisionId::new()),
+            CognitiveRef::JournalRevision(JournalRevisionId::new()),
+        ] {
+            assert!(projection.allows_reference(&reference));
+        }
+        assert!(!projection.allows_reference(&CognitiveRef::Artifact(ArtifactId::new())));
+        assert!(!projection.allows_reference(&CognitiveRef::Resource(
+            ResourceRef::new("resource:test").unwrap()
+        )));
+        let evidence = ResultProjection {
+            domains: vec![ResultDomain::Evidence],
+        };
+        assert!(evidence.allows_reference(&CognitiveRef::Artifact(ArtifactId::new())));
+        assert!(!evidence.allows_reference(&CognitiveRef::MemoryRevision(MemoryRevisionId::new())));
+        assert!(ResultProjection { domains: vec![] }.validate().is_err());
+        assert!(
+            ResultProjection {
+                domains: vec![ResultDomain::Memory, ResultDomain::Memory]
+            }
+            .validate()
+            .is_err()
+        );
+    }
 }

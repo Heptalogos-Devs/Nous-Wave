@@ -275,6 +275,7 @@ impl ServingService {
                 lexical: self.options.lexical,
                 dense: self.options.dense,
                 topology: self.options.topology,
+                concept: true,
             },
         )
         .await

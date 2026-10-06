@@ -106,6 +106,7 @@ impl QueryPlan {
                     || (self.expand_topology
                         && self.cognitive_profile.requirements().query_embedding)),
             topology: self.expand_topology,
+            concept: self.enabled_lanes.contains(&EvidenceFamily::TagDirect),
         }
     }
 }
@@ -131,6 +132,8 @@ mod tests {
 
     fn query(effort: CognitiveEffort) -> CognitiveQuery {
         CognitiveQuery {
+            projection: Default::default(),
+            temporal_frame: Default::default(),
             text_only_compatibility: false,
             work_context: None,
             api_version: API_VERSION,

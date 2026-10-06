@@ -271,6 +271,10 @@ fn consolidation_query(subject: SubjectId, cue: String, limit: usize) -> Cogniti
     let constraints = QueryConstraints::default();
     CognitiveQuery {
         // This cue is quoted source content for similarity lookup, not a user intent.
+        projection: ResultProjection {
+            domains: vec![ResultDomain::Memory, ResultDomain::Schema],
+        },
+        temporal_frame: Default::default(),
         text_only_compatibility: true,
         work_context: None,
         api_version: 1,
@@ -278,7 +282,6 @@ fn consolidation_query(subject: SubjectId, cue: String, limit: usize) -> Cogniti
         session: None,
         situation: Default::default(),
         expression: CognitiveQueryExpr {
-            targets: vec![QueryTarget::Memory, QueryTarget::Schema],
             cues: vec![Cue::Text(TextCue { text: cue })],
             constraints,
             ..Default::default()

@@ -195,7 +195,7 @@ fn offered_candidates(
                    bm25_score: f64,
                    anchor_score: f64|
      -> Result<()> {
-        if !bound.source_query.expression.allows_reference(reference) {
+        if !bound.source_query.projection.allows_reference(reference) {
             return Ok(());
         }
         let Ok(id) = generation.identities.id(reference) else {
@@ -225,10 +225,10 @@ fn offered_candidates(
         if query.iter().all(|v| v.abs() <= f32::EPSILON) {
             continue;
         }
-        for hit in generation.search_candidates_for_expression(
+        for hit in generation.search_candidates_for_projection(
             query,
             search_limit,
-            &bound.source_query.expression,
+            &bound.source_query.projection,
         )? {
             if let Some(record) = hit.record {
                 add(

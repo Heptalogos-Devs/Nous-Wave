@@ -162,6 +162,10 @@ pub fn build_query_representation(
         if [c.occurred,c.observed,c.valid,c.formed,c.recorded].iter().all(Option::is_none) && recent.is_empty() { return None; }
         Some(serde_json::json!({"occurred":c.occurred,"observed":c.observed,"valid":c.valid,"formed":c.formed,"recorded":c.recorded,"preferences":recent}).to_string())
     }).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>().join("\n");
+    let temporal = match (query.temporal_frame.authority_view, query.temporal_frame.revision_view) {
+        (AuthorityView::Current, RevisionView::Current) => temporal,
+        _ => format!("{}\n{}", serde_json::json!({"authority_view":query.temporal_frame.authority_view,"revision_view":query.temporal_frame.revision_view}), temporal).trim().to_owned(),
+    };
     builder.section("Temporal orientation", &temporal, 1024);
     for (label, select, maximum, chars) in [
         ("Entities", "entity", limits.max_context_items, 256),
@@ -423,6 +427,8 @@ mod tests {
         CognitiveQuery {
             api_version: API_VERSION,
             subject: SubjectId::new(),
+            projection: Default::default(),
+            temporal_frame: Default::default(),
             text_only_compatibility: false,
             work_context: None,
             session: None,

@@ -244,6 +244,9 @@ impl CognitiveRuntimeService {
         mut query: CognitiveQuery,
         config_snapshot: nous_configuration::ConfigSnapshot,
     ) -> Result<BoundQuery> {
+        if query.temporal_frame.clock_now == chrono::DateTime::<chrono::Utc>::UNIX_EPOCH {
+            query.temporal_frame.clock_now = self.now(query.subject);
+        }
         super::closure::validate_query_input(&query)?;
         for node in query.scopes() {
             let mut scoped = query.clone();

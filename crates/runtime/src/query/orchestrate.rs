@@ -125,12 +125,7 @@ impl CognitiveRuntimeService {
         }
         if let Some(memory) = contributors.memory {
             lane_outputs.extend(memory.direct_lanes(&bound, &plan).await?);
-        } else if query
-            .expression
-            .targets
-            .iter()
-            .any(QueryTarget::is_cognition_domain)
-        {
+        } else if query.projection.has_cognition() {
             return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
         }
         if let Some(material) = contributors.material {
@@ -148,18 +143,8 @@ impl CognitiveRuntimeService {
         if !exact_output.candidates.is_empty() {
             lane_outputs.push(exact_output);
         }
-        let runtime_allowed = query.expression.targets.is_empty()
-            || query.expression.targets.iter().any(|target| {
-                matches!(
-                    target,
-                    QueryTarget::AnyRelevantCognition
-                        | QueryTarget::Memory
-                        | QueryTarget::Schema
-                        | QueryTarget::Episode
-                        | QueryTarget::Journal
-                        | QueryTarget::Evidence
-                )
-            });
+        let runtime_allowed = query.projection.has_cognition()
+            || query.projection.domains.contains(&ResultDomain::Evidence);
         if runtime_allowed && bound.lane_enabled(EvidenceFamily::Runtime) {
             for (reference, source) in &bound.runtime_sources {
                 lane_outputs.push(LaneOutput {
@@ -233,7 +218,7 @@ impl CognitiveRuntimeService {
             }
         }
         let before = candidates.len();
-        candidates.retain(|reference, _| query.expression.allows_reference(reference));
+        candidates.retain(|reference, _| query.projection.allows_reference(reference));
         let dropped = before - candidates.len();
         if dropped > 0 {
             *lane_drops.entry("domain_ineligible".into()).or_default() += dropped;

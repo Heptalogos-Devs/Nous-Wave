@@ -618,7 +618,7 @@ export async function runSelectedTextCompatibility(
         operation: "atom",
         cues: [{ cue: { case: "text", value: selected.text } }],
         modifiers: {
-          domains: ["memory"],
+          projection: { domains: ["memory"] },
           limit: 8,
           materialize: true,
           diagnostics: "full",

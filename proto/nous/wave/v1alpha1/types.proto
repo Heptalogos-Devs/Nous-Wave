@@ -78,11 +78,12 @@ message Cue {
     string external_object_ref = 8;
   }
 }
-// Domains: memory, schema, episode, journal, evidence, resource. Empty selects all available local domains.
-message QueryModifiers { repeated string domains = 1; QueryConstraints constraints = 2; string effort = 3; optional uint32 limit = 4; string exploration = 5; string current_authority = 6; bool materialize = 7; string diagnostics = 8; repeated Preference preferences = 9; }
+// Result projection is root-only. Omission selects cognition (memory/schema/episode/journal).
+message ResultProjection { repeated string domains = 1; }
+message QueryModifiers { ResultProjection projection = 1; QueryConstraints constraints = 2; string effort = 3; optional uint32 limit = 4; string exploration = 5; string current_authority = 6; bool materialize = 7; string diagnostics = 8; repeated Preference preferences = 9; google.protobuf.Timestamp as_of = 10; bool history = 11; google.protobuf.Timestamp clock_now = 12; repeated string temporal_expressions = 13; }
 message Preference { bool negative = 1; Cue cue = 2; string key = 3; }
 message QueryExpr { string operation = 1; repeated Cue cues = 2; repeated QueryExpr children = 3; QueryModifiers modifiers = 4; }
-message QueryCapabilities { string text_embedding = 1; string multimodal_interpretation = 2; string residual_sensing = 3; string rerank = 4; }
+message QueryCapabilities { string text_embedding = 1; string multimodal_interpretation = 2; string residual_sensing = 3; string rerank = 4; string query_concept_enrichment = 5; }
 message QuerySituation { optional string consumer = 1; repeated CognitiveRef current_refs = 2; repeated string current_objects = 3; map<string,string> object_descriptions = 4; }
 message QueryRequest { string subject_id = 1; optional string session_id = 2; QueryExpr expression = 3; optional string nousql = 4; optional string work_context_id = 5; QuerySituation situation = 6; bool text_only_compatibility = 7; QueryCapabilities capabilities = 8; }
 message PreparedQueryResponse { string bound_query = 1; optional string preparation_token = 2; string embedding_text = 3; bool embedding_required = 4; string text_embedding_requirement = 5; string rerank_requirement = 6; }

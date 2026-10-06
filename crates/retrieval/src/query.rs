@@ -67,7 +67,7 @@ fn prepare_lexical(
                 .search_with_domains(
                     query_text,
                     plan.lane_budget(EvidenceFamily::Lexical),
-                    &query.expression.domain_names(),
+                    &query.projection.domain_names(),
                 )?
                 .into_iter()
                 .enumerate()
@@ -114,7 +114,7 @@ fn prepare_dense(
             output.generation_ref = Some(generation.generation_id);
             let limit = plan.lane_budget(EvidenceFamily::Dense);
             let matches =
-                domain_dense_matches(generation, &embedding.vector, limit, &query.expression)?;
+                domain_dense_matches(generation, &embedding.vector, limit, &query.projection)?;
             for (rank, item) in matches.into_iter().enumerate() {
                 let Some(record) = item.record else {
                     continue;
@@ -296,14 +296,14 @@ fn domain_dense_matches(
     generation: &DenseGeneration,
     vector: &[f32],
     limit: usize,
-    expression: &nous_core::CognitiveQueryExpr,
+    projection: &nous_core::ResultProjection,
 ) -> Result<Vec<DenseMatch>> {
-    if expression.domain_names().is_empty() {
+    if projection.domain_names().is_empty() {
         return generation.search(vector, limit);
     }
     let allowed = generation
         .records()
-        .filter(|record| expression.allows_reference(&record.reference))
+        .filter(|record| projection.allows_reference(&record.reference))
         .filter_map(|record| u32::try_from(record.serving_doc_id).ok())
         .collect::<roaring::RoaringBitmap>();
     generation.search_filtered(vector, limit, &allowed)

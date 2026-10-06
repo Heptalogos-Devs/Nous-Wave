@@ -510,11 +510,16 @@ pub mod cue {
         ExternalObjectRef(::prost::alloc::string::String),
     }
 }
-/// Domains: memory, schema, episode, journal, evidence, resource. Empty selects all available local domains.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct QueryModifiers {
+/// Result projection is root-only. Omission selects cognition (memory/schema/episode/journal).
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResultProjection {
     #[prost(string, repeated, tag="1")]
     pub domains: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryModifiers {
+    #[prost(message, optional, tag="1")]
+    pub projection: ::core::option::Option<ResultProjection>,
     #[prost(message, optional, tag="2")]
     pub constraints: ::core::option::Option<QueryConstraints>,
     #[prost(string, tag="3")]
@@ -531,6 +536,14 @@ pub struct QueryModifiers {
     pub diagnostics: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="9")]
     pub preferences: ::prost::alloc::vec::Vec<Preference>,
+    #[prost(message, optional, tag="10")]
+    pub as_of: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(bool, tag="11")]
+    pub history: bool,
+    #[prost(message, optional, tag="12")]
+    pub clock_now: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, repeated, tag="13")]
+    pub temporal_expressions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Preference {
@@ -562,6 +575,8 @@ pub struct QueryCapabilities {
     pub residual_sensing: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
     pub rerank: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub query_concept_enrichment: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QuerySituation {

@@ -191,6 +191,28 @@ pub(super) fn compile_query(
     let expression = required(input.expression, "expression")?;
     let modifiers = expression.modifiers.clone().unwrap_or_default();
     let query = CognitiveQuery {
+        projection: match modifiers.projection.as_ref() {
+            Some(projection) => ResultProjection {
+                domains: projection
+                    .domains
+                    .iter()
+                    .map(|domain| enum_value(domain))
+                    .collect::<Result<_>>()?,
+            },
+            None => ResultProjection::default(),
+        },
+        temporal_frame: TemporalFrame {
+            clock_now: time(modifiers.clock_now)?
+                .unwrap_or(chrono::DateTime::<chrono::Utc>::UNIX_EPOCH),
+            authority_view: time(modifiers.as_of)?
+                .map_or(AuthorityView::Current, AuthorityView::AsOf),
+            original_expressions: modifiers.temporal_expressions.clone(),
+            revision_view: if modifiers.history {
+                RevisionView::History
+            } else {
+                RevisionView::Current
+            },
+        },
         text_only_compatibility: input.text_only_compatibility,
         work_context: input.work_context_id.as_deref().map(id).transpose()?,
         api_version: API_VERSION,
@@ -240,6 +262,7 @@ pub(super) fn compile_query(
                 )?,
                 residual_sensing: enum_or_default(&capabilities.residual_sensing)?,
                 rerank: enum_or_default(&capabilities.rerank)?,
+                query_concept_enrichment: enum_or_default(&capabilities.query_concept_enrichment)?,
             }
         } else {
             CapabilityPolicy::default()
@@ -264,7 +287,12 @@ fn compile_expression(
             || modifiers.limit.is_some()
             || !modifiers.diagnostics.is_empty()
             || !modifiers.exploration.is_empty()
-            || modifiers.materialize)
+            || modifiers.materialize
+            || modifiers.projection.is_some()
+            || modifiers.as_of.is_some()
+            || modifiers.history
+            || modifiers.clock_now.is_some()
+            || !modifiers.temporal_expressions.is_empty())
     {
         return Err(Error::Invalid("execution controls are root-only".into()));
     }
@@ -277,17 +305,6 @@ fn compile_expression(
         },
         ..Default::default()
     };
-    for domain in modifiers.domains {
-        node.targets.push(match domain.as_str() {
-            "memory" => QueryTarget::Memory,
-            "schema" => QueryTarget::Schema,
-            "episode" => QueryTarget::Episode,
-            "journal" => QueryTarget::Journal,
-            "evidence" => QueryTarget::Evidence,
-            "resource" => QueryTarget::Resource,
-            _ => return Err(Error::Invalid("unsupported cognitive query domain".into())),
-        });
-    }
     for cue in expression.cues {
         append_cue(&mut node, cue)?;
     }
@@ -498,6 +515,7 @@ pub(super) fn inspect_bound_query(bound: &nous_runtime::BoundQuery) -> Result<St
     serde_json::to_string(&serde_json::json!({
         "prepared_query":bound.source_query, "query_id":bound.query_id,
         "representation":bound.representation, "current_refs":bound.runtime_refs,
+        "temporal_frame":bound.source_query.temporal_frame, "result_projection":bound.source_query.projection,
         "topology_seeds":seeds, "exact_bindings":bound.exact_bindings,
         "profile_id":bound.retrieval_policy.cognitive_profile.id(),
         "profile_source":bound.config_snapshot.source(nous_runtime::COGNITIVE_PROFILE.path()),

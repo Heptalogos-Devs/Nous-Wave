@@ -438,6 +438,8 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
     let query = CognitiveQuery {
         api_version: API_VERSION,
         subject,
+        projection: Default::default(),
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         session: None,

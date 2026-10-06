@@ -83,54 +83,12 @@ fn constraints(parent: &QueryConstraints, child: &QueryConstraints) -> Option<Qu
     Some(result)
 }
 
-fn inherit_targets(parent: &[QueryTarget], child: &[QueryTarget]) -> Option<Vec<QueryTarget>> {
+fn inherit_targets(parent: &[QueryTarget], child: &[QueryTarget]) -> Vec<QueryTarget> {
     if child.is_empty() {
-        return Some(parent.to_vec());
-    }
-    let domains: Vec<_> = parent
-        .iter()
-        .filter(|target| {
-            !matches!(
-                target,
-                QueryTarget::Exact { .. } | QueryTarget::AnyRelevantCognition
-            )
-        })
-        .collect();
-    if domains.is_empty() {
-        return Some(child.to_vec());
-    }
-    let child_domains: Vec<_> = child
-        .iter()
-        .filter(|target| {
-            !matches!(
-                target,
-                QueryTarget::Exact { .. } | QueryTarget::AnyRelevantCognition
-            )
-        })
-        .collect();
-    let scoped_domains = if child_domains.is_empty() {
-        domains
+        parent.to_vec()
     } else {
-        child_domains
-            .into_iter()
-            .filter(|child| {
-                domains
-                    .iter()
-                    .any(|parent| std::mem::discriminant(*parent) == std::mem::discriminant(*child))
-            })
-            .collect()
-    };
-    if scoped_domains.is_empty() {
-        return None;
+        child.to_vec()
     }
-    let mut narrowed: Vec<_> = scoped_domains.into_iter().cloned().collect();
-    narrowed.extend(
-        child
-            .iter()
-            .filter(|target| matches!(target, QueryTarget::Exact { .. }))
-            .cloned(),
-    );
-    Some(narrowed)
 }
 fn better_hit(existing: &CognitiveHit, incoming: &CognitiveHit) -> CognitiveHit {
     if incoming.match_evidence.final_score > existing.match_evidence.final_score {
@@ -153,11 +111,7 @@ fn leaves(
         } else {
             eligible = false;
         }
-        if let Some(targets) = inherit_targets(&parent.targets, &node.targets) {
-            scoped.targets = targets;
-        } else {
-            eligible = false;
-        }
+        scoped.targets = inherit_targets(&parent.targets, &node.targets);
     }
     if node.operation == QueryOperation::Atom {
         scoped.children.clear();
@@ -499,31 +453,6 @@ mod tests {
         let exact = QueryTarget::Exact {
             reference: CognitiveRef::Artifact(ArtifactId::new()),
         };
-        let narrowed =
-            inherit_targets(&[QueryTarget::Memory], std::slice::from_ref(&exact)).unwrap();
-        assert!(
-            narrowed
-                .iter()
-                .any(|target| matches!(target, QueryTarget::Memory))
-        );
-        assert!(inherit_targets(&[QueryTarget::Memory], &[QueryTarget::Evidence, exact]).is_none());
-        let narrowed = inherit_targets(
-            &[
-                QueryTarget::Memory,
-                QueryTarget::Schema,
-                QueryTarget::Episode,
-                QueryTarget::Journal,
-            ],
-            &[QueryTarget::Schema, QueryTarget::Journal],
-        )
-        .unwrap();
-        assert_eq!(
-            narrowed
-                .iter()
-                .filter_map(QueryTarget::domain_name)
-                .collect::<Vec<_>>(),
-            vec!["schema", "journal"]
-        );
-        assert!(inherit_targets(&[QueryTarget::Episode], &[QueryTarget::Journal]).is_none());
+        assert_eq!(inherit_targets(&[], std::slice::from_ref(&exact)).len(), 1);
     }
 }
