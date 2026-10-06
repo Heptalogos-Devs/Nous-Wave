@@ -158,3 +158,12 @@ Runner 通过真实配置角色和 canonical Structured Output 生成一次 prop
 ## 小型认知功能验证
 
 [手工功能语料](../docs/research/corpus/functional/README.md)和[六项 text-only 选择](../docs/research/corpus/text-compatibility-selection.json)定义本轮范围。功能 runner 通过 public Client 连接已经运行的 Core，不负责数据库、Kernel、clock、embedding cache 或 Serving lifecycle。结果写入 ignored `data/research/`。全量外部 benchmark、付费 rerank/provider 比较与 RAGFlow 不在本轮执行。
+
+
+### 小型认知功能验证
+
+`corepack pnpm research:cognitive-functional --run-root <现有 Core 的 RunRoot> --profiles baseline-rrf,nous-node-potential-v1,vcp-dtsc-v9.2.1-adapter-v1,vcp-rivermemo-v3.1-adapter-v1` 使用 official Client，不启动 PostgreSQL、Kernel 或 Core。它先提交三个手工场景，明确 grant maintenance，检查实际 Tag/Association/identity 形成结果，再 prepare/query；每个 profile 的 semantic representation 必须一致。JSON 输出在 ignored `data/research/cognitive-functional/`。
+
+`--compat-input <本地 raw source JSON>` 可附加六项 selected text-only smoke。该输入仅含 manifest 指定的 source pools，源码 text 必须通过对应 SHA256；query 只有原问题、Memory domain 和 `textOnlyCompatibility=true`，不注入 Entity/Tag/WorkContext。完整来源不进入 tracked corpus。
+
+本地 automatic smoke 使用现有 `longitudinal_smoke` Core/Kernel fixture，`NOUS_FUNCTIONAL_SMOKE=1 cargo test -p nous-kernel --test longitudinal_smoke -- --nocapture` 开启 deterministic model 与 embedding provider，外部 provider/rerank calls 为零。fake vectors 用于验证线路与资产复用，不能说明语义排名质量或算法优胜。一般 public runner 会使用所连接实例的模型配置；自动验收连接 deterministic fixture。

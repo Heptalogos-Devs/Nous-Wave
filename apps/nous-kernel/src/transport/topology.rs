@@ -84,7 +84,7 @@ impl KernelService {
             .split_tag(
                 SubjectId(id(&input.subject_id)?),
                 nous_memory::SplitTagInput {
-                    producer: None,
+                    producer: input.producer.map(from_producer).transpose()?,
                     operation_id: OperationId(id(&input.operation_id)?),
                     parent: tag_target(required(input.parent, "parent")?)?,
                     children: input.children.into_iter().map(tag_content).collect(),
@@ -190,7 +190,7 @@ impl KernelService {
             .require_memory()?
             .create_association(
                 CreateAssociationRequest {
-                    producer: None,
+                    producer: input.producer.map(from_producer).transpose()?,
                     operation_id: OperationId(id(&input.operation_id)?),
                     from: from.clone(),
                     to: to.clone(),

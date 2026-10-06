@@ -76,6 +76,9 @@ impl MemoryService {
                 );
             }
         }
+        let nearby = self
+            .concept_aboutness_neighbors(subject, &focus, &entities, &text)
+            .await?;
         let mut references = BTreeMap::from([("c0".into(), focus.clone())]);
         let neighborhood = self
             .association_neighborhood(subject, focus.clone(), 16, 1)
@@ -104,7 +107,13 @@ impl MemoryService {
         let mut cognition = vec![
             serde_json::json!({"key":"c0","kind":reference_parts(&focus).0,"epoch":epoch,"text":text,"exactSupportKey":"s0","context":focus_context,"distinctRoots":distinct_roots}),
         ];
-        for reference in neighborhood.nodes.iter().filter(|r| *r != &focus).take(8) {
+        let mut neighbors = neighborhood.nodes.clone();
+        for reference in nearby {
+            if !neighbors.contains(&reference) {
+                neighbors.push(reference);
+            }
+        }
+        for reference in neighbors.iter().filter(|r| *r != &focus).take(8) {
             if !matches!(
                 reference,
                 CognitiveRef::MemoryRevision(_)
@@ -250,6 +259,23 @@ impl MemoryService {
             supports,
             model_input,
         })
+    }
+    async fn concept_aboutness_neighbors(
+        &self,
+        subject: SubjectId,
+        focus: &CognitiveRef,
+        entities: &[EntityRef],
+        text: &str,
+    ) -> Result<Vec<CognitiveRef>> {
+        if entities.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows:Vec<Uuid>=sqlx::query_scalar("SELECT r.memory_revision_id FROM memory_objects o JOIN memory_revisions r ON r.memory_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' AND r.memory_revision_id::text<>$2 AND EXISTS(SELECT 1 FROM memory_revision_aboutness a WHERE a.memory_revision_id=r.memory_revision_id AND a.entity_ref=ANY($3::text[])) ORDER BY ts_rank_cd(to_tsvector('simple',r.representation_text),to_tsquery('simple',replace(plainto_tsquery('simple',$4)::text,' & ',' | '))) DESC,r.recorded_at DESC,r.memory_revision_id LIMIT 8")
+            .bind(subject.0).bind(reference_parts(focus).1).bind(entities.iter().map(|entity|entity.as_str()).collect::<Vec<_>>()).bind(text).fetch_all(self.store.pool()).await.map_err(db)?;
+        Ok(rows
+            .into_iter()
+            .map(|id| CognitiveRef::MemoryRevision(MemoryRevisionId(id)))
+            .collect())
     }
     async fn concept_tag_candidates(
         &self,

@@ -16,17 +16,27 @@ import {
 } from "../../apps/nous-core/src/model/schemas/longitudinal.js";
 import { consolidationSchema } from "../../apps/nous-core/src/model/schemas/consolidation.js";
 
+import {
+  runCognitiveFunctional,
+  runSelectedTextCompatibility,
+} from "../research/cognitive-functional.js";
+import { conceptMaintenanceSchema } from "../../apps/nous-core/src/model/schemas/concept-maintenance.js";
+
 function proposalModels() {
   const models = new ModelRuntime();
+  let functional = false;
   Object.defineProperty(models.invocations, "capabilities", {
     get: () =>
-      ["episode_segmentation", "journal_synthesis", "memory_consolidation"].map(
-        (role) => ({
-          name: `model.${role}`,
-          state: "READY",
-          detail: "Executable smoke proposal adapter",
-        }),
-      ),
+      [
+        "episode_segmentation",
+        "journal_synthesis",
+        "memory_consolidation",
+        ...(functional ? ["memory_formation", "concept_maintenance"] : []),
+      ].map((role) => ({
+        name: `model.${role}`,
+        state: "READY",
+        detail: "Executable smoke proposal adapter",
+      })),
   });
   const calls = { episode: 0, journal: 0, consolidation: 0 };
   models.invocations.snapshot = (role) => ({
@@ -130,7 +140,184 @@ function proposalModels() {
         ];
     return { value: consolidationSchema.parse({ actions }), producerMetadata };
   };
-  return { models, calls };
+  const enableFunctional = () => {
+    functional = true;
+    Object.defineProperty(models, "embeddingModel", {
+      get: () => "deterministic-test",
+    });
+    models.invocations.embeddingBatch = async (texts) => ({
+      value: texts.map(() => [1, 0]),
+      producerMetadata,
+    });
+    models.form = async (input) => {
+      const source = JSON.parse(input) as { evidenceText: string };
+      return {
+        text: source.evidenceText,
+        semanticRole: "reported_fact",
+        title: null,
+        selectedEntityKeys: [],
+        producerMetadata,
+      };
+    };
+    models.consolidate = async () => ({
+      value: consolidationSchema.parse({
+        actions: [
+          {
+            action: "skip",
+            reason: "Explicit memories already retain the bounded facts",
+          },
+        ],
+      }),
+      producerMetadata,
+    });
+    models.segmentEpisode = async (input) => {
+      const source = plan(input);
+      return {
+        value: episodePartitionSchema.parse({
+          action: "partition",
+          segments: [
+            {
+              memberKeys: source.members.map((member) => member.key),
+              title: "Observed work session",
+              boundaryExplanation:
+                "The closed session delimits these observations",
+            },
+          ],
+        }),
+        producerMetadata,
+      };
+    };
+    models.synthesizeJournal = async () => ({
+      value: journalSynthesisSchema.parse({ action: "no_change" }),
+      producerMetadata,
+    });
+    models.maintainConcepts = async (input) => {
+      const source = JSON.parse(input) as {
+        cognition: { key: string; text: string; exactSupportKey: string }[];
+        tags: { key: string; content: { label: string } }[];
+      };
+      const focus = source.cognition[0]!;
+      const text = focus.text.toLowerCase();
+      let label: string | undefined;
+      if (text.includes("warm-start readiness")) label = "warm-start readiness";
+      else if (text.includes("paired-light check"))
+        label = "paired-light check";
+      else if (
+        text.includes("double-lamp gate") ||
+        text.includes("audit recorded both signatures")
+      )
+        label = "double-lamp gate";
+      else if (
+        /breakfast|morning/.test(text) &&
+        /journal|morning routine/.test(text) &&
+        !text.includes("did not adopt")
+      )
+        label = "breakfast journal routine";
+      else if (
+        /consumer lease|reader lease|reader-lease|retire the old snapshot|leases for|retire first|retirement.*reclaim|lease-before-reclaim|preserved active consumers/i.test(
+          text,
+        )
+      )
+        label = "consumer lease reclamation";
+      const relationRules: [RegExp, RegExp][] = [
+        [
+          /missed setting to the single-person checklist/,
+          /private term double-lamp gate/,
+        ],
+        [/private term double-lamp gate/, /next tide release/],
+        [/second block|old backing/, /retired snapshots remain/],
+        [/retired snapshots remain/, /retire the old snapshot/],
+        [/retire the old snapshot/, /used the analogy to separate/],
+        [/used the analogy to separate/, /implemented consumer leases/],
+      ];
+      const extra = relationRules.flatMap(([from, to]) =>
+        from.test(text)
+          ? source.cognition
+              .filter(
+                (candidate) =>
+                  candidate.key !== focus.key &&
+                  to.test(candidate.text.toLowerCase()),
+              )
+              .slice(0, 1)
+              .map((candidate) => ({
+                action: "create_association",
+                fromKey: focus.key,
+                toKey: candidate.key,
+                relation: "assoc.related",
+                supportKeys: [focus.exactSupportKey, candidate.exactSupportKey],
+                reason:
+                  "The supplied cognition describes the mechanism or remedy for this focus",
+              }))
+          : [],
+      );
+      if (!label)
+        return {
+          value: conceptMaintenanceSchema.parse({
+            actions: extra.length ? extra : [{ action: "no_change" }],
+          }),
+          producerMetadata,
+        };
+      const tag = source.tags.find(
+        (candidate) => candidate.content.label === label,
+      );
+      const supportKeys = [focus.exactSupportKey];
+      const attach = {
+        action: "attach_tag",
+        cognitionKey: focus.key,
+        tagKey: tag?.key ?? "new_concept",
+        supportKeys,
+        reason: "The accepted focus expresses this durable concept",
+      };
+      const description =
+        label === "double-lamp gate" || label === "paired-light check"
+          ? "Tide deployment approval requires two independent reviewer signatures recorded on a checklist"
+          : label === "consumer lease reclamation"
+            ? "Snapshot readers and build cache consumers retain leases until retired assets can be safely reclaimed after release"
+            : label === "breakfast journal routine"
+              ? "Aya writes the field journal after breakfast in the morning instead of late at night"
+              : "Service warm-start readiness requires a successful health probe";
+      const actions = tag
+        ? [attach]
+        : [
+            {
+              action: "create_tag",
+              key: "new_concept",
+              cognitionKeys: [focus.key],
+              content: { label, description, kind_hint: "practice" },
+              supportKeys,
+              reason: "The focus expresses a useful continuing practice",
+            },
+            attach,
+          ];
+      const gate = source.tags.find(
+        (candidate) => candidate.content.label === "double-lamp gate",
+      );
+      const alias = source.tags.find(
+        (candidate) => candidate.content.label === "paired-light check",
+      );
+      const orderedActions =
+        text.includes("alias") && gate
+          ? [
+              ...(!alias ? [actions[0]!] : []),
+              {
+                action: "merge_tags",
+                survivorKey: gate.key,
+                retiredKeys: [alias?.key ?? "new_concept"],
+                supportKeys,
+                reason: "The focus explicitly identifies equivalent names",
+              },
+              { ...attach, tagKey: gate.key },
+            ]
+          : actions;
+      return {
+        value: conceptMaintenanceSchema.parse({
+          actions: [...orderedActions, ...extra].slice(0, 4),
+        }),
+        producerMetadata,
+      };
+    };
+  };
+  return { models, calls, enableFunctional };
 }
 
 async function scenario(endpoint: string, token: string) {
@@ -142,7 +329,7 @@ async function scenario(endpoint: string, token: string) {
     assert(!response.done, "harness control closed");
     return JSON.parse(response.value) as { endpoint?: string };
   };
-  const { models, calls } = proposalModels();
+  const { models, calls, enableFunctional } = proposalModels();
   let app = await createCore({
     kernel: KernelClient.connect(endpoint, token),
     token,
@@ -349,6 +536,59 @@ async function scenario(endpoint: string, token: string) {
     await maintain();
     assert.deepEqual(calls, before);
     console.error("Longitudinal smoke passed");
+    if (process.env.NOUS_FUNCTIONAL_SMOKE === "1") {
+      enableFunctional();
+      const results = await runCognitiveFunctional(
+        client,
+        [
+          "baseline-rrf",
+          "nous-node-potential-v1",
+          "vcp-dtsc-v9.2.1-adapter-v1",
+          "vcp-rivermemo-v3.1-adapter-v1",
+        ],
+        "data/research/cognitive-functional/deterministic-smoke.json",
+      );
+      const failed = results.filter(
+        (result) =>
+          result.stage === "formation" &&
+          Array.isArray(result.failures) &&
+          result.failures.length > 0,
+      );
+      console.error(
+        JSON.stringify({
+          functionalFormationFailures: failed.map((result) => ({
+            scenario: result.scenario,
+            failures: result.failures,
+          })),
+        }),
+      );
+      assert.equal(failed.length, 0, "Functional formation contracts");
+      const compatibility = await runSelectedTextCompatibility(
+        client,
+        "data/research/recovery/text-compatibility-input.json",
+        "data/research/cognitive-functional/selected-text-smoke.json",
+      );
+      assert.equal(compatibility.length, 6);
+      for (const item of compatibility) {
+        assert(
+          item.ranks.every((source) => source.rank > 0),
+          `Selected required source omitted: ${item.key}`,
+        );
+        assert(
+          item.ranks.some((source) => source.rank === 1),
+          `Selected first relevant source regressed: ${item.key}`,
+        );
+      }
+
+      console.error(
+        JSON.stringify({
+          selectedCompatibility: compatibility.map((item) => ({
+            key: item.key,
+            ranks: item.ranks,
+          })),
+        }),
+      );
+    }
   } finally {
     await app.close();
     channel.close();

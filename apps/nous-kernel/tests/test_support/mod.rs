@@ -293,3 +293,47 @@ pub(crate) fn form_input(
         epistemic_class: EpistemicClass::Observed,
     }
 }
+
+pub(crate) struct LongitudinalEmbedding;
+
+#[async_trait::async_trait]
+impl nous_retrieval::TextEmbeddingProvider for LongitudinalEmbedding {
+    fn space(&self) -> nous_core::EmbeddingSpaceSignature {
+        nous_core::EmbeddingSpaceSignature {
+            space_hash: "longitudinal-test-space".into(),
+            model_identity: "deterministic-test".into(),
+            weights_revision: "1".into(),
+            task: "text".into(),
+            input_representation: "text".into(),
+            preprocessing_identity: "identity".into(),
+            preprocessing_revision: "1".into(),
+            dimension: 2,
+            normalization: "l2".into(),
+            output_semantics: "test-vector".into(),
+        }
+    }
+    fn producer(&self) -> nous_core::ProducerSignature {
+        nous_core::ProducerSignature {
+            signature_hash: "longitudinal-test-producer".into(),
+            provider_class: "test".into(),
+            operation: nous_core::CapabilityOperation::TextEmbedding,
+            implementation: "test".into(),
+            model_identity: Some("deterministic-test".into()),
+            model_revision: Some("1".into()),
+            output_schema_digest: None,
+            preprocessing_identity: "identity".into(),
+            preprocessing_revision: "1".into(),
+            config_digest: "test".into(),
+        }
+    }
+    async fn embed(
+        &self,
+        _request: nous_retrieval::TextEmbeddingRequest,
+    ) -> nous_core::Result<nous_retrieval::TextEmbeddingOutput> {
+        Ok(nous_retrieval::TextEmbeddingOutput {
+            vector: vec![1.0, 0.0],
+            space: self.space(),
+            producer: self.producer(),
+        })
+    }
+}

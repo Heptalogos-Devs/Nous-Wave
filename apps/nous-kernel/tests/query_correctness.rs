@@ -2841,3 +2841,121 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
             .is_empty()
     );
 }
+
+#[tokio::test]
+async fn subject_profiles_change_new_queries_and_preserve_inflight_preparation() {
+    use nous_runtime::{COGNITIVE_PROFILE, CognitiveProfile};
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime_with_serving(&url, &root, true, false, true).await;
+    let mut subjects = Vec::new();
+    for _ in 0..2 {
+        subjects.push(
+            runtime
+                .subjects
+                .create_subject(CreateSubject {
+                    subject_id: None,
+                    operation_id: OperationId::new(),
+                    cognitive_seed: CognitiveSeedInput {
+                        text: "schema_version = 1".into(),
+                        format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
+                        provenance: serde_json::json!({}),
+                    },
+                    metadata: serde_json::json!({}),
+                    capabilities: None,
+                })
+                .await
+                .unwrap()
+                .subject_id,
+        );
+    }
+    runtime
+        .configuration
+        .set_subject_override(
+            OperationId::new(),
+            subjects[0],
+            COGNITIVE_PROFILE.path(),
+            serde_json::json!("baseline-rrf"),
+        )
+        .await
+        .unwrap();
+    runtime
+        .configuration
+        .set_subject_override(
+            OperationId::new(),
+            subjects[1],
+            COGNITIVE_PROFILE.path(),
+            serde_json::json!("vcp-rivermemo-v3.1-adapter-v1"),
+        )
+        .await
+        .unwrap();
+    let prepared_query = |subject| {
+        let mut q = query(subject);
+        q.expression.cues.push(Cue::Text(TextCue {
+            text: "A closed semantic intent".into(),
+        }));
+        q.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+        q
+    };
+    let frozen = runtime
+        .cognition
+        .bind_query(prepared_query(subjects[0]))
+        .await
+        .unwrap();
+    let second = runtime
+        .cognition
+        .bind_query(prepared_query(subjects[1]))
+        .await
+        .unwrap();
+    assert_eq!(
+        frozen.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::BaselineRrf
+    );
+    assert_eq!(
+        second.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::VcpRiverMemo
+    );
+    runtime
+        .configuration
+        .set_subject_override(
+            OperationId::new(),
+            subjects[0],
+            COGNITIVE_PROFILE.path(),
+            serde_json::json!("nous-node-potential-v1"),
+        )
+        .await
+        .unwrap();
+    let changed = runtime
+        .cognition
+        .bind_query(prepared_query(subjects[0]))
+        .await
+        .unwrap();
+    let unchanged = runtime
+        .cognition
+        .bind_query(prepared_query(subjects[1]))
+        .await
+        .unwrap();
+    assert_eq!(
+        changed.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::NousNodePotential
+    );
+    assert_eq!(
+        unchanged.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::VcpRiverMemo
+    );
+    assert_eq!(
+        frozen.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::BaselineRrf
+    );
+    assert_eq!(frozen.representation.text, changed.representation.text);
+    assert_ne!(
+        frozen
+            .config_snapshot
+            .digest_for(&[COGNITIVE_PROFILE.path()])
+            .unwrap(),
+        changed
+            .config_snapshot
+            .digest_for(&[COGNITIVE_PROFILE.path()])
+            .unwrap()
+    );
+    assert_ne!(frozen.enabled_lanes, changed.enabled_lanes);
+}

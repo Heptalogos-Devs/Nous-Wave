@@ -64,7 +64,7 @@ pub(super) fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Re
         "Fixed cognitive lane profile selected before candidate generation.",
         CognitiveProfile::default(),
         ConfigExposure::Developer,
-        ConfigScopePolicy::SystemOnly,
+        ConfigScopePolicy::SubjectOverrideAllowed,
         ConfigApplyMode::Live,
         ConfigSemanticEffect::QueryPolicy,
         |_: &CognitiveProfile| Ok(()),

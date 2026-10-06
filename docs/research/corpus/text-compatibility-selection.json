@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "suite": "selected-text-compatibility-v1",
-  "status": "selected_raw_text_retrieval_verified",
+  "status": "selected_raw_text_baseline_compatibility_verified",
   "scope": "Six retrieval-only raw-text questions over deliberately small frozen source pools; not full-suite or paper accuracy. No oracle/context/tag/association injection into queries.",
   "cases": [
     {
@@ -27,7 +27,10 @@
           "sha256": "861bb38ac22e31de8377d6adfef5691467110a493c7402604cbaed39d8b7e865"
         }
       ],
-      "required_sources": ["lme-e47becba-s52-t5", "lme-e47becba-s52-t6"],
+      "required_sources": [
+        "lme-e47becba-s52-t5",
+        "lme-e47becba-s52-t6"
+      ],
       "review": "Original question and official source turns manually read; nearby turns retained as distractors. Annotation is grading only."
     },
     {
@@ -48,7 +51,10 @@
           "sha256": "5651839d950de6902b716eb493449d297c20453abecde5f88be1b257dd8c6ec2"
         }
       ],
-      "required_sources": ["lme-6a1eabeb-s20-t5", "lme-6a1eabeb-s40-t1"],
+      "required_sources": [
+        "lme-6a1eabeb-s20-t5",
+        "lme-6a1eabeb-s40-t1"
+      ],
       "review": "Original question and official source turns manually read; nearby turns retained as distractors. Annotation is grading only."
     },
     {
@@ -74,7 +80,9 @@
           "sha256": "d8b96c6778c4338050a205e30f6b83df4ace14d055715f1fe8b5648c181edcd1"
         }
       ],
-      "required_sources": ["loc-conv-26-D1:3"],
+      "required_sources": [
+        "loc-conv-26-D1:3"
+      ],
       "review": "Original question and official source turns manually read; nearby turns retained as distractors. Annotation is grading only."
     },
     {
@@ -100,7 +108,9 @@
           "sha256": "366d97b450e0a73d45d0785a1136b4eee23a6dbbd0a1e21827e747496465da96"
         }
       ],
-      "required_sources": ["loc-conv-26-D2:2"],
+      "required_sources": [
+        "loc-conv-26-D2:2"
+      ],
       "review": "Original question and official source turns manually read; nearby turns retained as distractors. Annotation is grading only."
     },
     {
@@ -121,7 +131,9 @@
           "sha256": "4b51f1d9f850552537f0de69bbb8e24ca4b4cae949f127056e6042dc6b52999e"
         }
       ],
-      "required_sources": ["python-3-5-u0021"],
+      "required_sources": [
+        "python-3-5-u0021"
+      ],
       "review": "Frozen Python 3.5 official source paragraphs manually read; both target and neighbouring-topic distractor retained."
     },
     {
@@ -142,37 +154,26 @@
           "sha256": "4b51f1d9f850552537f0de69bbb8e24ca4b4cae949f127056e6042dc6b52999e"
         }
       ],
-      "required_sources": ["python-3-5-u0083"],
+      "required_sources": [
+        "python-3-5-u0083"
+      ],
       "review": "Frozen Python 3.5 official source paragraphs manually read; both target and neighbouring-topic distractor retained."
     }
   ],
   "execution": {
-    "resultSha256": "3b8a3aad190d36ff7194d883d6f0487bfc6afa5b99e3d7f6912fa94f7178e6c9",
-    "run": "text-compatibility-v1/text-semantic-1",
-    "sourceFormation": "13 unmodified raw source texts, controlled grounded Memory through official SDK, direct occurrence support; no formation models",
-    "queryContract": "Original question only, text_only_compatibility=true, Memory domain; no oracle/entity/tag/work-context cues; current research as_of 2026-09-16T19:00:00Z, original source dates preserved",
-    "cache": {
-      "uniqueVectors": 19,
-      "providerCalls": 2,
-      "newEmbeddingItems": 19,
-      "rerankCalls": 0
-    },
-    "algorithmReadout": {
-      "queries": 6,
-      "profiles": [
-        "baseline-rrf",
-        "nous-node-potential-v1",
-        "vcp-dtsc-v9.2.1-adapter-v1",
-        "vcp-rivermemo-v3.1-adapter-v1"
-      ],
-      "completedArms": 24,
-      "firstRelevantSourceRank": 1,
-      "providerCalls": 0,
-      "newEmbeddingItems": 0,
-      "rerankCalls": 0,
-      "newServingGenerations": 6,
-      "netArtifactBytes": 821487
-    },
-    "review": "Codex manually read the six Native top-1 source texts against original questions: Business Administration; updated 25:50; LGBTQ yesterday; mental health; PEP 492 objects/structures; typing. Four profiles returned identical source order. No observed regression in these selected small pools. Retrieval-only; no answer-generation, full-suite or historical-time accuracy claim."
+    "run": "cognitive-functional/selected-text-smoke",
+    "command": "NOUS_FUNCTIONAL_SMOKE=1 cargo test -p nous-kernel --test longitudinal_smoke -- --nocapture",
+    "sourceFormation": "13 original checksum-verified raw texts, controlled grounded Memory through official public Client, direct occurrence support; no formation model",
+    "queryContract": "Original question only, text_only_compatibility=true, Memory domain; no Entity/Tag/WorkContext/oracle input",
+    "profiles": [
+      "baseline-rrf"
+    ],
+    "queries": 6,
+    "firstRelevantSourceRank": 1,
+    "allRequiredSourcesReturned": true,
+    "externalProviderCalls": 0,
+    "embeddingCalls": 0,
+    "rerankCalls": 0,
+    "review": "Current deterministic Core/Kernel smoke verifies six selected small pools only. No full benchmark or answer-generation accuracy claim."
   }
 }
