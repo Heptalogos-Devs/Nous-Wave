@@ -193,7 +193,7 @@ CREATE TABLE purged_use_receipts (
 CREATE TABLE serving_generations (
     generation_id uuid PRIMARY KEY,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
-    family text NOT NULL CHECK (family IN ('exact','lexical','dense','topology')),
+    family text NOT NULL CHECK (family IN ('exact','lexical','dense','concept','topology')),
     space_signature text NULL,
     authority_watermark bigint NOT NULL,
     implementation_id text NOT NULL,

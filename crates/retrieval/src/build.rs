@@ -30,6 +30,10 @@ impl ServingService {
                 self.build_topology(subject, id, staging.path(), snapshot, capabilities)
                     .await?
             }
+            "concept" => {
+                self.build_concept(subject, id, space, staging.path())
+                    .await?
+            }
             "dense" => {
                 self.build_dense(subject, id, space, staging.path(), capabilities, snapshot)
                     .await?
@@ -301,15 +305,39 @@ impl ServingService {
             .map(|source| (source.reference.clone(), source.source_region))
             .collect();
         let documents = self.documents(input.sources, budget).await?;
+        let serving = self.publisher.snapshot_for(subject);
+        let concepts = serving.concept.iter().find(|generation| {
+            generation
+                .space
+                .as_ref()
+                .is_some_and(|s| s.compatible_with(&space))
+                && generation
+                    .producer
+                    .as_ref()
+                    .is_some_and(|p| p.signature_hash == provider.producer().signature_hash)
+        });
         let mut vectors = Vec::new();
         for document in documents {
-            let output = provider
-                .embed(TextEmbeddingRequest {
-                    subject,
-                    text: document.representation_text,
-                    query: false,
-                })
-                .await?;
+            let output = if let CognitiveRef::Tag(tag) = document.reference {
+                let Some(vector) = concepts.and_then(|generation| {
+                    generation.semantic_vector(tag, &document.representation_text)
+                }) else {
+                    continue;
+                };
+                TextEmbeddingOutput {
+                    vector,
+                    space: space.clone(),
+                    producer: provider.producer(),
+                }
+            } else {
+                provider
+                    .embed(TextEmbeddingRequest {
+                        subject,
+                        text: document.representation_text,
+                        query: false,
+                    })
+                    .await?
+            };
             if !output.space.compatible_with(&space)
                 || output.producer.signature_hash != provider.producer().signature_hash
             {
@@ -382,6 +410,7 @@ pub(crate) fn implementation(family: &str) -> &'static str {
         "dense" => "usearch",
         "topology" => "cognitive-profile-assets",
         "exact" => "roaring-postings",
+        "concept" => "shared-semantic-concepts",
         _ => "unknown",
     }
 }
@@ -392,8 +421,8 @@ fn is_text(media: &str) -> bool {
 
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
-        "lexical" | "dense" | "exact" => 4,
-        "topology" => 9,
+        "lexical" | "dense" | "exact" => 5,
+        "topology" => 10,
         _ => 1,
     }
 }

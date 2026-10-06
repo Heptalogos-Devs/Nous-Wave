@@ -33,14 +33,15 @@ impl ServingService {
                 .push("VCP requires an available permitted shared query embedding".into());
             return Ok(output);
         };
-        let observation = match VcpQueryObservation::prepare(generation, bound, plan, embedding) {
-            Ok(observation) => observation,
-            Err(Error::Unavailable(detail)) => {
-                output.diagnostics.push(detail);
-                return Ok(output);
-            }
-            Err(error) => return Err(error),
-        };
+        let observation =
+            match VcpQueryObservation::prepare(generation, bound, plan, embedding, Some(signals)) {
+                Ok(observation) => observation,
+                Err(Error::Unavailable(detail)) => {
+                    output.diagnostics.push(detail);
+                    return Ok(output);
+                }
+                Err(error) => return Err(error),
+            };
         let policy = bound.config_snapshot.get(VCP_READOUT)?;
         policy.validate()?;
         let offered = offered_candidates(generation, &observation, bound, plan, signals, &policy)?;
@@ -255,8 +256,8 @@ fn offered_candidates(
             )?;
         }
     }
-    for binding in &bound.exact_bindings {
-        add(&binding.bound_ref, 1.0, 0.0, 1.0)?;
+    for reference in &bound.activation.exact_refs {
+        add(reference, 1.0, 0.0, 1.0)?;
     }
     let mut offered = offered.into_values().collect::<Vec<_>>();
     offered.sort_by(|a, b| {
@@ -279,7 +280,7 @@ fn work_summary(
         profile_digest: plan.cognitive_profile.digest(),
         activated_edges: sense.edges.len(),
         max_hop_observed: sense.nodes.iter().map(|node| node.hop).max().unwrap_or(0),
-        seed_count: observation.numerical().gating.tags.len(),
+        seed_count: observation.seed_ids().len(),
         visited_nodes: sense.nodes.len(),
         complete,
         discarded_mass: None,

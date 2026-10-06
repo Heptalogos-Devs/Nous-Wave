@@ -1484,6 +1484,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         &reference_bound,
         &reference_plan,
         &query_embedding,
+        None,
     )
     .unwrap();
     assert_eq!(observation.original_vector(), &[1.0, 0.0, 0.0]);
@@ -1507,7 +1508,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             graph,
             &reference_bound,
             &insufficient_plan,
-            &query_embedding
+            &query_embedding,
+            None
         )
         .is_err()
     );
@@ -1518,7 +1520,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             graph,
             &reference_bound,
             &reference_plan,
-            &wrong_embedding
+            &wrong_embedding,
+            None
         )
         .is_err()
     );
@@ -1530,7 +1533,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             graph,
             &forbidden_bound,
             &reference_plan,
-            &query_embedding
+            &query_embedding,
+            None
         )
         .is_err()
     );
@@ -1694,6 +1698,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
                 dense: false,
                 topology: true,
                 concept: false,
+                concept_vectors: true,
             },
             &changed_snapshot,
         )
@@ -1709,7 +1714,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             assets,
             &reference_bound,
             &reference_plan,
-            &query_embedding
+            &query_embedding,
+            None
         )
         .is_err()
     );
@@ -1899,6 +1905,7 @@ async fn check_vcp_native_switch_freshness(
         dense: false,
         topology: true,
         concept: false,
+        concept_vectors: true,
     };
     let mut visited = std::collections::HashSet::new();
     for index in 0..100 {
@@ -2000,6 +2007,7 @@ async fn check_generation_reclamation(
             nous_core::ServingNeed {
                 topology: true,
                 concept: false,
+                concept_vectors: true,
                 ..Default::default()
             },
         )
@@ -2094,8 +2102,20 @@ async fn check_vcp_nonempty_observation(
         .expression
         .cues
         .push(nous_core::Cue::Tag(nous_core::TagCue { tag: a }));
+    bound.activation = nous_runtime::QueryActivation::prepared(
+        &bound.source_query,
+        bound.representation.sha256.clone(),
+        bound
+            .exact_bindings
+            .iter()
+            .map(|binding| binding.bound_ref.clone())
+            .collect(),
+        bound.runtime_refs.clone(),
+        &bound.topology_seed_refs,
+    );
     let observation =
-        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding).unwrap();
+        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding, None)
+            .unwrap();
     assert_eq!(
         observation.core_tag_ids(),
         &[generation.identities.id(&tag_a).unwrap()]
@@ -2135,6 +2155,7 @@ async fn check_vcp_nonempty_observation(
                 dense: false,
                 topology: true,
                 concept: false,
+                concept_vectors: true,
             },
             &changed_snapshot,
         )
@@ -2154,7 +2175,8 @@ async fn check_vcp_nonempty_observation(
     );
     bound.config_snapshot = changed_snapshot;
     let changed =
-        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding).unwrap();
+        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding, None)
+            .unwrap();
     assert_eq!(changed.policy().sense.fir_gamma, 0.9);
     assert_ne!(
         changed.config_subset_digest(),

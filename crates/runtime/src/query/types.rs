@@ -12,6 +12,8 @@ use uuid::Uuid;
 /// the enabled lane set or its budgets while it is running.
 #[derive(Debug, Clone)]
 pub struct BoundQuery {
+    pub activation: super::QueryActivation,
+    pub concept_enrichment: super::ConceptEnrichment,
     pub representation: super::QueryRepresentation,
     pub query_id: Uuid,
     pub bound_at: chrono::DateTime<chrono::Utc>,

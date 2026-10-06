@@ -186,6 +186,13 @@ async fn entity_lane(
                 .iter()
                 .map(|value| value.as_str().to_owned()),
         )
+        .chain(query.expression.targets.iter().filter_map(|target| {
+            if let nous_core::QueryTarget::EntityNeighborhood { entity_ref } = target {
+                Some(entity_ref.as_str().to_owned())
+            } else {
+                None
+            }
+        }))
         .collect::<BTreeSet<_>>();
     let values = values.into_iter().collect::<Vec<_>>();
     let mut output = LaneOutput::empty(EvidenceFamily::Entity, LaneStatus::Ready);

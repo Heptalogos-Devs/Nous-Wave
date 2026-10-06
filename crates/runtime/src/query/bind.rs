@@ -51,6 +51,11 @@ fn local_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
         .iter()
         .any(|cue| matches!(cue, Cue::Entity(_)))
         || !query.expression.constraints.entity_requirements.is_empty()
+        || query
+            .expression
+            .targets
+            .iter()
+            .any(|target| matches!(target, QueryTarget::EntityNeighborhood { .. }))
     {
         lanes.push(EvidenceFamily::Entity);
     }
@@ -92,6 +97,24 @@ fn local_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     {
         lanes.push(EvidenceFamily::SchemaDirect);
     }
+    if query.scopes().iter().any(|scope| {
+        scope.cues.iter().any(|cue| matches!(cue, Cue::Tag(_)))
+            || scope.targets.iter().any(|t| {
+                matches!(
+                    t,
+                    QueryTarget::Exact {
+                        reference: CognitiveRef::Tag(_)
+                    }
+                )
+            })
+    }) || query
+        .situation
+        .current_refs
+        .iter()
+        .any(|r| matches!(r, CognitiveRef::Tag(_)))
+    {
+        lanes.push(EvidenceFamily::TagDirect);
+    }
     if explicit_topology(query) {
         lanes.push(EvidenceFamily::TopologyWave);
     }
@@ -107,17 +130,7 @@ pub fn explicit_topology(query: &CognitiveQuery) -> bool {
             | ExplorationIntent::AroundTag
             | ExplorationIntent::AroundSchema
             | ExplorationIntent::ExplainAssociation
-    ) || query
-        .expression
-        .cues
-        .iter()
-        .any(|cue| matches!(cue, Cue::Relation(_)))
-        || query.expression.targets.iter().any(|target| {
-            matches!(
-                target,
-                QueryTarget::EntityNeighborhood { .. } | QueryTarget::SchemaNeighborhood { .. }
-            )
-        })
+    )
 }
 
 fn validate_hard_constraints(query: &CognitiveQuery) -> Result<()> {
@@ -255,34 +268,10 @@ impl CognitiveRuntimeService {
         resolved.dedup();
         Ok((refs, resolved))
     }
-    pub async fn bind_query(&self, query: CognitiveQuery) -> Result<BoundQuery> {
-        let snapshot = self.configuration.snapshot_for_subject(query.subject)?;
-        self.bind_query_with_snapshot(query, snapshot).await
-    }
-    pub async fn bind_query_with_snapshot(
+    async fn bind_structural_query_refs(
         &self,
-        mut query: CognitiveQuery,
-        config_snapshot: nous_configuration::ConfigSnapshot,
-    ) -> Result<BoundQuery> {
-        self.capture_query_clock(&mut query);
-        super::closure::validate_query_input(&query)?;
-        for node in query.scopes() {
-            let mut scoped = query.clone();
-            scoped.expression = node.clone();
-            validate_hard_constraints(&scoped)?;
-        }
-        self.require_subject(query.subject).await?;
-        self.canonicalize_query_tags(&mut query).await?;
-        let retrieval_policy = resolve_retrieval_policy(&config_snapshot)?;
-        if let Some(session) = query.session {
-            self.require_session(query.subject, session).await?;
-        }
-
-        let (work_context, mut representation_sources) = self.query_context(&mut query).await?;
-        let (exact_bindings, allowed_revision_refs) = self.bind_exact_targets(&query).await?;
-        let (runtime_refs, runtime_sources) = self
-            .bind_runtime_sources(query.subject, &representation_sources)
-            .await?;
+        query: &CognitiveQuery,
+    ) -> Result<Vec<(CognitiveRef, String)>> {
         let mut topology_seed_refs = Vec::new();
         for target in query.scopes().into_iter().flat_map(|node| &node.targets) {
             if let QueryTarget::SchemaNeighborhood { schema } = target {
@@ -318,6 +307,38 @@ impl CognitiveRuntimeService {
             }
         }
 
+        Ok(topology_seed_refs)
+    }
+    pub async fn bind_query(&self, query: CognitiveQuery) -> Result<BoundQuery> {
+        let snapshot = self.configuration.snapshot_for_subject(query.subject)?;
+        self.bind_query_with_snapshot(query, snapshot).await
+    }
+    pub async fn bind_query_with_snapshot(
+        &self,
+        mut query: CognitiveQuery,
+        config_snapshot: nous_configuration::ConfigSnapshot,
+    ) -> Result<BoundQuery> {
+        self.capture_query_clock(&mut query);
+        super::closure::validate_query_input(&query)?;
+        for node in query.scopes() {
+            let mut scoped = query.clone();
+            scoped.expression = node.clone();
+            validate_hard_constraints(&scoped)?;
+        }
+        self.require_subject(query.subject).await?;
+        self.canonicalize_query_tags(&mut query).await?;
+        let retrieval_policy = resolve_retrieval_policy(&config_snapshot)?;
+        if let Some(session) = query.session {
+            self.require_session(query.subject, session).await?;
+        }
+
+        let (work_context, mut representation_sources) = self.query_context(&mut query).await?;
+        let (exact_bindings, allowed_revision_refs) = self.bind_exact_targets(&query).await?;
+        let (runtime_refs, runtime_sources) = self
+            .bind_runtime_sources(query.subject, &representation_sources)
+            .await?;
+        let topology_seed_refs = self.bind_structural_query_refs(&query).await?;
+
         let revision_policy = if allowed_revision_refs.is_empty() {
             RevisionPolicy::CurrentOnly
         } else {
@@ -325,7 +346,17 @@ impl CognitiveRuntimeService {
                 allowed_revision_refs,
             }
         };
-        let enabled_lanes = planned_profile_lanes(&query, retrieval_policy.cognitive_profile);
+        let concept_enrichment = if query.text_only_compatibility {
+            super::ConceptEnrichment::Off
+        } else {
+            config_snapshot.get(super::CONCEPT_ENRICHMENT)?
+        };
+        let mut enabled_lanes = planned_profile_lanes(&query, retrieval_policy.cognitive_profile);
+        if concept_enrichment != super::ConceptEnrichment::Off {
+            enabled_lanes.push(EvidenceFamily::TagDirect);
+            enabled_lanes.sort();
+            enabled_lanes.dedup();
+        }
         if enabled_lanes.is_empty() && !query.requests_resources() {
             return Err(Error::Invalid("query has no enabled retrieval lane".into()));
         }
@@ -351,7 +382,16 @@ impl CognitiveRuntimeService {
                 &config_snapshot,
             )
             .await?;
+        let activation = super::QueryActivation::prepared(
+            &query,
+            representation.sha256.clone(),
+            exact_bindings.iter().map(|b| b.bound_ref.clone()).collect(),
+            runtime_refs.clone(),
+            &topology_seed_refs,
+        );
         Ok(BoundQuery {
+            activation,
+            concept_enrichment,
             representation,
             query_id: Uuid::now_v7(),
             bound_at: self.now(query.subject),
@@ -387,6 +427,11 @@ impl BoundQuery {
             .query_override(super::COGNITIVE_PROFILE, profile)?;
         bound.retrieval_policy = resolve_retrieval_policy(&bound.config_snapshot)?;
         bound.enabled_lanes = planned_profile_lanes(&bound.source_query, profile);
+        if bound.concept_enrichment != super::ConceptEnrichment::Off {
+            bound.enabled_lanes.push(EvidenceFamily::TagDirect);
+            bound.enabled_lanes.sort();
+            bound.enabled_lanes.dedup();
+        }
         bound.lane_budgets = budget_values(
             &bound.source_query,
             &bound.enabled_lanes,

@@ -15,6 +15,7 @@ pub(crate) enum OpenArtifact {
     Topology(Arc<WaveGraphGeneration>),
     Vcp(Arc<VcpServingGeneration>),
     Exact(Arc<ExactPostings>),
+    Concept(Arc<ConceptGeneration>),
 }
 
 impl ServingService {
@@ -51,13 +52,16 @@ impl ServingService {
             config["propagation"] = serde_json::to_value(resolve_wave_config(snapshot)?)
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
         }
-        if family == "dense"
+        if matches!(family, "dense" | "concept")
             && let Some(provider) = self.embedding()
         {
             config["space"] = serde_json::to_value(provider.space())
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
             config["producer"] = serde_json::to_value(provider.producer())
                 .map_err(|e| Error::Infrastructure(e.to_string()))?;
+        }
+        if family == "concept" {
+            config["representation_version"] = serde_json::json!(TAG_REPRESENTATION_VERSION);
         }
         let keys: &[&str] = match family {
             "lexical" => &["serving.lexical.enabled", "episode.synopsis"],
@@ -128,28 +132,7 @@ impl ServingService {
         self.store.require_subject(subject).await?;
         let current = self.store.serving_current(subject).await?;
         let reusable = self.store.serving_reusable(subject).await?;
-        let mut requested = Vec::new();
-        if need.exact {
-            requested.push(("exact", String::new()));
-        }
-        if need.lexical && self.options.lexical {
-            requested.push(("lexical", String::new()));
-        }
-        if need.topology && self.options.topology {
-            requested.push(("topology", String::new()));
-        }
-        if need.dense && self.options.dense {
-            if let Some(provider) = self.embedding() {
-                requested.push(("dense", provider.space().space_hash));
-            } else {
-                requested.extend(
-                    current
-                        .iter()
-                        .filter(|record| record.family == "dense")
-                        .map(|record| ("dense", record.space.clone())),
-                );
-            }
-        }
+        let requested = self.requested_families(need, &current);
         let mut result = ProjectionStatus::default();
         for (family, space) in requested {
             let key = if space.is_empty() {
@@ -238,6 +221,46 @@ impl ServingService {
         Ok(result)
     }
 
+    fn requested_families(
+        &self,
+        need: ServingNeed,
+        current: &[ServingRecord],
+    ) -> Vec<(&'static str, String)> {
+        let mut requested = Vec::new();
+        if need.concept || need.topology {
+            let space = if need.concept_vectors {
+                self.embedding()
+                    .map(|p| p.space().space_hash)
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            requested.push(("concept", space));
+        }
+        if need.exact {
+            requested.push(("exact", String::new()));
+        }
+        if need.lexical && self.options.lexical {
+            requested.push(("lexical", String::new()));
+        }
+        if need.topology && self.options.topology {
+            requested.push(("topology", String::new()));
+        }
+        if need.dense && self.options.dense {
+            if let Some(provider) = self.embedding() {
+                requested.push(("dense", provider.space().space_hash));
+            } else {
+                requested.extend(
+                    current
+                        .iter()
+                        .filter(|record| record.family == "dense")
+                        .map(|record| ("dense", record.space.clone())),
+                );
+            }
+        }
+        requested
+    }
+
     async fn reuse_artifact<'a>(
         &self,
         records: &'a [ServingRecord],
@@ -276,6 +299,7 @@ impl ServingService {
                 dense: self.options.dense,
                 topology: self.options.topology,
                 concept: true,
+                concept_vectors: self.embedding().is_some(),
             },
         )
         .await
@@ -342,6 +366,10 @@ impl ServingService {
                 .dense
                 .iter()
                 .any(|index| index.generation_id == record.generation_id),
+            "concept" => snapshot
+                .concept
+                .iter()
+                .any(|generation| generation.generation_id == record.generation_id),
             "exact" => snapshot.postings_generation == Some(record.generation_id),
             _ => false,
         }
@@ -369,6 +397,16 @@ impl ServingService {
                 let mut index = LexicalGeneration::open(path)?;
                 index.generation_id = id;
                 Ok(OpenArtifact::Lexical(Arc::new(index)))
+            }
+            "concept" => {
+                let generation: ConceptGeneration = read_json(&path.join("concept.json"))?;
+                generation.validate()?;
+                if generation.generation_id != id {
+                    return Err(Error::Infrastructure(
+                        "concept generation identity mismatch".into(),
+                    ));
+                }
+                Ok(OpenArtifact::Concept(Arc::new(generation)))
             }
             "exact" => Ok(OpenArtifact::Exact(Arc::new(read_json(
                 &path.join("postings.json"),
@@ -436,6 +474,13 @@ impl ServingService {
                 OpenArtifact::Vcp(assets) => {
                     snapshot.vcp = Some(assets.clone());
                     snapshot.topology = None;
+                }
+                OpenArtifact::Concept(generation) => {
+                    snapshot.concept.retain(|old| {
+                        old.space.as_ref().map(|s| &s.space_hash)
+                            != generation.space.as_ref().map(|s| &s.space_hash)
+                    });
+                    snapshot.concept.push(generation.clone());
                 }
                 OpenArtifact::Dense(index, basis) => {
                     snapshot

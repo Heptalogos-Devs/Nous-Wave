@@ -3,7 +3,7 @@
 
 use crate::observation::NATIVE_MECHANISM_ID;
 use crate::{QueryObservation, ServingSnapshot, SourceSeed};
-use nous_core::{CognitiveRef, Cue, EvidenceFamily};
+use nous_core::EvidenceFamily;
 use nous_runtime::{
     BoundQuery, LaneCandidate, LaneOutput, LaneStatus, QueryPlan, TopologyWorkSummary,
 };
@@ -162,46 +162,19 @@ fn source_seeds(graph: &crate::WaveGraphGeneration, bound: &BoundQuery) -> Vec<S
             .unwrap_or(default)
     };
     let mut seeds = Vec::new();
-    for binding in &bound.exact_bindings {
-        if let Some(node) = graph.node_id(&binding.bound_ref) {
-            seeds.push((node, seed_weight("exact_target", 1.0), "exact_target"));
-        }
-    }
-    for reference in &bound.runtime_refs {
-        if let Some(node) = graph.node_id(reference) {
+    for seed in &bound.activation.seeds {
+        if let Some(node) = graph.node_id(&seed.reference) {
+            let default = match seed.origin.as_str() {
+                "runtime_situation" => 0.85,
+                "entity_cue" => 0.90,
+                "tag_cue" | "semantic_concept_match" => 0.75,
+                _ => 1.0,
+            };
             seeds.push((
                 node,
-                seed_weight("runtime_situation", 0.85),
-                "runtime_situation",
+                seed_weight(&seed.origin, default) * seed.strength,
+                seed.origin.as_str(),
             ));
-        }
-    }
-    for (reference, family) in &bound.topology_seed_refs {
-        if let Some(node) = graph.node_id(reference) {
-            seeds.push((node, seed_weight(family.as_str(), 1.0), family.as_str()));
-        }
-    }
-    for cue in &bound.source_query.expression.cues {
-        let (reference, weight, family) = match cue {
-            Cue::Entity(value) => (
-                CognitiveRef::Entity(value.entity_ref.clone()),
-                seed_weight("entity_cue", 0.90),
-                "entity_cue",
-            ),
-            Cue::Tag(value) => (
-                CognitiveRef::Tag(value.tag),
-                seed_weight("tag_cue", 0.75),
-                "tag_cue",
-            ),
-            Cue::Relation(value) => (
-                value.from.clone(),
-                seed_weight("relation_cue", 1.0),
-                "relation_cue",
-            ),
-            _ => continue,
-        };
-        if let Some(node) = graph.node_id(&reference) {
-            seeds.push((node, weight, family));
         }
     }
     let mut merged = BTreeMap::<(u32, String), SourceSeed>::new();
@@ -258,7 +231,7 @@ fn promoted_seeds(
 mod tests {
     use super::*;
     use crate::{WaveConfig, WaveGraphGeneration, WaveNode, WaveNodeKind};
-    use nous_core::MemoryRevisionId;
+    use nous_core::{CognitiveRef, MemoryRevisionId};
     #[test]
     fn promotion_uses_only_bounded_current_graph_signals_and_configured_weight() {
         let references = (0..8)

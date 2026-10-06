@@ -29,9 +29,6 @@ catalog AS (
  FROM requested r JOIN lexical_bindings b ON b.object_kind=r.kind AND b.canonical_ref=r.value JOIN lexical_visibility v USING(lexical_ref)
  WHERE r.kind IN ('entity','resource','external_object') AND v.subject_id=$1 AND b.tombstoned_at IS NULL
  UNION ALL
- SELECT r.kind,r.value,left(t.label || COALESCE(': '||t.description,'') || COALESCE(' ['||t.kind_hint||']',''),2048)
- FROM requested r JOIN tags o ON r.kind='tag' AND o.tag_id=canonical_tag($1,CASE WHEN r.kind='tag' THEN r.value::uuid END) JOIN tag_revisions t ON t.tag_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.status='active'
- UNION ALL
  SELECT r.kind,r.value,left(COALESCE(t.title||': ','')||t.structural_claim||' Scope: '||t.applicability_description||' Boundary: '||t.boundary_definition,2048)
  FROM requested r JOIN cognitive_schemas o ON r.kind='cognitive_schema' AND o.schema_id::text=r.value JOIN cognitive_schema_revisions t ON t.schema_revision_id=o.current_revision_id
  WHERE o.subject_id=$1 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal'
@@ -66,7 +63,8 @@ catalog AS (
 )
 SELECT DISTINCT kind,value,text FROM catalog ORDER BY kind,value,text
 "#).bind(subject.0).bind(kinds).bind(values).fetch_all(self.pool()).await.map_err(db)?;
-        rows.into_iter()
+        let mut result = rows
+            .into_iter()
             .map(|row| {
                 Ok(QueryDescriptor {
                     reference: parse_reference(
@@ -76,6 +74,35 @@ SELECT DISTINCT kind,value,text FROM catalog ORDER BY kind,value,text
                     text: row.try_get("text").map_err(db)?,
                 })
             })
-            .collect()
+            .collect::<Result<Vec<_>>>()?;
+        let tags = refs
+            .iter()
+            .filter_map(|r| {
+                if let CognitiveRef::Tag(t) = r {
+                    Some(t.0)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        let rows = sqlx::query("SELECT requested AS id,r.label,r.description,r.kind_hint FROM unnest($2::uuid[]) requested JOIN tags t ON t.tag_id=canonical_tag($1,requested) JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id WHERE t.subject_id=$1 AND t.status='active'")
+            .bind(subject.0).bind(tags).fetch_all(self.pool()).await.map_err(db)?;
+        for row in rows {
+            result.push(QueryDescriptor {
+                reference: CognitiveRef::Tag(TagId(row.try_get("id").map_err(db)?)),
+                text: tag_semantic_representation(
+                    &row.try_get::<String, _>("label").map_err(db)?,
+                    row.try_get::<Option<String>, _>("description")
+                        .map_err(db)?
+                        .as_deref(),
+                    row.try_get::<Option<String>, _>("kind_hint")
+                        .map_err(db)?
+                        .as_deref(),
+                )?
+                .text,
+            });
+        }
+        result.sort_by_key(|descriptor| descriptor.reference.to_string());
+        Ok(result)
     }
 }

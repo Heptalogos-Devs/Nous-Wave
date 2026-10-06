@@ -116,6 +116,7 @@ pub fn reference_query_domain(reference: &CognitiveRef) -> &'static str {
         CognitiveRef::Episode(_) | CognitiveRef::EpisodeRevision(_) => "episode",
         CognitiveRef::Journal(_) | CognitiveRef::JournalRevision(_) => "journal",
         CognitiveRef::Resource(_) => "resource",
+        CognitiveRef::Tag(_) => "concept",
         _ => "evidence",
     }
 }
@@ -648,6 +649,7 @@ pub struct ServingNeed {
     pub dense: bool,
     pub topology: bool,
     pub concept: bool,
+    pub concept_vectors: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

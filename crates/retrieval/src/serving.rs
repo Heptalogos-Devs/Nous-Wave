@@ -10,6 +10,7 @@ pub struct ServingSnapshot {
     pub generation: u64,
     pub lexical: Option<Arc<LexicalGeneration>>,
     pub dense: Vec<Arc<DenseGeneration>>,
+    pub concept: Vec<Arc<ConceptGeneration>>,
     pub topology: Option<Arc<WaveGraphGeneration>>,
     pub vcp: Option<Arc<VcpServingGeneration>>,
     pub epa: Vec<Arc<EpaBasisGeneration>>,
@@ -23,6 +24,7 @@ impl Default for ServingSnapshot {
             generation: 0,
             lexical: None,
             dense: Vec::new(),
+            concept: Vec::new(),
             topology: None,
             vcp: None,
             epa: Vec::new(),
@@ -108,6 +110,8 @@ impl ServingSnapshot {
             .filter(|value| ids.contains(&value.generation_id));
         self.dense
             .retain(|value| ids.contains(&value.generation_id));
+        self.concept
+            .retain(|value| ids.contains(&value.generation_id));
         self.epa.retain(|value| ids.contains(&value.generation_id));
         self.topology = self
             .topology
@@ -130,6 +134,7 @@ impl ServingSnapshot {
             .as_ref()
             .is_some_and(|value| value.generation_id == id)
             || self.dense.iter().any(|value| value.generation_id == id)
+            || self.concept.iter().any(|value| value.generation_id == id)
             || self
                 .topology
                 .as_ref()

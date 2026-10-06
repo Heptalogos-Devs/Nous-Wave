@@ -12,12 +12,8 @@ pub(crate) fn explain_routes(
     ranked: &mut [(i64, Value)],
 ) -> Result<()> {
     let sense = &observation.numerical().sense;
-    let seeds = &observation.numerical().gating.tags;
     let routes = crate::activated_routes::activated_routes(
-        seeds
-            .iter()
-            .filter(|seed| seed.weight > 0.0)
-            .map(|seed| seed.id),
+        observation.seed_ids(),
         sense
             .edges
             .iter()
@@ -106,7 +102,7 @@ pub(crate) fn explain_routes(
             "route_seed".into(),
             json!(
                 path.and_then(|path| path.first())
-                    .and_then(|id| seeds.iter().find(|seed| seed.id == *id))
+                    .and_then(|id| observation.route_seed(*id))
             ),
         );
         object.insert(

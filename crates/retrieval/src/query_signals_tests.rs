@@ -131,6 +131,7 @@ async fn one_preparation_shares_embedding_and_deduplicates_dense_generations() {
         &plan,
         "query",
         Some(&provider),
+        None,
     )
     .await
     .expect("prepare");
@@ -165,6 +166,7 @@ async fn forbidden_and_missing_generation_do_not_call_embedding() {
         &plan,
         "query",
         Some(&provider),
+        None,
     )
     .await
     .expect("forbidden");
@@ -178,6 +180,7 @@ async fn forbidden_and_missing_generation_do_not_call_embedding() {
         &plan,
         "query",
         Some(&provider),
+        None,
     )
     .await
     .expect("missing");
@@ -204,6 +207,7 @@ async fn provider_failure_remains_unavailable_lane_for_runtime_requirement_polic
         &plan,
         "query",
         Some(&provider),
+        None,
     )
     .await
     .expect("lane failure");
@@ -235,6 +239,7 @@ async fn cognitive_embedding_is_shared_even_when_dense_lane_is_disabled() {
         &plan,
         "query",
         Some(&provider),
+        None,
     )
     .await
     .expect("cognitive signals");
@@ -249,6 +254,7 @@ async fn cognitive_embedding_is_shared_even_when_dense_lane_is_disabled() {
         &plan,
         "query",
         Some(&provider),
+        None,
     )
     .await
     .expect("forbidden cognitive signals");

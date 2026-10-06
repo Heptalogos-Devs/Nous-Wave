@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chrono::{Duration, Utc};
-use nous_core::{EmbeddingSpaceSignature, EntityRef, ObjectRef, TemporalExtent, TimeInterval};
+use nous_core::{
+    EmbeddingSpaceSignature, EntityRef, ObjectRef, TemporalExtent, TimeInterval,
+    tag_semantic_representation,
+};
 
 #[test]
 fn opaque_refs_require_their_owner_namespace() {
@@ -52,4 +55,35 @@ fn temporal_intervals_are_half_open_and_unknown_stays_unknown() {
             end: Some(end + Duration::hours(1)),
         })
     );
+}
+
+#[test]
+fn tag_semantic_text_is_canonical_bounded_and_revision_sensitive() {
+    let label = tag_semantic_representation("reader reclamation", None, None).unwrap();
+    assert_eq!(label.text, "Concept:\nreader reclamation");
+    let described = tag_semantic_representation(
+        "reader reclamation",
+        Some("Wait until all\r\nreaders leave"),
+        Some("procedure"),
+    )
+    .unwrap();
+    assert_eq!(
+        described.text,
+        "Concept:\nreader reclamation\n\nDescription:\nWait until all\nreaders leave\n\nKind:\nprocedure"
+    );
+    assert_ne!(label.digest, described.digest);
+    assert_eq!(
+        described.digest,
+        tag_semantic_representation(
+            "reader reclamation",
+            Some("Wait until all\nreaders leave"),
+            Some("procedure")
+        )
+        .unwrap()
+        .digest
+    );
+    assert!(tag_semantic_representation("", None, None).is_err());
+    assert!(tag_semantic_representation("concept", Some(&"x".repeat(4097)), None).is_err());
+    let long = tag_semantic_representation("规则", Some(&"经验".repeat(600)), None).unwrap();
+    assert!(long.text.ends_with("经验"));
 }

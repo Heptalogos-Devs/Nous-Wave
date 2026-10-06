@@ -320,14 +320,15 @@ impl MemoryService {
             .collect::<Result<Vec<_>>>()?;
         let texts = candidates
             .iter()
-            .map(|t| {
-                format!(
-                    "{} {}",
-                    t.content.label,
-                    t.content.description.as_deref().unwrap_or("")
+            .map(|tag| {
+                nous_core::tag_semantic_representation(
+                    &tag.content.label,
+                    tag.content.description.as_deref(),
+                    tag.content.kind_hint.as_deref(),
                 )
+                .map(|semantic| semantic.text)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
         let scores = self
             .store
             .cached_semantic_scores(subject, text, &texts)

@@ -15,13 +15,11 @@ pub struct TagContent {
 }
 impl TagContent {
     pub(crate) fn validate(&self) -> Result<()> {
-        if self.label.trim().is_empty()
-            || self.label.len() > 256
-            || self.description.as_ref().is_some_and(|v| v.len() > 4096)
-            || self.kind_hint.as_ref().is_some_and(|v| v.len() > 128)
-        {
-            return Err(Error::Invalid("invalid Tag content bounds".into()));
-        }
+        tag_semantic_representation(
+            &self.label,
+            self.description.as_deref(),
+            self.kind_hint.as_deref(),
+        )?;
         Ok(())
     }
 }
@@ -88,9 +86,7 @@ impl MemoryService {
                 input.producer.as_ref(),
             )
             .await?;
-        mutation
-            .invalidate(ProjectionInvalidation::topology())
-            .await?;
+        mutation.invalidate(ProjectionInvalidation::all()).await?;
         mutation
             .commit(
                 "tag",
@@ -125,9 +121,7 @@ impl MemoryService {
                 input.producer.as_ref(),
             )
             .await?;
-        mutation
-            .invalidate(ProjectionInvalidation::topology())
-            .await?;
+        mutation.invalidate(ProjectionInvalidation::all()).await?;
         mutation
             .commit(
                 "tag",
@@ -150,9 +144,7 @@ impl MemoryService {
             MutationStart::Active(mutation) => mutation,
         };
         self.merge_tags_in(mutation.tx(), subject, &input).await?;
-        mutation
-            .invalidate(ProjectionInvalidation::topology())
-            .await?;
+        mutation.invalidate(ProjectionInvalidation::all()).await?;
         mutation
             .commit(
                 "tag",
@@ -197,9 +189,7 @@ impl MemoryService {
         let children = self
             .split_tag_in(mutation.tx(), subject, &input, input.producer.as_ref())
             .await?;
-        mutation
-            .invalidate(ProjectionInvalidation::topology())
-            .await?;
+        mutation.invalidate(ProjectionInvalidation::all()).await?;
         mutation
             .commit(
                 "tag_split",

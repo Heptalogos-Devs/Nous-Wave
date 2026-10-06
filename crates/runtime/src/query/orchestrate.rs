@@ -27,6 +27,9 @@ pub trait CognitiveContributor: Send + Sync {
 /// own Authority objects after the runtime performs one fusion.
 #[async_trait::async_trait]
 pub trait SharedLaneProvider: Send + Sync {
+    async fn activate(&self, bound: &BoundQuery) -> Result<super::QueryActivation> {
+        Ok(bound.activation.clone())
+    }
     async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>>;
 }
 
@@ -68,6 +71,10 @@ impl CognitiveRuntimeService {
         plan: QueryPlan,
         validated_pool_limit: Option<usize>,
     ) -> Result<super::QueryExecution> {
+        let mut bound = bound;
+        if let Some(shared) = contributors.shared {
+            bound.activation = shared.activate(&bound).await?;
+        }
         if validated_pool_limit.is_some_and(|limit| limit == 0 || limit > 64) {
             return Err(Error::Invalid("validated pool limit must be 1..64".into()));
         }
@@ -119,6 +126,9 @@ impl CognitiveRuntimeService {
             degradation: Vec::new(),
             diagnostics: None,
         };
+        result
+            .degradation
+            .extend(bound.activation.degradation.clone());
         let mut lane_outputs = Vec::new();
         if let Some(shared) = contributors.shared {
             lane_outputs.extend(shared.lanes(&bound, &plan).await?);
@@ -380,6 +390,7 @@ impl CognitiveRuntimeService {
         if let Some(diagnostics) = result.diagnostics.as_mut() {
             if query.diagnostics == DiagnosticsRequest::Full {
                 diagnostics.trace = Some(serde_json::json!({
+                    "query_activation": bound.activation,
                     "readouts": result.results.iter().filter_map(|hit| readouts.get(&hit.reference)
                         .map(|value| serde_json::json!({"reference": hit.reference, "lanes": value})))
                         .collect::<Vec<_>>()

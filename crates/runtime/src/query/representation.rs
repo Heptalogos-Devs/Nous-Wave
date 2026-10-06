@@ -169,7 +169,7 @@ pub fn build_query_representation(
     builder.section("Temporal orientation", &temporal, 1024);
     for (label, select, maximum, chars) in [
         ("Entities", "entity", limits.max_context_items, 256),
-        ("Concepts", "tag", limits.max_context_items, 256),
+        ("Concepts", "tag", limits.max_context_items, 4608),
         ("Schemas", "cognitive_schema", limits.max_context_items, 512),
         (
             "Current cognition",

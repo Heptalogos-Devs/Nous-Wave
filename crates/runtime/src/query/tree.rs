@@ -232,7 +232,21 @@ impl CognitiveRuntimeService {
             branch.source_query.expression = scope;
             branch.source_query.expression.preferences.clear();
             branch.exact_bindings.retain(|binding| branch.source_query.expression.targets.iter().any(|target| matches!(target, QueryTarget::Exact { reference } if reference == &binding.requested_ref)));
-            let local = planned_lanes(&branch.source_query);
+            branch.activation = bound.activation.scoped(
+                &branch.source_query,
+                branch
+                    .exact_bindings
+                    .iter()
+                    .map(|binding| binding.bound_ref.clone())
+                    .collect(),
+                &branch.topology_seed_refs,
+            );
+            let mut local = planned_lanes(&branch.source_query);
+            if bound.concept_enrichment != super::ConceptEnrichment::Off {
+                local.push(EvidenceFamily::TagDirect);
+                local.sort();
+                local.dedup();
+            }
             branch.lane_budgets = plan
                 .lane_budgets
                 .iter()

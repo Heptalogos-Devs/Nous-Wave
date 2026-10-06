@@ -40,6 +40,17 @@ impl ServingService {
             .store
             .cognitive_projection_input(subject, capabilities.memory, budget)
             .await?;
+        let serving = self.publisher.snapshot_for(subject);
+        let concepts = serving.concept.iter().find(|generation| {
+            generation
+                .space
+                .as_ref()
+                .is_some_and(|s| s.compatible_with(&space))
+                && generation
+                    .producer
+                    .as_ref()
+                    .is_some_and(|p| p.signature_hash == producer.signature_hash)
+        });
         let mut documents = Vec::new();
         for document in self.documents(input.sources, budget).await? {
             let concept_refs = document
@@ -55,13 +66,29 @@ impl ServingService {
                         })
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let output = provider
-                .embed(TextEmbeddingRequest {
-                    subject,
-                    text: document.representation_text.clone(),
-                    query: false,
-                })
-                .await?;
+            let output = if let CognitiveRef::Tag(tag) = document.reference {
+                let record = concepts
+                    .and_then(|generation| generation.record(tag))
+                    .filter(|record| record.semantic.text == document.representation_text)
+                    .ok_or_else(|| {
+                        Error::Unavailable("VCP requires compatible shared concept material".into())
+                    })?;
+                TextEmbeddingOutput {
+                    vector: record.vector.clone().ok_or_else(|| {
+                        Error::Unavailable("shared concept vector is unavailable".into())
+                    })?,
+                    space: space.clone(),
+                    producer: producer.clone(),
+                }
+            } else {
+                provider
+                    .embed(TextEmbeddingRequest {
+                        subject,
+                        text: document.representation_text.clone(),
+                        query: false,
+                    })
+                    .await?
+            };
             if !output.space.compatible_with(&space)
                 || output.producer.signature_hash != producer.signature_hash
             {

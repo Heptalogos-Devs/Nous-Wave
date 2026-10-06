@@ -10,6 +10,7 @@
     "retrieval.rrf.weights.dense": 1.5,
     "retrieval.rrf.weights.temporal": 1.0,
     "retrieval.rrf.weights.schema_direct": 1.5,
+    "retrieval.rrf.weights.tag_direct": 1.5,
     "retrieval.rrf.weights.topology_wave": 1.0,
     "retrieval.query.effort_multiplier.light": 2,
     "retrieval.query.effort_multiplier.normal": 4,

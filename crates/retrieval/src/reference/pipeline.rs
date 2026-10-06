@@ -10,6 +10,8 @@ pub struct ReferencePipelineInput {
     pub epa: ReferenceEpaInput,
     pub epa_labels: Vec<String>,
     pub core_tags: Vec<String>,
+    #[serde(default)]
+    pub query_seeds: Vec<ReferenceSenseSeed>,
     pub ghosts: Vec<ReferenceFusionGhost>,
     pub tag_vectors: Vec<ReferenceFusionVector>,
     pub graph: ReferenceSenseGraph,
@@ -77,18 +79,11 @@ pub fn reference_query_pipeline(
         core_tags: input.core_tags.clone(),
         config: input.gating_config.clone(),
     });
+    let seeds = sense_seeds(input, &gating);
     let sense = reference_sense(
         &input.graph,
         &ReferenceSenseInput {
-            seeds: gating
-                .tags
-                .iter()
-                .map(|t| ReferenceSenseSeed {
-                    id: t.id,
-                    energy: t.weight,
-                    source_type: if t.is_core { "core" } else { "seed" }.into(),
-                })
-                .collect(),
+            seeds,
             config: input.sense_config.clone(),
         },
     )?;
@@ -136,4 +131,43 @@ pub fn reference_query_pipeline(
         local_vector,
         transfer_vector,
     })
+}
+
+fn sense_seeds(
+    input: &ReferencePipelineInput,
+    gating: &ReferenceGating,
+) -> Vec<ReferenceSenseSeed> {
+    let mut seeds = gating
+        .tags
+        .iter()
+        .map(|t| ReferenceSenseSeed {
+            id: t.id,
+            energy: t.weight,
+            source_type: if t.is_core { "core" } else { "seed" }.into(),
+        })
+        .collect::<Vec<_>>();
+    if !input.query_seeds.is_empty() {
+        let mut combined = seeds
+            .into_iter()
+            .map(|seed| (seed.id, seed))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for seed in &input.query_seeds {
+            if !seed.energy.is_finite()
+                || seed.energy <= 0.0
+                || !input.graph.node_ids.contains(&seed.id)
+            {
+                continue;
+            }
+            combined
+                .entry(seed.id)
+                .and_modify(|current| {
+                    if seed.energy > current.energy {
+                        *current = seed.clone();
+                    }
+                })
+                .or_insert_with(|| seed.clone());
+        }
+        seeds = combined.into_values().collect();
+    }
+    seeds
 }

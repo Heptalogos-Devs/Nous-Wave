@@ -515,6 +515,8 @@ pub(super) fn inspect_bound_query(bound: &nous_runtime::BoundQuery) -> Result<St
     serde_json::to_string(&serde_json::json!({
         "prepared_query":bound.source_query, "query_id":bound.query_id,
         "representation":bound.representation, "current_refs":bound.runtime_refs,
+        "query_activation":bound.activation, "concept_enrichment":bound.concept_enrichment,
+        "query_concept_requirement":bound.source_query.capabilities.query_concept_enrichment,
         "temporal_frame":bound.source_query.temporal_frame, "result_projection":bound.source_query.projection,
         "topology_seeds":seeds, "exact_bindings":bound.exact_bindings,
         "profile_id":bound.retrieval_policy.cognitive_profile.id(),
