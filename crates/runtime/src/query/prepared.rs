@@ -295,6 +295,8 @@ impl CognitiveRuntimeService {
         }
         self.finalize_resources(subject, &mut result, external_results)
             .await?;
+        self.record_query_feedback(&execution.bound, &result)
+            .await?;
         Ok(result)
     }
     async fn generic_still_valid(

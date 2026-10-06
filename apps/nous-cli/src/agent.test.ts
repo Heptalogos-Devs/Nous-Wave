@@ -269,6 +269,8 @@ it("uses exact typed revisions and caller-stable feedback identity", async () =>
       "result_supported",
       "--event-id",
       "event",
+      "--query-id",
+      "44444444-4444-4444-8444-444444444444",
       "--occurred-at",
       "2026-10-07T00:00:00Z",
     ],
@@ -279,6 +281,7 @@ it("uses exact typed revisions and caller-stable feedback identity", async () =>
       events: [
         {
           eventId: "event",
+          queryId: "44444444-4444-4444-8444-444444444444",
           kind: "result_supported",
           reference: {
             kind: "journal_revision",

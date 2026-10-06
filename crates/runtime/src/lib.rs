@@ -11,11 +11,15 @@ mod experience;
 mod maintenance;
 mod maintenance_policy;
 mod query;
+mod query_feedback;
 mod resources;
 mod segmentation;
 mod sessions;
 mod types;
 mod use_feedback;
+pub use query_feedback::{
+    LinkedQueryFeedback, QUERY_FEEDBACK_RETENTION, QueryFeedbackSignals, linked_query_feedback,
+};
 mod work_contexts;
 mod working_set;
 pub use clock::{CognitiveClock, ManualCognitiveClock, SystemCognitiveClock};
@@ -55,6 +59,7 @@ pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
     execution_policy::register_configuration(registry)?;
+    query_feedback::register(registry)?;
     registry.register(
         RESIDENT_LIMIT_KEY,
         "cognitive-runtime",

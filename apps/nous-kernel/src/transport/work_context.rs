@@ -215,6 +215,7 @@ impl KernelService {
                     .into_iter()
                     .map(|event| {
                         Ok(nous_runtime::UseFeedbackEvent {
+                            query_id: event.query_id.as_deref().map(id).transpose()?,
                             event_id: nous_core::UseEventId(id(&event.event_id)?),
                             reference: from_ref(required(event.reference, "reference")?)?,
                             use_kind: enum_value(&event.kind)?,

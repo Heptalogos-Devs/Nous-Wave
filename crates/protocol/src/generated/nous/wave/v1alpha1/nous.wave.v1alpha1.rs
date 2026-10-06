@@ -810,6 +810,8 @@ pub struct UseEvent {
     pub occurred_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag="5")]
     pub context: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, optional, tag="6")]
+    pub query_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReportUseResponse {

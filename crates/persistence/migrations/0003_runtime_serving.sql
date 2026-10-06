@@ -167,10 +167,26 @@ CREATE TABLE segmentation_cursors (
     updated_at timestamptz NOT NULL,
     PRIMARY KEY(subject_id,track_key)
 );
+CREATE TABLE query_feedback_records (
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    query_id uuid NOT NULL,
+    session_id uuid NULL REFERENCES cognitive_sessions(session_id) ON DELETE SET NULL,
+    work_context_id uuid NULL REFERENCES work_contexts(work_context_id) ON DELETE SET NULL,
+    prepared_query_digest text NOT NULL CHECK (prepared_query_digest ~ '^[0-9a-f]{64}$'),
+    query_activation_digest text NOT NULL CHECK (query_activation_digest ~ '^[0-9a-f]{64}$'),
+    signals jsonb NOT NULL CHECK (octet_length(signals::text)<=65536),
+    returned_revision_refs jsonb NOT NULL CHECK (jsonb_typeof(returned_revision_refs)='array' AND jsonb_array_length(returned_revision_refs)<=256),
+    created_at timestamptz NOT NULL,
+    expires_at timestamptz NOT NULL CHECK (expires_at>created_at),
+    PRIMARY KEY(subject_id,query_id)
+);
+CREATE INDEX query_feedback_expiry ON query_feedback_records(subject_id,expires_at);
+
 CREATE TABLE cognitive_use_events (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     consumer_ref text NOT NULL CHECK (octet_length(consumer_ref) BETWEEN 1 AND 512 AND consumer_ref !~ '[[:space:]]' AND consumer_ref LIKE '%:%:%'),
     event_id uuid NOT NULL,
+    query_id uuid NULL,
     ref_kind text NOT NULL CHECK (ref_kind IN ('memory_revision','cognitive_schema_revision','episode_revision','journal_revision')),
     ref_value text NOT NULL,
     use_kind text NOT NULL CHECK (use_kind IN ('presented','referenced','acted_on','result_supported','result_refuted','corrected','pinned')),
@@ -181,6 +197,7 @@ CREATE TABLE cognitive_use_events (
     request_digest text NOT NULL CHECK (request_digest ~ '^[0-9a-f]{64}$'),
     PRIMARY KEY(subject_id, consumer_ref, event_id)
 );
+CREATE INDEX cognitive_use_query_feedback ON cognitive_use_events(subject_id,ref_kind,ref_value,recorded_at DESC) WHERE query_id IS NOT NULL;
 CREATE TABLE purged_use_receipts (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     consumer_ref text NOT NULL,

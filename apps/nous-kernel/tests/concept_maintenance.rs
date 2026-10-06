@@ -340,6 +340,7 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
         .unwrap();
     let events = (0..3)
         .map(|_| nous_runtime::UseFeedbackEvent {
+            query_id: None,
             event_id: UseEventId::new(),
             reference: revisions[0].clone(),
             use_kind: nous_runtime::UseKind::ActedOn,
@@ -392,6 +393,7 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
             ]
             .into_iter()
             .map(|use_kind| nous_runtime::UseFeedbackEvent {
+                query_id: None,
                 event_id: UseEventId::new(),
                 reference: revisions[0].clone(),
                 use_kind,

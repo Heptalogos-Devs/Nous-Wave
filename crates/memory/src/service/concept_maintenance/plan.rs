@@ -171,8 +171,34 @@ impl MemoryService {
             references.insert(key.clone(), descriptor.reference);
             entity_input.push(serde_json::json!({"key":key,"text":descriptor.text.chars().take(256).collect::<String>()}));
         }
+        let query_feedback = nous_runtime::linked_query_feedback(
+            &self.store,
+            subject,
+            &focus,
+            self.cognition.now(subject),
+        )
+        .await?;
+        let feedback_tags = query_feedback
+            .iter()
+            .flat_map(|feedback| {
+                feedback
+                    .signals
+                    .explicit_tags
+                    .iter()
+                    .chain(&feedback.signals.inferred_tags)
+            })
+            .map(|activation| activation.tag)
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
         let mut tags = self
-            .concept_tag_candidates(subject, &focus, &text, policy.max_candidates)
+            .concept_tag_candidates(
+                subject,
+                &focus,
+                &text,
+                policy.max_candidates,
+                &feedback_tags,
+            )
             .await?;
         for tag in &tags {
             references.insert(tag.key.clone(), CognitiveRef::Tag(tag.target.tag_id));
@@ -247,7 +273,7 @@ impl MemoryService {
         let model_input = serde_json::json!({"focusKey":"c0","policy":policy,"partial":partial,"cognition":cognition,"entities":entity_input,
             "tags":tags.iter().map(|tag|serde_json::json!({"key":tag.key,"content":tag.content,"aliases":tag.aliases,"attached":tag.attached,"semanticSimilarity":tag.semantic_score,"accretion":tag.accretion.as_ref().map(|s|serde_json::json!({"distinctRoots":s.independent_roots,"currentMembers":s.attached_cognition,"episodeRecurrence":s.cross_episode_recurrence,"observedSpanSeconds":s.observed_span_seconds,"associationDegree":s.association_degree,"meaningfulUse":s.meaningful_use,"counterevidence":s.counterevidence,"coherence":s.semantic_coherence,"genericity":s.broad_center,"reviewPriority":s.review_priority(&accretion_policy),"partial":s.partial}))})).collect::<Vec<_>>(),
             "associations":associations.iter().map(|a|serde_json::json!({"key":a.key,"from":a.from,"to":a.to,"relation":a.relation})).collect::<Vec<_>>(),
-            "supports":supports.iter().map(|(key,s)|serde_json::json!({"key":key,"kind":match s {AssociationSupport::Revision(RevisionSupport::CognitionDependency(_))=>"exact_cognition",AssociationSupport::Revision(_)=>"source_evidence",AssociationSupport::UseEvent(_)=>"meaningful_use"}})).collect::<Vec<_>>(),"sourceContext":source_context,"mergeCandidates":merge_candidates,"splitCandidates":split_candidates});
+            "supports":supports.iter().map(|(key,s)|serde_json::json!({"key":key,"kind":match s {AssociationSupport::Revision(RevisionSupport::CognitionDependency(_))=>"exact_cognition",AssociationSupport::Revision(_)=>"source_evidence",AssociationSupport::UseEvent(_)=>"meaningful_use"}})).collect::<Vec<_>>(),"queryFeedback":query_feedback,"queryFeedbackSemantics":"meaningful_use signal; not source evidence or mutation authorization","sourceContext":source_context,"mergeCandidates":merge_candidates,"splitCandidates":split_candidates});
         if self.store.authority_seq(subject).await? != sequence {
             return Err(Error::Conflict("concept planning snapshot changed".into()));
         }
@@ -286,10 +312,17 @@ impl MemoryService {
         focus: &CognitiveRef,
         text: &str,
         limit: usize,
+        feedback_tags: &[TagId],
     ) -> Result<Vec<ConceptTag>> {
         let (kind, value) = reference_parts(focus);
-        let rows=sqlx::query("SELECT t.tag_id,t.current_revision_id,r.label,r.description,r.kind_hint,COALESCE(v.aliases,ARRAY[]::text[]) aliases, EXISTS(SELECT 1 FROM association_evidence a WHERE a.subject_id=$1 AND a.from_ref_kind=$2 AND a.from_ref=$3 AND a.to_ref_kind='tag' AND canonical_tag($1,CASE WHEN a.to_ref_kind='tag' THEN a.to_ref::uuid END)=t.tag_id AND a.relation_kind='tag_attachment' AND a.polarity='positive' AND a.revoked_at IS NULL) OR EXISTS(SELECT 1 FROM memory_revision_tags m WHERE $2='memory_revision' AND m.memory_revision_id::text=$3 AND canonical_tag($1,m.tag_id)=t.tag_id) attached, ts_rank_cd(to_tsvector('simple',r.label||' '||COALESCE(r.description,'')||' '||COALESCE(v.display_name,'')||' '||array_to_string(COALESCE(v.aliases,ARRAY[]::text[]),' ')),to_tsquery('simple',replace(plainto_tsquery('simple',$4)::text,' & ',' | ')))::float8 lexical_score FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id LEFT JOIN lexical_bindings b ON b.object_kind='tag' AND b.canonical_ref=t.tag_id::text LEFT JOIN lexical_visibility v ON v.lexical_ref=b.lexical_ref AND v.subject_id=t.subject_id WHERE t.subject_id=$1 AND t.status='active' ORDER BY attached DESC,lexical_score DESC,t.created_at DESC,t.tag_id LIMIT 32")
-            .bind(subject.0).bind(kind).bind(value).bind(text).fetch_all(self.store.pool()).await.map_err(db)?;
+        let rows=sqlx::query("SELECT t.tag_id,t.current_revision_id,r.label,r.description,r.kind_hint,COALESCE(t.tag_id IN (SELECT canonical_tag($1,feedback_tag) FROM unnest($5::uuid[]) feedback_tag),false) feedback_selected,COALESCE(v.aliases,ARRAY[]::text[]) aliases, EXISTS(SELECT 1 FROM association_evidence a WHERE a.subject_id=$1 AND a.from_ref_kind=$2 AND a.from_ref=$3 AND a.to_ref_kind='tag' AND canonical_tag($1,CASE WHEN a.to_ref_kind='tag' THEN a.to_ref::uuid END)=t.tag_id AND a.relation_kind='tag_attachment' AND a.polarity='positive' AND a.revoked_at IS NULL) OR EXISTS(SELECT 1 FROM memory_revision_tags m WHERE $2='memory_revision' AND m.memory_revision_id::text=$3 AND canonical_tag($1,m.tag_id)=t.tag_id) attached, ts_rank_cd(to_tsvector('simple',r.label||' '||COALESCE(r.description,'')||' '||COALESCE(v.display_name,'')||' '||array_to_string(COALESCE(v.aliases,ARRAY[]::text[]),' ')),to_tsquery('simple',replace(plainto_tsquery('simple',$4)::text,' & ',' | ')))::float8 lexical_score FROM tags t JOIN tag_revisions r ON r.tag_revision_id=t.current_revision_id LEFT JOIN lexical_bindings b ON b.object_kind='tag' AND b.canonical_ref=t.tag_id::text LEFT JOIN lexical_visibility v ON v.lexical_ref=b.lexical_ref AND v.subject_id=t.subject_id WHERE t.subject_id=$1 AND t.status='active' ORDER BY feedback_selected DESC,attached DESC,lexical_score DESC,t.created_at DESC,t.tag_id LIMIT 32")
+            .bind(subject.0).bind(kind).bind(value).bind(text).bind(feedback_tags.iter().map(|tag|tag.0).collect::<Vec<_>>()).fetch_all(self.store.pool()).await.map_err(db)?;
+        let mut selected = std::collections::HashSet::new();
+        for row in &rows {
+            if row.try_get::<bool, _>("feedback_selected").map_err(db)? {
+                selected.insert(row.try_get::<Uuid, _>("tag_id").map_err(db)?);
+            }
+        }
         let mut candidates = rows
             .into_iter()
             .map(|row| {
@@ -338,6 +371,7 @@ impl MemoryService {
         }
         candidates.retain(|tag| {
             tag.attached
+                || selected.contains(&tag.target.tag_id.0)
                 || tag.lexical_score > 0.0
                 || tag.semantic_score.is_some_and(|score| score >= 0.5)
         });

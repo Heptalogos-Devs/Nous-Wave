@@ -529,6 +529,45 @@ async fn check_model_catalog_activity(
             .count(),
         queries
     );
+    rt.cognition
+        .use_feedback(nous_runtime::UseFeedback {
+            subject,
+            session_id: None,
+            consumer_ref: "consumer:host:concept".into(),
+            events: vec![nous_runtime::UseFeedbackEvent {
+                query_id: Some(response.query_id.parse().unwrap()),
+                event_id: UseEventId::new(),
+                reference: response
+                    .hits
+                    .first()
+                    .unwrap()
+                    .reference
+                    .as_ref()
+                    .map(|reference| parse_reference(&reference.kind, &reference.value).unwrap())
+                    .unwrap(),
+                use_kind: nous_runtime::UseKind::ResultSupported,
+                occurred_at: rt.cognition.now(subject),
+                context: serde_json::json!({}),
+            }],
+        })
+        .await
+        .unwrap();
+    let linked = nous_runtime::linked_query_feedback(
+        &rt.store,
+        subject,
+        &parse_reference(
+            &response.hits[0].reference.as_ref().unwrap().kind,
+            &response.hits[0].reference.as_ref().unwrap().value,
+        )
+        .unwrap(),
+        rt.cognition.now(subject),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        linked[0].signals.novel_concepts[0].text,
+        "lease-aware historical cache"
+    );
     let bound: serde_json::Value =
         serde_json::from_str(response.bound_query.as_deref().unwrap()).unwrap();
     assert_eq!(bound["query_activation"]["model_calls"], 1);

@@ -58,6 +58,7 @@ export async function runCli(args: string[], connect = connectNousInstance) {
       "kind-hint": { type: "string" },
       "event-id": { type: "string" },
       "occurred-at": { type: "string" },
+      "query-id": { type: "string" },
       consumer: { type: "string", default: "consumer:nous-cli:default" },
       "max-operations": { type: "string", default: "1" },
       "max-model-calls": { type: "string", default: "1" },
@@ -672,6 +673,7 @@ export async function runCli(args: string[], connect = connectNousInstance) {
         events: [
           {
             eventId: values["event-id"] ?? crypto.randomUUID(),
+            queryId: values["query-id"],
             reference,
             kind,
             occurredAt: {

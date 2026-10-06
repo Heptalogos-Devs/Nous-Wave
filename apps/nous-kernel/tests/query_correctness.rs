@@ -708,6 +708,7 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
         .await
         .expect("session B");
     let event_a = UseFeedbackEvent {
+        query_id: None,
         event_id: UseEventId::new(),
         reference: CognitiveRef::MemoryRevision(first.revision.memory_revision_id),
         use_kind: UseKind::Referenced,
@@ -731,6 +732,7 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
             session_id: Some(session_b.session_id),
             consumer_ref: "consumer:test:runtime".into(),
             events: vec![UseFeedbackEvent {
+                query_id: None,
                 event_id: UseEventId::new(),
                 reference: CognitiveRef::MemoryRevision(second.revision.memory_revision_id),
                 use_kind: UseKind::Referenced,
@@ -763,6 +765,7 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
         .expect("session before")
         .runtime_revision;
     let batch_event = UseFeedbackEvent {
+        query_id: None,
         event_id: UseEventId::new(),
         ..event_a.clone()
     };
@@ -1272,6 +1275,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             session_id: None,
             consumer_ref: "consumer:test:association".into(),
             events: vec![UseFeedbackEvent {
+                query_id: None,
                 event_id,
                 reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 use_kind: UseKind::Referenced,

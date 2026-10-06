@@ -37,6 +37,7 @@ impl UseKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveUseEvent {
+    pub query_id: Option<uuid::Uuid>,
     pub event_id: UseEventId,
     pub subject_id: SubjectId,
     pub session_id: Option<SessionId>,
@@ -141,6 +142,8 @@ pub struct UseFeedback {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UseFeedbackEvent {
+    #[serde(default)]
+    pub query_id: Option<uuid::Uuid>,
     pub event_id: UseEventId,
     pub reference: CognitiveRef,
     pub use_kind: UseKind,

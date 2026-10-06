@@ -167,6 +167,7 @@ export const commandInventory = {
         "--event-id <uuid>",
         "--consumer <ref>",
         "--occurred-at <ISO timestamp>",
+        "--query-id <UUID>",
       ],
       description:
         "Typed meaningful use; stable retry reuses event ID and occurrence timestamp",

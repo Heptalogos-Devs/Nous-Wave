@@ -104,13 +104,28 @@ impl CognitiveRuntimeService {
             return Err(Error::Invalid("validated pool limit must be 1..64".into()));
         }
         let output_limit = validated_pool_limit.unwrap_or(bound.source_query.result_need.limit);
-        if bound.source_query.expression.operation != QueryOperation::Atom {
-            return self
-                .query_tree(bound, contributors, plan, output_limit)
-                .await;
+        let execution = if bound.source_query.expression.operation != QueryOperation::Atom {
+            self.query_tree(bound, contributors, plan, output_limit)
+                .await?
+        } else {
+            self.query_leaf_execution(bound, &contributors, plan, output_limit)
+                .await?
+        };
+        if validated_pool_limit.is_none() && execution.result.resource_actions.is_empty() {
+            self.record_query_feedback(&execution.bound, &execution.result)
+                .await?;
         }
+        Ok(execution)
+    }
+    async fn query_leaf_execution(
+        &self,
+        bound: BoundQuery,
+        contributors: &CognitiveContributors<'_>,
+        plan: QueryPlan,
+        output_limit: usize,
+    ) -> Result<super::QueryExecution> {
         let result = self
-            .query_atom_with_plan(bound.clone(), &contributors, plan, output_limit)
+            .query_atom_with_plan(bound.clone(), contributors, plan, output_limit)
             .await?;
         let leaves = vec![super::types::BoundLeaf {
             ordinal: 0,

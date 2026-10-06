@@ -12,13 +12,21 @@ impl KernelService {
     ) -> Result<k::KernelQueryResponse> {
         let execution = Box::pin(self.0.execute_bound_query(bound, pool_limit)).await?;
         let inspection = inspect_bound_query(&execution.bound)?;
-        let (result, ticket) =
-            if pool_limit.is_some() || !execution.result.resource_actions.is_empty() {
-                let (result, ticket) = self.0.cognition.retain_query(execution)?;
-                (result, ticket.map(|value| value.to_string()))
-            } else {
-                (execution.result, None)
-            };
+        let feedback_bound = execution.bound.clone();
+        let requires_finalization =
+            pool_limit.is_some() || !execution.result.resource_actions.is_empty();
+        let (result, ticket) = if requires_finalization {
+            let (result, ticket) = self.0.cognition.retain_query(execution)?;
+            (result, ticket.map(|value| value.to_string()))
+        } else {
+            (execution.result, None)
+        };
+        if requires_finalization && ticket.is_none() {
+            self.0
+                .cognition
+                .record_query_feedback(&feedback_bound, &result)
+                .await?;
+        }
         let mut response = query_response(result);
         response.bound_query = Some(inspection);
         Ok(k::KernelQueryResponse {

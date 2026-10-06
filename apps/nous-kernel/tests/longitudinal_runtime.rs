@@ -927,6 +927,7 @@ async fn assert_longitudinal_use(
         events: references
             .into_iter()
             .map(|reference| nous_runtime::UseFeedbackEvent {
+                query_id: None,
                 event_id: nous_core::UseEventId::new(),
                 reference,
                 use_kind: nous_runtime::UseKind::Referenced,
@@ -1915,6 +1916,7 @@ async fn assert_consolidation_context(
             ]
             .into_iter()
             .map(|use_kind| nous_runtime::UseFeedbackEvent {
+                query_id: None,
                 event_id: nous_core::UseEventId::new(),
                 reference: results[0].clone().unwrap(),
                 use_kind,
