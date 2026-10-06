@@ -142,7 +142,7 @@ V3 candidate provenance 现在将 document contribution 回译到 generation 保
 
 数值 observation/readout 前后检查完整 Subject authority_seq，并检查实际 memory capability；过期 fallback artifact 不生成候选。Profile/asset/embedding identity fence 仍由 observation owner 执行。Source-field 非空、state/transition truncation 与双场收敛分别可观察；discarded state mass 当前没有数值测量，truncation diagnostics 明示这一点。
 
-真实 PostgreSQL Kernel query integration 已验证两个 VCP profile 返回 MemoryRevision 并记录实际 profile/ready lane；通过普通 suppress lifecycle 改变 Authority 后，直接复用旧 generation 得到 unavailable/空候选，restore 后继续；Forbidden embedding 不生成 VCP observation。Native golden 和 20 项 frozen reference 检查通过。此结果验证 Kernel Runtime 查询接线；随后真实 provider HTTP probe 见下文，CC0 category benchmark 的 no-rerank 首轮及真实 context 第二轮已完成，paired model rerank 与外部 suites 仍在运行，见 [corpus](corpus/cognitive/README.md)。
+真实 PostgreSQL Kernel query integration 已验证两个 VCP profile 返回 MemoryRevision 并记录实际 profile/ready lane；通过普通 suppress lifecycle 改变 Authority 后，直接复用旧 generation 得到 unavailable/空候选，restore 后继续；Forbidden embedding 不生成 VCP observation。Native golden 和 20 项 frozen reference 检查通过。此结果验证 Kernel Runtime 查询接线；随后真实 provider HTTP probe 见下文，CC0 category benchmark 的 no-rerank 首轮及真实 context 第二轮已完成，paired model rerank 与外部 suites 仍在运行，见 [corpus](corpus/README.md)。
 
 在 `a2303cc` Core/Kernel 运行时已完成真实 New API HTTP probe；该旧实例目前已停止。已有 ASR Subject 的同一 text query 在 native/DTSC/V3 下均返回 2 hits，无 degradation；该 Subject 无 Tag 源场，只证明空场路径。新增原创 CC0 观测站维修场景（3 Memories、3 Tags）通过普通 observe/form API 提交，并由真实 provider 生成 embeddings；同一 text+Tag query 下 DTSC/V3 各激活 8 edges、访问 6 nodes、最大 hop=1，返回 3 Memories，无 degradation。Native 激活 6 edges、最大 hop=2，同样返回 3 Memories，但报告配置预算截断。
 

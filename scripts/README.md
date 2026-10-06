@@ -98,7 +98,7 @@ corepack pnpm smoke:longitudinal
 
 ## Live research
 
-Research 使用真实模型，必须先准备语料、运行实例和分发的 Client 模块。方法与数据说明见 [Research](../docs/research/README.md)。
+手动媒体与模型研究使用真实模型，必须先准备语料、运行实例和分发的 Client 模块。自动功能验收使用 deterministic provider。方法与数据说明见 [Research](../docs/research/README.md)。
 
 ```text
 corepack pnpm research:gateway --ledger data/research/runs/run-ledger.json --max-calls 1000
@@ -107,16 +107,12 @@ corepack pnpm research:gateway --ledger data/research/runs/run-ledger.json --max
 Gateway 默认转发 `http://127.0.0.1:3000/v1`，监听端口 18000；用 `--upstream`、`--port` 覆盖。`--ledger` 与 `--max-calls` 必填，显式累计调用上限允许 1–100000，预算计入失败和重试，持久化在 ledger；同路径旁保存 telemetry。将实例模型 endpoint 配为该 gateway 后再运行实验。 可加 `--trace-root data/research/runs/<run>/traces` 保存每次 attempt 的 `meta.json` 和经过敏感信息清除的 request/response。request capture 上限为 96 MiB，response 为 1 MiB；超限只保存大小、digest 和 truncation 状态。大型 data/base64 媒体与 multipart file 保存 media type、byte count 与 SHA-256 描述符；multipart 保留 model/language 等普通字段，binary 不作为文本落盘。Authorization、cookie 和 credential header 不落盘，已知凭据回显也在写盘前清除。trace 文件使用 0600 权限。
 
 ```text
-corepack pnpm research:retrieval-live import --run-root <实例run目录> --client-module <分发client模块> --track controlled
-corepack pnpm research:retrieval-live run --run-root <实例run目录> --client-module <分发client模块> --track controlled --variant baseline --output <结果.json>
 corepack pnpm research:media-live --run-root <实例run目录> --client-module <分发client模块> --unit nasa-menon-conversation --strategy direct_structured --derive-only
 ```
 
-Retrieval 子命令为 `import`、`run`、`audit-formation`；track 为 `controlled` 或 `end-to-end`，variant 为 `baseline`、`model-rerank`、`wave`、`combined`。默认读取 `docs/research/corpus/manifest.json`、`queries.json`、`data/research/corpus/unit-texts.json`，状态位于 `data/research/runs/corpus-state.json`。可用 `--manifest`、`--queries`、`--texts`、`--state`、`--output` 改路径；`--limit` 默认 0 表示全部，`--concurrency` 默认 4。导入可用 `--embedding-batch`（默认 64）、`--embedding-interval-ms`（默认 0）控制批次。
-
 Media 默认读取 `docs/research/corpus/media.json` 与 `data/research/corpus/raw`，将处理状态写到 `data/research/runs/media-state.json`；用 `--manifest`、`--raw-root`、`--state` 覆盖。状态文件用于继续已有实验，不会从头重复已完成操作。
 
-媒体 runner 的 `--unit`、`--strategy` 可重复指定，`--derive-only` 只验证派生与来源图，`--skip-retrieval` 执行派生和 formation、暂不准备 embedding/query。`--allow-degradation <code>` 可重复声明实验预期的降级（例如 frames-only 的 `video_audio_not_interpreted`），结果仍保存全部 degradation；其他降级继续使 pipeline 失败。Receipt 与完整 manifest digest 绑定；更换语料用新的 state。文本 runner 支持 manifest 中显式 author/project entities、出版日期、rights 与 extraction；`--skip-embeddings` 用于小组 formation baseline，`--session` 把观察归入一个实际 Session 并在所选单元成功后关闭。人工评阅应核对实际输出，pattern 命中只覆盖预先声明的事实。Manifest 的 `oracle_patterns_by_representation_kind` 可为 Transcript 等表示声明与其职责相符的事实 oracle，未声明时使用共同 `oracle_patterns`。
+媒体 runner 的 `--unit`、`--strategy` 可重复指定，`--derive-only` 只验证派生与来源图，`--skip-retrieval` 执行派生和 formation、暂不准备 embedding/query。`--allow-degradation <code>` 可重复声明实验预期的降级（例如 frames-only 的 `video_audio_not_interpreted`），结果仍保存全部 degradation；其他降级继续使 pipeline 失败。Receipt 与完整 manifest digest 绑定；更换语料用新的 state。人工评阅应核对实际输出，pattern 命中只覆盖预先声明的事实。Manifest 的 `oracle_patterns_by_representation_kind` 可为 Transcript 等表示声明与其职责相符的事实 oracle，未声明时使用共同 `oracle_patterns`。
 
 ## 模型合同与 trace 检查
 
@@ -144,7 +140,6 @@ PostgreSQL 清理只处理`data/temp/tests/` 中具有 PostgreSQL cluster 标记
 
 ### 检索评测指标
 
-`research:retrieval-live` 使用 [retrieval-metrics.ts](research/retrieval-metrics.ts) 计算多目标 Recall@1/5/10、hit rate、MRR、nDCG@5/10、Average Precision 与 source-set recall。Recall 的分母为独立 oracle 中全部正相关单位；旧报告将任一相关项命中称为 Recall，需重新评分后才能与新报告比较。Runner 的现有 binary oracle 映射 grade=1；认知 benchmark 可提供 grade=-1/0/1/2/3 及 reason/source/harmfulKind。
 
 正 nDCG 只使用正 grade 的 `2^grade-1` gain；harmful count 与按 rank 折扣的 exposure 单独输出。重复结果保留排名位置但不重复获得 gain/recall；未审定结果单独计数，不自动标为有害。负例-only oracle 没有正相关分母，Recall/nDCG/AP 返回 null。不同类别的结果应分别报告，不能把这个函数输出解释为统一认知总分。
 
@@ -158,67 +153,8 @@ corepack pnpm research:longitudinal --config data/config/apps/nous.toml --input 
 
 Runner 通过真实配置角色和 canonical Structured Output 生成一次 proposal，校验 catalog keys，将来源计划、proposal、producer identity 与人工审阅项目写入新的本地文件；已有 output 文件会报错。研究产物放在 ignored `data/research/`。人工审阅使用真实 trace、来源事实和 boundary annotations，分别评估分段边界、Journal point 支持与省略、整合身份和 Schema 泛化。确定性 `smoke:longitudinal` 检查编排与 Authority 合同；质量研究使用这个手动入口。
 
-### Cognitive recall research import
 
-[CC0 corpus importer](../apps/nous-kernel/examples/cognitive-import.rs) 使用正常 Rust semantic owners 和显式 research CognitiveClock 导入独立 PostgreSQL，保存 event/revision 映射。用法及时间/关系映射限制见 [Cognitive Corpus](../docs/research/corpus/cognitive/README.md)。该入口不调用付费模型；embedding 和完整 query/profile runner 另行执行。
 
-### Cognitive embedding material
+## 小型认知功能验证
 
-```text
-corepack pnpm exec tsx scripts/research/cognitive-embedding.ts --config <nous.toml> --output data/research/<run>/embedding-config.json
-cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cognitive data/research/<run> data/research/<run>/embedding-config.json
-corepack pnpm exec tsx scripts/research/cognitive-embedding.ts --config <nous.toml> --output data/research/<run>/embedding-config.json --needs data/research/<run>/embedding-needs.json --vectors data/research/<run>/embedding-vectors.json --locator <bootstrap.toml>
-cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cognitive data/research/<run> data/research/<run>/embedding-config.json data/research/<run>/embedding-vectors.json
-```
-
-配置导出复用 production `resolvedEmbedding`，不维护第二份 identity。实际生成复用 `ModelInvocations.embeddingBatch`，凭据通过 locator/SecretRoot 的既有加载方式读取。文本按 SHA-256 去重，成功批次保存缓存，空间/producer 不一致时拒绝复用。批次间隔默认 6000ms，`--interval-ms` 可按实际 provider 限流调整；失败不隐藏，重跑只处理未缓存文本。
-
-Rust harness 验证材料身份后使用普通 `ServingService.commit_embedding`，导出下一轮未就绪 needs。每 Subject 页最多 256，满页会报告 bounded；生成/提交/再导出直到 needs 为空才完成。这个材料阶段尚未运行查询或生成 benchmark 分数。
-
-### Cognitive benchmark scoring
-
-`corepack pnpm exec tsx scripts/research/cognitive-score.ts --input <benchmark.jsonl> --output data/research/<run>/metrics.json` 将当前 CC0 corpus 的 sparse oracle 展开，并复用 retrieval metrics owner 按类别/profile 汇总。默认语料路径 `docs/research/corpus/cognitive`。报告只证明输入行已测量，不凭结果行数确认整个 suite 完成；模型 rerank、其他 benchmark tracks 与消融仍需对应运行。
-
-## External memory suites
-
-### Selected text-only compatibility
-
-本轮使用 [六题选择 manifest](../docs/research/corpus/text-compatibility-selection.json) 和 ignored 的 selected source bundle。`pnpm exec tsx scripts/research/text-compatibility.ts --input <selected-bundle.json> --root data/research/<run>` 先加 `--plan`，随后以相同参数执行；六项 `--max-provider-calls`、`--max-new-embedding-items`、`--max-rerank-calls`、`--max-new-serving-generations`、`--max-new-artifact-bytes`、`--max-runtime-seconds` 限制实际工作。该导入阶段前三项必须为零，来源最多 20 段、问题最多 8 个。
-
-入口以正常 SDK 创建 Subject，保存未经改写的选定原文和 directly supported Memory；receipt 保留 occurrence/Memory/revision 身份。原问题生成 `text_only_compatibility` Prepared 输入，不注入 Entity、Tag、WorkContext 或答案。来源时间原样保存，检索采用当前研究时点，外部问题日期仅作选择元数据。`embedding-plan.ts --plan` 冻结实际 query representation、盘点 misses；`embedding-cache.ts --plan` 后只补缺失向量；`prepared.ts --plan` 后在同一缓存上执行所选 profile。每阶段独立预算，已有缓存继续复用。结果按 source receipts 与独立选择 oracle 核对，不能据此宣称外部全量成绩。
-
-```text
-corepack pnpm research:retrieval-live prepare --suite longmemeval-s --raw-file data/research/external/longmemeval/longmemeval_s_cleaned.json --prepared-root data/research/external/longmemeval/prepared
-corepack pnpm research:retrieval-live prepare --suite locomo --raw-file data/research/external/locomo/locomo10.json --prepared-root data/research/external/locomo/prepared
-cargo run -p nous-kernel --example cognitive-import -- data/research/external/locomo/prepared data/research/<external-import-run> data/research/<material-run>/embedding-config.json
-```
-
-原文件 URL 与 frozen SHA-256 由 [source manifest](../docs/research/corpus/external-memory-sources.json) 记录，需先下载到上述 ignored raw path。`prepare` 验证摘要后生成供同一个 clock-injected semantic-owner harness 消费的 scenarios/queries/manifest，以及 annotation audit；不访问付费模型。Importer 根据 manifest 加载 scenario，保留各 item/会话隔离，外部 suite 使用官方 session 时间及明确的 research availability 映射。正常导入仅导出 bounded embedding needs；外部 full-run、public-host rerank track 仍需接线，`--suite` 非 legacy 的 import/run 暂时明确报错。
-
-Importer 的 event/revision receipts 使用增量 JSONL journal，Subject/Session 元数据仍以 atomic checkpoint 保存。旧完整 JSON checkpoint 首次 reopen 时原子迁移；写入中断的末尾残行会截去，并按普通 owner operation ID 恢复该事件。已有已提交 revision 必须再次回读核对时间，不能用 checkpoint 代替 Authority。
-
-Cognitive scorer 同时保存 association target recall、chain coverage、causal precursor recall 与 ordered-chain score（@1/5/10）。Chain 从冻结的 directed paths 取得，排除 cue 根节点；ordered-chain 分母为所有前驱对，按 cue→precursor 的路径顺序检查检索排名，未返回节点不获 pair credit。它不测生成叙事顺序。按 category/profile 汇总 harmful kinds、activated edges、seed count、observed max hop、已测 discarded mass 和对 baseline 的 Recall/nDCG/intrusion 差值；VCP 未测 mass 保持 null。没有 paths 的 query 相应指标为 null。
-
-真实向量 cache 使用 `{config, vector_files}` manifest，每个 batch 写入相邻 `.parts/` 目录，随后原子发布 index。Rust importer/benchmark reader 同时支持现有 `{config, vectors}` cache 和新分片格式。生成器首次 reopen 旧 flat cache 会将其转为一个 legacy shard，后续批次不重写全部已生成向量。分片保留原 text/space/producer/vector，不改变 embedding 合同；相同文本通过 SHA-256 去重。已有正在运行的旧生成进程继续写旧格式，需等该 writer 结束后迁移。
-
-## Cognitive paired rerank
-
-```text
-NOUS_RESEARCH_RERANK_CONFIG=<research-nous.toml> NOUS_RESEARCH_RERANK_LOCATOR=<bootstrap.toml> cargo run -p nous-kernel --example cognitive-import -- docs/research/corpus/cognitive data/research/<fresh-paired-run> data/research/<material-run>/embedding-config.json data/research/<material-run>/embedding-vectors.json benchmark
-```
-
-这两个变量显式启用付费 `query_rerank` track。例子只通过 stdio 调用 [production invocation adapter](research/cognitive-rerank.ts)，adapter 使用既有 credentials loader、`ModelInvocations.rerank` 和 research gateway。每条 query 的 baseline/native 使用相同已验证候选池（pool ceiling=64、正常 validation budget 仍生效），先保存无 rerank 的前十，再由原 Runtime retain/finalize workflow 对真实模型排序进行最终 Authority 复核。模型不能增加候选，少于两个可排序候选时跳过调用。
-
-每个 query 共六个 variant：baseline、baseline+model-rerank、native、native+model-rerank、DTSC、V3。记录固定 rerank binding/profile/config digest、producer、调用数、失败、真实 provider latency、6000ms research throttle 以及 rerank+final-validation 总时长；后两者当前没有逐段完全分开。Rerank operational failure 保留已验证 baseline、添加 `query_rerank_unavailable`，不会当成成功排序。这个受控 Kernel/production-model track 还需与 public Core end-to-end track 分开。
-
-LoCoMo embeddings / CC0 rerank 阶段使用累计上限 2000；全量 LongMemEval 阶段使用 30000（246457 个唯一文本，batch=10，另保留既有累计调用和后续比较容量）。上限按实际阶段输入规模声明，ledger 保留累计计数。Gateway 切换在模型调用间完成，确认新 gateway ready 后继续。
-
-Hard Text 原始来源冻结：`python3 scripts/research/retrieval/hard-text.py`，源目录和 unit texts 位于 ignored `data/research/corpus/hard-text/`，摘要/locator 位于 [hard-text manifest](../docs/research/corpus/hard-text.json)。该命令只准备 source，query 审计和实际检索使用对应研究流程。
-
-## Hard Text IR preparation
-
-```text
-corepack pnpm exec tsx scripts/research/retrieval.ts prepare --suite hard-text --raw-file docs/research/corpus/hard-text.json --queries docs/research/corpus/hard-text-queries.json --texts data/research/corpus/hard-text/unit-texts.json --prepared-root data/research/external/hard-text/prepared
-```
-
-同一 CLI 使用 source/unit SHA-256 复核文本，生成 manifest/scenarios/queries 供已有 `cognitive-import` 使用。准备本身不调用模型，不改变 oracle 审计状态。第三方正文仅写入 ignored prepared root。所有版本/项目共处一个 Subject，每篇 source 为一个 Session；Tag 来自来源版本/作者，query cue 来自问题 literal surface。Hard Text 的 `explicit_qrels_unjudged_others` policy 保留未审定候选；普通 closed oracle suites 保持原语义。来源文档用 `source_set_unit=document_session` 分组，避免把每个段落误称一份独立 source。
+[手工功能语料](../docs/research/corpus/functional/README.md)和[六项 text-only 选择](../docs/research/corpus/text-compatibility-selection.json)定义本轮范围。功能 runner 通过 public Client 连接已经运行的 Core，不负责数据库、Kernel、clock、embedding cache 或 Serving lifecycle。结果写入 ignored `data/research/`。全量外部 benchmark、付费 rerank/provider 比较与 RAGFlow 不在本轮执行。

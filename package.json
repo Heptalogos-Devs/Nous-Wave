@@ -23,7 +23,6 @@
     "lint:dupes": "jscpd --config .config/duplication.json .",
     "lint:sherif": "sherif",
     "check": "pnpm check:fast && pnpm test",
-    "research:retrieval-live": "tsx scripts/research/retrieval.ts",
     "research:gateway": "tsx scripts/research/serve-gateway.ts",
     "release:notices": "tsx scripts/release/prepare-notices.ts",
     "release:verify": "tsx scripts/release/verify-portable.ts",

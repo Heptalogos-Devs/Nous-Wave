@@ -1,7 +1,5 @@
 import { createServer, request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import type { IncomingMessage } from "node:http";
-import type { ExecutionBudget } from "./execution-budget.js";
 import { once } from "node:events";
 import { appendFile } from "node:fs/promises";
 import { remoteEndpointSchema } from "../../apps/nous-core/src/remote-endpoint.js";
@@ -15,12 +13,9 @@ export async function startResearchGateway(options: {
   maxCalls: number;
   port: number;
   traceRoot?: string;
-  executionBudget?: ExecutionBudget;
 }) {
   const upstream = new URL(remoteEndpointSchema.parse(options.upstream));
-  const guard = options.executionBudget
-    ? undefined
-    : new ResearchModelCallGuard(options.ledger, options.maxCalls);
+  const guard = new ResearchModelCallGuard(options.ledger, options.maxCalls);
   let telemetry: Promise<void> = Promise.resolve();
   const basePath = upstream.pathname.replace(/\/$/, "");
   const paths = new Set(
@@ -44,20 +39,8 @@ export async function startResearchGateway(options: {
         return;
       }
       let attempt: number;
-      let body: Buffer | undefined;
       try {
-        if (options.executionBudget) {
-          body = await boundedRequestBody(
-            incoming,
-            options.executionBudget.signal,
-          );
-          const path = target.pathname.slice(basePath.length);
-          const work = providerWork(path, body);
-          await options.executionBudget.reserve(work);
-          attempt = options.executionBudget.snapshot().used.providerCalls;
-        } else {
-          attempt = await guard!.reserve();
-        }
+        attempt = await guard.reserve();
       } catch {
         outgoing.writeHead(429, { "Content-Type": "application/json" });
         outgoing.end(
@@ -75,8 +58,7 @@ export async function startResearchGateway(options: {
       );
       const responseCapture = new TraceBody(1024 * 1024);
       const secrets = traceSecrets(incoming.headers);
-      if (body) requestCapture.add(body);
-      else incoming.on("data", (chunk: Buffer) => requestCapture.add(chunk));
+      incoming.on("data", (chunk: Buffer) => requestCapture.add(chunk));
       const record = (
         status: number | null,
         usage: Record<string, number> = {},
@@ -181,16 +163,7 @@ export async function startResearchGateway(options: {
       outgoing.on("close", () => {
         if (!outgoing.writableFinished) forwarded.destroy();
       });
-      const abort = () => forwarded.destroy();
-      options.executionBudget?.signal.addEventListener("abort", abort, {
-        once: true,
-      });
-      forwarded.once("close", () =>
-        options.executionBudget?.signal.removeEventListener("abort", abort),
-      );
-      if (options.executionBudget?.signal.aborted) forwarded.destroy();
-      else if (body) forwarded.end(body);
-      else incoming.pipe(forwarded);
+      incoming.pipe(forwarded);
     })().catch(() => outgoing.destroy());
   });
   server.listen(options.port, "127.0.0.1");
@@ -208,42 +181,4 @@ export async function startResearchGateway(options: {
       await telemetry;
     },
   };
-}
-
-async function boundedRequestBody(
-  incoming: IncomingMessage,
-  signal: AbortSignal,
-): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  const abort = () => incoming.destroy();
-  signal.addEventListener("abort", abort, { once: true });
-  try {
-    signal.throwIfAborted();
-    for await (const chunk of incoming) {
-      const bytes = Buffer.from(chunk as Uint8Array);
-      size += bytes.length;
-      if (size > 16 * 1024 * 1024)
-        throw new Error("Research provider input exceeds 16 MiB");
-      chunks.push(bytes);
-    }
-    return Buffer.concat(chunks);
-  } finally {
-    signal.removeEventListener("abort", abort);
-  }
-}
-function providerWork(path: string, body: Buffer) {
-  const work = { providerCalls: 1, newEmbeddingItems: 0, rerankCalls: 0 };
-  if (path === "/rerank") work.rerankCalls = 1;
-  if (path === "/embeddings") {
-    const request = JSON.parse(body.toString("utf8")) as { input?: unknown };
-    const input = request.input;
-    if (typeof input === "string") work.newEmbeddingItems = 1;
-    else if (Array.isArray(input) && input.length)
-      work.newEmbeddingItems = input.every((item) => typeof item === "number")
-        ? 1
-        : input.length;
-    else throw new Error("Invalid research embedding input");
-  }
-  return work;
 }

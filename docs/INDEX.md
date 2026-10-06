@@ -20,6 +20,7 @@
 
 - [研究入口](research/README.md)
 - [研究语料与 oracle](research/corpus/README.md)
+- [手工认知功能语料](research/corpus/functional/README.md)
 - [实验方法](research/retrieval-media-methods.md)
 - [检索与媒体观测](research/observations.md)
 - [VCP source conformance](research/vcp-conformance.md)
@@ -27,5 +28,3 @@
 - [Architecture-Vault Target Design](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md)
 
 [返回仓库地图](../INDEX.md)
-
-- [原创 Cognitive Recall Corpus](research/corpus/cognitive/README.md)

@@ -31,9 +31,6 @@ smoke:
     cargo build -p nous-kernel
     corepack pnpm smoke
 
-research *args:
-    corepack pnpm research:retrieval-live {{args}}
-
 release-prepare:
     powershell -NoProfile -File scripts/release/build-kernel.ps1
     corepack pnpm release:notices
