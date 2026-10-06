@@ -116,3 +116,30 @@ it("leaves omitted result limits for the Kernel configuration snapshot", async (
   );
   expect(explicit.expression.modifiers?.limit).toBe(3);
 });
+
+it("binds all names and preferences with the root historical cut", async () => {
+  const cuts: (string | undefined)[] = [];
+  const resolver = async (
+    kind: string,
+    locator: { value: string },
+    asOf?: Date,
+  ) => {
+    cuts.push(asOf?.toISOString());
+    return {
+      canonical: { kind, value: "old" },
+      lexicalRef: "tag:amber-lotus-cello-river",
+    };
+  };
+  await compileNousQL(
+    '(@tag("Past") || "question") +@tag("Past") $asof(ago=1d)',
+    resolver,
+    referenceTime,
+  );
+  expect(cuts).toEqual([
+    "2026-09-16T00:00:00.000Z",
+    "2026-09-16T00:00:00.000Z",
+  ]);
+  cuts.length = 0;
+  await compileNousQL('@tag("Past") $history', resolver, referenceTime);
+  expect(cuts).toEqual([referenceTime.toISOString()]);
+});

@@ -54,16 +54,26 @@ impl KernelService {
             p::resolve_identity_request::Locator::Name(name) => (name, false),
             p::resolve_identity_request::Locator::LexicalRef(reference) => (reference, true),
         };
-        let (status, bindings) = self
-            .0
-            .store
-            .resolve_identity(
-                SubjectId(id(&input.subject_id)?),
-                &input.kind,
-                &locator,
-                lexical,
-            )
-            .await?;
+        let subject = SubjectId(id(&input.subject_id)?);
+        let (status, bindings) = if let Some(at) = input.as_of {
+            let view = self
+                .0
+                .historical_authority_view(
+                    subject,
+                    required(time(Some(at))?, "as_of")?,
+                    nous_core::RevisionView::Current,
+                )
+                .await?;
+            self.0
+                .store
+                .resolve_identity_in_view(&view, &input.kind, &locator, lexical)
+                .await?
+        } else {
+            self.0
+                .store
+                .resolve_identity(subject, &input.kind, &locator, lexical)
+                .await?
+        };
         Ok(p::ResolveIdentityResponse {
             status,
             candidates: bindings.into_iter().map(binding).collect(),

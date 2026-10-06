@@ -518,6 +518,8 @@ pub struct EmbeddingNeedsRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(uint32, tag="2")]
     pub limit: u32,
+    #[prost(string, optional, tag="3")]
+    pub preparation_token: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingNeed {
@@ -543,6 +545,8 @@ pub struct CommitEmbeddingRequest {
     pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
     #[prost(message, optional, tag="3")]
     pub material: ::core::option::Option<QueryEmbedding>,
+    #[prost(string, optional, tag="4")]
+    pub preparation_token: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CommitInterpretationRequest {

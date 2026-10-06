@@ -282,3 +282,77 @@ it.each(["optional", "required"])(
     );
   },
 );
+
+it("discovers and commits historical document embeddings against the reserved query view", async () => {
+  const listEmbeddingNeeds = vi.fn(async () => ({
+    config: { spaceHash: "space", producerHash: "producer", model: "fake" },
+    needs: [
+      {
+        reference: { kind: "tag", value: "old" },
+        text: "Concept: old meaning",
+        digest: "old",
+      },
+    ],
+  }));
+  const commitEmbedding = vi.fn(async () => ({}));
+  const embeddingBatch = vi.fn(async (texts: string[]) => ({
+    value: texts.map(() => [1, 0]),
+  }));
+  const kernel = {
+    execution: coreExecutionSchema.parse(undefined),
+    materialWorkflow: {
+      listEmbeddingNeeds,
+      commitEmbedding,
+      getEmbeddingConfig: async () => ({
+        spaceHash: "space",
+        producerHash: "producer",
+        model: "fake",
+      }),
+    },
+    queryWorkflow: {
+      prepareQuery: async () => ({
+        preparationToken: "frozen-history",
+        historicalView: true,
+        embeddingRequired: true,
+        embeddingText: "current question with old concepts",
+        rerankRequirement: "forbidden",
+      }),
+      query: async () => ({
+        response: create(QueryResponseSchema, { status: "complete" }),
+      }),
+      releaseQuery: async () => ({}),
+    },
+  } as unknown as KernelClient;
+  const models = {
+    embeddingModel: {},
+    invocations: {
+      embeddingBatch,
+      profile: () => ({ embedding: { max_batch_size: 64 } }),
+      requirement: () => "optional",
+    },
+  } as unknown as ModelRuntime;
+  await new QueryOrchestrator(kernel, models, {} as ResourceRegistry).execute(
+    create(QueryRequestSchema, { subjectId: "subject" }),
+  );
+  expect(listEmbeddingNeeds).toHaveBeenCalledWith(
+    { subjectId: "subject", limit: 256, preparationToken: "frozen-history" },
+    {},
+  );
+  expect(commitEmbedding).toHaveBeenCalledWith(
+    expect.objectContaining({
+      subjectId: "subject",
+      preparationToken: "frozen-history",
+      material: {
+        text: "Concept: old meaning",
+        spaceHash: "space",
+        producerHash: "producer",
+        vector: [1, 0],
+      },
+    }),
+    {},
+  );
+  expect(embeddingBatch.mock.calls.map(([texts]) => texts)).toEqual([
+    ["Concept: old meaning"],
+    ["current question with old concepts"],
+  ]);
+});

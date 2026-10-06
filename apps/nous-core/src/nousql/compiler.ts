@@ -19,6 +19,7 @@ import type { Atom, Directive, Expression, Locator } from "./syntax.js";
 export type IdentityResolver = (
   kind: string,
   locator: Locator,
+  asOf?: Date,
 ) => Promise<{ canonical: Ref; lexicalRef: string }>;
 const selectorKinds = {
   e: "entity",
@@ -40,6 +41,7 @@ export async function compileNousQL(
   const syntax = parse(source);
   const sourceCanonical = canonical(syntax);
   const temporalExpressions: string[] = [];
+  let authorityTime: Date | undefined;
   function temporalSources(node: Expression) {
     for (const d of node.directives.filter((directive) =>
       ["time", "asof", "history"].includes(directive.name),
@@ -74,7 +76,7 @@ export async function compileNousQL(
             canonical: { kind: "external_object", value: locator.value },
             lexicalRef: "",
           };
-        return resolve(selectorKinds[atom.selector], locator);
+        return resolve(selectorKinds[atom.selector], locator, authorityTime);
       }),
     );
     const identities = bound.map(
@@ -131,6 +133,15 @@ export async function compileNousQL(
       seen.add(key);
       applyDirective(modifiers, directive, now);
     }
+    if (root)
+      authorityTime = modifiers.asOf
+        ? new Date(
+            Number(modifiers.asOf.seconds) * 1000 +
+              modifiers.asOf.nanos / 1000000,
+          )
+        : modifiers.history
+          ? now
+          : undefined;
     for (const preference of node.preferences) {
       if (preference.operand.kind === "key") {
         if (

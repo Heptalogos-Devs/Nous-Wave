@@ -5,6 +5,7 @@ syntax = "proto3";
 package nous.wave.v1alpha1;
 import "nous/wave/v1alpha1/types.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 message IdentityBinding {
   string lexical_ref = 1;
   CognitiveRef canonical = 2;
@@ -21,6 +22,7 @@ message BindIdentityRequest {
 message ResolveIdentityRequest {
   string subject_id = 1;
   string kind = 2;
+  optional google.protobuf.Timestamp as_of = 5;
   oneof locator { string name = 3; string lexical_ref = 4; }
 }
 message ResolveIdentityResponse { repeated IdentityBinding candidates = 1; string status = 2; }

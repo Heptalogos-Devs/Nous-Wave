@@ -55,6 +55,7 @@ impl k::kernel_query_service_server::KernelQueryService for KernelService {
             let concept_enrichment_mode = enum_name(bound.concept_enrichment);
             let concept_enrichment_requirement =
                 enum_name(bound.source_query.capabilities.query_concept_enrichment);
+            let historical_view = bound.historical_authority.is_some();
             let token = if input.reserve_execution {
                 Some(self.0.cognition.retain_prepared_query(bound)?.to_string())
             } else {
@@ -69,6 +70,7 @@ impl k::kernel_query_service_server::KernelQueryService for KernelService {
                 rerank_requirement,
                 concept_enrichment_mode,
                 concept_enrichment_requirement,
+                historical_view,
             })
         }
         .await;

@@ -28,11 +28,18 @@ impl AuthorityStore {
             .execute(&mut *tx)
             .await
             .map_err(database_error)?;
+        let memory_allowed: bool =
+            sqlx::query_scalar("SELECT memory FROM subject_capabilities WHERE subject_id=$1")
+                .bind(view.subject.0)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(database_error)?;
         // Selection is frozen at the owner level. Current purge is a hard fence,
         // while current head, suppression and canonical Tag never select this corpus.
         let selected: Vec<_> = view
             .cognition
             .iter()
+            .filter(|_| memory_allowed)
             .filter(|state| {
                 state.state["acceptance_state"] == "accepted"
                     && state.state["integrity_state"] == "valid"
@@ -85,7 +92,7 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
         let mut tags: Vec<_> = view
             .tags
             .iter()
-            .filter(|tag| tag.status == "active")
+            .filter(|tag| memory_allowed && tag.status == "active")
             .map(|tag| ConceptProjectionTag {
                 tag: tag.tag,
                 revision: tag.revision_id,
@@ -194,7 +201,12 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                 );
             }
         }
-        let associations: Vec<_> = view.associations.iter().map(|id| id.0).collect();
+        let associations: Vec<_> = view
+            .associations
+            .iter()
+            .filter(|_| memory_allowed)
+            .map(|id| id.0)
+            .collect();
         let rows = sqlx::query("SELECT * FROM association_evidence WHERE subject_id=$1 AND association_evidence_id=ANY($2::uuid[]) ORDER BY association_evidence_id")
             .bind(view.subject.0).bind(associations).fetch_all(&mut *tx).await.map_err(database_error)?;
         for row in rows {
@@ -236,7 +248,11 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                 ),
             );
         }
-        let links: Vec<_> = view.schema_evidence_links.to_vec();
+        let links: Vec<_> = if memory_allowed {
+            view.schema_evidence_links.clone()
+        } else {
+            vec![]
+        };
         let rows = sqlx::query("SELECT schema_revision_id,support_kind,support_ref FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND link_id=ANY($2::uuid[]) AND role='support' AND support_role<>'contradiction' AND support_kind<>'evidence'")
             .bind(view.subject.0).bind(links).fetch_all(&mut *tx).await.map_err(database_error)?;
         for row in rows {

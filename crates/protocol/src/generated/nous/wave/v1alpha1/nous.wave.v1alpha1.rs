@@ -626,6 +626,8 @@ pub struct PreparedQueryResponse {
     pub concept_enrichment_mode: ::prost::alloc::string::String,
     #[prost(string, tag="8")]
     pub concept_enrichment_requirement: ::prost::alloc::string::String,
+    #[prost(bool, tag="9")]
+    pub historical_view: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Evidence {
@@ -1563,6 +1565,8 @@ pub struct ResolveIdentityRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="5")]
+    pub as_of: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(oneof="resolve_identity_request::Locator", tags="3, 4")]
     pub locator: ::core::option::Option<resolve_identity_request::Locator>,
 }

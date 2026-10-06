@@ -118,3 +118,14 @@ pub(super) async fn canonical_preferences(
     result.dedup();
     Ok(result)
 }
+
+impl MemoryService {
+    pub(super) async fn query_permitted(&self, subject: SubjectId) -> Result<bool> {
+        sqlx::query_scalar("SELECT memory FROM subject_capabilities WHERE subject_id=$1")
+            .bind(subject.0)
+            .fetch_optional(self.store.pool())
+            .await
+            .map_err(nous_persistence::database_error)
+            .map(|allowed| allowed.unwrap_or(false))
+    }
+}

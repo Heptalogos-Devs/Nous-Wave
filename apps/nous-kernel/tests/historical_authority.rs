@@ -350,6 +350,7 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
         (tag.tag_id, survivor.tag_id),
     )
     .await;
+    check_permission_fence(&rt, subject, &baseline).await;
     owner
         .purge_memory(
             subject,
@@ -359,6 +360,12 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
         )
         .await
         .unwrap();
+    assert!(matches!(
+        rt.store
+            .bind_reference_in_view(subject, &baseline.cognition[0].head, Some(&baseline))
+            .await,
+        Err(Error::NotFound(_))
+    ));
     assert!(
         owner
             .project_as_of(subject, before, RevisionView::History)
@@ -434,6 +441,7 @@ async fn check_historical_binding(
         .await
         .unwrap();
     assert_eq!(bound.exact_bindings[0].bound_ref, old);
+    check_historical_identity(rt, view, tag).await;
     assert!(bound.runtime_refs.contains(&old));
     assert!(!bound.runtime_refs.contains(&future));
     assert!(!bound.runtime_refs.contains(&CognitiveRef::Tag(future_tag)));
@@ -580,5 +588,211 @@ async fn check_historical_serving(
             .generations
             .values()
             .all(|id| collected.reclaimed.contains(id))
+    );
+}
+
+#[tokio::test]
+async fn historical_material_query_runs_without_memory_micro_system() {
+    use nous_kernel::{NousRuntime, RuntimeOptions};
+    let (root, url, _pg) = database().await;
+    let rt=NousRuntime::open(RuntimeOptions {postgres_url:url,max_connections:4,acquire_timeout_ms:15000,object_root:root.path().join("objects").to_string_lossy().into_owned(),serving_options:nous_retrieval::ServingOptions {root:root.path().join("serving"),lexical:true,dense:false,topology:false,memory_enabled:false},embedding:None,stored_embedding:None,core_descriptors:vec![],deployment_document:serde_json::json!({"capabilities":{"process":{"memory":false},"subject_defaults":{"memory":false}},"serving":{"lexical":{"enabled":true},"dense":{"enabled":false},"topology":{"enabled":false}}})}).await.unwrap();
+    assert!(rt.memory.is_none());
+    let subject = rt
+        .subjects
+        .create_subject(CreateSubject {
+            subject_id: None,
+            operation_id: OperationId::new(),
+            cognitive_seed: CognitiveSeedInput {
+                text: "schema_version = 1".into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
+                provenance: serde_json::json!({}),
+            },
+            metadata: serde_json::json!({}),
+            capabilities: None,
+        })
+        .await
+        .unwrap()
+        .subject_id;
+    let old = observation(&rt, subject, "material archival chronicle").await;
+    let cut = rt.cognition.now(subject);
+    let future = observation(&rt, subject, "future material archival chronicle").await;
+    let request = CognitiveQuery {
+        api_version: API_VERSION,
+        subject,
+        session: None,
+        work_context: None,
+        projection: ResultProjection {
+            domains: vec![ResultDomain::Evidence],
+        },
+        temporal_frame: TemporalFrame {
+            authority_view: AuthorityView::AsOf(cut),
+            ..Default::default()
+        },
+        text_only_compatibility: false,
+        situation: Default::default(),
+        expression: CognitiveQueryExpr {
+            cues: vec![Cue::Text(TextCue {
+                text: "archival chronicle".into(),
+            })],
+            ..Default::default()
+        },
+        exploration: Default::default(),
+        resources: Default::default(),
+        result_need: Default::default(),
+        effort: Default::default(),
+        capabilities: Default::default(),
+        diagnostics: Default::default(),
+    };
+    let result = rt.execute_query(request, None).await.unwrap();
+    assert!(
+        result
+            .bound
+            .historical_authority
+            .as_ref()
+            .unwrap()
+            .cognition
+            .is_empty()
+    );
+    assert!(
+        result
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == CognitiveRef::Occurrence(old.occurrence.occurrence_id))
+    );
+    assert!(
+        !result
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == CognitiveRef::Occurrence(future.occurrence.occurrence_id))
+    );
+}
+
+async fn check_permission_fence(
+    rt: &nous_kernel::NousRuntime,
+    subject: SubjectId,
+    view: &HistoricalAuthoritySnapshot,
+) {
+    let reference = view.cognition[0].head.clone();
+    let query = CognitiveQuery {
+        api_version: API_VERSION,
+        subject,
+        session: None,
+        work_context: None,
+        projection: Default::default(),
+        temporal_frame: TemporalFrame {
+            authority_view: AuthorityView::AsOf(view.as_of),
+            ..Default::default()
+        },
+        text_only_compatibility: false,
+        situation: Default::default(),
+        expression: CognitiveQueryExpr {
+            targets: vec![QueryTarget::Exact {
+                reference: reference.clone(),
+            }],
+            ..Default::default()
+        },
+        exploration: Default::default(),
+        resources: Default::default(),
+        result_need: Default::default(),
+        effort: Default::default(),
+        capabilities: Default::default(),
+        diagnostics: Default::default(),
+    };
+    let bound = rt
+        .bind_query_with_snapshot(
+            query,
+            rt.configuration.snapshot_for_subject(subject).unwrap(),
+        )
+        .await
+        .unwrap();
+    sqlx::query("UPDATE subject_capabilities SET memory=false WHERE subject_id=$1")
+        .bind(subject.0)
+        .execute(rt.store.pool())
+        .await
+        .unwrap();
+    let (hits, drops) = nous_runtime::CognitiveContributor::validate_and_materialize(
+        rt.require_memory().unwrap(),
+        subject,
+        &[reference],
+        &bound,
+    )
+    .await
+    .unwrap();
+    assert!(hits.is_empty());
+    assert!(matches!(
+        rt.store
+            .bind_reference_in_view(subject, &view.cognition[0].head, Some(view))
+            .await,
+        Err(Error::NotFound(_))
+    ));
+    assert!(matches!(
+        rt.store
+            .bind_reference_in_view(subject, &CognitiveRef::Tag(view.tags[0].tag), Some(view))
+            .await,
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(drops["current_permission_denied"], 1);
+    let projected = rt
+        .store
+        .historical_projection_input(
+            view,
+            rt.configuration
+                .snapshot_for_subject(subject)
+                .unwrap()
+                .get(nous_configuration::ConfigKey::new("episode.synopsis"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(projected.concepts.tags.is_empty());
+    assert!(
+        !projected
+            .sources
+            .iter()
+            .any(|source| matches!(source.reference, CognitiveRef::MemoryRevision(_)))
+    );
+    assert!(
+        rt.historical_authority_view(subject, view.as_of, RevisionView::Current)
+            .await
+            .unwrap()
+            .cognition
+            .is_empty()
+    );
+    sqlx::query("UPDATE subject_capabilities SET memory=true WHERE subject_id=$1")
+        .bind(subject.0)
+        .execute(rt.store.pool())
+        .await
+        .unwrap();
+}
+
+async fn check_historical_identity(
+    rt: &nous_kernel::NousRuntime,
+    view: &HistoricalAuthoritySnapshot,
+    tag: TagId,
+) {
+    assert_eq!(
+        rt.store
+            .resolve_identity(view.subject, "tag", "Future concept", false)
+            .await
+            .unwrap()
+            .0,
+        "BOUND"
+    );
+    let (status, identities) = rt
+        .store
+        .resolve_identity_in_view(view, "tag", "Past concept", false)
+        .await
+        .unwrap();
+    assert_eq!(status, "BOUND");
+    assert_eq!(identities[0].canonical, CognitiveRef::Tag(tag));
+    assert_eq!(
+        rt.store
+            .resolve_identity_in_view(view, "tag", "Future concept", false)
+            .await
+            .unwrap()
+            .0,
+        "UNKNOWN_REFERENCE"
     );
 }

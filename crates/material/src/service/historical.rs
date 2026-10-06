@@ -37,7 +37,18 @@ impl MaterialService {
             })
             .cloned()
             .collect();
+        let lexical_visibility = rows
+            .lexical
+            .into_iter()
+            .filter(|lexical| {
+                rows.material.iter().any(|reference| {
+                    reference_parts(reference)
+                        == (lexical.object_kind.clone(), lexical.canonical_ref.clone())
+                })
+            })
+            .collect();
         Ok(HistoricalMaterialProjection {
+            lexical_visibility,
             known_references: rows.material,
             document_references,
             entity_bindings: rows.entity_bindings,

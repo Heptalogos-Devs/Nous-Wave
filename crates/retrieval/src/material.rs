@@ -120,6 +120,14 @@ impl ServingService {
         subject: SubjectId,
         limit: usize,
     ) -> Result<Vec<EmbeddingNeed>> {
+        self.embedding_needs_in_view(subject, limit, None).await
+    }
+    pub async fn embedding_needs_in_view(
+        &self,
+        subject: SubjectId,
+        limit: usize,
+        view: Option<&HistoricalAuthoritySnapshot>,
+    ) -> Result<Vec<EmbeddingNeed>> {
         if limit == 0 || limit > 256 {
             return Err(Error::Invalid(
                 "embedding batch limit must be 1..256".into(),
@@ -136,18 +144,33 @@ impl ServingService {
             .configuration
             .snapshot_for_subject(subject)?
             .get(crate::EPISODE_SYNOPSIS)?;
-        let input = self
-            .store
-            .text_projection_input(
-                subject,
-                "dense",
-                &config.space_hash,
-                capabilities.memory,
-                budget,
-            )
-            .await?;
+        let sources = match view {
+            Some(view) => {
+                if view.subject != subject {
+                    return Err(Error::Invalid(
+                        "historical embedding Subject mismatch".into(),
+                    ));
+                };
+                self.store
+                    .historical_projection_input(view, budget)
+                    .await?
+                    .sources
+            }
+            None => {
+                self.store
+                    .text_projection_input(
+                        subject,
+                        "dense",
+                        &config.space_hash,
+                        capabilities.memory,
+                        budget,
+                    )
+                    .await?
+                    .sources
+            }
+        };
         let mut needs = vec![];
-        for doc in self.documents(input.sources, budget).await? {
+        for doc in self.documents(sources, budget).await? {
             let digest = blake3::hash(doc.representation_text.as_bytes())
                 .to_hex()
                 .to_string();
@@ -175,6 +198,19 @@ impl ServingService {
         producer: &str,
         vector: Vec<f32>,
     ) -> Result<()> {
+        self.commit_embedding_in_view(subject, reference, text, space, producer, vector, None)
+            .await
+    }
+    pub async fn commit_embedding_in_view(
+        &self,
+        subject: SubjectId,
+        reference: CognitiveRef,
+        text: String,
+        space: &str,
+        producer: &str,
+        vector: Vec<f32>,
+        view: Option<&HistoricalAuthoritySnapshot>,
+    ) -> Result<()> {
         self.store.validate_reference(subject, &reference).await?;
         let configured = self
             .embedding()
@@ -193,12 +229,27 @@ impl ServingService {
             .configuration
             .snapshot_for_subject(subject)?
             .get(crate::EPISODE_SYNOPSIS)?;
-        let input = self
-            .store
-            .text_projection_input(subject, "dense", space, input.memory, budget)
-            .await?;
+        let sources = match view {
+            Some(view) => {
+                if view.subject != subject {
+                    return Err(Error::Invalid(
+                        "historical embedding Subject mismatch".into(),
+                    ));
+                };
+                self.store
+                    .historical_projection_input(view, budget)
+                    .await?
+                    .sources
+            }
+            None => {
+                self.store
+                    .text_projection_input(subject, "dense", space, input.memory, budget)
+                    .await?
+                    .sources
+            }
+        };
         let exists = self
-            .documents(input.sources, budget)
+            .documents(sources, budget)
             .await?
             .into_iter()
             .any(|d| d.reference == reference && d.representation_text == text);

@@ -169,15 +169,9 @@ impl NousRuntime {
                 AuthorityView::AsOf(at) => at,
                 AuthorityView::Current => query.temporal_frame.clock_now,
             };
-            let mut view = self
-                .require_memory()?
-                .project_as_of(query.subject, at, query.temporal_frame.revision_view)
+            let view = self
+                .historical_authority_view(query.subject, at, query.temporal_frame.revision_view)
                 .await?;
-            let material = self.material.project_as_of(query.subject, at).await?;
-            view.material_visibility = material.known_references;
-            view.material_documents = material.document_references;
-            view.entity_bindings = material.entity_bindings;
-            view.refresh_digest()?;
             Some(Arc::new(view))
         } else {
             None
@@ -185,6 +179,30 @@ impl NousRuntime {
         self.cognition
             .bind_query_with_authority_view(query, config, view)
             .await
+    }
+    pub async fn historical_authority_view(
+        &self,
+        subject: SubjectId,
+        at: chrono::DateTime<chrono::Utc>,
+        revision_view: RevisionView,
+    ) -> Result<HistoricalAuthoritySnapshot> {
+        let capabilities = self.subjects.subject(subject).await?.capabilities;
+        let mut view = if let Some(memory) = self.memory.as_ref().filter(|_| capabilities.memory) {
+            memory.project_as_of(subject, at, revision_view).await?
+        } else {
+            HistoricalAuthoritySnapshot::empty(subject, at, revision_view)
+        };
+        let material = self.material.project_as_of(subject, at).await?;
+        view.material_visibility = material.known_references;
+        view.material_documents = material.document_references;
+        view.entity_bindings = material.entity_bindings;
+        view.lexical_visibility.extend(material.lexical_visibility);
+        view.lexical_visibility
+            .sort_by(|a, b| a.lexical_ref.cmp(&b.lexical_ref));
+        view.lexical_visibility
+            .dedup_by(|a, b| a.lexical_ref == b.lexical_ref);
+        view.refresh_digest()?;
+        Ok(view)
     }
     pub async fn execute_query(
         &self,

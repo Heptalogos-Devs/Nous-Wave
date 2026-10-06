@@ -224,11 +224,17 @@ export async function createCore(settings: CoreOptions) {
       );
       const compiled = await compileNousQL(
         r.nousql,
-        async (kind, locator) => {
+        async (kind, locator, asOf) => {
           const result = await kernel.identity.resolveIdentity(
             {
               subjectId: r.subjectId,
               kind,
+              asOf: asOf
+                ? {
+                    seconds: BigInt(Math.floor(asOf.getTime() / 1000)),
+                    nanos: (((asOf.getTime() % 1000) + 1000) % 1000) * 1000000,
+                  }
+                : undefined,
               locator: {
                 case: locator.kind === "name" ? "name" : "lexicalRef",
                 value: locator.value,

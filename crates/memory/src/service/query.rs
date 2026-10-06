@@ -40,6 +40,9 @@ impl CognitiveContributor for MemoryService {
     }
 
     async fn direct_lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
+        if !self.query_permitted(bound.source_query.subject).await? {
+            return Ok(Vec::new());
+        }
         if bound.historical_authority.is_some() {
             return super::historical_query::direct_lanes(self, bound, plan).await;
         }
@@ -63,6 +66,12 @@ impl CognitiveContributor for MemoryService {
         bound: &BoundQuery,
     ) -> Result<(Vec<CognitiveHit>, BTreeMap<String, usize>)> {
         let subject = bound.source_query.subject;
+        if !self.query_permitted(subject).await? {
+            return Ok((
+                vec![],
+                BTreeMap::from([("current_permission_denied".into(), references.len())]),
+            ));
+        }
         let accessibility_policy = resolve_accessibility_policy(&bound.config_snapshot)?;
         let memory_references = references
             .iter()

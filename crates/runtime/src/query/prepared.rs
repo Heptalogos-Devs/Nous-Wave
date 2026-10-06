@@ -56,6 +56,29 @@ impl CognitiveRuntimeService {
         );
         Ok(token)
     }
+    pub fn prepared_query(&self, subject: SubjectId, token: Uuid) -> Result<BoundQuery> {
+        let pending = self
+            .pending_queries
+            .lock()
+            .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
+        let entry = pending
+            .get(&token)
+            .ok_or_else(|| Error::NotFound("prepared query expired or consumed".into()))?;
+        if entry.snapshot.bound().source_query.subject != subject {
+            return Err(Error::Invalid(
+                "prepared query belongs to another Subject".into(),
+            ));
+        }
+        if entry.created.elapsed() >= entry.lease {
+            return Err(Error::Unavailable("prepared query expired".into()));
+        }
+        match &entry.snapshot {
+            QuerySnapshot::Prepared(bound) => Ok(bound.as_ref().clone()),
+            QuerySnapshot::Executed(_) => Err(Error::Invalid(
+                "execution ticket is not a preparation token".into(),
+            )),
+        }
+    }
     pub fn take_prepared_query(&self, subject: SubjectId, token: Uuid) -> Result<BoundQuery> {
         let mut pending = self
             .pending_queries

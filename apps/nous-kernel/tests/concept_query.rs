@@ -697,6 +697,14 @@ async fn check_historical_profiles(
         assert!(record.semantic.text.contains("Wait for all active readers"));
         assert!(!record.semantic.text.contains("historical assets"));
         assert!(record.vector.is_some());
+        check_historical_embedding(
+            rt,
+            subject,
+            result.bound.historical_authority.as_deref().unwrap(),
+            &generation,
+            tag,
+        )
+        .await;
         let (_, reader) = rt
             .serving
             .prepare_query(
@@ -720,5 +728,54 @@ async fn check_historical_profiles(
                 lane.diagnostics
             );
         }
+    }
+}
+
+async fn check_historical_embedding(
+    rt: &NousRuntime,
+    subject: SubjectId,
+    view: &HistoricalAuthoritySnapshot,
+    generation: &nous_retrieval::ConceptGeneration,
+    tag: TagId,
+) {
+    let needs = rt
+        .serving
+        .embedding_needs_in_view(subject, 256, Some(view))
+        .await
+        .unwrap();
+    assert!(
+        needs
+            .iter()
+            .all(|need| !need.text.contains("Retain immutable historical assets"))
+    );
+    if let Some(need) = needs
+        .iter()
+        .find(|need| need.reference == CognitiveRef::Tag(tag))
+    {
+        assert!(
+            rt.serving
+                .commit_embedding(
+                    subject,
+                    need.reference.clone(),
+                    need.text.clone(),
+                    &generation.space.as_ref().unwrap().space_hash,
+                    &generation.producer.as_ref().unwrap().signature_hash,
+                    vec![1.0, 0.0]
+                )
+                .await
+                .is_err()
+        );
+        rt.serving
+            .commit_embedding_in_view(
+                subject,
+                need.reference.clone(),
+                need.text.clone(),
+                &generation.space.as_ref().unwrap().space_hash,
+                &generation.producer.as_ref().unwrap().signature_hash,
+                vec![1.0, 0.0],
+                Some(view),
+            )
+            .await
+            .unwrap();
     }
 }

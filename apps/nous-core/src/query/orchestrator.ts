@@ -12,6 +12,7 @@ import type {
   QueryRequest,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "../kernel-client.js";
+import { ModelMaterialPipeline } from "../model/material.js";
 import { ModelRuntime } from "../model/runtime.js";
 import { canonicalDigest } from "../digest.js";
 
@@ -47,6 +48,17 @@ export class QueryOrchestrator {
               "Query embedding role unavailable",
               Code.FailedPrecondition,
             );
+          if (preparation.historicalView) {
+            const prepared = await new ModelMaterialPipeline(
+              this.kernel,
+              this.models,
+            ).prepare(input.subjectId, 256, options, executionToken);
+            if (prepared.degradation.length)
+              throw new ConnectError(
+                "Historical embedding material unavailable",
+                Code.FailedPrecondition,
+              );
+          }
           const config = await this.kernel.materialWorkflow.getEmbeddingConfig(
             {},
             options,
