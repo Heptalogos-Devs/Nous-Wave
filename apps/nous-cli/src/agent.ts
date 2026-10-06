@@ -117,25 +117,59 @@ export const commandInventory = {
         "nous identity bind --kind entity --canonical entity:alice --name Alice --alias A --json",
     },
     {
-      command: "tag list|get|search|resolve",
-      parameters: ["get <tag-ref>", "search <text>", "resolve <name>"],
+      command: "tag list|get|search|resolve|create|revise|merge|split|attach",
+      parameters: [
+        "get <tag-ref>",
+        "search <text>",
+        "resolve <name>",
+        "create --name <label> [--description <text>]",
+        "revise|merge|split --request-file <JSON>",
+        "attach <exact-revision> --tag <ref> --association-file <supports JSON>",
+      ],
       example: "nous tag resolve deploy --json",
     },
     {
-      command: "topology neighborhood",
+      command: "association neighborhood",
       parameters: [
         "<canonical-or-lexical-ref>",
         "--kind <kind> (for lexical)",
         "--max-nodes 1..256",
         "--max-depth 1..4",
       ],
-      example: "nous topology neighborhood memory:<id> --json",
+      example: "nous association neighborhood memory:<id> --json",
     },
     {
-      command: "topology associate",
+      command: "association create",
       parameters: ["--operation-id <uuid>", "--association-file <json>"],
       description:
         "Official Client Association object; requires nonempty revision/use-event supports",
+    },
+    {
+      command: "association revoke",
+      parameters: ["<association-id>", "--operation-id <uuid>"],
+      description:
+        "Revoke one exact AssociationEvidence, including a Tag attachment",
+    },
+    {
+      command: "maintenance grant",
+      parameters: [
+        "--max-operations 1..32",
+        "--max-model-calls 0..32",
+        "--max-elapsed-ms 1..300000",
+      ],
+      description: "Host authorizes a bounded maintenance opportunity",
+    },
+    {
+      command: "use",
+      parameters: [
+        "<exact cognition revision>",
+        "--kind presented|referenced|acted_on|result_supported|result_refuted|corrected|pinned",
+        "--event-id <uuid>",
+        "--consumer <ref>",
+        "--occurred-at <ISO timestamp>",
+      ],
+      description:
+        "Typed meaningful use; stable retry reuses event ID and occurrence timestamp",
     },
     {
       command: "query",
@@ -175,6 +209,7 @@ export const commandInventory = {
         "<occurrence-id>",
         "--operation-id <uuid>",
         "--aboutness <ref> (repeatable)",
+        "--tag <Tag ID/ref/LexicalRef> (repeatable)",
       ],
     },
     {
@@ -182,7 +217,7 @@ export const commandInventory = {
       parameters: ["<source-region-id>", "--strategy <strategy>"],
     },
     { command: "embeddings prepare", parameters: ["--max-batches <n>"] },
-    { command: "trace|use", parameters: ["<canonical-or-lexical-ref>"] },
+    { command: "trace", parameters: ["<canonical-or-lexical-ref>"] },
     {
       command: "context create|foreground|show|end",
       parameters: ["[id]", "--text <purpose> (create)"],

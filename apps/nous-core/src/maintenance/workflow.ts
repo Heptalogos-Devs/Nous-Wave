@@ -277,7 +277,7 @@ export async function runModelMaintenance(
         } else if (need.kind === "concept_maintenance") {
           if (!plan.conceptCatalog || !plan.conceptModelInputJson)
             throw new ConnectError(
-              "Missing topology catalog",
+              "Missing concept catalog",
               Code.InvalidArgument,
             );
           const result = await models.maintainConcepts(

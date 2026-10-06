@@ -203,7 +203,7 @@ impl KernelService {
                         .into_iter()
                         .map(|(key, support)| k::ConceptSupport {
                             key,
-                            support: Some(super::topology::association_support_proto(support)),
+                            support: Some(super::concepts::association_support_proto(support)),
                         })
                         .collect(),
                 }),

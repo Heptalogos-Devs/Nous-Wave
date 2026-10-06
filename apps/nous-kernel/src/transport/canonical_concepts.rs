@@ -4,7 +4,7 @@
 use super::*;
 
 rpc_service! {
-    p::topology_service_server::TopologyService {
+    p::concept_service_server::ConceptService {
         forward {
             create_tag(p::CreateTagRequest) -> p::Tag;
             get_tag(p::ObjectRequest) -> p::Tag;
@@ -16,7 +16,6 @@ rpc_service! {
             create_association(p::CreateAssociationRequest) -> p::Association;
             revoke_association(p::RevokeAssociationRequest) -> ();
             get_neighborhood(p::NeighborhoodRequest) -> p::NeighborhoodResponse;
-            rebind_entity(p::RebindEntityRequest) -> ();
             create_cognitive_schema(p::CreateCognitiveSchemaRequest) -> p::CognitiveSchema;
             get_cognitive_schema(p::GetCognitiveSchemaRequest) -> p::CognitiveSchema;
             add_schema_evidence(p::AddSchemaEvidenceRequest) -> p::CognitiveSchema;

@@ -171,6 +171,26 @@ fn budget_values(
 }
 
 impl CognitiveRuntimeService {
+    async fn canonicalize_query_tags(&self, query: &mut CognitiveQuery) -> Result<()> {
+        let mut tag_ids = HashSet::new();
+        visit_expression_tags(&mut query.expression, &mut |tag| {
+            tag_ids.insert(*tag);
+        });
+        let mut canonical_tags = std::collections::HashMap::new();
+        for tag in tag_ids {
+            canonical_tags.insert(tag, self.store.canonical_tag_id(query.subject, tag).await?);
+        }
+        visit_expression_tags(&mut query.expression, &mut |tag| {
+            *tag = canonical_tags[tag];
+        });
+        Ok(())
+    }
+    fn capture_query_clock(&self, query: &mut CognitiveQuery) {
+        if query.temporal_frame.clock_now == chrono::DateTime::<chrono::Utc>::UNIX_EPOCH {
+            query.temporal_frame.clock_now = self.now(query.subject);
+        }
+    }
+
     async fn bind_exact_targets(
         &self,
         query: &CognitiveQuery,
@@ -244,9 +264,7 @@ impl CognitiveRuntimeService {
         mut query: CognitiveQuery,
         config_snapshot: nous_configuration::ConfigSnapshot,
     ) -> Result<BoundQuery> {
-        if query.temporal_frame.clock_now == chrono::DateTime::<chrono::Utc>::UNIX_EPOCH {
-            query.temporal_frame.clock_now = self.now(query.subject);
-        }
+        self.capture_query_clock(&mut query);
         super::closure::validate_query_input(&query)?;
         for node in query.scopes() {
             let mut scoped = query.clone();
@@ -254,17 +272,7 @@ impl CognitiveRuntimeService {
             validate_hard_constraints(&scoped)?;
         }
         self.require_subject(query.subject).await?;
-        let mut tag_ids = HashSet::new();
-        visit_expression_tags(&mut query.expression, &mut |tag| {
-            tag_ids.insert(*tag);
-        });
-        let mut canonical_tags = std::collections::HashMap::new();
-        for tag in tag_ids {
-            canonical_tags.insert(tag, self.store.canonical_tag_id(query.subject, tag).await?);
-        }
-        visit_expression_tags(&mut query.expression, &mut |tag| {
-            *tag = canonical_tags[tag];
-        });
+        self.canonicalize_query_tags(&mut query).await?;
         let retrieval_policy = resolve_retrieval_policy(&config_snapshot)?;
         if let Some(session) = query.session {
             self.require_session(query.subject, session).await?;

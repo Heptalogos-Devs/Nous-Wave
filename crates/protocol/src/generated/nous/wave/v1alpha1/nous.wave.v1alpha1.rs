@@ -1575,6 +1575,21 @@ pub struct ResolveIdentityResponse {
     #[prost(string, tag="2")]
     pub status: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RebindEntityRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub mention_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub entity_ref: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="4")]
+    pub binding_state: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub host_resolution_ref: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub reason: ::core::option::Option<::prost::alloc::string::String>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct JournalPoint {
     #[prost(int32, tag="1")]
@@ -1945,21 +1960,6 @@ pub struct NeighborhoodResponse {
     pub truncated: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct RebindEntityRequest {
-    #[prost(string, tag="1")]
-    pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub mention_id: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="3")]
-    pub entity_ref: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, tag="4")]
-    pub binding_state: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="5")]
-    pub host_resolution_ref: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, optional, tag="6")]
-    pub reason: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SchemaScope {
     #[prost(string, tag="1")]
     pub description: ::prost::alloc::string::String,
@@ -2277,6 +2277,8 @@ pub struct FormationRequest {
     pub aboutness_mode: ::prost::alloc::string::String,
     #[prost(string, repeated, tag="6")]
     pub explicit_aboutness: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="7")]
+    pub explicit_tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DeriveMaterialRequest {

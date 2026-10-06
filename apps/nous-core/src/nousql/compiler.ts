@@ -41,8 +41,8 @@ export async function compileNousQL(
   const sourceCanonical = canonical(syntax);
   const temporalExpressions: string[] = [];
   function temporalSources(node: Expression) {
-    for (const d of node.directives.filter((d) =>
-      ["time", "asof", "history"].includes(d.name),
+    for (const d of node.directives.filter((directive) =>
+      ["time", "asof", "history"].includes(directive.name),
     ))
       temporalExpressions.push(
         canonical({

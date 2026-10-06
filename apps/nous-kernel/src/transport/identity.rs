@@ -13,6 +13,23 @@ fn binding(b: nous_persistence::IdentityBinding) -> p::IdentityBinding {
     }
 }
 impl KernelService {
+    pub(super) async fn rebind_entity(&self, input: p::RebindEntityRequest) -> Result<()> {
+        self.0
+            .material
+            .rebind_entity(
+                SubjectId(id(&input.subject_id)?),
+                id(&input.mention_id)?,
+                input
+                    .entity_ref
+                    .map(nous_core::EntityRef::new)
+                    .transpose()?,
+                input.binding_state,
+                input.host_resolution_ref,
+                input.reason,
+            )
+            .await
+    }
+
     pub(super) async fn bind_identity(
         &self,
         input: p::BindIdentityRequest,

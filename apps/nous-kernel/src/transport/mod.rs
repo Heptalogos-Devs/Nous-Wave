@@ -4,6 +4,7 @@
 
 #[macro_use]
 mod forwarding;
+mod canonical_concepts;
 mod canonical_identity;
 mod canonical_material;
 mod canonical_memory;
@@ -11,7 +12,6 @@ mod canonical_resource;
 mod canonical_runtime;
 mod canonical_subject;
 mod canonical_system;
-mod canonical_topology;
 mod configuration;
 mod consolidation_plan;
 mod convert;
@@ -25,6 +25,7 @@ mod model_workflow;
 mod projection_workflow;
 mod query_workflow;
 pub use hosting::router;
+mod concepts;
 mod journal;
 mod longitudinal;
 mod maintenance_plan;
@@ -35,7 +36,6 @@ mod model;
 mod query;
 mod schema;
 mod subject;
-mod topology;
 mod work_context;
 
 use crate::NousRuntime;

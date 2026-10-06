@@ -48,7 +48,7 @@ export function webSource(value: string) {
 import {
   ResourceService,
   ResourceRegistryService,
-  TopologyService,
+  ConceptService,
   SystemService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { ModelService } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
@@ -131,7 +131,7 @@ export function createNousClient(transport: Transport) {
   const identity = createClient(IdentityService, transport);
   const resources = createClient(ResourceService, transport);
   const registry = createClient(ResourceRegistryService, transport);
-  const topology = createClient(TopologyService, transport);
+  const concepts = createClient(ConceptService, transport);
   const system = createClient(SystemService, transport);
   const model = createClient(ModelService, transport);
   const configuration = createClient(ConfigurationService, transport);
@@ -194,6 +194,7 @@ export function createNousClient(transport: Transport) {
     identity: {
       bind: call(identity.bindIdentity),
       resolve: call(identity.resolveIdentity),
+      rebindEntity: call(identity.rebindEntity),
     },
     model: {
       formFromObservation: call(model.formFromObservation),
@@ -207,24 +208,23 @@ export function createNousClient(transport: Transport) {
       list: call(registry.listResources),
       remove: call(registry.removeResource),
     },
-    topology: {
-      createTag: call(topology.createTag),
-      getTag: call(topology.getTag),
-      listTags: call(topology.listTags),
-      searchTags: call(topology.searchTags),
-      reviseTag: call(topology.reviseTag),
-      mergeTags: call(topology.mergeTags),
-      splitTag: call(topology.splitTag),
-      associate: call(topology.createAssociation),
-      revokeAssociation: call(topology.revokeAssociation),
-      neighborhood: call(topology.getNeighborhood),
-      rebindEntity: call(topology.rebindEntity),
-      createSchema: call(topology.createCognitiveSchema),
-      getSchema: call(topology.getCognitiveSchema),
-      addSchemaEvidence: call(topology.addSchemaEvidence),
-      reviseSchema: call(topology.reviseCognitiveSchema),
-      splitSchema: call(topology.splitCognitiveSchema),
-      mergeSchemas: call(topology.mergeCognitiveSchemas),
+    concepts: {
+      createTag: call(concepts.createTag),
+      getTag: call(concepts.getTag),
+      listTags: call(concepts.listTags),
+      searchTags: call(concepts.searchTags),
+      reviseTag: call(concepts.reviseTag),
+      mergeTags: call(concepts.mergeTags),
+      splitTag: call(concepts.splitTag),
+      associate: call(concepts.createAssociation),
+      revokeAssociation: call(concepts.revokeAssociation),
+      neighborhood: call(concepts.getNeighborhood),
+      createSchema: call(concepts.createCognitiveSchema),
+      getSchema: call(concepts.getCognitiveSchema),
+      addSchemaEvidence: call(concepts.addSchemaEvidence),
+      reviseSchema: call(concepts.reviseCognitiveSchema),
+      splitSchema: call(concepts.splitCognitiveSchema),
+      mergeSchemas: call(concepts.mergeCognitiveSchemas),
     },
     system: {
       status: call(system.getStatus),

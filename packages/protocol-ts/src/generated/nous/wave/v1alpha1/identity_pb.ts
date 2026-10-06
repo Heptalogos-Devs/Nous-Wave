@@ -9,13 +9,15 @@ import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegen
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { CognitiveRef } from "./types_pb.js";
 import { file_nous_wave_v1alpha1_types } from "./types_pb.js";
+import type { EmptySchema } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_empty } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file nous/wave/v1alpha1/identity.proto.
  */
 export const file_nous_wave_v1alpha1_identity: GenFile = /*@__PURE__*/
-  fileDesc("CiFub3VzL3dhdmUvdjFhbHBoYTEvaWRlbnRpdHkucHJvdG8SEm5vdXMud2F2ZS52MWFscGhhMSKSAQoPSWRlbnRpdHlCaW5kaW5nEhMKC2xleGljYWxfcmVmGAEgASgJEjMKCWNhbm9uaWNhbBgCIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYSFAoMZGlzcGxheV9uYW1lGAMgASgJEg8KB2FsaWFzZXMYBCADKAkSDgoGc3RhdHVzGAUgASgJIoUBChNCaW5kSWRlbnRpdHlSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSMwoJY2Fub25pY2FsGAIgASgLMiAubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVJlZhIUCgxkaXNwbGF5X25hbWUYAyABKAkSDwoHYWxpYXNlcxgEIAMoCSJsChZSZXNvbHZlSWRlbnRpdHlSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSDAoEa2luZBgCIAEoCRIOCgRuYW1lGAMgASgJSAASFQoLbGV4aWNhbF9yZWYYBCABKAlIAEIJCgdsb2NhdG9yImIKF1Jlc29sdmVJZGVudGl0eVJlc3BvbnNlEjcKCmNhbmRpZGF0ZXMYASADKAsyIy5ub3VzLndhdmUudjFhbHBoYTEuSWRlbnRpdHlCaW5kaW5nEg4KBnN0YXR1cxgCIAEoCTLbAQoPSWRlbnRpdHlTZXJ2aWNlElwKDEJpbmRJZGVudGl0eRInLm5vdXMud2F2ZS52MWFscGhhMS5CaW5kSWRlbnRpdHlSZXF1ZXN0GiMubm91cy53YXZlLnYxYWxwaGExLklkZW50aXR5QmluZGluZxJqCg9SZXNvbHZlSWRlbnRpdHkSKi5ub3VzLndhdmUudjFhbHBoYTEuUmVzb2x2ZUlkZW50aXR5UmVxdWVzdBorLm5vdXMud2F2ZS52MWFscGhhMS5SZXNvbHZlSWRlbnRpdHlSZXNwb25zZWIGcHJvdG8z", [file_nous_wave_v1alpha1_types]);
+  fileDesc("CiFub3VzL3dhdmUvdjFhbHBoYTEvaWRlbnRpdHkucHJvdG8SEm5vdXMud2F2ZS52MWFscGhhMSKSAQoPSWRlbnRpdHlCaW5kaW5nEhMKC2xleGljYWxfcmVmGAEgASgJEjMKCWNhbm9uaWNhbBgCIAEoCzIgLm5vdXMud2F2ZS52MWFscGhhMS5Db2duaXRpdmVSZWYSFAoMZGlzcGxheV9uYW1lGAMgASgJEg8KB2FsaWFzZXMYBCADKAkSDgoGc3RhdHVzGAUgASgJIoUBChNCaW5kSWRlbnRpdHlSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSMwoJY2Fub25pY2FsGAIgASgLMiAubm91cy53YXZlLnYxYWxwaGExLkNvZ25pdGl2ZVJlZhIUCgxkaXNwbGF5X25hbWUYAyABKAkSDwoHYWxpYXNlcxgEIAMoCSJsChZSZXNvbHZlSWRlbnRpdHlSZXF1ZXN0EhIKCnN1YmplY3RfaWQYASABKAkSDAoEa2luZBgCIAEoCRIOCgRuYW1lGAMgASgJSAASFQoLbGV4aWNhbF9yZWYYBCABKAlIAEIJCgdsb2NhdG9yImIKF1Jlc29sdmVJZGVudGl0eVJlc3BvbnNlEjcKCmNhbmRpZGF0ZXMYASADKAsyIy5ub3VzLndhdmUudjFhbHBoYTEuSWRlbnRpdHlCaW5kaW5nEg4KBnN0YXR1cxgCIAEoCSLWAQoTUmViaW5kRW50aXR5UmVxdWVzdBISCgpzdWJqZWN0X2lkGAEgASgJEhIKCm1lbnRpb25faWQYAiABKAkSFwoKZW50aXR5X3JlZhgDIAEoCUgAiAEBEhUKDWJpbmRpbmdfc3RhdGUYBCABKAkSIAoTaG9zdF9yZXNvbHV0aW9uX3JlZhgFIAEoCUgBiAEBEhMKBnJlYXNvbhgGIAEoCUgCiAEBQg0KC19lbnRpdHlfcmVmQhYKFF9ob3N0X3Jlc29sdXRpb25fcmVmQgkKB19yZWFzb24yrAIKD0lkZW50aXR5U2VydmljZRJPCgxSZWJpbmRFbnRpdHkSJy5ub3VzLndhdmUudjFhbHBoYTEuUmViaW5kRW50aXR5UmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJcCgxCaW5kSWRlbnRpdHkSJy5ub3VzLndhdmUudjFhbHBoYTEuQmluZElkZW50aXR5UmVxdWVzdBojLm5vdXMud2F2ZS52MWFscGhhMS5JZGVudGl0eUJpbmRpbmcSagoPUmVzb2x2ZUlkZW50aXR5Eioubm91cy53YXZlLnYxYWxwaGExLlJlc29sdmVJZGVudGl0eVJlcXVlc3QaKy5ub3VzLndhdmUudjFhbHBoYTEuUmVzb2x2ZUlkZW50aXR5UmVzcG9uc2ViBnByb3RvMw", [file_nous_wave_v1alpha1_types, file_google_protobuf_empty]);
 
 /**
  * @generated from message nous.wave.v1alpha1.IdentityBinding
@@ -148,9 +150,59 @@ export const ResolveIdentityResponseSchema: GenMessage<ResolveIdentityResponse> 
   messageDesc(file_nous_wave_v1alpha1_identity, 3);
 
 /**
+ * @generated from message nous.wave.v1alpha1.RebindEntityRequest
+ */
+export type RebindEntityRequest = Message<"nous.wave.v1alpha1.RebindEntityRequest"> & {
+  /**
+   * @generated from field: string subject_id = 1;
+   */
+  subjectId: string;
+
+  /**
+   * @generated from field: string mention_id = 2;
+   */
+  mentionId: string;
+
+  /**
+   * @generated from field: optional string entity_ref = 3;
+   */
+  entityRef?: string | undefined;
+
+  /**
+   * @generated from field: string binding_state = 4;
+   */
+  bindingState: string;
+
+  /**
+   * @generated from field: optional string host_resolution_ref = 5;
+   */
+  hostResolutionRef?: string | undefined;
+
+  /**
+   * @generated from field: optional string reason = 6;
+   */
+  reason?: string | undefined;
+};
+
+/**
+ * Describes the message nous.wave.v1alpha1.RebindEntityRequest.
+ * Use `create(RebindEntityRequestSchema)` to create a new message.
+ */
+export const RebindEntityRequestSchema: GenMessage<RebindEntityRequest> = /*@__PURE__*/
+  messageDesc(file_nous_wave_v1alpha1_identity, 4);
+
+/**
  * @generated from service nous.wave.v1alpha1.IdentityService
  */
 export const IdentityService: GenService<{
+  /**
+   * @generated from rpc nous.wave.v1alpha1.IdentityService.RebindEntity
+   */
+  rebindEntity: {
+    methodKind: "unary";
+    input: typeof RebindEntityRequestSchema;
+    output: typeof EmptySchema;
+  },
   /**
    * @generated from rpc nous.wave.v1alpha1.IdentityService.BindIdentity
    */

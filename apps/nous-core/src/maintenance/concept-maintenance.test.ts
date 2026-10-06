@@ -85,16 +85,16 @@ const attach = {
 };
 function fixture() {
   const formTag = vi.fn(
-    async (_request: Parameters<KernelClient["topology"]["createTag"]>[0]) =>
+    async (_request: Parameters<KernelClient["concepts"]["createTag"]>[0]) =>
       create(TagSchema, { tagId: "tag-new", currentRevisionId: "tag-new-r1" }),
   );
   const association = vi.fn(
     async (
-      _request: Parameters<KernelClient["topology"]["createAssociation"]>[0],
+      _request: Parameters<KernelClient["concepts"]["createAssociation"]>[0],
     ) => create(AssociationSchema, { associationId: "association-new" }),
   );
   const revise = vi.fn(
-    async (_request: Parameters<KernelClient["topology"]["reviseTag"]>[0]) =>
+    async (_request: Parameters<KernelClient["concepts"]["reviseTag"]>[0]) =>
       create(TagSchema, { tagId: "tag-old", currentRevisionId: "tag-old-r2" }),
   );
   const split = vi.fn(async () =>
@@ -106,7 +106,7 @@ function fixture() {
     }),
   );
   const kernel = {
-    topology: {
+    concepts: {
       createTag: formTag,
       createAssociation: association,
       reviseTag: revise,

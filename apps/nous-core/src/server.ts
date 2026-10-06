@@ -35,7 +35,7 @@ import {
 import {
   ResourceService,
   ResourceRegistryService,
-  TopologyService,
+  ConceptService,
   SystemService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { compileNousQL } from "./nousql/compiler.js";
@@ -370,10 +370,7 @@ export async function createCore(settings: CoreOptions) {
         forward(IdentityService, kernel.identity),
       );
       router.service(ResourceService, resources);
-      router.service(
-        TopologyService,
-        forward(TopologyService, kernel.topology),
-      );
+      router.service(ConceptService, forward(ConceptService, kernel.concepts));
       router.service(SystemService, system);
       router.service(
         ConfigurationService,

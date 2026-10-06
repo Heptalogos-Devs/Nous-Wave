@@ -168,7 +168,7 @@ export async function executeConceptMaintenance(
       relation: string,
       keys: string[],
     ) => {
-      const value = await kernel.topology.createAssociation(
+      const value = await kernel.concepts.createAssociation(
         {
           operationId,
           subjectId: plan.subjectId,
@@ -209,7 +209,7 @@ export async function executeConceptMaintenance(
           }
           saveTag(
             action.key,
-            await kernel.topology.createTag(
+            await kernel.concepts.createTag(
               {
                 operationId,
                 subjectId: plan.subjectId,
@@ -228,7 +228,7 @@ export async function executeConceptMaintenance(
           selectedSupports(action.supportKeys);
           saveTag(
             action.tagKey,
-            await kernel.topology.reviseTag(
+            await kernel.concepts.reviseTag(
               {
                 operationId,
                 subjectId: plan.subjectId,
@@ -265,7 +265,7 @@ export async function executeConceptMaintenance(
             target.relation !== "tag_attachment"
           )
             invalid("Detach requires an existing Tag attachment");
-          await kernel.topology.revokeAssociation(
+          await kernel.concepts.revokeAssociation(
             {
               operationId,
               subjectId: plan.subjectId,
@@ -280,7 +280,7 @@ export async function executeConceptMaintenance(
           break;
         }
         case "merge_tags": {
-          const value = await kernel.topology.mergeTags(
+          const value = await kernel.concepts.mergeTags(
             {
               operationId,
               subjectId: plan.subjectId,
@@ -295,7 +295,7 @@ export async function executeConceptMaintenance(
           break;
         }
         case "split_tag": {
-          const value = await kernel.topology.splitTag(
+          const value = await kernel.concepts.splitTag(
             {
               operationId,
               subjectId: plan.subjectId,

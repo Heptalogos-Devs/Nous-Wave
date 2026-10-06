@@ -42,6 +42,7 @@ export async function runCli(args: string[], connect = connectNousInstance) {
       "operation-id": { type: "string" },
       "aboutness-mode": { type: "string" },
       aboutness: { type: "string", multiple: true },
+      tag: { type: "string", multiple: true },
       "query-file": { type: "string" },
       subject: { type: "string" },
       session: { type: "string" },
@@ -52,6 +53,15 @@ export async function runCli(args: string[], connect = connectNousInstance) {
       alias: { type: "string", multiple: true },
       "lexical-ref": { type: "string" },
       "association-file": { type: "string" },
+      "request-file": { type: "string" },
+      description: { type: "string" },
+      "kind-hint": { type: "string" },
+      "event-id": { type: "string" },
+      "occurred-at": { type: "string" },
+      consumer: { type: "string", default: "consumer:nous-cli:default" },
+      "max-operations": { type: "string", default: "1" },
+      "max-model-calls": { type: "string", default: "1" },
+      "max-elapsed-ms": { type: "string", default: "30000" },
       "page-token": { type: "string" },
       "page-size": { type: "string", default: "50" },
       "max-nodes": { type: "string", default: "64" },
@@ -276,6 +286,11 @@ export async function runCli(args: string[], connect = connectNousInstance) {
         operationId,
         aboutnessMode: values["aboutness-mode"],
         explicitAboutness: values.aboutness,
+        explicitTags: await Promise.all(
+          (values.tag ?? []).map(
+            async (text) => (await resolveReference(text, "tag")).value,
+          ),
+        ),
         occurrenceId: required(action, "Occurrence ID"),
         representationId: values.representation,
       });
@@ -310,14 +325,44 @@ export async function runCli(args: string[], connect = connectNousInstance) {
       };
     }
     async function resolveReference(text: string, kind = "") {
+      if (
+        kind &&
+        ![
+          "entity",
+          "resource",
+          "memory",
+          "memory_revision",
+          "tag",
+          "cognitive_schema",
+          "cognitive_schema_revision",
+          "episode",
+          "episode_revision",
+          "journal",
+          "journal_revision",
+          "occurrence",
+          "external_object",
+        ].includes(kind)
+      )
+        kind = "";
+      if (
+        kind === "tag" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          text,
+        )
+      )
+        return { kind, value: text.toLowerCase() };
       const canonical = /^([a-z_]+):(.+)$/.exec(text);
       if (
         canonical &&
         canonical[1] === kind &&
+        (["entity", "resource"].includes(kind) ||
+          /^[0-9a-f-]{36}$/i.test(canonical[2]!)) &&
         [
           "entity",
           "memory",
           "memory_revision",
+          "episode_revision",
+          "journal_revision",
           "tag",
           "cognitive_schema",
           "cognitive_schema_revision",
@@ -359,15 +404,141 @@ export async function runCli(args: string[], connect = connectNousInstance) {
           aliases: values.alias ?? [],
         });
     }
+    async function requestPayload(path: string | undefined) {
+      const text = await readFile(
+        required(path, "--request-file or --association-file"),
+        "utf8",
+      );
+      if (Buffer.byteLength(text) > 65536)
+        throw new CliError(
+          "INVALID_ARGUMENT",
+          "Mutation request exceeds 64 KiB",
+        );
+      const parsed: unknown = JSON.parse(text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new CliError(
+          "INVALID_ARGUMENT",
+          "Mutation request must be an object",
+        );
+      return parsed;
+    }
+    if (command === "maintenance" && action === "grant") {
+      return client.cognition.grantMaintenance({
+        subjectId,
+        maxOperations: boundedInteger(
+          values["max-operations"],
+          1,
+          32,
+          "--max-operations",
+        ),
+        maxModelCalls: boundedInteger(
+          values["max-model-calls"],
+          0,
+          32,
+          "--max-model-calls",
+        ),
+        maxElapsedMs: boundedInteger(
+          values["max-elapsed-ms"],
+          1,
+          300000,
+          "--max-elapsed-ms",
+        ),
+      });
+    }
     if (command === "tag") {
+      const operationId = values["operation-id"] ?? crypto.randomUUID();
+      if (action === "create")
+        return client.concepts.createTag({
+          subjectId,
+          operationId,
+          tag: {
+            label: required(values.name, "--name"),
+            description: values.description,
+            kindHint: values["kind-hint"],
+            origin: "host_explicit",
+          },
+        });
+      if (action === "revise") {
+        const payload = (await requestPayload(
+          values["request-file"],
+        )) as Parameters<typeof client.concepts.reviseTag>[0];
+        return client.concepts.reviseTag({
+          ...payload,
+          subjectId,
+          operationId,
+        });
+      }
+      if (action === "merge") {
+        const payload = (await requestPayload(
+          values["request-file"],
+        )) as Parameters<typeof client.concepts.mergeTags>[0];
+        return client.concepts.mergeTags({
+          ...payload,
+          subjectId,
+          operationId,
+        });
+      }
+      if (action === "split") {
+        const payload = (await requestPayload(
+          values["request-file"],
+        )) as Parameters<typeof client.concepts.splitTag>[0];
+        return client.concepts.splitTag({ ...payload, subjectId, operationId });
+      }
+      if (action === "attach") {
+        const payload = (await requestPayload(
+          values["association-file"],
+        )) as NonNullable<
+          Parameters<typeof client.concepts.associate>[0]["association"]
+        >;
+        if (!Array.isArray(payload.supports) || !payload.supports.length)
+          throw new CliError(
+            "INVALID_ARGUMENT",
+            "Attachment requires nonempty supports",
+          );
+        const tag = await resolveReference(
+          required(values.tag?.[0], "--tag"),
+          "tag",
+        );
+        const cognition = await resolveReference(
+          required(argument, "Exact cognition revision"),
+          argument?.split(":")[0] ?? "",
+        );
+        if (
+          ![
+            "memory_revision",
+            "cognitive_schema_revision",
+            "episode_revision",
+            "journal_revision",
+          ].includes(cognition.kind)
+        )
+          throw new CliError(
+            "INVALID_ARGUMENT",
+            "Attachment requires an exact cognition revision",
+          );
+        return client.concepts.associate({
+          subjectId,
+          operationId,
+          association: {
+            ...payload,
+            from: {
+              $typeName: "nous.wave.v1alpha1.CognitiveRef",
+              ...cognition,
+            },
+            to: { $typeName: "nous.wave.v1alpha1.CognitiveRef", ...tag },
+            relationKind: "tag_attachment",
+            polarity: "positive",
+            supportClass: "host_explicit",
+          },
+        });
+      }
       if (action === "list" || action === "search") {
         const page = {
           pageToken: values["page-token"],
           pageSize: boundedInteger(values["page-size"], 1, 200, "--page-size"),
         };
         return action === "list"
-          ? client.topology.listTags({ subjectId, page })
-          : client.topology.searchTags({
+          ? client.concepts.listTags({ subjectId, page })
+          : client.concepts.searchTags({
               subjectId,
               text: required(argument, "Search text"),
               page,
@@ -387,24 +558,30 @@ export async function runCli(args: string[], connect = connectNousInstance) {
           required(argument, "Tag reference"),
           "tag",
         );
-        return client.topology.getTag({ subjectId, id: ref.value });
+        return client.concepts.getTag({ subjectId, id: ref.value });
       }
     }
-    if (command === "topology") {
+    if (command === "association") {
+      if (action === "revoke")
+        return client.concepts.revokeAssociation({
+          subjectId,
+          operationId: values["operation-id"] ?? crypto.randomUUID(),
+          associationId: required(argument, "Association ID"),
+        });
       if (action === "neighborhood") {
         const text = required(argument, "Reference");
         const kind = values.kind ?? text.split(":")[0] ?? "";
         const root = await resolveReference(text, kind);
-        return client.topology.neighborhood({
+        return client.concepts.neighborhood({
           subjectId,
           root,
           maxNodes: boundedInteger(values["max-nodes"], 1, 256, "--max-nodes"),
           maxDepth: boundedInteger(values["max-depth"], 1, 4, "--max-depth"),
         });
       }
-      if (action === "associate") {
+      if (action === "create") {
         type Association = NonNullable<
-          Parameters<typeof client.topology.associate>[0]["association"]
+          Parameters<typeof client.concepts.associate>[0]["association"]
         >;
         const payload: unknown = JSON.parse(
           await readFile(
@@ -423,7 +600,7 @@ export async function runCli(args: string[], connect = connectNousInstance) {
             "INVALID_ARGUMENT",
             "Association requires nonempty supports",
           );
-        return client.topology.associate({
+        return client.concepts.associate({
           subjectId,
           operationId: required(values["operation-id"], "--operation-id"),
           association: payload as Association,
@@ -448,7 +625,64 @@ export async function runCli(args: string[], connect = connectNousInstance) {
       const boundQuery: unknown = JSON.parse(prepared.boundQuery);
       return { ...prepared, boundQuery };
     }
-    if (command === "trace" || command === "use") {
+    if (command === "use") {
+      const kind = values.kind ?? "referenced";
+      if (
+        ![
+          "presented",
+          "referenced",
+          "acted_on",
+          "result_supported",
+          "result_refuted",
+          "corrected",
+          "pinned",
+        ].includes(kind)
+      )
+        throw new CliError("INVALID_ARGUMENT", "Invalid use kind");
+      const text = required(action, "Exact cognition revision");
+      const reference = await resolveReference(text, text.split(":")[0] ?? "");
+      if (
+        ![
+          "memory_revision",
+          "cognitive_schema_revision",
+          "episode_revision",
+          "journal_revision",
+        ].includes(reference.kind)
+      )
+        throw new CliError(
+          "INVALID_ARGUMENT",
+          "Use requires an exact cognition revision",
+        );
+      const occurred = values["occurred-at"]
+        ? new Date(values["occurred-at"])
+        : new Date();
+      if (
+        !Number.isFinite(occurred.getTime()) ||
+        (values["occurred-at"] &&
+          !/(Z|[+-]\d{2}:\d{2})$/.test(values["occurred-at"]))
+      )
+        throw new CliError(
+          "INVALID_ARGUMENT",
+          "--occurred-at requires an ISO timestamp with offset",
+        );
+      return client.cognition.reportUse({
+        subjectId,
+        sessionId: state.sessionId,
+        consumerRef: values.consumer,
+        events: [
+          {
+            eventId: values["event-id"] ?? crypto.randomUUID(),
+            reference,
+            kind,
+            occurredAt: {
+              seconds: BigInt(Math.floor(occurred.getTime() / 1000)),
+              nanos: occurred.getUTCMilliseconds() * 1_000_000,
+            },
+          },
+        ],
+      });
+    }
+    if (command === "trace") {
       const refText = required(action, "Reference");
       let reference: { kind: string; value: string };
       const canonical = /^(memory|memory_revision):(.+)$/.exec(refText);
@@ -470,23 +704,6 @@ export async function runCli(args: string[], connect = connectNousInstance) {
         reference.kind === "memory"
           ? await client.memory.get({ subjectId, id: reference.value })
           : await client.memory.revision({ subjectId, id: reference.value });
-      if (command === "use")
-        return client.cognition.reportUse({
-          subjectId,
-          sessionId: state.sessionId,
-          consumerRef: "consumer:nous-cli:default",
-          events: [
-            {
-              eventId: crypto.randomUUID(),
-              reference: { kind: "memory_revision", value: memory.revisionId },
-              kind: "referenced",
-              occurredAt: {
-                seconds: BigInt(Math.floor(Date.now() / 1000)),
-                nanos: 0,
-              },
-            },
-          ],
-        });
       const sources = [];
       const visited = new Set<string>();
       const derivations: unknown[] = [];

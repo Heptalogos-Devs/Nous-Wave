@@ -86,7 +86,7 @@ function fixture() {
   const schema = vi.fn(async () => ({ currentRevisionId: "schema-revision" }));
   const kernel = {
     memory: { formMemory: form, reviseMemory: revise, linkRevisions: link },
-    topology: { createCognitiveSchema: schema },
+    concepts: { createCognitiveSchema: schema },
   } as unknown as KernelClient;
   let progress: ConsolidationActionResult[] = [];
   const save = vi.fn(async (results: ConsolidationActionResult[]) => {

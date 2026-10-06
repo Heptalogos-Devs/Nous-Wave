@@ -283,14 +283,6 @@ impl KernelService {
             truncated: result.truncated,
         })
     }
-    pub(super) async fn rebind_entity(&self, input: p::RebindEntityRequest) -> Result<()> {
-        let subject = id(&input.subject_id)?;
-        let mention = id(&input.mention_id)?;
-        let revision:i32=sqlx::query_scalar("SELECT COALESCE(max(revision_no),0)+1 FROM entity_binding_revisions WHERE mention_id=$1").bind(mention).fetch_one(self.0.store.pool()).await.map_err(db)?;
-        sqlx::query("INSERT INTO entity_binding_revisions(binding_revision_id,mention_id,revision_no,entity_ref,binding_state,host_resolution_ref,reason,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(uuid::Uuid::now_v7()).bind(mention).bind(revision).bind(input.entity_ref).bind(input.binding_state).bind(input.host_resolution_ref).bind(input.reason).bind(self.0.cognition.now(SubjectId(subject))).execute(self.0.store.pool()).await.map_err(db)?;
-        let _ = subject;
-        Ok(())
-    }
 }
 
 fn association_support(value: p::AssociationSupport) -> Result<AssociationSupport> {

@@ -10,7 +10,7 @@ use nous_memory::{
 };
 use nous_protocol::nous::wave::v1alpha1 as p;
 use nous_subject::{CognitiveSeedInput, CreateSubject};
-use p::topology_service_server::TopologyService;
+use p::concept_service_server::ConceptService;
 use test_support::*;
 use tonic::Request;
 
@@ -97,7 +97,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
             kind_hint: Some("procedure".into()),
         }),
     };
-    let revised = TopologyService::revise_tag(&service, Request::new(revise.clone()))
+    let revised = ConceptService::revise_tag(&service, Request::new(revise.clone()))
         .await
         .unwrap()
         .into_inner();
@@ -105,7 +105,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         revised.current_revision_id,
         tags[0].current_revision_id.to_string()
     );
-    let replay = TopologyService::revise_tag(&service, Request::new(revise.clone()))
+    let replay = ConceptService::revise_tag(&service, Request::new(revise.clone()))
         .await
         .unwrap()
         .into_inner();
@@ -123,11 +123,11 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         }),
         ..revise.clone()
     };
-    let later_revision = TopologyService::revise_tag(&service, Request::new(later))
+    let later_revision = ConceptService::revise_tag(&service, Request::new(later))
         .await
         .unwrap()
         .into_inner();
-    let exact_replay = TopologyService::revise_tag(&service, Request::new(revise.clone()))
+    let exact_replay = ConceptService::revise_tag(&service, Request::new(revise.clone()))
         .await
         .unwrap()
         .into_inner();
@@ -139,7 +139,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
     let mut stale = revise.clone();
     stale.operation_id = OperationId::new().0.to_string();
     assert_eq!(
-        TopologyService::revise_tag(&service, Request::new(stale))
+        ConceptService::revise_tag(&service, Request::new(stale))
             .await
             .unwrap_err()
             .code(),
@@ -212,6 +212,34 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
     };
     owner.merge_tags(subject, merge.clone()).await.unwrap();
     owner.merge_tags(subject, merge).await.unwrap();
+    let occurrence = observation(&rt, subject, "Explicit concept formation after merge").await;
+    let mut explicit = form_input(
+        subject,
+        occurrence.occurrence.occurrence_id,
+        OperationId::new(),
+        "Explicit concept formation after merge",
+    );
+    explicit.tags = vec![tags[1].tag_id, tags[0].tag_id, tags[1].tag_id];
+    let formed = owner.form_memory(explicit.clone()).await.unwrap();
+    assert_eq!(formed.tags, vec![tags[0].tag_id]);
+    assert_eq!(
+        owner
+            .form_memory(explicit)
+            .await
+            .unwrap()
+            .revision
+            .memory_revision_id,
+        formed.revision.memory_revision_id
+    );
+    let mut invalid = form_input(
+        subject,
+        occurrence.occurrence.occurrence_id,
+        OperationId::new(),
+        "Unknown concept",
+    );
+    invalid.tags = vec![TagId::new()];
+    assert!(owner.form_memory(invalid).await.is_err());
+
     for name in [
         "Release authorization",
         "Release approval",
