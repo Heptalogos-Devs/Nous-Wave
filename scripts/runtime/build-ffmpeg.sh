@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Aravine Zhu
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 # Explicit release build; no privilege or system installation is required.
 # Arguments: official source archive, verified portable LLVM-MinGW archive, output directory.

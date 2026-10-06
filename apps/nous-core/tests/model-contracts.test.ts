@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { expect, it } from "vitest";
 import { canonicalDigest } from "../src/digest.js";
 import { roleNames } from "../src/model/configuration.js";

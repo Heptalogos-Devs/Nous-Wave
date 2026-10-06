@@ -1,5 +1,8 @@
 //! Subject cognition time, independent of execution deadlines and worker leases.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use chrono::{DateTime, Duration, Utc};
 use nous_core::{Error, Result, SubjectId};
 use std::{collections::HashMap, sync::Mutex};

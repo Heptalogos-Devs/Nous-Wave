@@ -1,4 +1,7 @@
 //! Coherent read snapshots used to build disposable serving artifacts.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{AuthorityStore, database_error as db};
 use nous_core::*;
 use serde::{Deserialize, Serialize};

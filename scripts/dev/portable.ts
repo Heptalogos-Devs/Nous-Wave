@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { spawn } from "node:child_process";
 import { stat } from "node:fs/promises";
 import { join, resolve } from "node:path";

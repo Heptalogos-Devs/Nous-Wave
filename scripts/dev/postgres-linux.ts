@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";

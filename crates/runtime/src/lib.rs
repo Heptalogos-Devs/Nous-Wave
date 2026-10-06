@@ -1,5 +1,8 @@
 //! Model-independent Session continuity, consumer context and query orchestration.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod execution_policy;
 pub use execution_policy::{MODEL_WORKFLOW_LEASE, QUERY_LEASE, QUERY_SLOTS};
 mod clock;

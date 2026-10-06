@@ -1,4 +1,7 @@
 //! Local concept proposals; every accepted change belongs to its typed owner mutation.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod context;
 mod plan;
 use super::*;

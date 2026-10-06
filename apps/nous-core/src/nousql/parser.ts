@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { createToken, Lexer, type IToken } from "chevrotain";
 import { Code, ConnectError } from "@connectrpc/connect";
 import {

@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it, vi } from "vitest";
 import { ContextCompiler } from "../src/cognition/context.js";
 import { ModelRuntime } from "../src/model/runtime.js";

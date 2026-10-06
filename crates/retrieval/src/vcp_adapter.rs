@@ -1,5 +1,8 @@
 //! Nous identity and evidence mapping for the independent reference kernels.
 //! Inputs come from one Authority projection; numerical IDs are generation-local.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::reference::{ReferenceCurve, ReferenceCurveTag};
 use nous_core::{CognitiveRef, Error, Result};
 use nous_persistence::TopologyEdgeSource;

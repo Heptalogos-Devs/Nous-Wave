@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { expect, it, vi } from "vitest";
 const observed = vi.hoisted(() => ({ inherited: true }));
 vi.mock("node:child_process", async (original) => {

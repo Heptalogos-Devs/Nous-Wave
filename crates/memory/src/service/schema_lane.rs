@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::lane::{LaneCandidate, LaneOutput, LaneStatus};
 use super::*;
 use nous_runtime::{BoundQuery, QueryPlan};

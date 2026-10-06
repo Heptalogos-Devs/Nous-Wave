@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use nous_core::{CognitiveRef, Error, Result, ServingGenerationId, reference_query_domain};
 use serde::{Deserialize, Serialize};
 use std::path::Path;

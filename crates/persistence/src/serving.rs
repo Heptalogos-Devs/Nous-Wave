@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{AuthorityStore, database_error as db};
 use chrono::{DateTime, Utc};
 use nous_core::*;

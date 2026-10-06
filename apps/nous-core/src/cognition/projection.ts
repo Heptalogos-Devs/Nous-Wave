@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { createHash } from "node:crypto";
 import { Code, ConnectError } from "@connectrpc/connect";
 import type { ConsumerPolicy, Projection, Segment } from "../domain.js";

@@ -1,4 +1,7 @@
 //! Host-supplied model material. This adapter never invokes a model or network provider.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::*;
 use nous_persistence::{DenseInvalidation, ProjectionInvalidation, database_error as db};
 use std::future::Future;

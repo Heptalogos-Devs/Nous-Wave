@@ -4,6 +4,9 @@
 //! or object-store mechanics. It is the vocabulary shared by Authority,
 //! runtime, projections, and the host-facing API.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod topology;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

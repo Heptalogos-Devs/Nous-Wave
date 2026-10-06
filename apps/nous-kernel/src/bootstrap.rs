@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use nous_core::{Error, Result};
 use nous_kernel::{NousRuntime, RuntimeOptions};
 use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};

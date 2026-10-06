@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 const key = z.string().min(1).max(36);
 const reason = z.string().min(1).max(1024);

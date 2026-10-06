@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
@@ -199,7 +202,7 @@ export async function writeManifest(
   );
   await writeFile(
     join(output, "licenses/THIRD_PARTY_NOTICES.md"),
-    "# Third-party components\n\nApplication dependencies and runtime inventories are in manifest/components.json. Runtime-specific licenses, exact source and build references are retained inside runtime/<component>/licenses. Nous Wave-owned code is MIT.\n",
+    "# Third-party components\n\nApplication dependencies and runtime inventories are in manifest/components.json. Runtime-specific licenses, exact source and build references are retained inside runtime/<component>/licenses. Nous Wave-owned code is licensed under Apache-2.0.\n",
   );
   await writeFile(
     join(output, "manifest/sbom.spdx.json"),
@@ -316,7 +319,7 @@ export async function writeManifest(
         source_dirty: sourceDirty,
         source_tree: "working-tree",
         launcher: "bin/nous.cmd",
-        application_license: "MIT",
+        application_license: "Apache-2.0",
       },
       null,
       2,

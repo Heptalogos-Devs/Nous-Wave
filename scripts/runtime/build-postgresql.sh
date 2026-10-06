@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Aravine Zhu
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 # Explicit Windows x64 release build from official PostgreSQL source.
 # Arguments: source archive, verified LLVM-MinGW directory, output root, build root.

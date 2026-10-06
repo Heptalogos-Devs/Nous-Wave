@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import { remoteEndpointSchema } from "../remote-endpoint.js";
 import { structuredContractForRole } from "./schemas/contracts.js";

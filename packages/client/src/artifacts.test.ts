@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { expect, it } from "vitest";
 import { createServer } from "node:http";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";

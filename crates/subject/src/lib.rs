@@ -1,5 +1,8 @@
 //! Subject identity, initialization material, configuration and lifecycle.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod seed;
 
 use chrono::{DateTime, Utc};

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright 2026 Aravine Zhu
+# SPDX-License-Identifier: Apache-2.0
+
 """Check local Markdown targets, return paths and ancestor INDEX coverage."""
 import argparse
 import tomllib

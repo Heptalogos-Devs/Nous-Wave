@@ -1,4 +1,7 @@
 //! Current cognitive nodes and exact source support, projected as structure.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::topology_input::TopologyEdgeSource;
 use crate::{database_error as db, *};
 use nous_core::*;

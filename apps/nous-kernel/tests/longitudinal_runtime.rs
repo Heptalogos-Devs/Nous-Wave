@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use nous_protocol::public::{
     memory_service_server::MemoryService as _, subject_service_server::SubjectService as _,
 };

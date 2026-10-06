@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::*;
 use arc_swap::ArcSwap;
 use std::sync::atomic::{AtomicU64, Ordering};

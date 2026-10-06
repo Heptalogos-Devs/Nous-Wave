@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { promisify, parseArgs } from "node:util";
 import { once } from "node:events";
@@ -118,7 +121,8 @@ for (const relation of sbom.relationships)
   );
 for (const path of [
   "licenses/THIRD_PARTY_NOTICES.md",
-  "licenses/Nous-Wave-MIT.txt",
+  "licenses/Nous-Wave-Apache-2.0.txt",
+  "licenses/Nous-Wave-NOTICE.txt",
   "licenses/native/LLVM-LICENSE.txt",
   "licenses/native/Rust-library-COPYRIGHT.html",
 ])

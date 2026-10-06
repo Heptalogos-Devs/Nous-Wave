@@ -1,3 +1,6 @@
+-- Copyright 2026 Aravine Zhu
+-- SPDX-License-Identifier: Apache-2.0
+
 CREATE TABLE subjects (
     subject_id uuid PRIMARY KEY,
     created_at timestamptz NOT NULL,

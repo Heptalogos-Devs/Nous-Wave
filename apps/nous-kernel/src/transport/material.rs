@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::*;
 use futures::{Stream, StreamExt};
 use nous_core::{ArtifactId, EntityRef, ObjectRef, ResourceRef, Result, SessionId, SubjectId};

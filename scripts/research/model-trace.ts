@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { parseArgs } from "node:util";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";

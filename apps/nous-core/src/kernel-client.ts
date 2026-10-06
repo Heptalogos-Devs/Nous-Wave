@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { KernelProjectionService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_pb.js";
 import { KernelMaintenanceService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_pb.js";
 import { KernelQueryService } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_pb.js";

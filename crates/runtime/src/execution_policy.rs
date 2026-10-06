@@ -1,4 +1,7 @@
 //! Infrastructure execution budgets owned by Cognitive Runtime.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use nous_configuration::*;
 use nous_core::{Error, Result};
 pub const MODEL_WORKFLOW_LEASE: ConfigKey<u64> = ConfigKey::new("model_workflow.lease_seconds");

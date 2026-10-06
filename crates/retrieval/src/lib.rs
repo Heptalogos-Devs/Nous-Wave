@@ -1,4 +1,7 @@
 //! Immutable on-disk serving generations shared by runtime and cognitive contributors.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod epa_policy;
 pub use epa_policy::{EPA_POLICY, EpaPolicy};
 mod mechanisms;

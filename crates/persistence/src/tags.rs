@@ -1,4 +1,7 @@
 //! Tag identity interpretation shared by binding and Authority projections.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::*;
 use nous_core::{CognitiveRef, TagId};
 

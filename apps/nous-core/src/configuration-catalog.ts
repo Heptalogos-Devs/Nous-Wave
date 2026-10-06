@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import { modelConfigurationShape } from "./model/configuration.js";
 import { resourceProfilesSchema } from "./resources/configuration.js";

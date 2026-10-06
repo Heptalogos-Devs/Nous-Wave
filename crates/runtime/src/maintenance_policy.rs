@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use nous_configuration::*;
 use nous_core::{Error, Result};
 pub const CONCEPT_USE_REVIEW_INTERVAL: ConfigKey<u64> =

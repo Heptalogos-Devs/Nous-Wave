@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { expect, it } from "vitest";
 import { canonical, parse } from "../src/nousql/parser.js";
 import { compileNousQL } from "../src/nousql/compiler.js";

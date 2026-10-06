@@ -1,5 +1,8 @@
 //! Supported narrative Authority over settled Episode organization.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::*;
 mod lifecycle;
 mod mutations;

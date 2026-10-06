@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { join } from "node:path";

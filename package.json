@@ -1,6 +1,7 @@
 {
   "name": "nous-wave-workspace",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@12.8.1",
   "engines": {

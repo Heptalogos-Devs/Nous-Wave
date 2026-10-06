@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { boot, stop, prepare, type Boot } from "./support.js";
 import type { NousClient } from "@nous-wave/client";
 import { create } from "@bufbuild/protobuf";

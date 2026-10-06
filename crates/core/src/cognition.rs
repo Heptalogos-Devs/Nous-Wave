@@ -4,6 +4,9 @@
 //! are shared because every cognition owner must apply the same lifecycle and
 //! exact-support semantics without depending on another domain.
 
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::{
     CognitiveRef, CognitiveSeedVersionId, DerivedRegionId, DerivedRepresentationId, Error,
     OccurrenceId, Result, SourceRegionId,

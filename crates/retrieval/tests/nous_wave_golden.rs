@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use nous_core::{CognitiveRef, MemoryRevisionId};
 use nous_retrieval::{
     SourceSeed, WaveConfig, WaveEdgeEvidence, WaveGraphGeneration, WaveNode, WaveNodeKind,

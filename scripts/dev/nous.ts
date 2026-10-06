@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { repositoryRoot as root, developmentLocator } from "../workspace.js";

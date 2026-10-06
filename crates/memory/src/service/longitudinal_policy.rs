@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use nous_configuration::*;
 use nous_core::{Error, Result};
 pub const JOURNAL_MAX_EPISODES: ConfigKey<u64> = ConfigKey::new("journal.max_episode_count");

@@ -2,6 +2,7 @@
   "name": "@nous-wave/cli",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "dependencies": {
     "@nous-wave/client": "workspace:*"

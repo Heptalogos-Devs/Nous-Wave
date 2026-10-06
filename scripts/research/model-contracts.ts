@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 import { parseArgs } from "node:util";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";

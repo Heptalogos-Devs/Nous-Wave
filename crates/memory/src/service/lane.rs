@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use async_trait::async_trait;
 use nous_core::{EvidenceFamily, Result};
 use nous_runtime::{BoundQuery, QueryPlan};

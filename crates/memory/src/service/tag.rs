@@ -1,4 +1,7 @@
 //! Stable concept identity, immutable revisions and explicit semantic lineage.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use super::*;
 use sqlx::{Postgres, Transaction};
 use std::collections::HashSet;

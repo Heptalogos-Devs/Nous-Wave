@@ -1,4 +1,7 @@
 //! Stable model-facing aliases. Canonical object identity remains owner-owned.
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::*;
 use nous_core::{CognitiveRef, parse_reference, reference_parts};
 use serde::{Deserialize, Serialize};

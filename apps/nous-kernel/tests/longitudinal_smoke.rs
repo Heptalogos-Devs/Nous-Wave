@@ -1,3 +1,6 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+
 mod test_support;
 
 use chrono::{Duration, TimeZone, Utc};
