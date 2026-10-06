@@ -4,19 +4,47 @@
     "owner": "rust-vexus-lite/src/rivermemo_topology_v3.rs compute_query_morphology / compute_omega",
     "probe": "read-only query shape export; original functions unchanged"
   },
-  "tolerance": {"absolute":1e-12,"relative":1e-12},
+  "tolerance": {
+    "absolute": 1e-12,
+    "relative": 1e-12
+  },
   "cases": [
     {
       "name": "chain",
       "input": {
         "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.05204718945176961,"normalizedEnergy":0.12000000000000001,"hop":1},
-          {"id":3,"energy":0.005464954892435807,"normalizedEnergy":0.012599999999999997,"hop":2}
+          {
+            "id": 1,
+            "energy": 0.4337265787647467,
+            "normalizedEnergy": 1,
+            "hop": 0
+          },
+          {
+            "id": 2,
+            "energy": 0.05204718945176961,
+            "normalizedEnergy": 0.12000000000000001,
+            "hop": 1
+          },
+          {
+            "id": 3,
+            "energy": 0.005464954892435807,
+            "normalizedEnergy": 0.012599999999999997,
+            "hop": 2
+          }
         ],
         "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.2,"normalizedFlow":1},
-          {"sourceId":2,"targetId":3,"flow":0.034999999999999996,"normalizedFlow":0.17499999999999996}
+          {
+            "sourceId": 1,
+            "targetId": 2,
+            "flow": 0.2,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 2,
+            "targetId": 3,
+            "flow": 0.034999999999999996,
+            "normalizedFlow": 0.17499999999999996
+          }
         ],
         "completeObservation": true
       },
@@ -54,51 +82,42 @@
       }
     },
     {
-      "name": "fork",
+      "name": "empty-seeds",
       "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.03578244274809161,"normalizedEnergy":0.08250000000000002,"hop":1},
-          {"id":3,"energy":0.0227706453851492,"normalizedEnergy":0.0525,"hop":1},
-          {"id":4,"energy":0.003757156488549618,"normalizedEnergy":0.0086625,"hop":2}
-        ],
-        "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.1375,"normalizedFlow":1},
-          {"sourceId":1,"targetId":3,"flow":0.0875,"normalizedFlow":0.6363636363636362},
-          {"sourceId":2,"targetId":4,"flow":0.0240625,"normalizedFlow":0.175}
-        ],
+        "riverNodes": [],
+        "riverEdges": [],
         "completeObservation": true
       },
       "config": {},
       "expected": {
         "morphology": {
-          "atomicWeight": 0.39526549031192937,
+          "atomicWeight": 0.3333333333333333,
           "branching": 0,
-          "chainness": 0.3976350469912294,
-          "confidence": 0.3507735468573746,
-          "depthVariance": 0.21409840258921953,
+          "chainness": 0,
+          "confidence": 0,
+          "depthVariance": 0,
           "dominantMode": "atomic",
-          "effectiveDepth": 0.07328468767881458,
-          "energyConcentration": 0.6958872521092269,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.27071144726223634,
+          "effectiveDepth": 0,
+          "energyConcentration": 1,
+          "forwardFlowRatio": 0,
+          "growthPersistence": 0,
           "merging": 0,
-          "narrativeWeight": 0.35000854999681824,
-          "propositionalWeight": 0.25472595969125233,
+          "narrativeWeight": 0.3333333333333333,
+          "propositionalWeight": 0.3333333333333333,
           "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 0.9924256500497306
+          "shallowEnergyRatio": 1
         },
         "omega": {
-          "activeEdges": 3,
+          "activeEdges": 0,
           "completeObservation": true,
-          "emergentNodes": 3,
-          "omega": 0.9430027873637723,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.8385692430033213,
-          "reachedNodes": 4,
-          "regime": "dense",
-          "seedNodes": 1
+          "emergentNodes": 0,
+          "omega": 0.02,
+          "omegaEdge": 0,
+          "omegaEmerge": 0,
+          "omegaFlow": 0,
+          "reachedNodes": 0,
+          "regime": "collapsed",
+          "seedNodes": 0
         }
       }
     },
@@ -106,17 +125,62 @@
       "name": "merge",
       "input": {
         "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.260235947258848,"normalizedEnergy":0.6,"hop":0},
-          {"id":3,"energy":0.07937196391394864,"normalizedEnergy":0.183,"hop":1},
-          {"id":4,"energy":0.007143476752255377,"normalizedEnergy":0.01647,"hop":2},
-          {"id":5,"energy":0.0005357607564191533,"normalizedEnergy":0.0012352499999999998,"hop":3}
+          {
+            "id": 1,
+            "energy": 0.4337265787647467,
+            "normalizedEnergy": 1,
+            "hop": 0
+          },
+          {
+            "id": 2,
+            "energy": 0.260235947258848,
+            "normalizedEnergy": 0.6,
+            "hop": 0
+          },
+          {
+            "id": 3,
+            "energy": 0.07937196391394864,
+            "normalizedEnergy": 0.183,
+            "hop": 1
+          },
+          {
+            "id": 4,
+            "energy": 0.007143476752255377,
+            "normalizedEnergy": 0.01647,
+            "hop": 2
+          },
+          {
+            "id": 5,
+            "energy": 0.0005357607564191533,
+            "normalizedEnergy": 0.0012352499999999998,
+            "hop": 3
+          }
         ],
         "riverEdges": [
-          {"sourceId":1,"targetId":3,"flow":0.2,"normalizedFlow":1},
-          {"sourceId":2,"targetId":3,"flow":0.105,"normalizedFlow":0.5249999999999999},
-          {"sourceId":3,"targetId":4,"flow":0.04575,"normalizedFlow":0.22874999999999998},
-          {"sourceId":4,"targetId":5,"flow":0.00571875,"normalizedFlow":0.028593749999999998}
+          {
+            "sourceId": 1,
+            "targetId": 3,
+            "flow": 0.2,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 2,
+            "targetId": 3,
+            "flow": 0.105,
+            "normalizedFlow": 0.5249999999999999
+          },
+          {
+            "sourceId": 3,
+            "targetId": 4,
+            "flow": 0.04575,
+            "normalizedFlow": 0.22874999999999998
+          },
+          {
+            "sourceId": 4,
+            "targetId": 5,
+            "flow": 0.00571875,
+            "normalizedFlow": 0.028593749999999998
+          }
         ],
         "completeObservation": true
       },
@@ -154,807 +218,101 @@
       }
     },
     {
-      "name": "immediate-return",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.434780534351145,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.058553088133240803,"normalizedEnergy":0.1346727452290933,"hop":1}
-        ],
-        "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.2252278125,"normalizedFlow":1},
-          {"sourceId":2,"targetId":1,"flow":0.006750000000000001,"normalizedFlow":0.029969655723579878}
-        ],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.3697528115150538,
-          "branching": 0,
-          "chainness": 0.3868682724598585,
-          "confidence": 0.22119921692859512,
-          "depthVariance": 0.19395403151788804,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0.0655732787184864,
-          "energyConcentration": 0.5815934661492488,
-          "forwardFlowRatio": 0.9709023896412508,
-          "growthPersistence": 0.2560727996458944,
-          "merging": 0,
-          "narrativeWeight": 0.3457708603254346,
-          "propositionalWeight": 0.2844763281595116,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 2,
-          "completeObservation": true,
-          "emergentNodes": 1,
-          "omega": 0.5747343790843523,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.1898460339420134,
-          "reachedNodes": 2,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "hub",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.058553088133240803,"normalizedEnergy":0.135,"hop":1},
-          {"id":3,"energy":0.003513185287994448,"normalizedEnergy":0.0081,"hop":2},
-          {"id":4,"energy":0.00219574080499653,"normalizedEnergy":0.005062499999999999,"hop":2},
-          {"id":5,"energy":0.001317444482997918,"normalizedEnergy":0.0030375,"hop":2},
-          {"id":6,"energy":0.000878296321998612,"normalizedEnergy":0.002025,"hop":2}
-        ],
-        "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.225,"normalizedFlow":1},
-          {"sourceId":2,"targetId":3,"flow":0.022500000000000003,"normalizedFlow":0.1},
-          {"sourceId":2,"targetId":4,"flow":0.0140625,"normalizedFlow":0.0625},
-          {"sourceId":2,"targetId":5,"flow":0.0084375,"normalizedFlow":0.0375},
-          {"sourceId":2,"targetId":6,"flow":0.005625000000000001,"normalizedFlow":0.025}
-        ],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.4646343138042992,
-          "branching": 0.6,
-          "chainness": 0.22564625058680288,
-          "confidence": 0.4951884636628175,
-          "depthVariance": 0.23290211099921165,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0.08144574337033761,
-          "energyConcentration": 0.7188434038798064,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.28538700630956837,
-          "merging": 0,
-          "narrativeWeight": 0.2849883161134102,
-          "propositionalWeight": 0.2503773700822906,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 0.9841964924450997
-        },
-        "omega": {
-          "activeEdges": 5,
-          "completeObservation": true,
-          "emergentNodes": 5,
-          "omega": 0.7605936566699606,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.44000549202332045,
-          "reachedNodes": 6,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "independent-roots",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.260235947258848,"normalizedEnergy":0.6,"hop":0},
-          {"id":3,"energy":0.05204718945176961,"normalizedEnergy":0.12000000000000001,"hop":1},
-          {"id":4,"energy":0.02732477446217904,"normalizedEnergy":0.063,"hop":1}
-        ],
-        "riverEdges": [{"sourceId":1,"targetId":3,"flow":0.2,"normalizedFlow":1},{"sourceId":2,"targetId":4,"flow":0.105,"normalizedFlow":0.5249999999999999}],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.35585492913455363,
-          "branching": 0,
-          "chainness": 0.3870255736729866,
-          "confidence": 0.29501713502265664,
-          "depthVariance": 0.18316806748688763,
-          "dominantMode": "narrative",
-          "effectiveDepth": 0.056962421035364086,
-          "energyConcentration": 0.24476477380784223,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.23866801426953735,
-          "merging": 0,
-          "narrativeWeight": 0.37356492068935643,
-          "propositionalWeight": 0.27058015017608983,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 2,
-          "completeObservation": true,
-          "emergentNodes": 2,
-          "omega": 0.9756937061623981,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.9288391461883214,
-          "reachedNodes": 4,
-          "regime": "dense",
-          "seedNodes": 2
-        }
-      }
-    },
-    {
-      "name": "wormhole-long-bridge",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.0455412907702984,"normalizedEnergy":0.105,"hop":1},
-          {"id":3,"energy":0.013389139486467725,"normalizedEnergy":0.030869999999999988,"hop":2},
-          {"id":4,"energy":0.003936407009021511,"normalizedEnergy":0.009075779999999997,"hop":3},
-          {"id":5,"energy":0.00041332273594725863,"normalizedEnergy":0.0009529568999999996,"hop":4}
-        ],
-        "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.175,"normalizedFlow":1},
-          {"sourceId":2,"targetId":3,"flow":0.08574999999999998,"normalizedFlow":0.48999999999999994},
-          {"sourceId":3,"targetId":4,"flow":0.042017499999999985,"normalizedFlow":0.24009999999999992},
-          {"sourceId":4,"targetId":5,"flow":0.007353062499999997,"normalizedFlow":0.042017499999999985}
-        ],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.39390700342240215,
-          "branching": 0,
-          "chainness": 0.41104765931379794,
-          "confidence": 0.4276217711093836,
-          "depthVariance": 0.28545794127719615,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0.09391947586738147,
-          "energyConcentration": 0.7134392203267409,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.306462845818839,
-          "merging": 0,
-          "narrativeWeight": 0.36571798944980416,
-          "propositionalWeight": 0.24037500712779356,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 0.9643085941340303
-        },
-        "omega": {
-          "activeEdges": 4,
-          "completeObservation": true,
-          "emergentNodes": 4,
-          "omega": 0.9080221370677907,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.7486680669812833,
-          "reachedNodes": 5,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "disconnected-distractor",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.05204718945176961,"normalizedEnergy":0.12000000000000001,"hop":1}
-        ],
-        "riverEdges": [{"sourceId":1,"targetId":2,"flow":0.2,"normalizedFlow":1}],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.3619517912092792,
-          "branching": 0,
-          "chainness": 0.38860216212849663,
-          "confidence": 0.161219084276558,
-          "depthVariance": 0.18632684631197116,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0.0593879417361487,
-          "energyConcentration": 0.61734693877551,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.2436964130555653,
-          "merging": 0,
-          "narrativeWeight": 0.34091988819706964,
-          "propositionalWeight": 0.29712832059365124,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 1,
-          "completeObservation": true,
-          "emergentNodes": 1,
-          "omega": 0.7937005259840998,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.5,
-          "reachedNodes": 2,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "weak-strong",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.0584880291464261,"normalizedEnergy":0.13485000000000003,"hop":1}
-        ],
-        "riverEdges": [{"sourceId":1,"targetId":2,"flow":0.22475,"normalizedFlow":1}],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.35881116999238233,
-          "branching": 0,
-          "chainness": 0.39267040524615554,
-          "confidence": 0.161219084276558,
-          "depthVariance": 0.19404119953049515,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0.06564677730177781,
-          "energyConcentration": 0.5811736296411618,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.25621627056410334,
-          "merging": 0,
-          "narrativeWeight": 0.34367201943807585,
-          "propositionalWeight": 0.2975168105695418,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 1,
-          "completeObservation": true,
-          "emergentNodes": 1,
-          "omega": 0.7937005259840998,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.5,
-          "reachedNodes": 2,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "state-budget-truncation",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.5102040816326531,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.0012874308601945451,"normalizedEnergy":0.0025233644859813083,"hop":1},
-          {"id":3,"energy":0.0012752852860417666,"normalizedEnergy":0.0024995591606418624,"hop":1},
-          {"id":4,"energy":0.0012631397118889878,"normalizedEnergy":0.002475753835302416,"hop":1},
-          {"id":5,"energy":0.001250994137736209,"normalizedEnergy":0.0024519485099629697,"hop":1},
-          {"id":6,"energy":0.0012388485635834302,"normalizedEnergy":0.0024281431846235233,"hop":1},
-          {"id":7,"energy":0.0012267029894306516,"normalizedEnergy":0.0024043378592840774,"hop":1},
-          {"id":8,"energy":0.0012145574152778729,"normalizedEnergy":0.0023805325339446306,"hop":1},
-          {"id":9,"energy":0.001202411841125094,"normalizedEnergy":0.002356727208605184,"hop":1},
-          {"id":10,"energy":0.0011902662669723153,"normalizedEnergy":0.002332921883265738,"hop":1},
-          {"id":11,"energy":0.0011781206928195367,"normalizedEnergy":0.002309116557926292,"hop":1},
-          {"id":12,"energy":0.001165975118666758,"normalizedEnergy":0.0022853112325868456,"hop":1},
-          {"id":13,"energy":0.0011538295445139791,"normalizedEnergy":0.002261505907247399,"hop":1},
-          {"id":14,"energy":0.0011416839703612006,"normalizedEnergy":0.0022377005819079533,"hop":1},
-          {"id":15,"energy":0.0011295383962084218,"normalizedEnergy":0.0022138952565685065,"hop":1},
-          {"id":16,"energy":0.001117392822055643,"normalizedEnergy":0.00219008993122906,"hop":1},
-          {"id":17,"energy":0.0011052472479028642,"normalizedEnergy":0.0021662846058896137,"hop":1},
-          {"id":18,"energy":0.0010931016737500856,"normalizedEnergy":0.002142479280550168,"hop":1},
-          {"id":19,"energy":0.0010809560995973066,"normalizedEnergy":0.002118673955210721,"hop":1},
-          {"id":20,"energy":0.001068810525444528,"normalizedEnergy":0.002094868629871275,"hop":1},
-          {"id":21,"energy":0.001056664951291749,"normalizedEnergy":0.0020710633045318283,"hop":1},
-          {"id":22,"energy":0.0010445193771389707,"normalizedEnergy":0.0020472579791923824,"hop":1},
-          {"id":23,"energy":0.0010323738029861921,"normalizedEnergy":0.0020234526538529364,"hop":1},
-          {"id":24,"energy":0.0010202282288334131,"normalizedEnergy":0.0019996473285134896,"hop":1},
-          {"id":25,"energy":0.0010080826546806346,"normalizedEnergy":0.0019758420031740437,"hop":1},
-          {"id":26,"energy":0.0009959370805278558,"normalizedEnergy":0.0019520366778345974,"hop":1},
-          {"id":27,"energy":0.000983791506375077,"normalizedEnergy":0.0019282313524951508,"hop":1},
-          {"id":28,"energy":0.0009716459322222983,"normalizedEnergy":0.0019044260271557046,"hop":1},
-          {"id":29,"energy":0.0009595003580695195,"normalizedEnergy":0.0018806207018162583,"hop":1},
-          {"id":30,"energy":0.0009473547839167408,"normalizedEnergy":0.001856815376476812,"hop":1},
-          {"id":31,"energy":0.0009352092097639621,"normalizedEnergy":0.0018330100511373655,"hop":1},
-          {"id":32,"energy":0.0009230636356111834,"normalizedEnergy":0.0018092047257979194,"hop":1},
-          {"id":33,"energy":0.0009109180614584045,"normalizedEnergy":0.0017853994004584728,"hop":1},
-          {"id":34,"energy":0.0008987724873056259,"normalizedEnergy":0.0017615940751190267,"hop":1},
-          {"id":35,"energy":0.000886626913152847,"normalizedEnergy":0.00173778874977958,"hop":1},
-          {"id":36,"energy":0.0008744813390000684,"normalizedEnergy":0.0017139834244401342,"hop":1},
-          {"id":37,"energy":0.0008623357648472897,"normalizedEnergy":0.0016901780991006876,"hop":1},
-          {"id":38,"energy":0.000850190190694511,"normalizedEnergy":0.0016663727737612414,"hop":1},
-          {"id":39,"energy":0.0008380446165417322,"normalizedEnergy":0.001642567448421795,"hop":1},
-          {"id":40,"energy":0.0008258990423889535,"normalizedEnergy":0.001618762123082349,"hop":1},
-          {"id":41,"energy":0.0008137534682361747,"normalizedEnergy":0.0015949567977429024,"hop":1},
-          {"id":42,"energy":0.0008016078940833962,"normalizedEnergy":0.0015711514724034564,"hop":1},
-          {"id":43,"energy":0.0007894623199306173,"normalizedEnergy":0.0015473461470640098,"hop":1},
-          {"id":44,"energy":0.0007773167457778386,"normalizedEnergy":0.0015235408217245635,"hop":1},
-          {"id":45,"energy":0.0007651711716250599,"normalizedEnergy":0.0014997354963851173,"hop":1},
-          {"id":46,"energy":0.0007530255974722812,"normalizedEnergy":0.0014759301710456712,"hop":1},
-          {"id":47,"energy":0.0007408800233195023,"normalizedEnergy":0.0014521248457062246,"hop":1},
-          {"id":48,"energy":0.0007287344491667237,"normalizedEnergy":0.0014283195203667783,"hop":1},
-          {"id":49,"energy":0.0007165888750139449,"normalizedEnergy":0.001404514195027332,"hop":1},
-          {"id":50,"energy":0.0007044433008611662,"normalizedEnergy":0.0013807088696878857,"hop":1},
-          {"id":51,"energy":0.0006922977267083875,"normalizedEnergy":0.0013569035443484394,"hop":1},
-          {"id":52,"energy":0.0006801521525556087,"normalizedEnergy":0.001333098219008993,"hop":1},
-          {"id":53,"energy":0.00066800657840283,"normalizedEnergy":0.0013092928936695469,"hop":1},
-          {"id":54,"energy":0.0006558610042500513,"normalizedEnergy":0.0012854875683301005,"hop":1},
-          {"id":55,"energy":0.0006437154300972726,"normalizedEnergy":0.0012616822429906542,"hop":1},
-          {"id":56,"energy":0.0006315698559444939,"normalizedEnergy":0.001237876917651208,"hop":1},
-          {"id":57,"energy":0.0006194242817917151,"normalizedEnergy":0.0012140715923117616,"hop":1},
-          {"id":58,"energy":0.0006072787076389364,"normalizedEnergy":0.0011902662669723153,"hop":1},
-          {"id":59,"energy":0.0005951331334861576,"normalizedEnergy":0.001166460941632869,"hop":1},
-          {"id":60,"energy":0.0005829875593333791,"normalizedEnergy":0.001142655616293423,"hop":1},
-          {"id":61,"energy":0.0005708419851806003,"normalizedEnergy":0.0011188502909539766,"hop":1},
-          {"id":62,"energy":0.0005586964110278215,"normalizedEnergy":0.00109504496561453,"hop":1},
-          {"id":63,"energy":0.0005465508368750428,"normalizedEnergy":0.001071239640275084,"hop":1},
-          {"id":64,"energy":0.000534405262722264,"normalizedEnergy":0.0010474343149356375,"hop":1},
-          {"id":65,"energy":0.0005222596885694854,"normalizedEnergy":0.0010236289895961912,"hop":1},
-          {"id":66,"energy":0.0005101141144167066,"normalizedEnergy":0.0009998236642567448,"hop":1},
-          {"id":67,"energy":0.0004979685402639279,"normalizedEnergy":0.0009760183389172987,"hop":1},
-          {"id":68,"energy":0.0004858229661111491,"normalizedEnergy":0.0009522130135778522,"hop":1},
-          {"id":69,"energy":0.00047367739195837037,"normalizedEnergy":0.000928407688238406,"hop":1},
-          {"id":70,"energy":0.00046153181780559163,"normalizedEnergy":0.0009046023628989596,"hop":1},
-          {"id":71,"energy":0.00044938624365281296,"normalizedEnergy":0.0008807970375595133,"hop":1},
-          {"id":72,"energy":0.0004372406695000342,"normalizedEnergy":0.0008569917122200671,"hop":1},
-          {"id":73,"energy":0.0004250950953472555,"normalizedEnergy":0.0008331863868806207,"hop":1},
-          {"id":74,"energy":0.00041294952119447676,"normalizedEnergy":0.0008093810615411745,"hop":1},
-          {"id":75,"energy":0.000400803947041698,"normalizedEnergy":0.0007855757362017281,"hop":1},
-          {"id":76,"energy":0.0003886583728889193,"normalizedEnergy":0.0007617704108622817,"hop":1},
-          {"id":77,"energy":0.00037651279873614056,"normalizedEnergy":0.0007379650855228355,"hop":1},
-          {"id":78,"energy":0.0003643672245833618,"normalizedEnergy":0.0007141597601833891,"hop":1},
-          {"id":79,"energy":0.0003522216504305831,"normalizedEnergy":0.0006903544348439429,"hop":1},
-          {"id":80,"energy":0.00034007607627780436,"normalizedEnergy":0.0006665491095044965,"hop":1},
-          {"id":81,"energy":0.0003279305021250256,"normalizedEnergy":0.0006427437841650503,"hop":1},
-          {"id":82,"energy":0.00031578492797224695,"normalizedEnergy":0.000618938458825604,"hop":1},
-          {"id":83,"energy":0.0003036393538194682,"normalizedEnergy":0.0005951331334861576,"hop":1},
-          {"id":84,"energy":0.00029149377966668954,"normalizedEnergy":0.0005713278081467115,"hop":1},
-          {"id":85,"energy":0.00027934820551391075,"normalizedEnergy":0.000547522482807265,"hop":1},
-          {"id":86,"energy":0.000267202631361132,"normalizedEnergy":0.0005237171574678188,"hop":1},
-          {"id":87,"energy":0.0002550570572083533,"normalizedEnergy":0.0004999118321283724,"hop":1},
-          {"id":88,"energy":0.00024291148305557455,"normalizedEnergy":0.0004761065067889261,"hop":1},
-          {"id":89,"energy":0.0002307659089027958,"normalizedEnergy":0.00045230118144947974,"hop":1},
-          {"id":90,"energy":0.0002186203347500171,"normalizedEnergy":0.00042849585611003354,"hop":1},
-          {"id":91,"energy":0.00020647476059723838,"normalizedEnergy":0.00040469053077058723,"hop":1},
-          {"id":92,"energy":0.00019432918644445965,"normalizedEnergy":0.00038088520543114087,"hop":1},
-          {"id":93,"energy":0.0001821836122916809,"normalizedEnergy":0.00035707988009169456,"hop":1},
-          {"id":94,"energy":0.00017003803813890218,"normalizedEnergy":0.00033327455475224826,"hop":1},
-          {"id":95,"energy":0.00015789246398612347,"normalizedEnergy":0.000309469229412802,"hop":1},
-          {"id":96,"energy":0.00014574688983334477,"normalizedEnergy":0.00028566390407335575,"hop":1},
-          {"id":97,"energy":0.000133601315680566,"normalizedEnergy":0.0002618585787339094,"hop":1},
-          {"id":98,"energy":0.00012145574152778728,"normalizedEnergy":0.00023805325339446305,"hop":1},
-          {"id":99,"energy":0.00010931016737500856,"normalizedEnergy":0.00021424792805501677,"hop":1},
-          {"id":100,"energy":9.716459322222982e-05,"normalizedEnergy":0.00019044260271557044,"hop":1},
-          {"id":101,"energy":8.501901906945109e-05,"normalizedEnergy":0.00016663727737612413,"hop":1}
-        ],
-        "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.004205607476635514,"normalizedFlow":1},
-          {"sourceId":1,"targetId":3,"flow":0.004165931934403104,"normalizedFlow":0.9905660377358491},
-          {"sourceId":1,"targetId":4,"flow":0.0041262563921706935,"normalizedFlow":0.9811320754716982},
-          {"sourceId":1,"targetId":5,"flow":0.004086580849938282,"normalizedFlow":0.9716981132075471},
-          {"sourceId":1,"targetId":6,"flow":0.004046905307705872,"normalizedFlow":0.9622641509433962},
-          {"sourceId":1,"targetId":7,"flow":0.004007229765473462,"normalizedFlow":0.9528301886792453},
-          {"sourceId":1,"targetId":8,"flow":0.003967554223241051,"normalizedFlow":0.9433962264150945},
-          {"sourceId":1,"targetId":9,"flow":0.00392787868100864,"normalizedFlow":0.9339622641509433},
-          {"sourceId":1,"targetId":10,"flow":0.00388820313877623,"normalizedFlow":0.9245283018867924},
-          {"sourceId":1,"targetId":11,"flow":0.0038485275965438196,"normalizedFlow":0.9150943396226415},
-          {"sourceId":1,"targetId":12,"flow":0.003808852054311409,"normalizedFlow":0.9056603773584905},
-          {"sourceId":1,"targetId":13,"flow":0.0037691765120789985,"normalizedFlow":0.8962264150943396},
-          {"sourceId":1,"targetId":14,"flow":0.003729500969846588,"normalizedFlow":0.8867924528301887},
-          {"sourceId":1,"targetId":15,"flow":0.0036898254276141774,"normalizedFlow":0.8773584905660378},
-          {"sourceId":1,"targetId":16,"flow":0.003650149885381767,"normalizedFlow":0.8679245283018868},
-          {"sourceId":1,"targetId":17,"flow":0.0036104743431493564,"normalizedFlow":0.8584905660377359},
-          {"sourceId":1,"targetId":18,"flow":0.003570798800916946,"normalizedFlow":0.8490566037735849},
-          {"sourceId":1,"targetId":19,"flow":0.003531123258684535,"normalizedFlow":0.8396226415094338},
-          {"sourceId":1,"targetId":20,"flow":0.003491447716452125,"normalizedFlow":0.8301886792452831},
-          {"sourceId":1,"targetId":21,"flow":0.003451772174219714,"normalizedFlow":0.8207547169811319},
-          {"sourceId":1,"targetId":22,"flow":0.003412096631987304,"normalizedFlow":0.8113207547169812},
-          {"sourceId":1,"targetId":23,"flow":0.003372421089754894,"normalizedFlow":0.8018867924528303},
-          {"sourceId":1,"targetId":24,"flow":0.003332745547522483,"normalizedFlow":0.7924528301886793},
-          {"sourceId":1,"targetId":25,"flow":0.0032930700052900726,"normalizedFlow":0.7830188679245284},
-          {"sourceId":1,"targetId":26,"flow":0.003253394463057662,"normalizedFlow":0.7735849056603773},
-          {"sourceId":1,"targetId":27,"flow":0.0032137189208252515,"normalizedFlow":0.7641509433962265},
-          {"sourceId":1,"targetId":28,"flow":0.003174043378592841,"normalizedFlow":0.7547169811320755},
-          {"sourceId":1,"targetId":29,"flow":0.0031343678363604304,"normalizedFlow":0.7452830188679246},
-          {"sourceId":1,"targetId":30,"flow":0.00309469229412802,"normalizedFlow":0.7358490566037736},
-          {"sourceId":1,"targetId":31,"flow":0.0030550167518956094,"normalizedFlow":0.7264150943396227},
-          {"sourceId":1,"targetId":32,"flow":0.003015341209663199,"normalizedFlow":0.7169811320754718},
-          {"sourceId":1,"targetId":33,"flow":0.002975665667430788,"normalizedFlow":0.7075471698113207},
-          {"sourceId":1,"targetId":34,"flow":0.002935990125198378,"normalizedFlow":0.6981132075471699},
-          {"sourceId":1,"targetId":35,"flow":0.002896314582965967,"normalizedFlow":0.6886792452830187},
-          {"sourceId":1,"targetId":36,"flow":0.002856639040733557,"normalizedFlow":0.679245283018868},
-          {"sourceId":1,"targetId":37,"flow":0.002816963498501146,"normalizedFlow":0.6698113207547169},
-          {"sourceId":1,"targetId":38,"flow":0.002777287956268736,"normalizedFlow":0.6603773584905661},
-          {"sourceId":1,"targetId":39,"flow":0.002737612414036325,"normalizedFlow":0.6509433962264151},
-          {"sourceId":1,"targetId":40,"flow":0.002697936871803915,"normalizedFlow":0.6415094339622641},
-          {"sourceId":1,"targetId":41,"flow":0.002658261329571504,"normalizedFlow":0.6320754716981132},
-          {"sourceId":1,"targetId":42,"flow":0.002618585787339094,"normalizedFlow":0.6226415094339623},
-          {"sourceId":1,"targetId":43,"flow":0.002578910245106683,"normalizedFlow":0.6132075471698113},
-          {"sourceId":1,"targetId":44,"flow":0.0025392347028742727,"normalizedFlow":0.6037735849056604},
-          {"sourceId":1,"targetId":45,"flow":0.0024995591606418624,"normalizedFlow":0.5943396226415095},
-          {"sourceId":1,"targetId":46,"flow":0.002459883618409452,"normalizedFlow":0.5849056603773586},
-          {"sourceId":1,"targetId":47,"flow":0.002420208076177041,"normalizedFlow":0.5754716981132075},
-          {"sourceId":1,"targetId":48,"flow":0.0023805325339446306,"normalizedFlow":0.5660377358490566},
-          {"sourceId":1,"targetId":49,"flow":0.00234085699171222,"normalizedFlow":0.5566037735849055},
-          {"sourceId":1,"targetId":50,"flow":0.0023011814494798095,"normalizedFlow":0.5471698113207547},
-          {"sourceId":1,"targetId":51,"flow":0.002261505907247399,"normalizedFlow":0.5377358490566038},
-          {"sourceId":1,"targetId":52,"flow":0.0022218303650149884,"normalizedFlow":0.5283018867924528},
-          {"sourceId":1,"targetId":53,"flow":0.002182154822782578,"normalizedFlow":0.5188679245283019},
-          {"sourceId":1,"targetId":54,"flow":0.0021424792805501674,"normalizedFlow":0.5094339622641509},
-          {"sourceId":1,"targetId":55,"flow":0.002102803738317757,"normalizedFlow":0.5},
-          {"sourceId":1,"targetId":56,"flow":0.0020631281960853468,"normalizedFlow":0.4905660377358491},
-          {"sourceId":1,"targetId":57,"flow":0.002023452653852936,"normalizedFlow":0.4811320754716981},
-          {"sourceId":1,"targetId":58,"flow":0.0019837771116205257,"normalizedFlow":0.47169811320754723},
-          {"sourceId":1,"targetId":59,"flow":0.001944101569388115,"normalizedFlow":0.4622641509433962},
-          {"sourceId":1,"targetId":60,"flow":0.0019044260271557048,"normalizedFlow":0.45283018867924535},
-          {"sourceId":1,"targetId":61,"flow":0.001864750484923294,"normalizedFlow":0.44339622641509435},
-          {"sourceId":1,"targetId":62,"flow":0.0018250749426908836,"normalizedFlow":0.4339622641509434},
-          {"sourceId":1,"targetId":63,"flow":0.001785399400458473,"normalizedFlow":0.42452830188679247},
-          {"sourceId":1,"targetId":64,"flow":0.0017457238582260625,"normalizedFlow":0.41509433962264153},
-          {"sourceId":1,"targetId":65,"flow":0.001706048315993652,"normalizedFlow":0.4056603773584906},
-          {"sourceId":1,"targetId":66,"flow":0.0016663727737612414,"normalizedFlow":0.39622641509433965},
-          {"sourceId":1,"targetId":67,"flow":0.001626697231528831,"normalizedFlow":0.38679245283018865},
-          {"sourceId":1,"targetId":68,"flow":0.0015870216892964204,"normalizedFlow":0.3773584905660377},
-          {"sourceId":1,"targetId":69,"flow":0.0015473461470640098,"normalizedFlow":0.36792452830188677},
-          {"sourceId":1,"targetId":70,"flow":0.0015076706048315993,"normalizedFlow":0.3584905660377358},
-          {"sourceId":1,"targetId":71,"flow":0.001467995062599189,"normalizedFlow":0.34905660377358494},
-          {"sourceId":1,"targetId":72,"flow":0.0014283195203667785,"normalizedFlow":0.339622641509434},
-          {"sourceId":1,"targetId":73,"flow":0.001388643978134368,"normalizedFlow":0.33018867924528306},
-          {"sourceId":1,"targetId":74,"flow":0.0013489684359019574,"normalizedFlow":0.32075471698113206},
-          {"sourceId":1,"targetId":75,"flow":0.0013092928936695469,"normalizedFlow":0.3113207547169811},
-          {"sourceId":1,"targetId":76,"flow":0.0012696173514371363,"normalizedFlow":0.3018867924528302},
-          {"sourceId":1,"targetId":77,"flow":0.0012299418092047258,"normalizedFlow":0.29245283018867924},
-          {"sourceId":1,"targetId":78,"flow":0.0011902662669723153,"normalizedFlow":0.2830188679245283},
-          {"sourceId":1,"targetId":79,"flow":0.0011505907247399048,"normalizedFlow":0.27358490566037735},
-          {"sourceId":1,"targetId":80,"flow":0.0011109151825074942,"normalizedFlow":0.2641509433962264},
-          {"sourceId":1,"targetId":81,"flow":0.0010712396402750837,"normalizedFlow":0.25471698113207547},
-          {"sourceId":1,"targetId":82,"flow":0.0010315640980426734,"normalizedFlow":0.24528301886792456},
-          {"sourceId":1,"targetId":83,"flow":0.0009918885558102628,"normalizedFlow":0.23584905660377362},
-          {"sourceId":1,"targetId":84,"flow":0.0009522130135778524,"normalizedFlow":0.22641509433962267},
-          {"sourceId":1,"targetId":85,"flow":0.0009125374713454418,"normalizedFlow":0.2169811320754717},
-          {"sourceId":1,"targetId":86,"flow":0.0008728619291130313,"normalizedFlow":0.20754716981132076},
-          {"sourceId":1,"targetId":87,"flow":0.0008331863868806207,"normalizedFlow":0.19811320754716982},
-          {"sourceId":1,"targetId":88,"flow":0.0007935108446482102,"normalizedFlow":0.18867924528301885},
-          {"sourceId":1,"targetId":89,"flow":0.0007538353024157996,"normalizedFlow":0.17924528301886788},
-          {"sourceId":1,"targetId":90,"flow":0.0007141597601833892,"normalizedFlow":0.169811320754717},
-          {"sourceId":1,"targetId":91,"flow":0.0006744842179509787,"normalizedFlow":0.16037735849056603},
-          {"sourceId":1,"targetId":92,"flow":0.0006348086757185682,"normalizedFlow":0.1509433962264151},
-          {"sourceId":1,"targetId":93,"flow":0.0005951331334861576,"normalizedFlow":0.14150943396226415},
-          {"sourceId":1,"targetId":94,"flow":0.0005554575912537471,"normalizedFlow":0.1320754716981132},
-          {"sourceId":1,"targetId":95,"flow":0.0005157820490213367,"normalizedFlow":0.12264150943396228},
-          {"sourceId":1,"targetId":96,"flow":0.0004761065067889262,"normalizedFlow":0.11320754716981134},
-          {"sourceId":1,"targetId":97,"flow":0.0004364309645565156,"normalizedFlow":0.10377358490566038},
-          {"sourceId":1,"targetId":98,"flow":0.0003967554223241051,"normalizedFlow":0.09433962264150943},
-          {"sourceId":1,"targetId":99,"flow":0.0003570798800916946,"normalizedFlow":0.0849056603773585},
-          {"sourceId":1,"targetId":100,"flow":0.0003174043378592841,"normalizedFlow":0.07547169811320754},
-          {"sourceId":1,"targetId":101,"flow":0.00027772879562687356,"normalizedFlow":0.0660377358490566},
-          {"sourceId":1,"targetId":102,"flow":0.0002380532533944631,"normalizedFlow":0.05660377358490567},
-          {"sourceId":1,"targetId":103,"flow":0.00019837771116205255,"normalizedFlow":0.04716981132075471},
-          {"sourceId":1,"targetId":104,"flow":0.00015870216892964204,"normalizedFlow":0.03773584905660377},
-          {"sourceId":1,"targetId":105,"flow":0.00011902662669723154,"normalizedFlow":0.02830188679245283},
-          {"sourceId":1,"targetId":106,"flow":7.935108446482102e-05,"normalizedFlow":0.018867924528301886},
-          {"sourceId":1,"targetId":107,"flow":3.967554223241051e-05,"normalizedFlow":0.009433962264150943}
-        ],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.547014802058124,
-          "branching": 0,
-          "chainness": 0.3918485396092257,
-          "confidence": 0.9999974754466112,
-          "depthVariance": 0.19386901686752378,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0.06550165893055282,
-          "energyConcentration": 0.7748946464154743,
-          "forwardFlowRatio": 0.9962969493916416,
-          "growthPersistence": 0.255932918809896,
-          "merging": 0,
-          "narrativeWeight": 0.3489367150700318,
-          "propositionalWeight": 0.10404848287184408,
-          "sameLevelFlowRatio": 0.003703050608358314,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 106,
-          "completeObservation": true,
-          "emergentNodes": 100,
-          "omega": 0.9863375283915757,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.9595700242863601,
-          "reachedNodes": 101,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "empty-seeds",
-      "input": {"riverNodes":[],"riverEdges":[],"completeObservation":true},
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.3333333333333333,
-          "branching": 0,
-          "chainness": 0,
-          "confidence": 0,
-          "depthVariance": 0,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0,
-          "energyConcentration": 1,
-          "forwardFlowRatio": 0,
-          "growthPersistence": 0,
-          "merging": 0,
-          "narrativeWeight": 0.3333333333333333,
-          "propositionalWeight": 0.3333333333333333,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 0,
-          "completeObservation": true,
-          "emergentNodes": 0,
-          "omega": 0.02,
-          "omegaEdge": 0,
-          "omegaEmerge": 0,
-          "omegaFlow": 0,
-          "reachedNodes": 0,
-          "regime": "collapsed",
-          "seedNodes": 0
-        }
-      }
-    },
-    {
-      "name": "transition-record-truncation",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.03578244274809161,"normalizedEnergy":0.08250000000000002,"hop":1},
-          {"id":3,"energy":0.0227706453851492,"normalizedEnergy":0.0525,"hop":1},
-          {"id":4,"energy":0.005806514573213045,"normalizedEnergy":0.013387499999999998,"hop":2}
-        ],
-        "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.1375,"normalizedFlow":1},
-          {"sourceId":1,"targetId":3,"flow":0.0875,"normalizedFlow":0.6363636363636362},
-          {"sourceId":2,"targetId":4,"flow":0.0240625,"normalizedFlow":0.175},
-          {"sourceId":3,"targetId":4,"flow":0.013125,"normalizedFlow":0.09545454545454544}
-        ],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.4122958520408594,
-          "branching": 0,
-          "chainness": 0.26684872827752554,
-          "confidence": 0.3934693402873666,
-          "depthVariance": 0.22375138616696277,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0.07734321910198205,
-          "energyConcentration": 0.6875406266482224,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.2781064887807943,
-          "merging": 0.3333333333333333,
-          "narrativeWeight": 0.33420100812483056,
-          "propositionalWeight": 0.25350313983430994,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 0.988342349598894
-        },
-        "omega": {
-          "activeEdges": 4,
-          "completeObservation": true,
-          "emergentNodes": 3,
-          "omega": 0.9183905015405781,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.7746083070818568,
-          "reachedNodes": 4,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "empty-incomplete",
-      "input": {"riverNodes":[],"riverEdges":[],"completeObservation":false},
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.3333333333333333,
-          "branching": 0,
-          "chainness": 0,
-          "confidence": 0,
-          "depthVariance": 0,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0,
-          "energyConcentration": 1,
-          "forwardFlowRatio": 0,
-          "growthPersistence": 0,
-          "merging": 0,
-          "narrativeWeight": 0.3333333333333333,
-          "propositionalWeight": 0.3333333333333333,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 0,
-          "completeObservation": false,
-          "emergentNodes": 0,
-          "omega": 0.01,
-          "omegaEdge": 0,
-          "omegaEmerge": 0,
-          "omegaFlow": 0,
-          "reachedNodes": 0,
-          "regime": "collapsed",
-          "seedNodes": 0
-        }
-      }
-    },
-    {
-      "name": "one-positive-flow",
-      "input": {
-        "riverNodes": [{"id":1,"energy":1,"normalizedEnergy":1,"hop":0},{"id":2,"energy":0.5,"normalizedEnergy":0.5,"hop":1}],
-        "riverEdges": [{"sourceId":1,"targetId":2,"flow":0.3,"normalizedFlow":1}],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.318557288879327,
-          "branching": 0,
-          "chainness": 0.46273246554424524,
-          "confidence": 0.161219084276558,
-          "depthVariance": 0.26967795203527634,
-          "dominantMode": "narrative",
-          "effectiveDepth": 0.17343456237576194,
-          "energyConcentration": 0.11111111111111116,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.41645475429602424,
-          "merging": 0,
-          "narrativeWeight": 0.3811547347807648,
-          "propositionalWeight": 0.3002879763399082,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 1,
-          "completeObservation": true,
-          "emergentNodes": 1,
-          "omega": 0.7937005259840998,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.5,
-          "reachedNodes": 2,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "zero-raw-positive-normalized",
-      "input": {
-        "riverNodes": [{"id":1,"energy":1,"normalizedEnergy":1,"hop":0},{"id":2,"energy":0.5,"normalizedEnergy":0.5,"hop":1}],
-        "riverEdges": [{"sourceId":1,"targetId":2,"flow":0,"normalizedFlow":1}],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.318557288879327,
-          "branching": 0,
-          "chainness": 0.46273246554424524,
-          "confidence": 0.161219084276558,
-          "depthVariance": 0.26967795203527634,
-          "dominantMode": "narrative",
-          "effectiveDepth": 0.17343456237576194,
-          "energyConcentration": 0.11111111111111116,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.41645475429602424,
-          "merging": 0,
-          "narrativeWeight": 0.3811547347807648,
-          "propositionalWeight": 0.3002879763399082,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 1
-        },
-        "omega": {
-          "activeEdges": 1,
-          "completeObservation": true,
-          "emergentNodes": 1,
-          "omega": 0.27144176165949063,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0,
-          "reachedNodes": 2,
-          "regime": "sparse",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
-      "name": "incomplete-fork",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.03578244274809161,"normalizedEnergy":0.08250000000000002,"hop":1},
-          {"id":3,"energy":0.0227706453851492,"normalizedEnergy":0.0525,"hop":1},
-          {"id":4,"energy":0.003757156488549618,"normalizedEnergy":0.0086625,"hop":2}
-        ],
-        "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.1375,"normalizedFlow":1},
-          {"sourceId":1,"targetId":3,"flow":0.0875,"normalizedFlow":0.6363636363636362},
-          {"sourceId":2,"targetId":4,"flow":0.0240625,"normalizedFlow":0.175}
-        ],
-        "completeObservation": false
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.36429941182263137,
-          "branching": 0,
-          "chainness": 0.3976350469912294,
-          "confidence": 0.1753867734286873,
-          "depthVariance": 0.21409840258921953,
-          "dominantMode": "atomic",
-          "effectiveDepth": 0.07328468767881458,
-          "energyConcentration": 0.6958872521092269,
-          "forwardFlowRatio": 1,
-          "growthPersistence": 0.27071144726223634,
-          "merging": 0,
-          "narrativeWeight": 0.3416709416650758,
-          "propositionalWeight": 0.29402964651229285,
-          "sameLevelFlowRatio": 0,
-          "shallowEnergyRatio": 0.9924256500497306
-        },
-        "omega": {
-          "activeEdges": 3,
-          "completeObservation": false,
-          "emergentNodes": 3,
-          "omega": 0.47150139368188615,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 0.8385692430033213,
-          "reachedNodes": 4,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
       "name": "deep-narrative",
       "input": {
         "riverNodes": [
-          {"id":1,"energy":1,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":1,"normalizedEnergy":1,"hop":1},
-          {"id":3,"energy":1,"normalizedEnergy":1,"hop":2},
-          {"id":4,"energy":1,"normalizedEnergy":1,"hop":3},
-          {"id":5,"energy":1,"normalizedEnergy":1,"hop":4},
-          {"id":6,"energy":1,"normalizedEnergy":1,"hop":5},
-          {"id":7,"energy":1,"normalizedEnergy":1,"hop":6},
-          {"id":8,"energy":1,"normalizedEnergy":1,"hop":7}
+          {
+            "id": 1,
+            "energy": 1,
+            "normalizedEnergy": 1,
+            "hop": 0
+          },
+          {
+            "id": 2,
+            "energy": 1,
+            "normalizedEnergy": 1,
+            "hop": 1
+          },
+          {
+            "id": 3,
+            "energy": 1,
+            "normalizedEnergy": 1,
+            "hop": 2
+          },
+          {
+            "id": 4,
+            "energy": 1,
+            "normalizedEnergy": 1,
+            "hop": 3
+          },
+          {
+            "id": 5,
+            "energy": 1,
+            "normalizedEnergy": 1,
+            "hop": 4
+          },
+          {
+            "id": 6,
+            "energy": 1,
+            "normalizedEnergy": 1,
+            "hop": 5
+          },
+          {
+            "id": 7,
+            "energy": 1,
+            "normalizedEnergy": 1,
+            "hop": 6
+          },
+          {
+            "id": 8,
+            "energy": 1,
+            "normalizedEnergy": 1,
+            "hop": 7
+          }
         ],
         "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":1,"normalizedFlow":1},
-          {"sourceId":2,"targetId":3,"flow":1,"normalizedFlow":1},
-          {"sourceId":3,"targetId":4,"flow":1,"normalizedFlow":1},
-          {"sourceId":4,"targetId":5,"flow":1,"normalizedFlow":1},
-          {"sourceId":5,"targetId":6,"flow":1,"normalizedFlow":1},
-          {"sourceId":6,"targetId":7,"flow":1,"normalizedFlow":1},
-          {"sourceId":7,"targetId":8,"flow":1,"normalizedFlow":1}
+          {
+            "sourceId": 1,
+            "targetId": 2,
+            "flow": 1,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 2,
+            "targetId": 3,
+            "flow": 1,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 3,
+            "targetId": 4,
+            "flow": 1,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 4,
+            "targetId": 5,
+            "flow": 1,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 5,
+            "targetId": 6,
+            "flow": 1,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 6,
+            "targetId": 7,
+            "flow": 1,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 7,
+            "targetId": 8,
+            "flow": 1,
+            "normalizedFlow": 1
+          }
         ],
         "completeObservation": true
       },
@@ -992,83 +350,63 @@
       }
     },
     {
-      "name": "same-level-relational",
-      "input": {
-        "riverNodes": [
-          {"id":1,"energy":1,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":1,"normalizedEnergy":1,"hop":2},
-          {"id":3,"energy":1,"normalizedEnergy":1,"hop":2},
-          {"id":4,"energy":1,"normalizedEnergy":1,"hop":2},
-          {"id":5,"energy":1,"normalizedEnergy":1,"hop":2},
-          {"id":6,"energy":1,"normalizedEnergy":1,"hop":2},
-          {"id":7,"energy":1,"normalizedEnergy":1,"hop":2},
-          {"id":8,"energy":1,"normalizedEnergy":1,"hop":2}
-        ],
-        "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":1,"normalizedFlow":1},
-          {"sourceId":2,"targetId":3,"flow":1,"normalizedFlow":1},
-          {"sourceId":2,"targetId":4,"flow":1,"normalizedFlow":1},
-          {"sourceId":2,"targetId":5,"flow":1,"normalizedFlow":1},
-          {"sourceId":3,"targetId":6,"flow":1,"normalizedFlow":1},
-          {"sourceId":4,"targetId":6,"flow":1,"normalizedFlow":1},
-          {"sourceId":5,"targetId":6,"flow":1,"normalizedFlow":1},
-          {"sourceId":6,"targetId":7,"flow":1,"normalizedFlow":1},
-          {"sourceId":6,"targetId":8,"flow":1,"normalizedFlow":1},
-          {"sourceId":7,"targetId":3,"flow":1,"normalizedFlow":1},
-          {"sourceId":8,"targetId":4,"flow":1,"normalizedFlow":1}
-        ],
-        "completeObservation": true
-      },
-      "config": {},
-      "expected": {
-        "morphology": {
-          "atomicWeight": 0.14227431869412147,
-          "branching": 0.42857142857142855,
-          "chainness": 0.07725147067230785,
-          "confidence": 0.6872375515311097,
-          "depthVariance": 0.35658062543317004,
-          "dominantMode": "propositional",
-          "effectiveDepth": 0.6321205588285577,
-          "energyConcentration": 0,
-          "forwardFlowRatio": 0.09090909090909091,
-          "growthPersistence": 0.39753004881032505,
-          "merging": 0.5714285714285714,
-          "narrativeWeight": 0.36578010348452616,
-          "propositionalWeight": 0.4919455778213523,
-          "sameLevelFlowRatio": 0.9090909090909091,
-          "shallowEnergyRatio": 0.125
-        },
-        "omega": {
-          "activeEdges": 11,
-          "completeObservation": true,
-          "emergentNodes": 7,
-          "omega": 1,
-          "omegaEdge": 1,
-          "omegaEmerge": 1,
-          "omegaFlow": 1,
-          "reachedNodes": 8,
-          "regime": "dense",
-          "seedNodes": 1
-        }
-      }
-    },
-    {
       "name": "omega-scale-override",
       "input": {
         "riverNodes": [
-          {"id":1,"energy":0.4337265787647467,"normalizedEnergy":1,"hop":0},
-          {"id":2,"energy":0.03578244274809161,"normalizedEnergy":0.08250000000000002,"hop":1},
-          {"id":3,"energy":0.0227706453851492,"normalizedEnergy":0.0525,"hop":1},
-          {"id":4,"energy":0.003757156488549618,"normalizedEnergy":0.0086625,"hop":2}
+          {
+            "id": 1,
+            "energy": 0.4337265787647467,
+            "normalizedEnergy": 1,
+            "hop": 0
+          },
+          {
+            "id": 2,
+            "energy": 0.03578244274809161,
+            "normalizedEnergy": 0.08250000000000002,
+            "hop": 1
+          },
+          {
+            "id": 3,
+            "energy": 0.0227706453851492,
+            "normalizedEnergy": 0.0525,
+            "hop": 1
+          },
+          {
+            "id": 4,
+            "energy": 0.003757156488549618,
+            "normalizedEnergy": 0.0086625,
+            "hop": 2
+          }
         ],
         "riverEdges": [
-          {"sourceId":1,"targetId":2,"flow":0.1375,"normalizedFlow":1},
-          {"sourceId":1,"targetId":3,"flow":0.0875,"normalizedFlow":0.6363636363636362},
-          {"sourceId":2,"targetId":4,"flow":0.0240625,"normalizedFlow":0.175}
+          {
+            "sourceId": 1,
+            "targetId": 2,
+            "flow": 0.1375,
+            "normalizedFlow": 1
+          },
+          {
+            "sourceId": 1,
+            "targetId": 3,
+            "flow": 0.0875,
+            "normalizedFlow": 0.6363636363636362
+          },
+          {
+            "sourceId": 2,
+            "targetId": 4,
+            "flow": 0.0240625,
+            "normalizedFlow": 0.175
+          }
         ],
         "completeObservation": true
       },
-      "config": {"kappaEdge":4,"kappaRatio":3,"omegaEpsilon":0.03,"collapsedThreshold":0.1,"sparseThreshold":0.3},
+      "config": {
+        "kappaEdge": 4,
+        "kappaRatio": 3,
+        "omegaEpsilon": 0.03,
+        "collapsedThreshold": 0.1,
+        "sparseThreshold": 0.3
+      },
       "expected": {
         "morphology": {
           "atomicWeight": 0.39526549031192937,

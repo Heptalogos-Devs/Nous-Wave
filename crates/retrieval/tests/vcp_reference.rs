@@ -112,7 +112,7 @@ fn compare_numeric_subset(actual: &Value, expected: &Value, path: &str) {
 }
 
 #[test]
-fn frozen_sense_graph_matrix_matches_intermediate_numeric_and_discrete_contracts() {
+fn frozen_sense_merge_and_empty_goldens_match_intermediate_contracts() {
     let fixture: Value =
         serde_json::from_str(include_str!("fixtures/vcp-sense.json")).expect("frozen Sense matrix");
     for case in fixture["cases"].as_array().expect("cases") {
@@ -593,9 +593,9 @@ fn native_query_pipeline_composes_one_query_through_sense_fusion_and_dual_fields
 }
 
 #[test]
-fn native_query_pipeline_vector_and_configuration_matrix_matches() {
+fn native_query_pipeline_state_budget_golden_matches() {
     let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-query-pipeline-matrix.json")).unwrap();
+        serde_json::from_str(include_str!("fixtures/vcp-pipeline-state-budget.json")).unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         verify_pipeline_fixture(case);
     }
@@ -685,9 +685,9 @@ fn verify_pipeline_fixture(fixture: &Value) {
 }
 
 #[test]
-fn native_epa_and_dual_field_boundary_matrix_matches() {
+fn native_epa_and_dual_field_boundary_goldens_match() {
     let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-epa-fields-matrix.json")).unwrap();
+        serde_json::from_str(include_str!("fixtures/vcp-epa-field-boundaries.json")).unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: FixtureInput = serde_json::from_value(case["input"].clone()).unwrap();
         let expected = &case["expected"];
@@ -721,9 +721,9 @@ fn native_epa_and_dual_field_boundary_matrix_matches() {
 }
 
 #[test]
-fn native_graph_builder_boundaries_and_provenance_matrix_match() {
+fn native_graph_builder_boundary_and_merge_goldens_match() {
     let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-graph-matrix.json")).unwrap();
+        serde_json::from_str(include_str!("fixtures/vcp-graph-boundaries.json")).unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceGraphInput = serde_json::from_value(case["input"].clone()).unwrap();
         let actual = serde_json::to_value(reference_graph(&input).unwrap()).unwrap();

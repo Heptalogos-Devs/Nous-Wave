@@ -4,18 +4,49 @@
     "owner": "memo_pipeline gate_tags",
     "probe": "original gate_tags with controlled EPA/pyramid/levels/core names; no candidate text or copied source"
   },
-  "tolerance": {"absolute":1e-12,"relative":1e-12},
+  "tolerance": {
+    "absolute": 1e-12,
+    "relative": 1e-12
+  },
   "cases": [
     {
       "name": "unknown-language-core-layers",
       "input": {
         "levels": [
           [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
+            {
+              "id": 1,
+              "name": "Docker engine",
+              "contribution": 0.8,
+              "similarity": 0.7
+            },
+            {
+              "id": 2,
+              "name": "项目规划",
+              "contribution": 0.3,
+              "similarity": 0.7
+            },
+            {
+              "id": 3,
+              "name": "NASA",
+              "contribution": 0.2,
+              "similarity": 0
+            }
           ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
+          [
+            {
+              "id": 4,
+              "name": "sensor.4",
+              "contribution": 0.4,
+              "similarity": 0.7
+            },
+            {
+              "id": 1,
+              "name": "Docker engine",
+              "contribution": 0.9,
+              "similarity": 0.7
+            }
+          ]
         ],
         "logic_depth": 0.7,
         "entropy": 0.4,
@@ -23,298 +54,39 @@
         "world": "Unknown",
         "activation": 0.6,
         "coverage": 0.7,
-        "core_tags": ["项目规划"],
+        "core_tags": [
+          "项目规划"
+        ],
         "config": {}
       },
       "expected": {
         "dynamicCoreBoost": 1.2999999999999998,
         "effectiveBoost": 0.45519379936567256,
         "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.04000000000000001},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.010000000000000002},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.013999999999999999}
-        ]
-      }
-    },
-    {
-      "name": "technical-world",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Computing",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.8},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.2},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.27999999999999997}
-        ]
-      }
-    },
-    {
-      "name": "social-ascii-world",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Politics",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.8},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.2},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.27999999999999997}
-        ]
-      }
-    },
-    {
-      "name": "social-cjk-world",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "社会 Politics",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.35777087639996635},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.08944271909999159},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.1252198067399882}
-        ]
-      }
-    },
-    {
-      "name": "nontechnical-crossdomain",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "艺术",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.16000000000000003},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.04000000000000001},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.055999999999999994}
-        ]
-      }
-    },
-    {
-      "name": "language-disabled",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {"langConfidenceEnabled":false}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.8},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.2},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.27999999999999997}
-        ]
-      }
-    },
-    {
-      "name": "zero-similarity-core",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["nasa"],
-        "config": {}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.04000000000000001},
-          {"id":2,"isCore":false,"name":"项目规划","weight":0.3},
-          {"id":3,"isCore":true,"name":"NASA","weight":0.013000000000000001},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.013999999999999999}
-        ]
-      }
-    },
-    {
-      "name": "core-casefold",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["DOCKER ENGINE"],
-        "config": {}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":1,"isCore":true,"name":"Docker engine","weight":0.053040000000000004},
-          {"id":2,"isCore":false,"name":"项目规划","weight":0.3},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.010000000000000002},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.013999999999999999}
-        ]
-      }
-    },
-    {
-      "name": "nonpositive-seeds",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0},
-            {"id":-1,"name":"ghost","contribution":1,"similarity":0.7},
-            {"id":5,"name":"blocked","contribution":-1,"similarity":0.7},
-            {"id":6,"name":"empty","contribution":0,"similarity":0.7}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.04000000000000001},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.010000000000000002},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.013999999999999999}
-        ]
-      }
-    },
-    {
-      "name": "first-duplicate-zero-contribution",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0.45519379936567256,
-        "tags": [
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.010000000000000002},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.013999999999999999}
+          {
+            "id": 1,
+            "isCore": false,
+            "name": "Docker engine",
+            "weight": 0.04000000000000001
+          },
+          {
+            "id": 2,
+            "isCore": true,
+            "name": "项目规划",
+            "weight": 0.39779999999999993
+          },
+          {
+            "id": 3,
+            "isCore": false,
+            "name": "NASA",
+            "weight": 0.010000000000000002
+          },
+          {
+            "id": 4,
+            "isCore": false,
+            "name": "sensor.4",
+            "weight": 0.013999999999999999
+          }
         ]
       }
     },
@@ -328,52 +100,55 @@
         "world": "Unknown",
         "activation": 0.6,
         "coverage": 0.7,
-        "core_tags": ["项目规划"],
+        "core_tags": [
+          "项目规划"
+        ],
         "config": {}
       },
-      "expected": {"dynamicCoreBoost":1.2999999999999998,"effectiveBoost":0.45519379936567256,"tags":[]}
-    },
-    {
-      "name": "boost-clamp",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 4,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {"baseTagBoost":8}
-      },
       "expected": {
         "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 1,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.04000000000000001},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.010000000000000002},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.013999999999999999}
-        ]
+        "effectiveBoost": 0.45519379936567256,
+        "tags": []
       }
     },
     {
-      "name": "negative-base",
+      "name": "first-duplicate-zero-contribution",
       "input": {
         "levels": [
           [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
+            {
+              "id": 1,
+              "name": "Docker engine",
+              "contribution": 0,
+              "similarity": 0.7
+            },
+            {
+              "id": 2,
+              "name": "项目规划",
+              "contribution": 0.3,
+              "similarity": 0.7
+            },
+            {
+              "id": 3,
+              "name": "NASA",
+              "contribution": 0.2,
+              "similarity": 0
+            }
           ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
+          [
+            {
+              "id": 4,
+              "name": "sensor.4",
+              "contribution": 0.4,
+              "similarity": 0.7
+            },
+            {
+              "id": 1,
+              "name": "Docker engine",
+              "contribution": 0.9,
+              "similarity": 0.7
+            }
+          ]
         ],
         "logic_depth": 0.7,
         "entropy": 0.4,
@@ -381,105 +156,33 @@
         "world": "Unknown",
         "activation": 0.6,
         "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {"baseTagBoost":-2}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.2999999999999998,
-        "effectiveBoost": 0,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.04000000000000001},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.010000000000000002},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.013999999999999999}
-        ]
-      }
-    },
-    {
-      "name": "layer-and-language-clamps",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
+        "core_tags": [
+          "项目规划"
         ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {"layerDecay":2,"langPenaltyUnknown":-1}
+        "config": {}
       },
       "expected": {
         "dynamicCoreBoost": 1.2999999999999998,
         "effectiveBoost": 0.45519379936567256,
-        "tags": [{"id":2,"isCore":true,"name":"项目规划","weight":0.39779999999999993}]
-      }
-    },
-    {
-      "name": "range-fallbacks",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {"activationMultiplier":[],"dynamicBoostRange":[0.2],"coreBoostRange":[1.1]}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.25,
-        "effectiveBoost": 0.45519379936567256,
         "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.04000000000000001},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.38249999999999995},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.010000000000000002},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.013999999999999999}
-        ]
-      }
-    },
-    {
-      "name": "custom-ranges",
-      "input": {
-        "levels": [
-          [
-            {"id":1,"name":"Docker engine","contribution":0.8,"similarity":0.7},
-            {"id":2,"name":"项目规划","contribution":0.3,"similarity":0.7},
-            {"id":3,"name":"NASA","contribution":0.2,"similarity":0}
-          ],
-          [{"id":4,"name":"sensor.4","contribution":0.4,"similarity":0.7},{"id":1,"name":"Docker engine","contribution":0.9,"similarity":0.7}]
-        ],
-        "logic_depth": 0.7,
-        "entropy": 0.4,
-        "resonance": 0.2,
-        "world": "Unknown",
-        "activation": 0.6,
-        "coverage": 0.7,
-        "core_tags": ["项目规划"],
-        "config": {"activationMultiplier":[0.8,1.2],"dynamicBoostRange":[0.4,0.9],"coreBoostRange":[1.1,1.6],"layerDecay":0.3}
-      },
-      "expected": {
-        "dynamicCoreBoost": 1.35,
-        "effectiveBoost": 0.4303650466729995,
-        "tags": [
-          {"id":1,"isCore":false,"name":"Docker engine","weight":0.04000000000000001},
-          {"id":2,"isCore":true,"name":"项目规划","weight":0.4131000000000001},
-          {"id":3,"isCore":false,"name":"NASA","weight":0.010000000000000002},
-          {"id":4,"isCore":false,"name":"sensor.4","weight":0.006}
+          {
+            "id": 2,
+            "isCore": true,
+            "name": "项目规划",
+            "weight": 0.39779999999999993
+          },
+          {
+            "id": 3,
+            "isCore": false,
+            "name": "NASA",
+            "weight": 0.010000000000000002
+          },
+          {
+            "id": 4,
+            "isCore": false,
+            "name": "sensor.4",
+            "weight": 0.013999999999999999
+          }
         ]
       }
     }
