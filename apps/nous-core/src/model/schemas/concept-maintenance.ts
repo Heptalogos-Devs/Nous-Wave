@@ -11,7 +11,7 @@ const newTag = z.strictObject({
   key: z.string().regex(/^new_[a-z0-9_]{1,32}$/),
   content,
 });
-export const topologyMaintenanceSchema = z.strictObject({
+export const conceptMaintenanceSchema = z.strictObject({
   actions: z
     .array(
       z.discriminatedUnion("action", [
@@ -83,5 +83,5 @@ export const topologyMaintenanceSchema = z.strictObject({
       ]),
     )
     .min(1)
-    .max(16),
+    .max(4),
 });

@@ -78,13 +78,13 @@ export class ModelRuntime {
       snapshot,
     );
   }
-  async maintainTopology(
+  async maintainConcepts(
     input: string,
     signal?: AbortSignal,
     snapshot?: ModelRoleSnapshot,
   ) {
     return this.invocations.generate(
-      "topology_maintenance",
+      "concept_maintenance",
       input,
       signal,
       undefined,

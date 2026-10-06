@@ -3,6 +3,7 @@
 mod accessibility;
 mod accretion;
 mod batch;
+mod concept_maintenance;
 mod consolidation_context;
 mod dependencies;
 mod episode;
@@ -23,7 +24,6 @@ mod source_classes;
 mod state;
 mod tag;
 mod topology;
-mod topology_maintenance;
 
 use crate::*;
 use chrono::{DateTime, Utc};
@@ -46,6 +46,7 @@ pub use accessibility::{
     resolve_accessibility_policy,
 };
 pub use accretion::{ACCRETION, AccretionPolicy, AccretionSignal};
+pub use concept_maintenance::*;
 pub use episode::*;
 pub use journal::*;
 pub use longitudinal_policy::{
@@ -55,7 +56,6 @@ pub use maintenance_planning::MaintenanceScope;
 pub use nous_core::TopologyRelation;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
 pub use tag::*;
-pub use topology_maintenance::*;
 
 #[derive(Clone)]
 pub struct MemoryService {

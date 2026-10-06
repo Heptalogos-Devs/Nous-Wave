@@ -1677,14 +1677,6 @@ pub mod kernel_maintenance_service_server {
     #[async_trait]
     pub trait KernelMaintenanceService: std::marker::Send + std::marker::Sync + 'static {
         ///
-        async fn commit_topology(
-            &self,
-            request: tonic::Request<super::CommitTopologyRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::CommitTopologyResponse>,
-            tonic::Status,
-        >;
-        ///
         async fn refresh_maintenance(
             &self,
             request: tonic::Request<super::RefreshMaintenanceRequest>,
@@ -1818,55 +1810,6 @@ pub mod kernel_maintenance_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/nous.wave.kernel.v1alpha1.KernelMaintenanceService/CommitTopology" => {
-                    #[allow(non_camel_case_types)]
-                    struct CommitTopologySvc<T: KernelMaintenanceService>(pub Arc<T>);
-                    impl<
-                        T: KernelMaintenanceService,
-                    > tonic::server::UnaryService<super::CommitTopologyRequest>
-                    for CommitTopologySvc<T> {
-                        type Response = super::CommitTopologyResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::CommitTopologyRequest>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as KernelMaintenanceService>::commit_topology(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = CommitTopologySvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
                 "/nous.wave.kernel.v1alpha1.KernelMaintenanceService/RefreshMaintenance" => {
                     #[allow(non_camel_case_types)]
                     struct RefreshMaintenanceSvc<T: KernelMaintenanceService>(

@@ -58,7 +58,7 @@ impl MemoryService {
             )
             .await?;
         let sequence = mutation.invalidate(ProjectionInvalidation::all()).await?;
-        self.enqueue_topology_in(
+        self.enqueue_concept_in(
             mutation.tx(),
             input.subject,
             CognitiveRef::CognitiveSchemaRevision(revision_id),
@@ -367,7 +367,7 @@ impl MemoryService {
             .await
             .map_err(db)?;
         let sequence = mutation.invalidate(ProjectionInvalidation::all()).await?;
-        self.enqueue_topology_in(
+        self.enqueue_concept_in(
             mutation.tx(),
             input.subject,
             CognitiveRef::CognitiveSchemaRevision(revision_id),
@@ -517,7 +517,7 @@ impl MemoryService {
         sqlx::query("UPDATE cognitive_schemas SET acceptance_state='withdrawn',object_epoch=object_epoch+1 WHERE subject_id=$1 AND schema_id=$2").bind(subject.0).bind(schema_id.0).execute(&mut **mutation.tx()).await.map_err(db)?;
         let sequence = mutation.invalidate(ProjectionInvalidation::all()).await?;
         for child in &ids {
-            self.enqueue_topology_in(
+            self.enqueue_concept_in(
                 mutation.tx(),
                 subject,
                 CognitiveRef::CognitiveSchema(*child),
@@ -674,7 +674,7 @@ impl MemoryService {
             sqlx::query("INSERT INTO cognitive_schema_lineage(from_revision_id,to_revision_id,relation) VALUES($1,$2,'schema_merged_from')").bind(new_revision.0).bind(source_revision.0).execute(&mut **mutation.tx()).await.map_err(db)?;
         }
         let sequence = mutation.invalidate(ProjectionInvalidation::all()).await?;
-        self.enqueue_topology_in(
+        self.enqueue_concept_in(
             mutation.tx(),
             subject,
             CognitiveRef::CognitiveSchemaRevision(new_revision),

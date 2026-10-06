@@ -230,7 +230,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         .unwrap();
     assert_eq!(binding[0].canonical, CognitiveRef::Tag(tags[0].tag_id));
     let catalog = owner
-        .plan_topology(subject, CognitiveRef::MemoryRevision(revisions[0]))
+        .plan_concepts(subject, CognitiveRef::MemoryRevision(revisions[0]))
         .await
         .unwrap();
     assert!(

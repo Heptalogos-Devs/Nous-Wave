@@ -189,7 +189,7 @@ impl CognitiveRuntimeService {
             let threshold = self
                 .configuration
                 .snapshot_for_subject(input.subject)?
-                .get(crate::maintenance_policy::TOPOLOGY_USE_THRESHOLD)?;
+                .get(crate::maintenance_policy::CONCEPT_USE_REVIEW_INTERVAL)?;
             let sequence: i64 =
                 sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
                     .bind(input.subject.0)
@@ -217,7 +217,7 @@ impl CognitiveRuntimeService {
                         &mut tx,
                         &MaintenanceRequest {
                             subject: input.subject,
-                            kind: "topology_maintenance".into(),
+                            kind: "concept_maintenance".into(),
                             scope_kind: kind.clone(),
                             scope_ref: value.clone(),
                             trigger_authority_seq: sequence,

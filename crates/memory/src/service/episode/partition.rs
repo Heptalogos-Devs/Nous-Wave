@@ -117,7 +117,7 @@ impl MemoryService {
         )
         .await?;
         for revision in &outputs {
-            self.enqueue_topology_in(
+            self.enqueue_concept_in(
                 mutation.tx(),
                 input.subject,
                 CognitiveRef::EpisodeRevision(*revision),

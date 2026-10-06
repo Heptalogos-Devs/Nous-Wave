@@ -92,7 +92,7 @@ impl MemoryService {
         .await?;
 
         let authority_seq = mutation.invalidate(ProjectionInvalidation::text()).await?;
-        self.enqueue_topology_in(
+        self.enqueue_concept_in(
             mutation.tx(),
             input.subject,
             CognitiveRef::EpisodeRevision(revision_id),
@@ -318,7 +318,7 @@ impl MemoryService {
         sqlx::query("UPDATE episode_objects SET current_revision_id=$3,object_epoch=object_epoch+1,integrity_state='valid' WHERE subject_id=$1 AND episode_id=$2")
             .bind(input.subject.0).bind(input.episode_id.0).bind(revision_id.0).execute(&mut **mutation.tx()).await.map_err(db)?;
         let sequence = mutation.invalidate(ProjectionInvalidation::all()).await?;
-        self.enqueue_topology_in(
+        self.enqueue_concept_in(
             mutation.tx(),
             input.subject,
             CognitiveRef::EpisodeRevision(revision_id),

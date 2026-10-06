@@ -12,12 +12,6 @@ impl k::kernel_maintenance_service_server::KernelMaintenanceService for KernelSe
         ))
         .await
     }
-    async fn commit_topology(
-        &self,
-        request: Request<k::CommitTopologyRequest>,
-    ) -> std::result::Result<Response<k::CommitTopologyResponse>, Status> {
-        rpc_reply(KernelService::commit_topology(self, request.into_inner())).await
-    }
     async fn plan_maintenance(
         &self,
         request: Request<k::PlanMaintenanceRequest>,

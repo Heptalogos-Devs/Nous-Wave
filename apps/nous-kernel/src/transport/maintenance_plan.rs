@@ -20,8 +20,8 @@ impl KernelService {
             .get(nous_runtime::MEMBER_TEXT_MAX_BYTES)?;
         let sequence = self.0.store.authority_seq(subject).await?;
         let memory = self.require_memory()?;
-        if claimed.kind == "topology_maintenance" {
-            return self.topology_maintenance_plan(&claimed).await;
+        if claimed.kind == "concept_maintenance" {
+            return self.concept_maintenance_plan(&claimed).await;
         }
         let scope = match claimed.kind.as_str() {
             "episode_resegment" => {
@@ -135,7 +135,7 @@ impl KernelService {
         }
         Ok(())
     }
-    async fn topology_maintenance_plan(
+    async fn concept_maintenance_plan(
         &self,
         claimed: &nous_runtime::MaintenanceNeed,
     ) -> Result<k::MaintenancePlan> {
@@ -144,7 +144,7 @@ impl KernelService {
         let memory = self.require_memory()?;
         {
             let focus = parse_reference(&claimed.scope_kind, &claimed.scope_ref)?;
-            let topology = match memory.plan_topology(subject, focus).await {
+            let concepts = match memory.plan_concepts(subject, focus).await {
                 Ok(plan) => plan,
                 Err(Error::NotFound(_)) => {
                     return Ok(k::MaintenancePlan {
@@ -158,43 +158,55 @@ impl KernelService {
             };
             Ok(k::MaintenancePlan {
                 subject_id: subject.0.to_string(),
-                authority_seq: topology.authority_seq,
+                authority_seq: concepts.authority_seq,
                 cognitive_now: Some(timestamp(self.0.cognition.now(subject))),
                 status: "ready".into(),
-                topology_model_input_json: Some(topology.model_input().to_string()),
-                topology_plan_json: Some(
-                    serde_json::to_string(&topology)
-                        .map_err(|e| Error::Infrastructure(e.to_string()))?,
-                ),
+                concept_model_input_json: Some(concepts.model_input.to_string()),
+                concept_catalog: Some(k::ConceptMaintenanceCatalog {
+                    max_suggestions: concepts.policy.max_suggestions as u32,
+                    config_digest: concepts.config_digest,
+                    references: concepts
+                        .references
+                        .into_iter()
+                        .map(|(key, reference)| k::ConceptReference {
+                            key,
+                            reference: Some(to_ref(reference)),
+                        })
+                        .collect(),
+                    tags: concepts
+                        .tags
+                        .into_iter()
+                        .map(|tag| k::ConceptTag {
+                            key: tag.key,
+                            target: Some(p::TagRevisionTarget {
+                                tag_id: tag.target.tag_id.0.to_string(),
+                                expected_revision_id: tag.target.expected_revision_id.to_string(),
+                            }),
+                        })
+                        .collect(),
+                    associations: concepts
+                        .associations
+                        .into_iter()
+                        .map(|a| k::ConceptAssociation {
+                            key: a.key,
+                            association_id: a.id.0.to_string(),
+                            from_key: a.from,
+                            to_key: a.to,
+                            relation: a.relation,
+                        })
+                        .collect(),
+                    supports: concepts
+                        .supports
+                        .into_iter()
+                        .map(|(key, support)| k::ConceptSupport {
+                            key,
+                            support: Some(super::topology::association_support_proto(support)),
+                        })
+                        .collect(),
+                }),
                 ..Default::default()
             })
         }
-    }
-    pub(super) async fn commit_topology(
-        &self,
-        input: k::CommitTopologyRequest,
-    ) -> Result<k::CommitTopologyResponse> {
-        if input.plan_json.len() > 1024 * 1024 || input.proposal_json.len() > 65536 {
-            return Err(Error::Invalid("topology request envelope exceeded".into()));
-        }
-        let plan = serde_json::from_str(&input.plan_json)
-            .map_err(|e| Error::Invalid(format!("invalid topology plan: {e}")))?;
-        let proposal = serde_json::from_str(&input.proposal_json)
-            .map_err(|e| Error::Invalid(format!("invalid topology proposal: {e}")))?;
-        let outcome = self
-            .require_memory()?
-            .commit_topology(nous_memory::CommitTopologyInput {
-                operation_id: OperationId(id(&input.operation_id)?),
-                claimed: longitudinal::need(required(input.claimed, "claimed")?)?,
-                plan,
-                proposal,
-                producer: super::convert::from_producer(required(input.producer, "producer")?)?,
-            })
-            .await?;
-        Ok(k::CommitTopologyResponse {
-            outcome_json: serde_json::to_string(&outcome)
-                .map_err(|e| Error::Infrastructure(e.to_string()))?,
-        })
     }
     async fn maintenance_member_catalog(
         &self,

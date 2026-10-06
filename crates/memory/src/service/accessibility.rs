@@ -270,7 +270,7 @@ pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()
         )?;
     }
     super::longitudinal_policy::register_longitudinal_configuration(registry)?;
-    super::topology_maintenance::register_topology_configuration(registry)?;
+    super::concept_maintenance::register_concept_configuration(registry)?;
     super::accretion::register_accretion_configuration(registry)?;
     for key in [EPSILON, TAU_DAYS, DECAY] {
         registry.describe(key.path(), |d| {

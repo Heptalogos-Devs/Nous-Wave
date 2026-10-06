@@ -1,7 +1,7 @@
 use nous_configuration::*;
 use nous_core::{Error, Result};
-pub const TOPOLOGY_USE_THRESHOLD: ConfigKey<u64> =
-    ConfigKey::new("maintenance.topology_use_threshold");
+pub const CONCEPT_USE_REVIEW_INTERVAL: ConfigKey<u64> =
+    ConfigKey::new("maintenance.concept_use_review_interval");
 pub const MAINTENANCE_ENABLED: ConfigKey<bool> = ConfigKey::new("maintenance.enabled");
 pub const POLL_INTERVAL: ConfigKey<u64> = ConfigKey::new("maintenance.poll_interval_seconds");
 pub const MAX_OPERATIONS: ConfigKey<u64> = ConfigKey::new("maintenance.max_operations_per_grant");
@@ -25,9 +25,9 @@ pub const EPISODE_NEIGHBOR_SPAN: ConfigKey<u64> =
 
 pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     registry.register(
-        TOPOLOGY_USE_THRESHOLD,
+        CONCEPT_USE_REVIEW_INTERVAL,
         "cognitive-runtime",
-        "Meaningful-use count interval for topology review.",
+        "Meaningful-use count interval for concept review.",
         3,
         ConfigExposure::Advanced,
         ConfigScopePolicy::SubjectOverrideAllowed,
@@ -38,7 +38,7 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
                 Ok(())
             } else {
                 Err(Error::Invalid(
-                    "topology use threshold requires 1..128".into(),
+                    "concept use review interval requires 1..128".into(),
                 ))
             }
         },

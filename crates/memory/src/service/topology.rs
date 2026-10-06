@@ -393,7 +393,7 @@ impl MemoryService {
             AssociationSupportClass::CognitiveDerivation
             | AssociationSupportClass::DerivedStructure => {
                 if let Some(producer) = &input.producer {
-                    if producer.operation != CapabilityOperation::TopologyMaintenanceText {
+                    if producer.operation != CapabilityOperation::ConceptMaintenanceText {
                         return Err(Error::Invalid(
                             "association producer operation mismatch".into(),
                         ));

@@ -39,7 +39,7 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
     let producer = ProducerSignature {
         signature_hash: String::new(),
         provider_class: "deterministic_test".into(),
-        operation: CapabilityOperation::TopologyMaintenanceText,
+        operation: CapabilityOperation::ConceptMaintenanceText,
         implementation: "concept-proposal-test".into(),
         model_identity: None,
         model_revision: None,

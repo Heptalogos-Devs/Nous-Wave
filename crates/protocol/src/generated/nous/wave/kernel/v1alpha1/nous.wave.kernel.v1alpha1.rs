@@ -307,10 +307,10 @@ pub struct MaintenancePlan {
     pub support_catalog_partial: bool,
     #[prost(bool, tag="19")]
     pub provenance_roots_partial: bool,
-    #[prost(string, optional, tag="20")]
-    pub topology_plan_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="20")]
+    pub concept_catalog: ::core::option::Option<ConceptMaintenanceCatalog>,
     #[prost(string, optional, tag="21")]
-    pub topology_model_input_json: ::core::option::Option<::prost::alloc::string::String>,
+    pub concept_model_input_json: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RefreshMaintenanceRequest {
@@ -365,23 +365,54 @@ pub struct UseSummary {
     #[prost(message, optional, tag="3")]
     pub last_used_at: ::core::option::Option<::prost_types::Timestamp>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct CommitTopologyRequest {
-    #[prost(string, tag="1")]
-    pub operation_id: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="2")]
-    pub claimed: ::core::option::Option<MaintenanceNeed>,
-    #[prost(string, tag="3")]
-    pub plan_json: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
-    pub proposal_json: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="5")]
-    pub producer: ::core::option::Option<super::super::v1alpha1::ProducerSignature>,
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConceptMaintenanceCatalog {
+    #[prost(uint32, tag="1")]
+    pub max_suggestions: u32,
+    #[prost(string, tag="2")]
+    pub config_digest: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="3")]
+    pub references: ::prost::alloc::vec::Vec<ConceptReference>,
+    #[prost(message, repeated, tag="4")]
+    pub tags: ::prost::alloc::vec::Vec<ConceptTag>,
+    #[prost(message, repeated, tag="5")]
+    pub associations: ::prost::alloc::vec::Vec<ConceptAssociation>,
+    #[prost(message, repeated, tag="6")]
+    pub supports: ::prost::alloc::vec::Vec<ConceptSupport>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct CommitTopologyResponse {
+pub struct ConceptReference {
     #[prost(string, tag="1")]
-    pub outcome_json: ::prost::alloc::string::String,
+    pub key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConceptTag {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub target: ::core::option::Option<super::super::v1alpha1::TagRevisionTarget>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConceptAssociation {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub association_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub from_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub to_key: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub relation: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConceptSupport {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub support: ::core::option::Option<super::super::v1alpha1::AssociationSupport>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExpectedCognition {

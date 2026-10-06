@@ -459,7 +459,7 @@ impl MemoryService {
 }
 
 fn canonical_concept_producer(producer: &ProducerSignature) -> Result<ProducerSignature> {
-    if producer.operation != CapabilityOperation::TopologyMaintenanceText {
+    if producer.operation != CapabilityOperation::ConceptMaintenanceText {
         return Err(Error::Invalid("concept producer operation mismatch".into()));
     }
     AuthorityStore::canonical_producer(producer)

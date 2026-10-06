@@ -1,5 +1,8 @@
-import { topologyMaintenanceSchema } from "../model/schemas/topology.js";
-import { CommitTopologyRequestSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
+import { conceptMaintenanceSchema } from "../model/schemas/concept-maintenance.js";
+import {
+  executeConceptMaintenance,
+  conceptActionResultSchema,
+} from "./concept-maintenance.js";
 import {
   executeConsolidation,
   consolidationResultSchema,
@@ -45,7 +48,9 @@ const outcomeSchema = z.strictObject({
     "rejected_invalid",
   ]),
   problemCode: z.string().optional(),
-  actions: z.array(consolidationResultSchema).optional(),
+  actions: z
+    .array(z.union([consolidationResultSchema, conceptActionResultSchema]))
+    .optional(),
 });
 function readOutcome(text: string) {
   const value: unknown = JSON.parse(text);
@@ -68,7 +73,12 @@ const proposalSchema = z.discriminatedUnion("action", [
     producer: z.unknown(),
     progress: z.array(consolidationResultSchema),
   }),
-  z.strictObject({ action: z.literal("topology"), request: z.unknown() }),
+  z.strictObject({
+    action: z.literal("concept"),
+    proposal: z.unknown(),
+    producer: z.unknown(),
+    progress: z.array(conceptActionResultSchema),
+  }),
   z.strictObject({
     action: z.literal("withdraw"),
     journalId: z.string().uuid(),
@@ -137,8 +147,8 @@ export async function runModelMaintenance(
     const role =
       need.kind === "episode_resegment"
         ? "episode_segmentation"
-        : need.kind === "topology_maintenance"
-          ? "topology_maintenance"
+        : need.kind === "concept_maintenance"
+          ? "concept_maintenance"
           : need.kind === "memory_consolidate"
             ? "memory_consolidation"
             : "journal_synthesis";
@@ -262,36 +272,29 @@ export async function runModelMaintenance(
               request,
             );
           }
-        } else if (need.kind === "topology_maintenance") {
-          if (!plan.topologyPlanJson || !plan.topologyModelInputJson)
+        } else if (need.kind === "concept_maintenance") {
+          if (!plan.conceptCatalog || !plan.conceptModelInputJson)
             throw new ConnectError(
               "Missing topology catalog",
               Code.InvalidArgument,
             );
-          const result = await models.maintainTopology(
-            plan.topologyModelInputJson,
+          const result = await models.maintainConcepts(
+            plan.conceptModelInputJson,
             options.signal ?? undefined,
             snapshot.model as ModelRoleSnapshot,
           );
-          const proposal = topologyMaintenanceSchema.parse(result.value);
+          const proposal = conceptMaintenanceSchema.parse(result.value);
           proposed = {
-            action: "topology",
-            request: toJson(
-              CommitTopologyRequestSchema,
-              create(CommitTopologyRequestSchema, {
-                operationId,
-                claimed: need,
-                planJson: plan.topologyPlanJson,
-                proposalJson: JSON.stringify(proposal),
-                producer: create(
-                  ProducerSignatureSchema,
-                  producer(
-                    result.producerMetadata,
-                    "topology_maintenance_text",
-                  ),
-                ),
-              }),
+            action: "concept",
+            proposal,
+            producer: toJson(
+              ProducerSignatureSchema,
+              create(
+                ProducerSignatureSchema,
+                producer(result.producerMetadata, "concept_maintenance_text"),
+              ),
             ),
+            progress: [],
           };
         } else if (need.kind === "memory_consolidate") {
           const result = await models.consolidate(
@@ -399,16 +402,24 @@ export async function runModelMaintenance(
         fromJson(CommitJournalRequestSchema, proposed.request as JsonValue),
         options,
       );
-    else if (proposed.action === "topology") {
-      const result = await kernel.maintenance.commitTopology(
-        fromJson(CommitTopologyRequestSchema, proposed.request as JsonValue),
+    else if (proposed.action === "concept") {
+      const saved = proposed;
+      const outcome = await executeConceptMaintenance(
+        kernel,
+        plan,
+        conceptMaintenanceSchema.parse(saved.proposal),
+        operationId,
+        fromJson(ProducerSignatureSchema, saved.producer as JsonValue),
         options,
+        saved.progress,
+        async (progress) => {
+          saved.progress = [...progress];
+          await kernel.modelWorkflow.saveWorkflow(
+            { ...lease, proposalJson: JSON.stringify(saved) },
+            options,
+          );
+        },
       );
-      const parsed: unknown = JSON.parse(result.outcomeJson);
-      const committed = z
-        .object({ status: z.enum(["committed", "no_change"]) })
-        .parse(parsed);
-      const outcome = { status: committed.status };
       await kernel.modelWorkflow.saveWorkflow(
         { ...lease, outcomeJson: JSON.stringify(outcome) },
         options,

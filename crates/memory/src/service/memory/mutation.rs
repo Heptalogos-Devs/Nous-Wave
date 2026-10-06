@@ -56,7 +56,7 @@ impl MemoryService {
             .create_memory_in(mutation.tx(), &input, formed_at)
             .await?;
         let sequence = mutation.invalidate(ProjectionInvalidation::all()).await?;
-        self.enqueue_topology_in(
+        self.enqueue_concept_in(
             mutation.tx(),
             input.subject,
             CognitiveRef::MemoryRevision(revision_id),
@@ -270,7 +270,7 @@ impl MemoryService {
             .revise_memory_in(mutation.tx(), &input, formed_at)
             .await?;
         let sequence = mutation.invalidate(ProjectionInvalidation::all()).await?;
-        self.enqueue_topology_in(
+        self.enqueue_concept_in(
             mutation.tx(),
             input.subject,
             CognitiveRef::MemoryRevision(revision_id),

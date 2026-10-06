@@ -4,7 +4,7 @@ export const roleNames = [
   "episode_segmentation",
   "journal_synthesis",
   "memory_consolidation",
-  "topology_maintenance",
+  "concept_maintenance",
   "material_description",
   "material_structuring",
   "material_direct_structuring",

@@ -9,32 +9,19 @@ fn producer() -> ProducerSignature {
     ProducerSignature {
         signature_hash: String::new(),
         provider_class: "deterministic-fixture".into(),
-        operation: CapabilityOperation::TopologyMaintenanceText,
+        operation: CapabilityOperation::ConceptMaintenanceText,
         implementation: "topology-fixture".into(),
         model_identity: Some("scope-aware-fixture".into()),
         model_revision: None,
         output_schema_digest: Some("a".repeat(64)),
-        preprocessing_identity: "program/topology/maintenance.md".into(),
+        preprocessing_identity: "program/memory/concept-maintenance.md".into(),
         preprocessing_revision: "fixture-v1".into(),
         config_digest: "b".repeat(64),
     }
 }
-fn support(plan: &TopologyPlan, reference: &CognitiveRef) -> String {
-    plan.supports
-        .iter()
-        .find_map(|(key, value)| match value {
-            AssociationSupport::Revision(RevisionSupport::CognitionDependency(d))
-                if &d.target_revision == reference =>
-            {
-                Some(key.clone())
-            }
-            _ => None,
-        })
-        .unwrap()
-}
 async fn claim(rt: &NousRuntime, subject: SubjectId) -> MaintenanceNeed {
     rt.cognition
-        .lease_maintenance(subject, &["topology_maintenance".into()], 1, 120, None)
+        .lease_maintenance(subject, &["concept_maintenance".into()], 1, 120, None)
         .await
         .unwrap()
         .pop()
@@ -43,9 +30,9 @@ async fn claim(rt: &NousRuntime, subject: SubjectId) -> MaintenanceNeed {
 #[tokio::test]
 #[expect(
     clippy::too_many_lines,
-    reason = "one formation-maintenance-serving scenario verifies automatic queue and atomic proposal lifecycle"
+    reason = "one live owner and Serving scenario verifies local plans, derived signals and real policy effects"
 )]
-async fn formation_maintains_reusable_concepts_and_serves_supported_associations() {
+async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_commit() {
     let (root, url, _postgres) = database().await;
     let rt = open_runtime_with_serving(&url, &root, true, false, true).await;
     let subject = rt
@@ -113,8 +100,6 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         ));
     }
     let first = claim(&rt, subject).await;
-    let focus = parse_reference(&first.scope_kind, &first.scope_ref).unwrap();
-    assert_eq!(focus, revisions[0]);
     use k::kernel_maintenance_service_server::KernelMaintenanceService;
     use nous_protocol::nous::wave::kernel::v1alpha1 as k;
     let ts = |date: chrono::DateTime<chrono::Utc>| prost_types::Timestamp {
@@ -147,7 +132,20 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
     .await
     .unwrap()
     .into_inner();
-    assert!(reply.topology_plan_json.is_some());
+    let wire_catalog = reply.concept_catalog.unwrap();
+    assert_eq!(wire_catalog.max_suggestions, 4);
+    assert_eq!(wire_catalog.references.len(), 1);
+    assert_eq!(
+        wire_catalog.references[0].reference.as_ref().unwrap().value,
+        reference_parts(&revisions[0]).1
+    );
+    assert_eq!(wire_catalog.supports[0].key, "s0");
+    assert!(
+        reply
+            .concept_model_input_json
+            .unwrap()
+            .contains("sourceContext")
+    );
     let mut wrong_scope = wire;
     wrong_scope.scope_ref = reference_parts(&revisions[1]).1;
     assert!(
@@ -160,169 +158,118 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         .await
         .is_err()
     );
-    let plan = owner.plan_topology(subject, focus.clone()).await.unwrap();
-    let model = plan.model_input().to_string();
-    assert!(!model.contains(&subject.0.to_string()));
-    assert!(!model.contains(&reference_parts(&focus).1));
-    assert!(model.contains("exact_cognition"));
-    let proof = support(&plan, &focus);
-    let source = plan
-        .supports
-        .iter()
-        .find_map(|(key, value)| {
-            matches!(
-                value,
-                AssociationSupport::Revision(RevisionSupport::Evidence(_))
-            )
-            .then(|| key.clone())
-        })
+    let initial = owner
+        .plan_concepts(subject, revisions[0].clone())
+        .await
         .unwrap();
-    let input = CommitTopologyInput {
-        operation_id: OperationId::new(),
-        claimed: first.clone(),
-        plan: plan.clone(),
-        producer: producer(),
-        proposal: TopologyProposal {
-            actions: vec![
-                TopologyAction::CreateTag {
-                    cognition_keys: vec!["c0".into()],
-                    key: "new_release_approval".into(),
-                    content: TagContent {
-                        label: "Release approval".into(),
-                        description: Some(
-                            "Recorded reviewer approval required before rollout".into(),
-                        ),
-                        kind_hint: Some("procedure".into()),
-                    },
-                    support_keys: vec![proof.clone()],
-                    reason: "This accepted procedure expresses a durable release control".into(),
-                },
-                TopologyAction::AttachTag {
-                    cognition_key: "c0".into(),
-                    tag_key: "new_release_approval".into(),
-                    support_keys: vec![proof],
-                    reason: "The focus directly expresses release approval".into(),
-                },
-            ],
-        },
-    };
-    let outcome = owner.commit_topology(input.clone()).await.unwrap();
-    assert_eq!(outcome.changes, 2);
     assert_eq!(
-        owner.commit_topology(input).await.unwrap().results,
-        outcome.results
+        initial.references.len(),
+        1,
+        "unrelated Subject cognition is absent"
     );
-    let tag = outcome.results["new_release_approval"].clone();
+    assert!(initial.tags.is_empty());
+    let model = initial.model_input.to_string();
+    assert!(!model.contains(&subject.0.to_string()));
+    assert!(!model.contains(&reference_parts(&revisions[0]).1));
+    assert!(model.contains("exact_cognition"));
+    let lexical = owner
+        .create_tag(
+            subject,
+            CreateTagRequest {
+                producer: Some(producer()),
+                operation_id: OperationId::new(),
+                label: "Reviewer approval".into(),
+                description: None,
+                kind_hint: None,
+                origin: "concept_maintenance".into(),
+            },
+        )
+        .await
+        .unwrap();
+    let candidates = owner
+        .plan_concepts(subject, revisions[1].clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        candidates.tags.len(),
+        1,
+        "partial name words produce a reuse candidate"
+    );
+    assert_eq!(candidates.tags[0].target.tag_id, lexical.tag_id);
+    assert!(!candidates.tags[0].attached);
+    let concept = lexical;
+    let tag = CognitiveRef::Tag(concept.tag_id);
+    for reference in &revisions {
+        owner
+            .create_association(
+                CreateAssociationRequest {
+                    producer: Some(producer()),
+                    operation_id: OperationId::new(),
+                    from: reference.clone(),
+                    to: tag.clone(),
+                    relation_kind: "tag_attachment".into(),
+                    polarity: AssociationPolarity::Positive,
+                    support_class: AssociationSupportClass::CognitiveDerivation,
+                    supports: vec![AssociationSupport::Revision(
+                        RevisionSupport::CognitionDependency(CognitionDependency {
+                            target_revision: reference.clone(),
+                            support_role: SupportRole::Direct,
+                        }),
+                    )],
+                    producer_signature_id: None,
+                    valid_time: TemporalExtent::Unknown,
+                },
+                subject,
+            )
+            .await
+            .unwrap();
+    }
+    owner
+        .create_association(
+            CreateAssociationRequest {
+                producer: Some(producer()),
+                operation_id: OperationId::new(),
+                from: revisions[0].clone(),
+                to: revisions[1].clone(),
+                relation_kind: "assoc.related".into(),
+                polarity: AssociationPolarity::Positive,
+                support_class: AssociationSupportClass::CognitiveDerivation,
+                supports: vec![AssociationSupport::Revision(
+                    RevisionSupport::CognitionDependency(CognitionDependency {
+                        target_revision: revisions[0].clone(),
+                        support_role: SupportRole::Direct,
+                    }),
+                )],
+                producer_signature_id: None,
+                valid_time: TemporalExtent::Unknown,
+            },
+            subject,
+        )
+        .await
+        .unwrap();
+    let local = owner
+        .plan_concepts(subject, revisions[0].clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        local
+            .references
+            .values()
+            .filter(|r| matches!(r, CognitiveRef::MemoryRevision(_)))
+            .count(),
+        2
+    );
+    assert_eq!(local.tags.len(), 1);
+    assert!(local.tags[0].attached);
     rt.cognition
         .acknowledge_maintenance(&first, MaintenanceDisposition::Satisfied)
         .await
         .unwrap();
     let second = claim(&rt, subject).await;
-    let focus = parse_reference(&second.scope_kind, &second.scope_ref).unwrap();
-    assert_eq!(focus, revisions[1]);
-    let plan = owner.plan_topology(subject, focus.clone()).await.unwrap();
-    let tag_key = plan
-        .tags
-        .iter()
-        .find(|t| CognitiveRef::Tag(t.target.tag_id) == tag)
-        .unwrap()
-        .key
-        .clone();
-    let earlier = plan
-        .cognition
-        .iter()
-        .find(|c| c.reference == revisions[0])
-        .unwrap()
-        .key
-        .clone();
-    let proof = support(&plan, &focus);
-    let earlier_proof = support(&plan, &revisions[0]);
-    let mut invalid = CommitTopologyInput {
-        operation_id: OperationId::new(),
-        claimed: second.clone(),
-        plan: plan.clone(),
-        producer: producer(),
-        proposal: TopologyProposal {
-            actions: vec![
-                TopologyAction::CreateTag {
-                    cognition_keys: vec!["c0".into()],
-                    key: "new_bogus".into(),
-                    content: TagContent {
-                        label: "Must roll back".into(),
-                        description: None,
-                        kind_hint: None,
-                    },
-                    support_keys: vec![source],
-                    reason: "Fixture checks atomic rollback before invalid reference".into(),
-                },
-                TopologyAction::AttachTag {
-                    cognition_key: "c0".into(),
-                    tag_key: "invented_uuid".into(),
-                    support_keys: vec![proof.clone()],
-                    reason: "Bogus key must reject the whole proposal".into(),
-                },
-            ],
-        },
-    };
-    assert!(owner.commit_topology(invalid.clone()).await.is_err());
-    let bogus: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM tag_revisions WHERE label='Must roll back'")
-            .fetch_one(rt.store.pool())
-            .await
-            .unwrap();
-    assert_eq!(bogus, 0);
-    for relation in [
-        TopologyRelation::CoOccurs,
-        TopologyRelation::Sequence,
-        TopologyRelation::Procedural,
-        TopologyRelation::SharedOutcome,
-    ] {
-        invalid.operation_id = OperationId::new();
-        invalid.proposal = TopologyProposal {
-            actions: vec![TopologyAction::CreateAssociation {
-                from_key: "c0".into(),
-                to_key: earlier.clone(),
-                relation,
-                support_keys: vec![proof.clone(), earlier_proof.clone()],
-                reason: "Lexical overlap and independent observations cannot prove this relation"
-                    .into(),
-            }],
-        };
-        let error = owner.commit_topology(invalid.clone()).await.unwrap_err();
-        assert!(error.to_string().contains("needs"), "{error}");
-    }
-    invalid.operation_id = OperationId::new();
-    invalid.proposal = TopologyProposal {
-        actions: vec![
-            TopologyAction::ReuseTag {
-                tag_key: tag_key.clone(),
-            },
-            TopologyAction::AttachTag {
-                cognition_key: "c0".into(),
-                tag_key,
-                support_keys: vec![proof.clone()],
-                reason: "The new accepted cognition embodies the same stable procedure".into(),
-            },
-            TopologyAction::CreateAssociation {
-                from_key: "c0".into(),
-                to_key: earlier,
-                relation: TopologyRelation::Related,
-                support_keys: vec![proof, earlier_proof],
-                reason: "Both exact inputs specify recorded release approval".into(),
-            },
-        ],
-    };
-    assert_eq!(owner.commit_topology(invalid).await.unwrap().changes, 2);
     rt.cognition
         .acknowledge_maintenance(&second, MaintenanceDisposition::Satisfied)
         .await
         .unwrap();
-    let tags: i64 = sqlx::query_scalar("SELECT count(*) FROM tags WHERE subject_id=$1")
-        .bind(subject.0)
-        .fetch_one(rt.store.pool())
-        .await
-        .unwrap();
-    assert_eq!(tags, 1);
     let historical_tags: i64 =
         sqlx::query_scalar("SELECT count(*) FROM memory_revision_tags WHERE memory_revision_id=$1")
             .bind(match revisions[0] {
@@ -333,15 +280,56 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
             .await
             .unwrap();
     assert_eq!(historical_tags, 0);
+    episode_relations(&rt, subject, &revisions).await;
+    let episode_need = claim(&rt, subject).await;
+    rt.cognition
+        .acknowledge_maintenance(&episode_need, MaintenanceDisposition::Satisfied)
+        .await
+        .unwrap();
     let before = owner
-        .accretion_signals(subject, std::slice::from_ref(&tag))
+        .accretion_signal(subject, &tag)
         .await
         .unwrap()
-        .remove(&tag)
         .unwrap();
     assert_eq!(before.attached_cognition, 2);
     assert_eq!(before.independent_roots, 2);
     assert_eq!(before.meaningful_use, 0);
+    assert_eq!(before.cross_episode_recurrence, 1);
+    let policy = rt
+        .configuration
+        .snapshot_for_subject(subject)
+        .unwrap()
+        .get(ACCRETION)
+        .unwrap();
+    assert_eq!(before.review_priority(&policy), 20);
+    rt.configuration
+        .set_subject_override(
+            OperationId::new(),
+            subject,
+            ACCRETION.path(),
+            serde_json::json!({"enabled":true,"generic_degree":32,"recurrence_review":1}),
+        )
+        .await
+        .unwrap();
+    let reviewed = owner
+        .plan_concepts(subject, revisions[0].clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        reviewed.model_input["tags"][0]["accretion"]["reviewPriority"],
+        30
+    );
+    assert_ne!(reviewed.config_digest, local.config_digest);
+    rt.configuration
+        .set_subject_override(
+            OperationId::new(),
+            subject,
+            ACCRETION.path(),
+            serde_json::json!({"enabled":true,"generic_degree":32,"recurrence_review":3}),
+        )
+        .await
+        .unwrap();
+
     let session = rt
         .cognition
         .open_session(subject, serde_json::json!({}))
@@ -366,13 +354,11 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         .await
         .unwrap();
     let after = owner
-        .accretion_signals(subject, std::slice::from_ref(&tag))
+        .accretion_signal(subject, &tag)
         .await
         .unwrap()
-        .remove(&tag)
         .unwrap();
     assert_eq!(after.meaningful_use, 3);
-    assert!(after.usefulness > before.usefulness);
     assert_eq!(after.independent_roots, before.independent_roots);
     let truth: String = sqlx::query_scalar(
         "SELECT epistemic_class FROM memory_revisions WHERE memory_revision_id=$1",
@@ -385,7 +371,7 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
     .await
     .unwrap();
     assert_eq!(truth, "observed");
-    let queued:i64=sqlx::query_scalar("SELECT count(*) FROM maintenance_needs WHERE subject_id=$1 AND kind='topology_maintenance' AND state='pending'").bind(subject.0).fetch_one(rt.store.pool()).await.unwrap();
+    let queued:i64=sqlx::query_scalar("SELECT count(*) FROM maintenance_needs WHERE subject_id=$1 AND kind='concept_maintenance' AND state='pending'").bind(subject.0).fetch_one(rt.store.pool()).await.unwrap();
     assert_eq!(queued, 1);
     let review = claim(&rt, subject).await;
     rt.cognition
@@ -414,15 +400,13 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         .await
         .unwrap();
     let negative = owner
-        .accretion_signals(subject, std::slice::from_ref(&tag))
+        .accretion_signal(subject, &tag)
         .await
         .unwrap()
-        .remove(&tag)
         .unwrap();
     assert_eq!(negative.meaningful_use, 3);
     assert_eq!(negative.counterevidence, 1);
-    assert!(negative.usefulness < after.usefulness);
-    let queued:i64=sqlx::query_scalar("SELECT count(*) FROM maintenance_needs WHERE subject_id=$1 AND kind='topology_maintenance' AND state='pending'").bind(subject.0).fetch_one(rt.store.pool()).await.unwrap();
+    let queued:i64=sqlx::query_scalar("SELECT count(*) FROM maintenance_needs WHERE subject_id=$1 AND kind='concept_maintenance' AND state='pending'").bind(subject.0).fetch_one(rt.store.pool()).await.unwrap();
     assert_eq!(
         queued, 0,
         "exposure/refutation cannot cross a positive use interval"
@@ -526,7 +510,6 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
             .contains(&EvidenceFamily::TopologyWave)
     }));
     drop(execution);
-    episode_relations(&rt, subject, &revisions).await;
     let schema = owner
         .create_schema(CreateSchemaInput {
             producer: None,
@@ -557,16 +540,55 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
         .unwrap();
     let schema_ref = CognitiveRef::CognitiveSchemaRevision(schema.schema.current_revision_id);
     let signal = owner
-        .accretion_signals(subject, std::slice::from_ref(&schema_ref))
+        .accretion_signal(subject, &schema_ref)
         .await
         .unwrap()
-        .remove(&schema_ref)
         .unwrap();
     assert_eq!(signal.attached_cognition, 2);
     assert_eq!(signal.independent_roots, 2);
-    owner.prioritize_topology_needs(subject).await.unwrap();
-}
 
+    rt.configuration
+        .set_subject_override(
+            OperationId::new(),
+            subject,
+            ACCRETION.path(),
+            serde_json::json!({"enabled":false,"generic_degree":32,"recurrence_review":1}),
+        )
+        .await
+        .unwrap();
+    assert!(
+        owner
+            .accretion_signal(subject, &tag)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let disabled = owner
+        .plan_concepts(subject, revisions[0].clone())
+        .await
+        .unwrap();
+    assert_eq!(disabled.tags.len(), 1);
+    assert_eq!(disabled.associations.len(), 2);
+    assert!(disabled.tags[0].accretion.is_none());
+    rt.configuration
+        .set_subject_override(
+            OperationId::new(),
+            subject,
+            CONCEPT_MAINTENANCE.path(),
+            serde_json::json!({"max_candidates":1,"max_suggestions":2}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        owner
+            .plan_concepts(subject, revisions[0].clone())
+            .await
+            .unwrap()
+            .policy
+            .max_suggestions,
+        2
+    );
+}
 async fn episode_relations(rt: &NousRuntime, subject: SubjectId, revisions: &[CognitiveRef]) {
     let owner = rt.require_memory().unwrap();
     let episode = owner
@@ -622,60 +644,4 @@ async fn episode_relations(rt: &NousRuntime, subject: SubjectId, revisions: &[Co
             .nodes
             .contains(&episode_ref)
     );
-    let claimed = claim(rt, subject).await;
-    let focus = parse_reference(&claimed.scope_kind, &claimed.scope_ref).unwrap();
-    let plan = owner.plan_topology(subject, focus).await.unwrap();
-    let key = |reference: &CognitiveRef| {
-        plan.cognition
-            .iter()
-            .find(|c| &c.reference == reference)
-            .unwrap()
-            .key
-            .clone()
-    };
-    let source_text = plan.model_input()["sourceContext"].to_string();
-    assert!(
-        source_text.contains("recorded reviewer approval"),
-        "{source_text}"
-    );
-    let evidence = vec![
-        support(&plan, &revisions[0]),
-        support(&plan, &revisions[1]),
-        support(
-            &plan,
-            &CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
-        ),
-    ];
-    let proposal = |from: usize, to: usize, relation| TopologyAction::CreateAssociation {
-        from_key: key(&revisions[from]),
-        to_key: key(&revisions[to]),
-        relation,
-        support_keys: evidence.clone(),
-        reason: "Exact selected Episode members establish relation".into(),
-    };
-    let mut input = CommitTopologyInput {
-        operation_id: OperationId::new(),
-        claimed: claimed.clone(),
-        plan: plan.clone(),
-        producer: producer(),
-        proposal: TopologyProposal {
-            actions: vec![proposal(1, 0, TopologyRelation::Sequence)],
-        },
-    };
-    let error = owner.commit_topology(input.clone()).await.unwrap_err();
-    assert!(error.to_string().contains("sequence needs"), "{error}");
-    input.operation_id = OperationId::new();
-    input.proposal.actions = vec![
-        proposal(0, 1, TopologyRelation::Sequence),
-        proposal(0, 1, TopologyRelation::CoOccurs),
-        proposal(0, 1, TopologyRelation::Procedural),
-        proposal(0, 1, TopologyRelation::SharedOutcome),
-    ];
-    assert_eq!(owner.commit_topology(input).await.unwrap().changes, 4);
-    rt.cognition
-        .acknowledge_maintenance(&claimed, MaintenanceDisposition::Satisfied)
-        .await
-        .unwrap();
-    // Episode review remains claimable even though it is not an Accretion center.
-    owner.prioritize_topology_needs(subject).await.unwrap();
 }

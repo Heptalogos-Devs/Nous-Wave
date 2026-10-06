@@ -6,7 +6,6 @@ import { create } from "@bufbuild/protobuf";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import {
   MaintenanceNeedSchema,
-  CommitTopologyResponseSchema,
   MaintenancePlanSchema,
 } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import type { KernelClient } from "../kernel-client.js";
@@ -460,11 +459,11 @@ describe("maintenance fixed workflow retry", () => {
   });
 });
 
-it("routes topology through the bounded model input and replays its saved proposal without another model call", async () => {
+it("routes concepts through bounded input and replays the saved outcome without another model call", async () => {
   const state = fixture();
   const topoNeed = create(MaintenanceNeedSchema, {
     ...need,
-    kind: "topology_maintenance",
+    kind: "concept_maintenance",
     scopeKind: "memory_revision",
     scopeRef: revision,
   });
@@ -479,12 +478,12 @@ it("routes topology through the bounded model input and replays its saved propos
       subjectId: subject,
       authoritySeq: 1n,
       status: "ready",
-      topologyPlanJson: '{"owner":"opaque-frozen-catalog"}',
-      topologyModelInputJson: modelInput,
+      conceptCatalog: { maxSuggestions: 4 },
+      conceptModelInputJson: modelInput,
     }),
   );
   const generate = vi
-    .spyOn(state.models, "maintainTopology")
+    .spyOn(state.models, "maintainConcepts")
     .mockResolvedValue({
       value: { actions: [{ action: "no_change" }] },
       producerMetadata: {
@@ -492,45 +491,36 @@ it("routes topology through the bounded model input and replays its saved propos
         protocol: "openai-chat",
         model: "stub",
         profileDigest: "a".repeat(64),
-        promptId: "program/topology/maintenance.md",
+        promptId: "program/memory/concept-maintenance.md",
         promptDigest: "b".repeat(64),
         outputSchemaDigest: "c".repeat(64),
         configDigest: "d".repeat(64),
       },
     });
-  const commit = vi.fn(
-    async (
-      request: Parameters<KernelClient["maintenance"]["commitTopology"]>[0],
-    ) => {
-      expect(request.planJson).toBe('{"owner":"opaque-frozen-catalog"}');
-      expect(request.proposalJson).toBe('{"actions":[{"action":"no_change"}]}');
-      return create(CommitTopologyResponseSchema, {
-        outcomeJson: '{"status":"no_change","changes":0,"results":{}}',
-      });
-    },
-  );
-  state.kernel.maintenance.commitTopology = commit;
-  commit.mockRejectedValueOnce(
-    new ConnectError("Response lost after commit", Code.Unavailable),
-  );
   const reserveCall = vi.fn();
-  await expect(
-    runModelMaintenance(state.kernel, state.models, topoNeed, {}, reserveCall),
-  ).rejects.toThrow();
+  const first = await runModelMaintenance(
+    state.kernel,
+    state.models,
+    topoNeed,
+    {},
+    reserveCall,
+  );
+  expect(first.status).toBe("no_change");
   expect(
-    await runModelMaintenance(
-      state.kernel,
-      state.models,
-      topoNeed,
-      {},
-      reserveCall,
-    ),
-  ).toEqual({ status: "no_change" });
+    (
+      await runModelMaintenance(
+        state.kernel,
+        state.models,
+        topoNeed,
+        {},
+        reserveCall,
+      )
+    ).status,
+  ).toBe("no_change");
   expect(generate).toHaveBeenCalledTimes(1);
   expect(generate.mock.calls[0]?.[0]).toBe(modelInput);
   expect(reserveCall).toHaveBeenCalledTimes(1);
   expect(state.synthesize).not.toHaveBeenCalled();
-  expect(commit).toHaveBeenCalledTimes(2);
 });
 
 it("replays a committed consolidation action after a lost response without another model call", async () => {

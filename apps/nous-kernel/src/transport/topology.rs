@@ -308,7 +308,7 @@ fn association_support(value: p::AssociationSupport) -> Result<AssociationSuppor
     }
 }
 
-fn association_support_proto(value: AssociationSupport) -> p::AssociationSupport {
+pub(super) fn association_support_proto(value: AssociationSupport) -> p::AssociationSupport {
     let support = match value {
         AssociationSupport::Revision(value) => {
             p::association_support::Support::Revision(super::support_proto(value))

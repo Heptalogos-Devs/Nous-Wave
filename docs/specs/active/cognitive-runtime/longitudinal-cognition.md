@@ -64,23 +64,19 @@ Query/Serving、WorkContext、UseEvent 和下游失效合同分别见 [Query](..
 
 [返回当前产品合同](../../INDEX.md)
 
-## Independent topology maintenance
+## 独立 concept maintenance
 
-`topology_maintenance` 是独立 kind，复用 durable need、host grant、lease、retry、固定 ModelWorkflow snapshot 与全局模型调用/elapsed 预算。accepted/revised Memory、Episode、Journal、CognitiveSchema 的 owner mutation 在同一事务用实际 Authority sequence 排入 exact focus；meaningful use 跨过 typed threshold 时排入 review，exposure 不触发。
+`concept_maintenance` 复用 durable need、host grant、lease、retry、固定 ModelWorkflow snapshot 和模型调用/elapsed 预算。accepted/revised Memory、Episode、Journal、CognitiveSchema 在 owner mutation 同一事务排入 exact focus；meaningful use 跨过 `maintenance.concept_use_review_interval` 时产生 review，普通 presented 不触发。
 
-Memory owner 的 planner 使用有界当前 cognition、Tag、association、Entity、exact/source/use support 与 provenance catalog。Semantic similarity 只读取兼容 space/producer 下的既有 embedding material，不调用 provider；没有材料时保留显式 partial。模型仅看到 invocation-local keys 与语义描述，owner snapshot 保存 exact identities/epochs；proposal 只引用 catalog keys 或顺序创建的 `new_` keys。
+Memory planner 只围绕一个 current eligible exact cognition。局部输入包含 focus 语义、来源、aboutness Entity、已附 Tags、名称/别名匹配、既有 embedding material 的相似候选和一跳 AssociationEvidence；不拼整个 Subject cognition catalog，不调用 embedding provider。固定 snapshot 保存 typed canonical refs、TagRevisionTarget、AssociationSupport 和当前配置 digest；模型只看到 local keys 与有界描述。
 
-Core role `topology_maintenance` 使用独立 Structured Contract 与 Prompt，支持 reuse/create/revise/attach/detach Tag、create/revoke association、merge/split Tag、no_change。Merge/split 沿用 Tag owner 的 exact support 与 independent root 条件。owner 在一个 MutationEnvelope 中复核 lease、focus、当前 catalog/policy、局部 key、self-loop、duplicate/action/support budget、exact cognition endpoint 支持和 provenance，再写入所有动作与一个 receipt；非法动作整体回滚。没有变化不重建 Serving，已提交 proposal 在丢失 response 后幂等重放。
+`concept_maintenance` role 使用 `prompts/memory/concept-maintenance.md` 和独立 Structured Contract，最多四个 ordered suggestions，配置可以进一步收紧。Core 保存 proposal 后逐项调用 Create/Revise/Merge/SplitTag、Create/RevokeAssociation；operation id 来自 workflow id、index 和 kind。每项保存 committed/no_change/rejected_invalid/stale/skipped_dependency 与实际结果，临时 `new_` keys 解析为先前成功返回的 Tag identity。后续失败保留先前成功，依赖失败只跳过依赖项，独立项继续；transport 重试复用已存 proposal 和相同 owner receipts，不重新调用模型。owner invariant 停止该 grant，返回 internal_failure。
 
-post-hoc `tag_attachment` 保存在 AssociationEvidence，不改变旧 MemoryRevision。共享 relation registry 将 tag_attachment、assoc.related、assoc.co_occurs、assoc.shared_outcome 投影为对称 adjacency，sequence/procedural 保留方向。Authority evidence 保留原端点、方向和支持；逆向 Serving edge 使用同一 provenance root。Episode/Journal exact revisions 可以作为显式 association endpoint。
+Tag merge/split 保留 exact supports 和 lineage，一个明确来源可以支持 alias/equivalence 或语义分化；不要求两个独立根。merge/split 自身仍为天然原子操作。后置 `tag_attachment` 是正向 exact cognition→Tag AssociationEvidence，不修改旧 cognition revision。owner 校验 Subject、当前 endpoint 生命周期、relation registry、方向/极性、显式支持和 producer，不递归证明整个 cognition graph。Serving 直接使用既有 Memory dependencies、Episode members、Journal sources、Schema evidence 作为结构 adjacency；不要求复制 AssociationEvidence。contradiction/negative evidence 保留独立语义。
 
-Owner 校验关系特有的结构证据：共现需要共享 occurrence 或选中的 Episode 成员；顺序需要 Episode 成员顺序或不重叠的 occurred time，observed time 不证明先后；程序/共同结果需要覆盖两端的已分类 cognition witness。Planner 提供认知类型/角色、Entity aboutness、时间、Episode 局部成员顺序和 source context；Tag 候选优先已关联概念与文本相关候选。
+Accretion 是按 center 按需计算的派生信号：distinct roots、current members、Episode recurrence、observed span、association degree/diversity、meaningful use、counterevidence、可选 cached coherence 和 genericity。没有持久化 Subject-wide cache、global confidence 或 usefulness truth。`maintenance.accretion` 只暴露 enabled、generic_degree、recurrence_review；关闭后基础 concept maintenance 仍工作。review priority 与 merge/split hints 在 planner 即时计算；member overlap/coherence 阈值为实现常量。普通 presented 不增加支持，meaningful use 不改变 epistemic class 或独立根。
 
-Accretion 是可重建的派生信号，聚合独立根、当前成员、跨 Episode 重现、观察跨度、关系多样性、语义 coherence、meaningful use 与反证。缓存缺失时 coherence 保持 unknown；不调用 embedding。有效使用提高有限 usefulness，不更改 epistemic class、不增加独立根。宽泛中心被降权并进入 split review；成员高度重叠且至少两独立根的中心提供 merge hint；最终动作仍由独立 role 提案、owner 验证。配置可关闭 Accretion 作 ablation。
-
-数据库场景验证新 Tag、后续复用、关联、非法 key 原子回滚、Tag-only Prepared Serving、无凭据关系拒绝与 Episode 顺序/共现/程序 witness。有效使用提高 usefulness，原 observed 类别与独立根不变；Episode review 不受 Accretion 中心类型限制。Core 测试验证固定输入、预算 reservation 与 proposal 重试。全类别 Functional Corpus、真实 provider/Agent Loop 和独立文本兼容性仍待本 PR 验收。
-
-维护 catalog 的 sourceContext 包含有界原始文本或派生 descriptor，并链接 cognition.sourceSupportKeys；Episode 的 idle/boundary 机制不作为领域概念文本。每项 cognition 显式提供 exactSupportKey。create_tag 使用必填 cognitionKeys 指定 accepted cognition 锚点，由 owner 生成精确 revision supports，再与所选 source supports 去重；attachment/association 从显式局部 endpoint keys 记录 exact revision anchors；模型选择 source 或额外 cognition witness，owner 仍执行关系证据和 provenance 校验。
+定向测试覆盖局部 catalog、typed owner提交、partial outcome、dependency skip、transport resume、stable IDs、Tag lineage、owner exact receipt、Accretion ablation/recurrence 配置和 Tag-only Prepared Serving。全类别 functional corpus、CLI Agent 和 selected text compatibility 仍在本 PR 后续验收。
 
 Consolidation 的候选查找使用独立 text-only lookup：输入是引用的 source 原文，不作为待闭合的用户意图。实体目录提供 source 文本中出现的 display name/alias 的有界候选，加上已有候选的 aboutness；目录匹配本身不写入 aboutness，仍由模型选择、owner 校验。形成阶段需要 lexical Serving 为 continuing claim 提供当前候选，dense/topology 与付费 embedding 在检索验证前保持关闭。
 
