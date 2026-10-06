@@ -10,10 +10,6 @@ impl MemoryService {
             .transpose()?;
         input.validate()?;
         self.store.require_subject(input.subject).await?;
-        self.validate_supports_for_subject(input.subject, &input.supports)
-            .await?;
-        self.validate_formation_semantics(input.subject, input.formation_mode, &input.supports)
-            .await?;
         let digest = operation_digest(
             "form_memory",
             input.subject,
@@ -49,6 +45,10 @@ impl MemoryService {
             }
             MutationStart::Active(mutation) => mutation,
         };
+        self.validate_supports_for_subject(input.subject, &input.supports)
+            .await?;
+        self.validate_formation_semantics(input.subject, input.formation_mode, &input.supports)
+            .await?;
         let formed_at = self
             .formation_time_in(mutation.tx(), input.subject, input.operation_id, started_at)
             .await?;

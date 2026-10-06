@@ -1,6 +1,5 @@
 import { coreExecutionSchema } from "../configuration-catalog.js";
-import type { CommitLongitudinalConsolidationRequest } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
-import { ExpectedCognitionSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
+import { ExpectedCognitionSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import { describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { create } from "@bufbuild/protobuf";
@@ -11,6 +10,7 @@ import {
   MaintenancePlanSchema,
 } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import type { KernelClient } from "../kernel-client.js";
+import { consolidationSchema } from "../model/schemas/consolidation.js";
 import { ModelRuntime } from "../model/runtime.js";
 import type { ModelRoleSnapshot } from "../model/invocations.js";
 import { grantMaintenance, SubjectMaintenanceScheduler } from "./grants.js";
@@ -434,16 +434,6 @@ describe("maintenance fixed workflow retry", () => {
         configDigest: "d".repeat(64),
       },
     });
-    const commit = vi.fn(
-      async (_request: CommitLongitudinalConsolidationRequest) => ({
-        status: "no_change",
-        authoritySeq: 4n,
-        results: [],
-      }),
-    );
-    Object.assign(state.kernel.maintenance, {
-      commitLongitudinalConsolidation: commit,
-    });
     expect(
       (
         await runModelMaintenance(
@@ -455,8 +445,6 @@ describe("maintenance fixed workflow retry", () => {
         )
       ).status,
     ).toBe("no_change");
-    expect(commit.mock.calls[0]![0].source?.expectedEpoch).toBe(1n);
-    expect(commit.mock.calls[0]![0].actions[0]?.action.case).toBe("skip");
     expect(
       (
         await runModelMaintenance(
@@ -469,7 +457,6 @@ describe("maintenance fixed workflow retry", () => {
       ).status,
     ).toBe("no_change");
     expect(model).toHaveBeenCalledTimes(1);
-    expect(commit).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -544,4 +531,116 @@ it("routes topology through the bounded model input and replays its saved propos
   expect(reserveCall).toHaveBeenCalledTimes(1);
   expect(state.synthesize).not.toHaveBeenCalled();
   expect(commit).toHaveBeenCalledTimes(2);
+});
+
+it("replays a committed consolidation action after a lost response without another model call", async () => {
+  const state = fixture();
+  const item = {
+    cognitiveRole: "declarative",
+    formationMode: "synthesized",
+    groundingMemberKey: null,
+    semanticRole: "statement",
+    text: "A durable supported conclusion",
+    title: null,
+    supportKeys: ["source"],
+    entityKeys: [],
+    validTime: { kind: "unknown" },
+    epistemicClass: "derived",
+  };
+  state.getPlan.mockResolvedValue(
+    create(MaintenancePlanSchema, {
+      ...plan,
+      maxConsolidationActions: 4,
+      consolidationSource: create(ExpectedCognitionSchema, {
+        reference: { kind: "episode_revision", value: revision },
+        expectedEpoch: 1n,
+      }),
+    }),
+  );
+  const metadata = (await state.synthesize("fixture")).producerMetadata;
+  const model = vi.spyOn(state.models, "consolidate").mockResolvedValue({
+    value: consolidationSchema.parse({
+      actions: [
+        { action: "create_memory", content: item },
+        {
+          action: "create_memory",
+          content: { ...item, supportKeys: ["invented"] },
+        },
+      ],
+    }),
+    producerMetadata: metadata,
+  });
+  const receipts = new Map<string, { revisionId: string }>();
+  let lost = true;
+  const form = vi.fn(async (request: { operationId: string }) => {
+    if (receipts.has(request.operationId))
+      return receipts.get(request.operationId)!;
+    const result = { revisionId: revision };
+    receipts.set(request.operationId, result);
+    if (lost) {
+      lost = false;
+      throw new ConnectError(
+        "lost committed action response",
+        Code.Unavailable,
+      );
+    }
+    return result;
+  });
+  Object.assign(state.kernel, { memory: { formMemory: form } });
+  const reserve = vi.fn();
+  const current = { ...need, kind: "memory_consolidate" };
+  const run = () =>
+    runModelMaintenance(state.kernel, state.models, current, {}, reserve);
+  await expect(run()).rejects.toThrow("lost committed action response");
+  const outcome = await run();
+  expect(outcome.status).toBe("partial");
+  expect(
+    "actions" in outcome && outcome.actions?.map((action) => action.status),
+  ).toEqual(["committed", "rejected_invalid"]);
+  expect(receipts.size).toBe(1);
+  expect(form.mock.calls[0]).toEqual(form.mock.calls[1]);
+  expect(model).toHaveBeenCalledTimes(1);
+  expect(reserve).toHaveBeenCalledTimes(1);
+  expect((await run()).status).toBe("partial");
+  expect(form).toHaveBeenCalledTimes(2);
+});
+
+it("exposes an owner invariant failure and stops the grant without a provider retry", async () => {
+  const state = fixture();
+  state.commit.mockRejectedValue(
+    new ConnectError("owner invariant", Code.Internal),
+  );
+  const finish = vi.fn(async () => ({}));
+  const claim = vi.fn(async () => ({ needs: [need] }));
+  Object.assign(state.kernel.maintenance, {
+    getMaintenancePolicy: vi.fn(async () => ({
+      enabled: true,
+      maxOperations: 4,
+      experienceBatchSize: 256,
+      workerLeaseSeconds: 120,
+      retryInitialSeconds: 1,
+      retryMaxSeconds: 5,
+      retryMaxAttempts: 4,
+    })),
+    claimMaintenance: claim,
+    finishMaintenance: finish,
+  });
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const result = await grantMaintenance(state.kernel, state.models, {
+      $typeName: "nous.wave.v1alpha1.MaintenanceGrantRequest",
+      subjectId: subject,
+      maxOperations: 4,
+      maxModelCalls: 4,
+      maxElapsedMs: 1000,
+    });
+    expect(result.results[0]?.status).toBe("internal_failure");
+    expect(claim).toHaveBeenCalledTimes(1);
+    expect(finish).toHaveBeenCalledWith(
+      expect.objectContaining({ disposition: "blocked", retryDelaySeconds: 0 }),
+      expect.anything(),
+    );
+  } finally {
+    log.mockRestore();
+  }
 });

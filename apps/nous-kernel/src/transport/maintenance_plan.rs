@@ -271,6 +271,7 @@ fn consolidation_source(scope: &nous_memory::MaintenanceScope) -> Option<k::Expe
                 journal.revision.journal_revision_id,
             ))),
             expected_epoch: journal.object.object_epoch,
+            object_id: journal.object.journal_id.0.to_string(),
         });
     }
     scope.episodes.first().map(|episode| k::ExpectedCognition {
@@ -278,6 +279,7 @@ fn consolidation_source(scope: &nous_memory::MaintenanceScope) -> Option<k::Expe
             episode.revision.episode_revision_id,
         ))),
         expected_epoch: episode.object.object_epoch,
+        object_id: episode.object.episode_id.0.to_string(),
     })
 }
 

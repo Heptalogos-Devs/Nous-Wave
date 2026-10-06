@@ -3,7 +3,7 @@
 mod accessibility;
 mod accretion;
 mod batch;
-mod consolidation;
+mod consolidation_context;
 mod dependencies;
 mod episode;
 mod journal;
@@ -46,7 +46,6 @@ pub use accessibility::{
     resolve_accessibility_policy,
 };
 pub use accretion::{ACCRETION, AccretionPolicy, AccretionSignal};
-pub use consolidation::*;
 pub use episode::*;
 pub use journal::*;
 pub use longitudinal_policy::{

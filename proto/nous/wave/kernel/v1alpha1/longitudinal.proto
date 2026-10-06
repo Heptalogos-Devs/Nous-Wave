@@ -1,7 +1,6 @@
 syntax = "proto3";
 package nous.wave.kernel.v1alpha1;
 import "nous/wave/v1alpha1/types.proto";
-import "nous/wave/kernel/v1alpha1/consolidation.proto";
 import "nous/wave/v1alpha1/journal.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -108,10 +107,12 @@ message MaintenancePlan {
 }
 message RefreshMaintenanceRequest { MaintenanceNeed claimed = 1; }
 
-message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; string text = 3; string cognitive_role = 4; string formation_mode = 5; repeated string entity_refs = 6; repeated UseSummary use = 7; nous.wave.v1alpha1.TemporalExtent valid_time = 8; google.protobuf.Timestamp formed_at = 9; google.protobuf.Timestamp recorded_at = 10; }
+message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; string text = 3; string cognitive_role = 4; string formation_mode = 5; repeated string entity_refs = 6; repeated UseSummary use = 7; repeated string eligible_support_keys = 11; nous.wave.v1alpha1.TemporalExtent valid_time = 8; google.protobuf.Timestamp formed_at = 9; google.protobuf.Timestamp recorded_at = 10; }
 message ConsolidationEntity { string key = 1; string entity_ref = 2; }
 message ProvenanceRoot { string key = 1; string certainty = 2; }
 message UseSummary { string kind = 1; uint64 count = 2; google.protobuf.Timestamp last_used_at = 3; }
 
 message CommitTopologyRequest { string operation_id = 1; MaintenanceNeed claimed = 2; string plan_json = 3; string proposal_json = 4; nous.wave.v1alpha1.ProducerSignature producer = 5; }
 message CommitTopologyResponse { string outcome_json = 1; }
+
+message ExpectedCognition { nous.wave.v1alpha1.CognitiveRef reference = 1; int64 expected_epoch = 2; string object_id = 3; }

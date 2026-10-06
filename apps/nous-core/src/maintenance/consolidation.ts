@@ -1,21 +1,33 @@
 import { create } from "@bufbuild/protobuf";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
-import { Code, ConnectError } from "@connectrpc/connect";
-import {
-  CommitLongitudinalConsolidationRequestSchema,
-  ConsolidationMemoryContentSchema,
-  ConsolidationSchemaContentSchema,
-  ConsolidationResultRefSchema,
-  LongitudinalConsolidationActionSchema,
-} from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
+import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import { z } from "zod";
 import type { MaintenancePlan } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
+import { CognitiveSchemaContentSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import {
+  MemoryContentSchema,
   TemporalExtentSchema,
   type ProducerSignature,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
+import type { KernelClient } from "../kernel-client.js";
 import type { ConsolidationProposal } from "../model/schemas/consolidation.js";
+import { maintenanceActionOperationId } from "./identity.js";
 
 type Action = ConsolidationProposal["actions"][number];
+export const consolidationResultSchema = z.strictObject({
+  index: z.number().int().min(0),
+  status: z.enum([
+    "committed",
+    "no_change",
+    "rejected_invalid",
+    "skipped_dependency",
+    "stale",
+  ]),
+  resultRef: z.strictObject({ kind: z.string(), value: z.string() }).nullable(),
+});
+export type ConsolidationActionResult = z.infer<
+  typeof consolidationResultSchema
+>;
 function invalid(message: string): never {
   throw new ConnectError(message, Code.InvalidArgument);
 }
@@ -39,11 +51,17 @@ function time(
     },
   });
 }
-export function consolidationRequest(
+
+/** The saved model result is executed with each owner's own transaction and receipt. */
+export async function executeConsolidation(
+  kernel: KernelClient,
   plan: MaintenancePlan,
   proposal: ConsolidationProposal,
   operationId: string,
   producer: ProducerSignature,
+  options: CallOptions,
+  progress: ConsolidationActionResult[],
+  saveProgress: (results: ConsolidationActionResult[]) => Promise<void>,
 ) {
   if (
     !plan.consolidationSource ||
@@ -57,14 +75,18 @@ export function consolidationRequest(
     plan.entities.map((entry) => [entry.key, entry.entityRef]),
   );
   const candidates = new Map(
-    plan.candidates.map((entry) => [entry.key, entry.target]),
+    plan.candidates.map((entry) => [entry.key, entry]),
   );
   const members = new Map(
     plan.members.map((entry) => [entry.key, entry.occurrenceId]),
   );
-  const selectedSupports = (keys: string[]) => {
-    if (new Set(keys).size !== keys.length)
-      invalid("Duplicate consolidation supports");
+  const results = [...progress];
+  const selectedSupports = (keys: string[], eligible?: string[]) => {
+    if (
+      new Set(keys).size !== keys.length ||
+      keys.some((key) => eligible && !eligible.includes(key))
+    )
+      invalid("Duplicate or self-dependent consolidation supports");
     return keys.map(
       (key) =>
         supports.get(key) ??
@@ -81,17 +103,22 @@ export function consolidationRequest(
     );
   };
   const target = (key: string, kind: string) => {
-    const value =
+    const candidate =
       candidates.get(key) ??
       invalid("Consolidation target is outside current context");
-    if (value.reference?.kind !== kind)
-      invalid("Consolidation target has the wrong domain");
-    return value;
+    if (
+      !candidate.target?.objectId ||
+      candidate.target.reference?.kind !== kind
+    )
+      invalid("Consolidation target has the wrong domain or no owner identity");
+    return candidate;
   };
   const memory = (
     content: Extract<Action, { action: "create_memory" }>["content"],
+    eligible?: string[],
   ) =>
-    create(ConsolidationMemoryContentSchema, {
+    create(MemoryContentSchema, {
+      producer,
       cognitiveRole: content.cognitiveRole,
       formationMode: content.formationMode,
       groundingOccurrenceId:
@@ -102,16 +129,19 @@ export function consolidationRequest(
       semanticRole: content.semanticRole,
       text: content.text,
       title: content.title ?? undefined,
-      supports: selectedSupports(content.supportKeys),
+      supports: selectedSupports(content.supportKeys, eligible),
       aboutness: selectedEntities(content.entityKeys),
+      tags: [],
       validTime: time(content.validTime),
       epistemicClass: content.epistemicClass,
     });
   const schema = (
     content: Extract<Action, { action: "create_schema" }>["content"],
+    eligible?: string[],
   ) =>
-    create(ConsolidationSchemaContentSchema, {
-      title: content.title ?? undefined,
+    create(CognitiveSchemaContentSchema, {
+      producer,
+      title: content.title ?? "",
       structuralClaim: content.structuralClaim,
       applicabilityScope: {
         description: content.applicability,
@@ -123,7 +153,7 @@ export function consolidationRequest(
       formationKind: content.formationKind,
       evidenceLinks: content.evidence.map((link) => ({
         role: link.role,
-        support: selectedSupports([link.supportKey])[0],
+        support: selectedSupports([link.supportKey], eligible)[0],
       })),
     });
   const endpoint = (
@@ -131,83 +161,166 @@ export function consolidationRequest(
     index: number,
   ) => {
     if (value.kind === "candidate")
-      return create(ConsolidationResultRefSchema, {
-        target: {
-          case: "reference",
-          value: target(value.key, "memory_revision").reference!,
-        },
-      });
+      return target(value.key, "memory_revision").target!.reference!;
     if (value.index >= index)
       invalid("Consolidation relation requires an earlier action");
     const prior = proposal.actions[value.index];
     if (prior?.action !== "create_memory" && prior?.action !== "revise_memory")
-      invalid("Strong Memory relations require Memory action endpoints");
-    return create(ConsolidationResultRefSchema, {
-      target: { case: "actionIndex", value: value.index },
-    });
+      invalid("Memory relations require Memory action endpoints");
+    return results[value.index]?.resultRef ?? null;
   };
-  const actions = proposal.actions.map((action, index) => {
-    switch (action.action) {
-      case "skip":
-        return create(LongitudinalConsolidationActionSchema, {
-          action: { case: "skip", value: { reason: action.reason } },
-        });
-      case "create_memory":
-        return create(LongitudinalConsolidationActionSchema, {
-          action: {
-            case: "createMemory",
-            value: { content: memory(action.content) },
-          },
-        });
-      case "revise_memory":
-        return create(LongitudinalConsolidationActionSchema, {
-          action: {
-            case: "reviseMemory",
-            value: {
-              target: target(action.targetKey, "memory_revision"),
-              intent: action.intent,
-              content: memory(action.content),
+  for (let index = results.length; index < proposal.actions.length; index++) {
+    const action = proposal.actions[index]!;
+    const id = maintenanceActionOperationId(operationId, index, action.action);
+    let result: ConsolidationActionResult = {
+      index,
+      status: "no_change",
+      resultRef: null,
+    };
+    try {
+      switch (action.action) {
+        case "skip":
+          break;
+        case "create_memory": {
+          const value = await kernel.memory.formMemory(
+            {
+              operationId: id,
+              subjectId: plan.subjectId,
+              input: memory(action.content),
             },
-          },
-        });
-      case "create_schema":
-        return create(LongitudinalConsolidationActionSchema, {
-          action: {
-            case: "createSchema",
-            value: { content: schema(action.content) },
-          },
-        });
-      case "revise_schema":
-        return create(LongitudinalConsolidationActionSchema, {
-          action: {
-            case: "reviseSchema",
-            value: {
-              target: target(action.targetKey, "cognitive_schema_revision"),
+            options,
+          );
+          result = {
+            index,
+            status: "committed",
+            resultRef: { kind: "memory_revision", value: value.revisionId },
+          };
+          break;
+        }
+        case "revise_memory": {
+          const candidate = target(action.targetKey, "memory_revision");
+          if (candidate.cognitiveRole !== action.content.cognitiveRole)
+            invalid("Memory revision cannot change cognitive role");
+          const value = await kernel.memory.reviseMemory(
+            {
+              operationId: id,
+              subjectId: plan.subjectId,
+              memoryId: candidate.target!.objectId,
+              expectedObjectEpoch: candidate.target!.expectedEpoch,
               intent: action.intent,
-              content: schema(action.content),
+              input: memory(action.content, candidate.eligibleSupportKeys),
             },
-          },
-        });
-      case "link_relation":
-        return create(LongitudinalConsolidationActionSchema, {
-          action: {
-            case: "linkRelation",
-            value: {
-              from: endpoint(action.from, index),
-              to: endpoint(action.to, index),
+            options,
+          );
+          result = {
+            index,
+            status: "committed",
+            resultRef: { kind: "memory_revision", value: value.revisionId },
+          };
+          break;
+        }
+        case "create_schema": {
+          const content = schema(action.content);
+          const value = await kernel.topology.createCognitiveSchema(
+            {
+              operationId: id,
+              subjectId: plan.subjectId,
+              schema: content,
+              evidenceLinks: content.evidenceLinks,
+            },
+            options,
+          );
+          result = {
+            index,
+            status: "committed",
+            resultRef: {
+              kind: "cognitive_schema_revision",
+              value: value.currentRevisionId,
+            },
+          };
+          break;
+        }
+        case "revise_schema": {
+          const candidate = target(
+            action.targetKey,
+            "cognitive_schema_revision",
+          );
+          if (candidate.formationMode !== action.content.formationKind)
+            invalid("Schema revision cannot change formation kind");
+          const value = await kernel.topology.reviseCognitiveSchema(
+            {
+              operationId: id,
+              subjectId: plan.subjectId,
+              schemaId: candidate.target!.objectId,
+              expectedObjectEpoch: candidate.target!.expectedEpoch,
+              intent: action.intent,
+              schema: schema(action.content, candidate.eligibleSupportKeys),
+              copyLinkIds: [],
+            },
+            options,
+          );
+          result = {
+            index,
+            status: "committed",
+            resultRef: {
+              kind: "cognitive_schema_revision",
+              value: value.currentRevisionId,
+            },
+          };
+          break;
+        }
+        case "link_relation": {
+          const from = endpoint(action.from, index),
+            to = endpoint(action.to, index);
+          if (!from || !to) {
+            result.status = "skipped_dependency";
+            break;
+          }
+          await kernel.memory.linkRevisions(
+            {
+              operationId: id,
+              subjectId: plan.subjectId,
+              fromRevisionId: from.value,
+              toRevisionId: to.value,
               relation: action.relation,
             },
-          },
-        });
+            options,
+          );
+          result = {
+            index,
+            status: "committed",
+            resultRef: { kind: from.kind, value: from.value },
+          };
+          break;
+        }
+      }
+    } catch (error) {
+      if (!(error instanceof ConnectError)) throw error;
+      if (error.code === Code.InvalidArgument)
+        result.status = "rejected_invalid";
+      else if (
+        [Code.Aborted, Code.NotFound, Code.FailedPrecondition].includes(
+          error.code,
+        )
+      )
+        result.status = "stale";
+      else throw error;
     }
-  });
-  return create(CommitLongitudinalConsolidationRequestSchema, {
-    operationId,
-    subjectId: plan.subjectId,
-    expectedAuthoritySeq: plan.authoritySeq,
-    source: plan.consolidationSource,
-    context: plan.candidates.map((candidate) => candidate.target!),
-    producer,
-    actions,
-  });
+    results.push(result);
+    await saveProgress(results);
+  }
+  const committed = results.some((result) => result.status === "committed");
+  const failed = results.some((result) =>
+    ["rejected_invalid", "skipped_dependency", "stale"].includes(result.status),
+  );
+  const status = committed
+    ? failed
+      ? "partial"
+      : "committed"
+    : failed
+      ? results.some((r) => r.status === "stale")
+        ? "stale"
+        : "rejected_invalid"
+      : "no_change";
+  return { status, actions: results };
 }

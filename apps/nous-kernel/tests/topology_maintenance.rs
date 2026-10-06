@@ -529,6 +529,7 @@ async fn formation_maintains_reusable_concepts_and_serves_supported_associations
     episode_relations(&rt, subject, &revisions).await;
     let schema = owner
         .create_schema(CreateSchemaInput {
+            producer: None,
             operation_id: OperationId::new(),
             subject,
             title: Some("Independent reviewer approval pattern".into()),

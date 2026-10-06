@@ -1995,6 +1995,8 @@ pub struct CognitiveSchema {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CognitiveSchemaContent {
+    #[prost(message, optional, tag="7")]
+    pub producer: ::core::option::Option<ProducerSignature>,
     #[prost(string, tag="1")]
     pub title: ::prost::alloc::string::String,
     #[prost(string, tag="2")]

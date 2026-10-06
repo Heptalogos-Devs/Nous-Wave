@@ -8,7 +8,6 @@ mod canonical_subject;
 mod canonical_system;
 mod canonical_topology;
 mod configuration;
-mod consolidation;
 mod consolidation_plan;
 mod convert;
 mod episode;

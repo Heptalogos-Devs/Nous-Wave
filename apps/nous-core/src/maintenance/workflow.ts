@@ -1,9 +1,12 @@
 import { topologyMaintenanceSchema } from "../model/schemas/topology.js";
 import { CommitTopologyRequestSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
-import { consolidationRequest } from "./consolidation.js";
+import {
+  executeConsolidation,
+  consolidationResultSchema,
+} from "./consolidation.js";
 import { consolidationSchema } from "../model/schemas/consolidation.js";
-import { CommitLongitudinalConsolidationRequestSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
-import { createHash } from "node:crypto";
+import { maintenanceOperationId } from "./identity.js";
+export { maintenanceOperationId } from "./identity.js";
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { z } from "zod";
@@ -33,8 +36,16 @@ import {
 import { canonicalDigest } from "../digest.js";
 
 const outcomeSchema = z.strictObject({
-  status: z.enum(["committed", "no_change", "obsolete", "rejected_invalid"]),
+  status: z.enum([
+    "committed",
+    "partial",
+    "stale",
+    "no_change",
+    "obsolete",
+    "rejected_invalid",
+  ]),
   problemCode: z.string().optional(),
+  actions: z.array(consolidationResultSchema).optional(),
 });
 function readOutcome(text: string) {
   const value: unknown = JSON.parse(text);
@@ -51,7 +62,12 @@ const snapshotSchema = z.strictObject({
 const proposalSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("partition"), request: z.unknown() }),
   z.strictObject({ action: z.literal("journal"), request: z.unknown() }),
-  z.strictObject({ action: z.literal("consolidation"), request: z.unknown() }),
+  z.strictObject({
+    action: z.literal("consolidation"),
+    proposal: z.unknown(),
+    producer: z.unknown(),
+    progress: z.array(consolidationResultSchema),
+  }),
   z.strictObject({ action: z.literal("topology"), request: z.unknown() }),
   z.strictObject({
     action: z.literal("withdraw"),
@@ -61,19 +77,6 @@ const proposalSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("no_change") }),
 ]);
 
-export function maintenanceOperationId(need: MaintenanceNeed) {
-  const bytes = createHash("sha1")
-    .update(Buffer.from("6ba7b8129dad11d180b400c04fd430c8", "hex"))
-    .update(
-      `${need.needId}:${need.triggerAuthoritySeq}:${need.triggerRevision}`,
-    )
-    .digest()
-    .subarray(0, 16);
-  bytes[6] = (bytes[6]! & 15) | 80;
-  bytes[8] = (bytes[8]! & 63) | 128;
-  const value = bytes.toString("hex");
-  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
-}
 function producer(
   metadata: ModelProducerMetadata,
   operation: string,
@@ -296,21 +299,17 @@ export async function runModelMaintenance(
             options.signal ?? undefined,
             snapshot.model as ModelRoleSnapshot,
           );
-          const request = consolidationRequest(
-            plan,
-            consolidationSchema.parse(result.value),
-            operationId,
-            create(
-              ProducerSignatureSchema,
-              producer(result.producerMetadata, "memory_consolidation_text"),
-            ),
-          );
           proposed = {
             action: "consolidation",
-            request: toJson(
-              CommitLongitudinalConsolidationRequestSchema,
-              request,
+            proposal: consolidationSchema.parse(result.value),
+            producer: toJson(
+              ProducerSignatureSchema,
+              create(
+                ProducerSignatureSchema,
+                producer(result.producerMetadata, "memory_consolidation_text"),
+              ),
             ),
+            progress: [],
           };
         } else {
           const result = await models.synthesizeJournal(
@@ -416,19 +415,23 @@ export async function runModelMaintenance(
       );
       return outcome;
     } else if (proposed.action === "consolidation") {
-      const result = await kernel.maintenance.commitLongitudinalConsolidation(
-        fromJson(
-          CommitLongitudinalConsolidationRequestSchema,
-          proposed.request as JsonValue,
-        ),
+      const saved = proposed;
+      const outcome = await executeConsolidation(
+        kernel,
+        plan,
+        consolidationSchema.parse(saved.proposal),
+        operationId,
+        fromJson(ProducerSignatureSchema, saved.producer as JsonValue),
         options,
+        saved.progress,
+        async (progress) => {
+          saved.progress = [...progress];
+          await kernel.modelWorkflow.saveWorkflow(
+            { ...lease, proposalJson: JSON.stringify(saved) },
+            options,
+          );
+        },
       );
-      const outcome = {
-        status:
-          result.status === "no_change"
-            ? ("no_change" as const)
-            : ("committed" as const),
-      };
       await kernel.modelWorkflow.saveWorkflow(
         { ...lease, outcomeJson: JSON.stringify(outcome) },
         options,

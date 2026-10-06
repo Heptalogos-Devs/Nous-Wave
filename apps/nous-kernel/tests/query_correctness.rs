@@ -932,6 +932,7 @@ async fn synthesized_schema_requires_independent_known_roots() {
         .require_memory()
         .unwrap()
         .create_schema(CreateSchemaInput {
+            producer: None,
             operation_id: OperationId::new(),
             subject,
             title: None,
@@ -951,6 +952,7 @@ async fn synthesized_schema_requires_independent_known_roots() {
         .require_memory()
         .unwrap()
         .create_schema(CreateSchemaInput {
+            producer: None,
             operation_id: OperationId::new(),
             subject,
             title: None,

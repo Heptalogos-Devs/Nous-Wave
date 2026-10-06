@@ -518,6 +518,7 @@ pub struct SchemaLineage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateSchemaInput {
+    pub producer: Option<nous_core::ProducerSignature>,
     pub operation_id: OperationId,
     pub subject: SubjectId,
     pub title: Option<String>,
@@ -537,6 +538,9 @@ pub struct SchemaEvidenceLinkInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviseSchemaInput {
+    pub formation_kind: SchemaFormationKind,
+    pub producer: Option<nous_core::ProducerSignature>,
+    pub evidence_links: Vec<SchemaEvidenceLinkInput>,
     pub operation_id: OperationId,
     pub subject: SubjectId,
     pub schema_id: CognitiveSchemaId,

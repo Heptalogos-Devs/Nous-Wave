@@ -1,49 +1,13 @@
 use super::*;
 
 impl MemoryService {
-    pub async fn create_schema(&self, input: CreateSchemaInput) -> Result<SchemaView> {
-        match input.formation_kind {
-            SchemaFormationKind::ExplicitImport if input.evidence_links.is_empty() => {
-                return Err(Error::Invalid(
-                    "explicit_import CognitiveSchema requires at least one evidence link".into(),
-                ));
-            }
-            SchemaFormationKind::Synthesized if input.evidence_links.len() < 2 => {
-                return Err(Error::Invalid(
-                    "synthesized CognitiveSchema requires at least two evidence links".into(),
-                ));
-            }
-            _ => {}
-        }
+    pub async fn create_schema(&self, mut input: CreateSchemaInput) -> Result<SchemaView> {
+        input.producer = canonical_schema_producer(input.producer.as_ref())?;
         self.store.require_subject(input.subject).await?;
-        validate_schema_content(&input)?;
-        input.applicability_scope.valid_time.validate()?;
-        for link in &input.evidence_links {
-            self.validate_supports_for_subject(input.subject, std::slice::from_ref(&link.support))
-                .await?;
-        }
-        if matches!(input.formation_kind, SchemaFormationKind::Synthesized) {
-            let supports = input
-                .evidence_links
-                .iter()
-                .map(|link| link.support.clone())
-                .collect::<Vec<_>>();
-            let summary = self.provenance_summary(input.subject, &supports).await?;
-            let independent_roots = summary
-                .roots
-                .iter()
-                .filter(|root| matches!(root.certainty, EvidenceRootCertainty::Known))
-                .count();
-            if summary.normalized_inputs.len() < 2 || independent_roots < 2 {
-                return Err(Error::Invalid(
-                    "synthesized CognitiveSchema requires two normalized inputs and two known independent provenance roots".into(),
-                ));
-            }
-        }
         let digest = operation_digest(
             "create_cognitive_schema",
             input.subject,
-            &serde_json::json!({"title":input.title,"structural_claim":input.structural_claim,"scope":input.applicability_scope,"boundary_definition":input.boundary_definition,"formation_kind":input.formation_kind,"evidence_links":input.evidence_links}),
+            &serde_json::json!({"title":input.title,"structural_claim":input.structural_claim,"scope":input.applicability_scope,"boundary_definition":input.boundary_definition,"formation_kind":input.formation_kind,"evidence_links":input.evidence_links,"producer":input.producer}),
         )?;
         let mut mutation = match self
             .start_mutation(
@@ -58,7 +22,7 @@ impl MemoryService {
                 let id = receipt.result_ref;
                 if receipt.state == "committed" {
                     return self
-                        .schema(
+                        .schema_at(
                             input.subject,
                             CognitiveSchemaId(
                                 id.ok_or_else(|| {
@@ -69,6 +33,7 @@ impl MemoryService {
                                     Error::Infrastructure("invalid schema receipt".into())
                                 })?,
                             ),
+                            receipt.result_revision.map(CognitiveSchemaRevisionId),
                         )
                         .await;
                 }
@@ -78,11 +43,17 @@ impl MemoryService {
             }
             MutationStart::Active(mutation) => mutation,
         };
+        self.validate_schema_formation(&input).await?;
+        let producer = if let Some(value) = &input.producer {
+            Some(AuthorityStore::register_producer_in(mutation.tx(), value).await?)
+        } else {
+            None
+        };
         let (schema_id, revision_id) = self
             .create_schema_in(
                 mutation.tx(),
                 &input,
-                None,
+                producer,
                 self.cognition.now(input.subject),
             )
             .await?;
@@ -235,8 +206,9 @@ impl MemoryService {
         clippy::too_many_lines,
         reason = "schema content revision owns one atomic Authority transaction"
     )]
-    pub async fn revise_schema(&self, input: ReviseSchemaInput) -> Result<SchemaView> {
+    pub async fn revise_schema(&self, mut input: ReviseSchemaInput) -> Result<SchemaView> {
         self.store.require_subject(input.subject).await?;
+        input.producer = canonical_schema_producer(input.producer.as_ref())?;
         validate_schema_revision_content(&input)?;
         let digest = operation_digest(
             "revise_cognitive_schema",
@@ -250,6 +222,9 @@ impl MemoryService {
                 "applicability_scope": input.applicability_scope,
                 "boundary_definition": input.boundary_definition,
                 "copy_link_ids": input.copy_link_ids,
+                "evidence_links": input.evidence_links,
+                "producer": input.producer,
+                "formation_kind": input.formation_kind,
             }),
         )?;
         let mut mutation = match self
@@ -263,7 +238,13 @@ impl MemoryService {
         {
             MutationStart::Replay(receipt) => {
                 if receipt.state == "committed" {
-                    return self.schema(input.subject, input.schema_id).await;
+                    return self
+                        .schema_at(
+                            input.subject,
+                            input.schema_id,
+                            receipt.result_revision.map(CognitiveSchemaRevisionId),
+                        )
+                        .await;
                 }
                 return Err(Error::Unavailable(
                     "schema revision operation is already in progress".into(),
@@ -294,7 +275,7 @@ impl MemoryService {
         .fetch_one(&mut **mutation.tx())
         .await
         .map_err(db)?;
-        let mut copied_links = Vec::new();
+        let mut copied_links = input.evidence_links.clone();
         for link_id in &input.copy_link_ids {
             let link = sqlx::query("SELECT schema_revision_id,role,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM cognitive_schema_evidence_links WHERE link_id=$1 AND subject_id=$2 AND revoked_at IS NULL")
                 .bind(link_id.0)
@@ -325,14 +306,29 @@ impl MemoryService {
         self.validate_supports_in_tx(mutation.tx(), input.subject, &copied_supports)
             .await?;
         let revision_id = CognitiveSchemaRevisionId::new();
-        let formation_kind: String = sqlx::query_scalar(
-            "SELECT formation_kind FROM cognitive_schema_revisions WHERE schema_revision_id=$1",
+        let parent_scope = sqlx::query(
+            "SELECT formation_kind,aboutness FROM cognitive_schema_revisions WHERE schema_revision_id=$1",
         )
         .bind(parent.0)
         .fetch_one(&mut **mutation.tx())
         .await
         .map_err(db)?;
+        let formation_kind: String = parent_scope.try_get("formation_kind").map_err(db)?;
+        let parent_aboutness: Vec<String> = parent_scope.try_get("aboutness").map_err(db)?;
+        if input.formation_kind.as_str() != formation_kind
+            || (!parent_aboutness.is_empty()
+                && !input.applicability_scope.aboutness.iter().any(|entity| {
+                    parent_aboutness
+                        .iter()
+                        .any(|value| value == entity.as_str())
+                }))
+        {
+            return Err(Error::Invalid(
+                "Schema revision must preserve formation kind and aboutness continuity".into(),
+            ));
+        }
         let content = CreateSchemaInput {
+            producer: input.producer.clone(),
             operation_id: input.operation_id,
             subject: input.subject,
             title: input.title.clone(),
@@ -343,6 +339,11 @@ impl MemoryService {
             evidence_links: copied_links,
         };
         self.validate_schema_formation(&content).await?;
+        let producer = if let Some(value) = &input.producer {
+            Some(AuthorityStore::register_producer_in(mutation.tx(), value).await?)
+        } else {
+            None
+        };
         self.write_schema_revision_in(
             mutation.tx(),
             &content,
@@ -354,7 +355,7 @@ impl MemoryService {
                 number: revision_no,
                 formed_at: self.cognition.now(input.subject),
                 recorded_at: self.cognition.now(input.subject),
-                producer: None,
+                producer,
             },
         )
         .await?;
