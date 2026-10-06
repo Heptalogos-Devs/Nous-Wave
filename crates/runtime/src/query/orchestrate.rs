@@ -32,6 +32,7 @@ pub trait SharedLaneProvider: Send + Sync {
 pub struct CognitiveContributors<'a> {
     pub shared: Option<&'a dyn SharedLaneProvider>,
     pub memory: Option<&'a dyn CognitiveContributor>,
+    pub material: Option<&'a dyn CognitiveContributor>,
 }
 
 impl CognitiveRuntimeService {
@@ -128,6 +129,9 @@ impl CognitiveRuntimeService {
             .any(QueryTarget::is_cognition_domain)
         {
             return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
+        }
+        if let Some(material) = contributors.material {
+            lane_outputs.extend(material.direct_lanes(&bound, &plan).await?);
         }
         let mut exact_output = LaneOutput::empty(EvidenceFamily::Exact, LaneStatus::Ready);
         for binding in &bound.exact_bindings {
@@ -249,24 +253,36 @@ impl CognitiveRuntimeService {
                 )),
             });
         }
-        let mut by_owner = Vec::<CognitiveRef>::new();
+        let owners = [contributors.memory, contributors.material];
+        let mut by_owner = [Vec::<CognitiveRef>::new(), Vec::new()];
         let mut generic = Vec::new();
         for candidate in ranked.iter().take(validation_bound) {
-            let memory_owner = contributors
-                .memory
-                .filter(|owner| owner.owns(&candidate.reference));
-            let owner_count = usize::from(memory_owner.is_some());
-            if owner_count > 1 {
+            let matching = owners
+                .iter()
+                .enumerate()
+                .filter(|(_, owner)| owner.is_some_and(|owner| owner.owns(&candidate.reference)))
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>();
+            if matching.len() > 1 {
                 return Err(Error::Infrastructure(format!(
-                    "multiple cognition owners claim {}",
+                    "multiple owners claim {}",
                     candidate.reference
                 )));
             }
-            if memory_owner.is_some() {
-                by_owner.push(candidate.reference.clone());
-            } else if is_persistent_cognition(&candidate.reference) {
+            if let Some(index) = matching.first() {
+                by_owner[*index].push(candidate.reference.clone());
+            } else if is_persistent_cognition(&candidate.reference)
+                || matches!(
+                    candidate.reference,
+                    CognitiveRef::Artifact(_)
+                        | CognitiveRef::Occurrence(_)
+                        | CognitiveRef::SourceRegion(_)
+                        | CognitiveRef::DerivedRepresentation(_)
+                        | CognitiveRef::DerivedRegion(_)
+                )
+            {
                 return Err(Error::Unavailable(format!(
-                    "no cognition owner is available for {}",
+                    "no semantic owner available for {}",
                     candidate.reference
                 )));
             } else {
@@ -282,20 +298,23 @@ impl CognitiveRuntimeService {
                 ranked.len().saturating_sub(validation_bound),
             );
         }
-        if let Some(owner) = contributors.memory {
-            let (hits, drops) = owner
-                .validate_and_materialize(query.subject, &by_owner, &bound)
-                .await?;
-            for hit in hits {
-                materialized.insert(hit.reference.clone(), hit);
+        for (index, owner) in owners.iter().enumerate() {
+            if let Some(owner) = owner {
+                let (hits, drops) = owner
+                    .validate_and_materialize(query.subject, &by_owner[index], &bound)
+                    .await?;
+                for hit in hits {
+                    materialized.insert(hit.reference.clone(), hit);
+                }
+                merge_counts(&mut validation_drops, drops);
             }
-            merge_counts(&mut validation_drops, drops);
         }
         for binding in &bound.exact_bindings {
             if binding.mutable_object {
-                let owner_validates = contributors
-                    .memory
-                    .is_some_and(|owner| owner.owns(&binding.bound_ref));
+                let owner_validates = owners
+                    .iter()
+                    .flatten()
+                    .any(|owner| owner.owns(&binding.bound_ref));
                 if owner_validates {
                     continue;
                 }
@@ -310,20 +329,17 @@ impl CognitiveRuntimeService {
                 }
             }
         }
-        let times = self.store.reference_times(query.subject, &generic).await?;
         for reference in generic {
             self.store
                 .validate_reference(query.subject, &reference)
                 .await?;
-            let metadata = &times[&reference];
-            if !metadata.matches(&query.expression.constraints) {
+            let hit = reference_hit(reference.clone(), EvidenceFamily::Exact, query);
+            if !generic_constraints_match(&query.expression.constraints) {
                 *validation_drops
-                    .entry("temporal_ineligible".into())
+                    .entry("constraint_ineligible".into())
                     .or_default() += 1;
                 continue;
             }
-            let mut hit = reference_hit(reference.clone(), EvidenceFamily::Exact, query);
-            hit.freshness = metadata.freshness();
             materialized.insert(reference, hit);
         }
         for candidate in ranked.into_iter().take(validation_bound) {
@@ -573,4 +589,20 @@ fn reference_hit(
             Vec::new()
         },
     }
+}
+
+// Runtime/host references carry no Material time or source claims.
+pub(super) fn generic_constraints_match(c: &QueryConstraints) -> bool {
+    c.occurred.is_none()
+        && c.observed.is_none()
+        && c.valid.is_none()
+        && c.formed.is_none()
+        && c.recorded.is_none()
+        && c.source_classes_include.is_empty()
+        && c.modalities.is_empty()
+        && c.evidence_classes.is_empty()
+        && c.cognitive_roles_include.is_empty()
+        && c.formation_modes_include.is_empty()
+        && c.entity_requirements.is_empty()
+        && c.authority.is_none()
 }

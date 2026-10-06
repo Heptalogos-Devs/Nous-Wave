@@ -47,23 +47,7 @@ pub fn unresolved_query_references(text: &str) -> Vec<UnresolvedQueryReference> 
     ] {
         for (start, _) in text.match_indices(pronoun) {
             let end = start + pronoun.len();
-            let boundary = |c: char| {
-                c.is_whitespace()
-                    || c.is_ascii_punctuation()
-                    || "，。！？、；：‘’“”（）【】".contains(c)
-            };
-            let left = text[..start].chars().next_back();
-            let right = text[end..].chars().next();
-            // Only a standalone token or a clear pronoun at a phrase boundary.
-            let clear_left =
-                left.is_none_or(boundary) || left.is_some_and(|c| "和与跟".contains(c));
-            let clear_right = right.is_none_or(boundary)
-                || [
-                    "和", "与", "在", "的", "昨天", "最近", "上次", "刚才", "怎么", "如何",
-                ]
-                .iter()
-                .any(|word| text[end..].starts_with(word));
-            if clear_left && clear_right {
+            if clear_chinese_pronoun(text, start, end) {
                 add(start, end, "pronoun");
             }
         }
@@ -99,40 +83,7 @@ pub fn unresolved_query_references(text: &str) -> Vec<UnresolvedQueryReference> 
             begin.get_or_insert(offset);
         } else if let Some(start) = begin.take() {
             let token = &text[start..offset];
-            if !matches!(token, "US" | "IT")
-                && matches!(
-                    token.to_ascii_lowercase().as_str(),
-                    "i" | "me"
-                        | "my"
-                        | "mine"
-                        | "we"
-                        | "us"
-                        | "our"
-                        | "ours"
-                        | "you"
-                        | "your"
-                        | "yours"
-                        | "he"
-                        | "him"
-                        | "his"
-                        | "she"
-                        | "her"
-                        | "hers"
-                        | "it"
-                        | "its"
-                        | "they"
-                        | "them"
-                        | "their"
-                        | "theirs"
-                        | "i'm"
-                        | "we're"
-                        | "you're"
-                        | "he's"
-                        | "she's"
-                        | "it's"
-                        | "they're"
-                )
-            {
+            if english_pronoun(token) {
                 add(start, offset, "pronoun");
             }
         }
@@ -148,6 +99,59 @@ pub fn unresolved_query_references(text: &str) -> Vec<UnresolvedQueryReference> 
         }
     }
     result
+}
+
+fn english_pronoun(token: &str) -> bool {
+    !matches!(token, "US" | "IT")
+        && matches!(
+            token.to_ascii_lowercase().as_str(),
+            "i" | "me"
+                | "my"
+                | "mine"
+                | "we"
+                | "us"
+                | "our"
+                | "ours"
+                | "you"
+                | "your"
+                | "yours"
+                | "he"
+                | "him"
+                | "his"
+                | "she"
+                | "her"
+                | "hers"
+                | "it"
+                | "its"
+                | "they"
+                | "them"
+                | "their"
+                | "theirs"
+                | "i'm"
+                | "we're"
+                | "you're"
+                | "he's"
+                | "she's"
+                | "it's"
+                | "they're"
+        )
+}
+
+fn clear_chinese_pronoun(text: &str, start: usize, end: usize) -> bool {
+    let boundary = |c: char| {
+        c.is_whitespace() || c.is_ascii_punctuation() || "，。！？、；：‘’“”（）【】".contains(c)
+    };
+    let left = text[..start].chars().next_back();
+    let right = text[end..].chars().next();
+    // Only a standalone token or a clear pronoun at a phrase boundary.
+    let clear_left = left.is_none_or(boundary) || left.is_some_and(|c| "和与跟".contains(c));
+    let clear_right = right.is_none_or(boundary)
+        || [
+            "和", "与", "在", "的", "昨天", "最近", "上次", "刚才", "怎么", "如何",
+        ]
+        .iter()
+        .any(|word| text[end..].starts_with(word));
+    clear_left && clear_right
 }
 
 pub fn validate_query_closure(query: &CognitiveQuery) -> Result<()> {

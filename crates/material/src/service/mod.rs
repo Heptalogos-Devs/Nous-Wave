@@ -3,6 +3,7 @@
 mod derivation;
 mod materialization;
 mod observation;
+mod query;
 mod segmentation;
 mod structured;
 pub use segmentation::DescriptionSegment;

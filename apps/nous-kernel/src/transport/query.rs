@@ -62,6 +62,7 @@ impl KernelService {
                     })
                     .collect::<Result<Vec<_>>>()?,
                 nous_runtime::CognitiveContributors {
+                    material: Some(&self.0.material),
                     shared: None,
                     memory: self
                         .0

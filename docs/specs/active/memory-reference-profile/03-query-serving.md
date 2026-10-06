@@ -1,10 +1,12 @@
 # Query & Serving
 
+长期寻址、Query preparation、概念维护和 owner materialization 语义依据 [Architecture-Vault `fd93e8c`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/fd93e8c649f5750a290ca524eae055ce025fb9a8/docs/Nous-Wave/TARGET_DESIGN.md)。
+
 [返回文档目录](../../INDEX.md)
 
 ## Owner
 
-Runtime (crates/runtime) owns QueryPlan, lane budgets, fusion and result contracts. Retrieval (crates/retrieval) implements serving lanes and generations; Core performs model/resource host actions; Memory validates final Authority.
+Runtime (crates/runtime) owns QueryPlan, lane budgets, fusion and result contracts. Retrieval (crates/retrieval) implements serving lanes and generations; Core performs model/resource host actions; Memory and Material validate and materialize their own final Authority.
 
 ## BoundQuery
 
@@ -92,4 +94,4 @@ Native seed preparation first uses closed exact/context/Entity/Tag/relation anch
 Topology projection includes every current accepted/valid/unsuppressed Memory, Episode, Journal and CognitiveSchema revision when Memory capability is enabled. Existing Episode cognition members/exact supports, Journal sources, Memory dependencies and active supporting Schema evidence links supply `cognition_support` edges in both traversal directions, with one shared exact structure identity. These are source/organization adjacency, not causal or independently learned associations. Historical, withdrawn or suppressed endpoints, revoked Schema evidence, counterexamples and contradiction supports do not create positive source edges. Explicit AssociationEvidence to inactive cognition is excluded from the current graph. The topology implementation revision is 9, so older graph/VCP assets rebuild while compatible vectors remain reusable.
 
 
-Generic evidence materialization resolves temporal metadata in a bounded Subject-scoped batch. Occurrence times come from the actual Observation; SourceRegion and derived evidence follow their real source artifacts/representation roots. An eligible source row must jointly satisfy requested occurred/observed/recorded predicates; multiple origins cannot satisfy separate predicates by mixing rows. Recorded time belongs to the returned object, and interpretation formation time is distinct from source observation. Unknown time does not satisfy a requested temporal axis, and evidence has no inferred world-valid claim. Initial owner materialization and final validation both enforce these predicates and publish known freshness. Schema owner materialization also applies all five axes and follows exact source lineage, including Memory evidence/dependencies, for occurred/observed metadata.
+Material owner validates and materializes Artifact/Occurrence/SourceRegion/DerivedRepresentation/DerivedRegion in bounded Subject-scoped batches, including rerank final validation. Runtime groups candidate refs by semantic owner and does not interpret Material lineage or time through Persistence. Occurrence times come from the actual Observation; SourceRegion and derived evidence follow their real source artifacts/representation roots. An eligible source row must jointly satisfy requested occurred/observed/recorded predicates; multiple origins cannot satisfy separate predicates by mixing rows. Recorded time belongs to the returned object, and interpretation formation time is distinct from source observation. Unknown time does not satisfy a requested temporal axis, and evidence has no inferred world-valid claim. Initial owner materialization and final validation both enforce these predicates and publish known freshness. Schema owner materialization also applies all five axes and follows exact source lineage, including Memory evidence/dependencies, for occurred/observed metadata.

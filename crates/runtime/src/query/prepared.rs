@@ -209,34 +209,30 @@ impl CognitiveRuntimeService {
             .count();
         let mut outputs = vec![Vec::new(); leaf_count];
         for leaf in &execution.leaves {
-            let memory_refs: Vec<_> = leaf
-                .hits
-                .iter()
-                .filter(|hit| {
-                    contributors
-                        .memory
-                        .is_some_and(|owner| owner.owns(&hit.reference))
-                })
-                .map(|hit| hit.reference.clone())
-                .collect();
-            let fresh: HashMap<_, _> = if let Some(owner) = contributors.memory {
-                owner
-                    .validate_and_materialize(subject, &memory_refs, &leaf.bound)
-                    .await?
-                    .0
-                    .into_iter()
-                    .map(|hit| (hit.reference.clone(), hit))
-                    .collect()
-            } else {
-                HashMap::new()
-            };
+            let mut fresh = HashMap::new();
+            for owner in [contributors.memory, contributors.material]
+                .into_iter()
+                .flatten()
+            {
+                let references = leaf
+                    .hits
+                    .iter()
+                    .filter(|hit| owner.owns(&hit.reference))
+                    .map(|hit| hit.reference.clone())
+                    .collect::<Vec<_>>();
+                let (hits, _) = owner
+                    .validate_and_materialize(subject, &references, &leaf.bound)
+                    .await?;
+                fresh.extend(hits.into_iter().map(|hit| (hit.reference.clone(), hit)));
+            }
             for hit in &leaf.hits {
                 if !pool.contains(&hit.reference) {
                     continue;
                 }
-                let valid = if contributors
-                    .memory
-                    .is_some_and(|owner| owner.owns(&hit.reference))
+                let valid = if [contributors.memory, contributors.material]
+                    .into_iter()
+                    .flatten()
+                    .any(|owner| owner.owns(&hit.reference))
                 {
                     same_stamp(fresh.get(&hit.reference), hit)
                 } else {
@@ -322,13 +318,9 @@ impl CognitiveRuntimeService {
             }
         }
         match self.store.validate_reference(subject, reference).await {
-            Ok(()) => {
-                let times = self
-                    .store
-                    .reference_times(subject, std::slice::from_ref(reference))
-                    .await?;
-                Ok(times[reference].matches(&bound.source_query.expression.constraints))
-            }
+            Ok(()) => Ok(super::orchestrate::generic_constraints_match(
+                &bound.source_query.expression.constraints,
+            )),
             Err(Error::NotFound(_)) | Err(Error::Invalid(_)) => Ok(false),
             Err(error) => Err(error),
         }

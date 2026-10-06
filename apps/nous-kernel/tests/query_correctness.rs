@@ -240,6 +240,7 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
             _ => {}
         }
         let contributors = || nous_runtime::CognitiveContributors {
+            material: Some(&runtime.material),
             shared: None,
             memory: Some(runtime.require_memory().unwrap()),
         };
@@ -637,6 +638,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
             order,
             Vec::new(),
             nous_runtime::CognitiveContributors {
+                material: Some(&runtime.material),
                 shared: None,
                 memory: Some(runtime.require_memory().unwrap()),
             },
@@ -850,6 +852,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         .query_with_plan(
             bound,
             nous_runtime::CognitiveContributors {
+                material: Some(&runtime.material),
                 shared: None,
                 memory: Some(memory_service as &dyn nous_runtime::CognitiveContributor),
             },
@@ -2658,6 +2661,7 @@ async fn evidence_time_constraints_filter_occurrences_and_regions_through_finali
             Vec::new(),
             Vec::new(),
             nous_runtime::CognitiveContributors {
+                material: Some(&runtime.material),
                 shared: None,
                 memory: runtime
                     .memory
@@ -2674,5 +2678,161 @@ async fn evidence_time_constraints_filter_occurrences_and_regions_through_finali
             .results
             .iter()
             .any(|hit| hit.reference == future_region)
+    );
+}
+
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one real Material cohort protects joint source axes and derived owner timestamps"
+)]
+async fn material_query_keeps_joint_observation_axes_and_derived_formation_time() {
+    use nous_material::{
+        DerivationInput, DerivedRepresentation, ObservationInput, ObservationMaterial,
+        OccurrenceDescriptor, RuntimeDirective,
+    };
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let now = Utc::now();
+    let early = now - Duration::days(2);
+    let late = now - Duration::days(1);
+    let cutoff = early + Duration::hours(12);
+    let mut observations = Vec::new();
+    for (occurred, observed) in [(early, late), (late, early)] {
+        observations.push(
+            runtime
+                .material
+                .record_observation(ObservationInput {
+                    subject,
+                    session: None,
+                    occurrence: OccurrenceDescriptor {
+                        source_class: nous_core::SourceClass::File,
+                        external_object_ref: None,
+                        occurred_time: TemporalExtent::Instant { at: occurred },
+                        observed_at: Some(observed),
+                        conversation_ref: None,
+                        actor_entity_ref: None,
+                        context: serde_json::json!({}),
+                    },
+                    material: ObservationMaterial::InlineText {
+                        text: "the same jointly observed source".into(),
+                        media_type: "text/plain".into(),
+                    },
+                    entities: Vec::new(),
+                    runtime: RuntimeDirective::default(),
+                })
+                .await
+                .unwrap(),
+        );
+    }
+    assert_eq!(
+        observations[0].artifact.as_ref().unwrap().artifact_id,
+        observations[1].artifact.as_ref().unwrap().artifact_id
+    );
+    let source = CognitiveRef::SourceRegion(
+        observations[0]
+            .source_region
+            .as_ref()
+            .unwrap()
+            .source_region_id,
+    );
+    let derived = runtime
+        .material
+        .persist_derived_representation(DerivedRepresentation {
+            derived_representation_id: nous_core::DerivedRepresentationId::new(),
+            subject_id: subject,
+            inputs: vec![DerivationInput {
+                ordinal: 0,
+                reference: source.clone(),
+                role: "source".into(),
+            }],
+            strategy: "deterministic-test".into(),
+            representation_kind: nous_core::RepresentationKind::ExtractedText,
+            producer: nous_core::ProducerSignature {
+                signature_hash: String::new(),
+                provider_class: "local-test".into(),
+                operation: nous_core::CapabilityOperation::TextInterpretation,
+                implementation: "joint-time-test".into(),
+                model_identity: None,
+                model_revision: None,
+                output_schema_digest: None,
+                preprocessing_identity: "utf8".into(),
+                preprocessing_revision: "1".into(),
+                config_digest: "test".into(),
+            },
+            revision: 1,
+            payload_text: Some("the same jointly observed source".into()),
+            payload_json: None,
+            payload_artifact_id: None,
+            quality: serde_json::json!({}),
+            created_at: early,
+            supersedes: None,
+        })
+        .await
+        .unwrap();
+    let derived_ref = CognitiveRef::DerivedRepresentation(derived.derived_representation_id);
+    for reference in [source, derived_ref.clone()] {
+        let mut input = query(subject);
+        input.expression.targets = vec![QueryTarget::Exact {
+            reference: reference.clone(),
+        }];
+        input.expression.constraints.occurred = Some(TimeInterval {
+            start: None,
+            end: Some(cutoff),
+        });
+        input.expression.constraints.observed = Some(TimeInterval {
+            start: None,
+            end: Some(cutoff),
+        });
+        let result = runtime.execute_query(input.clone(), None).await.unwrap();
+        assert!(
+            result.result.results.is_empty(),
+            "different observations cannot supply separate requested axes"
+        );
+        input.expression.constraints.observed = Some(TimeInterval {
+            start: Some(cutoff),
+            end: Some(now),
+        });
+        let result = runtime.execute_query(input, None).await.unwrap();
+        assert_eq!(result.result.results.len(), 1);
+    }
+    let mut temporal = query(subject);
+    temporal.expression.targets = vec![QueryTarget::Evidence];
+    temporal.expression.constraints.occurred = Some(TimeInterval {
+        start: None,
+        end: Some(cutoff),
+    });
+    temporal.expression.constraints.observed = Some(TimeInterval {
+        start: Some(cutoff),
+        end: Some(now),
+    });
+    let result = runtime.execute_query(temporal, None).await.unwrap();
+    assert_eq!(result.result.results.len(), 1);
+    assert_eq!(
+        result.result.results[0].reference,
+        CognitiveRef::Occurrence(observations[0].occurrence.occurrence_id)
+    );
+    let mut input = query(subject);
+    input.expression.targets = vec![QueryTarget::Exact {
+        reference: derived_ref,
+    }];
+    let result = runtime.execute_query(input.clone(), None).await.unwrap();
+    let freshness = &result.result.results[0].freshness;
+    assert!(freshness.formed_at.unwrap() >= now);
+    assert!(freshness.observed_at.unwrap() < now);
+    assert!(matches!(freshness.valid_time, TemporalExtent::Unknown));
+    input.expression.constraints.formed = Some(TimeInterval {
+        start: None,
+        end: Some(now),
+    });
+    assert!(
+        runtime
+            .execute_query(input, None)
+            .await
+            .unwrap()
+            .result
+            .results
+            .is_empty()
     );
 }

@@ -191,6 +191,7 @@ impl NousRuntime {
             .execute_query_with_plan(
                 bound,
                 nous_runtime::CognitiveContributors {
+                    material: Some(&self.material),
                     shared: Some(serving_query.as_ref()),
                     memory: subject_capabilities
                         .memory
