@@ -1,4 +1,4 @@
-use super::{CognitiveContributors, QueryExecution};
+use super::{BoundQuery, CognitiveContributors, QueryExecution};
 use crate::CognitiveRuntimeService;
 use nous_core::*;
 use std::collections::{HashMap, HashSet, hash_map::Entry};
@@ -8,10 +8,81 @@ use uuid::Uuid;
 pub(crate) struct PendingQuery {
     created: Instant,
     lease: Duration,
-    execution: QueryExecution,
+    snapshot: QuerySnapshot,
+}
+enum QuerySnapshot {
+    Prepared(Box<BoundQuery>),
+    Executed(Box<QueryExecution>),
+}
+impl QuerySnapshot {
+    fn bound(&self) -> &BoundQuery {
+        match self {
+            Self::Prepared(bound) => bound,
+            Self::Executed(execution) => &execution.bound,
+        }
+    }
 }
 
 impl CognitiveRuntimeService {
+    pub fn expire_query_leases(&self) -> Result<()> {
+        let mut pending = self
+            .pending_queries
+            .lock()
+            .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
+        pending.retain(|_, value| value.created.elapsed() < value.lease);
+        Ok(())
+    }
+
+    pub fn retain_prepared_query(&self, bound: BoundQuery) -> Result<Uuid> {
+        let mut pending = self
+            .pending_queries
+            .lock()
+            .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
+        pending.retain(|_, value| value.created.elapsed() < value.lease);
+        if pending.len() >= bound.config_snapshot.get(crate::QUERY_SLOTS)? {
+            return Err(Error::Unavailable("prepared query slots are busy".into()));
+        }
+        let token = Uuid::new_v4();
+        pending.insert(
+            token,
+            PendingQuery {
+                created: Instant::now(),
+                lease: Duration::from_secs(bound.config_snapshot.get(crate::QUERY_LEASE)?),
+                snapshot: QuerySnapshot::Prepared(Box::new(bound)),
+            },
+        );
+        Ok(token)
+    }
+    pub fn take_prepared_query(&self, subject: SubjectId, token: Uuid) -> Result<BoundQuery> {
+        let mut pending = self
+            .pending_queries
+            .lock()
+            .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
+        let entry = pending
+            .get(&token)
+            .ok_or_else(|| Error::NotFound("prepared query expired or consumed".into()))?;
+        if entry.snapshot.bound().source_query.subject != subject {
+            return Err(Error::Invalid(
+                "prepared query belongs to another Subject".into(),
+            ));
+        }
+        if !matches!(entry.snapshot, QuerySnapshot::Prepared(_)) {
+            return Err(Error::Invalid(
+                "execution ticket is not a preparation token".into(),
+            ));
+        }
+        let value = pending
+            .remove(&token)
+            .ok_or_else(|| Error::NotFound("prepared query disappeared".into()))?;
+        if value.created.elapsed() >= value.lease {
+            return Err(Error::Unavailable("prepared query expired".into()));
+        }
+        match value.snapshot {
+            QuerySnapshot::Prepared(bound) => Ok(*bound),
+            QuerySnapshot::Executed(_) => Err(Error::Invalid("not a preparation token".into())),
+        }
+    }
+
     pub fn retain_query(
         &self,
         execution: QueryExecution,
@@ -52,7 +123,7 @@ impl CognitiveRuntimeService {
                 lease: Duration::from_secs(
                     execution.bound.config_snapshot.get(crate::QUERY_LEASE)?,
                 ),
-                execution,
+                snapshot: QuerySnapshot::Executed(Box::new(execution)),
             },
         );
         Ok((result, Some(ticket)))
@@ -65,16 +136,24 @@ impl CognitiveRuntimeService {
         let Entry::Occupied(entry) = pending.entry(ticket) else {
             return Err(Error::NotFound("query lease expired or consumed".into()));
         };
-        if entry.get().execution.bound.source_query.subject != subject {
+        if entry.get().snapshot.bound().source_query.subject != subject {
             return Err(Error::Invalid(
                 "query lease belongs to a different Subject".into(),
             ));
+        }
+        if !matches!(entry.get().snapshot, QuerySnapshot::Executed(_)) {
+            return Err(Error::Invalid("query ticket has not executed".into()));
         }
         let value = entry.remove();
         if value.created.elapsed() >= value.lease {
             return Err(Error::Unavailable("query lease expired".into()));
         }
-        Ok(value.execution)
+        match value.snapshot {
+            QuerySnapshot::Executed(execution) => Ok(*execution),
+            QuerySnapshot::Prepared(_) => {
+                Err(Error::Invalid("query ticket has not executed".into()))
+            }
+        }
     }
     pub fn release_query(&self, subject: SubjectId, ticket: Uuid) -> Result<()> {
         let mut pending = self
@@ -83,7 +162,7 @@ impl CognitiveRuntimeService {
             .map_err(|_| Error::Infrastructure("query lease lock unavailable".into()))?;
         if pending
             .get(&ticket)
-            .is_some_and(|value| value.execution.bound.source_query.subject != subject)
+            .is_some_and(|value| value.snapshot.bound().source_query.subject != subject)
         {
             return Err(Error::Invalid(
                 "query lease belongs to a different Subject".into(),
@@ -130,34 +209,30 @@ impl CognitiveRuntimeService {
             .count();
         let mut outputs = vec![Vec::new(); leaf_count];
         for leaf in &execution.leaves {
-            let memory_refs: Vec<_> = leaf
-                .hits
-                .iter()
-                .filter(|hit| {
-                    contributors
-                        .memory
-                        .is_some_and(|owner| owner.owns(&hit.reference))
-                })
-                .map(|hit| hit.reference.clone())
-                .collect();
-            let fresh: HashMap<_, _> = if let Some(owner) = contributors.memory {
-                owner
-                    .validate_and_materialize(subject, &memory_refs, &leaf.bound)
-                    .await?
-                    .0
-                    .into_iter()
-                    .map(|hit| (hit.reference.clone(), hit))
-                    .collect()
-            } else {
-                HashMap::new()
-            };
+            let mut fresh = HashMap::new();
+            for owner in [contributors.memory, contributors.material]
+                .into_iter()
+                .flatten()
+            {
+                let references = leaf
+                    .hits
+                    .iter()
+                    .filter(|hit| owner.owns(&hit.reference))
+                    .map(|hit| hit.reference.clone())
+                    .collect::<Vec<_>>();
+                let (hits, _) = owner
+                    .validate_and_materialize(subject, &references, &leaf.bound)
+                    .await?;
+                fresh.extend(hits.into_iter().map(|hit| (hit.reference.clone(), hit)));
+            }
             for hit in &leaf.hits {
                 if !pool.contains(&hit.reference) {
                     continue;
                 }
-                let valid = if contributors
-                    .memory
-                    .is_some_and(|owner| owner.owns(&hit.reference))
+                let valid = if [contributors.memory, contributors.material]
+                    .into_iter()
+                    .flatten()
+                    .any(|owner| owner.owns(&hit.reference))
                 {
                     same_stamp(fresh.get(&hit.reference), hit)
                 } else {
@@ -243,7 +318,9 @@ impl CognitiveRuntimeService {
             }
         }
         match self.store.validate_reference(subject, reference).await {
-            Ok(()) => Ok(true),
+            Ok(()) => Ok(super::orchestrate::generic_constraints_match(
+                &bound.source_query.expression.constraints,
+            )),
             Err(Error::NotFound(_)) | Err(Error::Invalid(_)) => Ok(false),
             Err(error) => Err(error),
         }

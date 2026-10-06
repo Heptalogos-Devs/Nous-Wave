@@ -206,3 +206,18 @@ impl MemoryService {
         Ok(())
     }
 }
+
+fn canonical_schema_producer(
+    producer: Option<&ProducerSignature>,
+) -> Result<Option<ProducerSignature>> {
+    producer
+        .map(|producer| {
+            if producer.operation != CapabilityOperation::MemoryConsolidationText {
+                return Err(Error::Invalid(
+                    "Schema producer requires a cognition consolidation operation".into(),
+                ));
+            }
+            AuthorityStore::canonical_producer(producer)
+        })
+        .transpose()
+}

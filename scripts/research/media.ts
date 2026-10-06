@@ -19,6 +19,7 @@ type Unit = {
   context?: Record<string, string>;
   query: string;
   oracle_patterns: string[];
+  oracle_patterns_by_representation_kind?: Record<string, string[]>;
   oracle_status: "PASS" | "NOT_RUN";
 };
 type Receipt = {
@@ -41,6 +42,7 @@ const { values } = parseArgs({
     unit: { type: "string", multiple: true },
     strategy: { type: "string", multiple: true },
     "derive-only": { type: "boolean", default: false },
+    "allow-degradation": { type: "string", multiple: true },
     "skip-retrieval": { type: "boolean", default: false },
     "raw-root": {
       type: "string",
@@ -204,7 +206,10 @@ for (const unit of units) {
       const selected = derived.representations.find(
         (item) => item.representationId === derived.selectedRepresentationId,
       );
-      if (!selected || derived.degradation.length)
+      const unexpectedDegradation = derived.degradation.filter(
+        (item) => !values["allow-degradation"]?.includes(item.code),
+      );
+      if (!selected || unexpectedDegradation.length)
         throw new Error(`Derivation incomplete: ${json(derived.degradation)}`);
       if (strategy !== "description_only" && !selected.structuredPayload)
         throw new Error("Structured strategy did not commit a JSON payload");
@@ -225,7 +230,10 @@ for (const unit of units) {
           `Formation did not commit Memory: ${json(formed.degradation)}`,
         );
       if (formed?.memory) operation.revisionId = formed.memory.revisionId;
-      const missingFacts = unit.oracle_patterns.filter(
+      const oraclePatterns =
+        unit.oracle_patterns_by_representation_kind?.[selected.kind] ??
+        unit.oracle_patterns;
+      const missingFacts = oraclePatterns.filter(
         (pattern) => !new RegExp(pattern, "is").test(selected.text ?? ""),
       );
       const roots = new Set<string>(),

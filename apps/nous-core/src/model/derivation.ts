@@ -292,7 +292,10 @@ export async function deriveMaterial(
     catalog: { S000: { kind: "source_region", value: request.sourceRegionId } },
   };
   const signal = options.signal ?? undefined;
-  const structureDescription = async (description: DerivedRepresentation) => {
+  const structureDescription = async (
+    description: DerivedRepresentation,
+    available: StructuredMaterialContext = directContext,
+  ) => {
     const { segments } = await kernel.materialWorkflow.segmentDescription(
       { subjectId: request.subjectId, id: description.representationId },
       options,
@@ -324,7 +327,7 @@ export async function deriveMaterial(
           segments.map((item) => `[${item.key}] ${item.text}`).join("\n"),
           signal,
           snapshot,
-          { ...directContext, catalog },
+          { ...available, catalog },
         ),
       {},
       canonicalDigest({
@@ -418,6 +421,7 @@ export async function deriveMaterial(
         signal,
       );
       let transcript: string | undefined;
+      let transcriptReference: { kind: string; value: string } | undefined;
       const sceneInputs = [...inputs];
       const degradation: { code: string; detail: string }[] = [];
       if (samples.audio) {
@@ -441,6 +445,10 @@ export async function deriveMaterial(
             samples.preprocessingDigest,
           );
           transcript = representation.text;
+          transcriptReference = {
+            kind: "derived_representation",
+            value: representation.representationId,
+          };
           sceneInputs.push({
             ordinal: 1,
             reference: {
@@ -461,6 +469,14 @@ export async function deriveMaterial(
           code: "video_audio_not_interpreted",
           detail: "Audio is not included in the scene description",
         });
+      const sceneContext: StructuredMaterialContext = {
+        ...directContext,
+        audio: Boolean(transcript),
+        catalog: {
+          ...directContext.catalog,
+          ...(transcriptReference ? { T001: transcriptReference } : {}),
+        },
+      };
       const selected = await paid(
         strategy === "direct_structured"
           ? "structured_interpretation"
@@ -476,7 +492,7 @@ export async function deriveMaterial(
             strategy === "direct_structured",
             signal,
             snapshot,
-            directContext,
+            sceneContext,
           ),
         samples.quality,
         samples.preprocessingDigest,
@@ -484,7 +500,7 @@ export async function deriveMaterial(
       );
       if (strategy === "describe_then_structure") {
         try {
-          await structureDescription(selected);
+          await structureDescription(selected, sceneContext);
         } catch {
           if (signal?.aborted) throw signal.reason;
           degradation.push({

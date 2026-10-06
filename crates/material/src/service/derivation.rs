@@ -112,6 +112,7 @@ impl MaterialService {
             tx.commit().await.map_err(db)?;
             return Ok(representation);
         }
+        representation.created_at = self.cognition.now(representation.subject_id);
         let producer_id =
             AuthorityStore::register_producer_in(&mut tx, &representation.producer).await?;
         sqlx::query("INSERT INTO derived_representations(derived_representation_id,subject_id,input_digest,strategy,derivation_key,representation_kind,producer_signature_id,revision,payload_text,payload_artifact_id,quality,created_at,supersedes,payload_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)")
@@ -140,6 +141,14 @@ impl MaterialService {
         region.validate()?;
         let mut tx = self.store.begin().await?;
         region.derived_region_id = self.insert_derived_region_in_tx(&mut tx, &region).await?;
+        region.created_at = sqlx::query_scalar(
+            "SELECT created_at FROM derived_regions WHERE derived_region_id=$1 AND subject_id=$2",
+        )
+        .bind(region.derived_region_id.0)
+        .bind(region.subject_id.0)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
         nous_persistence::AuthorityStore::invalidate_in(
             &mut tx,
             region.subject_id,
@@ -193,7 +202,7 @@ impl MaterialService {
             .bind(&region.coordinate)
             .bind(&region.coordinate_hash)
             .bind(region.parent_derived_region_id.map(|id| id.0))
-            .bind(region.created_at)
+            .bind(self.cognition.now(region.subject_id))
             .fetch_one(&mut **tx)
             .await
             .map_err(db)?;

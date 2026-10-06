@@ -8,164 +8,6 @@ pub struct InitializeHostRuntimeRequest {
     pub resolved_embedding: ::core::option::Option<::prost_types::Struct>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct ExpectedCognition {
-    #[prost(message, optional, tag="1")]
-    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
-    #[prost(int64, tag="2")]
-    pub expected_epoch: i64,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ConsolidationMemoryContent {
-    #[prost(string, tag="1")]
-    pub cognitive_role: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub formation_mode: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="3")]
-    pub grounding_occurrence_id: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, tag="4")]
-    pub semantic_role: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
-    pub text: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="6")]
-    pub title: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, repeated, tag="7")]
-    pub supports: ::prost::alloc::vec::Vec<super::super::v1alpha1::RevisionSupport>,
-    #[prost(string, repeated, tag="8")]
-    pub aboutness: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(message, optional, tag="9")]
-    pub valid_time: ::core::option::Option<super::super::v1alpha1::TemporalExtent>,
-    #[prost(string, tag="10")]
-    pub epistemic_class: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ConsolidationSchemaContent {
-    #[prost(string, optional, tag="1")]
-    pub title: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, tag="2")]
-    pub structural_claim: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="3")]
-    pub applicability_scope: ::core::option::Option<super::super::v1alpha1::SchemaScope>,
-    #[prost(string, tag="4")]
-    pub boundary_definition: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
-    pub formation_kind: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag="6")]
-    pub evidence_links: ::prost::alloc::vec::Vec<super::super::v1alpha1::SchemaEvidenceLink>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct ConsolidationResultRef {
-    #[prost(oneof="consolidation_result_ref::Target", tags="1, 2")]
-    pub target: ::core::option::Option<consolidation_result_ref::Target>,
-}
-/// Nested message and enum types in `ConsolidationResultRef`.
-pub mod consolidation_result_ref {
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
-    pub enum Target {
-        #[prost(message, tag="1")]
-        Reference(super::super::super::v1alpha1::CognitiveRef),
-        #[prost(uint32, tag="2")]
-        ActionIndex(u32),
-    }
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct SkipConsolidationAction {
-    #[prost(string, tag="1")]
-    pub reason: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CreateMemoryConsolidationAction {
-    #[prost(message, optional, tag="1")]
-    pub content: ::core::option::Option<ConsolidationMemoryContent>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ReviseMemoryConsolidationAction {
-    #[prost(message, optional, tag="1")]
-    pub target: ::core::option::Option<ExpectedCognition>,
-    #[prost(string, tag="2")]
-    pub intent: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="3")]
-    pub content: ::core::option::Option<ConsolidationMemoryContent>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CreateSchemaConsolidationAction {
-    #[prost(message, optional, tag="1")]
-    pub content: ::core::option::Option<ConsolidationSchemaContent>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ReviseSchemaConsolidationAction {
-    #[prost(message, optional, tag="1")]
-    pub target: ::core::option::Option<ExpectedCognition>,
-    #[prost(string, tag="2")]
-    pub intent: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="3")]
-    pub content: ::core::option::Option<ConsolidationSchemaContent>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct LinkRelationConsolidationAction {
-    #[prost(message, optional, tag="1")]
-    pub from: ::core::option::Option<ConsolidationResultRef>,
-    #[prost(message, optional, tag="2")]
-    pub to: ::core::option::Option<ConsolidationResultRef>,
-    #[prost(string, tag="3")]
-    pub relation: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct LongitudinalConsolidationAction {
-    #[prost(oneof="longitudinal_consolidation_action::Action", tags="1, 2, 3, 4, 5, 6")]
-    pub action: ::core::option::Option<longitudinal_consolidation_action::Action>,
-}
-/// Nested message and enum types in `LongitudinalConsolidationAction`.
-pub mod longitudinal_consolidation_action {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Action {
-        #[prost(message, tag="1")]
-        Skip(super::SkipConsolidationAction),
-        #[prost(message, tag="2")]
-        CreateMemory(super::CreateMemoryConsolidationAction),
-        #[prost(message, tag="3")]
-        ReviseMemory(super::ReviseMemoryConsolidationAction),
-        #[prost(message, tag="4")]
-        CreateSchema(super::CreateSchemaConsolidationAction),
-        #[prost(message, tag="5")]
-        ReviseSchema(super::ReviseSchemaConsolidationAction),
-        #[prost(message, tag="6")]
-        LinkRelation(super::LinkRelationConsolidationAction),
-    }
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CommitLongitudinalConsolidationRequest {
-    #[prost(string, tag="1")]
-    pub operation_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub subject_id: ::prost::alloc::string::String,
-    #[prost(int64, tag="3")]
-    pub expected_authority_seq: i64,
-    #[prost(message, optional, tag="4")]
-    pub source: ::core::option::Option<ExpectedCognition>,
-    #[prost(message, repeated, tag="5")]
-    pub context: ::prost::alloc::vec::Vec<ExpectedCognition>,
-    #[prost(message, optional, tag="6")]
-    pub producer: ::core::option::Option<super::super::v1alpha1::ProducerSignature>,
-    #[prost(message, repeated, tag="7")]
-    pub actions: ::prost::alloc::vec::Vec<LongitudinalConsolidationAction>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct ConsolidationActionResult {
-    #[prost(uint32, tag="1")]
-    pub action_index: u32,
-    #[prost(message, optional, tag="2")]
-    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CommitLongitudinalConsolidationResponse {
-    #[prost(string, tag="1")]
-    pub status: ::prost::alloc::string::String,
-    #[prost(int64, tag="2")]
-    pub authority_seq: i64,
-    #[prost(message, repeated, tag="3")]
-    pub results: ::prost::alloc::vec::Vec<ConsolidationActionResult>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UploadHeader {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
@@ -465,6 +307,10 @@ pub struct MaintenancePlan {
     pub support_catalog_partial: bool,
     #[prost(bool, tag="19")]
     pub provenance_roots_partial: bool,
+    #[prost(message, optional, tag="20")]
+    pub concept_catalog: ::core::option::Option<ConceptMaintenanceCatalog>,
+    #[prost(string, optional, tag="21")]
+    pub concept_model_input_json: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RefreshMaintenanceRequest {
@@ -487,6 +333,8 @@ pub struct ConsolidationCandidate {
     pub entity_refs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="7")]
     pub r#use: ::prost::alloc::vec::Vec<UseSummary>,
+    #[prost(string, repeated, tag="11")]
+    pub eligible_support_keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, optional, tag="8")]
     pub valid_time: ::core::option::Option<super::super::v1alpha1::TemporalExtent>,
     #[prost(message, optional, tag="9")]
@@ -517,6 +365,64 @@ pub struct UseSummary {
     #[prost(message, optional, tag="3")]
     pub last_used_at: ::core::option::Option<::prost_types::Timestamp>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConceptMaintenanceCatalog {
+    #[prost(uint32, tag="1")]
+    pub max_suggestions: u32,
+    #[prost(string, tag="2")]
+    pub config_digest: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="3")]
+    pub references: ::prost::alloc::vec::Vec<ConceptReference>,
+    #[prost(message, repeated, tag="4")]
+    pub tags: ::prost::alloc::vec::Vec<ConceptTag>,
+    #[prost(message, repeated, tag="5")]
+    pub associations: ::prost::alloc::vec::Vec<ConceptAssociation>,
+    #[prost(message, repeated, tag="6")]
+    pub supports: ::prost::alloc::vec::Vec<ConceptSupport>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConceptReference {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConceptTag {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub target: ::core::option::Option<super::super::v1alpha1::TagRevisionTarget>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConceptAssociation {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub association_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub from_key: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub to_key: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub relation: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConceptSupport {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub support: ::core::option::Option<super::super::v1alpha1::AssociationSupport>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExpectedCognition {
+    #[prost(message, optional, tag="1")]
+    pub reference: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
+    #[prost(int64, tag="2")]
+    pub expected_epoch: i64,
+    #[prost(string, tag="3")]
+    pub object_id: ::prost::alloc::string::String,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingConfig {
     #[prost(string, tag="1")]
@@ -540,13 +446,22 @@ pub struct QueryEmbedding {
     pub vector: ::prost::alloc::vec::Vec<f32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct KernelQueryRequest {
+pub struct PrepareQueryRequest {
     #[prost(message, optional, tag="1")]
     pub query: ::core::option::Option<super::super::v1alpha1::QueryRequest>,
+    #[prost(bool, tag="2")]
+    pub reserve_execution: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct KernelQueryRequest {
     #[prost(message, repeated, tag="2")]
     pub embeddings: ::prost::alloc::vec::Vec<QueryEmbedding>,
     #[prost(uint32, optional, tag="3")]
     pub validated_candidate_limit: ::core::option::Option<u32>,
+    #[prost(string, tag="4")]
+    pub preparation_token: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub subject_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct KernelQueryResponse {

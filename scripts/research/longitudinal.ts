@@ -1,11 +1,8 @@
 import { parseArgs } from "node:util";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { randomUUID } from "node:crypto";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { MaintenancePlanSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
-import { ProducerSignatureSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
-import { create } from "@bufbuild/protobuf";
 import {
   parseConfiguration,
   parseEffectiveConfiguration,
@@ -18,7 +15,6 @@ import {
   journalSupportKeys,
 } from "../../apps/nous-core/src/model/schemas/longitudinal.js";
 import { consolidationSchema } from "../../apps/nous-core/src/model/schemas/consolidation.js";
-import { consolidationRequest } from "../../apps/nous-core/src/maintenance/consolidation.js";
 
 const { values } = parseArgs({
   options: {
@@ -109,13 +105,7 @@ async function run() {
     );
   } else {
     result = await models.consolidate(input, signal.signal, snapshot);
-    // Check supplied catalog keys using the production mapper; commit remains an owner operation.
-    consolidationRequest(
-      plan,
-      consolidationSchema.parse(result.value),
-      randomUUID(),
-      create(ProducerSignatureSchema),
-    );
+    consolidationSchema.parse(result.value);
   }
   await mkdir(dirname(resolve(values.output)), { recursive: true });
   await writeFile(

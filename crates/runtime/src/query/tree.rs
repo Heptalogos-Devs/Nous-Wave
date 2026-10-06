@@ -348,6 +348,10 @@ impl CognitiveRuntimeService {
                         .lane_status
                         .insert(format!("branch_{index}_{key}"), value);
                 }
+                if let Some(trace) = diagnostics.trace {
+                    target.trace.get_or_insert_with(|| serde_json::json!({}))
+                        [format!("branch_{index}")] = trace;
+                }
                 if let Some(complete) = diagnostics.topology_complete {
                     target.topology_complete =
                         Some(target.topology_complete.unwrap_or(true) && complete);
@@ -361,6 +365,7 @@ impl CognitiveRuntimeService {
         }
         finalize(&bound, &mut result, outputs, output_limit);
         Ok(super::QueryExecution {
+            read_lease: None,
             bound,
             result,
             leaves: snapshots,

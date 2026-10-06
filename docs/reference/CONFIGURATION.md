@@ -1,5 +1,7 @@
 # Configuration Service 当前参考
 
+[返回 Reference](README.md)
+
 操作者配置位于 `ConfigurationRoot/nous.toml`，声明 `config_revision = 2`。配置使用自然 TOML section；完整示例见 [nous.toml](examples/nous.toml)。[bootstrap.toml](examples/bootstrap.toml) 只定位独立运行目录。
 
 ## Catalog 与所有权
@@ -74,6 +76,9 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 | Setting | 默认值 | 单位/含义 |
 | --- | --- | --- |
+| `maintenance.concept` | 16 candidates / 4 suggestions | Developer、Live、AuthorityFormation：局部 Tag 候选和逐项 ordered suggestions；候选范围 1..32，建议范围 1..4 |
+| `maintenance.concept_use_review_interval` | 3 | Advanced、Live、AuthorityFormation：meaningful use count 跨 interval 时排入 concept review，范围 1..128 |
+| `maintenance.accretion` | enabled / generic_degree 32 / recurrence_review 3 | Developer、Live、AuthorityFormation：按需派生聚合，genericity 和 recurrence review；关闭时不计算 hints，基础 concept workflow 仍工作，无 provider 调用 |
 | `maintenance.enabled` | true | host maintenance 开关 |
 | `maintenance.poll_interval_seconds` | 30 | standalone loop 的基础设施秒 |
 | `maintenance.worker_lease_seconds` | 120 | worker lease 的基础设施秒 |
@@ -96,7 +101,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `journal.max_episode_count` | 12 | 一次 Journal synthesis 的 Episode 数 |
 | `journal.max_span_seconds` | 86400 | Journal scope 的认知秒 |
 | `consolidation.settle_delay_seconds` | 300 | 整合前的认知秒 |
-| `consolidation.max_actions` | 8 | 一个原子整合 proposal 的 action 数 |
+| `consolidation.max_actions` | 8 | 一个 ordered model proposal 的 action 数；每项独立 owner mutation |
 | `consolidation.context` | longitudinal-v1 | Developer：query cue/candidate text 字符预算、candidate/support/provenance/entity 数上限；运行开始解析一次 |
 
 `GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`maintenance.poll_interval_seconds`、`maintenance.worker_lease_seconds`、experience batch、member text、retention/retry/tick budget 设置均由 `cognitive-runtime` owner 注册，使用 Developer exposure、SystemOnly scope、Live apply mode 和 Operational semantic effect。其他以上设置允许 Subject override。retry 延迟为 `min(retry_max_seconds, retry_initial_seconds × 2^(连续失败次数−1))`。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
@@ -107,4 +112,6 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 `video.frame_end_margin_seconds` 默认 0.1；frame sampling 将最后一个采样点留在该 configured end margin 之前。
 
-[返回 Reference](README.md)
+`retrieval.cognitive.profile` 使用 SubjectOverrideAllowed / Live / QueryPolicy，两个 Subject 可选择不同 profile；变更只影响后续 preparation，已形成的 in-flight query 保留自己的 snapshot 和 semantic representation；DTSC/RiverMemo 共享 VCP asset，不因 readout 切换重建。`serving.retired_grace_seconds` 默认 300，范围 0..604800，Developer/SystemOnly/Live；active readers、validation tickets、current artifacts 和 research pins 保护回收边界。运行时 expiry/release 后可在后续 query 机会清理 retired artifact，metadata 保留简短 audit。
+
+`retrieval.query.representation` 控制完整 query embedding 的 typed character/descriptor/count budgets，Developer、SubjectOverrideAllowed、Live。配置只有 `total_chars=8192` 与 `max_context_items=16`。各 section 的 hard ceilings 由实现持有；预算优先满足 Intent、显式时间/selector descriptor、Entity/Tag、current exact refs、WorkContext 和其他 descriptor，输出 section 顺序固定。一次 prepare 固定 policy；inspection 返回实际 SHA256 与截断/缺失 descriptor 诊断。Preparation token 与 validation ticket 共用 `runtime.query_lease_slots`/query lease 的现有预算机制。

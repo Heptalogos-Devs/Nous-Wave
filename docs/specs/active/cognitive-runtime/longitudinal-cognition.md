@@ -58,8 +58,26 @@ Journal 重验证等待全部当前来源稳定后再规划完整集合。来源
 
 `memory_consolidation` 使用 `MemoryConsolidationText`，scope 为 current eligible EpisodeRevision 或 JournalRevision。计划包含有界 source/member/support/entity catalogs、independent roots 和通过 Query/Serving 选出的最多 16 个当前 Memory/Schema context candidates。候选包括 exact revision/epoch、正文、Schema applicability/boundary/tags、独立时间轴和按 use kind 汇总的 meaningful use；presented 不计入摘要。
 
-proposal action 为 skip、create/revise Memory、create/revise CognitiveSchema、link relation。引用只能选择 supplied catalog 或较早 action result。Memory 将整组 proposal 作为一个原子事务验证与提交；沿用 identity、formation、provenance、independent roots 与 relation owner 合同。skip 不修改认知 Authority。Journal 是可选来源，Episode 可直接整合。
+proposal action 为 skip、create/revise Memory、create/revise CognitiveSchema、link relation。引用只能选择 supplied catalog 或较早 action result。Core 保存一次模型 proposal 后逐项调用 canonical FormMemory、ReviseMemory、Create/ReviseCognitiveSchema 和 LinkRevisions；每项使用由 workflow id、index 与 action kind 派生的稳定 operation ID。各 owner 的 receipt 与 Authority mutation 同事务；后项非法不回滚此前独立提交，依赖失败 action 的 relation 记录 skipped_dependency，其他独立 action 继续。逐项结果保存到 workflow，transport retry 重放同一 proposal 和 ID，不再次调用模型。目标 epoch 已陈旧时记录 stale；owner invariant/internal failure 停止 grant 并暴露工程错误。Planner 为每个 revision candidate 提供排除该对象全部旧 revision 的 eligible support keys；owner 继续执行 cycle、provenance、lifecycle 与身份核验。skip 不修改认知 Authority。Journal 是可选来源，Episode 可直接整合。
 
 Query/Serving、WorkContext、UseEvent 和下游失效合同分别见 [Query](../memory-reference-profile/03-query-serving.md)、[WorkContext](work-context.md)、[Use](../memory-reference-profile/02-runtime-use.md) 和 [Authority](../memory-reference-profile/01-memory-authority-provenance.md)。
 
 [返回当前产品合同](../../INDEX.md)
+
+## 独立 concept maintenance
+
+`concept_maintenance` 复用 durable need、host grant、lease、retry、固定 ModelWorkflow snapshot 和模型调用/elapsed 预算。accepted/revised Memory、Episode、Journal、CognitiveSchema 在 owner mutation 同一事务排入 exact focus；meaningful use 跨过 `maintenance.concept_use_review_interval` 时产生 review，普通 presented 不触发。
+
+Memory planner 只围绕一个 current eligible exact cognition。局部输入包含 focus 语义、来源、aboutness Entity、已附 Tags、名称/别名匹配、既有 embedding material 的相似候选和一跳 AssociationEvidence；不拼整个 Subject cognition catalog，不调用 embedding provider。固定 snapshot 保存 typed canonical refs、TagRevisionTarget、AssociationSupport 和当前配置 digest；模型只看到 local keys 与有界描述。
+
+`concept_maintenance` role 使用 `prompts/memory/concept-maintenance.md` 和独立 Structured Contract，最多四个 ordered suggestions，配置可以进一步收紧。Core 保存 proposal 后逐项调用 Create/Revise/Merge/SplitTag、Create/RevokeAssociation；operation id 来自 workflow id、index 和 kind。每项保存 committed/no_change/rejected_invalid/stale/skipped_dependency 与实际结果，临时 `new_` keys 解析为先前成功返回的 Tag identity。后续失败保留先前成功，依赖失败只跳过依赖项，独立项继续；transport 重试复用已存 proposal 和相同 owner receipts，不重新调用模型。owner invariant 停止该 grant，返回 internal_failure。
+
+Tag merge/split 保留 exact supports 和 lineage，一个明确来源可以支持 alias/equivalence 或语义分化；不要求两个独立根。merge/split 自身仍为天然原子操作。后置 `tag_attachment` 是正向 exact cognition→Tag AssociationEvidence，不修改旧 cognition revision。owner 校验 Subject、当前 endpoint 生命周期、relation registry、方向/极性、显式支持和 producer，不递归证明整个 cognition graph。Serving 直接使用既有 Memory dependencies、Episode members、Journal sources、Schema evidence 作为结构 adjacency；不要求复制 AssociationEvidence。contradiction/negative evidence 保留独立语义。
+
+Accretion 是按 center 按需计算的派生信号：distinct roots、current members、Episode recurrence、observed span、association degree/diversity、meaningful use、counterevidence、可选 cached coherence 和 genericity。没有持久化 Subject-wide cache、global confidence 或 usefulness truth。`maintenance.accretion` 只暴露 enabled、generic_degree、recurrence_review；关闭后基础 concept maintenance 仍工作。review priority 与 merge/split hints 在 planner 即时计算；member overlap/coherence 阈值为实现常量。普通 presented 不增加支持，meaningful use 不改变 epistemic class 或独立根。
+
+定向测试覆盖局部 catalog、typed owner提交、partial outcome、dependency skip、transport resume、stable IDs、Tag lineage、owner exact receipt、Accretion ablation/recurrence 配置和 Tag-only Prepared Serving。三场景形成检查和 15 intents × 4 profiles 已通过 deterministic public Core/Kernel 执行；六项 selected raw-text 的相关首项均为 rank 1。Fake vectors 只验证线路，不声明 ranking quality 或 profile winner。CLI 的 help JSON → ambiguity/candidate → LexicalRef → prepare → query 已通过真实 public Core；repo-native 完整验收继续在本 PR 完成。
+
+Consolidation 的候选查找使用独立 text-only lookup：输入是引用的 source 原文，不作为待闭合的用户意图。实体目录提供 source 文本中出现的 display name/alias 的有界候选，加上已有候选的 aboutness；目录匹配本身不写入 aboutness，仍由模型选择、owner 校验。形成阶段需要 lexical Serving 为 continuing claim 提供当前候选，dense/topology 与付费 embedding 在检索验证前保持关闭。
+
+Directory 的当前有效 Entity binding 是 Subject 内可引用身份，即使尚未被 Memory aboutness 或 observation actor 使用。通用 reference 校验承认该 binding；不把它自动转换成 aboutness。跨 Subject 和 tombstoned binding 仍不能仅凭目录获得可引用资格。

@@ -10,6 +10,7 @@ it("owns every structured generation role and exports its production schema iden
   expect(
     roleNames.filter((role) => structuredContractForRole(role)).sort(),
   ).toEqual([
+    "concept_maintenance",
     "episode_segmentation",
     "journal_synthesis",
     "material_direct_structuring",
@@ -28,7 +29,7 @@ it("owns every structured generation role and exports its production schema iden
     expect(contract.providerSchema.description).toBeTruthy();
     expect(contract.providerName).toMatch(/^[A-Za-z0-9_-]+$/);
   }
-  expect(identities.size).toBe(6);
+  expect(identities.size).toBe(7);
   expect(providerContractForRole("material_structuring")?.digest).toBe(
     providerContractForRole("material_direct_structuring")?.digest,
   );

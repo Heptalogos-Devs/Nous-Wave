@@ -134,7 +134,6 @@ export async function compileNousQL(
   }
   const expression = await lower(syntax, true);
   expression.modifiers ??= create(QueryModifiersSchema);
-  expression.modifiers.limit ??= 12;
   return { expression, sourceCanonical, boundCanonical: canonical(syntax) };
 }
 function applyDirective(m: QueryModifiers, d: Directive, now: Date) {

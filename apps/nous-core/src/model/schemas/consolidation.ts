@@ -31,7 +31,7 @@ const memory = z.strictObject({
   supportKeys: z
     .array(
       key.describe(
-        "Exact supports[].key; member and candidate keys are not support selectors.",
+        "Exact supports[].key; member and candidate keys are not support selectors. A revision cannot depend on its own target object; the owner records parent lineage automatically.",
       ),
     )
     .min(1)
@@ -86,7 +86,7 @@ const schema = z.strictObject({
       z.strictObject({
         role: z.enum(["support", "counterexample", "boundary_case"]),
         supportKey: key.describe(
-          "Exact supports[].key grounding this evidence role.",
+          "Exact supports[].key grounding this evidence role. A revised Schema cannot cite its own target object as evidence; parent lineage is recorded automatically.",
         ),
       }),
     )
@@ -98,7 +98,7 @@ const endpoint = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("candidate"),
     key: key.describe(
-      "Exact candidates[].key for a Memory or CognitiveSchema; source context is not a candidate.",
+      "Exact candidates[].key for a Memory revision; strong Memory relations do not accept CognitiveSchema or source context endpoints.",
     ),
   }),
   z.strictObject({
@@ -149,7 +149,7 @@ export const consolidationSchema = z
       .min(1)
       .max(16)
       .describe(
-        "Ordered proposals; action endpoints use zero-based indices in this array.",
+        "Ordered proposals; relation action endpoints use zero-based indices of earlier create_memory or revise_memory actions in this array.",
       ),
   })
   .meta({

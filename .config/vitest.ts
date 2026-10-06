@@ -10,5 +10,12 @@ process.env.TEMP = temporary;
 process.env.TMPDIR = temporary;
 
 export default defineConfig({
+  test: {
+    include: [
+      "apps/**/*.test.ts",
+      "packages/**/*.test.ts",
+      "scripts/**/*.test.ts",
+    ],
+  },
   cacheDir: join(workspacePaths.cache, "vitest"),
 });

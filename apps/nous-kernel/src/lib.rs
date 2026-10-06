@@ -156,28 +156,43 @@ impl NousRuntime {
         query: CognitiveQuery,
         pool_limit: Option<usize>,
     ) -> Result<nous_runtime::QueryExecution> {
-        let mut bound = self.cognition.bind_query(query).await?;
-        bound.selected_embedding_space = self.serving.embedding().map(|provider| provider.space());
+        let bound = Box::pin(self.cognition.bind_query(query)).await?;
+        Box::pin(self.execute_bound_query(bound, pool_limit)).await
+    }
+    pub async fn execute_bound_query(
+        &self,
+        mut bound: nous_runtime::BoundQuery,
+        pool_limit: Option<usize>,
+    ) -> Result<nous_runtime::QueryExecution> {
+        if bound.selected_embedding_space.is_none() {
+            bound.selected_embedding_space =
+                self.serving.embedding().map(|provider| provider.space());
+        }
+        self.cognition.expire_query_leases()?;
+        self.serving
+            .reclaim_retired(
+                bound.source_query.subject,
+                std::time::Duration::from_secs(
+                    bound
+                        .config_snapshot
+                        .get(nous_retrieval::RETIRED_GRACE_SECONDS)?,
+                ),
+            )
+            .await?;
         let plan = nous_runtime::QueryPlan::for_bound_query(&bound);
         let subject_capabilities = self
             .subjects
             .subject(bound.source_query.subject)
             .await?
             .capabilities;
-        let projection = self
-            .serving
-            .prepare_with_snapshot(
-                bound.source_query.subject,
-                plan.serving_need(&bound.source_query),
-                &bound.config_snapshot,
-            )
-            .await?;
+        let (projection, serving_query) = self.serving.prepare_query(&bound, &plan).await?;
         let mut execution = self
             .cognition
             .execute_query_with_plan(
                 bound,
                 nous_runtime::CognitiveContributors {
-                    shared: Some(&self.serving),
+                    material: Some(&self.material),
+                    shared: Some(serving_query.as_ref()),
                     memory: subject_capabilities
                         .memory
                         .then(|| {
@@ -191,6 +206,7 @@ impl NousRuntime {
                 pool_limit,
             )
             .await?;
+        execution.read_lease = Some(serving_query);
         let result = &mut execution.result;
         result.degradation.extend(projection.degradation);
         if !result.degradation.is_empty() && result.status != QueryStatus::Partial {

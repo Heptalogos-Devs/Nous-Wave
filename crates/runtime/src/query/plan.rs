@@ -1,9 +1,11 @@
-use super::{BoundQuery, planned_lanes};
+use super::BoundQuery;
+use super::bind::planned_profile_lanes;
 use nous_core::*;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct QueryPlan {
+    pub cognitive_profile: super::CognitiveProfile,
     pub enabled_lanes: Vec<EvidenceFamily>,
     pub lane_budgets: BTreeMap<EvidenceFamily, usize>,
     /// Shared upper bound for bounded non-exact providers; execution is lane-specific.
@@ -31,8 +33,8 @@ impl QueryPlan {
     /// Retained for local plan tests and non-authority callers. Production
     /// query execution uses `BoundQuery::bind_query` and `for_bound_query`.
     pub fn for_query(query: &CognitiveQuery) -> Self {
-        let lanes = planned_lanes(query);
         let policy = super::RetrievalPolicy::reference();
+        let lanes = planned_profile_lanes(query, policy.cognitive_profile);
         let index = effort_index(query.effort);
         let multiplier = policy.effort_multipliers[index];
         let per_lane_max = policy.per_lane_max[index];
@@ -54,6 +56,7 @@ impl QueryPlan {
         let index = effort_index(query.effort);
         let candidate_limit = lane_budgets.values().copied().max().unwrap_or(0);
         Self {
+            cognitive_profile: retrieval_policy.cognitive_profile,
             enabled_lanes: enabled_lanes.clone(),
             lane_budgets,
             candidate_limit,
@@ -66,7 +69,8 @@ impl QueryPlan {
                     retrieval_policy.validation_max,
                 ),
             sense_cues: query.capabilities.residual_sensing == RequirementStrength::Required,
-            expand_topology: enabled_lanes.contains(&EvidenceFamily::TopologyWave),
+            expand_topology: enabled_lanes.contains(&EvidenceFamily::TopologyWave)
+                && retrieval_policy.cognitive_profile.requirements().topology,
             topology_rounds: retrieval_policy.topology_hops[index],
             topology_nodes: retrieval_policy.topology_states[index],
             resource_limit: retrieval_policy.resource_limits[index],
@@ -94,7 +98,10 @@ impl QueryPlan {
             exact: self.enabled_lanes.contains(&EvidenceFamily::Exact)
                 || self.enabled_lanes.contains(&EvidenceFamily::SchemaDirect),
             lexical: has_text && self.enabled_lanes.contains(&EvidenceFamily::Lexical),
-            dense: has_text && self.enabled_lanes.contains(&EvidenceFamily::Dense),
+            dense: has_text
+                && (self.enabled_lanes.contains(&EvidenceFamily::Dense)
+                    || (self.expand_topology
+                        && self.cognitive_profile.requirements().query_embedding)),
             topology: self.expand_topology,
         }
     }
@@ -121,6 +128,8 @@ mod tests {
 
     fn query(effort: CognitiveEffort) -> CognitiveQuery {
         CognitiveQuery {
+            text_only_compatibility: false,
+            work_context: None,
             api_version: API_VERSION,
             subject: SubjectId::new(),
             session: None,

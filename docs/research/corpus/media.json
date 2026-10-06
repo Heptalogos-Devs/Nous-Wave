@@ -9,11 +9,7 @@
       "media_type": "image/jpeg",
       "query": "Which screenshot shows proofreading and rewriting an email?",
       "file": "apple-Writing-Tools-240610.jpg",
-      "oracle_patterns": [
-        "proofread",
-        "rewrite",
-        "mail|email"
-      ],
+      "oracle_patterns": ["proofread", "rewrite", "mail|email"],
       "context": {
         "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
         "oracle_review": "Visual source re-read; feature labels and interface verified"
@@ -28,10 +24,7 @@
       "media_type": "image/jpeg",
       "query": "Which screenshot displays an important pickup notification under Reduce Interruptions?",
       "file": "apple-Focus-Reduce-Interruptions.jpg",
-      "oracle_patterns": [
-        "reduce interruptions",
-        "important|notification"
-      ],
+      "oracle_patterns": ["reduce interruptions", "important|notification"],
       "context": {
         "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
         "oracle_review": "Visual source re-read; feature labels and interface verified"
@@ -46,11 +39,7 @@
       "media_type": "image/jpeg",
       "query": "Which screenshot shows a recorded architecture lecture in Notes?",
       "file": "apple-Notes-record-and-transcribe-audio.jpg",
-      "oracle_patterns": [
-        "ARCH.?201",
-        "record|audio",
-        "notes|lecture"
-      ],
+      "oracle_patterns": ["ARCH.?201", "record|audio", "notes|lecture"],
       "context": {
         "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
         "oracle_review": "Visual source re-read; feature labels and interface verified"
@@ -65,10 +54,7 @@
       "media_type": "image/jpeg",
       "query": "Which screenshot asks permission for Siri to use ChatGPT?",
       "file": "apple-Siri-ChatGPT-request.jpg",
-      "oracle_patterns": [
-        "ChatGPT",
-        "permission|confirm|use chatgpt"
-      ],
+      "oracle_patterns": ["ChatGPT", "permission|confirm|use chatgpt"],
       "context": {
         "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
         "oracle_review": "Visual source re-read; feature labels and interface verified"
@@ -83,18 +69,14 @@
       "media_type": "image/jpeg",
       "query": "Which screenshot composes a bedtime story for Annie?",
       "file": "apple-ChatGPT-Writing-Tools-Compose-prompt.jpg",
-      "oracle_patterns": [
-        "Annie",
-        "bedtime|story",
-        "Include All Text"
-      ],
+      "oracle_patterns": ["Annie", "bedtime|story", "Include All Text"],
       "context": {
         "source_page": "https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/",
         "oracle_review": "Visual source re-read; feature labels and interface verified"
       }
     },
     {
-      "sha256": "6884a0bb52b1e7e7cb87479a30aa708a28cb66869e550b3ae887cf845260762a",
+      "sha256": "6825e6e1c11b3fedc00299b231db35f0a6c296f87d81bd13277b9b3109774900",
       "rights": "NASA official archival recording; retain source and credit, research cache only",
       "id": "nasa-press-video",
       "source_url": "https://images-assets.nasa.gov/video/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372~preview.mp4",
@@ -102,16 +84,13 @@
       "media_type": "video/mp4",
       "query": "A historical press scene with suited people wearing sunglasses",
       "file": "nasa-press-clip.mp4",
-      "oracle_patterns": [
-        "sunglass",
-        "people|crowd|group|men"
-      ],
+      "oracle_patterns": ["sunglass", "people|crowd|group|men"],
       "context": {
         "requested_clip_start_seconds": "300",
         "oracle_review": "Visual source frame reviewed; temporal and audio-word correctness not asserted",
         "source_catalog": "https://images.nasa.gov/details/KSC-19690716-MH-NAS01-0001-Apollo_11_Launch_President_Johnson_Jack_King_Narration_Press_Site-B_1372",
         "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
-        "preprocessing": "FFmpeg stream copy; complete clip sent directly",
+        "preprocessing": "FFmpeg 7.0.2-static stream copy; requested source interval 300–312 seconds; clip regenerated from frozen archive.",
         "requested_clip_duration_seconds": "12"
       }
     },
@@ -124,10 +103,7 @@
       "media_type": "video/mp4",
       "query": "Historical rocket launch footage showing a rocket and launch tower",
       "file": "nasa-rocket-clip.mp4",
-      "oracle_patterns": [
-        "rocket|Saturn",
-        "tower|pad|launch"
-      ],
+      "oracle_patterns": ["rocket|Saturn", "tower|pad|launch"],
       "context": {
         "requested_clip_start_seconds": "1800",
         "oracle_review": "Visual source frame reviewed; temporal and audio-word correctness not asserted",
@@ -143,17 +119,14 @@
       "sha256": "325e1feb4c369f0e9c001696e75995ea7d1bd7b52ea7ee424dd0dd9ecf88ad2e",
       "media_type": "audio/wav",
       "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Carefree.mp3",
-      "rights": "Carefree \u2014 Kevin MacLeod (incompetech.com); Creative Commons Attribution 4.0 https://creativecommons.org/licenses/by/4.0/; excerpted and resampled; research cache only",
+      "rights": "Carefree — Kevin MacLeod (incompetech.com); Creative Commons Attribution 4.0 https://creativecommons.org/licenses/by/4.0/; excerpted and resampled; research cache only",
       "query": "Find the bright rhythmic plucked-string instrumental piece with percussion.",
       "oracle_status": "PASS",
-      "oracle_patterns": [
-        "ukulele|guitar",
-        "music|instrumental"
-      ],
+      "oracle_patterns": ["ukulele|guitar", "music|instrumental"],
       "context": {
         "source_page": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400037",
         "source_archive_sha256": "8433b770a630d9b1594fd484442c677907ece899a4d149954cd2e74fd733e311",
-        "preprocessing": "FFmpeg PCM16 mono 24kHz; 10\u201335 seconds excerpt, original MP3 retained"
+        "preprocessing": "FFmpeg PCM16 mono 24kHz; 10–35 seconds excerpt, original MP3 retained"
       },
       "oracle_evidence": {
         "kind": "independent publisher metadata",
@@ -170,17 +143,14 @@
       "sha256": "36d19c406bd6ebbed4b12fcaba4107f927ffb6b78cb9ffecb76921f4684cc1c0",
       "media_type": "audio/wav",
       "source_url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Gymnopedie%20No%201.mp3",
-      "rights": "Gymnopedie No. 1 \u2014 Kevin MacLeod (incompetech.com); Creative Commons Attribution 4.0 https://creativecommons.org/licenses/by/4.0/; excerpted and resampled; research cache only",
+      "rights": "Gymnopedie No. 1 — Kevin MacLeod (incompetech.com); Creative Commons Attribution 4.0 https://creativecommons.org/licenses/by/4.0/; excerpted and resampled; research cache only",
       "query": "Find the calm solo piano passage with a gently unfolding melody.",
       "oracle_status": "PASS",
-      "oracle_patterns": [
-        "piano",
-        "music|instrumental"
-      ],
+      "oracle_patterns": ["piano", "music|instrumental"],
       "context": {
         "source_page": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100787",
         "source_archive_sha256": "8cba6bb3da51066ad39520ec218a327bb6222d8fb32bc52f28a1e90b67756f70",
-        "preprocessing": "FFmpeg PCM16 mono 24kHz; 10\u201335 seconds excerpt, original MP3 retained"
+        "preprocessing": "FFmpeg PCM16 mono 24kHz; 10–35 seconds excerpt, original MP3 retained"
       },
       "oracle_evidence": {
         "kind": "independent publisher metadata",
@@ -206,7 +176,7 @@
       "context": {
         "source_page": "https://www.nasa.gov/podcasts/houston-we-have-a-podcast/space-runs-in-the-family/",
         "source_archive_sha256": "a4fe3b135d08bc79c0b9796c4a1dc49ad3b979046e684ce2a44d85f2c9f8ccf3",
-        "preprocessing": "FFmpeg 7.0.2 PCM16 mono 24kHz; exact source interval 122.3\u2013162.3 seconds.",
+        "preprocessing": "FFmpeg 7.0.2 PCM16 mono 24kHz; exact source interval 122.3–162.3 seconds.",
         "oracle_review": "Official NASA speaker-labelled transcript cross-checked against independent local faster-whisper base.en ASR timing; no target-model output used.",
         "clip_start_seconds": "122.3",
         "clip_duration_seconds": "40"
@@ -232,7 +202,10 @@
         ]
       },
       "sha256": "926a705c662c73bf68afaf6cff4e125e9a853524fb56144ca6d6c2a8575331bf",
-      "oracle_status": "PASS"
+      "oracle_status": "PASS",
+      "oracle_patterns_by_representation_kind": {
+        "transcript": ["astronaut|space", "museum|IMAX"]
+      }
     },
     {
       "id": "riddle-song-vocals",
@@ -241,14 +214,11 @@
       "source_url": "https://upload.wikimedia.org/wikipedia/commons/8/82/Riddle_song.ogg",
       "rights": "Traditional tune performed and recorded by Wikimedia Commons User:Makemi, 2007-02-16; CC BY-SA 3.0 / GFDL 1.2-or-later. Excerpted and resampled; local research cache only.",
       "query": "A traditional folk melody with audible singing.",
-      "oracle_patterns": [
-        "sing|vocal",
-        "music|song|melody"
-      ],
+      "oracle_patterns": ["sing|vocal", "music|song|melody"],
       "context": {
         "source_page": "https://commons.wikimedia.org/wiki/File:Riddle_song.ogg",
         "source_archive_sha256": "04145478ff774679a8e3dba1d18ca7740a9042a9c4fea3c7b97dc80b92f7293d",
-        "preprocessing": "FFmpeg 7.0.2 PCM16 mono 24kHz; source interval 10\u201335 seconds.",
+        "preprocessing": "FFmpeg 7.0.2 PCM16 mono 24kHz; source interval 10–35 seconds.",
         "clip_start_seconds": "10",
         "clip_duration_seconds": "25",
         "oracle_review": "Publisher song attribution and independent local faster-whisper base.en review of exact clip establish English vocals. Source/ASR words remain only in ignored cache; oracle does not reproduce lyrics."
@@ -279,7 +249,7 @@
       "context": {
         "source_page": "https://commons.wikimedia.org/wiki/File:NASA_astronaut_Anil_Menon_conducts_a_spacewalk_(iss075e0011109).jpg",
         "source_archive_sha256": "384587dd1cb72bbf8f57a1f6b77da38b51289fc339310a46eccefe73834ca247",
-        "preprocessing": "Pillow 12.3.0 thumbnail within 1280\u00d71280, JPEG quality 85, preserves aspect ratio.",
+        "preprocessing": "Pillow 12.3.0 thumbnail within 1280×1280, JPEG quality 85, preserves aspect ratio.",
         "oracle_review": "Direct inspection of the exact prepared image and independent NASA image caption."
       },
       "oracle_evidence": {
@@ -315,8 +285,41 @@
       ],
       "context": {
         "source_archive_sha256": "008c239311d2f4da170b05dfa6828aea836b9cb8a94e13ecd3c4ca907b272e54",
-        "preprocessing": "FFmpeg 7.0.2; source 3390\u20133414 seconds; H.264 CRF23/AAC; exact 24-second clip",
+        "preprocessing": "FFmpeg 7.0.2; source 3390–3414 seconds; H.264 CRF23/AAC; exact 24-second clip",
         "oracle_review": "Independent contact-sheet visual review: ignition cloud, camera changes, bright exhaust and upward rocket displacement. Independent faster-whisper base.en review of exact clip confirms countdown, lift-off and tower-clear narration. Narrator identity remains unknown; other NASA low-signal audio clips remain separate negative controls."
+      }
+    },
+    {
+      "id": "nasa-menon-introduction",
+      "file": "nasa-menon-introduction.mp3",
+      "media_type": "audio/mpeg",
+      "source_url": "https://www.nasa.gov/wp-content/uploads/2026/07/ep428-space-runs-in-the-family.mp3",
+      "rights": "NASA official podcast, NASA host Nilufar Ramji and NASA astronaut Anil Menon in official roles; selected dialogue excludes intro music; local research cache only.",
+      "query": "What work did the astronaut do at SpaceX before NASA and which spacecraft will take him to orbit?",
+      "oracle_patterns": [
+        "SpaceX",
+        "flight surgeon",
+        "Soyuz",
+        "research|collaboration|International Space Station"
+      ],
+      "oracle_status": "PASS",
+      "sha256": "3de5a48166262dbf1da5e6b03702b280994beee4583614e16ff26e3c74fad31e",
+      "context": {
+        "source_page": "https://www.nasa.gov/podcasts/houston-we-have-a-podcast/space-runs-in-the-family/",
+        "source_archive_sha256": "a4fe3b135d08bc79c0b9796c4a1dc49ad3b979046e684ce2a44d85f2c9f8ccf3",
+        "preprocessing": "FFmpeg 7.0.2-static; source 46.28–76.28 seconds; mono 24kHz MP3 64kbps; host introduction, ends before music.",
+        "clip_start_seconds": "46.28",
+        "clip_duration_seconds": "30",
+        "oracle_review": "NASA official host transcript and frozen independent faster-whisper base.en segments at 46.28–76.32 seconds: SpaceX first flight surgeon, Crew Dragon, Soyuz, first flight training, months of ISS research/operations/international collaboration."
+      },
+      "oracle_evidence": {
+        "kind": "official host transcript and independent local ASR alignment",
+        "source_url": "https://www.nasa.gov/podcasts/houston-we-have-a-podcast/space-runs-in-the-family/",
+        "claims": [
+          "Before NASA Anil Menon served as SpaceX first flight surgeon and helped launch first Crew Dragon to the station.",
+          "He is training for a Soyuz flight with months of research, operations and international collaboration."
+        ],
+        "not_required": ["Identity inferred from voice alone"]
       }
     }
   ],

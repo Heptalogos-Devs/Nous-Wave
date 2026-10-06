@@ -1,8 +1,10 @@
 //! Memory Authority orchestration for the R1 reference profile.
 
 mod accessibility;
+mod accretion;
 mod batch;
-mod consolidation;
+mod concept_maintenance;
+mod consolidation_context;
 mod dependencies;
 mod episode;
 mod journal;
@@ -20,6 +22,7 @@ pub mod schema;
 mod schema_lane;
 mod source_classes;
 mod state;
+mod tag;
 mod topology;
 
 use crate::*;
@@ -42,14 +45,17 @@ pub use accessibility::{
     AccessibilityPolicy, eligible as accessibility_eligible, register_configuration,
     resolve_accessibility_policy,
 };
-pub use consolidation::*;
+pub use accretion::{ACCRETION, AccretionPolicy, AccretionSignal};
+pub use concept_maintenance::*;
 pub use episode::*;
 pub use journal::*;
 pub use longitudinal_policy::{
     CONSOLIDATION_CONTEXT, CONSOLIDATION_MAX_ACTIONS, ConsolidationContextPolicy, EPISODE_SYNOPSIS,
 };
 pub use maintenance_planning::MaintenanceScope;
+pub use nous_core::TopologyRelation;
 pub use nous_core::{CognitiveQuery, CognitiveQueryResult};
+pub use tag::*;
 
 #[derive(Clone)]
 pub struct MemoryService {
@@ -126,6 +132,7 @@ pub struct ReviseMemoryInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateTagRequest {
+    pub producer: Option<ProducerSignature>,
     pub operation_id: OperationId,
     pub label: String,
     pub description: Option<String>,
@@ -140,6 +147,7 @@ fn default_explicit_origin() -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateAssociationRequest {
+    pub producer: Option<ProducerSignature>,
     pub operation_id: OperationId,
     pub from: CognitiveRef,
     pub to: CognitiveRef,
@@ -158,12 +166,6 @@ pub struct RebindEntityRequest {
     pub binding_state: String,
     pub host_resolution_ref: Option<String>,
     pub reason: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConsolidationResult {
-    pub memory: Option<MemoryView>,
-    pub topology_changes: usize,
 }
 
 fn parse_enum<T: DeserializeOwned>(value: String, name: &str) -> Result<T> {

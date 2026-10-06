@@ -25,6 +25,7 @@ const output = () => ({
     {
       kind: "event",
       content: "Rocket launch",
+      evidence_channel: "visual",
       basis: "direct",
       certainty: "uncertain",
       start_ms: 0,
@@ -128,7 +129,7 @@ describe("Material interpretation contract", () => {
     expect(structuredPayload.summary).toMatchObject({
       supports: [{ kind: "source_region", value: "source-id" }],
     });
-    expect(text).toContain("[direct/uncertain/event]");
+    expect(text).toContain("[direct/uncertain/event; evidence=visual]");
     expect(text).toContain("[tentative] May be a historical launch");
     expect(text).toContain("Uncertainties:\n- No audio available");
   });
@@ -159,5 +160,25 @@ describe("Material interpretation contract", () => {
     expect(() =>
       structuredMaterialResult(value, { ...context, sourceText: false }),
     ).toThrow("source text");
+  });
+  it("accepts narrated states independently of visual observation and rejects absent evidence channels", () => {
+    const value = output();
+    value.coverage.visual = "not_available";
+    value.coverage.audio = "observed";
+    value.observations[0] = {
+      ...value.observations[0]!,
+      kind: "state",
+      evidence_channel: "audio",
+      content:
+        "The narrator says Anil served as SpaceX's first flight surgeon.",
+    };
+    const context = { ...source, visual: false, audio: true };
+    expect(structuredMaterialResult(value, context).text).toContain(
+      "state; evidence=audio",
+    );
+    value.observations[0]!.evidence_channel = "visual";
+    expect(() => structuredMaterialResult(value, context)).toThrow(
+      "unavailable visual evidence",
+    );
   });
 });

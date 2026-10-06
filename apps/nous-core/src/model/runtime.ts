@@ -78,6 +78,19 @@ export class ModelRuntime {
       snapshot,
     );
   }
+  async maintainConcepts(
+    input: string,
+    signal?: AbortSignal,
+    snapshot?: ModelRoleSnapshot,
+  ) {
+    return this.invocations.generate(
+      "concept_maintenance",
+      input,
+      signal,
+      undefined,
+      snapshot,
+    );
+  }
   async consolidate(
     input: string,
     signal?: AbortSignal,
@@ -238,11 +251,21 @@ export class ModelRuntime {
           support_catalog: Object.keys(context?.catalog ?? {}),
         }),
       },
-      ...frames.map((f) => ({
-        type: "file" as const,
-        data: f.bytes,
-        mediaType: "image/jpeg",
-      })),
+      ...frames.flatMap((frame, index) => [
+        {
+          type: "text" as const,
+          text: JSON.stringify({
+            frame_index: index,
+            timestamp_seconds: frame.timestamp,
+            applies_to: "the immediately following image",
+          }),
+        },
+        {
+          type: "file" as const,
+          data: frame.bytes,
+          mediaType: "image/jpeg",
+        },
+      ]),
     ];
     const result = await this.invocations.generate(
       structured ? "material_direct_structuring" : "material_description",

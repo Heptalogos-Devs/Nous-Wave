@@ -62,7 +62,7 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         payload_text: Some("faithful representation".into()),
         payload_json: (kind == RepresentationKind::StructuredInterpretation).then(|| {
             let (kind,value)=nous_core::reference_parts(&input);
-            serde_json::json!({"summary":{"content":"faithful representation","supports":[{"kind":kind,"value":value}]},"coverage":{"visual":"not_available","audio":"not_available","embedded_text":"not_available","source_text":"observed"},"observations":[{"kind":"text","content":"source facts","basis":"direct","certainty":"clear","start_ms":null,"end_ms":null,"supports":[{"kind":kind,"value":value}]}],"mentions":[],"embedded_text":[],"source_text":[],"speech":[],"interpretations":[],"uncertainties":[]})
+            serde_json::json!({"summary":{"content":"faithful representation","supports":[{"kind":kind,"value":value}]},"coverage":{"visual":"not_available","audio":"not_available","embedded_text":"not_available","source_text":"observed"},"observations":[{"kind":"text","content":"source facts","evidence_channel":"source_text","basis":"direct","certainty":"clear","start_ms":null,"end_ms":null,"supports":[{"kind":kind,"value":value}]}],"mentions":[],"embedded_text":[],"source_text":[],"speech":[],"interpretations":[],"uncertainties":[]})
         }),
         payload_artifact_id: None,
         quality: serde_json::json!({}),

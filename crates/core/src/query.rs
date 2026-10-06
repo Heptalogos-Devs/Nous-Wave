@@ -218,6 +218,8 @@ pub enum CognitiveEffort {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityPolicy {
     #[serde(default)]
+    pub rerank: RequirementStrength,
+    #[serde(default)]
     pub text_embedding: RequirementStrength,
     #[serde(default)]
     pub multimodal_interpretation: RequirementStrength,
@@ -228,6 +230,7 @@ pub struct CapabilityPolicy {
 impl Default for CapabilityPolicy {
     fn default() -> Self {
         Self {
+            rerank: RequirementStrength::Optional,
             text_embedding: RequirementStrength::Optional,
             multimodal_interpretation: RequirementStrength::Optional,
             residual_sensing: RequirementStrength::Optional,
@@ -322,6 +325,10 @@ pub enum QueryOperation {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveQuery {
+    #[serde(default)]
+    pub text_only_compatibility: bool,
+    #[serde(default)]
+    pub work_context: Option<uuid::Uuid>,
     pub api_version: u32,
     #[serde(default)]
     pub subject: SubjectId,

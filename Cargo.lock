@@ -2033,6 +2033,7 @@ dependencies = [
 name = "nous-material"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "blake3",
  "chrono",
  "futures",
@@ -2125,6 +2126,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "usearch",
+ "uuid",
 ]
 
 [[package]]
@@ -2137,6 +2139,7 @@ dependencies = [
  "nous-configuration",
  "nous-core",
  "nous-persistence",
+ "schemars",
  "serde",
  "serde_json",
  "sha2 0.11.0",

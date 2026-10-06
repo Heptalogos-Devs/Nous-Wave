@@ -21,7 +21,10 @@ import {
   MemoryService,
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
-import { IdentityService } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
+import {
+  IdentityService,
+  ResolveIdentityResponseSchema,
+} from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
 
 /** A consumer-owned web identity, with the original public locator preserved. */
 export function webSource(value: string) {
@@ -62,11 +65,16 @@ export interface RequestOptions {
 export class NousError extends Error {
   readonly code: number;
   readonly details: readonly unknown[];
+  readonly candidates: readonly unknown[];
   constructor(error: ConnectError) {
     super(error.rawMessage, { cause: error });
     this.name = "NousError";
     this.code = error.code;
-    this.details = error.details;
+    const identity = error.findDetails(ResolveIdentityResponseSchema);
+    this.details = identity.length ? identity.map(plain) : error.details;
+    this.candidates = identity.flatMap((detail) =>
+      detail.candidates.map(plain),
+    );
   }
 }
 function plain<T>(value: T): Data<T> {
@@ -200,6 +208,10 @@ export function createNousClient(transport: Transport) {
       createTag: call(topology.createTag),
       getTag: call(topology.getTag),
       listTags: call(topology.listTags),
+      searchTags: call(topology.searchTags),
+      reviseTag: call(topology.reviseTag),
+      mergeTags: call(topology.mergeTags),
+      splitTag: call(topology.splitTag),
       associate: call(topology.createAssociation),
       revokeAssociation: call(topology.revokeAssociation),
       neighborhood: call(topology.getNeighborhood),
@@ -230,6 +242,7 @@ export function createNousClient(transport: Transport) {
       closeSession: call(runtime.closeSession),
       observe: call(runtime.recordObservation),
       query: call(cognition.query),
+      prepareQuery: call(cognition.prepareQuery),
       reportUse: call(runtime.reportUse),
       grantMaintenance: call(cognition.grantMaintenance),
       recall: async (
@@ -264,7 +277,6 @@ export function createNousClient(transport: Transport) {
       withdraw: call(memory.withdrawMemory),
       reaccept: call(memory.reacceptMemory),
       purge: call(memory.purgeMemory),
-      consolidate: call(memory.consolidateMemory),
       createEpisode: call(memory.createEpisode),
       getEpisode: call(memory.getEpisode),
       getEpisodeRevision: call(memory.getEpisodeRevision),

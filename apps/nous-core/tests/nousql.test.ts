@@ -96,3 +96,17 @@ it("preserves distinct cognition domains and Boolean domain scope", async () => 
     ["memory", "schema"],
   ]);
 });
+it("leaves omitted result limits for the Kernel configuration snapshot", async () => {
+  const omitted = await compileNousQL(
+    '"sensor" $memory',
+    resolve,
+    referenceTime,
+  );
+  expect(omitted.expression.modifiers?.limit).toBeUndefined();
+  const explicit = await compileNousQL(
+    '"sensor" $memory $limit(3)',
+    resolve,
+    referenceTime,
+  );
+  expect(explicit.expression.modifiers?.limit).toBe(3);
+});

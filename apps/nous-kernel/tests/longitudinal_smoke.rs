@@ -21,14 +21,15 @@ struct Server {
 }
 impl Server {
     async fn open(url: &str, root: &Path, clock: Arc<ManualCognitiveClock>, token: &str) -> Self {
+        let functional = std::env::var("NOUS_FUNCTIONAL_SMOKE").is_ok();
         let runtime = NousRuntime::open_with_clock(RuntimeOptions {
             postgres_url:url.into(),max_connections:8,
             acquire_timeout_ms: 15000,
             object_root:root.join("objects").to_string_lossy().into_owned(),
-            serving_options:ServingOptions { root:root.join("serving"),lexical:true,dense:false,topology:false,memory_enabled:true },
-            embedding:None,stored_embedding:None,
+            serving_options:ServingOptions { root:root.join("serving"),lexical:true,dense:functional,topology:functional,memory_enabled:true },
+            embedding:functional.then(||Arc::new(test_support::LongitudinalEmbedding) as Arc<dyn nous_retrieval::TextEmbeddingProvider>),stored_embedding:None,
             core_descriptors: vec![],
-        deployment_document:serde_json::json!({"serving":{"lexical":{"enabled":true},"dense":{"enabled":false},"topology":{"enabled":false}}}),
+        deployment_document:serde_json::json!({"serving":{"lexical":{"enabled":true},"dense":{"enabled":functional},"topology":{"enabled":functional}}}),
         },clock).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());

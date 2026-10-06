@@ -32,6 +32,7 @@ pub trait SharedLaneProvider: Send + Sync {
 pub struct CognitiveContributors<'a> {
     pub shared: Option<&'a dyn SharedLaneProvider>,
     pub memory: Option<&'a dyn CognitiveContributor>,
+    pub material: Option<&'a dyn CognitiveContributor>,
 }
 
 impl CognitiveRuntimeService {
@@ -86,6 +87,7 @@ impl CognitiveRuntimeService {
                 .collect(),
         }];
         Ok(super::QueryExecution {
+            read_lease: None,
             bound,
             leaves,
             result,
@@ -128,6 +130,9 @@ impl CognitiveRuntimeService {
         {
             return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
         }
+        if let Some(material) = contributors.material {
+            lane_outputs.extend(material.direct_lanes(&bound, &plan).await?);
+        }
         let mut exact_output = LaneOutput::empty(EvidenceFamily::Exact, LaneStatus::Ready);
         for binding in &bound.exact_bindings {
             exact_output.candidates.push(LaneCandidate {
@@ -152,17 +157,17 @@ impl CognitiveRuntimeService {
                         | QueryTarget::Evidence
                 )
             });
-        if runtime_allowed && let Some(session) = query.session {
-            for (reference, source) in self.runtime_references(query.subject, session).await? {
+        if runtime_allowed && bound.lane_enabled(EvidenceFamily::Runtime) {
+            for (reference, source) in &bound.runtime_sources {
                 lane_outputs.push(LaneOutput {
                     family: EvidenceFamily::Runtime,
                     status: LaneStatus::Ready,
                     generation_ref: None,
                     authority_watermark: None,
                     candidates: vec![LaneCandidate {
-                        reference,
+                        reference: reference.clone(),
                         rank: 1,
-                        variants: vec![source.into()],
+                        variants: vec![source.clone()],
                         provider_metadata: serde_json::Value::Null,
                     }],
                     diagnostics: Vec::new(),
@@ -174,6 +179,7 @@ impl CognitiveRuntimeService {
             output.candidates.truncate(plan.lane_budget(output.family));
         }
         let mut candidates = HashMap::<CognitiveRef, CandidateRankInput>::new();
+        let mut readouts = HashMap::<CognitiveRef, BTreeMap<String, serde_json::Value>>::new();
         let mut lane_drops = BTreeMap::new();
         for output in &lane_outputs {
             for diagnostic in &output.diagnostics {
@@ -198,6 +204,15 @@ impl CognitiveRuntimeService {
                 });
             }
             for candidate in &output.candidates {
+                if !candidate.provider_metadata.is_null() {
+                    readouts
+                        .entry(candidate.reference.clone())
+                        .or_default()
+                        .insert(
+                            format!("{:?}", output.family).to_lowercase(),
+                            candidate.provider_metadata.clone(),
+                        );
+                }
                 let entry = candidates
                     .entry(candidate.reference.clone())
                     .or_insert_with(|| CandidateRankInput {
@@ -238,24 +253,36 @@ impl CognitiveRuntimeService {
                 )),
             });
         }
-        let mut by_owner = Vec::<CognitiveRef>::new();
+        let owners = [contributors.memory, contributors.material];
+        let mut by_owner = [Vec::<CognitiveRef>::new(), Vec::new()];
         let mut generic = Vec::new();
         for candidate in ranked.iter().take(validation_bound) {
-            let memory_owner = contributors
-                .memory
-                .filter(|owner| owner.owns(&candidate.reference));
-            let owner_count = usize::from(memory_owner.is_some());
-            if owner_count > 1 {
+            let matching = owners
+                .iter()
+                .enumerate()
+                .filter(|(_, owner)| owner.is_some_and(|owner| owner.owns(&candidate.reference)))
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>();
+            if matching.len() > 1 {
                 return Err(Error::Infrastructure(format!(
-                    "multiple cognition owners claim {}",
+                    "multiple owners claim {}",
                     candidate.reference
                 )));
             }
-            if memory_owner.is_some() {
-                by_owner.push(candidate.reference.clone());
-            } else if is_persistent_cognition(&candidate.reference) {
+            if let Some(index) = matching.first() {
+                by_owner[*index].push(candidate.reference.clone());
+            } else if is_persistent_cognition(&candidate.reference)
+                || matches!(
+                    candidate.reference,
+                    CognitiveRef::Artifact(_)
+                        | CognitiveRef::Occurrence(_)
+                        | CognitiveRef::SourceRegion(_)
+                        | CognitiveRef::DerivedRepresentation(_)
+                        | CognitiveRef::DerivedRegion(_)
+                )
+            {
                 return Err(Error::Unavailable(format!(
-                    "no cognition owner is available for {}",
+                    "no semantic owner available for {}",
                     candidate.reference
                 )));
             } else {
@@ -271,20 +298,23 @@ impl CognitiveRuntimeService {
                 ranked.len().saturating_sub(validation_bound),
             );
         }
-        if let Some(owner) = contributors.memory {
-            let (hits, drops) = owner
-                .validate_and_materialize(query.subject, &by_owner, &bound)
-                .await?;
-            for hit in hits {
-                materialized.insert(hit.reference.clone(), hit);
+        for (index, owner) in owners.iter().enumerate() {
+            if let Some(owner) = owner {
+                let (hits, drops) = owner
+                    .validate_and_materialize(query.subject, &by_owner[index], &bound)
+                    .await?;
+                for hit in hits {
+                    materialized.insert(hit.reference.clone(), hit);
+                }
+                merge_counts(&mut validation_drops, drops);
             }
-            merge_counts(&mut validation_drops, drops);
         }
         for binding in &bound.exact_bindings {
             if binding.mutable_object {
-                let owner_validates = contributors
-                    .memory
-                    .is_some_and(|owner| owner.owns(&binding.bound_ref));
+                let owner_validates = owners
+                    .iter()
+                    .flatten()
+                    .any(|owner| owner.owns(&binding.bound_ref));
                 if owner_validates {
                     continue;
                 }
@@ -303,10 +333,14 @@ impl CognitiveRuntimeService {
             self.store
                 .validate_reference(query.subject, &reference)
                 .await?;
-            materialized.insert(
-                reference.clone(),
-                reference_hit(reference, EvidenceFamily::Exact, query),
-            );
+            let hit = reference_hit(reference.clone(), EvidenceFamily::Exact, query);
+            if !generic_constraints_match(&query.expression.constraints) {
+                *validation_drops
+                    .entry("constraint_ineligible".into())
+                    .or_default() += 1;
+                continue;
+            }
+            materialized.insert(reference, hit);
         }
         for candidate in ranked.into_iter().take(validation_bound) {
             if let Some(mut hit) = materialized.remove(&candidate.reference) {
@@ -321,7 +355,11 @@ impl CognitiveRuntimeService {
                     enabled_lane_count: candidate.families.len() as u32,
                     final_score: candidate.final_score,
                     variants: candidate.variants,
-                    explanation: None,
+                    explanation: readouts
+                        .get(&candidate.reference)
+                        .map(serde_json::to_string)
+                        .transpose()
+                        .map_err(|error| Error::Infrastructure(error.to_string()))?,
                 };
                 result.results.push(hit);
             }
@@ -352,6 +390,13 @@ impl CognitiveRuntimeService {
         }
         explain_plan(&mut result, query, &plan);
         if let Some(diagnostics) = result.diagnostics.as_mut() {
+            if query.diagnostics == DiagnosticsRequest::Full {
+                diagnostics.trace = Some(serde_json::json!({
+                    "readouts": result.results.iter().filter_map(|hit| readouts.get(&hit.reference)
+                        .map(|value| serde_json::json!({"reference": hit.reference, "lanes": value})))
+                        .collect::<Vec<_>>()
+                }));
+            }
             for lane in &lane_outputs {
                 let name = format!("{:?}", lane.family).to_lowercase();
                 diagnostics
@@ -364,6 +409,19 @@ impl CognitiveRuntimeService {
                 if let Some(work) = &lane.topology_work {
                     diagnostics
                         .lane_status
+                        .insert("topology_profile".into(), work.profile_id.clone());
+                    diagnostics.lane_status.insert(
+                        "topology_profile_digest".into(),
+                        work.profile_digest.clone(),
+                    );
+                    diagnostics
+                        .candidate_counts
+                        .insert("topology_activated_edges".into(), work.activated_edges);
+                    diagnostics
+                        .candidate_counts
+                        .insert("topology_max_hop_observed".into(), work.max_hop_observed);
+                    diagnostics
+                        .lane_status
                         .insert("topology_mechanism".into(), work.mechanism.clone());
                     diagnostics
                         .candidate_counts
@@ -372,7 +430,7 @@ impl CognitiveRuntimeService {
                         .candidate_counts
                         .insert("topology_visited_nodes".into(), work.visited_nodes);
                     diagnostics.topology_complete = Some(work.complete);
-                    diagnostics.topology_discarded_mass = Some(work.discarded_mass);
+                    diagnostics.topology_discarded_mass = work.discarded_mass;
                 }
             }
         }
@@ -531,4 +589,20 @@ fn reference_hit(
             Vec::new()
         },
     }
+}
+
+// Runtime/host references carry no Material time or source claims.
+pub(super) fn generic_constraints_match(c: &QueryConstraints) -> bool {
+    c.occurred.is_none()
+        && c.observed.is_none()
+        && c.valid.is_none()
+        && c.formed.is_none()
+        && c.recorded.is_none()
+        && c.source_classes_include.is_empty()
+        && c.modalities.is_empty()
+        && c.evidence_classes.is_empty()
+        && c.cognitive_roles_include.is_empty()
+        && c.formation_modes_include.is_empty()
+        && c.entity_requirements.is_empty()
+        && c.authority.is_none()
 }

@@ -164,6 +164,7 @@ pub struct Tag {
     pub subject_id: SubjectId,
     pub current_revision_id: Uuid,
     pub status: String,
+    pub canonical_tag_id: Option<TagId>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -254,6 +255,13 @@ pub struct AssociationEvidence {
     pub valid_time: TemporalExtent,
     pub created_at: DateTime<Utc>,
     pub revoked_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AssociationNeighborhood {
+    pub nodes: Vec<CognitiveRef>,
+    pub associations: Vec<AssociationEvidence>,
+    pub truncated: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -510,6 +518,7 @@ pub struct SchemaLineage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateSchemaInput {
+    pub producer: Option<nous_core::ProducerSignature>,
     pub operation_id: OperationId,
     pub subject: SubjectId,
     pub title: Option<String>,
@@ -529,6 +538,9 @@ pub struct SchemaEvidenceLinkInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviseSchemaInput {
+    pub formation_kind: SchemaFormationKind,
+    pub producer: Option<nous_core::ProducerSignature>,
+    pub evidence_links: Vec<SchemaEvidenceLinkInput>,
     pub operation_id: OperationId,
     pub subject: SubjectId,
     pub schema_id: CognitiveSchemaId,
@@ -552,57 +564,6 @@ pub struct CreateAssociationInput {
     pub support_class: AssociationSupportClass,
     pub supports: Vec<AssociationSupport>,
     pub valid_time: TemporalExtent,
-}
-
-// Consolidation remains an owner-level proposal envelope. It is translated
-// into the explicit Memory/Schema operations before Authority commit.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ConsolidationTarget {
-    Synthesized,
-    TopologyOnly,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConsolidationRequest {
-    pub operation_id: OperationId,
-    #[serde(default)]
-    pub subject: SubjectId,
-    pub source_memories: Vec<MemoryRevisionId>,
-    pub target: ConsolidationTarget,
-    pub representation_text: Option<String>,
-    pub semantic_role: Option<String>,
-    #[serde(default)]
-    pub topology: Option<TopologyConsolidationProposal>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TopologyConsolidationProposal {
-    #[serde(default)]
-    pub tags: Vec<TopologyTagProposal>,
-    #[serde(default)]
-    pub associations: Vec<TopologyAssociationProposal>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TopologyTagProposal {
-    pub label: String,
-    pub description: Option<String>,
-    pub kind_hint: Option<String>,
-    pub tag_id: Option<TagId>,
-    #[serde(default)]
-    pub attach_to: Vec<MemoryRevisionId>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TopologyAssociationProposal {
-    pub from: CognitiveRef,
-    pub to: CognitiveRef,
-    pub relation_kind: String,
-    pub polarity: AssociationPolarity,
-    pub support_class: AssociationSupportClass,
-    #[serde(default)]
-    pub supports: Vec<AssociationSupport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

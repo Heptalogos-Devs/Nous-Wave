@@ -6,11 +6,36 @@ pub use mechanisms::*;
 mod artifacts;
 mod build;
 mod lifecycle;
+mod reclamation;
+pub use reclamation::ReclamationReport;
 mod material;
+mod observation;
 mod provider;
+pub mod reference;
+pub use observation::{QueryObservation, QueryTemporalContext};
 mod query;
+pub use query::PreparedQuerySignals;
+mod activated_routes;
 mod topology_lane;
+mod vcp_adapter;
+mod vcp_routes;
 pub use material::*;
+pub use vcp_adapter::*;
+mod vcp_policy;
+pub use vcp_policy::*;
+mod vcp_lane;
+mod vcp_readout;
+pub use vcp_readout::*;
+mod vcp_observation;
+pub use vcp_observation::*;
+mod vcp_index;
+pub use vcp_index::*;
+mod vcp_generation;
+pub use vcp_generation::*;
+mod vcp_graph;
+pub use vcp_graph::*;
+mod vcp_material;
+pub use vcp_material::*;
 
 use nous_core::*;
 use nous_object_store::ObjectStore;
@@ -33,6 +58,9 @@ pub const DENSE_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
 pub const TOPOLOGY_ENABLED_KEY: nous_configuration::ConfigKey<bool> =
     nous_configuration::ConfigKey::new("serving.topology.enabled");
 
+pub const RETIRED_GRACE_SECONDS: nous_configuration::ConfigKey<u64> =
+    nous_configuration::ConfigKey::new("serving.retired_grace_seconds");
+
 pub const LEXICAL_WRITER_BYTES: nous_configuration::ConfigKey<usize> =
     nous_configuration::ConfigKey::new("serving.lexical.writer_memory_bytes");
 pub const MINIMUM_LEXICAL_WRITER_BYTES: usize = 15_000_000;
@@ -42,6 +70,7 @@ pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
     epa_policy::register_configuration(registry)?;
+    vcp_policy::register_configuration(registry)?;
     for (key, description, default) in [
         (
             LEXICAL_ENABLED_KEY,
@@ -68,6 +97,24 @@ pub fn register_configuration(
         )?;
     }
     use nous_configuration::*;
+    registry.register(
+        RETIRED_GRACE_SECONDS,
+        "serving",
+        "Grace period before reclaiming unpinned retired artifacts.",
+        300,
+        ConfigExposure::Developer,
+        ConfigScopePolicy::SystemOnly,
+        ConfigApplyMode::Live,
+        ConfigSemanticEffect::Operational,
+        |value| {
+            if *value <= 604800 {
+                Ok(())
+            } else {
+                Err(Error::Invalid("retired grace exceeds seven days".into()))
+            }
+        },
+    )?;
+    registry.bounds(RETIRED_GRACE_SECONDS, 0, 604800, Some("seconds"))?;
     registry.register(
         LEXICAL_WRITER_BYTES,
         "serving",
@@ -117,6 +164,8 @@ pub struct ServingService {
     pub configuration: nous_configuration::ConfigurationService,
     pub publisher: ServingPublisher,
     pub options: ServingOptions,
+    read_gate: Arc<tokio::sync::RwLock<()>>,
+    query_readers: Arc<std::sync::Mutex<Vec<std::sync::Weak<query::ServingQuery>>>>,
     embedding: Arc<std::sync::OnceLock<Arc<dyn TextEmbeddingProvider>>>,
 }
 
@@ -162,6 +211,8 @@ impl ServingService {
                 Arc::new(slot)
             },
             publisher: ServingPublisher::default(),
+            read_gate: Arc::new(tokio::sync::RwLock::new(())),
+            query_readers: Default::default(),
         })
     }
 }

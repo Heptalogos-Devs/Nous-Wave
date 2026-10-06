@@ -19,7 +19,7 @@ Prompt 从仓库 `prompts/` 的 UTF-8 Markdown 加载；custom path 须落在允
 
 结构化角色通过 `model/schemas/contracts.ts` 唯一选择对应 Zod owner；Material 合同由 `model/schemas/material-interpretation.ts` 拥有，SDK 与 raw strict 请求共用同一派生 JSON Schema，outputSchemaDigest 进入 producer 与 derivation identity。自由描述不使用结构化 envelope；结构化表示保存一等 `structuredPayload` 和保留 basis/uncertainty 的 deterministic text projection。
 
-两阶段先提交描述，再由 Material owner 生成 description_segment DerivedRegion（UTF-8 byte span）。第二模型只输出 invocation-local support keys；提交前映射成 payload 中的 stable `supports` refs，Kernel 核验它们属于输入图。summary 和内容项都保存 stable supports；basis 与 certainty 分开，original source text 与视觉 embedded text 分开。字段可通过 `client.material.derivedRegion` 与 `client.material.materialize` 精确回读，支持链可回溯原始 SourceRegion/Artifact。
+两阶段先提交描述，再由 Material owner 生成 description_segment DerivedRegion（UTF-8 byte span）。第二模型只输出 invocation-local support keys；提交前映射成 payload 中的 stable `supports` refs，Kernel 核验它们属于输入图。summary 和内容项都保存 stable supports；basis、certainty 与 evidence_channel 分开；证据通道独立于所陈述的 event/state/action，original source text 与视觉 embedded text 分开。字段可通过 `client.material.derivedRegion` 与 `client.material.materialize` 精确回读，支持链可回溯原始 SourceRegion/Artifact。
 
 Structuring 失败保留已提交的 description。普通 recall 不重新解释媒体。显式 `supersedes` 是更新 lineage；同一 lineage/input/producer/strategy request 复用成功结果。
 
@@ -43,3 +43,5 @@ Formation envelope 的 `evidenceText` 是原始来源或已提交表示正文，
 Projection Steward 接收经 consumer policy 筛选的 id/role/text，执行无任务上下文的忠实压缩。Kernel contribution owner 经现有 ContextResolver materialize Memory 内容，遵守请求文本预算、可访问性与 lifecycle，保存实际 revision 和 evidence；Core 在模型前执行 consumer policy。Steward 不承担未提供 query/Focus 的任务相关性判断。
 
 [返回文档目录](../INDEX.md)
+
+`concept_maintenance` 是独立 structured role，默认 Prompt 为 `prompts/memory/concept-maintenance.md`。Role READY 时才进入 maintenance allowed kinds；generation 沿同一固定 role/config/Prompt snapshot、provider-call reservation、durable proposal/receipt 与 lease/retry 路径。模型输入使用局部 cognition/tag/entity/association/support keys，禁止自由 UUID 或 catalog 外 refs；single noisy occurrence、单纯词法重叠和 exposure 不证明长期 concept。`no_change` 单独输出，新增 Tag 与后置 attachment 在同一 proposal 中表达。

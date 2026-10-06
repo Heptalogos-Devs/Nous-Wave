@@ -1,13 +1,16 @@
 # 研究语料
 
-- [manifest.json](manifest.json)：6 个文本来源、105 个语义单元及来源 locator、digest、主题和使用说明。
-- [queries.json](queries.json)：40 条 grounded query 与 acceptable/expected source units。
-- [media.json](media.json)：13 个图像、音频和视频样本（含保留对照）。
-- [personal.json](personal.json)：Simon Willison 的 6 篇相关博客、来源/出版时间、HTML 与正文 digest、抽取规则、作者/项目实体与独立事实 oracle。
-- [personal-queries.json](personal-queries.json)：单篇事实、工作实践、跨文档项目、年代关系和工具工作流查询。
-- [audio-negative-controls.json](audio-negative-controls.json)：两段 NASA 音频的人工听辨事实。
-- [observed-results.json](observed-results.json)：2026-10-01 初始文本检索测量。
+tracked tree 保存 source manifest、少量 oracle metadata 和手工功能场景。下载正文、拆分文本、vectors、大型 source-output matrices 与 run outputs 保存于 ignored `data/research/`。
 
-2026-10-02 文本检索及 2026-10-04 真实模型验证见 [Research](../observations.md)。原始来源内容、媒体、逐条输出和运行日志位于 ignored 的 `data/research/`。
+- [手工功能语料](functional/README.md)：Tide deployment rule、Aya journal preference、snapshot/build-cache analogy 三个场景与 15 个 prepared intents。
+- [六项 text-only 选择](text-compatibility-selection.json)：2 LongMemEval、2 LoCoMo、2 Python official docs，原始 query 不注入 Entity/Tag/WorkContext oracle。
+- [外部来源元数据](external-memory-sources.json)：外部数据的来源与许可。
+- [Hard Text 来源元数据](hard-text-sources.json)：URL、license/rights、source checksum 与提取方式；完整 blocks 留在 ignored cache。
+- [VCP source manifest](cognitive-retrieval-sources.json)：冻结 reference source identity。
+- [媒体来源](media.json)、[音频 negative controls](audio-negative-controls.json)。
+- [个人文本来源](personal.json)、[个人查询](personal-queries.json)。
+- [原始文本 manifest](manifest.json)、[查询](queries.json)、[已有观测元数据](observed-results.json)。
 
-[返回 Research 入口](../README.md)
+先验证 formation 与 Tag/Association maintenance，再解释四 profile 的小型 readout。六项文本兼容性仅作 smoke，不宣称全量 benchmark accuracy。全量 LongMemEval/LoCoMo、RAGFlow 和付费 rerank/provider 比较本轮不执行。
+
+[返回研究入口](../README.md)

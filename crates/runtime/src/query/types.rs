@@ -9,6 +9,7 @@ use uuid::Uuid;
 /// the enabled lane set or its budgets while it is running.
 #[derive(Debug, Clone)]
 pub struct BoundQuery {
+    pub representation: super::QueryRepresentation,
     pub query_id: Uuid,
     pub bound_at: chrono::DateTime<chrono::Utc>,
     pub source_query: CognitiveQuery,
@@ -16,6 +17,7 @@ pub struct BoundQuery {
     pub revision_policy: RevisionPolicy,
     pub exact_bindings: Vec<ExactBinding>,
     pub runtime_refs: Vec<CognitiveRef>,
+    pub runtime_sources: Vec<(CognitiveRef, String)>,
     pub topology_seed_refs: Vec<(CognitiveRef, String)>,
     pub enabled_lanes: Vec<EvidenceFamily>,
     pub lane_budgets: BTreeMap<EvidenceFamily, usize>,
@@ -46,7 +48,7 @@ impl RevisionPolicy {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ExactBinding {
     pub requested_ref: CognitiveRef,
     pub bound_ref: CognitiveRef,
@@ -60,8 +62,11 @@ pub struct AccessibilityQueryPolicy {
     pub exact_target_bypasses_auto_level: bool,
 }
 
+pub trait QueryReadLease: std::fmt::Debug + Send + Sync {}
+
 #[derive(Debug, Clone)]
 pub struct QueryExecution {
+    pub read_lease: Option<std::sync::Arc<dyn QueryReadLease>>,
     pub result: CognitiveQueryResult,
     pub bound: BoundQuery,
     pub(super) leaves: Vec<BoundLeaf>,

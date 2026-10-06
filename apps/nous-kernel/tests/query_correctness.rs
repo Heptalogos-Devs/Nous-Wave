@@ -20,6 +20,8 @@ use uuid::Uuid;
 
 fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
     CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
         session: None,
@@ -61,6 +63,67 @@ async fn subject(runtime: &nous_kernel::NousRuntime) -> nous_core::SubjectId {
         .await
         .expect("subject")
         .subject_id
+}
+
+#[tokio::test]
+async fn self_dependent_revision_is_invalid_and_preserves_current_memory() {
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let source = observation(&runtime, subject, "A supported source fact").await;
+    let owner = runtime.require_memory().unwrap();
+    let original = owner
+        .form_memory(form_input(
+            subject,
+            source.occurrence.occurrence_id,
+            OperationId::new(),
+            "A supported source fact",
+        ))
+        .await
+        .unwrap();
+    let sequence = runtime.store.authority_seq(subject).await.unwrap();
+    let result = owner
+        .revise_memory(nous_memory::ReviseMemoryInput {
+            producer: None,
+            operation_id: OperationId::new(),
+            subject,
+            memory_id: original.object.memory_id,
+            expected_object_epoch: original.object.object_epoch,
+            intent: nous_memory::RevisionIntent::Correct,
+            formation_mode: FormationMode::Grounded,
+            grounding_occurrence_id: Some(source.occurrence.occurrence_id),
+            semantic_role: "fact".into(),
+            representation_text: "A revised source fact".into(),
+            title: None,
+            supports: vec![RevisionSupport::CognitionDependency(
+                nous_core::CognitionDependency {
+                    target_revision: CognitiveRef::MemoryRevision(
+                        original.revision.memory_revision_id,
+                    ),
+                    support_role: SupportRole::Direct,
+                },
+            )],
+            aboutness: vec![],
+            valid_time: TemporalExtent::Unknown,
+            epistemic_class: EpistemicClass::Observed,
+        })
+        .await;
+    assert!(
+        matches!(result, Err(nous_core::Error::Invalid(message)) if message.contains("object cycle"))
+    );
+    let current = owner
+        .memory(subject, original.object.memory_id, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        current.revision.memory_revision_id,
+        original.revision.memory_revision_id
+    );
+    assert_eq!(current.object.object_epoch, original.object.object_epoch);
+    assert_eq!(
+        runtime.store.authority_seq(subject).await.unwrap(),
+        sequence
+    );
 }
 
 #[tokio::test]
@@ -177,6 +240,7 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
             _ => {}
         }
         let contributors = || nous_runtime::CognitiveContributors {
+            material: Some(&runtime.material),
             shared: None,
             memory: Some(runtime.require_memory().unwrap()),
         };
@@ -574,6 +638,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
             order,
             Vec::new(),
             nous_runtime::CognitiveContributors {
+                material: Some(&runtime.material),
                 shared: None,
                 memory: Some(runtime.require_memory().unwrap()),
             },
@@ -787,6 +852,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         .query_with_plan(
             bound,
             nous_runtime::CognitiveContributors {
+                material: Some(&runtime.material),
                 shared: None,
                 memory: Some(memory_service as &dyn nous_runtime::CognitiveContributor),
             },
@@ -807,6 +873,8 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     );
     let historical = runtime
         .query(CognitiveQuery {
+            text_only_compatibility: false,
+            work_context: None,
             api_version: nous_core::API_VERSION,
             subject,
             session: None,
@@ -864,6 +932,7 @@ async fn synthesized_schema_requires_independent_known_roots() {
         .require_memory()
         .unwrap()
         .create_schema(CreateSchemaInput {
+            producer: None,
             operation_id: OperationId::new(),
             subject,
             title: None,
@@ -883,6 +952,7 @@ async fn synthesized_schema_requires_independent_known_roots() {
         .require_memory()
         .unwrap()
         .create_schema(CreateSchemaInput {
+            producer: None,
             operation_id: OperationId::new(),
             subject,
             title: None,
@@ -1166,6 +1236,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .unwrap()
         .create_association(
             nous_memory::CreateAssociationRequest {
+                producer: None,
                 operation_id: OperationId::new(),
                 from: CognitiveRef::Memory(memory.object.memory_id),
                 to: CognitiveRef::Entity(entity.clone()),
@@ -1208,6 +1279,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .unwrap()
         .create_association(
             nous_memory::CreateAssociationRequest {
+                producer: None,
                 operation_id: OperationId::new(),
                 from: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 to: CognitiveRef::Entity(entity.clone()),
@@ -1235,6 +1307,321 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
     assert!(topology.edges.iter().any(|edge| {
         edge.association_kind == "assoc.related" && edge.provenance_root.is_some()
     }));
+    let projection_budget = nous_persistence::EpisodeTextBudget {
+        max_members: 32,
+        fragment_max_bytes: 4096,
+        total_max_bytes: 16384,
+    };
+    let cognitive = runtime
+        .store
+        .cognitive_projection_input(subject, true, projection_budget)
+        .await
+        .expect("coherent cognitive projection");
+    assert_eq!(cognitive.topology.watermark, topology.watermark);
+    assert_eq!(cognitive.topology.nodes, topology.nodes);
+    let memory_reference = CognitiveRef::MemoryRevision(memory.revision.memory_revision_id);
+    assert!(
+        cognitive
+            .sources
+            .iter()
+            .any(|s| s.reference == memory_reference && s.text.is_some())
+    );
+    assert!(
+        cognitive
+            .topology
+            .edges
+            .iter()
+            .any(|e| e.association_kind == "assoc.related" && e.provenance_root.is_some())
+    );
+    let forbidden = runtime
+        .store
+        .cognitive_projection_input(subject, false, projection_budget)
+        .await
+        .expect("cognitive projection without memory capability");
+    assert!(
+        !forbidden
+            .sources
+            .iter()
+            .any(|s| s.reference == memory_reference)
+    );
+    assert!(!forbidden.topology.nodes.contains(&memory_reference));
+    let memory_roots = &cognitive.evidence_roots[&memory_reference];
+    assert!(!memory_roots.is_empty());
+    assert!(
+        memory_roots
+            .iter()
+            .any(|root| !root.starts_with("unknown-dependency:"))
+    );
+    assert!(!forbidden.evidence_roots.contains_key(&memory_reference));
+    check_vcp_projection_material(&runtime, subject, &memory_reference).await;
+    let mut native_request = query(subject);
+    native_request.expression.targets = vec![QueryTarget::Exact {
+        reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
+    }];
+    native_request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+    native_request.diagnostics = nous_core::DiagnosticsRequest::Summary;
+    let result = runtime
+        .query(native_request)
+        .await
+        .expect("native cognitive readout");
+    let diagnostics = result.diagnostics.expect("native observation summary");
+    assert_eq!(
+        diagnostics.lane_status["topology_profile"],
+        "nous-node-potential-v1"
+    );
+    assert_eq!(
+        diagnostics.lane_status["topology_mechanism"],
+        "experimental-node-potential-v1"
+    );
+    assert_eq!(diagnostics.lane_status["topology_profile_digest"].len(), 64);
+    assert!(diagnostics.candidate_counts["topology_seed_count"] > 0);
+    assert!(diagnostics.candidate_counts["topology_activated_edges"] > 0);
+    assert!(diagnostics.candidate_counts["topology_max_hop_observed"] > 0);
+    assert!(result.results.iter().any(
+        |hit| hit.reference == CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
+    ));
+    let mut request = query(subject);
+    request.expression.targets = vec![QueryTarget::Exact {
+        reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
+    }];
+    request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+    let frozen = runtime
+        .cognition
+        .bind_query(request.clone())
+        .await
+        .expect("frozen native query");
+    let plan = QueryPlan::for_bound_query(&frozen);
+    let old_generation = runtime
+        .serving
+        .publisher
+        .snapshot_for(subject)
+        .topology
+        .as_ref()
+        .expect("native generation")
+        .generation_id;
+    let receipt = runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("baseline-rrf"),
+        )
+        .await
+        .expect("baseline profile");
+    assert_eq!(
+        receipt.apply_mode,
+        nous_configuration::ConfigApplyMode::Live
+    );
+    assert_eq!(
+        plan.cognitive_profile,
+        nous_runtime::CognitiveProfile::NousNodePotential
+    );
+    let baseline = runtime
+        .cognition
+        .bind_query(request.clone())
+        .await
+        .expect("baseline bound");
+    let baseline_plan = QueryPlan::for_bound_query(&baseline);
+    assert_eq!(
+        baseline_plan.cognitive_profile,
+        nous_runtime::CognitiveProfile::BaselineRrf
+    );
+    assert!(!baseline_plan.expand_topology);
+    assert!(!baseline.lane_enabled(nous_core::EvidenceFamily::TopologyWave));
+    let old_output = nous_runtime::SharedLaneProvider::lanes(&runtime.serving, &frozen, &plan)
+        .await
+        .expect("frozen profile readout");
+    assert_eq!(
+        old_output
+            .iter()
+            .find(|lane| lane.family == nous_core::EvidenceFamily::TopologyWave)
+            .expect("native lane")
+            .generation_ref,
+        Some(old_generation)
+    );
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("vcp-rivermemo-v3.1-adapter-v1"),
+        )
+        .await
+        .expect("reference profile");
+    let reference_bound = runtime
+        .cognition
+        .bind_query(request)
+        .await
+        .expect("reference bound");
+    let reference_plan = QueryPlan::for_bound_query(&reference_bound);
+    runtime
+        .serving
+        .prepare_with_snapshot(
+            subject,
+            reference_plan.serving_need(&reference_bound.source_query),
+            &reference_bound.config_snapshot,
+        )
+        .await
+        .expect("reference prepare");
+    let generation = runtime.serving.publisher.snapshot_for(subject);
+    let graph = generation.vcp.as_ref().expect("VCP profile generation");
+    assert!(generation.topology.is_none());
+    graph.validate().unwrap();
+    let query_embedding = nous_retrieval::TextEmbeddingOutput {
+        vector: vec![1.0, 0.0, 0.0],
+        space: graph.space.clone(),
+        producer: graph.producer.clone(),
+    };
+    let observation = nous_retrieval::VcpQueryObservation::prepare(
+        graph,
+        &reference_bound,
+        &reference_plan,
+        &query_embedding,
+    )
+    .unwrap();
+    assert_eq!(observation.original_vector(), &[1.0, 0.0, 0.0]);
+    assert_eq!(observation.generation_id(), graph.generation_id);
+    assert_eq!(observation.profile_id(), "vcp-rivermemo-v3.1-adapter-v1");
+    assert!(!observation.numerical().epa.cache_available);
+    assert!(observation.numerical().sense.source_field.is_empty());
+    check_vcp_nonempty_observation(
+        &runtime,
+        subject,
+        &reference_bound,
+        &reference_plan,
+        &query_embedding,
+    )
+    .await;
+
+    let mut insufficient_plan = reference_plan.clone();
+    insufficient_plan.topology_nodes = 50;
+    assert!(
+        nous_retrieval::VcpQueryObservation::prepare(
+            graph,
+            &reference_bound,
+            &insufficient_plan,
+            &query_embedding
+        )
+        .is_err()
+    );
+    let mut wrong_embedding = query_embedding.clone();
+    wrong_embedding.producer.signature_hash = "different".into();
+    assert!(
+        nous_retrieval::VcpQueryObservation::prepare(
+            graph,
+            &reference_bound,
+            &reference_plan,
+            &wrong_embedding
+        )
+        .is_err()
+    );
+    let mut forbidden_bound = reference_bound.clone();
+    forbidden_bound.source_query.capabilities.text_embedding =
+        nous_core::RequirementStrength::Forbidden;
+    assert!(
+        nous_retrieval::VcpQueryObservation::prepare(
+            graph,
+            &forbidden_bound,
+            &reference_plan,
+            &query_embedding
+        )
+        .is_err()
+    );
+
+    let indexed = graph
+        .search_candidates(&[1.0, 0.0, 0.0], graph.vectors.len())
+        .unwrap();
+    assert_eq!(indexed.len(), graph.vectors.len());
+    assert!(
+        indexed
+            .iter()
+            .any(|hit| hit.record.as_ref().unwrap().reference == memory_reference)
+    );
+    assert!(indexed.iter().all(|hit| hit.distance.abs() < 1e-6));
+    assert!(
+        graph
+            .search_residual_tags(&[1.0, 0.0, 0.0], 10)
+            .unwrap()
+            .is_empty()
+    );
+
+    let encoded = serde_json::to_value(graph.as_ref()).unwrap();
+    let mut decoded: nous_retrieval::VcpGeneration =
+        serde_json::from_value(encoded.clone()).unwrap();
+    decoded.curves[0].chunk_vector[0] += 0.1;
+    assert!(decoded.validate().is_err());
+    let mut reordered = encoded;
+    reordered["identities"]["references"]
+        .as_array_mut()
+        .unwrap()
+        .reverse();
+    let decoded: nous_retrieval::VcpGeneration = serde_json::from_value(reordered).unwrap();
+    assert!(decoded.validate().is_err());
+    assert_eq!(graph.policy.epa_anchors, 64);
+    assert!(
+        graph
+            .curves
+            .iter()
+            .any(|c| c.id == graph.identities.id(&memory_reference).unwrap())
+    );
+    assert_ne!(old_generation, graph.generation_id);
+    assert_eq!(
+        graph.cognitive_profile,
+        nous_runtime::CognitiveProfile::VcpRiverMemo
+    );
+    let current = runtime
+        .store
+        .serving_current(subject)
+        .await
+        .expect("published metadata");
+    let topology = current
+        .iter()
+        .find(|record| record.family == "topology")
+        .expect("topology record");
+    assert_eq!(
+        topology.metadata["cognitive_profile"],
+        "vcp-rivermemo-v3.1-adapter-v1"
+    );
+    assert!(
+        std::path::Path::new(&topology.artifact_location)
+            .join("vcp.json")
+            .exists()
+    );
+    runtime
+        .serving
+        .publisher
+        .publish_for(subject, nous_retrieval::ServingSnapshot::default());
+    let reopened = runtime
+        .serving
+        .prepare_with_snapshot(
+            subject,
+            reference_plan.serving_need(&reference_bound.source_query),
+            &reference_bound.config_snapshot,
+        )
+        .await
+        .unwrap();
+    assert_eq!(reopened.reopened, vec!["exact", "topology"]);
+    assert_eq!(
+        runtime
+            .serving
+            .publisher
+            .snapshot_for(subject)
+            .vcp
+            .as_ref()
+            .unwrap()
+            .generation_id,
+        graph.generation_id
+    );
+
+    let stale_output = nous_runtime::SharedLaneProvider::lanes(&runtime.serving, &frozen, &plan)
+        .await
+        .expect("generation mismatch");
+    let stale_topology = stale_output
+        .iter()
+        .find(|lane| lane.family == nous_core::EvidenceFamily::TopologyWave)
+        .expect("old lane");
+    assert_eq!(stale_topology.status, nous_runtime::LaneStatus::Unavailable);
+    assert!(stale_topology.candidates.is_empty());
     let producer = Uuid::now_v7();
     sqlx::query("INSERT INTO producer_signatures(producer_signature_id,signature_hash,provider_class,operation,implementation,model_identity,model_revision,preprocessing_identity,preprocessing_revision,config_digest,created_at,metadata) VALUES($1,$2,'test','text.interpretation','derived-test',NULL,NULL,'none','1','derived-test',now(),'{}')")
         .bind(producer)
@@ -1247,6 +1634,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .unwrap()
         .create_association(
             nous_memory::CreateAssociationRequest {
+                producer: None,
                 operation_id: OperationId::new(),
                 from: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 to: CognitiveRef::Entity(entity),
@@ -1269,10 +1657,771 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         .await
         .expect("derived producer association");
     assert_eq!(derived.producer_signature_id, Some(producer));
+    let previous_vcp = runtime
+        .serving
+        .publisher
+        .snapshot_for(subject)
+        .vcp
+        .as_ref()
+        .unwrap()
+        .generation_id;
+    let mut policy = nous_retrieval::VcpAssetPolicy::default();
+    policy.graph.outbound_mass = 0.7;
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_retrieval::VCP_ASSETS.path(),
+            serde_json::to_value(policy).unwrap(),
+        )
+        .await
+        .unwrap();
+    let changed_snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    let changed = runtime
+        .serving
+        .prepare_with_snapshot(
+            subject,
+            nous_core::ServingNeed {
+                exact: false,
+                lexical: false,
+                dense: false,
+                topology: true,
+            },
+            &changed_snapshot,
+        )
+        .await
+        .unwrap();
+    assert_eq!(changed.rebuilt, vec!["topology"]);
+    let published = runtime.serving.publisher.snapshot_for(subject);
+    let assets = published.vcp.as_ref().unwrap();
+    assert_ne!(assets.generation_id, previous_vcp);
+    assert_eq!(assets.policy.graph.outbound_mass, 0.7);
+    assert!(
+        nous_retrieval::VcpQueryObservation::prepare(
+            assets,
+            &reference_bound,
+            &reference_plan,
+            &query_embedding
+        )
+        .is_err()
+    );
+    assert_eq!(observation.generation_id(), graph.generation_id);
+
+    let authority_seq: i64 =
+        sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+            .bind(subject.0)
+            .fetch_one(runtime.store.pool())
+            .await
+            .unwrap();
+    assert_eq!(assets.authority_watermark, authority_seq);
+    let transport = &assets.graph.graph.transport;
+    for row in transport
+        .row_offsets
+        .windows(2)
+        .filter(|row| row[1] > row[0])
+    {
+        assert!((transport.weights[row[0]..row[1]].iter().sum::<f64>() - 0.7).abs() < 1e-12);
+    }
+    Box::pin(check_public_vcp_queries(
+        &runtime,
+        subject,
+        &memory_reference,
+        &query_embedding,
+    ))
+    .await;
+}
+
+async fn check_public_vcp_queries(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+    memory: &CognitiveRef,
+    embedding: &nous_retrieval::TextEmbeddingOutput,
+) {
+    for profile in [
+        "vcp-rivermemo-v3.1-adapter-v1",
+        "vcp-dtsc-v9.2.1-adapter-v1",
+    ] {
+        runtime
+            .configuration
+            .set_system_override(
+                OperationId::new(),
+                nous_runtime::COGNITIVE_PROFILE.path(),
+                serde_json::json!(profile),
+            )
+            .await
+            .unwrap();
+        let mut request = query(subject);
+        request.expression.cues = vec![nous_core::Cue::Text(nous_core::TextCue {
+            text: "association memory".into(),
+        })];
+        request.expression.targets = vec![QueryTarget::Memory];
+        request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+        request.diagnostics = nous_core::DiagnosticsRequest::Summary;
+        let material = vec![nous_retrieval::QueryEmbedding {
+            text: runtime
+                .cognition
+                .bind_query(request.clone())
+                .await
+                .unwrap()
+                .representation
+                .text,
+            output: embedding.clone(),
+        }];
+        let result =
+            nous_retrieval::with_query_material(material.clone(), runtime.query(request.clone()))
+                .await
+                .unwrap();
+        assert!(result.results.iter().any(|hit| &hit.reference == memory));
+        let diagnostics = result.diagnostics.unwrap();
+        assert_eq!(
+            diagnostics
+                .lane_status
+                .get("topology_profile")
+                .map(String::as_str),
+            Some(profile),
+            "{diagnostics:?}"
+        );
+        assert!(diagnostics.lane_status["topologywave"].contains("ready"));
+        assert_eq!(diagnostics.topology_discarded_mass, None);
+        let bound = runtime.cognition.bind_query(request.clone()).await.unwrap();
+        let plan = QueryPlan::for_bound_query(&bound);
+        let CognitiveRef::MemoryRevision(revision) = memory else {
+            panic!("memory revision fixture");
+        };
+        let memory_id: Uuid = sqlx::query_scalar(
+            "SELECT memory_id FROM memory_revisions WHERE subject_id=$1 AND memory_revision_id=$2",
+        )
+        .bind(subject.0)
+        .bind(revision.0)
+        .fetch_one(runtime.store.pool())
+        .await
+        .unwrap();
+        let view = runtime
+            .require_memory()
+            .unwrap()
+            .memory(subject, nous_core::MemoryId(memory_id), None)
+            .await
+            .unwrap();
+        let suppressed = runtime
+            .require_memory()
+            .unwrap()
+            .suppress(
+                subject,
+                view.object.memory_id,
+                OperationId::new(),
+                view.object.object_epoch,
+            )
+            .await
+            .unwrap();
+        let stale = nous_retrieval::with_query_material(
+            material,
+            nous_runtime::SharedLaneProvider::lanes(&runtime.serving, &bound, &plan),
+        )
+        .await
+        .unwrap();
+        let lane = stale
+            .iter()
+            .find(|lane| lane.family == nous_core::EvidenceFamily::TopologyWave)
+            .unwrap();
+        assert_eq!(lane.status, nous_runtime::LaneStatus::Unavailable);
+        assert!(lane.candidates.is_empty());
+        runtime
+            .require_memory()
+            .unwrap()
+            .restore(
+                subject,
+                suppressed.object.memory_id,
+                OperationId::new(),
+                suppressed.object.object_epoch,
+            )
+            .await
+            .unwrap();
+        request.capabilities.text_embedding = nous_core::RequirementStrength::Forbidden;
+        let forbidden = runtime.query(request).await.unwrap();
+        assert!(
+            !forbidden
+                .diagnostics
+                .unwrap()
+                .lane_status
+                .contains_key("topology_profile")
+        );
+    }
+    check_vcp_native_switch_freshness(runtime, subject).await;
+}
+
+async fn check_vcp_native_switch_freshness(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+) {
+    observation(
+        runtime,
+        subject,
+        "topology publication full-watermark regression",
+    )
+    .await;
+    let provider = runtime.serving.embedding().unwrap();
+    for need in runtime.serving.embedding_needs(subject, 256).await.unwrap() {
+        runtime
+            .serving
+            .commit_embedding(
+                subject,
+                need.reference,
+                need.text,
+                &provider.space().space_hash,
+                &provider.producer().signature_hash,
+                vec![1.0, 0.0, 0.0],
+            )
+            .await
+            .unwrap();
+    }
+    let desired = runtime
+        .store
+        .projection_watermark(subject, "topology", "")
+        .await
+        .unwrap();
+    let full: i64 = sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+        .bind(subject.0)
+        .fetch_one(runtime.store.pool())
+        .await
+        .unwrap();
+    assert!(full > desired);
+    let need = nous_core::ServingNeed {
+        exact: false,
+        lexical: false,
+        dense: false,
+        topology: true,
+    };
+    let mut visited = std::collections::HashSet::new();
+    for index in 0..100 {
+        let profile = match index % 4 {
+            0 | 2 => "vcp-dtsc-v9.2.1-adapter-v1",
+            1 => "vcp-rivermemo-v3.1-adapter-v1",
+            _ => "nous-node-potential-v1",
+        };
+        runtime
+            .configuration
+            .set_system_override(
+                OperationId::new(),
+                nous_runtime::COGNITIVE_PROFILE.path(),
+                serde_json::json!(profile),
+            )
+            .await
+            .unwrap();
+        let snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+        let status = runtime
+            .serving
+            .prepare_with_snapshot(subject, need, &snapshot)
+            .await
+            .unwrap();
+        assert!(status.degradation.is_empty());
+        visited.insert(status.generations["topology"]);
+        if index > 3 {
+            assert!(status.rebuilt.is_empty());
+        }
+    }
+    assert_eq!(
+        visited.len(),
+        2,
+        "readout switches reuse VCP/native artifacts"
+    );
+    let snapshot = runtime.serving.publisher.snapshot_for(subject);
+    assert!(snapshot.vcp.is_none());
+    assert_eq!(
+        snapshot.topology.as_ref().unwrap().cognitive_profile,
+        nous_runtime::CognitiveProfile::NousNodePotential
+    );
+    let current = runtime.store.serving_current(subject).await.unwrap();
+    assert_eq!(
+        current
+            .iter()
+            .find(|record| record.family == "topology")
+            .unwrap()
+            .authority_watermark,
+        full
+    );
+    check_generation_reclamation(runtime, subject, &visited).await;
+}
+
+async fn check_generation_reclamation(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+    visited: &std::collections::HashSet<nous_core::ServingGenerationId>,
+) {
+    let retired = runtime
+        .store
+        .serving_reusable(subject)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|record| {
+            visited.contains(&record.generation_id)
+                && record.metadata["cognitive_profile"] == "vcp-dtsc-v9.2.1-adapter-v1"
+        })
+        .unwrap();
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("vcp-dtsc-v9.2.1-adapter-v1"),
+        )
+        .await
+        .unwrap();
+    let mut lease_query = query(subject);
+    lease_query.expression.cues.push(Cue::Entity(EntityCue {
+        entity_ref: EntityRef::new("entity:association").unwrap(),
+    }));
+    lease_query.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+    let held = runtime.execute_query(lease_query, Some(5)).await.unwrap();
+    let (_, ticket) = runtime.cognition.retain_query(held).unwrap();
+    let ticket = ticket.unwrap();
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("nous-node-potential-v1"),
+        )
+        .await
+        .unwrap();
+    runtime
+        .serving
+        .prepare(
+            subject,
+            nous_core::ServingNeed {
+                topology: true,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    let busy = runtime
+        .serving
+        .reclaim_retired(subject, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(busy.readers_active);
+    assert!(!busy.reclaimed.contains(&retired.generation_id));
+    assert!(
+        !busy.reclaimed.is_empty(),
+        "active ticket does not block unrelated retired assets"
+    );
+    assert!(std::path::Path::new(&retired.artifact_location).exists());
+    runtime
+        .serving
+        .pin_research_generation(retired.generation_id, true)
+        .await
+        .unwrap();
+    runtime.cognition.release_query(subject, ticket).unwrap();
+    let pinned = runtime
+        .serving
+        .reclaim_retired(subject, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(!pinned.reclaimed.contains(&retired.generation_id));
+    runtime
+        .serving
+        .pin_research_generation(retired.generation_id, false)
+        .await
+        .unwrap();
+    let orphan = runtime.serving.options.root.join(".staging-abandoned");
+    std::fs::create_dir(&orphan).unwrap();
+    std::fs::write(orphan.join("partial"), b"orphan").unwrap();
+    let collected = runtime
+        .serving
+        .reclaim_retired(subject, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(collected.reclaimed.contains(&retired.generation_id));
+    assert!(collected.bytes_reclaimed > 0);
+    assert_eq!(collected.orphan_directories, 1);
+    assert!(!orphan.exists());
+    assert!(!std::path::Path::new(&retired.artifact_location).exists());
+    let active = runtime.store.serving_current(subject).await.unwrap();
+    assert!(
+        active
+            .iter()
+            .all(|record| std::path::Path::new(&record.artifact_location).exists())
+    );
+}
+
+async fn check_vcp_nonempty_observation(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+    bound: &nous_runtime::BoundQuery,
+    plan: &QueryPlan,
+    embedding: &nous_retrieval::TextEmbeddingOutput,
+) {
+    let (material, a) = nonempty_vcp_lab_material(bound, embedding);
+    let tag_a = CognitiveRef::Tag(a);
+    let assets = nous_retrieval::VcpGeneration::build(
+        nous_core::ServingGenerationId::new(),
+        plan.cognitive_profile,
+        material,
+        bound
+            .config_snapshot
+            .get(nous_retrieval::VCP_ASSETS)
+            .unwrap(),
+    )
+    .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let generation =
+        nous_retrieval::VcpServingGeneration::create(assets, directory.path()).unwrap();
+    let baseline_policy = nous_retrieval::VcpQueryPolicy::default();
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_retrieval::VCP_QUERY.path(),
+            serde_json::to_value(&baseline_policy).unwrap(),
+        )
+        .await
+        .unwrap();
+    let mut bound = bound.clone();
+    bound.config_snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    bound
+        .source_query
+        .expression
+        .cues
+        .push(nous_core::Cue::Tag(nous_core::TagCue { tag: a }));
+    let observation =
+        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding).unwrap();
+    assert_eq!(
+        observation.core_tag_ids(),
+        &[generation.identities.id(&tag_a).unwrap()]
+    );
+    assert!(!observation.numerical().pyramid.levels.is_empty());
+    assert!(!observation.numerical().sense.source_field.is_empty());
+    assert!(!observation.numerical().fields.local_field.is_empty());
+    assert!(observation.numerical().fields.local_converged);
+    check_vcp_readouts(&generation, &observation, &bound);
+    let mut query_policy = baseline_policy;
+    query_policy.sense.fir_gamma = 0.9;
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_retrieval::VCP_QUERY.path(),
+            serde_json::to_value(query_policy).unwrap(),
+        )
+        .await
+        .unwrap();
+    let changed_snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    let previous_generation = runtime
+        .serving
+        .publisher
+        .snapshot_for(subject)
+        .vcp
+        .as_ref()
+        .unwrap()
+        .generation_id;
+    let status = runtime
+        .serving
+        .prepare_with_snapshot(
+            subject,
+            nous_core::ServingNeed {
+                exact: false,
+                lexical: false,
+                dense: false,
+                topology: true,
+            },
+            &changed_snapshot,
+        )
+        .await
+        .unwrap();
+    assert!(status.rebuilt.is_empty());
+    assert_eq!(
+        runtime
+            .serving
+            .publisher
+            .snapshot_for(subject)
+            .vcp
+            .as_ref()
+            .unwrap()
+            .generation_id,
+        previous_generation
+    );
+    bound.config_snapshot = changed_snapshot;
+    let changed =
+        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding).unwrap();
+    assert_eq!(changed.policy().sense.fir_gamma, 0.9);
+    assert_ne!(
+        changed.config_subset_digest(),
+        observation.config_subset_digest()
+    );
+    assert_ne!(
+        changed.numerical().sense.source_field,
+        observation.numerical().sense.source_field
+    );
+    assert_eq!(changed.generation_id(), observation.generation_id());
+}
+
+fn check_vcp_readouts(
+    generation: &nous_retrieval::VcpServingGeneration,
+    observation: &nous_retrieval::VcpQueryObservation,
+    bound: &nous_runtime::BoundQuery,
+) {
+    let body = bound.exact_bindings[0].bound_ref.clone();
+    let candidate = nous_retrieval::VcpReadoutCandidate {
+        reference: body.clone(),
+        base_score: 0.9,
+        bm25_score: 0.2,
+        time_score: 0.0,
+        anchor_score: 0.0,
+        self_evidence_roots: Default::default(),
+    };
+    let policy = bound
+        .config_snapshot
+        .get(nous_retrieval::VCP_READOUT)
+        .unwrap();
+    let before = serde_json::to_value(observation).unwrap();
+    let dtsc = nous_retrieval::vcp_dtsc_readout(
+        generation,
+        observation,
+        std::slice::from_ref(&candidate),
+        &policy.dtsc,
+        1,
+    )
+    .unwrap();
+    let v3 = nous_retrieval::vcp_v3_readout(
+        generation,
+        observation,
+        std::slice::from_ref(&candidate),
+        &policy.v3,
+        1,
+    )
+    .unwrap();
+    assert_eq!(dtsc.results.len(), 1);
+    assert_eq!(v3.results.len(), 1);
+    assert_eq!(
+        generation.identities.reference(dtsc.results[0].id).unwrap(),
+        &body
+    );
+    assert_eq!(
+        generation.identities.reference(v3.results[0].id).unwrap(),
+        &body
+    );
+    assert!(dtsc.results[0].score.is_finite() && v3.results[0].score.is_finite());
+    assert_eq!(serde_json::to_value(observation).unwrap(), before);
+    let mut own = candidate.clone();
+    own.self_evidence_roots
+        .insert("occurrence:lab-independent".into());
+    let owned = nous_retrieval::vcp_v3_readout(
+        generation,
+        observation,
+        std::slice::from_ref(&own),
+        &policy.v3,
+        1,
+    )
+    .unwrap();
+    assert!(
+        owned.results[0].relative_topology.edge_topology_score
+            < v3.results[0].relative_topology.edge_topology_score
+    );
+    own.self_evidence_roots.insert("unknown:root".into());
+    assert!(
+        nous_retrieval::vcp_v3_readout(generation, observation, &[own], &policy.v3, 1).is_err()
+    );
+    assert!(
+        nous_retrieval::vcp_dtsc_readout(
+            generation,
+            observation,
+            &[candidate.clone(), candidate],
+            &policy.dtsc,
+            1
+        )
+        .is_err()
+    );
+}
+
+fn nonempty_vcp_lab_material(
+    bound: &nous_runtime::BoundQuery,
+    embedding: &nous_retrieval::TextEmbeddingOutput,
+) -> (nous_retrieval::VcpProjectionMaterial, nous_core::TagId) {
+    use nous_retrieval::{VcpCurveOrder, VcpProjectedDocument};
+    let a = nous_core::TagId::new();
+    let b = nous_core::TagId::new();
+    let tag_a = CognitiveRef::Tag(a);
+    let tag_b = CognitiveRef::Tag(b);
+    let body = bound.exact_bindings[0].bound_ref.clone();
+    // Independent lab material exercises numerical adapter input. These Tag
+    // identities are not persisted or used as public-query Authority evidence.
+    let material = nous_retrieval::VcpProjectionMaterial {
+        authority_watermark: bound.bound_at_authority_seq,
+        space: embedding.space.clone(),
+        producer: embedding.producer.clone(),
+        identities: nous_retrieval::VcpIdentityMap::new([
+            body.clone(),
+            tag_a.clone(),
+            tag_b.clone(),
+        ]),
+        edges: vec![nous_persistence::TopologyEdgeSource {
+            from: tag_a.clone(),
+            to: tag_b.clone(),
+            support_class: "source_evidence".into(),
+            association_kind: "assoc.related".into(),
+            polarity: "positive".into(),
+            support_mass: 0.6,
+            provenance_root: Some("occurrence:lab-independent".into()),
+        }],
+        documents: vec![
+            VcpProjectedDocument {
+                reference: body,
+                representation_text: "body".into(),
+                vector: vec![1.0, 0.0, 0.0],
+                concept_refs: vec![tag_a.clone(), tag_b.clone()],
+                curve_order: VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
+            },
+            VcpProjectedDocument {
+                reference: tag_a.clone(),
+                representation_text: "查询线索".into(),
+                vector: vec![1.0, 0.0, 0.0],
+                concept_refs: Vec::new(),
+                curve_order: VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
+            },
+            VcpProjectedDocument {
+                reference: tag_b,
+                representation_text: "其他线索".into(),
+                vector: vec![0.6, 0.8, 0.0],
+                concept_refs: Vec::new(),
+                curve_order: VcpCurveOrder::StableIdentity,
+                evidence_roots: Default::default(),
+            },
+        ],
+    };
+    (material, a)
+}
+
+async fn check_vcp_projection_material(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+    memory: &CognitiveRef,
+) {
+    let mut space = nous_core::EmbeddingSpaceSignature {
+        space_hash: String::new(),
+        model_identity: "fixture-vcp".into(),
+        weights_revision: "1".into(),
+        task: "retrieval".into(),
+        input_representation: "text".into(),
+        preprocessing_identity: "fixture".into(),
+        preprocessing_revision: "1".into(),
+        dimension: 3,
+        normalization: "l2".into(),
+        output_semantics: "dense".into(),
+    };
+    space.space_hash = blake3::hash(&serde_json::to_vec(&space).unwrap())
+        .to_hex()
+        .to_string();
+    let producer =
+        nous_persistence::AuthorityStore::canonical_producer(&nous_core::ProducerSignature {
+            signature_hash: String::new(),
+            provider_class: "fixture".into(),
+            operation: nous_core::CapabilityOperation::TextEmbedding,
+            implementation: "fixture".into(),
+            model_identity: Some("fixture-vcp".into()),
+            model_revision: Some("1".into()),
+            output_schema_digest: None,
+            preprocessing_identity: "fixture".into(),
+            preprocessing_revision: "1".into(),
+            config_digest: "fixture".into(),
+        })
+        .unwrap();
+    runtime
+        .serving
+        .initialize_embedding(nous_retrieval::StoredEmbeddingConfig {
+            space: space.clone(),
+            producer: producer.clone(),
+        })
+        .unwrap();
+    let snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    assert!(matches!(
+        runtime
+            .serving
+            .vcp_projection_material(subject, &snapshot)
+            .await,
+        Err(nous_core::Error::Unavailable(_))
+    ));
+    for need in runtime.serving.embedding_needs(subject, 256).await.unwrap() {
+        runtime
+            .serving
+            .commit_embedding(
+                subject,
+                need.reference,
+                need.text,
+                &space.space_hash,
+                &producer.signature_hash,
+                vec![1.0, 0.0, 0.0],
+            )
+            .await
+            .unwrap();
+    }
+    let material = runtime
+        .serving
+        .vcp_projection_material(subject, &snapshot)
+        .await
+        .unwrap();
+    assert_eq!(material.space, space);
+    assert!(
+        material
+            .documents
+            .iter()
+            .find(|d| &d.reference == memory)
+            .unwrap()
+            .evidence_roots
+            .iter()
+            .any(|root| !root.starts_with("unknown-dependency:"))
+    );
+    assert_eq!(material.producer.signature_hash, producer.signature_hash);
+    assert!(
+        material
+            .documents
+            .iter()
+            .any(|d| &d.reference == memory && d.vector == vec![1.0, 0.0, 0.0])
+    );
+    assert!(
+        material
+            .edges
+            .iter()
+            .any(|e| e.association_kind == "assoc.related")
+    );
+    assert_eq!(
+        material
+            .identities
+            .reference(material.identities.id(memory).unwrap())
+            .unwrap(),
+        memory
+    );
+    let current: i64 = sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+        .bind(subject.0)
+        .fetch_one(runtime.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(material.authority_watermark, current);
+    let config = nous_retrieval::VcpAssetPolicy::default().graph;
+    let assets = nous_retrieval::vcp_graph_assets(&material, &[], &[], &config).unwrap();
+    assert!(
+        assets
+            .evidence
+            .iter()
+            .any(|e| e.association_kind == "assoc.related")
+    );
+    assert!(!assets.graph.transport.weights.is_empty());
+    for edge in &assets.graph.provenance {
+        material.identities.reference(edge.source_id).unwrap();
+        material.identities.reference(edge.target_id).unwrap();
+        for (root_id, mass) in &edge.file_contributions {
+            assert!(*root_id > 0 && *root_id as usize <= assets.provenance_roots.len());
+            assert!(mass.is_finite() && *mass > 0.0);
+        }
+    }
 }
 
 fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {
     CognitiveQuery {
+        text_only_compatibility: false,
+        work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
         session: None,
@@ -1323,6 +2472,15 @@ async fn query_distinguishes_provider_unavailable_from_unknown() {
             .degradation
             .iter()
             .any(|value| value.code == "dense_lane_unavailable")
+    );
+    let mut associative = text_query(subject);
+    associative.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+    let unavailable = runtime.query(associative).await.expect("associative query");
+    assert!(
+        unavailable
+            .degradation
+            .iter()
+            .any(|value| value.code == "topologywave_lane_unavailable")
     );
 }
 
@@ -1381,4 +2539,423 @@ async fn query_reports_validation_budget_exhaustion() {
             .iter()
             .any(|value| value.code == "validation_budget_exhausted")
     );
+}
+
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one real evidence cohort verifies past/future occurrence and region filters through finalization"
+)]
+async fn evidence_time_constraints_filter_occurrences_and_regions_through_finalization() {
+    use nous_material::{
+        ObservationInput, ObservationMaterial, OccurrenceDescriptor, RuntimeDirective,
+    };
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime_with_serving(&url, &root, true, false, false).await;
+    let subject = subject(&runtime).await;
+    let now = Utc::now();
+    let mut observations = Vec::new();
+    for (time, text) in [
+        (now - Duration::days(2), "chronicle historical approval"),
+        (now + Duration::days(2), "chronicle future approval"),
+    ] {
+        observations.push(
+            runtime
+                .material
+                .record_observation(ObservationInput {
+                    subject,
+                    session: None,
+                    occurrence: OccurrenceDescriptor {
+                        source_class: nous_core::SourceClass::Message,
+                        external_object_ref: None,
+                        occurred_time: TemporalExtent::Instant { at: time },
+                        observed_at: Some(now),
+                        conversation_ref: None,
+                        actor_entity_ref: None,
+                        context: serde_json::json!({}),
+                    },
+                    material: ObservationMaterial::InlineText {
+                        text: text.into(),
+                        media_type: "text/plain".into(),
+                    },
+                    entities: Vec::new(),
+                    runtime: RuntimeDirective::default(),
+                })
+                .await
+                .unwrap(),
+        );
+    }
+    let mut input = query(subject);
+    input.expression.cues.push(Cue::Text(TextCue {
+        text: "chronicle approval".into(),
+    }));
+    input.expression.constraints.occurred = Some(TimeInterval {
+        start: None,
+        end: Some(now),
+    });
+    let execution = runtime.execute_query(input, Some(32)).await.unwrap();
+    let past = CognitiveRef::Occurrence(observations[0].occurrence.occurrence_id);
+    let future = CognitiveRef::Occurrence(observations[1].occurrence.occurrence_id);
+    let past_region = CognitiveRef::SourceRegion(
+        observations[0]
+            .source_region
+            .as_ref()
+            .unwrap()
+            .source_region_id,
+    );
+    let future_region = CognitiveRef::SourceRegion(
+        observations[1]
+            .source_region
+            .as_ref()
+            .unwrap()
+            .source_region_id,
+    );
+    assert!(
+        execution
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == past_region)
+    );
+    assert!(
+        !execution
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == future_region)
+    );
+    assert!(
+        execution
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == past)
+    );
+    assert!(
+        !execution
+            .result
+            .results
+            .iter()
+            .any(|hit| hit.reference == future)
+    );
+    assert!(
+        execution
+            .result
+            .results
+            .iter()
+            .filter(|hit| matches!(
+                hit.reference,
+                CognitiveRef::Occurrence(_) | CognitiveRef::SourceRegion(_)
+            ))
+            .all(|hit| !hit.freshness.occurred.is_empty()
+                && hit
+                    .freshness
+                    .occurred
+                    .iter()
+                    .all(|time| time.overlaps_interval(&TimeInterval {
+                        start: None,
+                        end: Some(now)
+                    })))
+    );
+    let (_, ticket) = runtime.cognition.retain_query(execution).unwrap();
+    let result = runtime
+        .cognition
+        .finalize_query(
+            subject,
+            ticket.unwrap(),
+            Vec::new(),
+            Vec::new(),
+            nous_runtime::CognitiveContributors {
+                material: Some(&runtime.material),
+                shared: None,
+                memory: runtime
+                    .memory
+                    .as_ref()
+                    .map(|owner| owner as &dyn nous_runtime::CognitiveContributor),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(result.results.iter().any(|hit| hit.reference == past));
+    assert!(!result.results.iter().any(|hit| hit.reference == future));
+    assert!(
+        !result
+            .results
+            .iter()
+            .any(|hit| hit.reference == future_region)
+    );
+}
+
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one real Material cohort protects joint source axes and derived owner timestamps"
+)]
+async fn material_query_keeps_joint_observation_axes_and_derived_formation_time() {
+    use nous_material::{
+        DerivationInput, DerivedRepresentation, ObservationInput, ObservationMaterial,
+        OccurrenceDescriptor, RuntimeDirective,
+    };
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let now = Utc::now();
+    let early = now - Duration::days(2);
+    let late = now - Duration::days(1);
+    let cutoff = early + Duration::hours(12);
+    let mut observations = Vec::new();
+    for (occurred, observed) in [(early, late), (late, early)] {
+        observations.push(
+            runtime
+                .material
+                .record_observation(ObservationInput {
+                    subject,
+                    session: None,
+                    occurrence: OccurrenceDescriptor {
+                        source_class: nous_core::SourceClass::File,
+                        external_object_ref: None,
+                        occurred_time: TemporalExtent::Instant { at: occurred },
+                        observed_at: Some(observed),
+                        conversation_ref: None,
+                        actor_entity_ref: None,
+                        context: serde_json::json!({}),
+                    },
+                    material: ObservationMaterial::InlineText {
+                        text: "the same jointly observed source".into(),
+                        media_type: "text/plain".into(),
+                    },
+                    entities: Vec::new(),
+                    runtime: RuntimeDirective::default(),
+                })
+                .await
+                .unwrap(),
+        );
+    }
+    assert_eq!(
+        observations[0].artifact.as_ref().unwrap().artifact_id,
+        observations[1].artifact.as_ref().unwrap().artifact_id
+    );
+    let source = CognitiveRef::SourceRegion(
+        observations[0]
+            .source_region
+            .as_ref()
+            .unwrap()
+            .source_region_id,
+    );
+    let derived = runtime
+        .material
+        .persist_derived_representation(DerivedRepresentation {
+            derived_representation_id: nous_core::DerivedRepresentationId::new(),
+            subject_id: subject,
+            inputs: vec![DerivationInput {
+                ordinal: 0,
+                reference: source.clone(),
+                role: "source".into(),
+            }],
+            strategy: "deterministic-test".into(),
+            representation_kind: nous_core::RepresentationKind::ExtractedText,
+            producer: nous_core::ProducerSignature {
+                signature_hash: String::new(),
+                provider_class: "local-test".into(),
+                operation: nous_core::CapabilityOperation::TextInterpretation,
+                implementation: "joint-time-test".into(),
+                model_identity: None,
+                model_revision: None,
+                output_schema_digest: None,
+                preprocessing_identity: "utf8".into(),
+                preprocessing_revision: "1".into(),
+                config_digest: "test".into(),
+            },
+            revision: 1,
+            payload_text: Some("the same jointly observed source".into()),
+            payload_json: None,
+            payload_artifact_id: None,
+            quality: serde_json::json!({}),
+            created_at: early,
+            supersedes: None,
+        })
+        .await
+        .unwrap();
+    let derived_ref = CognitiveRef::DerivedRepresentation(derived.derived_representation_id);
+    for reference in [source, derived_ref.clone()] {
+        let mut input = query(subject);
+        input.expression.targets = vec![QueryTarget::Exact {
+            reference: reference.clone(),
+        }];
+        input.expression.constraints.occurred = Some(TimeInterval {
+            start: None,
+            end: Some(cutoff),
+        });
+        input.expression.constraints.observed = Some(TimeInterval {
+            start: None,
+            end: Some(cutoff),
+        });
+        let result = runtime.execute_query(input.clone(), None).await.unwrap();
+        assert!(
+            result.result.results.is_empty(),
+            "different observations cannot supply separate requested axes"
+        );
+        input.expression.constraints.observed = Some(TimeInterval {
+            start: Some(cutoff),
+            end: Some(now),
+        });
+        let result = runtime.execute_query(input, None).await.unwrap();
+        assert_eq!(result.result.results.len(), 1);
+    }
+    let mut temporal = query(subject);
+    temporal.expression.targets = vec![QueryTarget::Evidence];
+    temporal.expression.constraints.occurred = Some(TimeInterval {
+        start: None,
+        end: Some(cutoff),
+    });
+    temporal.expression.constraints.observed = Some(TimeInterval {
+        start: Some(cutoff),
+        end: Some(now),
+    });
+    let result = runtime.execute_query(temporal, None).await.unwrap();
+    assert_eq!(result.result.results.len(), 1);
+    assert_eq!(
+        result.result.results[0].reference,
+        CognitiveRef::Occurrence(observations[0].occurrence.occurrence_id)
+    );
+    let mut input = query(subject);
+    input.expression.targets = vec![QueryTarget::Exact {
+        reference: derived_ref,
+    }];
+    let result = runtime.execute_query(input.clone(), None).await.unwrap();
+    let freshness = &result.result.results[0].freshness;
+    assert!(freshness.formed_at.unwrap() >= now);
+    assert!(freshness.observed_at.unwrap() < now);
+    assert!(matches!(freshness.valid_time, TemporalExtent::Unknown));
+    input.expression.constraints.formed = Some(TimeInterval {
+        start: None,
+        end: Some(now),
+    });
+    assert!(
+        runtime
+            .execute_query(input, None)
+            .await
+            .unwrap()
+            .result
+            .results
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn subject_profiles_change_new_queries_and_preserve_inflight_preparation() {
+    use nous_runtime::{COGNITIVE_PROFILE, CognitiveProfile};
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime_with_serving(&url, &root, true, false, true).await;
+    let mut subjects = Vec::new();
+    for _ in 0..2 {
+        subjects.push(
+            runtime
+                .subjects
+                .create_subject(CreateSubject {
+                    subject_id: None,
+                    operation_id: OperationId::new(),
+                    cognitive_seed: CognitiveSeedInput {
+                        text: "schema_version = 1".into(),
+                        format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
+                        provenance: serde_json::json!({}),
+                    },
+                    metadata: serde_json::json!({}),
+                    capabilities: None,
+                })
+                .await
+                .unwrap()
+                .subject_id,
+        );
+    }
+    runtime
+        .configuration
+        .set_subject_override(
+            OperationId::new(),
+            subjects[0],
+            COGNITIVE_PROFILE.path(),
+            serde_json::json!("baseline-rrf"),
+        )
+        .await
+        .unwrap();
+    runtime
+        .configuration
+        .set_subject_override(
+            OperationId::new(),
+            subjects[1],
+            COGNITIVE_PROFILE.path(),
+            serde_json::json!("vcp-rivermemo-v3.1-adapter-v1"),
+        )
+        .await
+        .unwrap();
+    let prepared_query = |subject| {
+        let mut q = query(subject);
+        q.expression.cues.push(Cue::Text(TextCue {
+            text: "A closed semantic intent".into(),
+        }));
+        q.exploration = nous_core::ExplorationIntent::BoundedAssociative;
+        q
+    };
+    let frozen = runtime
+        .cognition
+        .bind_query(prepared_query(subjects[0]))
+        .await
+        .unwrap();
+    let second = runtime
+        .cognition
+        .bind_query(prepared_query(subjects[1]))
+        .await
+        .unwrap();
+    assert_eq!(
+        frozen.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::BaselineRrf
+    );
+    assert_eq!(
+        second.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::VcpRiverMemo
+    );
+    runtime
+        .configuration
+        .set_subject_override(
+            OperationId::new(),
+            subjects[0],
+            COGNITIVE_PROFILE.path(),
+            serde_json::json!("nous-node-potential-v1"),
+        )
+        .await
+        .unwrap();
+    let changed = runtime
+        .cognition
+        .bind_query(prepared_query(subjects[0]))
+        .await
+        .unwrap();
+    let unchanged = runtime
+        .cognition
+        .bind_query(prepared_query(subjects[1]))
+        .await
+        .unwrap();
+    assert_eq!(
+        changed.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::NousNodePotential
+    );
+    assert_eq!(
+        unchanged.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::VcpRiverMemo
+    );
+    assert_eq!(
+        frozen.config_snapshot.get(COGNITIVE_PROFILE).unwrap(),
+        CognitiveProfile::BaselineRrf
+    );
+    assert_eq!(frozen.representation.text, changed.representation.text);
+    assert_ne!(
+        frozen
+            .config_snapshot
+            .digest_for(&[COGNITIVE_PROFILE.path()])
+            .unwrap(),
+        changed
+            .config_snapshot
+            .digest_for(&[COGNITIVE_PROFILE.path()])
+            .unwrap()
+    );
+    assert_ne!(frozen.enabled_lanes, changed.enabled_lanes);
 }

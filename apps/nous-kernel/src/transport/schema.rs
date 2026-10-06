@@ -20,6 +20,7 @@ fn schema_input(
         enum_value(&value.formation_kind)?
     };
     Ok(CreateSchemaInput {
+        producer: value.producer.map(from_producer).transpose()?,
         operation_id,
         subject,
         title: (!value.title.is_empty()).then_some(value.title),
@@ -170,6 +171,18 @@ impl KernelService {
             .map(|value| Ok(nous_core::SchemaEvidenceLinkId(id(value)?)))
             .collect::<Result<Vec<_>>>()?;
         let value = ReviseSchemaInput {
+            formation_kind: enum_value(&schema.formation_kind)?,
+            producer: schema.producer.map(from_producer).transpose()?,
+            evidence_links: schema
+                .evidence_links
+                .into_iter()
+                .map(|link| {
+                    Ok(SchemaEvidenceLinkInput {
+                        role: enum_value(&link.role)?,
+                        support: support(required(link.support, "support")?)?,
+                    })
+                })
+                .collect::<Result<_>>()?,
             operation_id: OperationId(id(&input.operation_id)?),
             subject,
             schema_id: CognitiveSchemaId(id(&input.schema_id)?),

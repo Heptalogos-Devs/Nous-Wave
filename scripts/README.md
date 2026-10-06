@@ -1,5 +1,7 @@
 # 开发脚本
 
+[返回仓库地图](../INDEX.md)
+
 从仓库根目录执行下列命令。TypeScript 入口依赖 `corepack pnpm install --frozen-lockfile`；源码位置和内部 helper 见 [INDEX.md](INDEX.md)。
 
 ## 开发实例
@@ -96,25 +98,21 @@ corepack pnpm smoke:longitudinal
 
 ## Live research
 
-Research 使用真实模型，必须先准备语料、运行实例和分发的 Client 模块。方法与数据说明见 [Research](../docs/research/README.md)。
+手动媒体与模型研究使用真实模型，必须先准备语料、运行实例和分发的 Client 模块。自动功能验收使用 deterministic provider。方法与数据说明见 [Research](../docs/research/README.md)。
 
 ```text
 corepack pnpm research:gateway --ledger data/research/runs/run-ledger.json --max-calls 1000
 ```
 
-Gateway 默认转发 `http://127.0.0.1:3000/v1`，监听端口 18000；用 `--upstream`、`--port` 覆盖。`--ledger` 与 `--max-calls` 必填，预算计入失败和重试，持久化在 ledger；同路径旁保存 telemetry。将实例模型 endpoint 配为该 gateway 后再运行实验。 可加 `--trace-root data/research/runs/<run>/traces` 保存每次 attempt 的 `meta.json` 和经过敏感信息清除的 request/response。request capture 上限为 96 MiB，response 为 1 MiB；超限只保存大小、digest 和 truncation 状态。大型 data/base64 媒体保存 media type、byte count 与 SHA-256 描述符。Authorization、cookie 和 credential header 不落盘，已知凭据回显也在写盘前清除。trace 文件使用 0600 权限。
+Gateway 默认转发 `http://127.0.0.1:3000/v1`，监听端口 18000；用 `--upstream`、`--port` 覆盖。`--ledger` 与 `--max-calls` 必填，显式累计调用上限允许 1–100000，预算计入失败和重试，持久化在 ledger；同路径旁保存 telemetry。将实例模型 endpoint 配为该 gateway 后再运行实验。 可加 `--trace-root data/research/runs/<run>/traces` 保存每次 attempt 的 `meta.json` 和经过敏感信息清除的 request/response。request capture 上限为 96 MiB，response 为 1 MiB；超限只保存大小、digest 和 truncation 状态。大型 data/base64 媒体与 multipart file 保存 media type、byte count 与 SHA-256 描述符；multipart 保留 model/language 等普通字段，binary 不作为文本落盘。Authorization、cookie 和 credential header 不落盘，已知凭据回显也在写盘前清除。trace 文件使用 0600 权限。
 
 ```text
-corepack pnpm research:retrieval-live import --run-root <实例run目录> --client-module <分发client模块> --track controlled
-corepack pnpm research:retrieval-live run --run-root <实例run目录> --client-module <分发client模块> --track controlled --variant baseline --output <结果.json>
 corepack pnpm research:media-live --run-root <实例run目录> --client-module <分发client模块> --unit nasa-menon-conversation --strategy direct_structured --derive-only
 ```
 
-Retrieval 子命令为 `import`、`run`、`audit-formation`；track 为 `controlled` 或 `end-to-end`，variant 为 `baseline`、`model-rerank`、`wave`、`combined`。默认读取 `docs/research/corpus/manifest.json`、`queries.json`、`data/research/corpus/unit-texts.json`，状态位于 `data/research/runs/corpus-state.json`。可用 `--manifest`、`--queries`、`--texts`、`--state`、`--output` 改路径；`--limit` 默认 0 表示全部，`--concurrency` 默认 4。导入可用 `--embedding-batch`（默认 64）、`--embedding-interval-ms`（默认 0）控制批次。
-
 Media 默认读取 `docs/research/corpus/media.json` 与 `data/research/corpus/raw`，将处理状态写到 `data/research/runs/media-state.json`；用 `--manifest`、`--raw-root`、`--state` 覆盖。状态文件用于继续已有实验，不会从头重复已完成操作。
 
-媒体 runner 的 `--unit`、`--strategy` 可重复指定，`--derive-only` 只验证派生与来源图，`--skip-retrieval` 执行派生和 formation、暂不准备 embedding/query。Receipt 与完整 manifest digest 绑定；更换语料用新的 state。文本 runner 支持 manifest 中显式 author/project entities、出版日期、rights 与 extraction；`--skip-embeddings` 用于小组 formation baseline，`--session` 把观察归入一个实际 Session 并在所选单元成功后关闭。人工评阅应核对实际输出，pattern 命中只覆盖预先声明的事实。
+媒体 runner 的 `--unit`、`--strategy` 可重复指定，`--derive-only` 只验证派生与来源图，`--skip-retrieval` 执行派生和 formation、暂不准备 embedding/query。`--allow-degradation <code>` 可重复声明实验预期的降级（例如 frames-only 的 `video_audio_not_interpreted`），结果仍保存全部 degradation；其他降级继续使 pipeline 失败。Receipt 与完整 manifest digest 绑定；更换语料用新的 state。人工评阅应核对实际输出，pattern 命中只覆盖预先声明的事实。Manifest 的 `oracle_patterns_by_representation_kind` 可为 Transcript 等表示声明与其职责相符的事实 oracle，未声明时使用共同 `oracle_patterns`。
 
 ## 模型合同与 trace 检查
 
@@ -140,8 +138,6 @@ powershell -NoProfile -File scripts/maintenance/cleanup_embedded_postgres.ps1 -W
 
 PostgreSQL 清理只处理`data/temp/tests/` 中具有 PostgreSQL cluster 标记的孤立测试根，跳过运行中的 PostgreSQL。省略 `-WhatIf` 执行删除；`-MinimumAgeHours <小时>` 限制最小年龄，默认 0。它不清理语料、手写配置或开发实例。
 
-[返回仓库地图](../INDEX.md)
-
 ### Longitudinal model research
 
 ```text
@@ -151,3 +147,20 @@ corepack pnpm research:longitudinal --config data/config/apps/nous.toml --input 
 `--input` 使用 Kernel `PlanMaintenance` 返回的 ProtoJSON `MaintenancePlan`：包含当前 Subject、exact source revisions、ordered member keys、support/entity/candidate catalogs 和 owner snapshot。输入必须为 `ready` 且不超过 256 KiB；适用的调用方从私有 Kernel 请求取得该快照。`--role` 为 `episode_segmentation`、`journal_synthesis` 或 `memory_consolidation`。配置使用当前 `nous.toml`；gateway credential 来自已设置的配置指定环境变量。`--prompt-root` 默认 `prompts`，`--override-prompt-root` 可选择本地 prompt override。
 
 Runner 通过真实配置角色和 canonical Structured Output 生成一次 proposal，校验 catalog keys，将来源计划、proposal、producer identity 与人工审阅项目写入新的本地文件；已有 output 文件会报错。研究产物放在 ignored `data/research/`。人工审阅使用真实 trace、来源事实和 boundary annotations，分别评估分段边界、Journal point 支持与省略、整合身份和 Schema 泛化。确定性 `smoke:longitudinal` 检查编排与 Authority 合同；质量研究使用这个手动入口。
+
+
+
+## 小型认知功能验证
+
+[手工功能语料](../docs/research/corpus/functional/README.md)和[六项 text-only 选择](../docs/research/corpus/text-compatibility-selection.json)定义本轮范围。功能 runner 通过 public Client 连接已经运行的 Core，不负责数据库、Kernel、clock、embedding cache 或 Serving lifecycle。结果写入 ignored `data/research/`。全量外部 benchmark、付费 rerank/provider 比较与 RAGFlow 不在本轮执行。
+
+
+### 小型认知功能验证
+
+`corepack pnpm research:cognitive-functional --run-root <现有 Core 的 RunRoot> --profiles baseline-rrf,nous-node-potential-v1,vcp-dtsc-v9.2.1-adapter-v1,vcp-rivermemo-v3.1-adapter-v1` 使用 official Client，不启动 PostgreSQL、Kernel 或 Core。它先提交三个手工场景，明确 grant maintenance，检查实际 Tag/Association/identity 形成结果，再 prepare/query；每个 profile 的 semantic representation 必须一致。JSON 输出在 ignored `data/research/cognitive-functional/`。`--max-model-calls`（默认 128）限制 formation/maintenance 模型调用，`--max-elapsed-ms`（默认 60000）取消超时 public requests；`--compat-input` 可指定 ignored raw-text cache，执行六项选择的四 profile smoke。
+
+`--compat-input <本地 raw source JSON>` 可附加六项 selected text-only smoke。该输入仅含 manifest 指定的 source pools，源码 text 必须通过对应 SHA256；query 只有原问题、Memory domain 和 `textOnlyCompatibility=true`，不注入 Entity/Tag/WorkContext。完整来源不进入 tracked corpus。
+
+本地 automatic smoke 使用现有 `longitudinal_smoke` Core/Kernel fixture，`NOUS_FUNCTIONAL_SMOKE=1 cargo test -p nous-kernel --test longitudinal_smoke -- --nocapture` 开启 deterministic model 与 embedding provider，外部 provider/rerank calls 为零。fake vectors 用于验证线路与资产复用，不能说明语义排名质量或算法优胜。一般 public runner 会使用所连接实例的模型配置；自动验收连接 deterministic fixture。
+
+CLI Agent smoke 在同一现有 Core fixture 中执行实际 CLI 子进程，验证 JSON help、`AMBIGUOUS_REFERENCE` 候选、选定 LexicalRef、public prepare/query。OpenCode v2.0.23 已安装，但当前 `opencode models` 返回空列表，本轮未运行外部 OpenCode 模型，也未配置付费 provider。

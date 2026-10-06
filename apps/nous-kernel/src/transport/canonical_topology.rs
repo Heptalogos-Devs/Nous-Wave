@@ -1,115 +1,26 @@
 use super::*;
 
-#[tonic::async_trait]
-impl p::topology_service_server::TopologyService for KernelService {
-    async fn create_tag(
-        &self,
-        request: Request<p::CreateTagRequest>,
-    ) -> std::result::Result<Response<p::Tag>, Status> {
-        rpc_reply(KernelService::create_tag(self, request.into_inner())).await
-    }
-    async fn get_tag(
-        &self,
-        request: Request<p::ObjectRequest>,
-    ) -> std::result::Result<Response<p::Tag>, Status> {
-        rpc_reply(KernelService::get_tag(self, request.into_inner())).await
-    }
-    async fn list_tags(
-        &self,
-        request: Request<p::ListRequest>,
-    ) -> std::result::Result<Response<p::ListTagsResponse>, Status> {
-        rpc_reply(KernelService::list_tags(self, request.into_inner())).await
-    }
-    async fn create_association(
-        &self,
-        request: Request<p::CreateAssociationRequest>,
-    ) -> std::result::Result<Response<p::Association>, Status> {
-        rpc_reply(KernelService::create_association(
-            self,
-            request.into_inner(),
-        ))
-        .await
-    }
-    async fn revoke_association(
-        &self,
-        request: Request<p::RevokeAssociationRequest>,
-    ) -> std::result::Result<Response<()>, Status> {
-        rpc_reply(KernelService::revoke_association(
-            self,
-            request.into_inner(),
-        ))
-        .await
-    }
-    async fn get_neighborhood(
-        &self,
-        request: Request<p::NeighborhoodRequest>,
-    ) -> std::result::Result<Response<p::NeighborhoodResponse>, Status> {
-        rpc_reply(KernelService::get_neighborhood(self, request.into_inner())).await
-    }
-    async fn rebind_entity(
-        &self,
-        request: Request<p::RebindEntityRequest>,
-    ) -> std::result::Result<Response<()>, Status> {
-        rpc_reply(KernelService::rebind_entity(self, request.into_inner())).await
-    }
-    async fn create_cognitive_schema(
-        &self,
-        request: Request<p::CreateCognitiveSchemaRequest>,
-    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
-        rpc_reply(KernelService::create_cognitive_schema(
-            self,
-            request.into_inner(),
-        ))
-        .await
-    }
-    async fn get_cognitive_schema(
-        &self,
-        request: Request<p::GetCognitiveSchemaRequest>,
-    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
-        rpc_reply(KernelService::get_cognitive_schema(
-            self,
-            request.into_inner(),
-        ))
-        .await
-    }
-    async fn add_schema_evidence(
-        &self,
-        request: Request<p::AddSchemaEvidenceRequest>,
-    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
-        rpc_reply(KernelService::add_schema_evidence(
-            self,
-            request.into_inner(),
-        ))
-        .await
-    }
-    async fn revise_cognitive_schema(
-        &self,
-        request: Request<p::ReviseCognitiveSchemaRequest>,
-    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
-        rpc_reply(KernelService::revise_cognitive_schema(
-            self,
-            request.into_inner(),
-        ))
-        .await
-    }
-    async fn split_cognitive_schema(
-        &self,
-        request: Request<p::SplitCognitiveSchemaRequest>,
-    ) -> std::result::Result<Response<p::SplitCognitiveSchemaResponse>, Status> {
-        rpc_reply(KernelService::split_cognitive_schema(
-            self,
-            request.into_inner(),
-        ))
-        .await
-    }
-    async fn merge_cognitive_schemas(
-        &self,
-        request: Request<p::MergeCognitiveSchemasRequest>,
-    ) -> std::result::Result<Response<p::CognitiveSchema>, Status> {
-        rpc_reply(KernelService::merge_cognitive_schemas(
-            self,
-            request.into_inner(),
-        ))
-        .await
+rpc_service! {
+    p::topology_service_server::TopologyService {
+        forward {
+            create_tag(p::CreateTagRequest) -> p::Tag;
+            get_tag(p::ObjectRequest) -> p::Tag;
+            list_tags(p::ListRequest) -> p::ListTagsResponse;
+            search_tags(p::SearchTagsRequest) -> p::ListTagsResponse;
+            revise_tag(p::ReviseTagRequest) -> p::Tag;
+            merge_tags(p::MergeTagsRequest) -> p::Tag;
+            split_tag(p::SplitTagRequest) -> p::SplitTagResponse;
+            create_association(p::CreateAssociationRequest) -> p::Association;
+            revoke_association(p::RevokeAssociationRequest) -> ();
+            get_neighborhood(p::NeighborhoodRequest) -> p::NeighborhoodResponse;
+            rebind_entity(p::RebindEntityRequest) -> ();
+            create_cognitive_schema(p::CreateCognitiveSchemaRequest) -> p::CognitiveSchema;
+            get_cognitive_schema(p::GetCognitiveSchemaRequest) -> p::CognitiveSchema;
+            add_schema_evidence(p::AddSchemaEvidenceRequest) -> p::CognitiveSchema;
+            revise_cognitive_schema(p::ReviseCognitiveSchemaRequest) -> p::CognitiveSchema;
+            split_cognitive_schema(p::SplitCognitiveSchemaRequest) -> p::SplitCognitiveSchemaResponse;
+            merge_cognitive_schemas(p::MergeCognitiveSchemasRequest) -> p::CognitiveSchema;
+        }
+        custom {}
     }
 }

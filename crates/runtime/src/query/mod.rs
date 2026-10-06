@@ -1,3 +1,12 @@
+mod representation;
+pub use representation::{
+    QUERY_REPRESENTATION, QueryRepresentation, QueryRepresentationLimits,
+    build_query_representation,
+};
+mod closure;
+pub use closure::{UnresolvedQueryReference, unresolved_query_references, validate_query_closure};
+mod cognitive_profile;
+pub use cognitive_profile::{COGNITIVE_PROFILE, CognitiveProfile, CognitiveProfileRequirements};
 mod bind;
 mod lane;
 mod orchestrate;
@@ -14,5 +23,5 @@ pub use ranking::{
     CandidateRankInput, DEFAULT_RESULT_LIMIT, RetrievalPolicy, rank_candidates_with_policy,
     register_retrieval_configuration, resolve_retrieval_policy,
 };
-pub use types::{BoundQuery, QueryExecution};
+pub use types::{BoundQuery, QueryExecution, QueryReadLease};
 pub(super) mod prepared;

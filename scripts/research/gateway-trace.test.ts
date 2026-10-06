@@ -5,6 +5,48 @@ import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { TraceBody, traceSecrets, writeGatewayTrace } from "./gateway-trace.js";
 
+it("captures transcription fields and binary identity without storing audio bytes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nous-transcription-trace-"));
+  try {
+    const audio = new Uint8Array([0, 255, 42, 13, 10]);
+    const form = new FormData();
+    form.set("model", "speech-model");
+    form.set("language", "en");
+    form.set("api_key", "private-token");
+    form.set("file", new Blob([audio], { type: "audio/wav" }), "sample.wav");
+    const wire = new Request("http://localhost/transcriptions", {
+      method: "POST",
+      body: form,
+    });
+    const capture = new TraceBody(1024, wire.headers.get("content-type")!);
+    capture.add(Buffer.from(await wire.arrayBuffer()));
+    const info = await capture.save(root, "request", ["private-token"]);
+    const saved = await readFile(join(root, info.file), "utf8");
+    expect(JSON.parse(saved)).toEqual({
+      model: "speech-model",
+      language: "en",
+      file: {
+        filename: "sample.wav",
+        media_type: "audio/wav",
+        decoded_bytes: audio.length,
+        sha256: createHash("sha256").update(audio).digest("hex"),
+      },
+    });
+    expect(saved).not.toContain("private-token");
+    const malformed = new TraceBody(
+      1024,
+      "multipart/form-data; boundary=wrong",
+    );
+    malformed.add(Buffer.from("binary private-token"));
+    const broken = await malformed.save(root, "broken", ["private-token"]);
+    expect(await readFile(join(root, broken.file), "utf8")).not.toContain(
+      "private-token",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 it("preserves text/schema and media identity while stripping echoed credentials", async () => {
   const root = await mkdtemp(join(tmpdir(), "nous-trace-"));
   try {

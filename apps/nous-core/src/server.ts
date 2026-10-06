@@ -41,6 +41,7 @@ import {
   ProjectionSchema,
   ManagedContextResponseSchema,
   QueryRequestSchema,
+  type QueryRequest,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "./kernel-client.js";
 import type { ConsumerPolicy } from "./domain.js";
@@ -207,53 +208,60 @@ export async function createCore(settings: CoreOptions) {
       throw new ConnectError("Session changed during projection", Code.Aborted);
     return projection;
   }
+  async function bindQueryInput(r: QueryRequest, c: HandlerContext) {
+    if (r.nousql !== undefined) {
+      if (r.expression)
+        throw new ConnectError(
+          "Supply either NousQL or typed expression",
+          Code.InvalidArgument,
+        );
+      const cognitiveTime = await kernel.queryWorkflow.getCognitiveTime(
+        { subjectId: r.subjectId },
+        options(c),
+      );
+      const compiled = await compileNousQL(
+        r.nousql,
+        async (kind, locator) => {
+          const result = await kernel.identity.resolveIdentity(
+            {
+              subjectId: r.subjectId,
+              kind,
+              locator: {
+                case: locator.kind === "name" ? "name" : "lexicalRef",
+                value: locator.value,
+              },
+            },
+            options(c),
+          );
+          if (result.status !== "BOUND" || !result.candidates[0]?.canonical)
+            throw new ConnectError(
+              result.status,
+              Code.InvalidArgument,
+              undefined,
+              [{ desc: ResolveIdentityResponseSchema, value: result }],
+            );
+          return {
+            canonical: result.candidates[0].canonical,
+            lexicalRef: result.candidates[0].lexicalRef,
+          };
+        },
+        timestampDate(cognitiveTime),
+      );
+      r.expression = compiled.expression;
+      r.nousql = undefined;
+    }
+    return r;
+  }
   const cognition: ServiceImpl<typeof CognitionService> = {
     grantMaintenance: (r, c) =>
       grantMaintenance(kernel, modelRuntime, r, options(c)),
+    prepareQuery: async (r, c) =>
+      kernel.queryWorkflow.prepareQuery(
+        { query: await bindQueryInput(r, c), reserveExecution: false },
+        options(c),
+      ),
     query: async (r, c) => {
-      let boundQuery: string | undefined;
-      if (r.nousql !== undefined) {
-        if (r.expression)
-          throw new ConnectError(
-            "Supply either NousQL or typed expression",
-            Code.InvalidArgument,
-          );
-        const cognitiveTime = await kernel.queryWorkflow.getCognitiveTime(
-          { subjectId: r.subjectId },
-          options(c),
-        );
-        const compiled = await compileNousQL(
-          r.nousql,
-          async (kind, locator) => {
-            const result = await kernel.identity.resolveIdentity(
-              {
-                subjectId: r.subjectId,
-                kind,
-                locator: {
-                  case: locator.kind === "name" ? "name" : "lexicalRef",
-                  value: locator.value,
-                },
-              },
-              options(c),
-            );
-            if (result.status !== "BOUND" || !result.candidates[0]?.canonical)
-              throw new ConnectError(
-                result.status,
-                Code.InvalidArgument,
-                undefined,
-                [{ desc: ResolveIdentityResponseSchema, value: result }],
-              );
-            return {
-              canonical: result.candidates[0].canonical,
-              lexicalRef: result.candidates[0].lexicalRef,
-            };
-          },
-          timestampDate(cognitiveTime),
-        );
-        r.expression = compiled.expression;
-        r.nousql = undefined;
-        boundQuery = compiled.boundCanonical;
-      }
+      await bindQueryInput(r, c);
       const result = await queries.execute(r, options(c));
       for (const hit of result.hits) {
         if (
@@ -274,7 +282,6 @@ export async function createCore(settings: CoreOptions) {
           hit.lexicalRef = binding.lexicalRef;
         }
       }
-      result.boundQuery = boundQuery;
       return result;
     },
     buildProjection: async (r, c) =>

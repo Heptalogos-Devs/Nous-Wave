@@ -1,4 +1,6 @@
 //! Private protocol adapters. Domain owners remain the semantic boundary.
+#[macro_use]
+mod forwarding;
 mod canonical_identity;
 mod canonical_material;
 mod canonical_memory;
@@ -8,7 +10,6 @@ mod canonical_subject;
 mod canonical_system;
 mod canonical_topology;
 mod configuration;
-mod consolidation;
 mod consolidation_plan;
 mod convert;
 mod episode;

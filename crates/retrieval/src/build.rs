@@ -46,6 +46,9 @@ impl ServingService {
         let implementation_id = implementation(family).to_owned();
         let config_digest = self.config_digest(subject, family, snapshot).await?;
         let implementation_revision = implementation_revision(family);
+        let cognitive_profile = (family == "topology")
+            .then(|| snapshot.get(nous_runtime::COGNITIVE_PROFILE))
+            .transpose()?;
         let record = ServingRecord {
             generation_id: id,
             subject,
@@ -58,9 +61,13 @@ impl ServingService {
             artifact_location: target.to_string_lossy().into_owned(),
             artifact_hash: hash,
             built_at: chrono::Utc::now(),
-            metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": implementation_revision, "config_digest": config_digest, "checksums": sums }),
+            metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": implementation_revision, "config_digest": config_digest, "checksums": sums, "cognitive_profile": cognitive_profile }),
         };
-        self.store.publish_generation(record).await
+        let published = self.store.publish_generation(record).await?;
+        if published.generation_id != id {
+            std::fs::remove_dir_all(&target).map_err(io)?;
+        }
+        Ok(published)
     }
 
     async fn build_text(
@@ -187,6 +194,25 @@ impl ServingService {
         snapshot: &nous_configuration::ConfigSnapshot,
         capabilities: ProjectionCapabilities,
     ) -> Result<i64> {
+        let profile = snapshot.get(nous_runtime::COGNITIVE_PROFILE)?;
+        if matches!(
+            profile,
+            nous_runtime::CognitiveProfile::VcpDtsc | nous_runtime::CognitiveProfile::VcpRiverMemo
+        ) {
+            let material = self.vcp_projection_material(subject, snapshot).await?;
+            let watermark = material.authority_watermark;
+            let policy = snapshot.get(crate::VCP_ASSETS)?;
+            let directory = dir.to_path_buf();
+            let path = dir.join("vcp.json");
+            tokio::task::spawn_blocking(move || {
+                let assets = VcpGeneration::build(id, profile, material, policy)?;
+                let generation = VcpServingGeneration::create(assets, &directory)?;
+                write_json(&path, &generation)
+            })
+            .await
+            .map_err(|e| Error::Infrastructure(e.to_string()))??;
+            return Ok(watermark);
+        }
         let input = self
             .store
             .topology_projection_input(subject, capabilities.memory)
@@ -230,9 +256,11 @@ impl ServingService {
             .collect();
         let path = dir.join("topology.json");
         let config = resolve_wave_config(snapshot)?;
+        let cognitive_profile = snapshot.get(nous_runtime::COGNITIVE_PROFILE)?;
         tokio::task::spawn_blocking(move || {
             let mut graph = WaveGraphGeneration::build(nodes, &edges, config)?;
             graph.generation_id = id;
+            graph.cognitive_profile = cognitive_profile;
             write_json(&path, &graph.artifact())
         })
         .await
@@ -349,7 +377,7 @@ pub(crate) fn implementation(family: &str) -> &'static str {
     match family {
         "lexical" => "tantivy",
         "dense" => "usearch",
-        "topology" => "petgraph-csr-bounded-wave",
+        "topology" => "cognitive-profile-assets",
         "exact" => "roaring-postings",
         _ => "unknown",
     }
@@ -362,6 +390,7 @@ fn is_text(media: &str) -> bool {
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
         "lexical" | "dense" | "exact" => 4,
+        "topology" => 9,
         _ => 1,
     }
 }

@@ -131,6 +131,7 @@ impl CognitiveRuntimeService {
         let mut accepted = 0u32;
         let mut duplicates = 0u32;
         let mut meaningful_times = Vec::new();
+        let mut topology_times = Vec::new();
         for item in prepared {
             if item.duplicate {
                 duplicates += 1;
@@ -139,6 +140,20 @@ impl CognitiveRuntimeService {
             sqlx::query("INSERT INTO cognitive_use_events(subject_id,consumer_ref,event_id,ref_kind,ref_value,use_kind,session_id,occurred_at,recorded_at,context,request_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
                 .bind(input.subject.0).bind(&input.consumer_ref).bind(item.event.event_id.0).bind(&item.kind).bind(&item.value).bind(item.event.use_kind.as_str()).bind(input.session_id.map(|id|id.0)).bind(item.event.occurred_at).bind(recorded_at).bind(&item.event.context).bind(&item.digest).execute(&mut *tx).await.map_err(db)?;
             accepted += 1;
+            if matches!(
+                item.event.use_kind,
+                UseKind::Referenced
+                    | UseKind::ActedOn
+                    | UseKind::ResultSupported
+                    | UseKind::Corrected
+                    | UseKind::Pinned
+            ) {
+                topology_times.push((
+                    item.kind.clone(),
+                    item.value.clone(),
+                    item.event.occurred_at,
+                ));
+            }
             if item.event.use_kind.meaningful() {
                 meaningful_times.push((item.kind, item.value, item.event.occurred_at));
             }
@@ -170,6 +185,50 @@ impl CognitiveRuntimeService {
         } else {
             None
         };
+        if !topology_times.is_empty() {
+            let threshold = self
+                .configuration
+                .snapshot_for_subject(input.subject)?
+                .get(crate::maintenance_policy::CONCEPT_USE_REVIEW_INTERVAL)?;
+            let sequence: i64 =
+                sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+                    .bind(input.subject.0)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(db)?;
+            let mut queued = std::collections::HashSet::new();
+            for (kind, value, _) in &topology_times {
+                if !queued.insert((kind, value)) {
+                    continue;
+                }
+                let count:i64=sqlx::query_scalar("SELECT count(*) FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind=$2 AND ref_value=$3 AND use_kind IN ('referenced','acted_on','result_supported','corrected','pinned')")
+                    .bind(input.subject.0).bind(kind).bind(value).fetch_one(&mut *tx).await.map_err(db)?;
+                let count = u64::try_from(count)
+                    .map_err(|_| Error::Infrastructure("invalid use count".into()))?;
+                let added = u64::try_from(
+                    topology_times
+                        .iter()
+                        .filter(|(k, v, _)| k == kind && v == value)
+                        .count(),
+                )
+                .map_err(|_| Error::Infrastructure("invalid use count".into()))?;
+                if count / threshold > count.saturating_sub(added) / threshold {
+                    self.enqueue_maintenance_in(
+                        &mut tx,
+                        &MaintenanceRequest {
+                            subject: input.subject,
+                            kind: "concept_maintenance".into(),
+                            scope_kind: kind.clone(),
+                            scope_ref: value.clone(),
+                            trigger_authority_seq: sequence,
+                            due_at: recorded_at,
+                            priority: 25,
+                        },
+                    )
+                    .await?;
+                }
+            }
+        }
         tx.commit().await.map_err(db)?;
         Ok((accepted, duplicates, session_revision))
     }

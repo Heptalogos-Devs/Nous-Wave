@@ -552,6 +552,28 @@ pub struct QueryExpr {
     #[prost(message, optional, tag="4")]
     pub modifiers: ::core::option::Option<QueryModifiers>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryCapabilities {
+    #[prost(string, tag="1")]
+    pub text_embedding: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub multimodal_interpretation: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub residual_sensing: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub rerank: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QuerySituation {
+    #[prost(string, optional, tag="1")]
+    pub consumer: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="2")]
+    pub current_refs: ::prost::alloc::vec::Vec<CognitiveRef>,
+    #[prost(string, repeated, tag="3")]
+    pub current_objects: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(map="string, string", tag="4")]
+    pub object_descriptions: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryRequest {
     #[prost(string, tag="1")]
@@ -562,6 +584,29 @@ pub struct QueryRequest {
     pub expression: ::core::option::Option<QueryExpr>,
     #[prost(string, optional, tag="4")]
     pub nousql: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="5")]
+    pub work_context_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="6")]
+    pub situation: ::core::option::Option<QuerySituation>,
+    #[prost(bool, tag="7")]
+    pub text_only_compatibility: bool,
+    #[prost(message, optional, tag="8")]
+    pub capabilities: ::core::option::Option<QueryCapabilities>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PreparedQueryResponse {
+    #[prost(string, tag="1")]
+    pub bound_query: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub preparation_token: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="3")]
+    pub embedding_text: ::prost::alloc::string::String,
+    #[prost(bool, tag="4")]
+    pub embedding_required: bool,
+    #[prost(string, tag="5")]
+    pub text_embedding_requirement: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub rerank_requirement: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Evidence {
@@ -1705,6 +1750,12 @@ pub struct Tag {
     pub kind_hint: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, tag="5")]
     pub origin: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub current_revision_id: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="8")]
+    pub canonical_tag_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateTagRequest {
@@ -1714,6 +1765,79 @@ pub struct CreateTagRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub tag: ::core::option::Option<Tag>,
+    #[prost(message, optional, tag="4")]
+    pub producer: ::core::option::Option<ProducerSignature>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SearchTagsRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub page: ::core::option::Option<Page>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TagContent {
+    #[prost(string, tag="1")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub description: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="3")]
+    pub kind_hint: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TagRevisionTarget {
+    #[prost(string, tag="1")]
+    pub tag_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub expected_revision_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReviseTagRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub target: ::core::option::Option<TagRevisionTarget>,
+    #[prost(message, optional, tag="4")]
+    pub content: ::core::option::Option<TagContent>,
+    #[prost(message, optional, tag="5")]
+    pub producer: ::core::option::Option<ProducerSignature>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MergeTagsRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub survivor: ::core::option::Option<TagRevisionTarget>,
+    #[prost(message, repeated, tag="4")]
+    pub retired: ::prost::alloc::vec::Vec<TagRevisionTarget>,
+    #[prost(message, repeated, tag="5")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SplitTagRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub parent: ::core::option::Option<TagRevisionTarget>,
+    #[prost(message, repeated, tag="4")]
+    pub children: ::prost::alloc::vec::Vec<TagContent>,
+    #[prost(message, repeated, tag="5")]
+    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    #[prost(message, optional, tag="6")]
+    pub producer: ::core::option::Option<ProducerSignature>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SplitTagResponse {
+    #[prost(message, repeated, tag="1")]
+    pub children: ::prost::alloc::vec::Vec<Tag>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListTagsResponse {
@@ -1773,6 +1897,8 @@ pub struct CreateAssociationRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub association: ::core::option::Option<Association>,
+    #[prost(message, optional, tag="4")]
+    pub producer: ::core::option::Option<ProducerSignature>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RevokeAssociationRequest {
@@ -1877,6 +2003,8 @@ pub struct CognitiveSchema {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CognitiveSchemaContent {
+    #[prost(message, optional, tag="7")]
+    pub producer: ::core::option::Option<ProducerSignature>,
     #[prost(string, tag="1")]
     pub title: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
@@ -1968,51 +2096,6 @@ pub struct MergeCognitiveSchemasRequest {
 pub struct SplitCognitiveSchemaResponse {
     #[prost(message, repeated, tag="1")]
     pub children: ::prost::alloc::vec::Vec<CognitiveSchema>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct TopologyTagChange {
-    #[prost(string, optional, tag="1")]
-    pub existing_tag_id: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag="2")]
-    pub tag: ::core::option::Option<Tag>,
-    #[prost(string, repeated, tag="3")]
-    pub attach_to_revision_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TopologyAssociationChange {
-    #[prost(message, optional, tag="1")]
-    pub association: ::core::option::Option<Association>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TopologyChanges {
-    #[prost(message, repeated, tag="1")]
-    pub tags: ::prost::alloc::vec::Vec<TopologyTagChange>,
-    #[prost(message, repeated, tag="2")]
-    pub associations: ::prost::alloc::vec::Vec<TopologyAssociationChange>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ConsolidateMemoryRequest {
-    #[prost(string, tag="1")]
-    pub operation_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, repeated, tag="3")]
-    pub source_revision_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(string, tag="4")]
-    pub target: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
-    pub text: ::prost::alloc::string::String,
-    #[prost(string, tag="6")]
-    pub semantic_role: ::prost::alloc::string::String,
-    #[prost(message, optional, tag="8")]
-    pub topology: ::core::option::Option<TopologyChanges>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ConsolidationResponse {
-    #[prost(message, optional, tag="1")]
-    pub memory: ::core::option::Option<Memory>,
-    #[prost(uint32, tag="2")]
-    pub topology_changes: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Occurrence {

@@ -7,6 +7,7 @@ import type { MaintenancePolicy } from "@nous-wave/protocol/nous/wave/kernel/v1a
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "../model/runtime.js";
 import { canonicalDigest } from "../digest.js";
+import { GenerationFailure } from "../model/invocations.js";
 import { runModelMaintenance } from "./workflow.js";
 
 const roles = {
@@ -14,6 +15,7 @@ const roles = {
   journal_review: "journal_synthesis",
   journal_revalidate: "journal_synthesis",
   memory_consolidate: "memory_consolidation",
+  concept_maintenance: "concept_maintenance",
 } as const;
 function allowedKinds(models: ModelRuntime, modelBudget: number) {
   const ready = new Set(
@@ -119,7 +121,17 @@ export async function grantMaintenance(
           ),
         ),
         limit: 1,
-        leaseSeconds: policy.workerLeaseSeconds,
+        // The lease must outlive the opportunity, including timeout cleanup and
+        // workflow release and the independent acknowledgement RPC. Otherwise a timed-out model call
+        // cannot record retry disposition under its still-owned lease.
+        leaseSeconds: Math.max(
+          policy.workerLeaseSeconds,
+          Math.ceil(
+            (input.maxElapsedMs +
+              2 * kernel.execution.workflow_ack_timeout_ms) /
+              1000,
+          ) + 1,
+        ),
       },
       calls,
     );
@@ -172,14 +184,27 @@ export async function grantMaintenance(
         status = "rejected_invalid";
         problemCode = "proposal_invalid";
       } else {
-        status = "retry";
+        const retryable =
+          error instanceof GenerationFailure ||
+          (error instanceof ConnectError &&
+            [
+              Code.Unavailable,
+              Code.DeadlineExceeded,
+              Code.Canceled,
+              Code.ResourceExhausted,
+            ].includes(error.code));
+        status = retryable ? "retry" : "internal_failure";
         problemCode = problemClass(error);
         reportFailure(
           need.subjectId,
           "execute",
           need.kind,
           problemCode,
-          need.retryCount + 1 >= policy.retryMaxAttempts ? "blocked" : "retry",
+          status === "internal_failure"
+            ? "stop"
+            : need.retryCount + 1 >= policy.retryMaxAttempts
+              ? "blocked"
+              : "retry",
         );
       }
     }
@@ -196,7 +221,8 @@ export async function grantMaintenance(
               ? "pending"
               : status === "retry"
                 ? "retry"
-                : status === "blocked_dependency"
+                : status === "blocked_dependency" ||
+                    status === "internal_failure"
                   ? "blocked"
                   : status === "obsolete"
                     ? "obsolete"
@@ -219,6 +245,7 @@ export async function grantMaintenance(
       throw error;
     }
     results.push({ needId: need.needId, kind: need.kind, status, problemCode });
+    if (status === "internal_failure") break;
   }
   return {
     results,

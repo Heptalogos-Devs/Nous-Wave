@@ -8,8 +8,8 @@ export class ResearchModelCallGuard {
     private readonly path: string,
     private readonly limit: number,
   ) {
-    if (!Number.isInteger(limit) || limit < 1 || limit > 10000)
-      throw new Error("Live model budget must be 1..10000");
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100000)
+      throw new Error("Live model budget must be 1..100000");
   }
   reserve(): Promise<number> {
     const reserved = this.queue.then(async () => {

@@ -86,7 +86,10 @@ export class TraceBody {
   private readonly hash = createHash("sha256");
   private chunks: Buffer[] = [];
   size = 0;
-  constructor(private readonly limit: number) {}
+  constructor(
+    private readonly limit: number,
+    private readonly contentType?: string,
+  ) {}
   add(chunk: Buffer) {
     this.hash.update(chunk);
     const remaining = Math.max(0, this.limit - this.size);
@@ -105,7 +108,42 @@ export class TraceBody {
   async save(root: string, name: string, secrets: readonly string[]) {
     let body: unknown;
     let format = "txt";
-    if (!this.truncated) {
+    if (
+      !this.truncated &&
+      this.contentType?.startsWith("multipart/form-data")
+    ) {
+      format = "json";
+      try {
+        const form = await new Response(new Uint8Array(this.bytes()), {
+          headers: { "Content-Type": this.contentType },
+        }).formData();
+        const fields: Record<string, unknown> = {};
+        for (const [fieldName, value] of form) {
+          if (sensitiveKey.test(fieldName)) continue;
+          const entry =
+            typeof value === "string"
+              ? redact(value, secrets)
+              : {
+                  filename: redact(value.name, secrets),
+                  media_type: value.type || "application/octet-stream",
+                  decoded_bytes: value.size,
+                  sha256: createHash("sha256")
+                    .update(new Uint8Array(await value.arrayBuffer()))
+                    .digest("hex"),
+                };
+          fields[fieldName] =
+            fieldName in fields ? [fields[fieldName], entry].flat() : entry;
+        }
+        body = fields;
+      } catch {
+        body = {
+          captured: false,
+          malformed_multipart: true,
+          bytes: this.size,
+          sha256: this.digest(),
+        };
+      }
+    } else if (!this.truncated) {
       try {
         body = sanitize(JSON.parse(this.bytes().toString("utf8")), secrets);
         format = "json";

@@ -1,4 +1,4 @@
-use crate::{AuthorityStore, database_error as db, projection_input::watermark};
+use crate::{AuthorityStore, database_error as db};
 use nous_core::*;
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
@@ -14,6 +14,13 @@ pub struct TopologyEdgeSource {
     pub polarity: String,
     pub support_mass: f64,
     pub provenance_root: Option<String>,
+}
+
+pub struct CognitiveProjectionInput {
+    pub authority_watermark: i64,
+    pub topology: TopologyProjectionInput,
+    pub sources: Vec<crate::TextProjectionSource>,
+    pub evidence_roots: std::collections::HashMap<CognitiveRef, HashSet<String>>,
 }
 
 pub struct TopologyProjectionInput {
@@ -40,11 +47,6 @@ fn link(
 }
 
 impl AuthorityStore {
-    #[expect(
-        clippy::excessive_nesting,
-        clippy::too_many_lines,
-        reason = "topology projection assembles one repeatable-read Authority snapshot"
-    )]
     pub async fn topology_projection_input(
         &self,
         subject: SubjectId,
@@ -55,154 +57,258 @@ impl AuthorityStore {
             .execute(&mut *tx)
             .await
             .map_err(db)?;
-        let watermark = watermark(&mut tx, subject, "topology", "").await?;
-        let mut nodes = HashSet::new();
-        let mut edges = Vec::new();
+        let result = topology_snapshot_in(&mut tx, subject, memory_enabled).await?;
+        tx.commit().await.map_err(db)?;
+        Ok(result)
+    }
+
+    /// Topology, text representations and curve memberships from one Authority
+    /// snapshot. Embeddings are resolved by the serving adapter after this read.
+    pub async fn cognitive_projection_input(
+        &self,
+        subject: SubjectId,
+        memory_enabled: bool,
+        budget: crate::EpisodeTextBudget,
+    ) -> Result<CognitiveProjectionInput> {
+        let mut tx = self.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        let authority_watermark: i64 =
+            sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+                .bind(subject.0)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(db)?;
+        let topology = topology_snapshot_in(&mut tx, subject, memory_enabled).await?;
+        let mut sources = crate::projection_input::material_sources(&mut tx, subject).await?;
         if memory_enabled {
-            let sources = crate::projection_input::memory_sources(&mut tx, subject).await?;
-            for source in sources {
-                nodes.insert(source.reference.clone());
-                for tag in source.tag_ids {
-                    let tag = CognitiveRef::Tag(TagId(
-                        tag.parse()
-                            .map_err(|_| Error::Infrastructure("invalid Tag id".into()))?,
-                    ));
-                    nodes.insert(tag.clone());
-                    let root = format!("structure:tag:{}:{}", source.reference, tag);
-                    edges.push(link(
-                        source.reference.clone(),
-                        tag.clone(),
-                        "tag_attachment",
-                        Some(root.clone()),
-                    ));
-                    edges.push(link(
-                        tag,
-                        source.reference.clone(),
-                        "tag_attachment",
-                        Some(root),
-                    ));
-                }
-                for schema in source.schema_ids {
-                    let schema_id: Uuid = schema
-                        .parse()
-                        .map_err(|_| Error::Infrastructure("invalid schema id".into()))?;
-                    let revision = sqlx::query_scalar::<_, Uuid>(
+            sources.extend(crate::projection_input::memory_sources(&mut tx, subject).await?);
+            sources.extend(
+                crate::projection_input::longitudinal_sources(&mut tx, subject, budget).await?,
+            );
+        }
+        sources.sort_by_key(|s| s.reference.to_string());
+        let mut evidence_roots = std::collections::HashMap::new();
+        for source in &sources {
+            let reference = source.reference.to_string();
+            let (kind, value) = reference
+                .split_once(':')
+                .ok_or_else(|| Error::Infrastructure("invalid projection reference".into()))?;
+            let roots = revision_roots(&mut tx, subject, kind, value, &mut HashSet::new()).await?;
+            evidence_roots.insert(source.reference.clone(), roots);
+        }
+        tx.commit().await.map_err(db)?;
+        Ok(CognitiveProjectionInput {
+            authority_watermark,
+            topology,
+            sources,
+            evidence_roots,
+        })
+    }
+}
+
+#[expect(
+    clippy::excessive_nesting,
+    clippy::too_many_lines,
+    reason = "topology projection assembles one repeatable-read Authority snapshot"
+)]
+async fn topology_snapshot_in(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    memory_enabled: bool,
+) -> Result<TopologyProjectionInput> {
+    let watermark: i64 =
+        sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
+            .bind(subject.0)
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(db)?;
+    let mut nodes = HashSet::new();
+    let mut edges = Vec::new();
+    if memory_enabled {
+        crate::longitudinal_topology::append(tx, subject, &mut nodes, &mut edges).await?;
+        let sources = crate::projection_input::memory_sources(tx, subject).await?;
+        for source in sources {
+            nodes.insert(source.reference.clone());
+            for tag in source.tag_ids {
+                let tag = CognitiveRef::Tag(TagId(
+                    tag.parse()
+                        .map_err(|_| Error::Infrastructure("invalid Tag id".into()))?,
+                ));
+                nodes.insert(tag.clone());
+                let root = format!("structure:tag:{}:{}", source.reference, tag);
+                edges.push(link(
+                    source.reference.clone(),
+                    tag.clone(),
+                    "tag_attachment",
+                    Some(root.clone()),
+                ));
+                edges.push(link(
+                    tag,
+                    source.reference.clone(),
+                    "tag_attachment",
+                    Some(root),
+                ));
+            }
+            for schema in source.schema_ids {
+                let schema_id: Uuid = schema
+                    .parse()
+                    .map_err(|_| Error::Infrastructure("invalid schema id".into()))?;
+                let revision = sqlx::query_scalar::<_, Uuid>(
                         "SELECT current_revision_id FROM cognitive_schemas WHERE subject_id=$1 AND schema_id=$2 AND acceptance_state='accepted' AND integrity_state='valid' AND suppression_state='normal' AND purge_state='normal'",
                     )
                     .bind(subject.0)
                     .bind(schema_id)
-                    .fetch_optional(&mut *tx)
+                    .fetch_optional(&mut **tx)
                     .await
                     .map_err(db)?;
-                    let Some(revision) = revision else { continue };
-                    let schema =
-                        CognitiveRef::CognitiveSchemaRevision(CognitiveSchemaRevisionId(revision));
-                    nodes.insert(schema.clone());
-                    let root = format!("structure:schema:{}:{}", source.reference, schema);
-                    edges.push(link(
-                        source.reference.clone(),
-                        schema.clone(),
-                        "schema_support",
-                        Some(root.clone()),
-                    ));
-                    edges.push(link(
-                        schema,
-                        source.reference.clone(),
-                        "schema_support",
-                        Some(root),
-                    ));
-                }
-                for entity in source.entity_refs {
-                    let entity = CognitiveRef::Entity(EntityRef::new(entity)?);
-                    nodes.insert(entity.clone());
-                    let root = format!("structure:aboutness:{}:{}", source.reference, entity);
-                    edges.push(link(
-                        source.reference.clone(),
-                        entity.clone(),
-                        "aboutness",
-                        Some(root.clone()),
-                    ));
-                    edges.push(link(
-                        entity,
-                        source.reference.clone(),
-                        "aboutness",
-                        Some(root),
-                    ));
-                }
+                let Some(revision) = revision else { continue };
+                let schema =
+                    CognitiveRef::CognitiveSchemaRevision(CognitiveSchemaRevisionId(revision));
+                nodes.insert(schema.clone());
+                let root = format!("structure:schema:{}:{}", source.reference, schema);
+                edges.push(link(
+                    source.reference.clone(),
+                    schema.clone(),
+                    "schema_support",
+                    Some(root.clone()),
+                ));
+                edges.push(link(
+                    schema,
+                    source.reference.clone(),
+                    "schema_support",
+                    Some(root),
+                ));
             }
+            for entity in source.entity_refs {
+                let entity = CognitiveRef::Entity(EntityRef::new(entity)?);
+                nodes.insert(entity.clone());
+                let root = format!("structure:aboutness:{}:{}", source.reference, entity);
+                edges.push(link(
+                    source.reference.clone(),
+                    entity.clone(),
+                    "aboutness",
+                    Some(root.clone()),
+                ));
+                edges.push(link(
+                    entity,
+                    source.reference.clone(),
+                    "aboutness",
+                    Some(root),
+                ));
+            }
+        }
 
-            let association_rows = sqlx::query(
+        let association_rows = sqlx::query(
                 "SELECT association_evidence_id,from_ref_kind,from_ref,to_ref_kind,to_ref,support_class,relation_kind,polarity FROM association_evidence WHERE subject_id=$1 AND revoked_at IS NULL",
             )
             .bind(subject.0)
-            .fetch_all(&mut *tx)
+            .fetch_all(&mut **tx)
             .await
             .map_err(db)?;
-            for row in association_rows {
-                let association_id: Uuid = row.try_get("association_evidence_id").map_err(db)?;
-                let from = parse_reference(
-                    &row.try_get::<String, _>("from_ref_kind").map_err(db)?,
-                    &row.try_get::<String, _>("from_ref").map_err(db)?,
-                )?;
-                let to = parse_reference(
-                    &row.try_get::<String, _>("to_ref_kind").map_err(db)?,
-                    &row.try_get::<String, _>("to_ref").map_err(db)?,
-                )?;
-                if !allowed(&from) || !allowed(&to) {
-                    continue;
-                }
-                nodes.insert(from.clone());
-                nodes.insert(to.clone());
-                let support_class: String = row.try_get("support_class").map_err(db)?;
-                let relation_kind: String = row.try_get("relation_kind").map_err(db)?;
-                let polarity: String = row.try_get("polarity").map_err(db)?;
-                let supports = sqlx::query(
+        for row in association_rows {
+            let association_id: Uuid = row.try_get("association_evidence_id").map_err(db)?;
+            let from = parse_reference(
+                &row.try_get::<String, _>("from_ref_kind").map_err(db)?,
+                &row.try_get::<String, _>("from_ref").map_err(db)?,
+            )?;
+            let to = parse_reference(
+                &row.try_get::<String, _>("to_ref_kind").map_err(db)?,
+                &row.try_get::<String, _>("to_ref").map_err(db)?,
+            )?;
+            let Some(from) = crate::tags::canonical_topology_ref_in(tx, subject, from).await?
+            else {
+                continue;
+            };
+            let Some(to) = crate::tags::canonical_topology_ref_in(tx, subject, to).await? else {
+                continue;
+            };
+            if from == to {
+                continue;
+            }
+            if !allowed(&from) || !allowed(&to) {
+                continue;
+            }
+            let current_cognition = |reference: &CognitiveRef| {
+                !matches!(
+                    reference,
+                    CognitiveRef::MemoryRevision(_)
+                        | CognitiveRef::EpisodeRevision(_)
+                        | CognitiveRef::JournalRevision(_)
+                        | CognitiveRef::CognitiveSchemaRevision(_)
+                ) || nodes.contains(reference)
+            };
+            if !current_cognition(&from) || !current_cognition(&to) {
+                continue;
+            }
+            nodes.insert(from.clone());
+            nodes.insert(to.clone());
+            let support_class: String = row.try_get("support_class").map_err(db)?;
+            let relation_kind: String = row.try_get("relation_kind").map_err(db)?;
+            let polarity: String = row.try_get("polarity").map_err(db)?;
+            let supports = sqlx::query(
                     "SELECT support_kind,support_ref,occurrence_id FROM association_evidence_supports WHERE association_evidence_id=$1 ORDER BY support_kind,support_ref",
                 )
                 .bind(association_id)
-                .fetch_all(&mut *tx)
+                .fetch_all(&mut **tx)
                 .await
                 .map_err(db)?;
-                let mut roots = HashSet::new();
-                for support in supports {
-                    let kind: String = support.try_get("support_kind").map_err(db)?;
-                    match kind.as_str() {
-                        "evidence" => {
-                            if let Some(occurrence) = support
-                                .try_get::<Option<Uuid>, _>("occurrence_id")
-                                .map_err(db)?
-                            {
-                                roots.extend(occurrence_roots(&mut tx, subject, occurrence).await?);
-                            }
+            let mut roots = HashSet::new();
+            for support in supports {
+                let kind: String = support.try_get("support_kind").map_err(db)?;
+                match kind.as_str() {
+                    "evidence" => {
+                        if let Some(occurrence) = support
+                            .try_get::<Option<Uuid>, _>("occurrence_id")
+                            .map_err(db)?
+                        {
+                            roots.extend(occurrence_roots(tx, subject, occurrence).await?);
                         }
-                        "memory_revision" | "cognitive_schema_revision" => {
-                            roots.extend(
-                                revision_roots(
-                                    &mut tx,
-                                    subject,
-                                    &kind,
-                                    &support.try_get::<String, _>("support_ref").map_err(db)?,
-                                    &mut HashSet::new(),
-                                )
-                                .await?,
-                            );
-                        }
-                        "use_event" => {
-                            roots.insert(format!(
-                                "use_event:{}",
-                                support.try_get::<String, _>("support_ref").map_err(db)?
-                            ));
-                        }
-                        _ => {}
                     }
+                    "memory_revision" | "cognitive_schema_revision" => {
+                        roots.extend(
+                            revision_roots(
+                                tx,
+                                subject,
+                                &kind,
+                                &support.try_get::<String, _>("support_ref").map_err(db)?,
+                                &mut HashSet::new(),
+                            )
+                            .await?,
+                        );
+                    }
+                    "use_event" => {
+                        roots.insert(format!(
+                            "use_event:{}",
+                            support.try_get::<String, _>("support_ref").map_err(db)?
+                        ));
+                    }
+                    _ => {}
                 }
-                if roots.is_empty() {
-                    roots.insert(format!("unknown-association:{association_id}"));
-                }
-                for root in roots {
+            }
+            if roots.is_empty() {
+                roots.insert(format!("unknown-association:{association_id}"));
+            }
+            for root in roots {
+                edges.push(TopologyEdgeSource {
+                    from: from.clone(),
+                    to: to.clone(),
+                    support_class: support_class.clone(),
+                    association_kind: relation_kind.clone(),
+                    polarity: polarity.clone(),
+                    support_mass: 1.0,
+                    provenance_root: Some(root.clone()),
+                });
+                let symmetric = serde_json::from_value::<TopologyRelation>(
+                    serde_json::Value::String(relation_kind.clone()),
+                )
+                .is_ok_and(|kind| kind.is_symmetric());
+                if symmetric {
                     edges.push(TopologyEdgeSource {
-                        from: from.clone(),
-                        to: to.clone(),
+                        from: to.clone(),
+                        to: from.clone(),
                         support_class: support_class.clone(),
                         association_kind: relation_kind.clone(),
                         polarity: polarity.clone(),
@@ -211,47 +317,45 @@ impl AuthorityStore {
                     });
                 }
             }
+        }
 
-            let rows = sqlx::query(
+        let rows = sqlx::query(
                 "SELECT rr.from_revision_id,rr.to_revision_id,rr.relation FROM memory_revision_relations rr JOIN memory_revisions l ON l.memory_revision_id=rr.from_revision_id JOIN memory_revisions r ON r.memory_revision_id=rr.to_revision_id JOIN memory_objects lo ON lo.memory_id=l.memory_id JOIN memory_objects ro ON ro.memory_id=r.memory_id WHERE lo.subject_id=$1 AND ro.subject_id=$1 AND lo.current_revision_id=l.memory_revision_id AND ro.current_revision_id=r.memory_revision_id AND lo.acceptance_state='accepted' AND ro.acceptance_state='accepted' AND lo.integrity_state='valid' AND ro.integrity_state='valid' AND lo.suppression_state='normal' AND ro.suppression_state='normal' AND lo.purge_state='normal' AND ro.purge_state='normal'",
             )
             .bind(subject.0)
-            .fetch_all(&mut *tx)
+            .fetch_all(&mut **tx)
             .await
             .map_err(db)?;
-            for row in rows {
-                let from = CognitiveRef::MemoryRevision(MemoryRevisionId(
-                    row.try_get("from_revision_id").map_err(db)?,
-                ));
-                let to = CognitiveRef::MemoryRevision(MemoryRevisionId(
-                    row.try_get("to_revision_id").map_err(db)?,
-                ));
-                nodes.insert(from.clone());
-                nodes.insert(to.clone());
-                let relation: String = row.try_get("relation").map_err(db)?;
-                let root = format!("structure:relation:{from}:{to}:{relation}");
-                edges.push(link(from, to, &relation, Some(root)));
-            }
+        for row in rows {
+            let from = CognitiveRef::MemoryRevision(MemoryRevisionId(
+                row.try_get("from_revision_id").map_err(db)?,
+            ));
+            let to = CognitiveRef::MemoryRevision(MemoryRevisionId(
+                row.try_get("to_revision_id").map_err(db)?,
+            ));
+            nodes.insert(from.clone());
+            nodes.insert(to.clone());
+            let relation: String = row.try_get("relation").map_err(db)?;
+            let root = format!("structure:relation:{from}:{to}:{relation}");
+            edges.push(link(from, to, &relation, Some(root)));
         }
-        for resource in sqlx::query_scalar::<_, String>(
-            "SELECT resource_ref FROM resources WHERE subject_id=$1",
-        )
-        .bind(subject.0)
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(db)?
-        {
-            nodes.insert(CognitiveRef::Resource(ResourceRef::new(resource)?));
-        }
-        let mut nodes: Vec<_> = nodes.into_iter().collect();
-        nodes.sort_by_key(ToString::to_string);
-        tx.commit().await.map_err(db)?;
-        Ok(TopologyProjectionInput {
-            watermark,
-            nodes,
-            edges,
-        })
     }
+    for resource in
+        sqlx::query_scalar::<_, String>("SELECT resource_ref FROM resources WHERE subject_id=$1")
+            .bind(subject.0)
+            .fetch_all(&mut **tx)
+            .await
+            .map_err(db)?
+    {
+        nodes.insert(CognitiveRef::Resource(ResourceRef::new(resource)?));
+    }
+    let mut nodes: Vec<_> = nodes.into_iter().collect();
+    nodes.sort_by_key(ToString::to_string);
+    Ok(TopologyProjectionInput {
+        watermark,
+        nodes,
+        edges,
+    })
 }
 
 async fn occurrence_roots(
@@ -296,7 +400,12 @@ async fn revision_roots(
     let mut roots = HashSet::new();
     while let Some((kind, value)) = stack.pop() {
         if !visited.insert((kind.clone(), value.clone())) {
-            roots.insert(format!("unknown-dependency:{kind}:{value}"));
+            continue;
+        }
+        if matches!(
+            kind.as_str(),
+            "entity" | "resource" | "tag" | "cognitive_schema"
+        ) {
             continue;
         }
         let id = value
@@ -353,6 +462,42 @@ async fn revision_roots(
                     stack.push((support_kind, row.try_get("support_ref").map_err(db)?));
                 }
             }
+        } else if kind == "occurrence" {
+            roots.extend(occurrence_roots(tx, subject, id).await?);
+        } else if kind == "source_region" {
+            roots.extend(source_region_roots(tx, subject, id).await?);
+        } else if kind == "derived_representation" || kind == "derived_region" {
+            stack.extend(
+                derived_source_regions(tx, subject, &kind, id)
+                    .await?
+                    .into_iter()
+                    .map(|id| ("source_region".into(), id.to_string())),
+            );
+        } else if kind == "episode_revision" {
+            let rows = sqlx::query("SELECT s.support_kind,s.support_ref,s.occurrence_id FROM episode_revision_supports s JOIN episode_revisions r USING(episode_revision_id) WHERE r.subject_id=$1 AND r.episode_revision_id=$2")
+                .bind(subject.0).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
+            for row in rows {
+                let support_kind: String = row.try_get("support_kind").map_err(db)?;
+                if support_kind == "evidence" {
+                    if let Some(occurrence) = row
+                        .try_get::<Option<Uuid>, _>("occurrence_id")
+                        .map_err(db)?
+                    {
+                        roots.extend(occurrence_roots(tx, subject, occurrence).await?);
+                    }
+                } else {
+                    stack.push((support_kind, row.try_get("support_ref").map_err(db)?));
+                }
+            }
+        } else if kind == "journal_revision" {
+            let rows = sqlx::query("SELECT s.ref_kind,s.ref_value FROM journal_revision_sources s JOIN journal_revisions r USING(journal_revision_id) WHERE r.subject_id=$1 AND r.journal_revision_id=$2")
+                .bind(subject.0).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
+            for row in rows {
+                stack.push((
+                    row.try_get("ref_kind").map_err(db)?,
+                    row.try_get("ref_value").map_err(db)?,
+                ));
+            }
         } else {
             roots.insert(format!("unknown-dependency:{kind}:{value}"));
         }
@@ -363,11 +508,66 @@ async fn revision_roots(
     Ok(roots)
 }
 
+async fn derived_source_regions(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    kind: &str,
+    id: Uuid,
+) -> Result<Vec<Uuid>> {
+    let representation = if kind == "derived_region" {
+        sqlx::query_scalar::<_, Uuid>("SELECT derived_representation_id FROM derived_regions WHERE subject_id=$1 AND derived_region_id=$2")
+            .bind(subject.0).bind(id).fetch_optional(&mut **tx).await.map_err(db)?
+    } else {
+        Some(id)
+    };
+    if let Some(representation) = representation {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT source_region_id FROM representation_source_regions($1,$2)",
+        )
+        .bind(subject.0)
+        .bind(representation)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(db)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+async fn source_region_roots(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: SubjectId,
+    id: Uuid,
+) -> Result<HashSet<String>> {
+    let artifact: Option<Uuid> = sqlx::query_scalar(
+        "SELECT artifact_id FROM source_regions WHERE subject_id=$1 AND source_region_id=$2",
+    )
+    .bind(subject.0)
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?;
+    let mut roots = HashSet::new();
+    if let Some(artifact) = artifact {
+        let occurrences = sqlx::query_scalar::<_, Uuid>("SELECT occurrence_id FROM observation_occurrences WHERE subject_id=$1 AND artifact_id=$2")
+            .bind(subject.0).bind(artifact).fetch_all(&mut **tx).await.map_err(db)?;
+        if occurrences.is_empty() {
+            roots.insert(format!("artifact:{artifact}"));
+        }
+        for occurrence in occurrences {
+            roots.extend(occurrence_roots(tx, subject, occurrence).await?);
+        }
+    }
+    Ok(roots)
+}
+
 fn allowed(reference: &CognitiveRef) -> bool {
     matches!(
         reference,
         CognitiveRef::MemoryRevision(_)
             | CognitiveRef::CognitiveSchemaRevision(_)
+            | CognitiveRef::EpisodeRevision(_)
+            | CognitiveRef::JournalRevision(_)
             | CognitiveRef::Tag(_)
             | CognitiveRef::Entity(_)
             | CognitiveRef::Resource(_)

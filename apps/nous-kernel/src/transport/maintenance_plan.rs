@@ -11,13 +11,7 @@ impl KernelService {
         input: k::PlanMaintenanceRequest,
     ) -> Result<k::MaintenancePlan> {
         let claimed = longitudinal::need(required(input.claimed, "claimed")?)?;
-        let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp())")
-            .bind(claimed.subject_id.0).bind(claimed.need_id).bind(claimed.lease_token).fetch_one(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
-        if !valid {
-            return Err(Error::Conflict(
-                "maintenance planning lease expired or replaced".into(),
-            ));
-        }
+        self.require_plan_lease(&claimed).await?;
         let subject = claimed.subject_id;
         let member_bytes = self
             .0
@@ -26,6 +20,9 @@ impl KernelService {
             .get(nous_runtime::MEMBER_TEXT_MAX_BYTES)?;
         let sequence = self.0.store.authority_seq(subject).await?;
         let memory = self.require_memory()?;
+        if claimed.kind == "concept_maintenance" {
+            return self.concept_maintenance_plan(&claimed).await;
+        }
         let scope = match claimed.kind.as_str() {
             "episode_resegment" => {
                 memory
@@ -128,6 +125,89 @@ impl KernelService {
         Ok(plan)
     }
 
+    async fn require_plan_lease(&self, claimed: &nous_runtime::MaintenanceNeed) -> Result<()> {
+        let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp() AND kind=$4 AND scope_kind=$5 AND scope_ref=$6)")
+            .bind(claimed.subject_id.0).bind(claimed.need_id).bind(claimed.lease_token).bind(&claimed.kind).bind(&claimed.scope_kind).bind(&claimed.scope_ref).fetch_one(self.0.store.pool()).await.map_err(nous_persistence::database_error)?;
+        if !valid {
+            return Err(Error::Conflict(
+                "maintenance planning lease expired or replaced".into(),
+            ));
+        }
+        Ok(())
+    }
+    async fn concept_maintenance_plan(
+        &self,
+        claimed: &nous_runtime::MaintenanceNeed,
+    ) -> Result<k::MaintenancePlan> {
+        let subject = claimed.subject_id;
+        let sequence = self.0.store.authority_seq(subject).await?;
+        let memory = self.require_memory()?;
+        {
+            let focus = parse_reference(&claimed.scope_kind, &claimed.scope_ref)?;
+            let concepts = match memory.plan_concepts(subject, focus).await {
+                Ok(plan) => plan,
+                Err(Error::NotFound(_)) => {
+                    return Ok(k::MaintenancePlan {
+                        subject_id: subject.0.to_string(),
+                        authority_seq: sequence,
+                        status: "obsolete".into(),
+                        ..Default::default()
+                    });
+                }
+                Err(error) => return Err(error),
+            };
+            Ok(k::MaintenancePlan {
+                subject_id: subject.0.to_string(),
+                authority_seq: concepts.authority_seq,
+                cognitive_now: Some(timestamp(self.0.cognition.now(subject))),
+                status: "ready".into(),
+                concept_model_input_json: Some(concepts.model_input.to_string()),
+                concept_catalog: Some(k::ConceptMaintenanceCatalog {
+                    max_suggestions: concepts.policy.max_suggestions as u32,
+                    config_digest: concepts.config_digest,
+                    references: concepts
+                        .references
+                        .into_iter()
+                        .map(|(key, reference)| k::ConceptReference {
+                            key,
+                            reference: Some(to_ref(reference)),
+                        })
+                        .collect(),
+                    tags: concepts
+                        .tags
+                        .into_iter()
+                        .map(|tag| k::ConceptTag {
+                            key: tag.key,
+                            target: Some(p::TagRevisionTarget {
+                                tag_id: tag.target.tag_id.0.to_string(),
+                                expected_revision_id: tag.target.expected_revision_id.to_string(),
+                            }),
+                        })
+                        .collect(),
+                    associations: concepts
+                        .associations
+                        .into_iter()
+                        .map(|a| k::ConceptAssociation {
+                            key: a.key,
+                            association_id: a.id.0.to_string(),
+                            from_key: a.from,
+                            to_key: a.to,
+                            relation: a.relation,
+                        })
+                        .collect(),
+                    supports: concepts
+                        .supports
+                        .into_iter()
+                        .map(|(key, support)| k::ConceptSupport {
+                            key,
+                            support: Some(super::topology::association_support_proto(support)),
+                        })
+                        .collect(),
+                }),
+                ..Default::default()
+            })
+        }
+    }
     async fn maintenance_member_catalog(
         &self,
         subject: SubjectId,
@@ -203,6 +283,7 @@ fn consolidation_source(scope: &nous_memory::MaintenanceScope) -> Option<k::Expe
                 journal.revision.journal_revision_id,
             ))),
             expected_epoch: journal.object.object_epoch,
+            object_id: journal.object.journal_id.0.to_string(),
         });
     }
     scope.episodes.first().map(|episode| k::ExpectedCognition {
@@ -210,6 +291,7 @@ fn consolidation_source(scope: &nous_memory::MaintenanceScope) -> Option<k::Expe
             episode.revision.episode_revision_id,
         ))),
         expected_epoch: episode.object.object_epoch,
+        object_id: episode.object.episode_id.0.to_string(),
     })
 }
 

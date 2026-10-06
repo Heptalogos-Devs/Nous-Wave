@@ -11,7 +11,8 @@ message EmbeddingConfig {
   uint32 dimension = 4;
 }
 message QueryEmbedding { string text = 1; string space_hash = 2; string producer_hash = 3; repeated float vector = 4; }
-message KernelQueryRequest { nous.wave.v1alpha1.QueryRequest query = 1; repeated QueryEmbedding embeddings = 2; optional uint32 validated_candidate_limit = 3; }
+message PrepareQueryRequest { nous.wave.v1alpha1.QueryRequest query = 1; bool reserve_execution = 2; }
+message KernelQueryRequest { reserved 1; repeated QueryEmbedding embeddings = 2; optional uint32 validated_candidate_limit = 3; string preparation_token = 4; string subject_id = 5; }
 message KernelQueryResponse { nous.wave.v1alpha1.QueryResponse response = 1; optional string validation_ticket = 2; }
 message RerankCandidate { nous.wave.v1alpha1.CognitiveRef reference = 1; double score = 2; }
 message ExternalResourceResult { string action_id = 1; string resource_ref = 2; string status = 3; repeated nous.wave.v1alpha1.ExternalResourceRecord records = 4; }

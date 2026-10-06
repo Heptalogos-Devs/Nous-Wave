@@ -1,11 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { create } from "@bufbuild/protobuf";
+import { Code, ConnectError } from "@connectrpc/connect";
 import { MaintenancePlanSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import { ProducerSignatureSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
+import type { KernelClient } from "../kernel-client.js";
 import { consolidationSchema } from "../model/schemas/consolidation.js";
-import { consolidationRequest } from "./consolidation.js";
+import {
+  executeConsolidation,
+  type ConsolidationActionResult,
+} from "./consolidation.js";
 const occurrence = "10000000-0000-4000-8000-000000000001";
 const revision = "20000000-0000-4000-8000-000000000001";
+const operation = "40000000-0000-4000-8000-000000000001";
 const plan = create(MaintenancePlanSchema, {
   subjectId: "30000000-0000-4000-8000-000000000001",
   authoritySeq: 12n,
@@ -33,8 +39,12 @@ const plan = create(MaintenancePlanSchema, {
   candidates: [
     {
       key: "target",
+      cognitiveRole: "declarative",
+      formationMode: "grounded",
+      eligibleSupportKeys: ["source"],
       target: {
         reference: { kind: "memory_revision", value: revision },
+        objectId: "memory-owner-id",
         expectedEpoch: 7n,
       },
     },
@@ -52,80 +62,186 @@ const content = {
   validTime: { kind: "unknown" },
   epistemicClass: "derived",
 };
-describe("consolidation exact catalog resolution", () => {
-  it("resolves creation, revision and earlier-action relation references without model IDs", () => {
-    const proposal = consolidationSchema.parse({
-      actions: [
-        { action: "create_memory", content },
-        {
-          action: "revise_memory",
-          targetKey: "target",
-          intent: "correct",
-          content,
-        },
-        {
-          action: "link_relation",
-          from: { kind: "action", index: 0 },
-          to: { kind: "candidate", key: "target" },
-          relation: "elaborates",
-        },
-      ],
-    });
-    const request = consolidationRequest(
-      plan,
-      proposal,
-      "40000000-0000-4000-8000-000000000001",
-      create(ProducerSignatureSchema),
-    );
-    const created = request.actions[0]!.action;
-    expect(created.case).toBe("createMemory");
-    if (created.case !== "createMemory") throw new Error("Expected creation");
-    expect(created.value.content?.groundingOccurrenceId).toBe(occurrence);
-    const revised = request.actions[1]!.action;
-    if (revised.case !== "reviseMemory") throw new Error("Expected revision");
-    expect(revised.value.target?.expectedEpoch).toBe(7n);
-    expect(request.source?.expectedEpoch).toBe(2n);
-    expect(request.actions[2]!.action.case).toBe("linkRelation");
+const schemaContent = {
+  title: null,
+  structuralClaim: "A bounded pattern",
+  applicability: "These observations",
+  boundaryDefinition: "Only this scope",
+  formationKind: "explicit_import",
+  entityKeys: [],
+  validTime: { kind: "unknown" },
+  evidence: [{ role: "support", supportKey: "source" }],
+};
+function fixture() {
+  const form = vi.fn(
+    async (_request: Parameters<KernelClient["memory"]["formMemory"]>[0]) => ({
+      revisionId: "formed-revision",
+    }),
+  );
+  const revise = vi.fn(async () => ({ revisionId: "revised-revision" }));
+  const link = vi.fn(async () => ({}));
+  const schema = vi.fn(async () => ({ currentRevisionId: "schema-revision" }));
+  const kernel = {
+    memory: { formMemory: form, reviseMemory: revise, linkRevisions: link },
+    topology: { createCognitiveSchema: schema },
+  } as unknown as KernelClient;
+  let progress: ConsolidationActionResult[] = [];
+  const save = vi.fn(async (results: ConsolidationActionResult[]) => {
+    progress = [...results];
   });
-  it("rejects invented support, entity, target and forward relation keys", () => {
-    for (const changed of [
-      { ...content, supportKeys: ["invented"] },
-      { ...content, entityKeys: ["invented"] },
-      { ...content, groundingMemberKey: "invented" },
-    ]) {
-      const proposal = consolidationSchema.parse({
-        actions: [{ action: "create_memory", content: changed }],
-      });
-      expect(() =>
-        consolidationRequest(
-          plan,
-          proposal,
-          "operation",
-          create(ProducerSignatureSchema),
-        ),
-      ).toThrow();
-    }
-    for (const action of [
+  return { kernel, form, revise, link, schema, save, progress: () => progress };
+}
+it("uses canonical owner APIs and returned earlier-action refs for strong Memory relations", async () => {
+  const f = fixture();
+  const proposal = consolidationSchema.parse({
+    actions: [
+      { action: "create_memory", content },
       {
         action: "revise_memory",
-        targetKey: "invented",
+        targetKey: "target",
         intent: "correct",
         content,
       },
       {
         action: "link_relation",
-        from: { kind: "action", index: 1 },
-        to: { kind: "candidate", key: "target" },
+        from: { kind: "action", index: 0 },
+        to: { kind: "action", index: 1 },
         relation: "elaborates",
       },
-    ])
-      expect(() =>
-        consolidationRequest(
-          plan,
-          consolidationSchema.parse({ actions: [action] }),
-          "operation",
-          create(ProducerSignatureSchema),
-        ),
-      ).toThrow();
+      { action: "create_schema", content: schemaContent },
+    ],
   });
+  const outcome = await executeConsolidation(
+    f.kernel,
+    plan,
+    proposal,
+    operation,
+    create(ProducerSignatureSchema),
+    {},
+    [],
+    f.save,
+  );
+  expect(outcome.status).toBe("committed");
+  expect(f.form.mock.calls[0]?.[0].input?.groundingOccurrenceId).toBe(
+    occurrence,
+  );
+  expect(f.revise).toHaveBeenCalledWith(
+    expect.objectContaining({
+      memoryId: "memory-owner-id",
+      expectedObjectEpoch: 7n,
+    }),
+    {},
+  );
+  expect(f.link).toHaveBeenCalledWith(
+    expect.objectContaining({
+      fromRevisionId: "formed-revision",
+      toRevisionId: "revised-revision",
+    }),
+    {},
+  );
+  expect(new Set(f.progress().map((r) => r.index)).size).toBe(4);
+});
+it("preserves earlier commits, skips failed dependencies and continues independent suggestions", async () => {
+  const f = fixture();
+  const proposal = consolidationSchema.parse({
+    actions: [
+      { action: "create_memory", content },
+      {
+        action: "create_memory",
+        content: { ...content, supportKeys: ["invented"] },
+      },
+      {
+        action: "link_relation",
+        from: { kind: "action", index: 1 },
+        to: { kind: "action", index: 0 },
+        relation: "elaborates",
+      },
+      { action: "create_schema", content: schemaContent },
+    ],
+  });
+  const outcome = await executeConsolidation(
+    f.kernel,
+    plan,
+    proposal,
+    operation,
+    create(ProducerSignatureSchema),
+    {},
+    [],
+    f.save,
+  );
+  expect(outcome.status).toBe("partial");
+  expect(outcome.actions.map((r) => r.status)).toEqual([
+    "committed",
+    "rejected_invalid",
+    "skipped_dependency",
+    "committed",
+  ]);
+  expect(f.form).toHaveBeenCalledTimes(1);
+  expect(f.link).not.toHaveBeenCalled();
+  expect(f.schema).toHaveBeenCalledTimes(1);
+});
+it("resumes saved progress on transport failure with stable operation identities", async () => {
+  const f = fixture();
+  f.schema.mockRejectedValueOnce(
+    new ConnectError("lost response", Code.Unavailable),
+  );
+  const proposal = consolidationSchema.parse({
+    actions: [
+      { action: "create_memory", content },
+      { action: "create_schema", content: schemaContent },
+    ],
+  });
+  const run = () =>
+    executeConsolidation(
+      f.kernel,
+      plan,
+      proposal,
+      operation,
+      create(ProducerSignatureSchema),
+      {},
+      f.progress(),
+      f.save,
+    );
+  await expect(run()).rejects.toThrow("lost response");
+  expect(f.progress()).toHaveLength(1);
+  expect((await run()).status).toBe("committed");
+  expect(f.form).toHaveBeenCalledTimes(1);
+  expect(f.schema.mock.calls[1]).toEqual(f.schema.mock.calls[0]);
+});
+it("makes a stale target terminal while independent creation still commits", async () => {
+  const f = fixture();
+  f.revise.mockRejectedValueOnce(new ConnectError("stale epoch", Code.Aborted));
+  const proposal = consolidationSchema.parse({
+    actions: [
+      {
+        action: "revise_memory",
+        targetKey: "target",
+        intent: "correct",
+        content,
+      },
+      { action: "create_memory", content },
+      {
+        action: "link_relation",
+        from: { kind: "action", index: 0 },
+        to: { kind: "action", index: 1 },
+        relation: "elaborates",
+      },
+    ],
+  });
+  const outcome = await executeConsolidation(
+    f.kernel,
+    plan,
+    proposal,
+    operation,
+    create(ProducerSignatureSchema),
+    {},
+    [],
+    f.save,
+  );
+  expect(outcome.actions.map((r) => r.status)).toEqual([
+    "stale",
+    "committed",
+    "skipped_dependency",
+  ]);
+  expect(outcome.status).toBe("partial");
 });

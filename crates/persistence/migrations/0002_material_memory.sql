@@ -82,8 +82,21 @@ CREATE TABLE tags (
     subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
     current_revision_id uuid NOT NULL,
     created_at timestamptz NOT NULL,
-    status text NOT NULL CHECK (status IN ('active','withdrawn'))
+    status text NOT NULL CHECK (status IN ('active','withdrawn','merged')),
+    canonical_tag_id uuid NULL,
+    UNIQUE(tag_id, subject_id),
+    FOREIGN KEY(canonical_tag_id, subject_id) REFERENCES tags(tag_id, subject_id),
+    CHECK ((status='merged') = (canonical_tag_id IS NOT NULL)),
+    CHECK (canonical_tag_id IS NULL OR canonical_tag_id <> tag_id)
 );
+CREATE FUNCTION canonical_tag(subject uuid, requested uuid) RETURNS uuid
+LANGUAGE sql STABLE AS $$
+    SELECT COALESCE(t.canonical_tag_id,t.tag_id) FROM tags t
+    LEFT JOIN tags survivor ON survivor.tag_id=t.canonical_tag_id AND survivor.subject_id=t.subject_id
+    WHERE t.subject_id=subject AND t.tag_id=requested
+      AND (t.status='active' OR (t.status='merged' AND survivor.status='active'))
+$$;
+
 CREATE TABLE tag_revisions (
     tag_revision_id uuid PRIMARY KEY,
     tag_id uuid NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
@@ -99,6 +112,23 @@ CREATE TABLE tag_revisions (
 ALTER TABLE tags ADD CONSTRAINT tags_current_revision_fk
     FOREIGN KEY (current_revision_id) REFERENCES tag_revisions(tag_revision_id)
     DEFERRABLE INITIALLY DEFERRED;
+CREATE TABLE tag_lineage (
+    lineage_id uuid PRIMARY KEY,
+    subject_id uuid NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+    operation_id uuid NOT NULL,
+    parent_tag_id uuid NOT NULL,
+    child_tag_id uuid NOT NULL,
+    parent_revision_id uuid NOT NULL REFERENCES tag_revisions(tag_revision_id),
+    child_revision_id uuid NOT NULL REFERENCES tag_revisions(tag_revision_id),
+    child_index integer NOT NULL,
+    relation text NOT NULL CHECK(relation IN ('merged_into','split_into')),
+    supports jsonb NOT NULL CHECK(jsonb_typeof(supports)='array' AND jsonb_array_length(supports) BETWEEN 1 AND 16),
+    created_at timestamptz NOT NULL,
+    FOREIGN KEY(parent_tag_id,subject_id) REFERENCES tags(tag_id,subject_id),
+    FOREIGN KEY(child_tag_id,subject_id) REFERENCES tags(tag_id,subject_id),
+    UNIQUE(subject_id,operation_id,parent_tag_id,child_tag_id,relation),
+    CHECK(parent_tag_id<>child_tag_id)
+);
 CREATE TABLE memory_revision_tags (
     memory_revision_id uuid NOT NULL REFERENCES memory_revisions(memory_revision_id) ON DELETE CASCADE,
     tag_id uuid NOT NULL REFERENCES tags(tag_id) ON DELETE RESTRICT,
@@ -188,7 +218,7 @@ CREATE TABLE association_evidence (
 );
 CREATE TABLE association_evidence_supports (
     association_evidence_id uuid NOT NULL REFERENCES association_evidence(association_evidence_id) ON DELETE CASCADE,
-    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision','use_event')),
+    support_kind text NOT NULL CHECK (support_kind IN ('evidence','memory_revision','cognitive_schema_revision','episode_revision','journal_revision','use_event')),
     support_ref text NOT NULL,
     support_role text NOT NULL CHECK (support_role IN ('direct','corroborating','interpretation','contradiction','contextual')),
     occurrence_id uuid NULL REFERENCES observation_occurrences(occurrence_id) ON DELETE RESTRICT,

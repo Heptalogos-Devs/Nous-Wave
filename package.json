@@ -23,7 +23,6 @@
     "lint:dupes": "jscpd --config .config/duplication.json .",
     "lint:sherif": "sherif",
     "check": "pnpm check:fast && pnpm test",
-    "research:retrieval-live": "tsx scripts/research/retrieval.ts",
     "research:gateway": "tsx scripts/research/serve-gateway.ts",
     "release:notices": "tsx scripts/release/prepare-notices.ts",
     "release:verify": "tsx scripts/release/verify-portable.ts",
@@ -41,14 +40,15 @@
     "dev:portable": "tsx scripts/dev/portable.ts",
     "smoke:configuration": "tsx scripts/smoke/configuration.ts",
     "inspect:model-contracts": "tsx scripts/research/model-contracts.ts",
-    "inspect:model-trace": "tsx scripts/research/model-trace.ts"
+    "inspect:model-trace": "tsx scripts/research/model-trace.ts",
+    "research:cognitive-functional": "tsx scripts/research/cognitive-functional.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "1.73.0",
     "@bufbuild/protoc-gen-es": "2.15.0",
     "@swc/core": "1.16.2",
     "@types/node": "24.19.1",
-    "@types/yauzl": "2.10.3",
+    "@types/yauzl": "3.4.0",
     "dependency-cruiser": "18.4.0",
     "jscpd": "5.3.2",
     "knip": "6.38.0",
@@ -65,6 +65,6 @@
     "@bufbuild/protobuf": "2.15.0",
     "@nous-wave/client": "workspace:*",
     "@nous-wave/protocol": "workspace:*",
-    "smol-toml": "1.8.0"
+    "smol-toml": "1.9.0"
   }
 }

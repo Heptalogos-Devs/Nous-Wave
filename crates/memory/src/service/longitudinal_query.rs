@@ -383,14 +383,14 @@ fn append_rendering(output: &mut String, text: &str, maximum: usize) {
 }
 
 #[derive(Default)]
-struct LongitudinalMetadata {
+pub(super) struct LongitudinalMetadata {
     entities: Vec<EntityRef>,
     source_classes: Vec<SourceClass>,
-    occurred: Vec<TemporalExtent>,
-    observed_at: Option<chrono::DateTime<Utc>>,
+    pub(super) occurred: Vec<TemporalExtent>,
+    pub(super) observed_at: Option<chrono::DateTime<Utc>>,
 }
 
-async fn longitudinal_metadata(
+pub(super) async fn longitudinal_metadata(
     service: &MemoryService,
     subject: SubjectId,
     kind: &str,
@@ -406,6 +406,10 @@ WITH RECURSIVE lineage(root,kind,value) AS (
         UNION SELECT CASE WHEN s.support_kind='evidence' THEN 'occurrence' ELSE s.support_kind END,
             CASE WHEN s.support_kind='evidence' THEN s.occurrence_id::text ELSE s.support_ref END
         FROM episode_revision_supports s WHERE s.episode_revision_id=CASE WHEN l.kind='episode_revision' THEN l.value::uuid END
+        UNION SELECT 'occurrence',e.occurrence_id::text FROM memory_revision_evidence e
+        WHERE e.memory_revision_id=CASE WHEN l.kind='memory_revision' THEN l.value::uuid END
+        UNION SELECT d.target_ref_kind,d.target_ref FROM memory_revision_dependencies d
+        WHERE d.memory_revision_id=CASE WHEN l.kind='memory_revision' THEN l.value::uuid END
         UNION SELECT s.ref_kind,s.ref_value FROM journal_revision_sources s
         WHERE s.journal_revision_id=CASE WHEN l.kind='journal_revision' THEN l.value::uuid END
         UNION SELECT d.target_ref_kind,d.target_ref FROM memory_revision_dependencies d

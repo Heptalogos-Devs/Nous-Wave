@@ -54,6 +54,13 @@ impl AuthorityStore {
                 id.0,
                 false,
             ),
+            CognitiveRef::Tag(tag) => {
+                return Ok((
+                    CognitiveRef::Tag(self.canonical_tag_id(subject, *tag).await?),
+                    None,
+                    false,
+                ));
+            }
             _ => {
                 self.validate_reference(subject, reference).await?;
                 return Ok((reference.clone(), None, false));
@@ -260,7 +267,7 @@ impl AuthorityStore {
             CognitiveRef::Entity(id) => {
                 EntityRef::new(id.as_str())?;
                 sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM observation_occurrences WHERE subject_id=$1 AND actor_entity_ref=$2) OR EXISTS(SELECT 1 FROM entity_mentions m JOIN entity_binding_revisions b USING(mention_id) WHERE m.subject_id=$1 AND b.entity_ref=$2 AND b.binding_state='bound') OR EXISTS(SELECT 1 FROM memory_revision_aboutness e JOIN memory_revisions r USING(memory_revision_id) WHERE r.subject_id=$1 AND e.entity_ref=$2) OR EXISTS(SELECT 1 FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND $2 = ANY(r.aboutness))",
+                "SELECT EXISTS(SELECT 1 FROM lexical_bindings b JOIN lexical_visibility v USING(lexical_ref) WHERE v.subject_id=$1 AND b.object_kind='entity' AND b.canonical_ref=$2 AND b.tombstoned_at IS NULL) OR EXISTS(SELECT 1 FROM observation_occurrences WHERE subject_id=$1 AND actor_entity_ref=$2) OR EXISTS(SELECT 1 FROM entity_mentions m JOIN entity_binding_revisions b USING(mention_id) WHERE m.subject_id=$1 AND b.entity_ref=$2 AND b.binding_state='bound') OR EXISTS(SELECT 1 FROM memory_revision_aboutness e JOIN memory_revisions r USING(memory_revision_id) WHERE r.subject_id=$1 AND e.entity_ref=$2) OR EXISTS(SELECT 1 FROM cognitive_schema_revisions r JOIN cognitive_schemas s USING(schema_id) WHERE s.subject_id=$1 AND $2 = ANY(r.aboutness))",
                 )
                 .bind(subject.0)
                 .bind(id.as_str())

@@ -4,31 +4,19 @@ use nous_persistence::database_error as db;
 impl MemoryService {
     pub async fn create_association(
         &self,
-        input: CreateAssociationRequest,
+        mut input: CreateAssociationRequest,
         subject: SubjectId,
     ) -> Result<AssociationEvidence> {
-        if input.relation_kind.is_empty()
-            || input.relation_kind.len() > 128
-            || !input
-                .relation_kind
-                .bytes()
-                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"_.:-".contains(&b))
-        {
-            return Err(Error::Invalid("relation_kind is invalid".into()));
-        }
-        if input.supports.is_empty() {
-            return Err(Error::Invalid("association needs support".into()));
-        }
-        input.valid_time.validate()?;
-        validate_association_endpoint(&input.from)?;
-        validate_association_endpoint(&input.to)?;
-        self.store.validate_reference(subject, &input.from).await?;
-        self.store.validate_reference(subject, &input.to).await?;
-        self.validate_association_supports(subject, &input).await?;
+        input.producer = input
+            .producer
+            .as_ref()
+            .map(AuthorityStore::canonical_producer)
+            .transpose()?;
+        validate_association_input(&input)?;
         let digest = operation_digest(
             "create_association",
             subject,
-            &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"support_class":input.support_class,"supports":input.supports,"producer_signature_id":input.producer_signature_id,"valid_time":input.valid_time}),
+            &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"support_class":input.support_class,"supports":input.supports,"producer_signature_id":input.producer_signature_id,"producer":input.producer,"valid_time":input.valid_time}),
         )?;
         let mut mutation = match self
             .start_mutation(subject, input.operation_id, "create_association", &digest)
@@ -60,12 +48,114 @@ impl MemoryService {
             }
             MutationStart::Active(mutation) => mutation,
         };
+        self.store.validate_reference(subject, &input.from).await?;
+        self.store.validate_reference(subject, &input.to).await?;
+        self.validate_association_supports(subject, &input).await?;
+        if input.producer.is_some() {
+            self.require_current_concept_endpoint(mutation.tx(), subject, &input.from)
+                .await?;
+            self.require_current_concept_endpoint(mutation.tx(), subject, &input.to)
+                .await?;
+        }
+        if let Some(producer) = &input.producer {
+            let registered = AuthorityStore::register_producer_in(mutation.tx(), producer).await?;
+            if input
+                .producer_signature_id
+                .is_some_and(|id| id != registered)
+            {
+                return Err(Error::Invalid(
+                    "association producer identity mismatch".into(),
+                ));
+            }
+            input.producer_signature_id = Some(registered);
+        }
+        let id = self
+            .insert_association_in(mutation.tx(), subject, &input)
+            .await?;
+        mutation
+            .invalidate(ProjectionInvalidation::topology())
+            .await?;
+        mutation
+            .commit("association", Some(&id.0.to_string()), None, None)
+            .await?;
+        self.association(subject, id).await
+    }
+
+    async fn require_current_concept_endpoint(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        reference: &CognitiveRef,
+    ) -> Result<()> {
+        let (revision_table, object_table, revision_column, object_column, id) = match reference {
+            CognitiveRef::MemoryRevision(id) => (
+                "memory_revisions",
+                "memory_objects",
+                "memory_revision_id",
+                "memory_id",
+                id.0,
+            ),
+            CognitiveRef::CognitiveSchemaRevision(id) => (
+                "cognitive_schema_revisions",
+                "cognitive_schemas",
+                "schema_revision_id",
+                "schema_id",
+                id.0,
+            ),
+            CognitiveRef::EpisodeRevision(id) => (
+                "episode_revisions",
+                "episode_objects",
+                "episode_revision_id",
+                "episode_id",
+                id.0,
+            ),
+            CognitiveRef::JournalRevision(id) => (
+                "journal_revisions",
+                "journal_objects",
+                "journal_revision_id",
+                "journal_id",
+                id.0,
+            ),
+            CognitiveRef::Tag(id) => {
+                let active: Option<Uuid> = sqlx::query_scalar("SELECT tag_id FROM tags WHERE subject_id=$1 AND tag_id=$2 AND status='active' FOR SHARE")
+                    .bind(subject.0).bind(id.0).fetch_optional(&mut **tx).await.map_err(db)?;
+                return active
+                    .map(|_| ())
+                    .ok_or_else(|| Error::Conflict("concept Tag endpoint is stale".into()));
+            }
+            _ => return Ok(()),
+        };
+        let mut query =
+            sqlx::QueryBuilder::<sqlx::Postgres>::new("SELECT o.current_revision_id FROM ");
+        query.push(revision_table).push(" r JOIN ").push(object_table)
+            .push(" o USING(").push(object_column).push(") WHERE o.subject_id=")
+            .push_bind(subject.0).push(" AND r.").push(revision_column).push("=")
+            .push_bind(id).push(" AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal' FOR SHARE OF o");
+        let current: Option<Uuid> = query
+            .build_query_scalar()
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+        if current != Some(id) {
+            return Err(Error::Conflict(
+                "concept cognition endpoint is stale".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn insert_association_in(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        subject: SubjectId,
+        input: &CreateAssociationRequest,
+    ) -> Result<AssociationEvidenceId> {
         let id = AssociationEvidenceId::new();
         let now = self.cognition.now(subject);
         let (valid_kind, valid_start, valid_end) = temporal_columns(&input.valid_time);
         let (from_kind, from_ref) = reference_parts(&input.from);
         let (to_kind, to_ref) = reference_parts(&input.to);
-        sqlx::query("INSERT INTO association_evidence(association_evidence_id,subject_id,from_ref_kind,from_ref,to_ref_kind,to_ref,relation_kind,polarity,support_class,valid_time_kind,valid_time_start,valid_time_end,producer_signature_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(id.0).bind(subject.0).bind(from_kind).bind(from_ref).bind(to_kind).bind(to_ref).bind(&input.relation_kind).bind(input.polarity.as_str()).bind(input.support_class.as_str()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.producer_signature_id).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
+        sqlx::query("INSERT INTO association_evidence(association_evidence_id,subject_id,from_ref_kind,from_ref,to_ref_kind,to_ref,relation_kind,polarity,support_class,valid_time_kind,valid_time_start,valid_time_end,producer_signature_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(id.0).bind(subject.0).bind(from_kind).bind(from_ref).bind(to_kind).bind(to_ref).bind(&input.relation_kind).bind(input.polarity.as_str()).bind(input.support_class.as_str()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.producer_signature_id).bind(now).execute(&mut **tx).await.map_err(db)?;
         for support in &input.supports {
             let (
                 kind,
@@ -85,20 +175,86 @@ impl MemoryService {
                 .bind(source_region)
                 .bind(derived_representation)
                 .bind(derived_region)
-                .execute(&mut **mutation.tx())
+                .execute(&mut **tx)
                 .await
                 .map_err(db)?;
         }
-        mutation
-            .invalidate(ProjectionInvalidation::topology())
-            .await?;
-        mutation
-            .commit("association", Some(&id.0.to_string()), None, None)
-            .await?;
-        self.association(subject, id).await
+        Ok(id)
+    }
+    /// Bounded undirected read of active, supported AssociationEvidence.
+    pub async fn association_neighborhood(
+        &self,
+        subject: SubjectId,
+        root: CognitiveRef,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<AssociationNeighborhood> {
+        if !(1..=256).contains(&max_nodes) || !(1..=4).contains(&max_depth) {
+            return Err(Error::Invalid(
+                "neighborhood requires 1..256 nodes and 1..4 depth".into(),
+            ));
+        }
+        self.store.require_subject(subject).await?;
+        let (root, _, _) = self.store.bind_exact_reference(subject, &root).await?;
+        let mut seen = std::collections::HashSet::from([root.clone()]);
+        let mut frontier = vec![root.clone()];
+        let mut nodes = vec![root];
+        let mut edge_ids = std::collections::HashSet::new();
+        let mut associations = Vec::new();
+        let mut truncated = false;
+        for _ in 0..max_depth {
+            if frontier.is_empty() {
+                break;
+            }
+            let (kinds, refs): (Vec<_>, Vec<_>) = frontier.iter().map(reference_parts).unzip();
+            let rows = sqlx::query("WITH frontier AS (SELECT * FROM unnest($2::text[], $3::text[]) AS f(kind,ref)), active AS (SELECT association_evidence_id,from_ref_kind,to_ref_kind,CASE WHEN from_ref_kind='tag' THEN canonical_tag($1,from_ref::uuid)::text ELSE from_ref END AS from_ref,CASE WHEN to_ref_kind='tag' THEN canonical_tag($1,to_ref::uuid)::text ELSE to_ref END AS to_ref FROM association_evidence WHERE subject_id=$1 AND revoked_at IS NULL) SELECT a.* FROM active a WHERE a.from_ref IS NOT NULL AND a.to_ref IS NOT NULL AND (a.from_ref_kind<>a.to_ref_kind OR a.from_ref<>a.to_ref) AND EXISTS(SELECT 1 FROM frontier f WHERE (f.kind=a.from_ref_kind AND f.ref=a.from_ref) OR (f.kind=a.to_ref_kind AND f.ref=a.to_ref)) ORDER BY a.association_evidence_id LIMIT 257")
+                .bind(subject.0).bind(kinds).bind(refs).fetch_all(self.store.pool()).await.map_err(db)?;
+            truncated |= rows.len() > 256;
+            let mut next = Vec::new();
+            for row in rows.into_iter().take(256) {
+                let id: Uuid = row.try_get("association_evidence_id").map_err(db)?;
+                if edge_ids.contains(&id) {
+                    continue;
+                }
+                let from = parse_reference(
+                    &row.try_get::<String, _>("from_ref_kind").map_err(db)?,
+                    &row.try_get::<String, _>("from_ref").map_err(db)?,
+                )?;
+                let to = parse_reference(
+                    &row.try_get::<String, _>("to_ref_kind").map_err(db)?,
+                    &row.try_get::<String, _>("to_ref").map_err(db)?,
+                )?;
+                let added = [&from, &to]
+                    .iter()
+                    .filter(|reference| !seen.contains(*reference))
+                    .count();
+                if nodes.len() + added > max_nodes || associations.len() == 256 {
+                    truncated = true;
+                    continue;
+                }
+                let mut association = self.association(subject, AssociationEvidenceId(id)).await?;
+                association.from = from.clone();
+                association.to = to.clone();
+                for reference in [from, to]
+                    .into_iter()
+                    .filter(|reference| seen.insert(reference.clone()))
+                {
+                    nodes.push(reference.clone());
+                    next.push(reference);
+                }
+                edge_ids.insert(id);
+                associations.push(association);
+            }
+            frontier = next;
+        }
+        Ok(AssociationNeighborhood {
+            nodes,
+            associations,
+            truncated,
+        })
     }
 
-    async fn association(
+    pub(crate) async fn association(
         &self,
         subject: SubjectId,
         id: AssociationEvidenceId,
@@ -236,20 +392,28 @@ impl MemoryService {
             }
             AssociationSupportClass::CognitiveDerivation
             | AssociationSupportClass::DerivedStructure => {
-                let producer = input.producer_signature_id.ok_or_else(|| {
-                    Error::Invalid("derived association requires producer_signature_id".into())
-                })?;
-                let exists: bool = sqlx::query_scalar(
-                    "SELECT EXISTS(SELECT 1 FROM producer_signatures WHERE producer_signature_id=$1)",
-                )
-                .bind(producer)
-                .fetch_one(self.store.pool())
-                .await
-                .map_err(db)?;
-                if !exists {
-                    return Err(Error::Invalid(
-                        "producer signature is not registered".into(),
-                    ));
+                if let Some(producer) = &input.producer {
+                    if producer.operation != CapabilityOperation::ConceptMaintenanceText {
+                        return Err(Error::Invalid(
+                            "association producer operation mismatch".into(),
+                        ));
+                    }
+                    serde_json::from_value::<TopologyRelation>(serde_json::json!(
+                        input.relation_kind
+                    ))
+                    .map_err(|_| Error::Invalid("unregistered concept relation".into()))?;
+                } else {
+                    let producer = input.producer_signature_id.ok_or_else(|| {
+                        Error::Invalid("derived association requires producer provenance".into())
+                    })?;
+                    let exists: bool = sqlx::query_scalar(
+                        "SELECT EXISTS(SELECT 1 FROM producer_signatures WHERE producer_signature_id=$1)")
+                        .bind(producer).fetch_one(self.store.pool()).await.map_err(db)?;
+                    if !exists {
+                        return Err(Error::Invalid(
+                            "producer signature is not registered".into(),
+                        ));
+                    }
                 }
                 if input
                     .supports
@@ -370,59 +534,6 @@ impl MemoryService {
         }
         self.store.validate_reference(subject, reference).await
     }
-
-    pub async fn consolidate(
-        &self,
-        subject: SubjectId,
-        request: ConsolidationRequest,
-    ) -> Result<ConsolidationResult> {
-        if request.subject != subject || request.source_memories.len() < 2 {
-            return Err(Error::Invalid(
-                "consolidation needs at least two source revisions".into(),
-            ));
-        }
-        if matches!(request.target, ConsolidationTarget::TopologyOnly) {
-            return Ok(ConsolidationResult {
-                memory: None,
-                topology_changes: 0,
-            });
-        }
-        let supports = request
-            .source_memories
-            .iter()
-            .map(|revision| {
-                RevisionSupport::CognitionDependency(CognitionDependency {
-                    target_revision: CognitiveRef::MemoryRevision(*revision),
-                    support_role: SupportRole::Direct,
-                })
-            })
-            .collect();
-        let input = ExplicitMemoryInput {
-            producer: None,
-            operation_id: request.operation_id,
-            subject,
-            cognitive_role: CognitiveRole::Declarative,
-            formation_mode: FormationMode::Synthesized,
-            grounding_occurrence_id: None,
-            semantic_role: request
-                .semantic_role
-                .unwrap_or_else(|| "synthesized".into()),
-            representation_text: request
-                .representation_text
-                .unwrap_or_else(|| "synthesized cognition".into()),
-            title: None,
-            supports,
-            aboutness: Vec::new(),
-            tags: Vec::new(),
-            valid_time: TemporalExtent::Unknown,
-
-            epistemic_class: EpistemicClass::Inferred,
-        };
-        Ok(ConsolidationResult {
-            memory: Some(self.form_memory(input).await?),
-            topology_changes: 0,
-        })
-    }
 }
 
 #[expect(
@@ -492,6 +603,8 @@ fn validate_association_endpoint(reference: &CognitiveRef) -> Result<()> {
         )),
         CognitiveRef::MemoryRevision(_)
         | CognitiveRef::CognitiveSchemaRevision(_)
+        | CognitiveRef::EpisodeRevision(_)
+        | CognitiveRef::JournalRevision(_)
         | CognitiveRef::Entity(_)
         | CognitiveRef::Tag(_)
         | CognitiveRef::Resource(_) => Ok(()),
@@ -514,65 +627,42 @@ fn parse_use_event_key(value: &str) -> Result<(String, Uuid)> {
     Ok((consumer.into(), event))
 }
 
-impl MemoryService {
-    pub async fn create_tag(&self, subject: SubjectId, input: CreateTagRequest) -> Result<Tag> {
-        if input.label.trim().is_empty() || input.label.len() > 256 {
-            return Err(Error::Invalid("tag label is invalid".into()));
-        }
-        let digest = operation_digest(
-            "create_tag",
-            subject,
-            &serde_json::json!({"label":input.label,"description":input.description,"kind_hint":input.kind_hint,"origin":input.origin}),
-        )?;
-        let mut mutation = match self
-            .start_mutation(subject, input.operation_id, "create_tag", &digest)
-            .await?
-        {
-            MutationStart::Replay(receipt) => {
-                let id = receipt.result_ref;
-                if receipt.state == "committed" {
-                    return self
-                        .tag(
-                            subject,
-                            TagId(
-                                id.ok_or_else(|| {
-                                    Error::Infrastructure("tag receipt missing result".into())
-                                })?
-                                .parse()
-                                .map_err(|_| Error::Infrastructure("invalid tag receipt".into()))?,
-                            ),
-                        )
-                        .await;
-                }
-                return Err(Error::Unavailable(
-                    "tag operation is already in progress".into(),
-                ));
-            }
-            MutationStart::Active(mutation) => mutation,
+fn validate_association_input(input: &CreateAssociationRequest) -> Result<()> {
+    if input.relation_kind.is_empty()
+        || input.relation_kind.len() > 128
+        || !input
+            .relation_kind
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"_.:-".contains(&b))
+    {
+        return Err(Error::Invalid("relation_kind is invalid".into()));
+    }
+    if !(1..=16).contains(&input.supports.len()) {
+        return Err(Error::Invalid("association needs 1..16 supports".into()));
+    }
+    input.valid_time.validate()?;
+    validate_association_endpoint(&input.from)?;
+    validate_association_endpoint(&input.to)?;
+    if input.from == input.to {
+        return Err(Error::Invalid("association endpoints must differ".into()));
+    }
+    if input.relation_kind == "tag_attachment" {
+        let cognition = |reference: &CognitiveRef| {
+            matches!(
+                reference,
+                CognitiveRef::MemoryRevision(_)
+                    | CognitiveRef::CognitiveSchemaRevision(_)
+                    | CognitiveRef::EpisodeRevision(_)
+                    | CognitiveRef::JournalRevision(_)
+            )
         };
-        let tag_id = TagId::new();
-        let revision_id = Uuid::now_v7();
-        let now = self.cognition.now(subject);
-        sqlx::query("INSERT INTO tags(tag_id,subject_id,current_revision_id,created_at,status) VALUES($1,$2,$3,$4,'active')").bind(tag_id.0).bind(subject.0).bind(revision_id).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
-        sqlx::query("INSERT INTO tag_revisions(tag_revision_id,tag_id,revision_no,label,description,kind_hint,origin,created_at) VALUES($1,$2,1,$3,$4,$5,$6,$7)").bind(revision_id).bind(tag_id.0).bind(&input.label).bind(&input.description).bind(&input.kind_hint).bind(&input.origin).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
-        mutation
-            .invalidate(ProjectionInvalidation::topology())
-            .await?;
-
-        mutation
-            .commit("tag", Some(&tag_id.0.to_string()), None, None)
-            .await?;
-        self.tag(subject, tag_id).await
+        if input.polarity != AssociationPolarity::Positive
+            || !(cognition(&input.from) && matches!(input.to, CognitiveRef::Tag(_)))
+        {
+            return Err(Error::Invalid(
+                "tag_attachment requires positive cognition to Tag endpoints".into(),
+            ));
+        }
     }
-
-    pub(in crate::service) async fn tag(&self, subject: SubjectId, tag_id: TagId) -> Result<Tag> {
-        let row=sqlx::query("SELECT tag_id,subject_id,current_revision_id,created_at,status FROM tags WHERE subject_id=$1 AND tag_id=$2").bind(subject.0).bind(tag_id.0).fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(||Error::NotFound("tag not found".into()))?;
-        Ok(Tag {
-            tag_id: TagId(row.try_get("tag_id").map_err(db)?),
-            subject_id: SubjectId(row.try_get("subject_id").map_err(db)?),
-            current_revision_id: row.try_get("current_revision_id").map_err(db)?,
-            status: row.try_get("status").map_err(db)?,
-            created_at: row.try_get("created_at").map_err(db)?,
-        })
-    }
+    Ok(())
 }

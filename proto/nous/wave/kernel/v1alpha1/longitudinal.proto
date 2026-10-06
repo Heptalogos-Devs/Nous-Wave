@@ -1,8 +1,8 @@
 syntax = "proto3";
 package nous.wave.kernel.v1alpha1;
 import "nous/wave/v1alpha1/types.proto";
-import "nous/wave/kernel/v1alpha1/consolidation.proto";
 import "nous/wave/v1alpha1/journal.proto";
+import "nous/wave/v1alpha1/management.proto";
 import "google/protobuf/timestamp.proto";
 
 message MaintenanceNeed {
@@ -103,10 +103,27 @@ message MaintenancePlan {
   uint32 max_consolidation_actions = 17;
   bool support_catalog_partial = 18;
   bool provenance_roots_partial = 19;
+  ConceptMaintenanceCatalog concept_catalog = 20;
+  optional string concept_model_input_json = 21;
 }
 message RefreshMaintenanceRequest { MaintenanceNeed claimed = 1; }
 
-message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; string text = 3; string cognitive_role = 4; string formation_mode = 5; repeated string entity_refs = 6; repeated UseSummary use = 7; nous.wave.v1alpha1.TemporalExtent valid_time = 8; google.protobuf.Timestamp formed_at = 9; google.protobuf.Timestamp recorded_at = 10; }
+message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; string text = 3; string cognitive_role = 4; string formation_mode = 5; repeated string entity_refs = 6; repeated UseSummary use = 7; repeated string eligible_support_keys = 11; nous.wave.v1alpha1.TemporalExtent valid_time = 8; google.protobuf.Timestamp formed_at = 9; google.protobuf.Timestamp recorded_at = 10; }
 message ConsolidationEntity { string key = 1; string entity_ref = 2; }
 message ProvenanceRoot { string key = 1; string certainty = 2; }
 message UseSummary { string kind = 1; uint64 count = 2; google.protobuf.Timestamp last_used_at = 3; }
+
+message ConceptMaintenanceCatalog {
+  uint32 max_suggestions = 1;
+  string config_digest = 2;
+  repeated ConceptReference references = 3;
+  repeated ConceptTag tags = 4;
+  repeated ConceptAssociation associations = 5;
+  repeated ConceptSupport supports = 6;
+}
+message ConceptReference { string key = 1; nous.wave.v1alpha1.CognitiveRef reference = 2; }
+message ConceptTag { string key = 1; nous.wave.v1alpha1.TagRevisionTarget target = 2; }
+message ConceptAssociation { string key = 1; string association_id = 2; string from_key = 3; string to_key = 4; string relation = 5; }
+message ConceptSupport { string key = 1; nous.wave.v1alpha1.AssociationSupport support = 2; }
+
+message ExpectedCognition { nous.wave.v1alpha1.CognitiveRef reference = 1; int64 expected_epoch = 2; string object_id = 3; }

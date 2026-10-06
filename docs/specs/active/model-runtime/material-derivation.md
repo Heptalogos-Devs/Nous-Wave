@@ -17,7 +17,7 @@ DerivedRepresentation 保存 ordered exact inputs、strategy、representation ki
 - Text-like source 经严格 UTF-8 解码形成 ExtractedText，不调用模型重写原文。
 - Image 可形成 ImageDescription、StructuredInterpretation，或按 describe_then_structure 先提交描述再结构化。
 - Audio 默认使用 direct 多模态理解形成 AudioDescription。audio.input_mode 为 transcription 时使用独立 speech_transcription role 形成 Transcript；该模式不支持 direct_structured，describe_then_structure 可继续结构化 Transcript。两种 mode 之间不静默切换。
-- Video 默认以原始 Artifact bytes 通过 gateway chat 的 video_url input 形成 SceneDescription。显式 frames mode 使用 FFmpeg 作有界抽帧，可选提取音轨并调用 speech_transcription。处理记录包含 FFmpeg version、采样策略、时间戳、source duration 与 truncation。
+- Video 默认以原始 Artifact bytes 通过 gateway chat 的 video_url input 形成 SceneDescription。显式 frames mode 使用 FFmpeg 作有界抽帧，可选提取音轨并调用 speech_transcription。每张帧图片紧邻其 index/timestamp label；处理记录包含 FFmpeg version、采样策略、时间戳、source duration 与 truncation，frame envelope identity 进入 preprocessing digest。Frames 的 audio 可用性取决于实际提供的 Transcript；结构化音频支持可引用该 exact representation，第二阶段沿用相同可用性。
 - direct_structured 使用 material_direct_structuring role；describe_then_structure 先持久化 description，再以 exact DerivedRegion segments 作为第二阶段输入。
 
 素材策略为 description_only、direct_structured 与 describe_then_structure。结构化结果使用唯一的 Zod schema owner；schema digest 进入 ProducerSignature 与 derivation identity。DerivedRepresentation 可保存 structured JSON payload 和 deterministic text projection。每个结构化 support 都映射到输入 DAG 中可读回的 exact reference。

@@ -1,7 +1,14 @@
-import { consolidationRequest } from "./consolidation.js";
+import { conceptMaintenanceSchema } from "../model/schemas/concept-maintenance.js";
+import {
+  executeConceptMaintenance,
+  conceptActionResultSchema,
+} from "./concept-maintenance.js";
+import {
+  executeConsolidation,
+  consolidationResultSchema,
+} from "./consolidation.js";
 import { consolidationSchema } from "../model/schemas/consolidation.js";
-import { CommitLongitudinalConsolidationRequestSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/consolidation_pb.js";
-import { createHash } from "node:crypto";
+import { maintenanceOperationId } from "./identity.js";
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { z } from "zod";
@@ -31,8 +38,18 @@ import {
 import { canonicalDigest } from "../digest.js";
 
 const outcomeSchema = z.strictObject({
-  status: z.enum(["committed", "no_change", "obsolete", "rejected_invalid"]),
+  status: z.enum([
+    "committed",
+    "partial",
+    "stale",
+    "no_change",
+    "obsolete",
+    "rejected_invalid",
+  ]),
   problemCode: z.string().optional(),
+  actions: z
+    .array(z.union([consolidationResultSchema, conceptActionResultSchema]))
+    .optional(),
 });
 function readOutcome(text: string) {
   const value: unknown = JSON.parse(text);
@@ -49,7 +66,18 @@ const snapshotSchema = z.strictObject({
 const proposalSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("partition"), request: z.unknown() }),
   z.strictObject({ action: z.literal("journal"), request: z.unknown() }),
-  z.strictObject({ action: z.literal("consolidation"), request: z.unknown() }),
+  z.strictObject({
+    action: z.literal("consolidation"),
+    proposal: z.unknown(),
+    producer: z.unknown(),
+    progress: z.array(consolidationResultSchema),
+  }),
+  z.strictObject({
+    action: z.literal("concept"),
+    proposal: z.unknown(),
+    producer: z.unknown(),
+    progress: z.array(conceptActionResultSchema),
+  }),
   z.strictObject({
     action: z.literal("withdraw"),
     journalId: z.string().uuid(),
@@ -58,19 +86,6 @@ const proposalSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("no_change") }),
 ]);
 
-export function maintenanceOperationId(need: MaintenanceNeed) {
-  const bytes = createHash("sha1")
-    .update(Buffer.from("6ba7b8129dad11d180b400c04fd430c8", "hex"))
-    .update(
-      `${need.needId}:${need.triggerAuthoritySeq}:${need.triggerRevision}`,
-    )
-    .digest()
-    .subarray(0, 16);
-  bytes[6] = (bytes[6]! & 15) | 80;
-  bytes[8] = (bytes[8]! & 63) | 128;
-  const value = bytes.toString("hex");
-  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
-}
 function producer(
   metadata: ModelProducerMetadata,
   operation: string,
@@ -131,9 +146,11 @@ export async function runModelMaintenance(
     const role =
       need.kind === "episode_resegment"
         ? "episode_segmentation"
-        : need.kind === "memory_consolidate"
-          ? "memory_consolidation"
-          : "journal_synthesis";
+        : need.kind === "concept_maintenance"
+          ? "concept_maintenance"
+          : need.kind === "memory_consolidate"
+            ? "memory_consolidation"
+            : "journal_synthesis";
     const model =
       plan.status === "withdraw" ? null : models.invocations.snapshot(role);
     snapshotJson = JSON.stringify({
@@ -254,27 +271,47 @@ export async function runModelMaintenance(
               request,
             );
           }
+        } else if (need.kind === "concept_maintenance") {
+          if (!plan.conceptCatalog || !plan.conceptModelInputJson)
+            throw new ConnectError(
+              "Missing topology catalog",
+              Code.InvalidArgument,
+            );
+          const result = await models.maintainConcepts(
+            plan.conceptModelInputJson,
+            options.signal ?? undefined,
+            snapshot.model as ModelRoleSnapshot,
+          );
+          const proposal = conceptMaintenanceSchema.parse(result.value);
+          proposed = {
+            action: "concept",
+            proposal,
+            producer: toJson(
+              ProducerSignatureSchema,
+              create(
+                ProducerSignatureSchema,
+                producer(result.producerMetadata, "concept_maintenance_text"),
+              ),
+            ),
+            progress: [],
+          };
         } else if (need.kind === "memory_consolidate") {
           const result = await models.consolidate(
             JSON.stringify(snapshot.plan),
             options.signal ?? undefined,
             snapshot.model as ModelRoleSnapshot,
           );
-          const request = consolidationRequest(
-            plan,
-            consolidationSchema.parse(result.value),
-            operationId,
-            create(
-              ProducerSignatureSchema,
-              producer(result.producerMetadata, "memory_consolidation_text"),
-            ),
-          );
           proposed = {
             action: "consolidation",
-            request: toJson(
-              CommitLongitudinalConsolidationRequestSchema,
-              request,
+            proposal: consolidationSchema.parse(result.value),
+            producer: toJson(
+              ProducerSignatureSchema,
+              create(
+                ProducerSignatureSchema,
+                producer(result.producerMetadata, "memory_consolidation_text"),
+              ),
             ),
+            progress: [],
           };
         } else {
           const result = await models.synthesizeJournal(
@@ -364,20 +401,47 @@ export async function runModelMaintenance(
         fromJson(CommitJournalRequestSchema, proposed.request as JsonValue),
         options,
       );
-    else if (proposed.action === "consolidation") {
-      const result = await kernel.maintenance.commitLongitudinalConsolidation(
-        fromJson(
-          CommitLongitudinalConsolidationRequestSchema,
-          proposed.request as JsonValue,
-        ),
+    else if (proposed.action === "concept") {
+      const saved = proposed;
+      const outcome = await executeConceptMaintenance(
+        kernel,
+        plan,
+        conceptMaintenanceSchema.parse(saved.proposal),
+        operationId,
+        fromJson(ProducerSignatureSchema, saved.producer as JsonValue),
+        options,
+        saved.progress,
+        async (progress) => {
+          saved.progress = [...progress];
+          await kernel.modelWorkflow.saveWorkflow(
+            { ...lease, proposalJson: JSON.stringify(saved) },
+            options,
+          );
+        },
+      );
+      await kernel.modelWorkflow.saveWorkflow(
+        { ...lease, outcomeJson: JSON.stringify(outcome) },
         options,
       );
-      const outcome = {
-        status:
-          result.status === "no_change"
-            ? ("no_change" as const)
-            : ("committed" as const),
-      };
+      return outcome;
+    } else if (proposed.action === "consolidation") {
+      const saved = proposed;
+      const outcome = await executeConsolidation(
+        kernel,
+        plan,
+        consolidationSchema.parse(saved.proposal),
+        operationId,
+        fromJson(ProducerSignatureSchema, saved.producer as JsonValue),
+        options,
+        saved.progress,
+        async (progress) => {
+          saved.progress = [...progress];
+          await kernel.modelWorkflow.saveWorkflow(
+            { ...lease, proposalJson: JSON.stringify(saved) },
+            options,
+          );
+        },
+      );
       await kernel.modelWorkflow.saveWorkflow(
         { ...lease, outcomeJson: JSON.stringify(outcome) },
         options,

@@ -54,6 +54,7 @@ export async function startResearchGateway(options: {
       let recorded = false;
       const requestCapture = new TraceBody(
         options.traceRoot ? 96 * 1024 * 1024 : 0,
+        incoming.headers["content-type"],
       );
       const responseCapture = new TraceBody(1024 * 1024);
       const secrets = traceSecrets(incoming.headers);

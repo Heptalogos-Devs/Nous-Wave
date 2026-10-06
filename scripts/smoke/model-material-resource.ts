@@ -145,6 +145,7 @@ const provider = createServer((request, response) => {
         {
           kind: "text",
           content: "Local protocol continuity marker.",
+          evidence_channel: "source_text",
           basis: "direct",
           certainty: "clear",
           start_ms: null,
@@ -350,6 +351,7 @@ try {
     {
       kind: "text",
       content: "Local protocol continuity marker.",
+      evidence_channel: "source_text",
       basis: "direct",
       certainty: "clear",
       start_ms: null,

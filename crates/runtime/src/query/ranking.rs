@@ -71,6 +71,7 @@ pub const RESOURCE_LIMIT_MAXIMUM_KEY: ConfigKey<usize> =
     ConfigKey::new("retrieval.query.resource_limit.maximum");
 #[derive(Debug, Clone)]
 pub struct RetrievalPolicy {
+    pub cognitive_profile: super::CognitiveProfile,
     pub rrf_k: f64,
     pub preference_weight: f64,
     pub preference_cap: f64,
@@ -137,6 +138,8 @@ impl RetrievalPolicy {
 }
 
 pub fn register_retrieval_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
+    super::cognitive_profile::register_configuration(registry)?;
+    super::representation::register(registry)?;
     let reference = nous_configuration::ReferenceProfile::parse(include_str!(
         "../../../../config/reference/retrieval-ranking-v1.json"
     ))?;
@@ -282,6 +285,7 @@ fn register_query_allocations(
 
 pub fn resolve_retrieval_policy(snapshot: &ConfigSnapshot) -> Result<RetrievalPolicy> {
     let policy = RetrievalPolicy {
+        cognitive_profile: snapshot.get(super::COGNITIVE_PROFILE)?,
         rrf_k: snapshot.get(RRF_K_KEY)?,
         preference_weight: snapshot.get(PREFERENCE_WEIGHT_KEY)?,
         preference_cap: snapshot.get(PREFERENCE_CAP_KEY)?,

@@ -11,6 +11,7 @@ pub const MAINTENANCE_KINDS: &[&str] = &[
     "journal_review",
     "journal_revalidate",
     "memory_consolidate",
+    "concept_maintenance",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

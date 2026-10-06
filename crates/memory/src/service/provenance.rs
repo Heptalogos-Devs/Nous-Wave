@@ -64,7 +64,7 @@ impl MemoryService {
         while let Some(reference) = stack.pop() {
             let object_key = self.revision_object_key(subject, &reference).await?;
             if object_key == owner_key {
-                return Err(Error::FailedPrecondition(
+                return Err(Error::Invalid(
                     "cognition dependency would create an object cycle".into(),
                 ));
             }
