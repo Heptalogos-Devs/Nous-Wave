@@ -50,6 +50,15 @@ const lexer = new Lexer([
   ...Object.values(Symbols),
 ]);
 
+export const resultDomainOrder = [
+  "memory",
+  "schema",
+  "episode",
+  "journal",
+  "evidence",
+  "resource",
+];
+
 const selectorNames = new Set<Selector["selector"]>([
   "e",
   "tag",
@@ -83,7 +92,55 @@ export function parse(source: string): Expression {
   const parser = new Parser(result.tokens);
   const output = parser.query(0);
   if (parser.peek()) parser.fail("Unexpected token; use explicit && or ||");
+  validateDirectives(output, true);
   return output;
+}
+function validateDirectives(node: Expression, root: boolean) {
+  const seen = new Set<string>();
+  for (const d of node.directives) {
+    if (
+      !root &&
+      [
+        "return",
+        "asof",
+        "history",
+        "effort",
+        "limit",
+        "diagnostics",
+        "explore",
+        "materialize",
+      ].includes(d.name)
+    )
+      throw new ConnectError(
+        `$${d.name} is only allowed at query root`,
+        Code.InvalidArgument,
+      );
+    const key = d.name === "time" ? `time:${d.positional[0]}` : d.name;
+    if (seen.has(key))
+      throw new ConnectError(
+        `Duplicate directive $${key}`,
+        Code.InvalidArgument,
+      );
+    seen.add(key);
+    if (d.name === "return") {
+      if (
+        Object.keys(d.named).length ||
+        !d.positional.length ||
+        d.positional.some(
+          (v) =>
+            typeof v !== "string" ||
+            !["cognition", ...resultDomainOrder].includes(v),
+        ) ||
+        new Set(d.positional).size !== d.positional.length ||
+        (d.positional.includes("cognition") && d.positional.length !== 1)
+      )
+        throw new ConnectError(
+          "Invalid result projection",
+          Code.InvalidArgument,
+        );
+    }
+  }
+  for (const child of node.children) validateDirectives(child, false);
 }
 class Parser {
   private index = 0;
@@ -174,7 +231,16 @@ class Parser {
     }
     if (token?.image === "#") {
       this.take();
-      return { kind: "concept", text: this.name() };
+      let text = this.name();
+      while (
+        this.peek()?.image === "-" &&
+        this.tokens[this.index + 1]?.tokenType === Name &&
+        this.peek()!.startOffset === this.tokens[this.index - 1]!.endOffset! + 1
+      ) {
+        this.take("-");
+        text += `-${this.name()}`;
+      }
+      return { kind: "concept", text };
     }
     if (token?.image !== "@") this.fail("Expected query atom");
     this.take("@");
@@ -269,13 +335,31 @@ export function canonical(e: Expression): string {
       ? atomText(e.atom!)
       : `(${e.children.map(canonical).join(e.operation === "all" ? " && " : " || ")})`;
   const directives = [...e.directives]
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort(
+      (a, b) =>
+        a.name.localeCompare(b.name) ||
+        (a.name === "time"
+          ? ["occurred", "observed", "valid", "formed", "recorded"].indexOf(
+              String(a.positional[0]),
+            ) -
+            ["occurred", "observed", "valid", "formed", "recorded"].indexOf(
+              String(b.positional[0]),
+            )
+          : 0),
+    )
     .map(
       (d) =>
         `$${d.name}${
           d.positional.length || Object.keys(d.named).length
             ? `(${[
-                ...d.positional.map(argumentText),
+                ...(d.name === "return"
+                  ? [...d.positional].sort(
+                      (a, b) =>
+                        resultDomainOrder.indexOf(String(a)) -
+                        resultDomainOrder.indexOf(String(b)),
+                    )
+                  : d.positional
+                ).map(argumentText),
                 ...Object.entries(d.named)
                   .sort(([a], [b]) => a.localeCompare(b))
                   .map(([k, v]) => `${k}=${argumentText(v)}`),

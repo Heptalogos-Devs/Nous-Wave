@@ -11,11 +11,15 @@ mod experience;
 mod maintenance;
 mod maintenance_policy;
 mod query;
+mod query_feedback;
 mod resources;
 mod segmentation;
 mod sessions;
 mod types;
 mod use_feedback;
+pub use query_feedback::{
+    LinkedQueryFeedback, QUERY_FEEDBACK_RETENTION, QueryFeedbackSignals, linked_query_feedback,
+};
 mod work_contexts;
 mod working_set;
 pub use clock::{CognitiveClock, ManualCognitiveClock, SystemCognitiveClock};
@@ -25,12 +29,15 @@ pub use experience::ExperienceInput;
 pub use maintenance::*;
 pub use maintenance_policy::*;
 pub use query::{
-    BoundQuery, COGNITIVE_PROFILE, CognitiveContributor, CognitiveContributors, CognitiveProfile,
-    CognitiveProfileRequirements, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput, LaneStatus,
-    QUERY_REPRESENTATION, QueryExecution, QueryPlan, QueryReadLease, QueryRepresentation,
-    QueryRepresentationLimits, SharedLaneProvider, TopologyWorkSummary, UnresolvedQueryReference,
-    WorkCycle, build_query_representation, register_retrieval_configuration,
-    unresolved_query_references, validate_query_closure,
+    ActivationSeed, ActivationSource, BoundQuery, COGNITIVE_PROFILE, CONCEPT_ENRICHMENT,
+    CognitiveContributor, CognitiveContributors, CognitiveProfile, CognitiveProfileRequirements,
+    ConceptEnrichment, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput, LaneStatus,
+    NovelConceptHypothesis, QUERY_REPRESENTATION, QueryActivation, QueryActivationView,
+    QueryConceptCandidate, QueryConceptOutput, QueryConceptSelection, QueryExecution, QueryPlan,
+    QueryReadLease, QueryRepresentation, QueryRepresentationLimits, QuerySemanticEmbedding,
+    SharedLaneProvider, TagActivation, TopologyWorkSummary, UnresolvedQueryReference, WorkCycle,
+    build_query_representation, register_retrieval_configuration, unresolved_query_references,
+    validate_query_closure,
 };
 pub use segmentation::{EpisodeDraft, SegmentationProgress};
 pub use work_contexts::*;
@@ -52,6 +59,7 @@ pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
     execution_policy::register_configuration(registry)?;
+    query_feedback::register(registry)?;
     registry.register(
         RESIDENT_LIMIT_KEY,
         "cognitive-runtime",

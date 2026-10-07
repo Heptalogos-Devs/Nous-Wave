@@ -716,6 +716,8 @@ async fn assert_longitudinal_materialization(
         CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
     ];
     let query = CognitiveQuery {
+        projection: Default::default(),
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         api_version: nous_core::API_VERSION,
@@ -925,6 +927,7 @@ async fn assert_longitudinal_use(
         events: references
             .into_iter()
             .map(|reference| nous_runtime::UseFeedbackEvent {
+                query_id: None,
                 event_id: nous_core::UseEventId::new(),
                 reference,
                 use_kind: nous_runtime::UseKind::Referenced,
@@ -1398,13 +1401,14 @@ async fn assert_longitudinal_lanes(
     exact: &nous_core::CognitiveQuery,
     refs: &[nous_core::CognitiveRef; 2],
 ) {
-    use nous_core::{Cue, EvidenceFamily, QueryTarget, TextCue};
+    use nous_core::{Cue, EvidenceFamily, ResultDomain, TextCue};
     for (domain, text, expected) in [
-        (QueryTarget::Episode, "object source", &refs[0]),
-        (QueryTarget::Journal, "Point-only detail", &refs[1]),
+        (ResultDomain::Episode, "object source", &refs[0]),
+        (ResultDomain::Journal, "Point-only detail", &refs[1]),
     ] {
         let mut query = exact.clone();
-        query.expression.targets = vec![domain];
+        query.expression.targets.clear();
+        query.projection.domains = vec![domain];
         query.expression.cues = vec![Cue::Text(TextCue { text: text.into() })];
         query.result_need.limit = 1;
         let result = rt.query(query).await.unwrap();
@@ -1425,10 +1429,9 @@ async fn assert_longitudinal_lanes(
     }
     assert_longitudinal_query_protocol(rt, exact.subject, refs).await;
     let mut scoped = exact.clone();
-    scoped.expression.targets.push(QueryTarget::Memory);
+    scoped.projection.domains = vec![ResultDomain::Memory];
     assert!(rt.query(scoped.clone()).await.unwrap().results.is_empty());
-    scoped.expression.targets.pop();
-    scoped.expression.targets.push(QueryTarget::Journal);
+    scoped.projection.domains = vec![ResultDomain::Journal];
     assert_eq!(
         rt.query(scoped).await.unwrap().results[0].reference,
         refs[1]
@@ -1458,7 +1461,9 @@ async fn assert_longitudinal_query_protocol(
                             cue: Some(p::cue::Cue::Text(text.into())),
                         }],
                         modifiers: Some(p::QueryModifiers {
-                            domains: vec![domain.into()],
+                            projection: Some(p::ResultProjection {
+                                domains: vec![domain.into()],
+                            }),
                             limit: Some(1),
                             ..Default::default()
                         }),
@@ -1664,7 +1669,7 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
     use nous_core::CognitiveRef;
     let (root, url, _postgres) = database().await;
     let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
-    let rt = runtime_with_clock_serving(&url, &root, clock, true).await;
+    let rt = runtime_with_clock_serving(&url, &root, clock.clone(), true).await;
     let subject = create_subject(&rt).await;
     let session = rt
         .cognition
@@ -1733,7 +1738,11 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
         matches!(&fragments[&episode.revision.episode_revision_id.0][0], nous_persistence::TextProjectionFragment::Text { reference:CognitiveRef::DerivedRepresentation(id),text } if *id==first && text.len()==2047)
     );
     assert_synopsis_policy(&rt, subject).await;
-    persist_media_synopsis(&rt, subject, region, "amber inlet", Some(first), "2").await;
+    let historical_cut = rt.cognition.now(subject);
+    clock.advance_by(subject, Duration::seconds(10)).unwrap();
+    let second =
+        persist_media_synopsis(&rt, subject, region, "amber inlet", Some(first), "2").await;
+    assert_historical_synopsis(&rt, subject, historical_cut, first, second).await;
     assert!(rt.query(query).await.unwrap().results.is_empty());
     let result = rt
         .query(media_episode_query(subject, "amber"))
@@ -1829,8 +1838,10 @@ async fn assert_synopsis_policy(rt: &NousRuntime, subject: nous_core::SubjectId)
 }
 
 fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::CognitiveQuery {
-    use nous_core::{CognitiveQuery, CognitiveQueryExpr, Cue, QueryTarget, TextCue};
+    use nous_core::{CognitiveQuery, CognitiveQueryExpr, Cue, TextCue};
     let mut query = CognitiveQuery {
+        projection: Default::default(),
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         api_version: nous_core::API_VERSION,
@@ -1838,7 +1849,6 @@ fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::
         session: None,
         situation: Default::default(),
         expression: CognitiveQueryExpr {
-            targets: vec![QueryTarget::Episode],
             cues: vec![Cue::Text(TextCue { text: text.into() })],
             ..Default::default()
         },
@@ -1849,6 +1859,7 @@ fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::
         capabilities: Default::default(),
         diagnostics: Default::default(),
     };
+    query.projection.domains = vec![nous_core::ResultDomain::Episode];
     query.capabilities.text_embedding = nous_core::RequirementStrength::Forbidden;
     query
 }
@@ -1909,6 +1920,7 @@ async fn assert_consolidation_context(
             ]
             .into_iter()
             .map(|use_kind| nous_runtime::UseFeedbackEvent {
+                query_id: None,
                 event_id: nous_core::UseEventId::new(),
                 reference: results[0].clone().unwrap(),
                 use_kind,
@@ -3180,4 +3192,288 @@ async fn assert_subject_pagination(rt: &NousRuntime) {
     for subject in subjects {
         assert!(seen.contains(&subject.0.to_string()));
     }
+}
+
+#[tokio::test]
+async fn historical_schema_episode_journal_use_past_heads_and_history_documents() {
+    use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
+    let (root, url, _pg) = database().await;
+    let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
+    let rt = runtime_with_clock_serving(&url, &root, clock.clone(), true).await;
+    let subject = create_subject(&rt).await;
+    let episode = journal_source_episode(&rt, &clock, subject).await;
+    let episode = historical_episode_text(&rt, subject, &episode, "archival past episode").await;
+    let owner = rt.require_memory().unwrap();
+    let mut memory_input = consolidation_memory(&episode);
+    memory_input.representation_text = "archival past memory".into();
+    let memory = owner.form_memory(memory_input).await.unwrap();
+    let mut schema_input = consolidation_schema(&episode);
+    schema_input.structural_claim = "archival past schema".into();
+    let schema = owner.create_schema(schema_input.clone()).await.unwrap();
+    let mut journal_input = nous_memory::JournalInput {
+        operation_id: OperationId::new(),
+        subject,
+        expected_authority_seq: rt.store.authority_seq(subject).await.unwrap(),
+        target: None,
+        sources: vec![EpisodePartitionSource {
+            revision: episode.revision.episode_revision_id,
+            expected_epoch: episode.object.object_epoch,
+        }],
+        title: None,
+        narrative: "archival past journal".into(),
+        points: vec![nous_memory::JournalPoint {
+            role: nous_memory::JournalPointRole::Summary,
+            text: "archival past summary".into(),
+            supports: vec![RevisionSupport::CognitionDependency(CognitionDependency {
+                target_revision: CognitiveRef::EpisodeRevision(
+                    episode.revision.episode_revision_id,
+                ),
+                support_role: SupportRole::Direct,
+            })],
+        }],
+        producer: None,
+    };
+    let journal = owner.commit_journal(journal_input.clone()).await.unwrap();
+    let cut = rt.cognition.now(subject);
+    let old = vec![
+        CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
+        CognitiveRef::CognitiveSchemaRevision(schema.revision.schema_revision_id),
+        CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
+        CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
+    ];
+    clock.advance_by(subject, Duration::seconds(10)).unwrap();
+    let new_schema = owner
+        .revise_schema(nous_memory::ReviseSchemaInput {
+            operation_id: OperationId::new(),
+            subject,
+            schema_id: schema.schema.schema_id,
+            expected_object_epoch: schema.schema.object_epoch,
+            intent: nous_memory::RevisionIntent::Rephrase,
+            title: None,
+            structural_claim: "archival future schema".into(),
+            applicability_scope: schema.revision.applicability_scope.clone(),
+            boundary_definition: schema.revision.boundary_definition.clone(),
+            formation_kind: schema.revision.formation_kind,
+            producer: Some(consolidation_producer()),
+            evidence_links: schema_input.evidence_links,
+            copy_link_ids: vec![],
+        })
+        .await
+        .unwrap();
+    let new_episode =
+        historical_episode_text(&rt, subject, &episode, "archival future episode").await;
+    let current_journal = owner
+        .journal(subject, journal.object.journal_id, None)
+        .await
+        .unwrap();
+    journal_input.operation_id = OperationId::new();
+    journal_input.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
+    journal_input.target = Some(nous_memory::JournalTarget {
+        journal_id: journal.object.journal_id,
+        expected_revision: journal.revision.journal_revision_id,
+        expected_epoch: current_journal.object.object_epoch,
+        intent: "revalidate".into(),
+    });
+    journal_input.sources = vec![EpisodePartitionSource {
+        revision: new_episode.revision.episode_revision_id,
+        expected_epoch: new_episode.object.object_epoch,
+    }];
+    journal_input.narrative = "archival future journal".into();
+    journal_input.points[0].supports =
+        vec![RevisionSupport::CognitionDependency(CognitionDependency {
+            target_revision: CognitiveRef::EpisodeRevision(
+                new_episode.revision.episode_revision_id,
+            ),
+            support_role: SupportRole::Direct,
+        })];
+    let new_journal = owner.commit_journal(journal_input).await.unwrap();
+    let new = vec![
+        CognitiveRef::CognitiveSchemaRevision(new_schema.revision.schema_revision_id),
+        CognitiveRef::EpisodeRevision(new_episode.revision.episode_revision_id),
+        CognitiveRef::JournalRevision(new_journal.revision.journal_revision_id),
+    ];
+    assert_historical_domains(&rt, subject, cut, &old, &new).await;
+}
+
+async fn assert_historical_domains(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    cut: chrono::DateTime<Utc>,
+    old: &[nous_core::CognitiveRef],
+    new: &[nous_core::CognitiveRef],
+) {
+    use nous_core::*;
+    let mut query = media_episode_query(subject, "archival");
+    query.projection = ResultProjection::default();
+    query.result_need.limit = 16;
+    query.temporal_frame.authority_view = AuthorityView::AsOf(cut);
+    let view = rt
+        .historical_authority_view(subject, cut, RevisionView::Current)
+        .await
+        .unwrap();
+    for reference in old {
+        let state = view.cognition_for(reference).unwrap();
+        let mut exact = query.clone();
+        exact.expression.cues.clear();
+        exact.expression.targets = vec![QueryTarget::Exact {
+            reference: state.object.clone(),
+        }];
+        let result = rt.execute_query(exact, None).await.unwrap();
+        assert!(
+            result
+                .result
+                .results
+                .iter()
+                .any(|hit| &hit.reference == reference),
+            "missing historical owner hit {reference}: {:?}",
+            result.result
+        );
+        assert!(
+            result
+                .result
+                .results
+                .iter()
+                .any(|hit| hit.authority_epoch == state.state["object_epoch"].as_i64())
+        );
+    }
+    query.temporal_frame.revision_view = RevisionView::History;
+    let past = rt.execute_query(query.clone(), None).await.unwrap();
+    assert!(past.result.generation.lexical.is_some());
+    assert!(
+        past.result
+            .results
+            .iter()
+            .all(|hit| !new.contains(&hit.reference))
+    );
+    query.temporal_frame.authority_view = AuthorityView::Current;
+    let history = rt.execute_query(query.clone(), None).await.unwrap();
+    for reference in old.iter().chain(new) {
+        assert!(
+            history
+                .result
+                .results
+                .iter()
+                .any(|hit| &hit.reference == reference),
+            "history missed {reference}: {:?}",
+            history.result
+        );
+    }
+    query.temporal_frame.revision_view = RevisionView::Current;
+    let current = rt.execute_query(query.clone(), None).await.unwrap();
+    for reference in new {
+        assert!(
+            current
+                .result
+                .results
+                .iter()
+                .any(|hit| &hit.reference == reference)
+        );
+    }
+    for reference in &old[1..] {
+        assert!(
+            !current
+                .result
+                .results
+                .iter()
+                .any(|hit| &hit.reference == reference)
+        );
+    }
+    query.temporal_frame.revision_view = RevisionView::History;
+    query.expression.constraints.recorded = Some(TimeInterval {
+        start: None,
+        end: Some(cut + Duration::seconds(1)),
+    });
+    let filtered = rt.execute_query(query, None).await.unwrap();
+    assert!(
+        filtered
+            .result
+            .results
+            .iter()
+            .all(|hit| !new.contains(&hit.reference))
+    );
+    assert!(!filtered.result.results.is_empty());
+}
+
+async fn historical_episode_text(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    episode: &EpisodeView,
+    text: &str,
+) -> EpisodeView {
+    rt.require_memory()
+        .unwrap()
+        .revise_episode(nous_memory::ReviseEpisodeInput {
+            operation_id: nous_core::OperationId::new(),
+            subject,
+            episode_id: episode.object.episode_id,
+            expected_object_epoch: episode.object.object_epoch,
+            intent: "reinterpret".into(),
+            title: None,
+            parent_episode_revision_id: None,
+            experience_time: episode.revision.experience_time.clone(),
+            boundary_explanation: text.into(),
+            producer_signature_id: None,
+            members: episode
+                .members
+                .iter()
+                .map(|member| nous_memory::EpisodeMemberInput {
+                    reference: member.reference.clone(),
+                    role: member.role.clone(),
+                })
+                .collect(),
+            supports: episode.supports.clone(),
+        })
+        .await
+        .unwrap()
+}
+
+async fn assert_historical_synopsis(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    cut: chrono::DateTime<Utc>,
+    old: nous_core::DerivedRepresentationId,
+    new: nous_core::DerivedRepresentationId,
+) {
+    use nous_core::*;
+    let view = rt
+        .historical_authority_view(subject, cut, RevisionView::Current)
+        .await
+        .unwrap();
+    assert!(
+        view.material_documents
+            .contains(&CognitiveRef::DerivedRepresentation(old))
+    );
+    assert!(
+        !view
+            .material_visibility
+            .contains(&CognitiveRef::DerivedRepresentation(new))
+    );
+    let current = rt
+        .material
+        .project_as_of(subject, rt.cognition.now(subject))
+        .await
+        .unwrap();
+    assert!(
+        !current
+            .document_references
+            .contains(&CognitiveRef::DerivedRepresentation(old))
+    );
+    assert!(
+        current
+            .document_references
+            .contains(&CognitiveRef::DerivedRepresentation(new))
+    );
+    let mut query = media_episode_query(subject, "cobalt");
+    query.temporal_frame.authority_view = AuthorityView::AsOf(cut);
+    let result = rt.query(query).await.unwrap();
+    assert!(result.results.iter().any(|hit| {
+        hit.representation
+            .as_ref()
+            .is_some_and(|text| text.contains("cobalt harbor"))
+    }));
+    assert!(!result.results.iter().any(|hit| {
+        hit.representation
+            .as_ref()
+            .is_some_and(|text| text.contains("amber inlet"))
+    }));
 }

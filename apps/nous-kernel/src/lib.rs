@@ -154,12 +154,63 @@ impl NousRuntime {
     pub async fn query(&self, query: CognitiveQuery) -> Result<CognitiveQueryResult> {
         Ok(self.execute_query(query, None).await?.result)
     }
+    pub async fn bind_query_with_snapshot(
+        &self,
+        mut query: CognitiveQuery,
+        config: nous_configuration::ConfigSnapshot,
+    ) -> Result<nous_runtime::BoundQuery> {
+        if query.temporal_frame.clock_now == chrono::DateTime::<chrono::Utc>::UNIX_EPOCH {
+            query.temporal_frame.clock_now = self.cognition.now(query.subject);
+        }
+        let historical = query.temporal_frame.authority_view != AuthorityView::Current
+            || query.temporal_frame.revision_view != RevisionView::Current;
+        let view = if historical {
+            let at = match query.temporal_frame.authority_view {
+                AuthorityView::AsOf(at) => at,
+                AuthorityView::Current => query.temporal_frame.clock_now,
+            };
+            let view = self
+                .historical_authority_view(query.subject, at, query.temporal_frame.revision_view)
+                .await?;
+            Some(Arc::new(view))
+        } else {
+            None
+        };
+        self.cognition
+            .bind_query_with_authority_view(query, config, view)
+            .await
+    }
+    pub async fn historical_authority_view(
+        &self,
+        subject: SubjectId,
+        at: chrono::DateTime<chrono::Utc>,
+        revision_view: RevisionView,
+    ) -> Result<HistoricalAuthoritySnapshot> {
+        let capabilities = self.subjects.subject(subject).await?.capabilities;
+        let mut view = if let Some(memory) = self.memory.as_ref().filter(|_| capabilities.memory) {
+            memory.project_as_of(subject, at, revision_view).await?
+        } else {
+            HistoricalAuthoritySnapshot::empty(subject, at, revision_view)
+        };
+        let material = self.material.project_as_of(subject, at).await?;
+        view.material_visibility = material.known_references;
+        view.material_documents = material.document_references;
+        view.entity_bindings = material.entity_bindings;
+        view.lexical_visibility.extend(material.lexical_visibility);
+        view.lexical_visibility
+            .sort_by(|a, b| a.lexical_ref.cmp(&b.lexical_ref));
+        view.lexical_visibility
+            .dedup_by(|a, b| a.lexical_ref == b.lexical_ref);
+        view.refresh_digest()?;
+        Ok(view)
+    }
     pub async fn execute_query(
         &self,
         query: CognitiveQuery,
         pool_limit: Option<usize>,
     ) -> Result<nous_runtime::QueryExecution> {
-        let bound = Box::pin(self.cognition.bind_query(query)).await?;
+        let snapshot = self.configuration.snapshot_for_subject(query.subject)?;
+        let bound = Box::pin(self.bind_query_with_snapshot(query, snapshot)).await?;
         Box::pin(self.execute_bound_query(bound, pool_limit)).await
     }
     pub async fn execute_bound_query(
@@ -188,14 +239,20 @@ impl NousRuntime {
             .subject(bound.source_query.subject)
             .await?
             .capabilities;
-        let (projection, serving_query) = self.serving.prepare_query(&bound, &plan).await?;
+        let (projection, serving_query): (_, Arc<dyn nous_runtime::QueryActivationView>) =
+            if let Some(view) = &bound.activation_view {
+                (nous_retrieval::ProjectionStatus::default(), view.clone())
+            } else {
+                let (projection, view) = self.serving.prepare_query(&bound, &plan).await?;
+                (projection, view)
+            };
         let mut execution = self
             .cognition
             .execute_query_with_plan(
                 bound,
                 nous_runtime::CognitiveContributors {
                     material: Some(&self.material),
-                    shared: Some(serving_query.as_ref()),
+                    shared: Some(serving_query.provider()),
                     memory: subject_capabilities
                         .memory
                         .then(|| {
@@ -209,6 +266,7 @@ impl NousRuntime {
                 pool_limit,
             )
             .await?;
+        execution.result.generation = serving_query.generation_trace();
         execution.read_lease = Some(serving_query);
         let result = &mut execution.result;
         result.degradation.extend(projection.degradation);

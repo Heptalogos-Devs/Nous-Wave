@@ -1,5 +1,7 @@
 # Gateway、Model 与 Prompt
 
+[返回当前产品合同](../../INDEX.md)
+
 ## Owner
 
 TypeScript Core owns external model invocation and client materialization. Rust Kernel owns Subject Authority, query/serving semantics and validation of persisted producer/material identity.
@@ -50,4 +52,8 @@ ProducerSignature 标识实际 adapter/protocol、operation、model identifier/r
 
 音频、视频和结构化 Material 的输入模式与提交语义见 [Material Derivation](material-derivation.md)；rerank 的候选、预算与 Authority revalidation 见 [Query/Rerank](../retrieval/rerank.md)。
 
-[返回当前产品合同](../../INDEX.md)
+## Query concept role 与历史 embedding
+
+`query_concept_enrichment` 是独立 structured role，使用 `prompts/query/concept-enrichment.md` 与严格 catalog-key/novel-text schema。它不复用 formation 或 concept-maintenance prompt，不创建 Tag，不用无支持的 inferred concept 充当事实证据。Existing match/query embedding 与 dense/Native/VCP 共享 Concept asset；reference default enrichment off，capability forbidden 不调用 role。
+
+历史 Query 执行可在 embedding 许可下通过同一 prepared token 发现、生成、提交截点 Owner-selected 文本的 cache miss，继续使用既有 embedding_materials/content digest。提交不得把 current Tag description 当作旧文本验证；有界 batch 不足或模型不可用按 required/optional 合同报告。Query prepare 只检查 captured representation/config/capabilities，不调用 provider。

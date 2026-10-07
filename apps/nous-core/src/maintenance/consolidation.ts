@@ -224,7 +224,7 @@ export async function executeConsolidation(
         }
         case "create_schema": {
           const content = schema(action.content);
-          const value = await kernel.topology.createCognitiveSchema(
+          const value = await kernel.concepts.createCognitiveSchema(
             {
               operationId: id,
               subjectId: plan.subjectId,
@@ -250,7 +250,7 @@ export async function executeConsolidation(
           );
           if (candidate.formationMode !== action.content.formationKind)
             invalid("Schema revision cannot change formation kind");
-          const value = await kernel.topology.reviseCognitiveSchema(
+          const value = await kernel.concepts.reviseCognitiveSchema(
             {
               operationId: id,
               subjectId: plan.subjectId,

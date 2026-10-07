@@ -15,7 +15,7 @@ pub struct ReferenceSenseGraph {
     #[serde(default)]
     pub wormholes: Vec<(i64, i64)>,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceSenseSeed {
     pub id: i64,

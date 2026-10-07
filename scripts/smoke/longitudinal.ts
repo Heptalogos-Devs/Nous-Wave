@@ -510,7 +510,10 @@ async function scenario(endpoint: string, token: string) {
         operation: "atom",
         cues: [{ cue: { case: "text", value: "Calibration" } }],
         children: [],
-        modifiers: { domains: ["episode", "journal", "memory"], limit: 16 },
+        modifiers: {
+          projection: { domains: ["episode", "journal", "memory"] },
+          limit: 16,
+        },
       },
     });
     for (const reference of refs)
@@ -639,7 +642,7 @@ async function scenario(endpoint: string, token: string) {
         );
         assert.equal(resolved.code, 0);
         assert.equal(resolved.value.status, "BOUND");
-        const expression = `("Prior consumer lease reclamation relevant to the build cache" && @e(${chosen.lexicalRef})) $memory $limit(8)`;
+        const expression = `("Prior consumer lease reclamation relevant to the build cache" && @e(${chosen.lexicalRef})) $return(memory) $limit(8)`;
         const prepared = await cli(
           "query",
           "prepare",

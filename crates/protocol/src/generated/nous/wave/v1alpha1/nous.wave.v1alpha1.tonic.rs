@@ -544,6 +544,11 @@ pub mod identity_service_server {
     #[async_trait]
     pub trait IdentityService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn rebind_entity(
+            &self,
+            request: tonic::Request<super::RebindEntityRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
+        ///
         async fn bind_identity(
             &self,
             request: tonic::Request<super::BindIdentityRequest>,
@@ -634,6 +639,51 @@ pub mod identity_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.v1alpha1.IdentityService/RebindEntity" => {
+                    #[allow(non_camel_case_types)]
+                    struct RebindEntitySvc<T: IdentityService>(pub Arc<T>);
+                    impl<
+                        T: IdentityService,
+                    > tonic::server::UnaryService<super::RebindEntityRequest>
+                    for RebindEntitySvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RebindEntityRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as IdentityService>::rebind_entity(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RebindEntitySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.v1alpha1.IdentityService/BindIdentity" => {
                     #[allow(non_camel_case_types)]
                     struct BindIdentitySvc<T: IdentityService>(pub Arc<T>);
@@ -1311,7 +1361,7 @@ pub mod resource_service_server {
     }
 }
 /// Generated server implementations.
-pub mod topology_service_server {
+pub mod concept_service_server {
     #![allow(
         unused_variables,
         dead_code,
@@ -1320,9 +1370,9 @@ pub mod topology_service_server {
         clippy::let_unit_value,
     )]
     use tonic::codegen::*;
-    /// Generated trait containing gRPC methods that should be implemented for use with TopologyServiceServer.
+    /// Generated trait containing gRPC methods that should be implemented for use with ConceptServiceServer.
     #[async_trait]
-    pub trait TopologyService: std::marker::Send + std::marker::Sync + 'static {
+    pub trait ConceptService: std::marker::Send + std::marker::Sync + 'static {
         ///
         async fn create_tag(
             &self,
@@ -1386,11 +1436,6 @@ pub mod topology_service_server {
             tonic::Status,
         >;
         ///
-        async fn rebind_entity(
-            &self,
-            request: tonic::Request<super::RebindEntityRequest>,
-        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
-        ///
         async fn create_cognitive_schema(
             &self,
             request: tonic::Request<super::CreateCognitiveSchemaRequest>,
@@ -1426,14 +1471,14 @@ pub mod topology_service_server {
     }
     ///
     #[derive(Debug)]
-    pub struct TopologyServiceServer<T> {
+    pub struct ConceptServiceServer<T> {
         inner: Arc<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
         max_decoding_message_size: Option<usize>,
         max_encoding_message_size: Option<usize>,
     }
-    impl<T> TopologyServiceServer<T> {
+    impl<T> ConceptServiceServer<T> {
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
@@ -1484,9 +1529,9 @@ pub mod topology_service_server {
             self
         }
     }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for TopologyServiceServer<T>
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for ConceptServiceServer<T>
     where
-        T: TopologyService,
+        T: ConceptService,
         B: Body + std::marker::Send + 'static,
         B::Error: Into<StdError> + std::marker::Send + 'static,
     {
@@ -1501,11 +1546,11 @@ pub mod topology_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/nous.wave.v1alpha1.TopologyService/CreateTag" => {
+                "/nous.wave.v1alpha1.ConceptService/CreateTag" => {
                     #[allow(non_camel_case_types)]
-                    struct CreateTagSvc<T: TopologyService>(pub Arc<T>);
+                    struct CreateTagSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::CreateTagRequest>
                     for CreateTagSvc<T> {
                         type Response = super::Tag;
@@ -1519,7 +1564,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::create_tag(&inner, request).await
+                                <T as ConceptService>::create_tag(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1546,11 +1591,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/GetTag" => {
+                "/nous.wave.v1alpha1.ConceptService/GetTag" => {
                     #[allow(non_camel_case_types)]
-                    struct GetTagSvc<T: TopologyService>(pub Arc<T>);
+                    struct GetTagSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::ObjectRequest>
                     for GetTagSvc<T> {
                         type Response = super::Tag;
@@ -1564,7 +1609,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::get_tag(&inner, request).await
+                                <T as ConceptService>::get_tag(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1591,11 +1636,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/ListTags" => {
+                "/nous.wave.v1alpha1.ConceptService/ListTags" => {
                     #[allow(non_camel_case_types)]
-                    struct ListTagsSvc<T: TopologyService>(pub Arc<T>);
+                    struct ListTagsSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::ListRequest>
                     for ListTagsSvc<T> {
                         type Response = super::ListTagsResponse;
@@ -1609,7 +1654,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::list_tags(&inner, request).await
+                                <T as ConceptService>::list_tags(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1636,11 +1681,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/SearchTags" => {
+                "/nous.wave.v1alpha1.ConceptService/SearchTags" => {
                     #[allow(non_camel_case_types)]
-                    struct SearchTagsSvc<T: TopologyService>(pub Arc<T>);
+                    struct SearchTagsSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::SearchTagsRequest>
                     for SearchTagsSvc<T> {
                         type Response = super::ListTagsResponse;
@@ -1654,7 +1699,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::search_tags(&inner, request).await
+                                <T as ConceptService>::search_tags(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1681,11 +1726,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/ReviseTag" => {
+                "/nous.wave.v1alpha1.ConceptService/ReviseTag" => {
                     #[allow(non_camel_case_types)]
-                    struct ReviseTagSvc<T: TopologyService>(pub Arc<T>);
+                    struct ReviseTagSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::ReviseTagRequest>
                     for ReviseTagSvc<T> {
                         type Response = super::Tag;
@@ -1699,7 +1744,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::revise_tag(&inner, request).await
+                                <T as ConceptService>::revise_tag(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1726,11 +1771,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/MergeTags" => {
+                "/nous.wave.v1alpha1.ConceptService/MergeTags" => {
                     #[allow(non_camel_case_types)]
-                    struct MergeTagsSvc<T: TopologyService>(pub Arc<T>);
+                    struct MergeTagsSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::MergeTagsRequest>
                     for MergeTagsSvc<T> {
                         type Response = super::Tag;
@@ -1744,7 +1789,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::merge_tags(&inner, request).await
+                                <T as ConceptService>::merge_tags(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1771,11 +1816,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/SplitTag" => {
+                "/nous.wave.v1alpha1.ConceptService/SplitTag" => {
                     #[allow(non_camel_case_types)]
-                    struct SplitTagSvc<T: TopologyService>(pub Arc<T>);
+                    struct SplitTagSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::SplitTagRequest>
                     for SplitTagSvc<T> {
                         type Response = super::SplitTagResponse;
@@ -1789,7 +1834,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::split_tag(&inner, request).await
+                                <T as ConceptService>::split_tag(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1816,11 +1861,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/CreateAssociation" => {
+                "/nous.wave.v1alpha1.ConceptService/CreateAssociation" => {
                     #[allow(non_camel_case_types)]
-                    struct CreateAssociationSvc<T: TopologyService>(pub Arc<T>);
+                    struct CreateAssociationSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::CreateAssociationRequest>
                     for CreateAssociationSvc<T> {
                         type Response = super::Association;
@@ -1834,7 +1879,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::create_association(&inner, request)
+                                <T as ConceptService>::create_association(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -1862,11 +1907,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/RevokeAssociation" => {
+                "/nous.wave.v1alpha1.ConceptService/RevokeAssociation" => {
                     #[allow(non_camel_case_types)]
-                    struct RevokeAssociationSvc<T: TopologyService>(pub Arc<T>);
+                    struct RevokeAssociationSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::RevokeAssociationRequest>
                     for RevokeAssociationSvc<T> {
                         type Response = ();
@@ -1880,7 +1925,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::revoke_association(&inner, request)
+                                <T as ConceptService>::revoke_association(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -1908,11 +1953,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/GetNeighborhood" => {
+                "/nous.wave.v1alpha1.ConceptService/GetNeighborhood" => {
                     #[allow(non_camel_case_types)]
-                    struct GetNeighborhoodSvc<T: TopologyService>(pub Arc<T>);
+                    struct GetNeighborhoodSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::NeighborhoodRequest>
                     for GetNeighborhoodSvc<T> {
                         type Response = super::NeighborhoodResponse;
@@ -1926,7 +1971,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::get_neighborhood(&inner, request)
+                                <T as ConceptService>::get_neighborhood(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -1954,56 +1999,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/RebindEntity" => {
+                "/nous.wave.v1alpha1.ConceptService/CreateCognitiveSchema" => {
                     #[allow(non_camel_case_types)]
-                    struct RebindEntitySvc<T: TopologyService>(pub Arc<T>);
+                    struct CreateCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
-                    > tonic::server::UnaryService<super::RebindEntityRequest>
-                    for RebindEntitySvc<T> {
-                        type Response = ();
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::RebindEntityRequest>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as TopologyService>::rebind_entity(&inner, request).await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = RebindEntitySvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/nous.wave.v1alpha1.TopologyService/CreateCognitiveSchema" => {
-                    #[allow(non_camel_case_types)]
-                    struct CreateCognitiveSchemaSvc<T: TopologyService>(pub Arc<T>);
-                    impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::CreateCognitiveSchemaRequest>
                     for CreateCognitiveSchemaSvc<T> {
                         type Response = super::CognitiveSchema;
@@ -2017,7 +2017,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::create_cognitive_schema(
+                                <T as ConceptService>::create_cognitive_schema(
                                         &inner,
                                         request,
                                     )
@@ -2048,11 +2048,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/GetCognitiveSchema" => {
+                "/nous.wave.v1alpha1.ConceptService/GetCognitiveSchema" => {
                     #[allow(non_camel_case_types)]
-                    struct GetCognitiveSchemaSvc<T: TopologyService>(pub Arc<T>);
+                    struct GetCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::GetCognitiveSchemaRequest>
                     for GetCognitiveSchemaSvc<T> {
                         type Response = super::CognitiveSchema;
@@ -2066,10 +2066,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::get_cognitive_schema(
-                                        &inner,
-                                        request,
-                                    )
+                                <T as ConceptService>::get_cognitive_schema(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -2097,11 +2094,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/AddSchemaEvidence" => {
+                "/nous.wave.v1alpha1.ConceptService/AddSchemaEvidence" => {
                     #[allow(non_camel_case_types)]
-                    struct AddSchemaEvidenceSvc<T: TopologyService>(pub Arc<T>);
+                    struct AddSchemaEvidenceSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::AddSchemaEvidenceRequest>
                     for AddSchemaEvidenceSvc<T> {
                         type Response = super::CognitiveSchema;
@@ -2115,7 +2112,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::add_schema_evidence(&inner, request)
+                                <T as ConceptService>::add_schema_evidence(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -2143,11 +2140,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/ReviseCognitiveSchema" => {
+                "/nous.wave.v1alpha1.ConceptService/ReviseCognitiveSchema" => {
                     #[allow(non_camel_case_types)]
-                    struct ReviseCognitiveSchemaSvc<T: TopologyService>(pub Arc<T>);
+                    struct ReviseCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::ReviseCognitiveSchemaRequest>
                     for ReviseCognitiveSchemaSvc<T> {
                         type Response = super::CognitiveSchema;
@@ -2161,7 +2158,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::revise_cognitive_schema(
+                                <T as ConceptService>::revise_cognitive_schema(
                                         &inner,
                                         request,
                                     )
@@ -2192,11 +2189,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/SplitCognitiveSchema" => {
+                "/nous.wave.v1alpha1.ConceptService/SplitCognitiveSchema" => {
                     #[allow(non_camel_case_types)]
-                    struct SplitCognitiveSchemaSvc<T: TopologyService>(pub Arc<T>);
+                    struct SplitCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::SplitCognitiveSchemaRequest>
                     for SplitCognitiveSchemaSvc<T> {
                         type Response = super::SplitCognitiveSchemaResponse;
@@ -2210,7 +2207,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::split_cognitive_schema(
+                                <T as ConceptService>::split_cognitive_schema(
                                         &inner,
                                         request,
                                     )
@@ -2241,11 +2238,11 @@ pub mod topology_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/nous.wave.v1alpha1.TopologyService/MergeCognitiveSchemas" => {
+                "/nous.wave.v1alpha1.ConceptService/MergeCognitiveSchemas" => {
                     #[allow(non_camel_case_types)]
-                    struct MergeCognitiveSchemasSvc<T: TopologyService>(pub Arc<T>);
+                    struct MergeCognitiveSchemasSvc<T: ConceptService>(pub Arc<T>);
                     impl<
-                        T: TopologyService,
+                        T: ConceptService,
                     > tonic::server::UnaryService<super::MergeCognitiveSchemasRequest>
                     for MergeCognitiveSchemasSvc<T> {
                         type Response = super::CognitiveSchema;
@@ -2259,7 +2256,7 @@ pub mod topology_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as TopologyService>::merge_cognitive_schemas(
+                                <T as ConceptService>::merge_cognitive_schemas(
                                         &inner,
                                         request,
                                     )
@@ -2312,7 +2309,7 @@ pub mod topology_service_server {
             }
         }
     }
-    impl<T> Clone for TopologyServiceServer<T> {
+    impl<T> Clone for ConceptServiceServer<T> {
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -2325,8 +2322,8 @@ pub mod topology_service_server {
         }
     }
     /// Generated gRPC service name
-    pub const SERVICE_NAME: &str = "nous.wave.v1alpha1.TopologyService";
-    impl<T> tonic::server::NamedService for TopologyServiceServer<T> {
+    pub const SERVICE_NAME: &str = "nous.wave.v1alpha1.ConceptService";
+    impl<T> tonic::server::NamedService for ConceptServiceServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
 }

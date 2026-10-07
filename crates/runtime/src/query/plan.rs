@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct QueryPlan {
+    pub concept_enrichment: super::ConceptEnrichment,
     pub cognitive_profile: super::CognitiveProfile,
     pub enabled_lanes: Vec<EvidenceFamily>,
     pub lane_budgets: BTreeMap<EvidenceFamily, usize>,
@@ -25,12 +26,14 @@ pub struct QueryPlan {
 
 impl QueryPlan {
     pub fn for_bound_query(bound: &BoundQuery) -> Self {
-        Self::from_parts(
+        let mut plan = Self::from_parts(
             &bound.source_query,
             bound.enabled_lanes.clone(),
             bound.lane_budgets.clone(),
             &bound.retrieval_policy,
-        )
+        );
+        plan.concept_enrichment = bound.concept_enrichment;
+        plan
     }
 
     /// Retained for local plan tests and non-authority callers. Production
@@ -59,6 +62,7 @@ impl QueryPlan {
         let index = effort_index(query.effort);
         let candidate_limit = lane_budgets.values().copied().max().unwrap_or(0);
         Self {
+            concept_enrichment: super::ConceptEnrichment::Off,
             cognitive_profile: retrieval_policy.cognitive_profile,
             enabled_lanes: enabled_lanes.clone(),
             lane_budgets,
@@ -97,15 +101,28 @@ impl QueryPlan {
             .into_iter()
             .flat_map(|node| &node.cues)
             .any(|cue| matches!(cue, Cue::Text(_) | Cue::Example(_)));
+        let has_semantic_cue = query
+            .scopes()
+            .into_iter()
+            .flat_map(|node| &node.cues)
+            .any(|cue| matches!(cue, Cue::Concept(_)));
         ServingNeed {
             exact: self.enabled_lanes.contains(&EvidenceFamily::Exact)
                 || self.enabled_lanes.contains(&EvidenceFamily::SchemaDirect),
             lexical: has_text && self.enabled_lanes.contains(&EvidenceFamily::Lexical),
-            dense: has_text
+            dense: (has_text || has_semantic_cue)
                 && (self.enabled_lanes.contains(&EvidenceFamily::Dense)
                     || (self.expand_topology
                         && self.cognitive_profile.requirements().query_embedding)),
             topology: self.expand_topology,
+            concept: self.enabled_lanes.contains(&EvidenceFamily::TagDirect)
+                || self.expand_topology
+                || self.sense_cues,
+            concept_vectors: query.capabilities.text_embedding != RequirementStrength::Forbidden
+                && (self.concept_enrichment != super::ConceptEnrichment::Off
+                    || (self.expand_topology
+                        && self.cognitive_profile.requirements().query_embedding)
+                    || self.sense_cues),
         }
     }
 }
@@ -131,6 +148,8 @@ mod tests {
 
     fn query(effort: CognitiveEffort) -> CognitiveQuery {
         CognitiveQuery {
+            projection: Default::default(),
+            temporal_frame: Default::default(),
             text_only_compatibility: false,
             work_context: None,
             api_version: API_VERSION,

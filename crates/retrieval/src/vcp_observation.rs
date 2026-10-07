@@ -17,6 +17,7 @@ pub struct VcpQueryObservation {
     original_vector: Vec<f32>,
     policy: VcpQueryPolicy,
     core_tag_ids: Vec<i64>,
+    query_seeds: Vec<ReferenceSenseSeed>,
     numerical: ReferencePipelineOutput,
 }
 impl VcpQueryObservation {
@@ -25,6 +26,7 @@ impl VcpQueryObservation {
         bound: &BoundQuery,
         plan: &QueryPlan,
         embedding: &TextEmbeddingOutput,
+        signals: Option<&crate::PreparedQuerySignals>,
     ) -> Result<Self> {
         if bound.source_query.capabilities.text_embedding == RequirementStrength::Forbidden {
             return Err(Error::Unavailable(
@@ -70,22 +72,10 @@ impl VcpQueryObservation {
         policy.sense.max_safe_hops = policy.sense.max_safe_hops.min(plan.topology_rounds);
         policy.sense.max_propagation_states =
             policy.sense.max_propagation_states.min(plan.topology_nodes);
-        let tag_cues = bound
-            .source_query
-            .expression
-            .cues
-            .iter()
-            .filter_map(|cue| match cue {
-                Cue::Tag(value) => Some(CognitiveRef::Tag(value.tag)),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
         let core_tag_ids = bound
-            .exact_bindings
-            .iter()
-            .map(|b| &b.bound_ref)
-            .chain(tag_cues.iter())
-            .filter_map(|reference| generation.identities.id(reference).ok())
+            .activation
+            .tags()
+            .filter_map(|tag| generation.identities.id(&CognitiveRef::Tag(tag.tag)).ok())
             .filter(|id| {
                 generation
                     .labels
@@ -95,7 +85,9 @@ impl VcpQueryObservation {
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
-        let input = pipeline_input(generation, embedding, &policy, &core_tag_ids);
+        let query_seeds = activation_seeds(generation, bound, signals);
+        let mut input = pipeline_input(generation, embedding, &policy, &core_tag_ids);
+        input.query_seeds = query_seeds.clone();
         let numerical = reference_query_pipeline(&input, |vector, limit| {
             generation.search_residual_tags(vector, limit)
         })?;
@@ -105,6 +97,7 @@ impl VcpQueryObservation {
             "space": generation.space, "producer": generation.producer.signature_hash,
         }))?;
         Ok(Self {
+            query_seeds,
             query_id: bound.query_id.to_string(),
             profile: plan.cognitive_profile,
             generation_id: generation.generation_id,
@@ -143,6 +136,19 @@ impl VcpQueryObservation {
     }
     pub fn core_tag_ids(&self) -> &[i64] {
         &self.core_tag_ids
+    }
+    pub fn route_seed(&self, id: i64) -> Option<serde_json::Value> {
+        self.query_seeds.iter().find(|seed| seed.id == id).map(|seed| serde_json::json!({"id":seed.id,"energy":seed.energy,"source":"query_activation"}))
+            .or_else(|| self.numerical.gating.tags.iter().find(|seed| seed.id == id).map(|seed| serde_json::json!(seed)))
+    }
+    pub fn seed_ids(&self) -> std::collections::BTreeSet<i64> {
+        self.numerical
+            .gating
+            .tags
+            .iter()
+            .map(|tag| tag.id)
+            .chain(self.query_seeds.iter().map(|seed| seed.id))
+            .collect()
     }
     pub fn temporal_context(&self) -> &QueryTemporalContext {
         &self.temporal_context
@@ -188,6 +194,7 @@ fn pipeline_input(
         },
         epa_labels: generation.epa.labels.clone(),
         core_tags: core_tag_ids.iter().map(|id| labels[id].clone()).collect(),
+        query_seeds: Vec::new(),
         ghosts: Vec::new(),
         tag_vectors: labels
             .iter()
@@ -214,4 +221,60 @@ fn pipeline_input(
         fusion_config: policy.fusion.clone(),
         field_config: policy.fields.clone(),
     }
+}
+
+fn activation_seeds(
+    generation: &VcpServingGeneration,
+    bound: &BoundQuery,
+    signals: Option<&crate::PreparedQuerySignals>,
+) -> Vec<ReferenceSenseSeed> {
+    let present = |reference: &CognitiveRef| {
+        generation
+            .identities
+            .id(reference)
+            .ok()
+            .filter(|id| generation.graph.graph.transport.node_ids.contains(id))
+    };
+    let mut seeds = bound
+        .activation
+        .seeds
+        .iter()
+        .filter_map(|seed| {
+            present(&seed.reference).map(|id| ReferenceSenseSeed {
+                id,
+                energy: seed.strength,
+                source_type: seed.origin.clone(),
+            })
+        })
+        .collect::<Vec<_>>();
+    if seeds.is_empty()
+        && let Some(signals) = signals
+    {
+        for (lane, source) in [
+            (signals.lexical(), "lexical_promoted"),
+            (signals.dense(), "dense_promoted"),
+        ] {
+            if let Some(lane) = lane.filter(|lane| {
+                matches!(
+                    lane.status,
+                    nous_runtime::LaneStatus::Ready | nous_runtime::LaneStatus::Truncated
+                )
+            }) {
+                seeds.extend(
+                    lane.candidates
+                        .iter()
+                        .filter(|c| c.rank > 0)
+                        .filter_map(|c| {
+                            present(&c.reference).map(|id| ReferenceSenseSeed {
+                                id,
+                                energy: 0.6 / f64::from(c.rank),
+                                source_type: source.into(),
+                            })
+                        })
+                        .take(4),
+                );
+            }
+        }
+    }
+    seeds
 }

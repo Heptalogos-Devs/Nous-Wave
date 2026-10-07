@@ -227,3 +227,30 @@ pub(super) fn lifecycle_drop_reason(state: &FinalMemoryState) -> String {
         "accessibility".into()
     }
 }
+
+pub(super) fn apply_historical_header(
+    view: &mut MemoryView,
+    bound: &nous_runtime::BoundQuery,
+) -> Result<Option<&'static str>> {
+    let Some(snapshot) = bound.historical_authority.as_deref() else {
+        return Ok(None);
+    };
+    let Some(state) = snapshot.cognition_for(&CognitiveRef::MemoryRevision(
+        view.revision.memory_revision_id,
+    )) else {
+        return Ok(Some("outside_historical_view"));
+    };
+    if view.object.purge_state != PurgeState::Normal {
+        return Ok(Some("purged"));
+    }
+    view.object = serde_json::from_value(state.state.clone())
+        .map_err(|e| Error::Infrastructure(format!("historical Memory header: {e}")))?;
+    if view.object.acceptance_state != AcceptanceState::Accepted
+        || view.object.integrity_state != IntegrityState::Valid
+        || (view.object.suppression_state != SuppressionState::Normal
+            && !bound.source_query.expression.constraints.include_suppressed)
+    {
+        return Ok(Some("historical_lifecycle"));
+    }
+    Ok(None)
+}

@@ -10,15 +10,23 @@ impl KernelService {
         bound: nous_runtime::BoundQuery,
         pool_limit: Option<usize>,
     ) -> Result<k::KernelQueryResponse> {
-        let inspection = inspect_bound_query(&bound)?;
         let execution = Box::pin(self.0.execute_bound_query(bound, pool_limit)).await?;
-        let (result, ticket) =
-            if pool_limit.is_some() || !execution.result.resource_actions.is_empty() {
-                let (result, ticket) = self.0.cognition.retain_query(execution)?;
-                (result, ticket.map(|value| value.to_string()))
-            } else {
-                (execution.result, None)
-            };
+        let inspection = inspect_bound_query(&execution.bound)?;
+        let feedback_bound = execution.bound.clone();
+        let requires_finalization =
+            pool_limit.is_some() || !execution.result.resource_actions.is_empty();
+        let (result, ticket) = if requires_finalization {
+            let (result, ticket) = self.0.cognition.retain_query(execution)?;
+            (result, ticket.map(|value| value.to_string()))
+        } else {
+            (execution.result, None)
+        };
+        if requires_finalization && ticket.is_none() {
+            self.0
+                .cognition
+                .record_query_feedback(&feedback_bound, &result)
+                .await?;
+        }
         let mut response = query_response(result);
         response.bound_query = Some(inspection);
         Ok(k::KernelQueryResponse {
@@ -123,6 +131,10 @@ fn query_response(result: CognitiveQueryResult) -> p::QueryResponse {
                 .map(|(key, value)| (key, value as u64))
                 .collect(),
             lane_status: value.lane_status.into_iter().collect(),
+            trace: value
+                .trace
+                .map(|trace| trace.to_string())
+                .unwrap_or_default(),
             topology_complete: value.topology_complete,
             topology_discarded_mass: value.topology_discarded_mass,
         }),
@@ -191,6 +203,28 @@ pub(super) fn compile_query(
     let expression = required(input.expression, "expression")?;
     let modifiers = expression.modifiers.clone().unwrap_or_default();
     let query = CognitiveQuery {
+        projection: match modifiers.projection.as_ref() {
+            Some(projection) => ResultProjection {
+                domains: projection
+                    .domains
+                    .iter()
+                    .map(|domain| enum_value(domain))
+                    .collect::<Result<_>>()?,
+            },
+            None => ResultProjection::default(),
+        },
+        temporal_frame: TemporalFrame {
+            clock_now: time(modifiers.clock_now)?
+                .unwrap_or(chrono::DateTime::<chrono::Utc>::UNIX_EPOCH),
+            authority_view: time(modifiers.as_of)?
+                .map_or(AuthorityView::Current, AuthorityView::AsOf),
+            original_expressions: modifiers.temporal_expressions.clone(),
+            revision_view: if modifiers.history {
+                RevisionView::History
+            } else {
+                RevisionView::Current
+            },
+        },
         text_only_compatibility: input.text_only_compatibility,
         work_context: input.work_context_id.as_deref().map(id).transpose()?,
         api_version: API_VERSION,
@@ -240,6 +274,7 @@ pub(super) fn compile_query(
                 )?,
                 residual_sensing: enum_or_default(&capabilities.residual_sensing)?,
                 rerank: enum_or_default(&capabilities.rerank)?,
+                query_concept_enrichment: enum_or_default(&capabilities.query_concept_enrichment)?,
             }
         } else {
             CapabilityPolicy::default()
@@ -264,7 +299,12 @@ fn compile_expression(
             || modifiers.limit.is_some()
             || !modifiers.diagnostics.is_empty()
             || !modifiers.exploration.is_empty()
-            || modifiers.materialize)
+            || modifiers.materialize
+            || modifiers.projection.is_some()
+            || modifiers.as_of.is_some()
+            || modifiers.history
+            || modifiers.clock_now.is_some()
+            || !modifiers.temporal_expressions.is_empty())
     {
         return Err(Error::Invalid("execution controls are root-only".into()));
     }
@@ -277,17 +317,6 @@ fn compile_expression(
         },
         ..Default::default()
     };
-    for domain in modifiers.domains {
-        node.targets.push(match domain.as_str() {
-            "memory" => QueryTarget::Memory,
-            "schema" => QueryTarget::Schema,
-            "episode" => QueryTarget::Episode,
-            "journal" => QueryTarget::Journal,
-            "evidence" => QueryTarget::Evidence,
-            "resource" => QueryTarget::Resource,
-            _ => return Err(Error::Invalid("unsupported cognitive query domain".into())),
-        });
-    }
     for cue in expression.cues {
         append_cue(&mut node, cue)?;
     }
@@ -346,7 +375,7 @@ fn append_cue(query: &mut CognitiveQueryExpr, cue: p::Cue) -> Result<()> {
         .ok_or_else(|| Error::Invalid("cue is empty".into()))?
     {
         p::cue::Cue::Text(value) => query.cues.push(Cue::Text(TextCue { text: value })),
-        p::cue::Cue::Concept(value) => query.cues.push(Cue::Text(TextCue { text: value })),
+        p::cue::Cue::Concept(value) => query.cues.push(Cue::Concept(ConceptCue { text: value })),
         p::cue::Cue::SchemaId(value) => query.cues.push(Cue::Schema(SchemaCue {
             schema: CognitiveSchemaId(id(&value)?),
         })),
@@ -498,6 +527,10 @@ pub(super) fn inspect_bound_query(bound: &nous_runtime::BoundQuery) -> Result<St
     serde_json::to_string(&serde_json::json!({
         "prepared_query":bound.source_query, "query_id":bound.query_id,
         "representation":bound.representation, "current_refs":bound.runtime_refs,
+        "query_activation":bound.activation, "concept_enrichment":bound.concept_enrichment,
+        "query_concept_requirement":bound.source_query.capabilities.query_concept_enrichment,
+        "historical_view":bound.historical_authority.as_ref().map(|view|serde_json::json!({"digest":view.snapshot_digest,"as_of":view.as_of,"revision_view":view.revision_view})),
+        "temporal_frame":bound.source_query.temporal_frame, "result_projection":bound.source_query.projection,
         "topology_seeds":seeds, "exact_bindings":bound.exact_bindings,
         "profile_id":bound.retrieval_policy.cognitive_profile.id(),
         "profile_source":bound.config_snapshot.source(nous_runtime::COGNITIVE_PROFILE.path()),

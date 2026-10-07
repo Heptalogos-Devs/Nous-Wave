@@ -8,8 +8,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 #[derive(Clone)]
 pub struct ServingSnapshot {
     pub generation: u64,
+    pub view_digest: Option<String>,
     pub lexical: Option<Arc<LexicalGeneration>>,
     pub dense: Vec<Arc<DenseGeneration>>,
+    pub concept: Vec<Arc<ConceptGeneration>>,
     pub topology: Option<Arc<WaveGraphGeneration>>,
     pub vcp: Option<Arc<VcpServingGeneration>>,
     pub epa: Vec<Arc<EpaBasisGeneration>>,
@@ -21,8 +23,10 @@ impl Default for ServingSnapshot {
     fn default() -> Self {
         Self {
             generation: 0,
+            view_digest: None,
             lexical: None,
             dense: Vec::new(),
+            concept: Vec::new(),
             topology: None,
             vcp: None,
             epa: Vec::new(),
@@ -97,6 +101,19 @@ impl ServingPublisher {
 }
 
 impl ServingSnapshot {
+    pub fn generation_trace(&self) -> QueryGenerationTrace {
+        QueryGenerationTrace {
+            lexical: self.lexical.as_ref().map(|g| g.generation_id),
+            dense: self.dense.iter().map(|g| g.generation_id).collect(),
+            topology: self
+                .topology
+                .as_ref()
+                .map(|g| g.generation_id)
+                .or_else(|| self.vcp.as_ref().map(|g| g.generation_id)),
+            epa_basis: self.epa.first().map(|g| g.generation_id),
+            postings: self.postings_generation,
+        }
+    }
     pub(crate) fn retain_generations(
         &mut self,
         ids: impl Iterator<Item = nous_core::ServingGenerationId>,
@@ -107,6 +124,8 @@ impl ServingSnapshot {
             .take()
             .filter(|value| ids.contains(&value.generation_id));
         self.dense
+            .retain(|value| ids.contains(&value.generation_id));
+        self.concept
             .retain(|value| ids.contains(&value.generation_id));
         self.epa.retain(|value| ids.contains(&value.generation_id));
         self.topology = self
@@ -130,6 +149,7 @@ impl ServingSnapshot {
             .as_ref()
             .is_some_and(|value| value.generation_id == id)
             || self.dense.iter().any(|value| value.generation_id == id)
+            || self.concept.iter().any(|value| value.generation_id == id)
             || self
                 .topology
                 .as_ref()

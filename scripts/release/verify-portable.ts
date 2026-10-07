@@ -261,7 +261,7 @@ try {
   });
   const response = await client.cognition.recall(
     subjectId,
-    '"stable source identity" $memory $limit(5)',
+    '"stable source identity" $return(memory) $limit(5)',
   );
   assert(
     response.hits.some(
@@ -290,7 +290,7 @@ try {
   });
   const recalled = await restarted.cognition.recall(
     subjectId,
-    '"stable source identity" $memory $limit(5)',
+    '"stable source identity" $return(memory) $limit(5)',
   );
   assert(
     recalled.hits.some(

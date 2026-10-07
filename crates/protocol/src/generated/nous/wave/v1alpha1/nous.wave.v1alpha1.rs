@@ -510,11 +510,16 @@ pub mod cue {
         ExternalObjectRef(::prost::alloc::string::String),
     }
 }
-/// Domains: memory, schema, episode, journal, evidence, resource. Empty selects all available local domains.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct QueryModifiers {
+/// Result projection is root-only. Omission selects cognition (memory/schema/episode/journal).
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResultProjection {
     #[prost(string, repeated, tag="1")]
     pub domains: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryModifiers {
+    #[prost(message, optional, tag="1")]
+    pub projection: ::core::option::Option<ResultProjection>,
     #[prost(message, optional, tag="2")]
     pub constraints: ::core::option::Option<QueryConstraints>,
     #[prost(string, tag="3")]
@@ -531,6 +536,14 @@ pub struct QueryModifiers {
     pub diagnostics: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="9")]
     pub preferences: ::prost::alloc::vec::Vec<Preference>,
+    #[prost(message, optional, tag="10")]
+    pub as_of: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(bool, tag="11")]
+    pub history: bool,
+    #[prost(message, optional, tag="12")]
+    pub clock_now: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, repeated, tag="13")]
+    pub temporal_expressions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Preference {
@@ -562,6 +575,8 @@ pub struct QueryCapabilities {
     pub residual_sensing: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
     pub rerank: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub query_concept_enrichment: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QuerySituation {
@@ -607,6 +622,12 @@ pub struct PreparedQueryResponse {
     pub text_embedding_requirement: ::prost::alloc::string::String,
     #[prost(string, tag="6")]
     pub rerank_requirement: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub concept_enrichment_mode: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub concept_enrichment_requirement: ::prost::alloc::string::String,
+    #[prost(bool, tag="9")]
+    pub historical_view: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Evidence {
@@ -727,6 +748,8 @@ pub struct QueryDiagnostics {
     pub topology_complete: ::core::option::Option<bool>,
     #[prost(double, optional, tag="4")]
     pub topology_discarded_mass: ::core::option::Option<f64>,
+    #[prost(string, tag="5")]
+    pub trace: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HitScore {
@@ -789,6 +812,8 @@ pub struct UseEvent {
     pub occurred_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag="5")]
     pub context: ::core::option::Option<::prost_types::Struct>,
+    #[prost(string, optional, tag="6")]
+    pub query_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReportUseResponse {
@@ -1540,6 +1565,8 @@ pub struct ResolveIdentityRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="5")]
+    pub as_of: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(oneof="resolve_identity_request::Locator", tags="3, 4")]
     pub locator: ::core::option::Option<resolve_identity_request::Locator>,
 }
@@ -1559,6 +1586,21 @@ pub struct ResolveIdentityResponse {
     pub candidates: ::prost::alloc::vec::Vec<IdentityBinding>,
     #[prost(string, tag="2")]
     pub status: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RebindEntityRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub mention_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub entity_ref: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="4")]
+    pub binding_state: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="5")]
+    pub host_resolution_ref: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub reason: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct JournalPoint {
@@ -1930,21 +1972,6 @@ pub struct NeighborhoodResponse {
     pub truncated: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct RebindEntityRequest {
-    #[prost(string, tag="1")]
-    pub subject_id: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub mention_id: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="3")]
-    pub entity_ref: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, tag="4")]
-    pub binding_state: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="5")]
-    pub host_resolution_ref: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, optional, tag="6")]
-    pub reason: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SchemaScope {
     #[prost(string, tag="1")]
     pub description: ::prost::alloc::string::String,
@@ -2262,6 +2289,8 @@ pub struct FormationRequest {
     pub aboutness_mode: ::prost::alloc::string::String,
     #[prost(string, repeated, tag="6")]
     pub explicit_aboutness: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="7")]
+    pub explicit_tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DeriveMaterialRequest {

@@ -68,6 +68,17 @@ export async function formObservation(
       "Duplicate/oversized aboutness",
       Code.InvalidArgument,
     );
+  if (
+    r.explicitTags.length > 128 ||
+    r.explicitTags.some((tag) => !z.string().uuid().safeParse(tag).success)
+  )
+    throw new ConnectError(
+      "Invalid explicit Tag identities",
+      Code.InvalidArgument,
+    );
+  r.explicitTags = [
+    ...new Set(r.explicitTags.map((tag) => tag.toLowerCase())),
+  ].sort();
   const identity = {
     subjectId: r.subjectId,
     owner: "memory",
@@ -78,6 +89,7 @@ export async function formObservation(
       representation: r.representationId,
       mode,
       aboutness: [...r.explicitAboutness].sort(),
+      explicitTags: r.explicitTags,
     }),
   };
   const replay = async (text: string) => {
@@ -247,6 +259,7 @@ export async function formObservation(
           title: result.title ?? undefined,
           epistemicClass: "derived",
           aboutness,
+          tags: r.explicitTags,
           producer: {
             providerClass: result.producerMetadata.protocol,
             operation: "memory_formation_text",

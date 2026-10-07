@@ -10,6 +10,8 @@ fn query(subject: SubjectId) -> CognitiveQuery {
     CognitiveQuery {
         api_version: API_VERSION,
         subject,
+        projection: Default::default(),
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         session: None,
@@ -246,6 +248,7 @@ async fn preparation_captures_work_context_exact_sources_and_frozen_policy_witho
             session_id: Some(session.session_id),
             consumer_ref: "consumer:test:prepared-query".into(),
             events: vec![nous_runtime::UseFeedbackEvent {
+                query_id: None,
                 event_id: UseEventId::new(),
                 reference: newer_ref.clone(),
                 use_kind: nous_runtime::UseKind::Referenced,

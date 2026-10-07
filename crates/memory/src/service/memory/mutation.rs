@@ -12,6 +12,8 @@ impl MemoryService {
             .map(AuthorityStore::canonical_producer)
             .transpose()?;
         input.validate()?;
+        input.tags.sort_by_key(|tag| tag.0);
+        input.tags.dedup();
         self.store.require_subject(input.subject).await?;
         let digest = operation_digest(
             "form_memory",
@@ -146,16 +148,24 @@ impl MemoryService {
         for entity in &input.aboutness {
             sqlx::query("INSERT INTO memory_revision_aboutness(memory_revision_id,entity_ref) VALUES($1,$2)").bind(revision_id.0).bind(entity.as_str()).execute(&mut **tx).await.map_err(db)?;
         }
+        let mut canonical_tags = std::collections::BTreeSet::new();
         for tag in &input.tags {
-            let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM tags WHERE subject_id=$1 AND tag_id=$2 AND status='active')").bind(input.subject.0).bind(tag.0).fetch_one(&mut **tx).await.map_err(db)?;
-            if !exists {
-                return Err(Error::Invalid("tag does not belong to Subject".into()));
-            }
+            let canonical: Option<Uuid> = sqlx::query_scalar("SELECT canonical_tag($1,$2)")
+                .bind(input.subject.0)
+                .bind(tag.0)
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(db)?;
+            let canonical = canonical
+                .ok_or_else(|| Error::Invalid("active Tag does not belong to Subject".into()))?;
+            canonical_tags.insert(canonical);
+        }
+        for tag in canonical_tags {
             sqlx::query(
                 "INSERT INTO memory_revision_tags(memory_revision_id,tag_id) VALUES($1,$2)",
             )
             .bind(revision_id.0)
-            .bind(tag.0)
+            .bind(tag)
             .execute(&mut **tx)
             .await
             .map_err(db)?;

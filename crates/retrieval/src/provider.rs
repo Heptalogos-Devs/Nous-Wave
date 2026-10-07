@@ -55,6 +55,13 @@ impl TextEmbeddingProvider for RequestEmbedding {
         }
         self.output
             .get_or_init(|| async {
+                if let Some(output) = crate::material::query_material_output(
+                    &request.text,
+                    &self.space(),
+                    &self.producer(),
+                ) {
+                    return Ok(output);
+                }
                 self.inner
                     .embed(request)
                     .await

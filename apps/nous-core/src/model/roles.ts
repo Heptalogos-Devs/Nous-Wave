@@ -12,6 +12,7 @@ export const roleNames = [
   "material_structuring",
   "material_direct_structuring",
   "query_embedding",
+  "query_concept_enrichment",
   "query_rerank",
   "speech_transcription",
 ] as const;

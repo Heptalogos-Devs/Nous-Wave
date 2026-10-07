@@ -13,12 +13,13 @@ import {
   type Cue,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { Ref } from "../domain.js";
-import { canonical, parse } from "./parser.js";
+import { canonical, parse, resultDomainOrder } from "./parser.js";
 import type { Atom, Directive, Expression, Locator } from "./syntax.js";
 
 export type IdentityResolver = (
   kind: string,
   locator: Locator,
+  asOf?: Date,
 ) => Promise<{ canonical: Ref; lexicalRef: string }>;
 const selectorKinds = {
   e: "entity",
@@ -39,6 +40,24 @@ export async function compileNousQL(
 ) {
   const syntax = parse(source);
   const sourceCanonical = canonical(syntax);
+  const temporalExpressions: string[] = [];
+  let authorityTime: Date | undefined;
+  function temporalSources(node: Expression) {
+    for (const d of node.directives.filter((directive) =>
+      ["time", "asof", "history"].includes(directive.name),
+    ))
+      temporalExpressions.push(
+        canonical({
+          operation: "atom",
+          atom: { kind: "universe" },
+          children: [],
+          directives: [d],
+          preferences: [],
+        }).slice(2),
+      );
+    node.children.forEach(temporalSources);
+  }
+  temporalSources(syntax);
   async function bindAtom(atom: Atom): Promise<Cue[]> {
     if (atom.kind === "universe") return [];
     if (atom.kind === "text" || atom.kind === "concept")
@@ -57,7 +76,7 @@ export async function compileNousQL(
             canonical: { kind: "external_object", value: locator.value },
             lexicalRef: "",
           };
-        return resolve(selectorKinds[atom.selector], locator);
+        return resolve(selectorKinds[atom.selector], locator, authorityTime);
       }),
     );
     const identities = bound.map(
@@ -94,16 +113,35 @@ export async function compileNousQL(
     for (const directive of node.directives) {
       if (
         !root &&
-        ["effort", "limit", "diagnostics", "explore", "materialize"].includes(
-          directive.name,
-        )
+        [
+          "return",
+          "asof",
+          "history",
+          "effort",
+          "limit",
+          "diagnostics",
+          "explore",
+          "materialize",
+        ].includes(directive.name)
       )
         invalid(`$${directive.name} is only allowed at query root`);
-      if (seen.has(directive.name))
-        invalid(`Duplicate directive $${directive.name}`);
-      seen.add(directive.name);
+      const key =
+        directive.name === "time"
+          ? `time:${directive.positional[0]}`
+          : directive.name;
+      if (seen.has(key)) invalid(`Duplicate directive $${directive.name}`);
+      seen.add(key);
       applyDirective(modifiers, directive, now);
     }
+    if (root)
+      authorityTime = modifiers.asOf
+        ? new Date(
+            Number(modifiers.asOf.seconds) * 1000 +
+              modifiers.asOf.nanos / 1000000,
+          )
+        : modifiers.history
+          ? now
+          : undefined;
     for (const preference of node.preferences) {
       if (preference.operand.kind === "key") {
         if (
@@ -137,6 +175,8 @@ export async function compileNousQL(
   }
   const expression = await lower(syntax, true);
   expression.modifiers ??= create(QueryModifiersSchema);
+  expression.modifiers.clockNow = timestamp(now);
+  expression.modifiers.temporalExpressions = temporalExpressions;
   return { expression, sourceCanonical, boundCanonical: canonical(syntax) };
 }
 function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
@@ -166,14 +206,45 @@ function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
       invalid(`$${d.name} takes no arguments`);
   };
   switch (d.name) {
-    case "memory":
-    case "schema":
-    case "episode":
-    case "journal":
-    case "evidence":
-    case "resource":
+    case "return": {
+      const domains = strings();
+      if (
+        new Set(domains).size !== domains.length ||
+        domains.some((v) => !["cognition", ...resultDomainOrder].includes(v)) ||
+        (domains.includes("cognition") && domains.length !== 1)
+      )
+        invalid("Invalid result projection");
+      const selected =
+        domains[0] === "cognition" ? resultDomainOrder.slice(0, 4) : domains;
+      m.projection = {
+        $typeName: "nous.wave.v1alpha1.ResultProjection",
+        domains: [...selected].sort(
+          (a, b) => resultDomainOrder.indexOf(a) - resultDomainOrder.indexOf(b),
+        ),
+      };
+      d.positional =
+        domains[0] === "cognition" ? ["cognition"] : m.projection.domains;
+      break;
+    }
+    case "asof": {
+      let point: Date;
+      if (d.positional.length === 1 && !Object.keys(d.named).length)
+        point = date(d.positional[0]!);
+      else if (
+        !d.positional.length &&
+        Object.keys(d.named).length === 1 &&
+        d.named.ago !== undefined
+      )
+        point = new Date(now.getTime() - durationMillis(d.named.ago));
+      else invalid("Use $asof(timestamp) or $asof(ago=duration)");
+      m.asOf = timestamp(point);
+      d.positional = [point.toISOString()];
+      d.named = {};
+      break;
+    }
+    case "history":
       noArguments();
-      m.domains.push(d.name);
+      m.history = true;
       break;
     case "persona":
     case "relation":
@@ -275,19 +346,7 @@ function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
       if (d.named.within !== undefined) {
         if (keys.length !== 1)
           invalid("within cannot be combined with other time arguments");
-        const match = /^(\d+)(ms|s|m|h|d|w)$/.exec(String(d.named.within));
-        if (!match) invalid("Invalid duration");
-        const scale: Record<string, number> = {
-          ms: 1,
-          s: 1000,
-          m: 60_000,
-          h: 3_600_000,
-          d: 86_400_000,
-          w: 604_800_000,
-        };
-        const duration = Number(match[1]) * scale[match[2]!]!;
-        if (!Number.isSafeInteger(duration) || duration <= 0)
-          invalid("Invalid duration");
+        const duration = durationMillis(d.named.within);
         end = now;
         start = new Date(now.getTime() - duration);
       } else if (d.named.at !== undefined) {
@@ -304,6 +363,10 @@ function applyDirective(m: QueryModifiers, d: Directive, now: Date) {
         $typeName: "nous.wave.v1alpha1.TimeInterval",
         start: start ? timestamp(start) : undefined,
         end: end ? timestamp(end) : undefined,
+      };
+      d.named = {
+        ...(start ? { from: start.toISOString() } : {}),
+        ...(end ? { to: end.toISOString() } : {}),
       };
       break;
     }
@@ -328,4 +391,21 @@ function timestamp(value: Date) {
     seconds: BigInt(Math.floor(value.getTime() / 1000)),
     nanos: (((value.getTime() % 1000) + 1000) % 1000) * 1_000_000,
   };
+}
+
+function durationMillis(value: string | number) {
+  const match = /^(\d+)(ms|s|m|h|d|w)$/.exec(String(value));
+  if (!match) invalid("Invalid duration");
+  const scale: Record<string, number> = {
+    ms: 1,
+    s: 1000,
+    m: 60_000,
+    h: 3_600_000,
+    d: 86_400_000,
+    w: 604_800_000,
+  };
+  const duration = Number(match[1]) * scale[match[2]!]!;
+  if (!Number.isSafeInteger(duration) || duration <= 0)
+    invalid("Invalid duration");
+  return duration;
 }

@@ -10,7 +10,7 @@ use nous_memory::{
 };
 use nous_protocol::nous::wave::v1alpha1 as p;
 use nous_subject::{CognitiveSeedInput, CreateSubject};
-use p::topology_service_server::TopologyService;
+use p::concept_service_server::ConceptService;
 use test_support::*;
 use tonic::Request;
 
@@ -19,7 +19,7 @@ use tonic::Request;
     clippy::too_many_lines,
     reason = "one Subject scenario verifies paging and supported graph lifecycle"
 )]
-async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
+async fn agent_concept_reads_supported_edges_and_searches_the_tag_catalog() {
     let (root, url, _postgres) = database().await;
     let rt = open_runtime(&url, &root).await;
     let subject = rt
@@ -130,6 +130,48 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
         .bind(subject.0).fetch_one(rt.store.pool()).await.unwrap();
     assert_eq!(association_producers, 1);
     let service = KernelService(rt.clone());
+    let entity = EntityRef::new("entity:release-reviewer").unwrap();
+    rt.store
+        .bind_identity(
+            subject,
+            CognitiveRef::Entity(entity.clone()),
+            "Release reviewer".into(),
+            Vec::new(),
+        )
+        .await
+        .unwrap();
+    let mention = uuid::Uuid::now_v7();
+    sqlx::query("INSERT INTO entity_mentions(mention_id,subject_id,occurrence_id,surface,created_at) VALUES($1,$2,$3,$4,$5)")
+        .bind(mention).bind(subject.0).bind(observed.occurrence.occurrence_id.0).bind("Release reviewer").bind(rt.cognition.now(subject)).execute(rt.store.pool()).await.unwrap();
+    let binding = p::RebindEntityRequest {
+        subject_id: subject.0.to_string(),
+        mention_id: mention.to_string(),
+        entity_ref: Some(entity.as_str().into()),
+        binding_state: "bound".into(),
+        host_resolution_ref: None,
+        reason: Some("Host resolved source mention".into()),
+    };
+    p::identity_service_server::IdentityService::rebind_entity(
+        &service,
+        Request::new(binding.clone()),
+    )
+    .await
+    .unwrap();
+    let mut foreign = binding;
+    foreign.subject_id = SubjectId::new().0.to_string();
+    assert!(
+        p::identity_service_server::IdentityService::rebind_entity(&service, Request::new(foreign))
+            .await
+            .is_err()
+    );
+    let revision_count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM entity_binding_revisions WHERE mention_id=$1")
+            .bind(mention)
+            .fetch_one(rt.store.pool())
+            .await
+            .unwrap();
+    assert_eq!(revision_count, 1);
+
     let search = |text: &str, token: &str| p::SearchTagsRequest {
         subject_id: subject.0.to_string(),
         text: text.into(),
@@ -138,13 +180,13 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
             page_token: token.into(),
         }),
     };
-    let first = TopologyService::search_tags(&service, Request::new(search("Deployment", "")))
+    let first = ConceptService::search_tags(&service, Request::new(search("Deployment", "")))
         .await
         .unwrap()
         .into_inner();
     assert_eq!(first.items.len(), 1);
     assert!(!first.next_page_token.is_empty());
-    let second = TopologyService::search_tags(
+    let second = ConceptService::search_tags(
         &service,
         Request::new(search("Deployment", &first.next_page_token)),
     )
@@ -153,7 +195,7 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
     .into_inner();
     assert_eq!(second.items.len(), 1);
     assert_ne!(first.items[0].tag_id, second.items[0].tag_id);
-    let third = TopologyService::search_tags(
+    let third = ConceptService::search_tags(
         &service,
         Request::new(search("Deployment", &second.next_page_token)),
     )
@@ -163,7 +205,7 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
     assert_eq!(third.items[0].tag_id, tags[2].0.to_string());
     assert!(third.next_page_token.is_empty());
     assert!(
-        TopologyService::search_tags(
+        ConceptService::search_tags(
             &service,
             Request::new(search("Garden", &first.next_page_token))
         )
@@ -179,20 +221,20 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
         max_nodes: nodes,
         max_depth: depth,
     };
-    let one = TopologyService::get_neighborhood(&service, Request::new(request(64, 1)))
+    let one = ConceptService::get_neighborhood(&service, Request::new(request(64, 1)))
         .await
         .unwrap()
         .into_inner();
     assert_eq!(one.nodes.len(), 2);
     assert_eq!(one.associations.len(), 1);
     assert_eq!(one.associations[0].supports.len(), 1);
-    let two = TopologyService::get_neighborhood(&service, Request::new(request(64, 2)))
+    let two = ConceptService::get_neighborhood(&service, Request::new(request(64, 2)))
         .await
         .unwrap()
         .into_inner();
     assert_eq!(two.nodes.len(), 3);
     assert_eq!(two.associations.len(), 2);
-    let limited = TopologyService::get_neighborhood(&service, Request::new(request(1, 2)))
+    let limited = ConceptService::get_neighborhood(&service, Request::new(request(1, 2)))
         .await
         .unwrap()
         .into_inner();
@@ -202,7 +244,7 @@ async fn agent_topology_reads_supported_edges_and_searches_the_tag_catalog() {
         .revoke_association(subject, edge_ids[0], OperationId::new())
         .await
         .unwrap();
-    let revoked = TopologyService::get_neighborhood(&service, Request::new(request(64, 2)))
+    let revoked = ConceptService::get_neighborhood(&service, Request::new(request(64, 2)))
         .await
         .unwrap()
         .into_inner();

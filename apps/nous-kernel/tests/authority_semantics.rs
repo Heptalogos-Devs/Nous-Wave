@@ -126,6 +126,7 @@ async fn mutation_envelope_merges_families_and_replays_checkpoints() {
     assert_eq!(
         families,
         vec![
+            ("concept".into(), "*".into(), sequence),
             ("dense".into(), "space-a".into(), sequence),
             ("topology".into(), String::new(), sequence)
         ]

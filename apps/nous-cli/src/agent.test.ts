@@ -26,7 +26,7 @@ describe("Agent CLI protocol", () => {
       [
         "query",
         "inspect",
-        '"decision" $memory',
+        '"decision" $return(memory)',
         "--run-root",
         "/tmp/nous",
         "--subject",
@@ -46,7 +46,7 @@ describe("Agent CLI protocol", () => {
       subjectId: "s",
       sessionId: "sess",
       workContextId: "work",
-      nousql: '"decision" $memory',
+      nousql: '"decision" $return(memory)',
     });
     expect(query).not.toHaveBeenCalled();
   });
@@ -127,4 +127,204 @@ describe("Agent CLI protocol", () => {
       candidates: [],
     });
   });
+});
+
+it("formation passes explicit Tag identities without an inference model", async () => {
+  const formFromObservation = vi.fn().mockResolvedValue({ memoryId: "memory" });
+  const resolve = vi.fn().mockResolvedValue({
+    status: "BOUND",
+    candidates: [
+      {
+        canonical: {
+          kind: "tag",
+          value: "33333333-3333-4333-8333-333333333333",
+        },
+      },
+    ],
+  });
+  const client = {
+    model: { formFromObservation },
+    identity: { resolve },
+  } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
+  await runCli(
+    [
+      "form",
+      "occ",
+      "--run-root",
+      "/tmp/nous",
+      "--subject",
+      "s",
+      "--tag",
+      "tag:amber-lotus-cello-river",
+      "--tag",
+      "tag:44444444-4444-4444-8444-444444444444",
+    ],
+    vi.fn().mockResolvedValue(client),
+  );
+  expect(resolve).toHaveBeenCalledWith({
+    subjectId: "s",
+    kind: "tag",
+    locator: { case: "lexicalRef", value: "tag:amber-lotus-cello-river" },
+  });
+  expect(formFromObservation).toHaveBeenCalledWith(
+    expect.objectContaining({
+      explicitTags: [
+        "33333333-3333-4333-8333-333333333333",
+        "44444444-4444-4444-8444-444444444444",
+      ],
+    }),
+  );
+});
+
+it("routes explicit Tag creation and bounded maintenance grants to Concept/Host APIs", async () => {
+  const createTag = vi.fn().mockResolvedValue({ tagId: "tag" });
+  const grantMaintenance = vi.fn().mockResolvedValue({ operations: 1 });
+  const client = {
+    concepts: { createTag },
+    cognition: { grantMaintenance },
+  } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
+  const connect = vi.fn().mockResolvedValue(client);
+  await runCli(
+    [
+      "tag",
+      "create",
+      "--run-root",
+      "/tmp/nous",
+      "--subject",
+      "s",
+      "--name",
+      "active-reader reclamation",
+      "--description",
+      "Wait until all active readers leave",
+      "--operation-id",
+      "op",
+    ],
+    connect,
+  );
+  expect(createTag).toHaveBeenCalledWith(
+    expect.objectContaining({
+      subjectId: "s",
+      operationId: "op",
+      tag: {
+        label: "active-reader reclamation",
+        description: "Wait until all active readers leave",
+        kindHint: undefined,
+        origin: "host_explicit",
+      },
+    }),
+  );
+  await runCli(
+    [
+      "maintenance",
+      "grant",
+      "--run-root",
+      "/tmp/nous",
+      "--subject",
+      "s",
+      "--max-operations",
+      "2",
+      "--max-model-calls",
+      "0",
+    ],
+    connect,
+  );
+  expect(grantMaintenance).toHaveBeenCalledWith({
+    subjectId: "s",
+    maxOperations: 2,
+    maxModelCalls: 0,
+    maxElapsedMs: 30000,
+  });
+  await expect(
+    runCli(
+      [
+        "maintenance",
+        "grant",
+        "--run-root",
+        "/tmp/nous",
+        "--subject",
+        "s",
+        "--max-operations",
+        "33",
+      ],
+      connect,
+    ),
+  ).rejects.toMatchObject({ code: "INVALID_ARGUMENT" });
+});
+it("uses exact typed revisions and caller-stable feedback identity", async () => {
+  const reportUse = vi.fn().mockResolvedValue({ acceptedCount: 1 });
+  const client = { cognition: { reportUse } } as unknown as Awaited<
+    ReturnType<typeof connectNousInstance>
+  >;
+  const connect = vi.fn().mockResolvedValue(client);
+  const ref = "journal_revision:33333333-3333-4333-8333-333333333333";
+  await runCli(
+    [
+      "use",
+      ref,
+      "--run-root",
+      "/tmp/nous",
+      "--subject",
+      "s",
+      "--kind",
+      "result_supported",
+      "--event-id",
+      "event",
+      "--query-id",
+      "44444444-4444-4444-8444-444444444444",
+      "--occurred-at",
+      "2026-10-07T00:00:00Z",
+    ],
+    connect,
+  );
+  expect(reportUse).toHaveBeenCalledWith(
+    expect.objectContaining({
+      events: [
+        {
+          eventId: "event",
+          queryId: "44444444-4444-4444-8444-444444444444",
+          kind: "result_supported",
+          reference: {
+            kind: "journal_revision",
+            value: "33333333-3333-4333-8333-333333333333",
+          },
+          occurredAt: { seconds: 1791331200n, nanos: 0 },
+        },
+      ],
+    }),
+  );
+  await expect(
+    runCli(
+      [
+        "use",
+        "memory:33333333-3333-4333-8333-333333333333",
+        "--run-root",
+        "/tmp/nous",
+        "--subject",
+        "s",
+      ],
+      connect,
+    ),
+  ).rejects.toMatchObject({ code: "INVALID_ARGUMENT" });
+});
+
+it("serves NousQL JSON guidance without requiring a daemon or instance", async () => {
+  const connect = vi.fn();
+  const result = await runCli(["help", "nousql", "--json"], connect);
+  expect(connect).not.toHaveBeenCalled();
+  expect(result).toHaveProperty("concepts");
+  expect(result).toHaveProperty("selectors");
+  expect(result).toHaveProperty("time");
+  expect(result).toHaveProperty("exploration");
+  expect(result).toHaveProperty("projection");
+  const text = JSON.stringify(result);
+  for (const token of [
+    "$time",
+    "$asof",
+    "$history",
+    "$explore",
+    "$return",
+    "@tag",
+    "#concept",
+  ])
+    expect(text).toContain(token);
 });

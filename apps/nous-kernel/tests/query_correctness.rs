@@ -23,6 +23,8 @@ use uuid::Uuid;
 
 fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
     CognitiveQuery {
+        projection: Default::default(),
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         api_version: nous_core::API_VERSION,
@@ -31,9 +33,9 @@ fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
         situation: Default::default(),
         expression: CognitiveQueryExpr {
             operation: QueryOperation::Atom,
+            targets: Vec::new(),
             preferences: Vec::new(),
             children: Vec::new(),
-            targets: Vec::new(),
             cues: Vec::new(),
             constraints: QueryConstraints::default(),
         },
@@ -163,12 +165,21 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
         .await
         .unwrap();
     let mut request = query(owner);
-    request.expression.targets = vec![QueryTarget::Resource];
     request.expression.cues = vec![Cue::Text(TextCue {
         text: "external fact".into(),
     })];
-    request.expression.constraints.current_authority = nous_core::CurrentAuthorityNeed::Required;
+    assert!(!request.requests_resources());
+    request.projection.domains = vec![nous_core::ResultDomain::Resource];
+    assert!(request.requests_resources());
     request.result_need.limit = 1;
+    let explicit = runtime.execute_query(request.clone(), None).await.unwrap();
+    let (pool, ticket) = runtime.cognition.retain_query(explicit).unwrap();
+    assert_eq!(pool.resource_actions.len(), 1);
+    runtime
+        .cognition
+        .release_query(owner, ticket.unwrap())
+        .unwrap();
+    request.expression.constraints.current_authority = nous_core::CurrentAuthorityNeed::Required;
     for case in [
         "valid",
         "max_material",
@@ -337,9 +348,9 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
         .await
         .expect("second memory");
     let mut domain_fenced = query(subject);
+    domain_fenced.projection.domains = vec![nous_core::ResultDomain::Memory];
     domain_fenced.expression = CognitiveQueryExpr {
         operation: QueryOperation::Any,
-        targets: vec![QueryTarget::Memory],
         children: vec![
             CognitiveQueryExpr {
                 targets: vec![QueryTarget::Exact {
@@ -392,9 +403,9 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
     let mut experiential = request.expression.clone();
     experiential.constraints.cognitive_roles_include = vec!["experiential".into()];
     let mut tree = query(subject);
+    tree.projection.domains = vec![nous_core::ResultDomain::Memory];
     tree.expression = CognitiveQueryExpr {
         operation: QueryOperation::All,
-        targets: vec![QueryTarget::Memory],
         children: vec![declarative, experiential],
         ..Default::default()
     };
@@ -706,6 +717,7 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
         .await
         .expect("session B");
     let event_a = UseFeedbackEvent {
+        query_id: None,
         event_id: UseEventId::new(),
         reference: CognitiveRef::MemoryRevision(first.revision.memory_revision_id),
         use_kind: UseKind::Referenced,
@@ -729,6 +741,7 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
             session_id: Some(session_b.session_id),
             consumer_ref: "consumer:test:runtime".into(),
             events: vec![UseFeedbackEvent {
+                query_id: None,
                 event_id: UseEventId::new(),
                 reference: CognitiveRef::MemoryRevision(second.revision.memory_revision_id),
                 use_kind: UseKind::Referenced,
@@ -740,7 +753,7 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
         .expect("resident B use");
     let mut request = query(subject);
     request.session = Some(session_a.session_id);
-    request.expression.targets = vec![QueryTarget::AnyRelevantCognition];
+    request.expression.targets.clear();
     let result = runtime.query(request).await.expect("runtime query");
     let references = result
         .results
@@ -761,6 +774,7 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
         .expect("session before")
         .runtime_revision;
     let batch_event = UseFeedbackEvent {
+        query_id: None,
         event_id: UseEventId::new(),
         ..event_a.clone()
     };
@@ -876,6 +890,8 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     );
     let historical = runtime
         .query(CognitiveQuery {
+            projection: Default::default(),
+            temporal_frame: Default::default(),
             text_only_compatibility: false,
             work_context: None,
             api_version: nous_core::API_VERSION,
@@ -1268,6 +1284,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             session_id: None,
             consumer_ref: "consumer:test:association".into(),
             events: vec![UseFeedbackEvent {
+                query_id: None,
                 event_id,
                 reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 use_kind: UseKind::Referenced,
@@ -1480,13 +1497,22 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         &reference_bound,
         &reference_plan,
         &query_embedding,
+        None,
     )
     .unwrap();
     assert_eq!(observation.original_vector(), &[1.0, 0.0, 0.0]);
     assert_eq!(observation.generation_id(), graph.generation_id);
     assert_eq!(observation.profile_id(), "vcp-rivermemo-v3.1-adapter-v1");
     assert!(!observation.numerical().epa.cache_available);
-    assert!(observation.numerical().sense.source_field.is_empty());
+    let exact_id = graph.identities.id(&memory_reference).unwrap();
+    assert!(
+        observation
+            .numerical()
+            .sense
+            .source_field
+            .iter()
+            .any(|(id, strength)| *id == exact_id && *strength > 0.0)
+    );
     check_vcp_nonempty_observation(
         &runtime,
         subject,
@@ -1503,7 +1529,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             graph,
             &reference_bound,
             &insufficient_plan,
-            &query_embedding
+            &query_embedding,
+            None
         )
         .is_err()
     );
@@ -1514,7 +1541,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             graph,
             &reference_bound,
             &reference_plan,
-            &wrong_embedding
+            &wrong_embedding,
+            None
         )
         .is_err()
     );
@@ -1526,7 +1554,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             graph,
             &forbidden_bound,
             &reference_plan,
-            &query_embedding
+            &query_embedding,
+            None
         )
         .is_err()
     );
@@ -1603,7 +1632,16 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         )
         .await
         .unwrap();
-    assert_eq!(reopened.reopened, vec!["exact", "topology"]);
+    assert!(reopened.rebuilt.is_empty());
+    assert_eq!(
+        reopened.reopened,
+        vec![
+            "concept".to_owned(),
+            format!("concept:{}", graph.space.space_hash),
+            "exact".to_owned(),
+            "topology".to_owned()
+        ]
+    );
     assert_eq!(
         runtime
             .serving
@@ -1689,12 +1727,21 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
                 lexical: false,
                 dense: false,
                 topology: true,
+                concept: false,
+                concept_vectors: true,
             },
             &changed_snapshot,
         )
         .await
         .unwrap();
-    assert_eq!(changed.rebuilt, vec!["topology"]);
+    assert_eq!(
+        changed.rebuilt,
+        vec![
+            "concept".to_owned(),
+            format!("concept:{}", graph.space.space_hash),
+            "topology".to_owned()
+        ]
+    );
     let published = runtime.serving.publisher.snapshot_for(subject);
     let assets = published.vcp.as_ref().unwrap();
     assert_ne!(assets.generation_id, previous_vcp);
@@ -1704,7 +1751,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
             assets,
             &reference_bound,
             &reference_plan,
-            &query_embedding
+            &query_embedding,
+            None
         )
         .is_err()
     );
@@ -1757,7 +1805,7 @@ async fn check_public_vcp_queries(
         request.expression.cues = vec![nous_core::Cue::Text(nous_core::TextCue {
             text: "association memory".into(),
         })];
-        request.expression.targets = vec![QueryTarget::Memory];
+        request.projection.domains = vec![nous_core::ResultDomain::Memory];
         request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
         request.diagnostics = nous_core::DiagnosticsRequest::Summary;
         let material = vec![nous_retrieval::QueryEmbedding {
@@ -1893,6 +1941,8 @@ async fn check_vcp_native_switch_freshness(
         lexical: false,
         dense: false,
         topology: true,
+        concept: false,
+        concept_vectors: true,
     };
     let mut visited = std::collections::HashSet::new();
     for index in 0..100 {
@@ -1993,6 +2043,8 @@ async fn check_generation_reclamation(
             subject,
             nous_core::ServingNeed {
                 topology: true,
+                concept: false,
+                concept_vectors: true,
                 ..Default::default()
             },
         )
@@ -2087,8 +2139,20 @@ async fn check_vcp_nonempty_observation(
         .expression
         .cues
         .push(nous_core::Cue::Tag(nous_core::TagCue { tag: a }));
+    bound.activation = nous_runtime::QueryActivation::prepared(
+        &bound.source_query,
+        bound.representation.sha256.clone(),
+        bound
+            .exact_bindings
+            .iter()
+            .map(|binding| binding.bound_ref.clone())
+            .collect(),
+        bound.runtime_refs.clone(),
+        &bound.topology_seed_refs,
+    );
     let observation =
-        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding).unwrap();
+        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding, None)
+            .unwrap();
     assert_eq!(
         observation.core_tag_ids(),
         &[generation.identities.id(&tag_a).unwrap()]
@@ -2127,6 +2191,8 @@ async fn check_vcp_nonempty_observation(
                 lexical: false,
                 dense: false,
                 topology: true,
+                concept: false,
+                concept_vectors: true,
             },
             &changed_snapshot,
         )
@@ -2146,7 +2212,8 @@ async fn check_vcp_nonempty_observation(
     );
     bound.config_snapshot = changed_snapshot;
     let changed =
-        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding).unwrap();
+        nous_retrieval::VcpQueryObservation::prepare(&generation, &bound, plan, embedding, None)
+            .unwrap();
     assert_eq!(changed.policy().sense.fir_gamma, 0.9);
     assert_ne!(
         changed.config_subset_digest(),
@@ -2423,6 +2490,8 @@ async fn check_vcp_projection_material(
 
 fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {
     CognitiveQuery {
+        projection: Default::default(),
+        temporal_frame: Default::default(),
         text_only_compatibility: false,
         work_context: None,
         api_version: nous_core::API_VERSION,
@@ -2431,9 +2500,9 @@ fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {
         situation: Default::default(),
         expression: CognitiveQueryExpr {
             operation: QueryOperation::Atom,
+            targets: Vec::new(),
             preferences: Vec::new(),
             children: Vec::new(),
-            targets: vec![QueryTarget::AnyRelevantCognition],
             cues: vec![Cue::Text(TextCue {
                 text: "diagnostic phrase".into(),
             })],
@@ -2589,6 +2658,7 @@ async fn evidence_time_constraints_filter_occurrences_and_regions_through_finali
         );
     }
     let mut input = query(subject);
+    input.projection.domains = vec![nous_core::ResultDomain::Evidence];
     input.expression.cues.push(Cue::Text(TextCue {
         text: "chronicle approval".into(),
     }));
@@ -2782,6 +2852,7 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
     let derived_ref = CognitiveRef::DerivedRepresentation(derived.derived_representation_id);
     for reference in [source, derived_ref.clone()] {
         let mut input = query(subject);
+        input.projection.domains = vec![nous_core::ResultDomain::Evidence];
         input.expression.targets = vec![QueryTarget::Exact {
             reference: reference.clone(),
         }];
@@ -2806,7 +2877,7 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
         assert_eq!(result.result.results.len(), 1);
     }
     let mut temporal = query(subject);
-    temporal.expression.targets = vec![QueryTarget::Evidence];
+    temporal.projection.domains = vec![nous_core::ResultDomain::Evidence];
     temporal.expression.constraints.occurred = Some(TimeInterval {
         start: None,
         end: Some(cutoff),
@@ -2822,6 +2893,7 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
         CognitiveRef::Occurrence(observations[0].occurrence.occurrence_id)
     );
     let mut input = query(subject);
+    input.projection.domains = vec![nous_core::ResultDomain::Evidence];
     input.expression.targets = vec![QueryTarget::Exact {
         reference: derived_ref,
     }];

@@ -214,7 +214,7 @@ export async function runCognitiveFunctional(
       if (!result.results.length) break;
     }
     const tags = (
-      await client.topology.listTags(
+      await client.concepts.listTags(
         {
           subjectId,
           status: "active",
@@ -250,7 +250,7 @@ export async function runCognitiveFunctional(
       concepts.set(concept.key, id);
       for (const key of concept.reuse_events ?? []) {
         const memory = memories.get(key)!;
-        const neighborhood = await client.topology.neighborhood(
+        const neighborhood = await client.concepts.neighborhood(
           {
             subjectId,
             root: { kind: "memory_revision", value: memory.revisionId },
@@ -279,7 +279,7 @@ export async function runCognitiveFunctional(
     }
     for (const [from, to, relation] of scenario.expected_maintenance
       .supported_relations ?? []) {
-      const neighborhood = await client.topology.neighborhood(
+      const neighborhood = await client.concepts.neighborhood(
         {
           subjectId,
           root: {
@@ -618,7 +618,7 @@ export async function runSelectedTextCompatibility(
         operation: "atom",
         cues: [{ cue: { case: "text", value: selected.text } }],
         modifiers: {
-          domains: ["memory"],
+          projection: { domains: ["memory"] },
           limit: 8,
           materialize: true,
           diagnostics: "full",

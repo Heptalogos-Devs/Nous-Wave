@@ -9,9 +9,14 @@ export class ModelMaterialPipeline {
     private readonly kernel: KernelClient,
     private readonly models: ModelRuntime,
   ) {}
-  async prepare(subjectId: string, limit: number, options: CallOptions = {}) {
+  async prepare(
+    subjectId: string,
+    limit: number,
+    options: CallOptions = {},
+    preparationToken?: string,
+  ) {
     const needs = await this.kernel.materialWorkflow.listEmbeddingNeeds(
-      { subjectId, limit },
+      { subjectId, limit, preparationToken },
       options,
     );
     if (!needs.config)
@@ -35,6 +40,7 @@ export class ModelMaterialPipeline {
           await this.kernel.materialWorkflow.commitEmbedding(
             {
               subjectId,
+              preparationToken,
               reference: need.reference,
               material: {
                 text: need.text,

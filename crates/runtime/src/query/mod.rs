@@ -1,6 +1,11 @@
+mod concept_model;
+mod historical_context;
+pub use concept_model::*;
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+mod activation;
+pub use activation::*;
 mod representation;
 pub use representation::{
     QUERY_REPRESENTATION, QueryRepresentation, QueryRepresentationLimits,
@@ -26,5 +31,5 @@ pub use ranking::{
     CandidateRankInput, DEFAULT_RESULT_LIMIT, RetrievalPolicy, rank_candidates_with_policy,
     register_retrieval_configuration, resolve_retrieval_policy,
 };
-pub use types::{BoundQuery, QueryExecution, QueryReadLease};
+pub use types::{BoundQuery, QueryActivationView, QueryExecution, QueryReadLease};
 pub(super) mod prepared;

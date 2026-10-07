@@ -34,3 +34,11 @@ Accessibility 是 query-time policy，不是 Memory truth、lifecycle 或 purge�
 Session、UseEvent receipt、ResidentSet 和 Authority sequence 必须在同一 data root 重启后可恢复；BoundQuery 不跨进程持久化。Runtime state 丢失时可从 Authority 重建，不能把缓存当作 durable cognition。WorkContext 只保存 bounded purpose/questions/constraints/resume conditions/budget 与 exact refs；prompt、raw cache、model hidden state 和 copied Memory 不持久化。
 
 [返回文档目录](../../INDEX.md)
+
+## Query feedback
+
+ReportUse 可携带 Query 返回的 query_id。Runtime 校验同 Subject、实际返回的 exact revision membership 与七天 reference retention；digest 包含 query_id。Feedback record 是 bounded operational signal，清理不删除 accepted UseEvents；same-digest duplicate 在过期后仍不重新执行 side effect。Presented 不进入 Concept review；result_refuted 作为负反馈单独计数，不加强正向关系。Planner 最多消费八条近期 bounded activation/hypothesis records；它们不是事实支持，也不授予 model activity。
+
+## Historical context
+
+TemporalFrame 的相对时间与 accessibility 采用 captured Subject CognitiveClock；historical accessibility 排除截点后的 UseEvents。WorkContext future cognition refs 在 activation 前剔除，当前 purpose 保留；Subject/current permission/purge fence 不随历史 view 回退。Operational timeout、lease 与 cleanup 使用基础设施时间。

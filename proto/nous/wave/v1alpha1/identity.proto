@@ -4,6 +4,8 @@
 syntax = "proto3";
 package nous.wave.v1alpha1;
 import "nous/wave/v1alpha1/types.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 message IdentityBinding {
   string lexical_ref = 1;
   CognitiveRef canonical = 2;
@@ -20,10 +22,13 @@ message BindIdentityRequest {
 message ResolveIdentityRequest {
   string subject_id = 1;
   string kind = 2;
+  optional google.protobuf.Timestamp as_of = 5;
   oneof locator { string name = 3; string lexical_ref = 4; }
 }
 message ResolveIdentityResponse { repeated IdentityBinding candidates = 1; string status = 2; }
+message RebindEntityRequest { string subject_id = 1; string mention_id = 2; optional string entity_ref = 3; string binding_state = 4; optional string host_resolution_ref = 5; optional string reason = 6; }
 service IdentityService {
+  rpc RebindEntity(RebindEntityRequest) returns (google.protobuf.Empty);
   rpc BindIdentity(BindIdentityRequest) returns (IdentityBinding);
   rpc ResolveIdentity(ResolveIdentityRequest) returns (ResolveIdentityResponse);
 }

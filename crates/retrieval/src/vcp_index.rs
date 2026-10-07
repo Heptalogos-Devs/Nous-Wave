@@ -81,16 +81,16 @@ impl VcpServingGeneration {
         }
         self.candidates.search(vector, limit)
     }
-    pub fn search_candidates_for_expression(
+    pub fn search_candidates_for_projection(
         &self,
         vector: &[f32],
         limit: usize,
-        expression: &CognitiveQueryExpr,
+        projection: &ResultProjection,
     ) -> Result<Vec<DenseMatch>> {
         let allowed = self
             .candidates
             .records()
-            .filter(|record| expression.allows_reference(&record.reference))
+            .filter(|record| projection.allows_reference(&record.reference))
             .map(|record| {
                 u32::try_from(record.serving_doc_id).map_err(|_| {
                     Error::Invalid("VCP filtered index exceeds bitmap ID range".into())

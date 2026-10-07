@@ -12,6 +12,10 @@ use uuid::Uuid;
 /// the enabled lane set or its budgets while it is running.
 #[derive(Debug, Clone)]
 pub struct BoundQuery {
+    pub historical_authority: Option<std::sync::Arc<HistoricalAuthoritySnapshot>>,
+    pub activation: super::QueryActivation,
+    pub activation_view: Option<std::sync::Arc<dyn QueryActivationView>>,
+    pub concept_enrichment: super::ConceptEnrichment,
     pub representation: super::QueryRepresentation,
     pub query_id: Uuid,
     pub bound_at: chrono::DateTime<chrono::Utc>,
@@ -66,6 +70,12 @@ pub struct AccessibilityQueryPolicy {
 }
 
 pub trait QueryReadLease: std::fmt::Debug + Send + Sync {}
+pub trait QueryActivationView: QueryReadLease {
+    fn provider(&self) -> &dyn super::SharedLaneProvider;
+    fn generation_trace(&self) -> QueryGenerationTrace {
+        QueryGenerationTrace::default()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct QueryExecution {

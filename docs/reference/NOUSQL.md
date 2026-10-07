@@ -1,42 +1,55 @@
 # NousQL 当前实现参考
 
-[返回文档目录](../INDEX.md)
+[文档目录](../INDEX.md) · [自包含 Agent 手册](../agent/NOUSQL.md)
 
-本页描述 `apps/nous-core` 当前 parser/compiler 支持的 NousQL 子集。语义查询最终编译为 Protobuf `QueryExpr`；查询算法与检索通道由 Kernel/Serving 实现。
+NousQL 表达检索意图，Core 编译成 typed QueryExpr，Kernel Runtime 绑定查询，Serving 提供候选，Memory/Material owner 最终验证和物化。长期语义依据 [Architecture-Vault `2de60296`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/2de60296bc80d790e9dd508bc6b3abd19c7d3236/docs/Nous-Wave/TARGET_DESIGN.md)。
 
-## 当前语法
+## 文本与身份
 
-- 原子：引号包围的文本、`#concept`、`*`，以及 `@e`、`@tag`、`@schema`、`@r`、`@object`、`@ref` selector。
-- 组合：显式 `&&`、`||` 和括号；`&&` 优先于 `||`。
-- 软偏好：`+atom`、`-atom` 和 `+recent(axis)`、`-recent(axis)`。
-- 指令：`$memory`、`$schema`、`$episode`、`$journal`、`$evidence`、`$resource`、`$effort`、`$limit`、`$source`、`$modality`、`$cognitiveRole`、`$formationMode`、`$evidenceClass`、`$authority`、`$current`、`$diagnostics`、`$explore`、`$materialize`、`$exclude` 和 `$time`。
+引号文本是独立的 lexical+dense 查询路径，不要求 Entity、Tag、WorkContext、concept model 或扩散。`#concept` 是独立 semantic text cue，不解析 durable Tag，也不走 lexical-only 伪造。`@tag` 解析 durable semantic concept，直接召回 attachment；`@e`、`@schema`、`@r`、`@object` 是 typed cues，只有 `@ref` 是 exact read。名称歧义必须选择返回的 LexicalRef，不退化为向量猜测。
 
-`$memory`、`$schema`、`$episode`、`$journal` 分别选择 Memory、CognitiveSchema、Episode、Journal；多个域指令取并集。未指定域时查询所有可用域，包括四类认知对象以及 Evidence/Resource 引用。父级域限制对子表达式和 exact target 生效。
+布尔组合使用 `&&`、`||` 与括号，AND 对 canonical candidate identity 取交集，OR 取并集。父 hard constraints 继承，子约束细化；整树共享预算。软偏好为 `+atom`、`-atom` 和显式轴的 `+recent(axis)`/`-recent(axis)`。
 
-单个软偏好操作数目前也接受冗余括号；canonical form 会省略这层括号。
+## 返回域
 
-实体 selector 可列多个参与者；绑定后按 LexicalRef 排序，重复规范身份会报错。名称必须由 Kernel identity resolver 唯一绑定；解析歧义不会退化为向量猜测。`@object` 接收不透明 Host 引用，`@ref` 接收 LexicalRef。
+根 `$return(cognition)` 指 Memory、Schema、Episode、Journal，也是默认集合。可用 `$return(memory,schema)` 等非空、去重的集合；Evidence、Resource 必须显式选择。Projection 在 candidate budget 前生效，也限制 exact target。旧域指令已删除，没有兼容别名；返回域不能在子表达式重新定义。
 
-`$time` 支持 `occurred`、`observed`、`valid` 以及 `formed`、`recorded` 五条时间轴，时间点必须带 ISO-8601 offset；`within` 不能与 `from/to/at` 混用。查询指令在同一表达式节点内去重，跨 scope 的 modifier 不自动搬移。
+## 时间合同
 
-## 当前限制
+`$time` 支持 occurred、observed、valid、formed、recorded 五轴；各轴分别指来源事件、收到证据、主张有效期、认知/派生形成、canonical 记录时间。不同轴可以同 scope 共存且取 hard intersection；同轴重复拒绝。Absolute `at/from/to` 必须有 timezone；interval 左闭右开，unknown 不匹配已知约束。`within` 不与其他窗口参数混用。
 
-- 单个查询上限为 32 KiB、2048 个 token、16 层嵌套；`$limit` 范围是 1–2048。
-- `persona`、`relation` 和 `rel` 当前返回 `FAILED_PRECONDITION`，对应认知领域没有当前服务实现。
-- 此接口不提供物理算法 selector；它只表达 typed query intent 和约束。
+相对时间使用 query preparation 捕获的 Subject CognitiveClock。`$asof(timestamp)`/`$asof(ago=30d)` 选择 Authority 知识截点；`$history` 允许 eligible prior cognition revisions 作为独立 documents。二者可组合，与五轴过滤独立。默认 current view 只投影 effective heads。
 
-精确 parser/compiler、生成协议及当前行为测试见 [`apps/nous-core/src/nousql`](../../apps/nous-core/src/nousql)、[`proto/nous/wave/v1alpha1`](../../proto/nous/wave/v1alpha1) 和 [`apps/nous-core/tests/nousql.test.ts`](../../apps/nous-core/tests/nousql.test.ts)。
+Historical exact binding、名称/别名、Tag canonicalization、immutable descriptors、attachments、AssociationEvidence、Schema links、Entity bindings 和 Material interpretations 使用截点状态。当前权限撤销、purge 与物理缺失仍是硬约束。当前 WorkContext 中晚于截点的 cognition refs 在 representation/activation 前剔除，当前问题和 purpose 保留。
 
-Kernel 保留整棵 expression：AND 对 canonical candidate identity 取交集，OR 取并集；父约束继承，子约束细化。effort/limit/diagnostics/explore/materialize 只允许 root。整树共享预算，执行前按 leaf 数分配；不以 branch 数增加工作量。只有 @ref 是 exact read，其余 selectors 是 typed semantic cues。recent 轴只允许 occurred/observed/valid/formed/recorded，裸 recent 拒绝。
+## 直接召回、概念与扩散
 
-`$current(none|prefer|required)` 可用于 scope；父级 required 不被子级放宽，最终约束进入该 leaf 的 Resource action。exact 子目标仍受父级 domain 限制，例如 `$memory` 下的 Artifact exact read 不产生返回候选。
+Tag 是稳定身份与可修订 label/description/kind_hint 组成的 embeddable semantic concept。共享 Concept generation 持有 canonical text/digest、可选 vector 与一跳 attachment postings；dense、Native、VCP 使用同一资产。无向量 postings 独立可用，不要求 embedding 才能 direct Tag recall。
 
-相对时间窗口 `within` 以该 Subject 的 CognitiveClock 当前时间为基准，由 Core 在编译时固定；执行 timeout 与 retry 继续使用基础设施时间。
+QueryActivation 统一 explicit Tags、exact/current cognition、Entity/Schema cues、可选 inferred Tags、novel hypotheses、provenance 和 query embedding。`retrieval.concept.enrichment` 为 off/existing/model，默认 off；existing 使用共享向量，model 使用独立严格结构化角色且只能选 catalog keys 或提供 ephemeral 文本，不创建 Authority Tag。
 
-`client.cognition.prepareQuery` 与 Query 共用 NousQL compiler/Identity resolver。正式 TextCue 必须可独立解释；`我和她这个项目` 等未闭合表达返回 `UNRESOLVED_QUERY_REFERENCE` 的 span/kind，Agent 应先 resolve 再提交明确人物、项目和时间。`boundQuery` 现在为 resolved query/representation/source refs/profile/config digest 的 JSON inspection。
+`$explore` 明确开启 bounded associative diffusion；没有它不启用 Native/VCP topology。Agent 不选择物理算法，profile 与数值政策由 Host Configuration 决定。缺少兼容资产时显式 unavailable/degraded，不用 future current assets 替代。
 
-Query/prepare 可以显式提供 `sessionId`、`workContextId`、`situation.currentRefs/currentObjects/objectDescriptions/consumer`。Text-only research 使用 typed standalone TextCue 加 `textOnlyCompatibility: true`，与 cognitive input 分开。
+## 控制、上下文与能力
 
-QueryRequest 的 typed `capabilities` 传递 text embedding、multimodal interpretation、residual sensing 与 rerank requirement。`rerank: "forbidden"` 明确关闭 model rerank，适用于 deterministic algorithm/Agent wiring run；`text_embedding: "forbidden"`（Client 为 `textEmbedding`）禁止 embedding provider。Required 需求的失败不静默回退。
+`$return`、`$asof`、`$history`、`$effort`、`$limit`、`$diagnostics`、`$explore`、`$materialize` 为 root-only。其他支持项包括 `$source`、`$modality`、`$cognitiveRole`、`$formationMode`、`$evidenceClass`、`$authority`、`$current`、`$exclude`。`$current(none|prefer|required)` 属于 Resource freshness constraint，不能被子 scope 放宽。
 
-Query Representation 使用固定 section order，按优先级分配 `query.representation.policy.total_chars/max_context_items` 预算并报告 truncation；实体与 Tag 的 display/description、WorkContext purpose 和 exact cognition descriptor 进入 semantic text，UUID/LexicalRef 用于定位。`retrieval.cognitive.profile` 的 Subject override 改变后续查询计划，in-flight preparation 保持原 ConfigSnapshot；profile 切换不改变同一 intent 的 semantic representation。
+查询上限为 32 KiB、2048 tokens、16 层语法嵌套，`$limit` 为 1–2048。persona/relation/rel 认知仍 unavailable；此次不增加 Self/Social/Motivation。
+
+Query 可显式提供 Session、WorkContext、Situation refs/objects/descriptions/consumer。正式 TextCue 必须可独立解释，未闭合代词返回 `UNRESOLVED_QUERY_REFERENCE`。独立研究的 text-only 输入保持单一原始 TextCue，不添加 context/exploration/enrichment。
+
+CapabilityPolicy 包括 textEmbedding、multimodalInterpretation、residualSensing、rerank、queryConceptEnrichment。Forbidden 不调用对应 provider/model；required 不满足时显式失败或 partial，optional 才允许有诊断的 degradation。Host embedding/profile 与 query concept role 分离。
+
+## Preparation 与 inspection
+
+`client.cognition.prepareQuery` 与 Query 共用 compiler/Identity resolver；`nous query prepare|inspect` 显示 root projection、TemporalFrame、captured clock、representation、resolved sources、profile、configuration digest 和 capability requirements，不调用 provider。
+
+正式 Query 使用 Subject-bound single-use preparation token。Historical embedding cache miss 由 Host 在该 token 的 frozen Owner view 中发现、生成、提交，继续复用 existing embedding_materials/content digest；有界 batch 未完成时按能力合同报告。Query embedding 在 activation/dense/VCP/leaves 间复用。Actual generation trace 来自 query 持有的 read view，不来自 serving_current。
+
+Full diagnostics 显示 QueryActivation、TagDirect/扩散来源、concept generation、实际 query concept model calls、截点 view digest、truncation/degradation。Preparation/validation tickets 共用 bounded slots/lease，在失败、消费、release 或 expiry 时清理。
+
+## 反馈与显式形成
+
+Formation `explicit_tags`/CLI `form --tag` 在 Memory commit transaction 中校验 Subject/current Tag、canonicalize merge 并去重，不要求模型推断 Tag。Concept API 是 `client.concepts`，RebindEntity 由 Identity facade 路由到 Material owner。
+
+Query 返回 query_id；ReportUse 可携带它并引用实际返回的 exact revision。Runtime 校验 Subject、membership、retention，并将 bounded activation/hypotheses 送入后续 Concept Maintenance。Presented 不触发 review；result_refuted 是负反馈，不是 positive support。Review/feedback 不授权模型活动或 Authority mutation；Host 必须授予有界维护执行。

@@ -164,6 +164,7 @@ pub fn validate_query_closure(query: &CognitiveQuery) -> Result<()> {
         .flat_map(|node| &node.cues)
         .filter_map(|cue| match cue {
             Cue::Text(text) => Some(&text.text),
+            Cue::Concept(text) => Some(&text.text),
             Cue::Example(text) => Some(&text.text),
             _ => None,
         })
@@ -191,17 +192,7 @@ pub(super) fn validate_query_input(query: &CognitiveQuery) -> Result<()> {
             || query.expression.cues.len() != 1
             || !matches!(query.expression.cues.first(), Some(Cue::Text(_)))
             || !query.expression.preferences.is_empty()
-            || query.expression.targets.iter().any(|target| {
-                !matches!(
-                    target,
-                    QueryTarget::AnyRelevantCognition
-                        | QueryTarget::Memory
-                        | QueryTarget::Schema
-                        | QueryTarget::Episode
-                        | QueryTarget::Journal
-                        | QueryTarget::Evidence
-                )
-            })
+            || !query.expression.targets.is_empty()
             || serde_json::to_value(&query.expression.constraints)
                 .map_err(|error| Error::Invalid(error.to_string()))?
                 != serde_json::to_value(QueryConstraints::default())

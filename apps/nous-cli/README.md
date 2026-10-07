@@ -13,7 +13,7 @@ corepack pnpm nous observe file ./sample.png
 corepack pnpm nous derive <source-region-id> --strategy describe_then_structure
 corepack pnpm nous form <occurrence-id>
 corepack pnpm nous embeddings prepare --max-batches 16
-corepack pnpm nous query '"检索线索" $memory $limit(5)'
+corepack pnpm nous query '"检索线索" $return(memory) $limit(5)'
 corepack pnpm nous trace memory:<memory-id>
 corepack pnpm nous use memory_revision:<revision-id>
 ```
@@ -36,8 +36,8 @@ nous tag list --page-size 50 --json
 nous tag get tag:<uuid> --json
 nous tag search deployment --json
 nous tag resolve deployment --json
-nous topology neighborhood memory_revision:<uuid> --max-nodes 64 --max-depth 2 --json
-nous query prepare '"deployment decision" $memory' --subject <id> --session <id> --work-context <id> --json
+nous association neighborhood memory_revision:<uuid> --max-nodes 64 --max-depth 2 --json
+nous query prepare '"deployment decision" $return(memory)' --subject <id> --session <id> --work-context <id> --json
 nous query inspect --query-file closed-query.nousql --json
 ```
 
@@ -45,6 +45,39 @@ nous query inspect --query-file closed-query.nousql --json
 
 Tag list/search 使用服务端有界分页（默认 50、最大 200）；`--page-token` 继续同一查询。Search 按 label、description 和 Directory display/aliases 匹配，resolve 仍要求 Directory 唯一身份。Neighborhood 是 active AssociationEvidence 的双向有界读取，返回真实 support；默认 64 nodes、2 hops，最大 256 nodes、4 hops、256 edges，达到节点/边上限时报告 `truncated`。隐式 tag attachment/Aboutness 等结构由 Serving topology lane 读取。
 
-`nous topology associate --operation-id <uuid> --association-file association.json --json` 接收官方 Client 的 Association JSON（`from/to` 的 `{kind,value}`、`relationKind`、`polarity`、`supportClass`、`supports`、可选 producer）。CLI 要求显式 operation id 和非空支持；Authority 验证 exact endpoint、Subject 和支持有效性。文件使用 Client 的 discriminated `support: {case,value}` 格式，不能用自由 UUID 替代支持材料。
+`nous association create --operation-id <uuid> --association-file association.json --json` 接收官方 Client 的 Association JSON（`from/to` 的 `{kind,value}`、`relationKind`、`polarity`、`supportClass`、`supports`、可选 producer）。CLI 要求显式 operation id 和非空支持；Authority 验证 exact endpoint、Subject 和支持有效性。文件使用 Client 的 discriminated `support: {case,value}` 格式，不能用自由 UUID 替代支持材料。
 
 实际 Agent flow smoke 已在 public Core 上验证 help JSON → ambiguous identity candidates → 选定 LexicalRef → query prepare → query。正式 TextCue 的 closure guard 只拒绝高置信未闭合指代；完整语义输入和配置 snapshot 在 preparation 固定。维护操作使用 bounded grant，概念建议按项提交到 owner。
+
+## 显式概念、形成与维护
+
+```sh
+nous tag create --name "active-reader reclamation" --description "Wait until all readers release their leases" --operation-id <uuid> --json
+nous tag revise --request-file revise-tag.json --operation-id <uuid> --json
+nous tag merge --request-file merge-tags.json --operation-id <uuid> --json
+nous tag split --request-file split-tag.json --operation-id <uuid> --json
+nous tag attach memory_revision:<uuid> --tag tag:<uuid> --association-file supports.json --operation-id <uuid> --json
+nous association revoke <association-id> --operation-id <uuid> --json
+nous form <occurrence-id> --tag tag:<uuid> --tag tag:<four-word-lexical-ref> --operation-id <uuid> --json
+nous maintenance grant --max-operations 2 --max-model-calls 1 --max-elapsed-ms 30000 --json
+nous use journal_revision:<uuid> --kind result_supported --event-id <uuid> --occurred-at 2026-10-07T00:00:00Z --json
+```
+
+Tag revise/merge/split 的 request file 是对应 `client.concepts` typed request 的 JSON；CLI 覆盖 `subjectId/operationId`，文件不能选择其他 Subject。revise 使用 `target: {tagId,expectedRevisionId}` 和 `content: {label,description,kindHint}`；merge 使用 `survivor/retired` 的 exact TagRevisionTarget 及 `supports`；split 使用 `parent/children/supports`。Request file 上限 64 KiB。Tag attach 的文件提供非空 typed `supports`，CLI 固定 exact cognition→Tag、正向 `tag_attachment` 与 `host_explicit`，返回真实 AssociationEvidence。解除使用其 association ID，不提供 detach-all。
+
+Formation 的 explicit Tags 接受 Tag UUID、`tag:<uuid>` 或 LexicalRef；名称先 `tag resolve`。Memory owner 校验主体、active/canonical identity、merge 映射和最多 128 个输入，重复 attachment 去重；形成时写入现有 revision tags。自动 inferred Tag 继续由 Host grant 下的 concept maintenance 负责。
+
+Use 接受 Memory/Schema/Episode/Journal 的 exact revision，不静默解析 mutable object 到新 head。`--kind` 包含 presented、referenced、acted_on、result_supported、result_refuted、corrected、pinned；`--consumer` 默认为第一方 CLI identity。重试复用 event ID 与同一个 `--occurred-at`；相同 ID 的不同内容会产生 conflict。Maintenance grant 的 operations 上限 32、model calls 上限 32，0 model calls 只授权无需模型的工作，elapsed 上限 300000 ms。
+
+
+## NousQL Agent 指南与时间查询
+
+`nous help nousql` / `nous help nousql --json` 不要求 daemon/instance，返回概念定义、selectors、五轴时间、asof/history、direct/explore、projection 和可执行示例。完整 [Agent 手册](../../docs/agent/NOUSQL.md) 的 fenced examples 由测试自动 parse/compile。
+
+```sh
+nous query prepare '"migration" $return(memory,schema) $asof(ago=30d)' --subject <id> --json
+nous query '"support status" $history $time(recorded,within=30d)' --subject <id> --json
+nous use memory_revision:<uuid> --kind referenced --query-id <query-id> --event-id <uuid> --occurred-at 2026-10-07T00:00:00Z --json
+```
+
+Projection 只在 query 根定义，默认四类 cognition；历史名称/Tag canonicalization 使用同一 captured cut。`--query-id` 关联实际返回的 exact revision，不能用无关结果作为反馈。Presented 不触发概念 review，refutation 不提供正向 support；维护仍须 bounded grant。

@@ -122,11 +122,11 @@ pub(crate) async fn memory_sources(
     for (table, sql) in [
         (
             "tags",
-            "SELECT o.tag_id AS id,NULL::uuid AS revision_id,r.label FROM tags o JOIN tag_revisions r ON r.tag_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.status='active'",
+            "SELECT o.tag_id AS id,NULL::uuid AS revision_id,r.label,r.description,r.kind_hint FROM tags o JOIN tag_revisions r ON r.tag_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.status='active'",
         ),
         (
             "cognitive_schemas",
-            "SELECT o.schema_id AS id,r.schema_revision_id AS revision_id,r.structural_claim AS label FROM cognitive_schemas o JOIN cognitive_schema_revisions r ON r.schema_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted'",
+            "SELECT o.schema_id AS id,r.schema_revision_id AS revision_id,r.structural_claim AS label,NULL::text AS description,NULL::text AS kind_hint FROM cognitive_schemas o JOIN cognitive_schema_revisions r ON r.schema_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.acceptance_state='accepted'",
         ),
     ] {
         for row in sqlx::query(sql)
@@ -153,7 +153,20 @@ pub(crate) async fn memory_sources(
                     _ => None,
                 },
                 reference,
-                text: Some(row.try_get("label").map_err(db)?),
+                text: Some(if table == "tags" {
+                    tag_semantic_representation(
+                        &row.try_get::<String, _>("label").map_err(db)?,
+                        row.try_get::<Option<String>, _>("description")
+                            .map_err(db)?
+                            .as_deref(),
+                        row.try_get::<Option<String>, _>("kind_hint")
+                            .map_err(db)?
+                            .as_deref(),
+                    )?
+                    .text
+                } else {
+                    row.try_get("label").map_err(db)?
+                }),
                 content_hash: None,
                 member_fragments: Vec::new(),
                 title: None,

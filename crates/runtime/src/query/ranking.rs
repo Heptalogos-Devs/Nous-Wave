@@ -19,6 +19,7 @@ pub const RRF_LEXICAL_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weight
 pub const RRF_DENSE_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.dense");
 pub const RRF_TEMPORAL_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.temporal");
 pub const RRF_SCHEMA_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.schema_direct");
+pub const RRF_TAG_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.tag_direct");
 pub const RRF_TOPOLOGY_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.rrf.weights.topology_wave");
 
 pub const PREFERENCE_WEIGHT_KEY: ConfigKey<f64> = ConfigKey::new("retrieval.preference.weight");
@@ -143,6 +144,7 @@ impl RetrievalPolicy {
 pub fn register_retrieval_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     super::cognitive_profile::register_configuration(registry)?;
     super::representation::register(registry)?;
+    super::activation::register(registry)?;
     let reference = nous_configuration::ReferenceProfile::parse(include_str!(
         "../../../../config/reference/retrieval-ranking-v1.json"
     ))?;
@@ -155,6 +157,7 @@ pub fn register_retrieval_configuration(registry: &mut ConfigRegistryBuilder) ->
         (RRF_DENSE_KEY, "Dense lane RRF weight."),
         (RRF_TEMPORAL_KEY, "Temporal lane RRF weight."),
         (RRF_SCHEMA_KEY, "Schema lane RRF weight."),
+        (RRF_TAG_KEY, "Direct Tag recall RRF weight."),
         (RRF_TOPOLOGY_KEY, "Topology lane RRF weight."),
         (
             PREFERENCE_WEIGHT_KEY,
@@ -301,6 +304,7 @@ pub fn resolve_retrieval_policy(snapshot: &ConfigSnapshot) -> Result<RetrievalPo
             (EvidenceFamily::Dense, snapshot.get(RRF_DENSE_KEY)?),
             (EvidenceFamily::Temporal, snapshot.get(RRF_TEMPORAL_KEY)?),
             (EvidenceFamily::SchemaDirect, snapshot.get(RRF_SCHEMA_KEY)?),
+            (EvidenceFamily::TagDirect, snapshot.get(RRF_TAG_KEY)?),
             (
                 EvidenceFamily::TopologyWave,
                 snapshot.get(RRF_TOPOLOGY_KEY)?,

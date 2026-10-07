@@ -156,16 +156,34 @@ pub fn build_query_representation(
         flags: BTreeSet::new(),
     };
     builder.section("Intent", &raw, 2048);
+    let semantic_concepts = query
+        .scopes()
+        .into_iter()
+        .flat_map(|node| &node.cues)
+        .filter_map(|cue| {
+            if let Cue::Concept(concept) = cue {
+                Some(concept.text.as_str())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    builder.section("Semantic concepts", &semantic_concepts, 2048);
     let temporal = query.scopes().iter().filter_map(|scope| {
         let c=&scope.constraints;
         let recent=scope.preferences.iter().filter_map(|p| match p.operand { PreferenceOperand::Recent(axis) => Some(format!("{}recent({axis:?})",if p.negative { "avoid " } else { "prefer " })), _ => None }).collect::<Vec<_>>();
         if [c.occurred,c.observed,c.valid,c.formed,c.recorded].iter().all(Option::is_none) && recent.is_empty() { return None; }
         Some(serde_json::json!({"occurred":c.occurred,"observed":c.observed,"valid":c.valid,"formed":c.formed,"recorded":c.recorded,"preferences":recent}).to_string())
     }).collect::<BTreeSet<_>>().into_iter().collect::<Vec<_>>().join("\n");
+    let temporal = match (query.temporal_frame.authority_view, query.temporal_frame.revision_view) {
+        (AuthorityView::Current, RevisionView::Current) => temporal,
+        _ => format!("{}\n{}", serde_json::json!({"authority_view":query.temporal_frame.authority_view,"revision_view":query.temporal_frame.revision_view}), temporal).trim().to_owned(),
+    };
     builder.section("Temporal orientation", &temporal, 1024);
     for (label, select, maximum, chars) in [
         ("Entities", "entity", limits.max_context_items, 256),
-        ("Concepts", "tag", limits.max_context_items, 256),
+        ("Concepts", "tag", limits.max_context_items, 4608),
         ("Schemas", "cognitive_schema", limits.max_context_items, 512),
         (
             "Current cognition",
@@ -264,6 +282,7 @@ impl CognitiveRuntimeService {
         work_context: Option<WorkContextView>,
         mut representation_sources: Vec<(CognitiveRef, String)>,
         config_snapshot: &ConfigSnapshot,
+        historical: Option<&HistoricalAuthoritySnapshot>,
     ) -> Result<QueryRepresentation> {
         for cue in query.scopes().iter().flat_map(|node| &node.cues) {
             let reference = match cue {
@@ -311,7 +330,7 @@ impl CognitiveRuntimeService {
         let descriptor_refs = selected;
         let descriptors = self
             .store
-            .query_descriptors(query.subject, &descriptor_refs)
+            .query_descriptors_in_view(query.subject, &descriptor_refs, historical)
             .await?;
         let mut representation = build_query_representation(
             query,
@@ -423,6 +442,8 @@ mod tests {
         CognitiveQuery {
             api_version: API_VERSION,
             subject: SubjectId::new(),
+            projection: Default::default(),
+            temporal_frame: Default::default(),
             text_only_compatibility: false,
             work_context: None,
             session: None,

@@ -312,6 +312,9 @@ impl ExplicitMemoryInput {
                 return Err(Error::Invalid("duplicate revision support".into()));
             }
         }
+        if self.tags.len() > 128 {
+            return Err(Error::Invalid("explicit Tag bound exceeded".into()));
+        }
         let mut aboutness = std::collections::BTreeSet::new();
         for entity in &self.aboutness {
             EntityRef::new(entity.as_str())?;

@@ -30,7 +30,7 @@ Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/Associati
 - Tag identity 与显示名称分离；不同 Tag identity 可以有相同显示字符串。create 在同一 Authority 事务建立 Directory binding；revise 使用 expected revision fence，追加不可变 TagRevision，保留旧合法 label 为 alias。
 - merge 保留指定 survivor，将 retired Tag 标为 merged 并映射到 active canonical Tag；后续 merge 压平 survivor 映射。历史 attachment/AssociationEvidence endpoints 不改写。Directory name/lexical ref、Query cues/preferences/descriptors、Serving projection 和 Neighborhood 读取当前 canonical identity；同一 canonical Tag 的旧名称匹配合为一个候选。
 - split 创建 2..8 个新概念及 lineage，保留 parent，历史引用不搬迁；新 scope 的 attachment/revoke 由显式操作或 maintenance proposal 表达。merge/split 均需要 1..16 个去重的 exact supports；一个明确来源即可支持 alias/equivalence 或语义分化，不要求两个独立 provenance roots。验证、lineage、Directory 与 receipt 同事务。模型形成的 create/revise/split 保留实际 ProducerSignature，receipt 回放返回原 exact TagRevision。lineage 保留 parent/child 及其 exact TagRevision、operation、支持、顺序和时间。
-- 第一方 TopologyService 提供 revise/merge/split，Tag 输出 current revision、status 和 canonical survivor。Neighborhood 返回当前解释的 endpoints 和原 AssociationEvidence identity/support，原端点仍保存在 Authority evidence。
+- 第一方 ConceptService 提供 revise/merge/split，Tag 输出 current revision、status 和 canonical survivor。Neighborhood 返回当前解释的 endpoints 和原 AssociationEvidence identity/support，原端点仍保存在 Authority evidence。
 - Association cognition endpoint 只接受 exact `MemoryRevision` 或 `CognitiveSchemaRevision`；Entity、Tag、Resource 可以是 stable structural endpoint。UseEvent support 必须可由 durable event 或 purge receipt 核验。
 - `cognitive_derivation` 与 `derived_structure` 必须携带 producer identity；`result_refuted` 不制造 positive meaningful-use association。
 - Topology projection 展开 provenance roots；同 `(from,to,root)` 只保留最高 support quality。contradiction、counterexample、boundary 和 negative association 不进入普通 non-negative adjacency。
@@ -50,3 +50,9 @@ Memory、CognitiveSchema、Episode 和 Journal 的 mutation 使用 Persistence `
 Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime serving 均可重建，不拥有 cognition truth。Memory owner 不持有 concrete Retrieval/Serving；topology candidate generation 属于 Retrieval shared contributor。
 
 [返回文档目录](../../INDEX.md)
+
+## Semantic Concept 与显式 Tag
+
+Tag 是共享 embeddable semantic concept，稳定 identity 与 immutable semantic revisions 分离。Current reads 使用 current canonical Tag；as-of reads 使用截点状态，未来 revise/merge/split 不改写历史意义。normalized label/description/kind_hint 产生 versioned canonical text/digest，别名不进入 semantic representation。
+
+显式 formation Tag 在 Memory commit transaction 中校验 Subject、canonicalize active/merged identity 并去重；不依赖 concept-maintenance model。客户端使用 Concept API (`client.concepts`)。Query inferred Tags/novel hypotheses 是 ephemeral activation，创建、修订、merge、split 与 attachment/Association mutations 仍由 canonical owner API 提交；维护模型活动必须由 Host 有界 grant。

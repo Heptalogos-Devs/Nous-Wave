@@ -79,7 +79,7 @@ impl CognitiveRuntimeService {
             let digest = canonical_request_digest(
                 "use_event",
                 input.subject,
-                &serde_json::json!({"consumer_ref":input.consumer_ref,"event_id":event.event_id,"session_id":input.session_id,"reference":event.reference,"kind":event.use_kind,"occurred_at":event.occurred_at,"context":event.context}),
+                &serde_json::json!({"consumer_ref":input.consumer_ref,"event_id":event.event_id,"session_id":input.session_id,"reference":event.reference,"kind":event.use_kind,"occurred_at":event.occurred_at,"context":event.context,"query_id":event.query_id}),
             )?;
             if let Some(existing) =
                 seen.insert((input.consumer_ref.clone(), event.event_id), digest.clone())
@@ -121,6 +121,16 @@ impl CognitiveRuntimeService {
             }
             if stored_digest.is_none() {
                 validate_use_target_in(&mut tx, input.subject, &event.reference).await?;
+                if let Some(query_id) = event.query_id {
+                    crate::query_feedback::validate_query_use_in(
+                        &mut tx,
+                        input.subject,
+                        query_id,
+                        &event.reference,
+                        self.now(input.subject),
+                    )
+                    .await?;
+                }
             }
             prepared.push(Prepared {
                 event,
@@ -134,24 +144,25 @@ impl CognitiveRuntimeService {
         let mut accepted = 0u32;
         let mut duplicates = 0u32;
         let mut meaningful_times = Vec::new();
-        let mut topology_times = Vec::new();
+        let mut concept_times = Vec::new();
         for item in prepared {
             if item.duplicate {
                 duplicates += 1;
                 continue;
             }
-            sqlx::query("INSERT INTO cognitive_use_events(subject_id,consumer_ref,event_id,ref_kind,ref_value,use_kind,session_id,occurred_at,recorded_at,context,request_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
-                .bind(input.subject.0).bind(&input.consumer_ref).bind(item.event.event_id.0).bind(&item.kind).bind(&item.value).bind(item.event.use_kind.as_str()).bind(input.session_id.map(|id|id.0)).bind(item.event.occurred_at).bind(recorded_at).bind(&item.event.context).bind(&item.digest).execute(&mut *tx).await.map_err(db)?;
+            sqlx::query("INSERT INTO cognitive_use_events(subject_id,consumer_ref,event_id,ref_kind,ref_value,use_kind,session_id,occurred_at,recorded_at,context,request_digest,query_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)")
+                .bind(input.subject.0).bind(&input.consumer_ref).bind(item.event.event_id.0).bind(&item.kind).bind(&item.value).bind(item.event.use_kind.as_str()).bind(input.session_id.map(|id|id.0)).bind(item.event.occurred_at).bind(recorded_at).bind(&item.event.context).bind(&item.digest).bind(item.event.query_id).execute(&mut *tx).await.map_err(db)?;
             accepted += 1;
             if matches!(
                 item.event.use_kind,
                 UseKind::Referenced
                     | UseKind::ActedOn
                     | UseKind::ResultSupported
+                    | UseKind::ResultRefuted
                     | UseKind::Corrected
                     | UseKind::Pinned
             ) {
-                topology_times.push((
+                concept_times.push((
                     item.kind.clone(),
                     item.value.clone(),
                     item.event.occurred_at,
@@ -188,7 +199,7 @@ impl CognitiveRuntimeService {
         } else {
             None
         };
-        if !topology_times.is_empty() {
+        if !concept_times.is_empty() {
             let threshold = self
                 .configuration
                 .snapshot_for_subject(input.subject)?
@@ -200,16 +211,16 @@ impl CognitiveRuntimeService {
                     .await
                     .map_err(db)?;
             let mut queued = std::collections::HashSet::new();
-            for (kind, value, _) in &topology_times {
+            for (kind, value, _) in &concept_times {
                 if !queued.insert((kind, value)) {
                     continue;
                 }
-                let count:i64=sqlx::query_scalar("SELECT count(*) FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind=$2 AND ref_value=$3 AND use_kind IN ('referenced','acted_on','result_supported','corrected','pinned')")
+                let count:i64=sqlx::query_scalar("SELECT count(*) FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind=$2 AND ref_value=$3 AND use_kind IN ('referenced','acted_on','result_supported','result_refuted','corrected','pinned')")
                     .bind(input.subject.0).bind(kind).bind(value).fetch_one(&mut *tx).await.map_err(db)?;
                 let count = u64::try_from(count)
                     .map_err(|_| Error::Infrastructure("invalid use count".into()))?;
                 let added = u64::try_from(
-                    topology_times
+                    concept_times
                         .iter()
                         .filter(|(k, v, _)| k == kind && v == value)
                         .count(),

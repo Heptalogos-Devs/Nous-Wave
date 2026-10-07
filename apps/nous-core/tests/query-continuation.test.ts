@@ -63,7 +63,10 @@ it("prepares before embedding and sends one complete representation for an expre
     value: texts.map(() => [1, 0]),
   }));
   const execute = vi.fn(async () => ({
-    response: create(QueryResponseSchema, { status: "complete" }),
+    response: create(QueryResponseSchema, {
+      status: "complete",
+      boundQuery: '{"activation":true}',
+    }),
   }));
   const release = vi.fn(async () => ({}));
   const prepare = vi.fn(async () => ({
@@ -135,6 +138,221 @@ it("prepares before embedding and sends one complete representation for an expre
     }),
     {},
   );
-  expect(result.boundQuery).toBe('{"prepared":true}');
+  expect(result.boundQuery).toBe('{"activation":true}');
   expect(release).toHaveBeenCalledOnce();
+});
+
+it.each([
+  ["off", "optional", false],
+  ["model", "forbidden", false],
+  ["model", "optional", true],
+  ["model", "required", true],
+])(
+  "Host query concept model obeys mode=%s and requirement=%s",
+  async (mode, requirement, allowed) => {
+    const events: string[] = [];
+    const activation = vi.fn(async () => {
+      events.push("activation");
+      return {
+        preparationToken: "activated",
+        modelInput: '{"existing_tags":[{"key":"c0"}]}',
+      };
+    });
+    const generate = vi.fn(async () => {
+      events.push("model");
+      return {
+        value: {
+          existing_tags: [{ key: "c0", strength: 0.8 }],
+          novel_concepts: [],
+        },
+      };
+    });
+    const execute = vi.fn(async () => {
+      events.push("query");
+      return {
+        response: create(QueryResponseSchema, {
+          status: "complete",
+          boundQuery: '{"model_calls":1}',
+        }),
+      };
+    });
+    const release = vi.fn(async () => ({}));
+    const kernel = {
+      execution: coreExecutionSchema.parse(undefined),
+      queryWorkflow: {
+        prepareQuery: async () => ({
+          preparationToken: "prepared",
+          embeddingRequired: false,
+          embeddingText: "Intent:\nreader leases",
+          rerankRequirement: "forbidden",
+          conceptEnrichmentMode: mode,
+          conceptEnrichmentRequirement: requirement,
+        }),
+        activateQuery: activation,
+        query: execute,
+        releaseQuery: release,
+      },
+    } as unknown as KernelClient;
+    const models = {
+      invocations: {
+        profile: () => ({ model: "fake" }),
+        requirement: () => "optional",
+        generate,
+      },
+    } as unknown as ModelRuntime;
+    await new QueryOrchestrator(kernel, models, {} as ResourceRegistry).execute(
+      create(QueryRequestSchema, { subjectId: "subject" }),
+    );
+    if (allowed) {
+      expect(events).toEqual(["activation", "model", "query"]);
+      expect(execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preparationToken: "activated",
+          embeddings: [],
+          conceptOutput: JSON.stringify({
+            existing_tags: [{ key: "c0", strength: 0.8 }],
+            novel_concepts: [],
+          }),
+        }),
+        {},
+      );
+      expect(release).toHaveBeenCalledWith(
+        { subjectId: "subject", validationTicket: "activated" },
+        expect.anything(),
+      );
+    } else {
+      expect(events).toEqual(["query"]);
+      expect(generate).not.toHaveBeenCalled();
+    }
+  },
+);
+
+it.each(["optional", "required"])(
+  "missing Host concept role obeys %s and releases its activation lease",
+  async (requirement) => {
+    const execute = vi.fn(
+      async (_request: {
+        conceptFailure?: string;
+        conceptModelCalls?: number;
+      }) => ({
+        response: create(QueryResponseSchema, { status: "degraded" }),
+      }),
+    );
+    const release = vi.fn(async () => ({}));
+    const kernel = {
+      execution: coreExecutionSchema.parse(undefined),
+      queryWorkflow: {
+        prepareQuery: async () => ({
+          preparationToken: "prepared",
+          embeddingRequired: false,
+          conceptEnrichmentMode: "model",
+          conceptEnrichmentRequirement: requirement,
+        }),
+        activateQuery: async () => ({
+          preparationToken: "activated",
+          modelInput: "{}",
+        }),
+        query: execute,
+        releaseQuery: release,
+      },
+    } as unknown as KernelClient;
+    const models = {
+      invocations: { profile: () => undefined, requirement: () => "optional" },
+    } as unknown as ModelRuntime;
+    const result = new QueryOrchestrator(
+      kernel,
+      models,
+      {} as ResourceRegistry,
+    ).execute(create(QueryRequestSchema, { subjectId: "subject" }));
+    if (requirement === "required") {
+      await expect(result).rejects.toThrow(
+        "Required query concept model unavailable",
+      );
+      expect(execute).not.toHaveBeenCalled();
+    } else {
+      await result;
+      expect(execute.mock.calls[0]?.[0].conceptFailure).toContain(
+        "Query concept model role unavailable",
+      );
+      expect(execute.mock.calls[0]?.[0].conceptModelCalls).toBe(0);
+    }
+    expect(release).toHaveBeenCalledWith(
+      { subjectId: "subject", validationTicket: "activated" },
+      expect.anything(),
+    );
+  },
+);
+
+it("discovers and commits historical document embeddings against the reserved query view", async () => {
+  const listEmbeddingNeeds = vi.fn(async () => ({
+    config: { spaceHash: "space", producerHash: "producer", model: "fake" },
+    needs: [
+      {
+        reference: { kind: "tag", value: "old" },
+        text: "Concept: old meaning",
+        digest: "old",
+      },
+    ],
+  }));
+  const commitEmbedding = vi.fn(async () => ({}));
+  const embeddingBatch = vi.fn(async (texts: string[]) => ({
+    value: texts.map(() => [1, 0]),
+  }));
+  const kernel = {
+    execution: coreExecutionSchema.parse(undefined),
+    materialWorkflow: {
+      listEmbeddingNeeds,
+      commitEmbedding,
+      getEmbeddingConfig: async () => ({
+        spaceHash: "space",
+        producerHash: "producer",
+        model: "fake",
+      }),
+    },
+    queryWorkflow: {
+      prepareQuery: async () => ({
+        preparationToken: "frozen-history",
+        historicalView: true,
+        embeddingRequired: true,
+        embeddingText: "current question with old concepts",
+        rerankRequirement: "forbidden",
+      }),
+      query: async () => ({
+        response: create(QueryResponseSchema, { status: "complete" }),
+      }),
+      releaseQuery: async () => ({}),
+    },
+  } as unknown as KernelClient;
+  const models = {
+    embeddingModel: {},
+    invocations: {
+      embeddingBatch,
+      profile: () => ({ embedding: { max_batch_size: 64 } }),
+      requirement: () => "optional",
+    },
+  } as unknown as ModelRuntime;
+  await new QueryOrchestrator(kernel, models, {} as ResourceRegistry).execute(
+    create(QueryRequestSchema, { subjectId: "subject" }),
+  );
+  expect(listEmbeddingNeeds).toHaveBeenCalledWith(
+    { subjectId: "subject", limit: 256, preparationToken: "frozen-history" },
+    {},
+  );
+  expect(commitEmbedding).toHaveBeenCalledWith(
+    expect.objectContaining({
+      subjectId: "subject",
+      preparationToken: "frozen-history",
+      material: {
+        text: "Concept: old meaning",
+        spaceHash: "space",
+        producerHash: "producer",
+        vector: [1, 0],
+      },
+    }),
+    {},
+  );
+  expect(embeddingBatch.mock.calls.map(([texts]) => texts)).toEqual([
+    ["Concept: old meaning"],
+    ["current question with old concepts"],
+  ]);
 });

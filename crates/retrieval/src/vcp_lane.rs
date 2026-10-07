@@ -33,14 +33,15 @@ impl ServingService {
                 .push("VCP requires an available permitted shared query embedding".into());
             return Ok(output);
         };
-        let observation = match VcpQueryObservation::prepare(generation, bound, plan, embedding) {
-            Ok(observation) => observation,
-            Err(Error::Unavailable(detail)) => {
-                output.diagnostics.push(detail);
-                return Ok(output);
-            }
-            Err(error) => return Err(error),
-        };
+        let observation =
+            match VcpQueryObservation::prepare(generation, bound, plan, embedding, Some(signals)) {
+                Ok(observation) => observation,
+                Err(Error::Unavailable(detail)) => {
+                    output.diagnostics.push(detail);
+                    return Ok(output);
+                }
+                Err(error) => return Err(error),
+            };
         let policy = bound.config_snapshot.get(VCP_READOUT)?;
         policy.validate()?;
         let offered = offered_candidates(generation, &observation, bound, plan, signals, &policy)?;
@@ -143,18 +144,20 @@ impl ServingService {
         let capabilities = self
             .projection_capabilities(bound.source_query.subject)
             .await?;
-        Ok(seq == generation.authority_watermark
-            && (capabilities.memory
-                || !generation.identities.references().iter().any(|r| {
-                    matches!(
-                        r,
-                        CognitiveRef::Memory(_)
-                            | CognitiveRef::MemoryRevision(_)
-                            | CognitiveRef::EpisodeRevision(_)
-                            | CognitiveRef::JournalRevision(_)
-                            | CognitiveRef::CognitiveSchemaRevision(_)
-                    )
-                })))
+        Ok(
+            (bound.historical_authority.is_some() || seq == generation.authority_watermark)
+                && (capabilities.memory
+                    || !generation.identities.references().iter().any(|r| {
+                        matches!(
+                            r,
+                            CognitiveRef::Memory(_)
+                                | CognitiveRef::MemoryRevision(_)
+                                | CognitiveRef::EpisodeRevision(_)
+                                | CognitiveRef::JournalRevision(_)
+                                | CognitiveRef::CognitiveSchemaRevision(_)
+                        )
+                    })),
+        )
     }
 }
 
@@ -195,7 +198,7 @@ fn offered_candidates(
                    bm25_score: f64,
                    anchor_score: f64|
      -> Result<()> {
-        if !bound.source_query.expression.allows_reference(reference) {
+        if !bound.source_query.projection.allows_reference(reference) {
             return Ok(());
         }
         let Ok(id) = generation.identities.id(reference) else {
@@ -225,10 +228,10 @@ fn offered_candidates(
         if query.iter().all(|v| v.abs() <= f32::EPSILON) {
             continue;
         }
-        for hit in generation.search_candidates_for_expression(
+        for hit in generation.search_candidates_for_projection(
             query,
             search_limit,
-            &bound.source_query.expression,
+            &bound.source_query.projection,
         )? {
             if let Some(record) = hit.record {
                 add(
@@ -255,8 +258,8 @@ fn offered_candidates(
             )?;
         }
     }
-    for binding in &bound.exact_bindings {
-        add(&binding.bound_ref, 1.0, 0.0, 1.0)?;
+    for reference in &bound.activation.exact_refs {
+        add(reference, 1.0, 0.0, 1.0)?;
     }
     let mut offered = offered.into_values().collect::<Vec<_>>();
     offered.sort_by(|a, b| {
@@ -279,7 +282,7 @@ fn work_summary(
         profile_digest: plan.cognitive_profile.digest(),
         activated_edges: sense.edges.len(),
         max_hop_observed: sense.nodes.iter().map(|node| node.hop).max().unwrap_or(0),
-        seed_count: observation.numerical().gating.tags.len(),
+        seed_count: observation.seed_ids().len(),
         visited_nodes: sense.nodes.len(),
         complete,
         discarded_mass: None,

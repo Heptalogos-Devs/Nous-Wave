@@ -8,6 +8,7 @@ import type { ModelRole } from "./configuration.js";
 
 const MAX_PROMPT_BYTES = 128 * 1024;
 const defaults: Partial<Record<ModelRole, string>> = {
+  query_concept_enrichment: "query/concept-enrichment.md",
   projection_steward: "projection/steward.md",
   memory_formation: "memory/formation.md",
   episode_segmentation: "episode/segmentation.md",

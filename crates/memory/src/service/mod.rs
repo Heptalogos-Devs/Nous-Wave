@@ -10,6 +10,8 @@ mod concept_maintenance;
 mod consolidation_context;
 mod dependencies;
 mod episode;
+mod historical;
+mod historical_query;
 mod journal;
 mod lane;
 mod longitudinal_policy;
@@ -77,7 +79,7 @@ impl MemoryService {
         kind: &str,
         digest: &str,
     ) -> Result<MutationStart<'_>> {
-        MutationEnvelope::begin(
+        let mut start = MutationEnvelope::begin(
             &self.store,
             subject,
             operation,
@@ -85,7 +87,13 @@ impl MemoryService {
             digest,
             Some(OwnerLock("memory-authority")),
         )
-        .await
+        .await?;
+        if let MutationStart::Active(mutation) = &mut start {
+            mutation
+                .capture_authority_time(self.cognition.now(subject))
+                .await?;
+        }
+        Ok(start)
     }
 }
 

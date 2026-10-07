@@ -18,11 +18,12 @@ impl MemoryService {
         subject: SubjectId,
         revisions: &[Uuid],
         accessibility_policy: &AccessibilityPolicy,
+        view: Option<&HistoricalAuthoritySnapshot>,
     ) -> Result<HashMap<Uuid, MemoryView>> {
         if revisions.is_empty() {
             return Ok(HashMap::new());
         }
-        let now = self.cognition.now(subject);
+        let now = view.map_or_else(|| self.cognition.now(subject), |view| view.as_of);
         let rows = sqlx::query("SELECT o.memory_id,o.subject_id,o.cognitive_role,o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,o.accessibility_mode,o.created_at,r.memory_revision_id,r.revision_no,r.parent_revision_id,r.revision_intent,r.formation_mode,r.grounding_occurrence_id,r.semantic_role,r.title,r.representation_text,r.epistemic_class,r.valid_time_kind,r.valid_time_start,r.valid_time_end,r.formed_at,r.recorded_at,r.producer_signature_id FROM memory_objects o JOIN memory_revisions r ON r.memory_id=o.memory_id WHERE o.subject_id=$1 AND r.memory_revision_id=ANY($2::uuid[])")
         .bind(subject.0)
         .bind(revisions)
@@ -140,9 +141,10 @@ impl MemoryService {
             .iter()
             .map(|row| row.try_get::<Uuid, _>("memory_id").map_err(db))
             .collect::<Result<Vec<_>>>()?;
-        let accessibility_rows = sqlx::query("SELECT o.memory_id,o.accessibility_mode,o.created_at,u.use_kind,u.occurred_at FROM memory_objects o LEFT JOIN cognitive_use_events u ON u.subject_id=o.subject_id AND u.ref_kind='memory_revision' AND u.ref_value IN (SELECT memory_revision_id::text FROM memory_revisions mr2 WHERE mr2.memory_id=o.memory_id) AND u.use_kind <> 'presented' WHERE o.subject_id=$1 AND o.memory_id=ANY($2::uuid[])")
+        let accessibility_rows = sqlx::query("SELECT o.memory_id,o.accessibility_mode,o.created_at,u.use_kind,u.occurred_at FROM memory_objects o LEFT JOIN cognitive_use_events u ON u.subject_id=o.subject_id AND u.ref_kind='memory_revision' AND u.ref_value IN (SELECT memory_revision_id::text FROM memory_revisions mr2 WHERE mr2.memory_id=o.memory_id) AND u.use_kind <> 'presented' AND ($3::timestamptz IS NULL OR u.occurred_at<=$3) WHERE o.subject_id=$1 AND o.memory_id=ANY($2::uuid[])")
         .bind(subject.0)
         .bind(&memory_ids)
+        .bind(view.map(|v|v.as_of))
         .fetch_all(self.store.pool())
         .await
         .map_err(db)?;
@@ -169,7 +171,15 @@ impl MemoryService {
                     .push((kind, (now - at).num_seconds().max(0) as f64 / 86400.0));
             }
         }
-        for (memory, (mode, created, uses)) in accessibility_inputs {
+        for (memory, (mut mode, created, uses)) in accessibility_inputs {
+            if let Some(state) =
+                view.and_then(|v| v.cognition_for(&CognitiveRef::Memory(MemoryId(memory))))
+            {
+                mode = state.state["accessibility_mode"]
+                    .as_str()
+                    .unwrap_or("auto")
+                    .to_owned();
+            }
             let level = match mode.as_str() {
                 "normal" => AccessibilityLevel::Normal,
                 "deep" => AccessibilityLevel::Deep,

@@ -3,6 +3,7 @@
 
 import type { z } from "zod";
 import type { ModelRole } from "../roles.js";
+import { queryConceptSchema } from "./query-concept.js";
 import { formationSchema } from "./formation.js";
 import { projectionStewardSchema } from "./projection.js";
 import { materialInterpretationSchema } from "./material-interpretation.js";
@@ -27,6 +28,11 @@ const material = contract(
   materialInterpretationSchema,
 );
 const structuredRoleContracts = {
+  query_concept_enrichment: contract(
+    "query.concept-enrichment",
+    "query_concept_enrichment",
+    queryConceptSchema,
+  ),
   projection_steward: contract(
     "projection.steward",
     "projection_steward",

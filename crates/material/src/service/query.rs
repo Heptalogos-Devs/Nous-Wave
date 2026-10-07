@@ -58,10 +58,11 @@ impl EvidenceTimes {
     }
 }
 impl MaterialService {
-    async fn evidence_times(
+    async fn evidence_times_in_view(
         &self,
         subject: SubjectId,
         refs: &[CognitiveRef],
+        view: Option<&HistoricalAuthoritySnapshot>,
     ) -> Result<HashMap<CognitiveRef, EvidenceTimes>> {
         if refs.len() > 256 {
             return Err(Error::Invalid("reference time envelope exceeded".into()));
@@ -89,8 +90,8 @@ origins AS (
  LEFT JOIN derived_regions g ON r.kind='derived_region' AND g.subject_id=$1 AND g.derived_region_id::text=r.value
  JOIN LATERAL representation_source_regions($1,d.derived_representation_id) roots ON true JOIN source_regions s USING(source_region_id) JOIN observation_occurrences o ON o.artifact_id=s.artifact_id AND o.subject_id=$1
 )
-SELECT DISTINCT p.kind,p.value,p.formed_at,o.occurrence_id,o.occurred_time_kind,o.occurred_time_start,o.occurred_time_end,o.observed_at,p.recorded_at,o.source_class FROM origins p JOIN observation_occurrences o USING(occurrence_id) WHERE o.subject_id=$1
-"#).bind(subject.0).bind(&kinds).bind(&values).fetch_all(self.store.pool()).await.map_err(database_error)?;
+SELECT DISTINCT p.kind,p.value,p.formed_at,o.occurrence_id,o.occurred_time_kind,o.occurred_time_start,o.occurred_time_end,o.observed_at,p.recorded_at,o.source_class FROM origins p JOIN observation_occurrences o USING(occurrence_id) WHERE o.subject_id=$1 AND ($4::timestamptz IS NULL OR o.created_at<=$4)
+"#).bind(subject.0).bind(&kinds).bind(&values).bind(view.map(|v|v.as_of)).fetch_all(self.store.pool()).await.map_err(database_error)?;
         for row in rows {
             let reference = parse_reference(
                 &row.get::<String, _>("kind"),
@@ -203,10 +204,10 @@ impl nous_runtime::CognitiveContributor for MaterialService {
             .iter()
             .any(|target| matches!(target, QueryTarget::Exact { .. }))
             || !bound.lane_enabled(EvidenceFamily::Temporal)
-            || (!bound.source_query.expression.domain_names().is_empty()
+            || (!bound.source_query.projection.domain_names().is_empty()
                 && !bound
                     .source_query
-                    .expression
+                    .projection
                     .domain_names()
                     .contains(&"evidence"))
             || [c.occurred, c.observed, c.recorded]
@@ -223,6 +224,17 @@ impl nous_runtime::CognitiveContributor for MaterialService {
             "SELECT occurrence_id FROM observation_occurrences WHERE subject_id=",
         );
         sql.push_bind(bound.source_query.subject.0);
+        if let Some(view) = bound.historical_authority.as_deref() {
+            let ids: Vec<_> = view
+                .material_documents
+                .iter()
+                .filter_map(|reference| match reference {
+                    CognitiveRef::Occurrence(id) => Some(id.0),
+                    _ => None,
+                })
+                .collect();
+            sql.push(" AND occurrence_id=ANY(").push_bind(ids).push(")");
+        }
         if let Some(interval) = c.occurred {
             sql.push(" AND occurred_time_kind <> 'unknown'");
             if let Some(start) = interval.start {
@@ -298,7 +310,20 @@ impl nous_runtime::CognitiveContributor for MaterialService {
         if subject != query.subject {
             return Err(Error::Invalid("material query subject mismatch".into()));
         }
-        let mut times = self.evidence_times(subject, references).await?;
+        let visible: Vec<_> = references
+            .iter()
+            .filter(|reference| {
+                bound
+                    .historical_authority
+                    .as_ref()
+                    .is_none_or(|view| view.material_visibility.contains(reference))
+            })
+            .cloned()
+            .collect();
+        let references = visible.as_slice();
+        let mut times = self
+            .evidence_times_in_view(subject, references, bound.historical_authority.as_deref())
+            .await?;
         let (kinds, values): (Vec<_>, Vec<_>) = references.iter().map(reference_parts).unzip();
         let rows = sqlx::query(r#"
 WITH requested AS (SELECT * FROM unnest($2::text[],$3::text[]) AS r(kind,value)),

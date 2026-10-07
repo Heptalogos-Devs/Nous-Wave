@@ -89,6 +89,10 @@ impl ProjectionInvalidation {
                 result.push((family, String::new()));
             }
         }
+        // Concept postings follow current revision eligibility as well as Tag/Association changes.
+        if self.topology || self.lexical {
+            result.push(("concept", "*".into()));
+        }
         match &self.dense {
             DenseInvalidation::None => {}
             DenseInvalidation::All => result.push(("dense", "*".into())),

@@ -24,6 +24,25 @@ pub async fn with_query_material<T>(
     QUERY_MATERIAL.scope(material, operation).await
 }
 
+pub(crate) fn query_material_output(
+    text: &str,
+    space: &EmbeddingSpaceSignature,
+    producer: &ProducerSignature,
+) -> Option<TextEmbeddingOutput> {
+    QUERY_MATERIAL
+        .try_with(|items| {
+            items
+                .iter()
+                .find(|item| {
+                    item.text == text
+                        && item.output.space.compatible_with(space)
+                        && item.output.producer.signature_hash == producer.signature_hash
+                })
+                .map(|item| item.output.clone())
+        })
+        .ok()
+        .flatten()
+}
 pub struct StoredEmbeddingProvider {
     store: AuthorityStore,
     config: StoredEmbeddingConfig,
@@ -73,20 +92,8 @@ impl TextEmbeddingProvider for StoredEmbeddingProvider {
     }
     async fn embed(&self, request: TextEmbeddingRequest) -> Result<TextEmbeddingOutput> {
         if request.query {
-            let output = QUERY_MATERIAL
-                .try_with(|items| {
-                    items
-                        .iter()
-                        .find(|i| {
-                            i.text == request.text
-                                && i.output.space.compatible_with(&self.config.space)
-                                && i.output.producer.signature_hash
-                                    == self.config.producer.signature_hash
-                        })
-                        .map(|i| i.output.clone())
-                })
-                .ok()
-                .flatten();
+            let output =
+                query_material_output(&request.text, &self.config.space, &self.config.producer);
             return output.ok_or_else(|| {
                 Error::Unavailable("Host did not supply compatible query embedding".into())
             });
@@ -113,6 +120,14 @@ impl ServingService {
         subject: SubjectId,
         limit: usize,
     ) -> Result<Vec<EmbeddingNeed>> {
+        self.embedding_needs_in_view(subject, limit, None).await
+    }
+    pub async fn embedding_needs_in_view(
+        &self,
+        subject: SubjectId,
+        limit: usize,
+        view: Option<&HistoricalAuthoritySnapshot>,
+    ) -> Result<Vec<EmbeddingNeed>> {
         if limit == 0 || limit > 256 {
             return Err(Error::Invalid(
                 "embedding batch limit must be 1..256".into(),
@@ -129,18 +144,33 @@ impl ServingService {
             .configuration
             .snapshot_for_subject(subject)?
             .get(crate::EPISODE_SYNOPSIS)?;
-        let input = self
-            .store
-            .text_projection_input(
-                subject,
-                "dense",
-                &config.space_hash,
-                capabilities.memory,
-                budget,
-            )
-            .await?;
+        let sources = match view {
+            Some(view) => {
+                if view.subject != subject {
+                    return Err(Error::Invalid(
+                        "historical embedding Subject mismatch".into(),
+                    ));
+                };
+                self.store
+                    .historical_projection_input(view, budget)
+                    .await?
+                    .sources
+            }
+            None => {
+                self.store
+                    .text_projection_input(
+                        subject,
+                        "dense",
+                        &config.space_hash,
+                        capabilities.memory,
+                        budget,
+                    )
+                    .await?
+                    .sources
+            }
+        };
         let mut needs = vec![];
-        for doc in self.documents(input.sources, budget).await? {
+        for doc in self.documents(sources, budget).await? {
             let digest = blake3::hash(doc.representation_text.as_bytes())
                 .to_hex()
                 .to_string();
@@ -168,6 +198,19 @@ impl ServingService {
         producer: &str,
         vector: Vec<f32>,
     ) -> Result<()> {
+        self.commit_embedding_in_view(subject, reference, text, space, producer, vector, None)
+            .await
+    }
+    pub async fn commit_embedding_in_view(
+        &self,
+        subject: SubjectId,
+        reference: CognitiveRef,
+        text: String,
+        space: &str,
+        producer: &str,
+        vector: Vec<f32>,
+        view: Option<&HistoricalAuthoritySnapshot>,
+    ) -> Result<()> {
         self.store.validate_reference(subject, &reference).await?;
         let configured = self
             .embedding()
@@ -186,12 +229,27 @@ impl ServingService {
             .configuration
             .snapshot_for_subject(subject)?
             .get(crate::EPISODE_SYNOPSIS)?;
-        let input = self
-            .store
-            .text_projection_input(subject, "dense", space, input.memory, budget)
-            .await?;
+        let sources = match view {
+            Some(view) => {
+                if view.subject != subject {
+                    return Err(Error::Invalid(
+                        "historical embedding Subject mismatch".into(),
+                    ));
+                };
+                self.store
+                    .historical_projection_input(view, budget)
+                    .await?
+                    .sources
+            }
+            None => {
+                self.store
+                    .text_projection_input(subject, "dense", space, input.memory, budget)
+                    .await?
+                    .sources
+            }
+        };
         let exists = self
-            .documents(input.sources, budget)
+            .documents(sources, budget)
             .await?
             .into_iter()
             .any(|d| d.reference == reference && d.representation_text == text);

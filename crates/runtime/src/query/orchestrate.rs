@@ -27,6 +27,9 @@ pub trait CognitiveContributor: Send + Sync {
 /// own Authority objects after the runtime performs one fusion.
 #[async_trait::async_trait]
 pub trait SharedLaneProvider: Send + Sync {
+    async fn activate(&self, bound: &BoundQuery) -> Result<super::QueryActivation> {
+        Ok(bound.activation.clone())
+    }
     async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>>;
 }
 
@@ -68,17 +71,69 @@ impl CognitiveRuntimeService {
         plan: QueryPlan,
         validated_pool_limit: Option<usize>,
     ) -> Result<super::QueryExecution> {
+        let mut bound = bound;
+        if bound.historical_authority.is_none()
+            && (bound.source_query.temporal_frame.authority_view != AuthorityView::Current
+                || bound.source_query.temporal_frame.revision_view != RevisionView::Current)
+        {
+            return Err(Error::Unavailable(
+                "historical query requires its owner-projected Authority and Serving view".into(),
+            ));
+        }
+        if let Some(shared) = contributors.shared {
+            bound.activation = shared.activate(&bound).await?;
+        }
+        if bound.concept_enrichment == super::ConceptEnrichment::Model
+            && bound.source_query.capabilities.query_concept_enrichment
+                != RequirementStrength::Forbidden
+            && !bound.activation.model_completed
+        {
+            if bound.source_query.capabilities.query_concept_enrichment
+                == RequirementStrength::Required
+            {
+                return Err(Error::Unavailable(
+                    "required query concept model unavailable".into(),
+                ));
+            }
+            if !bound
+                .activation
+                .degradation
+                .iter()
+                .any(|d| d.code == "query_concept_model_unavailable")
+            {
+                bound.activation.degradation.push(Degradation {
+                    code: "query_concept_model_unavailable".into(),
+                    detail: Some("Host query concept model result unavailable".into()),
+                });
+            }
+        }
+        bound.activation.frozen = true;
         if validated_pool_limit.is_some_and(|limit| limit == 0 || limit > 64) {
             return Err(Error::Invalid("validated pool limit must be 1..64".into()));
         }
         let output_limit = validated_pool_limit.unwrap_or(bound.source_query.result_need.limit);
-        if bound.source_query.expression.operation != QueryOperation::Atom {
-            return self
-                .query_tree(bound, contributors, plan, output_limit)
-                .await;
+        let execution = if bound.source_query.expression.operation != QueryOperation::Atom {
+            self.query_tree(bound, contributors, plan, output_limit)
+                .await?
+        } else {
+            self.query_leaf_execution(bound, &contributors, plan, output_limit)
+                .await?
+        };
+        if validated_pool_limit.is_none() && execution.result.resource_actions.is_empty() {
+            self.record_query_feedback(&execution.bound, &execution.result)
+                .await?;
         }
+        Ok(execution)
+    }
+    async fn query_leaf_execution(
+        &self,
+        bound: BoundQuery,
+        contributors: &CognitiveContributors<'_>,
+        plan: QueryPlan,
+        output_limit: usize,
+    ) -> Result<super::QueryExecution> {
         let result = self
-            .query_atom_with_plan(bound.clone(), &contributors, plan, output_limit)
+            .query_atom_with_plan(bound.clone(), contributors, plan, output_limit)
             .await?;
         let leaves = vec![super::types::BoundLeaf {
             ordinal: 0,
@@ -119,18 +174,16 @@ impl CognitiveRuntimeService {
             degradation: Vec::new(),
             diagnostics: None,
         };
+        result
+            .degradation
+            .extend(bound.activation.degradation.clone());
         let mut lane_outputs = Vec::new();
         if let Some(shared) = contributors.shared {
             lane_outputs.extend(shared.lanes(&bound, &plan).await?);
         }
         if let Some(memory) = contributors.memory {
             lane_outputs.extend(memory.direct_lanes(&bound, &plan).await?);
-        } else if query
-            .expression
-            .targets
-            .iter()
-            .any(QueryTarget::is_cognition_domain)
-        {
+        } else if query.projection.has_cognition() {
             return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
         }
         if let Some(material) = contributors.material {
@@ -148,18 +201,8 @@ impl CognitiveRuntimeService {
         if !exact_output.candidates.is_empty() {
             lane_outputs.push(exact_output);
         }
-        let runtime_allowed = query.expression.targets.is_empty()
-            || query.expression.targets.iter().any(|target| {
-                matches!(
-                    target,
-                    QueryTarget::AnyRelevantCognition
-                        | QueryTarget::Memory
-                        | QueryTarget::Schema
-                        | QueryTarget::Episode
-                        | QueryTarget::Journal
-                        | QueryTarget::Evidence
-                )
-            });
+        let runtime_allowed = query.projection.has_cognition()
+            || query.projection.domains.contains(&ResultDomain::Evidence);
         if runtime_allowed && bound.lane_enabled(EvidenceFamily::Runtime) {
             for (reference, source) in &bound.runtime_sources {
                 lane_outputs.push(LaneOutput {
@@ -233,7 +276,7 @@ impl CognitiveRuntimeService {
             }
         }
         let before = candidates.len();
-        candidates.retain(|reference, _| query.expression.allows_reference(reference));
+        candidates.retain(|reference, _| query.projection.allows_reference(reference));
         let dropped = before - candidates.len();
         if dropped > 0 {
             *lane_drops.entry("domain_ineligible".into()).or_default() += dropped;
@@ -395,6 +438,7 @@ impl CognitiveRuntimeService {
         if let Some(diagnostics) = result.diagnostics.as_mut() {
             if query.diagnostics == DiagnosticsRequest::Full {
                 diagnostics.trace = Some(serde_json::json!({
+                    "query_activation": bound.activation,
                     "readouts": result.results.iter().filter_map(|hit| readouts.get(&hit.reference)
                         .map(|value| serde_json::json!({"reference": hit.reference, "lanes": value})))
                         .collect::<Vec<_>>()

@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod derivation;
+mod historical;
+mod identity;
 mod materialization;
 mod observation;
 mod query;

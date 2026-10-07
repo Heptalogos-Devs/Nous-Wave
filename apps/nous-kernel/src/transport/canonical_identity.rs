@@ -6,6 +6,7 @@ use super::*;
 rpc_service! {
     p::identity_service_server::IdentityService {
         forward {
+            rebind_entity(p::RebindEntityRequest) -> ();
             bind_identity(p::BindIdentityRequest) -> p::IdentityBinding;
             resolve_identity(p::ResolveIdentityRequest) -> p::ResolveIdentityResponse;
         }

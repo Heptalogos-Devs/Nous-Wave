@@ -67,7 +67,7 @@ fn prepare_lexical(
                 .search_with_domains(
                     query_text,
                     plan.lane_budget(EvidenceFamily::Lexical),
-                    &query.expression.domain_names(),
+                    &query.projection.domain_names(),
                 )?
                 .into_iter()
                 .enumerate()
@@ -114,7 +114,7 @@ fn prepare_dense(
             output.generation_ref = Some(generation.generation_id);
             let limit = plan.lane_budget(EvidenceFamily::Dense);
             let matches =
-                domain_dense_matches(generation, &embedding.vector, limit, &query.expression)?;
+                domain_dense_matches(generation, &embedding.vector, limit, &query.projection)?;
             for (rank, item) in matches.into_iter().enumerate() {
                 let Some(record) = item.record else {
                     continue;
@@ -171,6 +171,7 @@ async fn prepare_signals(
     plan: &QueryPlan,
     embedding_text: &str,
     provider: Option<&dyn TextEmbeddingProvider>,
+    prepared_embedding: Option<&nous_runtime::QuerySemanticEmbedding>,
 ) -> Result<PreparedQuerySignals> {
     let query_text = text_query(query);
     let lexical = enabled_lanes
@@ -199,7 +200,13 @@ async fn prepare_signals(
                     )
                 })))
     {
-        if let Some(provider) = provider {
+        if let Some(material) = prepared_embedding {
+            embedding = Some(TextEmbeddingOutput {
+                vector: material.vector.clone(),
+                space: material.space.clone(),
+                producer: material.producer.clone(),
+            });
+        } else if let Some(provider) = provider {
             match provider
                 .embed(TextEmbeddingRequest {
                     subject: query.subject,
@@ -239,6 +246,14 @@ async fn prepare_signals(
 
 #[async_trait::async_trait]
 impl SharedLaneProvider for ServingService {
+    async fn activate(&self, bound: &BoundQuery) -> Result<nous_runtime::QueryActivation> {
+        concept_lane::activate(
+            &self.publisher.snapshot_for(bound.source_query.subject),
+            bound,
+            self.embedding().map(|p| p.as_ref()),
+        )
+        .await
+    }
     async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
         let _reader = self.read_gate.clone().read_owned().await;
         let snapshot = self.publisher.snapshot_for(bound.source_query.subject);
@@ -260,6 +275,15 @@ impl ServingService {
         plan: &QueryPlan,
         provider: Option<&dyn TextEmbeddingProvider>,
     ) -> Result<Vec<LaneOutput>> {
+        if bound
+            .historical_authority
+            .as_ref()
+            .is_some_and(|view| snapshot.view_digest.as_ref() != Some(&view.snapshot_digest))
+        {
+            return Err(Error::Unavailable(
+                "candidate generation requires a compatible historical Serving view".into(),
+            ));
+        }
         let signals = prepare_signals(
             snapshot,
             &bound.source_query,
@@ -267,6 +291,7 @@ impl ServingService {
             plan,
             &bound.representation.text,
             provider,
+            bound.activation.embedding.as_ref(),
         )
         .await?;
         let topology = if bound.lane_enabled(EvidenceFamily::TopologyWave) {
@@ -288,6 +313,9 @@ impl ServingService {
         };
         let mut outputs = signals.into_lanes();
         outputs.extend(topology);
+        if bound.lane_enabled(EvidenceFamily::TagDirect) {
+            outputs.push(concept_lane::direct_lane(snapshot, bound, plan));
+        }
         Ok(outputs)
     }
 }
@@ -296,14 +324,14 @@ fn domain_dense_matches(
     generation: &DenseGeneration,
     vector: &[f32],
     limit: usize,
-    expression: &nous_core::CognitiveQueryExpr,
+    projection: &nous_core::ResultProjection,
 ) -> Result<Vec<DenseMatch>> {
-    if expression.domain_names().is_empty() {
+    if projection.domain_names().is_empty() {
         return generation.search(vector, limit);
     }
     let allowed = generation
         .records()
-        .filter(|record| expression.allows_reference(&record.reference))
+        .filter(|record| projection.allows_reference(&record.reference))
         .filter_map(|record| u32::try_from(record.serving_doc_id).ok())
         .collect::<roaring::RoaringBitmap>();
     generation.search_filtered(vector, limit, &allowed)
@@ -315,9 +343,9 @@ mod tests;
 
 /// Request-scoped immutable Serving view, retained through final validation.
 pub struct ServingQuery {
-    service: ServingService,
+    pub(crate) service: ServingService,
     pub(crate) snapshot: Arc<ServingSnapshot>,
-    embedding: Option<crate::provider::RequestEmbedding>,
+    pub(crate) embedding: Option<crate::provider::RequestEmbedding>,
 }
 impl std::fmt::Debug for ServingQuery {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -328,8 +356,26 @@ impl std::fmt::Debug for ServingQuery {
     }
 }
 impl nous_runtime::QueryReadLease for ServingQuery {}
+impl nous_runtime::QueryActivationView for ServingQuery {
+    fn generation_trace(&self) -> QueryGenerationTrace {
+        self.snapshot.generation_trace()
+    }
+    fn provider(&self) -> &dyn SharedLaneProvider {
+        self
+    }
+}
 #[async_trait::async_trait]
 impl SharedLaneProvider for ServingQuery {
+    async fn activate(&self, bound: &BoundQuery) -> Result<nous_runtime::QueryActivation> {
+        concept_lane::activate(
+            &self.snapshot,
+            bound,
+            self.embedding
+                .as_ref()
+                .map(|p| p as &dyn TextEmbeddingProvider),
+        )
+        .await
+    }
     async fn lanes(&self, bound: &BoundQuery, plan: &QueryPlan) -> Result<Vec<LaneOutput>> {
         self.service
             .lanes_from_snapshot(
@@ -349,13 +395,18 @@ impl ServingService {
         bound: &BoundQuery,
         plan: &QueryPlan,
     ) -> Result<(ProjectionStatus, Arc<ServingQuery>)> {
+        if let Some(view) = bound.historical_authority.as_deref() {
+            return self.prepare_historical_query(bound, plan, view).await;
+        }
         let lease = self.read_gate.clone().read_owned().await;
+        let mut need = plan.serving_need(&bound.source_query);
+        if bound.source_query.capabilities.text_embedding == RequirementStrength::Forbidden
+            && plan.cognitive_profile.requirements().query_embedding
+        {
+            need.topology = false;
+        }
         let status = self
-            .prepare_with_snapshot(
-                bound.source_query.subject,
-                plan.serving_need(&bound.source_query),
-                &bound.config_snapshot,
-            )
+            .prepare_with_snapshot(bound.source_query.subject, need, &bound.config_snapshot)
             .await?;
         // Resolve the exact generations prepared for this request. A concurrent
         // profile switch must not replace this query's immutable view.
@@ -394,6 +445,13 @@ impl ServingService {
                     snapshot.vcp = Some(assets);
                     snapshot.topology = None;
                 }
+                crate::lifecycle::OpenArtifact::Concept(generation) => {
+                    snapshot.concept.retain(|old| {
+                        old.space.as_ref().map(|s| &s.space_hash)
+                            != generation.space.as_ref().map(|s| &s.space_hash)
+                    });
+                    snapshot.concept.push(generation);
+                }
                 crate::lifecycle::OpenArtifact::Exact(postings) => {
                     snapshot.postings = postings;
                     snapshot.postings_generation = Some(record.generation_id);
@@ -401,6 +459,15 @@ impl ServingService {
             }
         }
         snapshot.retain_generations(status.generations.values().copied());
+        let reader = self.query_reader(bound, snapshot)?;
+        drop(lease);
+        Ok((status, reader))
+    }
+    pub(crate) fn query_reader(
+        &self,
+        bound: &BoundQuery,
+        snapshot: ServingSnapshot,
+    ) -> Result<Arc<ServingQuery>> {
         let reader = Arc::new(ServingQuery {
             service: self.clone(),
             snapshot: Arc::new(snapshot),
@@ -418,7 +485,6 @@ impl ServingService {
         readers.retain(|reader| reader.strong_count() > 0);
         readers.push(Arc::downgrade(&reader));
         drop(readers);
-        drop(lease);
-        Ok((status, reader))
+        Ok(reader)
     }
 }

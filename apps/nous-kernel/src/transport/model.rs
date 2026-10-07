@@ -20,21 +20,18 @@ impl KernelService {
             dimension: space.dimension,
         })
     }
-    pub(super) async fn query_with_material(
+    fn query_materials(
         &self,
-        input: k::KernelQueryRequest,
-    ) -> Result<k::KernelQueryResponse> {
-        let bound = self.0.cognition.take_prepared_query(
-            SubjectId(id(&input.subject_id)?),
-            id(&input.preparation_token)?,
-        )?;
-        if input.embeddings.len() > 1 {
+        bound: &nous_runtime::BoundQuery,
+        inputs: Vec<k::QueryEmbedding>,
+    ) -> Result<Vec<QueryEmbedding>> {
+        if inputs.len() > 1 {
             return Err(Error::Invalid(
                 "one prepared query accepts at most one embedding".into(),
             ));
         }
         let mut materials = vec![];
-        for material in input.embeddings {
+        for material in inputs {
             let provider = self
                 .0
                 .serving
@@ -62,6 +59,111 @@ impl KernelService {
                 },
             });
         }
+        Ok(materials)
+    }
+    pub(super) async fn activate_query_with_material(
+        &self,
+        input: k::KernelQueryRequest,
+    ) -> Result<k::QueryActivationResponse> {
+        let subject = SubjectId(id(&input.subject_id)?);
+        let mut bound = self
+            .0
+            .cognition
+            .take_prepared_query(subject, id(&input.preparation_token)?)?;
+        if bound.concept_enrichment != nous_runtime::ConceptEnrichment::Model
+            || bound.source_query.capabilities.query_concept_enrichment
+                == nous_core::RequirementStrength::Forbidden
+            || bound.activation.frozen
+            || input.concept_model_calls != 0
+            || input.concept_output.is_some()
+            || input.concept_failure.is_some()
+        {
+            return Err(Error::Invalid(
+                "query concept model activity is not permitted".into(),
+            ));
+        }
+        let materials = self.query_materials(&bound, input.embeddings)?;
+        let plan = nous_runtime::QueryPlan::for_bound_query(&bound);
+        use nous_runtime::SharedLaneProvider;
+        let (projection, view, activation) =
+            nous_retrieval::with_query_material(materials, async {
+                let (projection, view) = self.0.serving.prepare_query(&bound, &plan).await?;
+                let activation = view.activate(&bound).await?;
+                Ok::<_, Error>((projection, view, activation))
+            })
+            .await?;
+        bound.activation = activation;
+        bound.activation.degradation.extend(projection.degradation);
+        bound.activation.frozen = true;
+        bound.activation_view = Some(view);
+        let catalog = bound.activation.concept_catalog.iter().map(|candidate| serde_json::json!({"key":candidate.key,"semantic_text":candidate.semantic_text,"strength":candidate.strength})).collect::<Vec<_>>();
+        let model_input = serde_json::json!({"query_representation":bound.representation,"existing_tags":catalog,"temporal_frame":bound.source_query.temporal_frame}).to_string();
+        let token = self.0.cognition.retain_prepared_query(bound)?;
+        Ok(k::QueryActivationResponse {
+            preparation_token: token.to_string(),
+            model_input,
+        })
+    }
+    fn apply_query_concept_output(
+        &self,
+        bound: &mut nous_runtime::BoundQuery,
+        output: Option<String>,
+        failure: Option<String>,
+        calls: u32,
+    ) -> Result<()> {
+        if calls > 1
+            || (output.is_some() && calls != 1)
+            || (output.is_none() && failure.is_none() && calls != 0)
+        {
+            return Err(Error::Invalid(
+                "invalid query concept model call accounting".into(),
+            ));
+        }
+        if output.is_none() && failure.is_none() {
+            return Ok(());
+        }
+        if bound.concept_enrichment != nous_runtime::ConceptEnrichment::Model
+            || !bound.activation.frozen
+            || bound.source_query.capabilities.query_concept_enrichment
+                == nous_core::RequirementStrength::Forbidden
+            || (output.is_some() && failure.is_some())
+        {
+            return Err(Error::Invalid(
+                "unexpected query concept model result".into(),
+            ));
+        }
+        if let Some(output) = output {
+            if output.len() > 16384 {
+                return Err(Error::Invalid("query concept output exceeds bounds".into()));
+            }
+            let output = serde_json::from_str(&output)
+                .map_err(|_| Error::Invalid("invalid query concept output".into()))?;
+            bound.activation.apply_concept_model(output)?;
+        } else {
+            bound.activation.model_calls = calls as usize;
+            bound.activation.degradation.push(nous_core::Degradation {
+                code: "query_concept_model_unavailable".into(),
+                detail: Some(failure.unwrap_or_default().chars().take(1024).collect()),
+            });
+        }
+        Ok(())
+    }
+    pub(super) async fn query_with_material(
+        &self,
+        input: k::KernelQueryRequest,
+    ) -> Result<k::KernelQueryResponse> {
+        let bound = self.0.cognition.take_prepared_query(
+            SubjectId(id(&input.subject_id)?),
+            id(&input.preparation_token)?,
+        )?;
+        let materials = self.query_materials(&bound, input.embeddings)?;
+        let mut bound = bound;
+        self.apply_query_concept_output(
+            &mut bound,
+            input.concept_output,
+            input.concept_failure,
+            input.concept_model_calls,
+        )?;
         nous_retrieval::with_query_material(
             materials,
             self.query(
