@@ -12,6 +12,8 @@ import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
+import { nousqlHelp } from "./nousql-help.js";
+
 type Selection = {
   subjectId?: string;
   sessionId?: string;
@@ -131,6 +133,7 @@ export async function runCli(args: string[], connect = connectNousInstance) {
   }
   async function execute() {
     const [command, action, argument] = positionals;
+    if (command === "help" && action === "nousql") return nousqlHelp;
     if (!command || command === "help") return commandInventory;
     if (!values["run-root"])
       throw new CliError(

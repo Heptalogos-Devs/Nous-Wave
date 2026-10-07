@@ -266,6 +266,7 @@ impl NousRuntime {
                 pool_limit,
             )
             .await?;
+        execution.result.generation = serving_query.generation_trace();
         execution.read_lease = Some(serving_query);
         let result = &mut execution.result;
         result.degradation.extend(projection.degradation);

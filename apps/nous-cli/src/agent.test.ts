@@ -306,3 +306,25 @@ it("uses exact typed revisions and caller-stable feedback identity", async () =>
     ),
   ).rejects.toMatchObject({ code: "INVALID_ARGUMENT" });
 });
+
+it("serves NousQL JSON guidance without requiring a daemon or instance", async () => {
+  const connect = vi.fn();
+  const result = await runCli(["help", "nousql", "--json"], connect);
+  expect(connect).not.toHaveBeenCalled();
+  expect(result).toHaveProperty("concepts");
+  expect(result).toHaveProperty("selectors");
+  expect(result).toHaveProperty("time");
+  expect(result).toHaveProperty("exploration");
+  expect(result).toHaveProperty("projection");
+  const text = JSON.stringify(result);
+  for (const token of [
+    "$time",
+    "$asof",
+    "$history",
+    "$explore",
+    "$return",
+    "@tag",
+    "#concept",
+  ])
+    expect(text).toContain(token);
+});

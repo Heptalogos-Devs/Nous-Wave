@@ -89,6 +89,8 @@ export function cliErrorPayload(error: unknown) {
 }
 
 export const commandInventory = {
+  nousql:
+    "nous help nousql [--json]; standalone Agent guide without connecting to a daemon",
   contextFlags: {
     subject: "Subject ID overrides local selection",
     session: "Session ID overrides local selection",

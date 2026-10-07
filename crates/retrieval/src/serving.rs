@@ -101,6 +101,19 @@ impl ServingPublisher {
 }
 
 impl ServingSnapshot {
+    pub fn generation_trace(&self) -> QueryGenerationTrace {
+        QueryGenerationTrace {
+            lexical: self.lexical.as_ref().map(|g| g.generation_id),
+            dense: self.dense.iter().map(|g| g.generation_id).collect(),
+            topology: self
+                .topology
+                .as_ref()
+                .map(|g| g.generation_id)
+                .or_else(|| self.vcp.as_ref().map(|g| g.generation_id)),
+            epa_basis: self.epa.first().map(|g| g.generation_id),
+            postings: self.postings_generation,
+        }
+    }
     pub(crate) fn retain_generations(
         &mut self,
         ids: impl Iterator<Item = nous_core::ServingGenerationId>,

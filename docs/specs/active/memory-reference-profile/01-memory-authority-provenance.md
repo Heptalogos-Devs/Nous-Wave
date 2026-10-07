@@ -50,3 +50,9 @@ Memory、CognitiveSchema、Episode 和 Journal 的 mutation 使用 Persistence `
 Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime serving 均可重建，不拥有 cognition truth。Memory owner 不持有 concrete Retrieval/Serving；topology candidate generation 属于 Retrieval shared contributor。
 
 [返回文档目录](../../INDEX.md)
+
+## Semantic Concept 与显式 Tag
+
+Tag 是共享 embeddable semantic concept，稳定 identity 与 immutable semantic revisions 分离。Current reads 使用 current canonical Tag；as-of reads 使用截点状态，未来 revise/merge/split 不改写历史意义。normalized label/description/kind_hint 产生 versioned canonical text/digest，别名不进入 semantic representation。
+
+显式 formation Tag 在 Memory commit transaction 中校验 Subject、canonicalize active/merged identity 并去重；不依赖 concept-maintenance model。客户端使用 Concept API (`client.concepts`)。Query inferred Tags/novel hypotheses 是 ephemeral activation，创建、修订、merge、split 与 attachment/Association mutations 仍由 canonical owner API 提交；维护模型活动必须由 Host 有界 grant。

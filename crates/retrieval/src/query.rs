@@ -357,6 +357,9 @@ impl std::fmt::Debug for ServingQuery {
 }
 impl nous_runtime::QueryReadLease for ServingQuery {}
 impl nous_runtime::QueryActivationView for ServingQuery {
+    fn generation_trace(&self) -> QueryGenerationTrace {
+        self.snapshot.generation_trace()
+    }
     fn provider(&self) -> &dyn SharedLaneProvider {
         self
     }

@@ -1,6 +1,6 @@
 # Query & Serving
 
-长期寻址、Query preparation、概念维护和 owner materialization 语义依据 [Architecture-Vault `fd93e8c`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/fd93e8c649f5750a290ca524eae055ce025fb9a8/docs/Nous-Wave/TARGET_DESIGN.md)。
+长期寻址、Query preparation、概念维护和 owner materialization 语义依据 [Architecture-Vault `2de60296`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/2de60296bc80d790e9dd508bc6b3abd19c7d3236/docs/Nous-Wave/TARGET_DESIGN.md)。
 
 [返回文档目录](../../INDEX.md)
 
@@ -12,17 +12,23 @@ Runtime (crates/runtime) owns QueryPlan, lane budgets, fusion and result contrac
 
 Query 在 candidate generation 前绑定 Subject、exact object/revision、CurrentOnly/ExactHistorical policy、enabled lanes、lane budgets、hard constraints、accessibility、embedding space、fusion version、topology intent 与 rerank policy。候选集合不得反向修改这些定义。
 
-普通 Memory/Schema/Episode/Journal recall 只返回 current head；只有显式 exact historical revision target 才允许历史 revision。Mutable exact target 在 bind 时解析成 revision + object epoch；执行期间 head/epoch 变化时丢弃并返回 `stale_exact_binding`，不得自动重绑。
+普通 current recall 只投影 effective heads。TemporalFrame 在整树根固定 captured Subject CognitiveClock、AuthorityView(current/as_of) 与 RevisionView(current/history)。`$history` 可召回 eligible prior revisions；`$asof` 使用截点 Owner header/head、Tag meaning/canonicalization、relations 与 Material selection。五轴条件继续过滤返回对象。Current exact object 绑定 revision+epoch，漂移拒绝重绑；historical exact 使用 frozen past head/epoch，同时执行当前权限与 purge fence。
 
-## Query domains
+## Result projection
 
-`domains` 接受 `memory`、`schema`、`episode`、`journal`、`evidence`、`resource`。Memory、CognitiveSchema、Episode、Journal 是四个独立认知域；多个域取并集。未指定域时召回所有可用域，包括四个认知域及 Material/Evidence、Resource 引用；Subject/process capability 决定 owner 可用性。Resource host action 仍由 query resource intent 决定。
+根 ResultProjection 为非空去重集合。默认 Memory、Schema、Episode、Journal；Evidence/Resource 显式选择。`$return(cognition|domains)` 只在根定义，整树与 exact target 共享。候选 budget 前按 projection 过滤，不从子 scope 重新建立返回域。旧 domain-only target/directives 已删除，无 compatibility aliases。
 
-父级域限制由子表达式继承，子级显式域与父级取交集；exact target 也受域限制。Lexical 和 dense 在取得有界候选前筛选域，Runtime 在 fusion 前再次筛选。自动整合的相关上下文显式选择 `memory + schema`。
+## Historical Serving 与 Concept plane
+
+Memory、Material 各自投影 Owner historical semantics；Persistence 只读取 canonical chronology/immutable rows。mutable header/lexical metadata 保存在既有 Authority 数据库的 chronology，认知正文与 Tag revisions 不复制。ServingRecord 的 typed view descriptor 记录 current/historical、snapshot digest、as_of、revision view；historical generations 不发布到 serving_current，按 effective-state digest/config/space 复用，并由同一 read lease/grace/reclamation 保护。
+
+共享 lexical/dense/concept/Native/VCP builders 在 candidate generation 前选择历史 corpus。Future dense documents、Tag meanings、attachments、Associations、Schema links 与 Entity bindings 不进入历史资产。Material 的历史 effective derivations 用于 Episode interpretation fragments。当前权限撤销/purge 不能由 as-of 绕过。
+
+Tag 的 canonical normalized semantic representation/digest 与可选 embedding 为一套共享 Concept asset，别名不改变 semantic digest。无向量 attachment postings 独立支持 TagDirect；dense/Native/VCP 复用向量。QueryActivation 统一所有 explicit/exact/context 与可选 semantic/model seeds；默认 enrichment off，bare text lexical+dense 是一等路径。Graph diffusion 仅由 `$explore` 显式授权，不由 effort 或 Tag absence 隐式开启。
 
 ## Lanes and fusion
 
-当前 baseline lanes 为 exact、entity、lexical、dense、temporal、runtime，以及适用时的 SchemaDirect。每个 lane 返回 exact revision candidate、deterministic rank、generation/watermark 和 diagnostics；lane provider 不能产生 global score。
+当前 baseline lanes 为 exact、entity、lexical、dense、temporal、runtime，以及适用时的 SchemaDirect、TagDirect。每个 lane 返回 exact revision candidate、deterministic rank、generation/watermark 和 diagnostics；lane provider 不能产生 global score。
 
 - Entity/Temporal/Runtime 必须从 Authority/Runtime typed structure 生成 bounded candidates，不得 application-side arbitrary first-N。Temporal lane 只接受 occurred、observed、valid、formed、recorded typed axes；unknown 不匹配已知时间约束，多轴是 hard intersection。
 - Lexical relevance 只来自 Lexical Serving hit；不得以 DB substring admission 或 fallback rank 补造 hit。
@@ -42,7 +48,7 @@ Wave 的普通边必须支付 `normal_edge_cost`，预算不足时停止；合�
 
 ## Final authority
 
-Final validator 批量读取 current head、epoch、lifecycle、role/mode、aboutness、temporal、provenance/source class、authority/modality/epistemic 和 accessibility。Serving/lane prefilter 是优化，不是 Authority；不得产生每 candidate 一次 SQL 的 N+1 路径。
+Final validator 按绑定 view 批量读取 selected head、epoch、lifecycle、role/mode、aboutness、temporal、provenance/source class、authority/modality/epistemic 和 accessibility。Serving/lane prefilter 是优化，不是 Authority；不得产生每 candidate 一次 SQL 的 N+1 路径。
 
 已标记 stale 的 generation 可以提供 candidate source，但必须标记 degradation，并在返回前丢弃 stale revision、suppressed、purged 或 constraint 不再匹配的 candidate。Unavailable required lane 产生明确 Partial；optional lane 产生 Degraded。Query 诊断区分 budget 不足、projection unavailable、Authority 不存在和主体未知。
 
@@ -91,7 +97,13 @@ QueryRequest 的 typed `capabilities` 传递 text embedding、multimodal interpr
 Native seed preparation first uses closed exact/context/Entity/Tag/relation anchors that map into the current graph. When no anchor maps into that graph, already prepared ready/truncated lexical and dense lanes can supply weak seeds: at most four distinct graph members per lane, bounded by the graph neighbour budget, with configured `lexical_promoted`/`dense_promoted` weight divided by lane rank. Out-of-generation references and rank zero are excluded. The fallback consumes the shared query signal; it makes no additional embedding request and does not change Wave propagation. Direct graph anchors remain authoritative for explicitly associative queries. Seed origin and weight are included in readout; a promoted direct hit is not a multi-hop witness.
 
 
-Topology projection includes every current accepted/valid/unsuppressed Memory, Episode, Journal and CognitiveSchema revision when Memory capability is enabled. Existing Episode cognition members/exact supports, Journal sources, Memory dependencies and active supporting Schema evidence links supply `cognition_support` edges in both traversal directions, with one shared exact structure identity. These are source/organization adjacency, not causal or independently learned associations. Historical, withdrawn or suppressed endpoints, revoked Schema evidence, counterexamples and contradiction supports do not create positive source edges. Explicit AssociationEvidence to inactive cognition is excluded from the current graph. The topology implementation revision is 9, so older graph/VCP assets rebuild while compatible vectors remain reusable.
+Topology projection includes every current accepted/valid/unsuppressed Memory, Episode, Journal and CognitiveSchema revision when Memory capability is enabled. Existing Episode cognition members/exact supports, Journal sources, Memory dependencies and active supporting Schema evidence links supply `cognition_support` edges in both traversal directions, with one shared exact structure identity. These are source/organization adjacency, not causal or independently learned associations. Historical, withdrawn or suppressed endpoints, revoked Schema evidence, counterexamples and contradiction supports do not create positive source edges. Explicit AssociationEvidence to inactive cognition is excluded from the current graph. Native/VCP assets carry versioned implementation and config digests; incompatible assets rebuild while compatible shared vectors remain reusable.
 
 
 Material owner validates and materializes Artifact/Occurrence/SourceRegion/DerivedRepresentation/DerivedRegion in bounded Subject-scoped batches, including rerank final validation. Runtime groups candidate refs by semantic owner and does not interpret Material lineage or time through Persistence. Occurrence times come from the actual Observation; SourceRegion and derived evidence follow their real source artifacts/representation roots. An eligible source row must jointly satisfy requested occurred/observed/recorded predicates; multiple origins cannot satisfy separate predicates by mixing rows. Recorded time belongs to the returned object, and interpretation formation time is distinct from source observation. Unknown time does not satisfy a requested temporal axis, and evidence has no inferred world-valid claim. Initial owner materialization and final validation both enforce these predicates and publish known freshness. Schema owner materialization also applies all five axes and follows exact source lineage, including Memory evidence/dependencies, for occurred/observed metadata.
+
+## Host activity 与 Query feedback
+
+Host query concept role 只能选择 bounded catalog key 或提出 ephemeral hypotheses；模型不能构造 Tag identity/写 Authority。Required/optional/forbidden 分别沿既有能力合同处理。Historical embedding discovery/commit 使用同一 prepared token 的 frozen Owner view，复用 existing material cache；query embedding 不因 lane/profile 再生成。
+
+Runtime 保存有界 query feedback record：prepared/activation digest、bounded signals、实际返回的 exact revision refs、expiry，默认七天；不保存检索正文。ReportUse 的 query_id 必须同 Subject、未过期且属于 returned membership。稳定 duplicate 可在 record expiry 后重试，accepted UseEvent 不随 feedback 清理删除。Presented 不触发概念 review；refutation 不是 positive reinforcement。Maintenance planner 消费 bounded signals，但只有 Host grant 才可调用模型和提交 canonical Concept mutations。

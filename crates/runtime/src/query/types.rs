@@ -72,6 +72,9 @@ pub struct AccessibilityQueryPolicy {
 pub trait QueryReadLease: std::fmt::Debug + Send + Sync {}
 pub trait QueryActivationView: QueryReadLease {
     fn provider(&self) -> &dyn super::SharedLaneProvider;
+    fn generation_trace(&self) -> QueryGenerationTrace {
+        QueryGenerationTrace::default()
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -7,6 +7,10 @@
 - [状态入口](current-state/README.md) / [当前状态](current-state/CURRENT_STATE.md)
 - [产品合同路由](specs/INDEX.md)
 
+## Agent 入口
+
+- [Agent 使用指南](agent/README.md) / [自包含 NousQL 手册](agent/NOUSQL.md)
+
 ## 使用参考
 
 - [接口参考入口](reference/README.md)
