@@ -16,6 +16,7 @@ import {
 import { connectNousInstance } from "@nous-wave/client/node";
 import {
   assertResume,
+  assertSealedLock,
   digest,
   ignoredPath,
   json,
@@ -26,6 +27,7 @@ import {
   sourceMetrics,
   stableId,
   verifyDigest,
+  validateIdentities,
   type Identities,
   type Manifest,
   type SemanticQuery,
@@ -65,6 +67,7 @@ export interface RunState {
     max_calls: number;
     max_elapsed_ms: number;
     status: string;
+    finished_at?: string;
     error?: string;
   }[];
   freeze?: {
@@ -72,6 +75,8 @@ export interface RunState {
     raw_control: string;
     snapshot_digest: string;
     review_digest: string;
+    tag_bindings?: Record<string, string>;
+    retrieval_authority?: { formed: string; raw_control: string };
   };
 }
 /** Persist pending intent before the remote effect; replay only operations with public stable identity. */
@@ -423,7 +428,7 @@ export class SemanticRun {
         captured_now?: string;
         now?: string;
       };
-      authority_watermark: string;
+      authority_watermark: string | number;
     };
     const clock =
       bound.temporal_frame.clock_now ??
@@ -444,9 +449,8 @@ export class SemanticRun {
       if (this.state.checkpoints[c.id]) continue;
       await this.ingestCheckpoint(c, !ingestOnly);
       if (ingestOnly) {
-        this.state.phases.ingest = "PASS";
-        await this.save();
-        return;
+        if (throughCheckpoint === c.id) break;
+        continue;
       }
       const closeKey = `close/${c.id}`;
       const session = this.state.operations[`session/${c.id}`]!.result as {
@@ -475,6 +479,15 @@ export class SemanticRun {
       };
       await this.save();
       if (throughCheckpoint === c.id) break;
+    }
+    if (ingestOnly) {
+      this.state.phases.ingest =
+        throughCheckpoint &&
+        throughCheckpoint !== this.manifest.checkpoints.at(-1)?.id
+          ? "IN_PROGRESS"
+          : "PASS";
+      await this.save();
+      return;
     }
     this.state.phases.formation = this.manifest.checkpoints.every(
       (c) => this.state.checkpoints[c.id],
@@ -593,12 +606,15 @@ export class SemanticRun {
   }
   async freeze() {
     if (this.state.freeze) return;
-    const review = parseJson<{
+    const review = parseJson(
+      await readFile(join(this.output, "review.json"), "utf8"),
+    ) as {
       decision: string;
       snapshot_digest: string;
       notes: string[];
       blockers: string[];
-    }>(await readFile(join(this.output, "review.json"), "utf8"));
+      tag_bindings?: Record<string, string>;
+    };
     if (
       review.decision !== "ACCEPTABLE_FOR_RETRIEVAL" ||
       !review.notes?.length ||
@@ -621,6 +637,7 @@ export class SemanticRun {
       raw_control: String(raw.authoritySeq),
       snapshot_digest: review.snapshot_digest,
       review_digest: digest(json(review)),
+      tag_bindings: review.tag_bindings,
     };
     this.state.phases.review = "PASS";
     await this.save();
@@ -631,7 +648,11 @@ export class SemanticRun {
       { subjectId: this.state.subjects[track] },
       this.options,
     );
-    if (String(subject.authoritySeq) !== this.state.freeze[track])
+    if (
+      String(subject.authoritySeq) !==
+      (this.state.freeze.retrieval_authority?.[track] ??
+        this.state.freeze[track])
+    )
       throw new Error(
         `BLOCKED Authority mutation during frozen retrieval: ${track}`,
       );
@@ -737,18 +758,22 @@ export class SemanticRun {
     if (variant === "entity" && q.entity_ref)
       cues.push({ cue: { case: "entityRef", value: q.entity_ref } });
     if (variant === "tag_direct" || variant === "explore") {
-      const resolved = await this.client.identity.resolve(
-        {
-          subjectId,
-          kind: "tag",
-          locator: { case: "name", value: q.concept_text ?? "" },
-        },
-        this.options,
-      );
+      const selected = this.state.freeze?.tag_bindings?.[q.id];
+      const resolved = selected
+        ? undefined
+        : await this.client.identity.resolve(
+            {
+              subjectId,
+              kind: "tag",
+              locator: { case: "name", value: q.concept_text ?? "" },
+            },
+            this.options,
+          );
       const id =
-        resolved.status === "BOUND"
+        selected ??
+        (resolved?.status === "BOUND"
           ? resolved.candidates[0]?.canonical?.value
-          : undefined;
+          : undefined);
       if (!id || !tags.some((t) => t.tagId === id))
         throw new Error(`NOT_RUN: no unique naturally formed Tag for ${q.id}`);
       cues.splice(0, cues.length, { cue: { case: "tagId", value: id } });
@@ -785,6 +810,46 @@ export class SemanticRun {
   async retrieval() {
     await this.freeze();
     const snapshot = await this.snapshot();
+    for (const track of ["formed", "raw_control"] as const) {
+      for (let batch = 0; batch < 64; batch++) {
+        const key = `embeddings/${track}/${batch}`;
+        if (!this.state.operations[key]) await this.budget();
+        const request = { subjectId: this.state.subjects[track], limit: 10 };
+        const receipt = await this.call(key, request, false, () =>
+          this.client.model.prepareEmbeddings(request, this.options),
+        );
+        if (receipt.degradation.length)
+          throw new Error(
+            `BLOCKED embedding preparation: ${json(receipt.degradation)}`,
+          );
+        if (!receipt.committed) break;
+      }
+    }
+    if (
+      digest(json(await this.snapshot())) !== this.state.freeze!.snapshot_digest
+    )
+      throw new Error("BLOCKED cognition changed during Serving preparation");
+    if (!this.state.freeze!.retrieval_authority) {
+      this.state.freeze!.retrieval_authority = {
+        formed: String(
+          (
+            await this.client.subjects.get(
+              { subjectId: this.state.subjects.formed },
+              this.options,
+            )
+          ).authoritySeq,
+        ),
+        raw_control: String(
+          (
+            await this.client.subjects.get(
+              { subjectId: this.state.subjects.raw_control },
+              this.options,
+            )
+          ).authoritySeq,
+        ),
+      };
+      await this.save();
+    }
     for (const q of this.manifest.queries)
       for (const variant of q.variants)
         for (const track of variant === "plain"
@@ -793,7 +858,9 @@ export class SemanticRun {
           let preparedDigest: string | undefined;
           for (const profile of variant === "profiles"
             ? profiles
-            : ["baseline-rrf"]) {
+            : variant === "explore"
+              ? ["nous-node-potential-v1"]
+              : ["baseline-rrf"]) {
             const key = `query/${track}/${q.id}/${variant}/${profile}`;
             if (this.state.operations[key]?.status === "complete") continue;
             const authority = await this.assertFrozen(track);
@@ -834,11 +901,50 @@ export class SemanticRun {
               }
               throw error;
             }
-            const prepared = await this.client.cognition.prepareQuery(
+            let prepared: Awaited<
+              ReturnType<NousClient["cognition"]["prepareQuery"]>
+            >;
+            try {
+              prepared = await this.client.cognition.prepareQuery(
                 request,
                 this.options,
-              ),
-              hash = digest(prepared.embeddingText);
+              );
+            } catch (error) {
+              if (
+                error instanceof Error &&
+                error.message.includes("UNRESOLVED_QUERY_REFERENCE")
+              ) {
+                await this.call(
+                  key,
+                  { q, variant, profile },
+                  true,
+                  async () => ({
+                    pack: this.manifest.pack_id,
+                    query_key: q.id,
+                    track,
+                    variant,
+                    profile,
+                    status: "BLOCKED",
+                    executed: false,
+                    problem: error.message,
+                  }),
+                );
+                await saveJson(
+                  join(this.output, "query-results.json"),
+                  Object.entries(this.state.operations)
+                    .filter(
+                      ([k, o]) =>
+                        k.startsWith("query/") &&
+                        !k.endsWith("/response") &&
+                        o.status === "complete",
+                    )
+                    .map(([, o]) => o.result),
+                );
+                continue;
+              }
+              throw error;
+            }
+            const hash = digest(prepared.embeddingText);
             if (preparedDigest && preparedDigest !== hash)
               throw new Error(
                 "Prepared semantic input changed across profiles",
@@ -902,16 +1008,28 @@ export class SemanticRun {
             );
           }
         }
-    this.state.phases.retrieval = "PASS";
+    this.state.phases.retrieval = Object.entries(this.state.operations).some(
+      ([k, o]) =>
+        k.startsWith("query/") &&
+        !k.endsWith("/response") &&
+        (o.result as { status?: string })?.status === "BLOCKED",
+    )
+      ? "COMPLETED_WITH_BLOCKED_ARMS"
+      : "PASS";
     await this.save();
   }
   async feedback() {
-    if (this.state.phases.retrieval !== "PASS")
+    if (
+      !["PASS", "COMPLETED_WITH_BLOCKED_ARMS"].includes(
+        this.state.phases.retrieval ?? "",
+      )
+    )
       throw new Error("Complete main frozen retrieval before feedback");
     const subjectId = this.state.subjects.formed;
     const chosen = Object.entries(this.state.operations).find(
       ([k, o]) =>
         k.startsWith("query/formed/") &&
+        k.includes("/tag_direct/") &&
         k.endsWith("/response") &&
         (o.result as Response).hits.some((h) => h.revision),
     );
@@ -924,12 +1042,12 @@ export class SemanticRun {
     await this.config(subjectId, "maintenance.concept_use_review_interval", 1);
     const records = [];
     for (const kind of ["presented", "result_supported", "result_refuted"]) {
-      const key = `feedback/${kind}`,
+      const key = `feedback-v2/${kind}`,
         old = this.state.operations[`${key}/input`];
       const request = (old?.result as
         Parameters<NousClient["cognition"]["reportUse"]>[0] | undefined) ?? {
         subjectId,
-        consumerRef: "consumer:core-cognition-qualification",
+        consumerRef: "consumer:research:core-cognition-qualification",
         events: [
           {
             eventId: this.id(key),
@@ -983,6 +1101,16 @@ export class SemanticRun {
           digest(json(tagsAfter.associations))
       )
         throw new Error("BLOCKED concept mutation without Host grant");
+      if (kind === "presented") {
+        const presentedGrant = await this.grant(
+          "feedback/presented-only-grant",
+          subjectId,
+          4,
+        );
+        records.push({ presented_only_grant: presentedGrant });
+        // A normal Episode may settle during this grant and enqueue its own concept need.
+        // Correlation requires exact focus/input trace review; kind alone cannot attribute work to presentation.
+      }
     }
     const grant = await this.grant("feedback/maintenance", subjectId, 8);
     await saveJson(join(this.output, "feedback-results.json"), {
@@ -994,6 +1122,230 @@ export class SemanticRun {
         "Negative signal and presented need behavior require maintenance input/trace review; legal no_change/reject accepted.",
     });
     this.state.phases.feedback = "PASS";
+    await this.save();
+  }
+  async revisionSlice() {
+    if (
+      this.manifest.pack_id !== "cpython" ||
+      this.state.phases.formation !== "PASS"
+    )
+      throw new Error(
+        "CPython source formation must complete before independent controlled revision",
+      );
+    const slice = JSON.parse(
+      await readFile(
+        "docs/research/corpus/core-cognition/revision-slice.json",
+        "utf8",
+      ),
+    ) as {
+      early_source: string;
+      later_source: string;
+      early_text: string;
+      later_text: string;
+      tag: { label: string; description: string; kindHint: string };
+      identity_oracle: string;
+    };
+    const sliceDigest = digest(json(slice));
+    const subjectId = this.id("revision-slice-subject");
+    const create = {
+      subjectId,
+      operationId: this.id("revision-slice-create"),
+      capabilities: { memory: true },
+      cognitiveSeed: {
+        text: "schema_version = 1",
+        format: "application/vnd.nous-wave.cognitive-seed+toml;version=1",
+        provenance: {},
+      },
+    };
+    await this.call("revision/subject", create, true, () =>
+      this.client.subjects.create(create, this.options),
+    );
+    await this.config(subjectId, "maintenance.enabled", true);
+    const tagRequest = {
+      subjectId,
+      operationId: this.id("revision-tag"),
+      tag: { ...slice.tag, origin: "explicit" },
+    };
+    const tag = await this.call("revision/tag", tagRequest, true, () =>
+      this.client.concepts.createTag(tagRequest, this.options),
+    );
+    const observe = async (id: string, key: string) => {
+      const source = this.manifest.sources.find((s) => s.id === id)!;
+      const request = {
+        subjectId,
+        requestId: this.id(key),
+        ...webSource(source.url),
+        occurredTime: {
+          value: {
+            case: "instant" as const,
+            value: at(source.publication_time),
+          },
+        },
+        material: {
+          case: "inlineText" as const,
+          value: {
+            text: await readFile(source.text_path, "utf8"),
+            mediaType: "text/plain",
+          },
+        },
+      };
+      return this.call(key, request, true, () =>
+        this.client.cognition.observe(request, this.options),
+      );
+    };
+    const early = await observe(
+      slice.early_source,
+      "revision/early-observation",
+    );
+    const content = (text: string, occurrenceId: string) => ({
+      cognitiveRole: "declarative",
+      formationMode: "grounded",
+      groundingOccurrenceId: occurrenceId,
+      semanticRole: "runtime_compatibility_rule",
+      text,
+      epistemicClass: "observed",
+      supports: [
+        {
+          support: {
+            case: "evidence" as const,
+            value: {
+              occurrenceId,
+              locator: { case: "wholeOccurrence" as const, value: true },
+              supportRole: "direct",
+            },
+          },
+        },
+      ],
+    });
+    const form = {
+      subjectId,
+      operationId: this.id("revision/initial-memory"),
+      input: {
+        ...content(slice.early_text, early.occurrenceId),
+        tags: [tag.tagId],
+      },
+    };
+    const initial = await this.call(
+      "revision/initial-memory",
+      { sliceDigest, form },
+      true,
+      () => this.client.memory.form(form, this.options),
+    );
+    const direct = async (key: string, asOf?: string, history = false) => {
+      const request: Query = {
+        subjectId,
+        expression: {
+          operation: "atom",
+          cues: [{ cue: { case: "tagId", value: tag.tagId } }],
+          modifiers: {
+            limit: 10,
+            materialize: true,
+            diagnostics: "full",
+            asOf: asOf ? at(asOf) : undefined,
+            history,
+          },
+        },
+        capabilities: {
+          textEmbedding: "forbidden",
+          rerank: "forbidden",
+          queryConceptEnrichment: "forbidden",
+        },
+      };
+      const response = await this.call(key, request, false, () =>
+        this.client.cognition.query(request, this.options),
+      );
+      return {
+        query_id: response.queryId,
+        refs: response.hits.map(normalizeHit),
+        degradation: response.degradation,
+        diagnostics: response.diagnostics,
+        bound_query: response.boundQuery,
+      };
+    };
+    const before = await direct("revision/direct-before");
+    const oldCut = await this.call("revision/cut", {}, true, () =>
+      this.captureCut(subjectId),
+    );
+    const later = await observe(
+      slice.later_source,
+      "revision/later-observation",
+    );
+    const revise = {
+      subjectId,
+      operationId: this.id("revision/rephrase"),
+      memoryId: initial.memoryId,
+      expectedObjectEpoch: initial.objectEpoch,
+      intent: "rephrase",
+      input: content(slice.later_text, later.occurrenceId),
+    };
+    const revised = await this.call(
+      "revision/rephrase",
+      { sliceDigest, revise },
+      true,
+      () => this.client.memory.revise(revise, this.options),
+    );
+    const immediate = await direct("revision/direct-immediate");
+    const historical = await direct("revision/direct-asof", oldCut.cut, true);
+    const historyRequest: Query = {
+      subjectId,
+      nousql:
+        '"free-threaded CPython GIL runtime re-enablement" $history $diagnostics(full)',
+      capabilities: {
+        textEmbedding: "forbidden",
+        rerank: "forbidden",
+        queryConceptEnrichment: "forbidden",
+      },
+    };
+    const history = await this.call(
+      "revision/history",
+      historyRequest,
+      false,
+      () => this.client.cognition.query(historyRequest, this.options),
+    );
+    const grant = await this.grant("revision/maintenance", subjectId, 8);
+    const after = await direct("revision/direct-after");
+    const has = (r: typeof before, revision: string) =>
+      r.refs.some(
+        (h) =>
+          h.revision?.value === revision || h.reference?.value === revision,
+      );
+    const outcome = has(immediate, revised.revisionId)
+      ? "continuity_preserved"
+      : has(after, revised.revisionId)
+        ? "continuity_lost_until_maintenance"
+        : "continuity_lost_permanently";
+    const record = {
+      slice_digest: sliceDigest,
+      identity_oracle: slice.identity_oracle,
+      subjectId,
+      tag,
+      initial,
+      revised,
+      before,
+      immediate,
+      historical,
+      oldCut,
+      after,
+      grant,
+      outcome,
+      history: {
+        refs: history.hits.map(normalizeHit),
+        diagnostics: history.diagnostics,
+        degradation: history.degradation,
+      },
+      history_api: await this.client.memory.history(
+        { subjectId, memoryId: initial.memoryId, page: { pageSize: 64 } },
+        this.options,
+      ),
+    };
+    await saveJson(join(this.output, "revision-results.json"), record);
+    if (!has(before, initial.revisionId))
+      throw new Error("BLOCKED explicit Tag has no initial direct recall");
+    if (historical.refs.some((h) => h.revision?.value === revised.revisionId))
+      throw new Error(
+        "BLOCKED future Memory revision leaked through historical Tag view",
+      );
+    this.state.phases.revision = "PASS";
     await this.save();
   }
   async accounting() {
@@ -1076,6 +1428,7 @@ if (
       ledger: { type: "string" },
       "trace-root": { type: "string" },
       identities: { type: "string" },
+      "sealed-lock": { type: "string" },
       "max-model-calls": { type: "string" },
       "max-elapsed-ms": { type: "string" },
     },
@@ -1110,19 +1463,44 @@ if (
       "review-export",
       "retrieval",
       "feedback",
+      "revision",
       "all",
     ].includes(values.phase)
   )
     throw new Error("Unknown phase");
   const output = ignoredPath(values.output);
   await mkdir(output, { recursive: true, mode: 0o700 });
-  const lock = await open(join(output, "runner.lock"), "wx", 0o600);
+  const lockPath = join(output, "runner.lock");
+  try {
+    const pid = Number(await readFile(lockPath, "utf8"));
+    if (!Number.isSafeInteger(pid) || pid < 1)
+      throw new Error("Invalid runner lock PID");
+    try {
+      process.kill(pid, 0);
+      throw new Error("Another runner owns this run");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+      await unlink(lockPath);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const lock = await open(lockPath, "wx", 0o600);
   await lock.writeFile(String(process.pid));
+  let state: RunState | undefined;
+  let executionStarted = false;
   try {
     const loaded = await loadManifest(resolve(values.manifest));
-    const supplied = JSON.parse(
-      await readFile(values.identities, "utf8"),
-    ) as Identities;
+    if (
+      values["through-checkpoint"] &&
+      !loaded.manifest.checkpoints.some(
+        (checkpoint) => checkpoint.id === values["through-checkpoint"],
+      )
+    )
+      throw new Error("Unknown through-checkpoint");
+    const supplied = validateIdentities(
+      JSON.parse(await readFile(values.identities, "utf8")),
+    );
     const identities = {
       ...supplied,
       manifest: loaded.manifestDigest,
@@ -1147,11 +1525,21 @@ if (
           )),
       ),
     };
-    let state: RunState;
-    try {
-      state = parseJson<RunState>(
-        await readFile(join(output, "state.json"), "utf8"),
+    if (loaded.manifest.role === "sealed" && values.phase !== "acquire-check") {
+      if (!values["sealed-lock"])
+        throw new Error(
+          "BLOCKED: reviewed --sealed-lock required before sealed live work",
+        );
+      assertSealedLock(
+        JSON.parse(await readFile(ignoredPath(values["sealed-lock"]), "utf8")),
+        loaded.manifest.pack_id,
+        identities,
       );
+    }
+    try {
+      state = parseJson(
+        await readFile(join(output, "state.json"), "utf8"),
+      ) as RunState;
       assertResume(state.identities, identities, state.sealed);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -1180,6 +1568,7 @@ if (
       max_elapsed_ms: maxElapsed,
       status: "IN_PROGRESS",
     });
+    executionStarted = true;
     await saveJson(join(output, "state.json"), state);
     for (const s of loaded.manifest.sources) {
       verifyDigest(await readFile(s.raw_path), s.raw_sha256, `${s.id}/raw`);
@@ -1191,6 +1580,8 @@ if (
     }
     if (values.phase === "acquire-check") {
       state.phases["acquire-check"] = "PASS";
+      state.executions.at(-1)!.status = "PASS";
+      state.executions.at(-1)!.finished_at = new Date().toISOString();
       await saveJson(join(output, "state.json"), state);
       console.log("Source digests PASS");
     } else {
@@ -1207,13 +1598,13 @@ if (
         maxElapsed,
         ignoredPath(values["trace-root"]),
       );
-      const config = await client.configuration.get({
-        view: ConfigurationView.ACTIVE,
-        exposureCeiling: ConfigExposure.DEVELOPER,
-      });
-      if (supplied.active_config !== config.effectiveDigest)
-        throw new Error("Active Core config differs from frozen identity");
       try {
+        const config = await client.configuration.get({
+          view: ConfigurationView.ACTIVE,
+          exposureCeiling: ConfigExposure.DEVELOPER,
+        });
+        if (supplied.active_config !== config.effectiveDigest)
+          throw new Error("Active Core config differs from frozen identity");
         await run.checkSources();
         if (["ingest", "formation", "all"].includes(values.phase))
           await run.formation(
@@ -1227,9 +1618,30 @@ if (
           await run.reviewExport();
         if (["retrieval", "all"].includes(values.phase)) await run.retrieval();
         if (values.phase === "feedback") await run.feedback();
+        if (values.phase === "revision") await run.revisionSlice();
+      } catch (error) {
+        const execution = state.executions!.at(-1)!;
+        execution.status = "BLOCKED";
+        execution.error =
+          error instanceof Error ? error.message : String(error);
+        throw error;
       } finally {
+        const execution = state.executions!.at(-1)!;
+        if (execution.status === "IN_PROGRESS")
+          execution.status = state.phases[values.phase] ?? "PASS";
+        execution.finished_at = new Date().toISOString();
         await run.accounting();
         await run.save();
+        await saveJson(join(output, "run.json"), {
+          ...state,
+          operations: undefined,
+          output,
+          ledger: values.ledger,
+          trace_root: values["trace-root"],
+          max_calls: maxCalls,
+          max_elapsed_ms: maxElapsed,
+          updated_at: new Date().toISOString(),
+        });
       }
     }
     await saveJson(join(output, "run.json"), {
@@ -1242,6 +1654,24 @@ if (
       max_elapsed_ms: maxElapsed,
       updated_at: new Date().toISOString(),
     });
+  } catch (error) {
+    if (
+      executionStarted &&
+      state?.executions?.at(-1)?.status === "IN_PROGRESS"
+    ) {
+      const execution = state.executions.at(-1)!;
+      execution.status = "BLOCKED";
+      execution.error = error instanceof Error ? error.message : String(error);
+      execution.finished_at = new Date().toISOString();
+      await saveJson(join(output, "state.json"), state);
+      await saveJson(join(output, "run.json"), {
+        ...state,
+        operations: undefined,
+        output,
+        updated_at: execution.finished_at,
+      });
+    }
+    throw error;
   } finally {
     await lock.close();
     await unlink(join(output, "runner.lock"));

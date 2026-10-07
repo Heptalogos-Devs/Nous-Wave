@@ -14,12 +14,12 @@ export const json = (value: unknown) =>
     (_key, v: unknown) => (typeof v === "bigint" ? { $bigint: String(v) } : v),
     2,
   ) + "\n";
-export const parseJson = <T>(text: string): T =>
-  JSON.parse(text, (_key, v: unknown) =>
+export const parseJson = (input: string): unknown =>
+  JSON.parse(input, (_key, v: unknown) =>
     v && typeof v === "object" && "$bigint" in v
       ? BigInt(String(v.$bigint))
       : v,
-  ) as T;
+  ) as unknown;
 export function stableId(run: string, key: string) {
   const h = digest(`${run}\0${key}`);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
@@ -166,8 +166,9 @@ export function validateManifest(value: unknown): Manifest {
     text(q.category, "category");
     text(q.oracle_notes, "oracle_notes");
     for (const k of ["expected_sources", "forbidden_sources"])
-      for (const id of strings(q[k], k))
-        if (!known.has(id)) throw new Error("Unknown query oracle source");
+      for (const sourceId of strings(q[k], k))
+        if (!known.has(sourceId))
+          throw new Error("Unknown query oracle source");
     for (const variant of strings(q.variants, "variants"))
       if (
         ![
@@ -184,7 +185,7 @@ export function validateManifest(value: unknown): Manifest {
         ].includes(variant)
       )
         throw new Error("Unknown query variant");
-    if (q.knowledge_cut && !cuts.has(String(q.knowledge_cut)))
+    if (q.knowledge_cut && !cuts.has(text(q.knowledge_cut, "knowledge_cut")))
       throw new Error("Unknown knowledge cut");
   }
   return m as unknown as Manifest;
@@ -203,7 +204,7 @@ export async function loadManifest(path: string) {
     };
     const paths = record(spec.source_paths);
     spec.sources = strings(spec.source_ids, "source_ids").map((id) => {
-      const s = catalog.sources.find((s) => s.id === id);
+      const s = catalog.sources.find((source) => source.id === id);
       if (!s) throw new Error(`Unknown catalog source ${id}`);
       return {
         ...s,
@@ -256,6 +257,47 @@ export async function loadManifest(path: string) {
   };
 }
 export type Identities = Record<string, string>;
+export function validateIdentities(value: unknown): Identities {
+  const identities = record(value);
+  for (const key of [
+    "model",
+    "prompt",
+    "schema",
+    "embedding",
+    "config",
+    "active_config",
+    "vault",
+    "product_head",
+    "kernel_binary",
+  ]) {
+    const identity = text(identities[key], key);
+    if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(identity))
+      throw new Error(`Invalid ${key} identity`);
+  }
+  for (const [key, identity] of Object.entries(identities)) text(identity, key);
+  return identities as Identities;
+}
+/** One reviewed lock binds both sealed packs to the same calibration/configuration. */
+export function assertSealedLock(
+  value: unknown,
+  pack: string,
+  identities: Identities,
+) {
+  const lock = record(value);
+  if (lock.calibration_status !== "PASS")
+    throw new Error(
+      "BLOCKED: sealed qualification requires passing calibration",
+    );
+  const results = record(lock.calibration_results);
+  for (const key of ["simon", "cpython"])
+    if (!/^[a-f0-9]{64}$/.test(text(results[key], key)))
+      throw new Error(`Invalid calibration ${key} result digest`);
+  const expected = {
+    ...record(lock.identities),
+    ...record(record(lock.packs)[pack]),
+  };
+  assertResume(expected as Identities, identities, true);
+}
 export function assertResume(
   before: Identities,
   current: Identities,

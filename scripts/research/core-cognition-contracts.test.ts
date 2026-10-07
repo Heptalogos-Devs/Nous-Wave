@@ -8,6 +8,8 @@ import {
   sourceMetrics,
   normalizeHit,
   verifyDigest,
+  validateIdentities,
+  assertSealedLock,
 } from "./core-cognition-contracts.js";
 const manifest = {
   version: 1,
@@ -41,6 +43,45 @@ const manifest = {
   ],
 };
 describe("semantic research contracts", () => {
+  it("requires reproducible identities and rejects sealed work after failed calibration or pack drift", () => {
+    expect(() => validateIdentities({})).toThrow(/model/);
+    const identities = Object.fromEntries(
+      [
+        "model",
+        "prompt",
+        "schema",
+        "embedding",
+        "config",
+        "active_config",
+        "vault",
+        "product_head",
+        "kernel_binary",
+      ].map((key) => [key, "a".repeat(64)]),
+    );
+    expect(validateIdentities(identities)).toEqual(identities);
+    const pack = { manifest: "m", oracle: "o", source: "s" };
+    const lock = {
+      calibration_status: "PASS",
+      calibration_results: { simon: "a".repeat(64), cpython: "b".repeat(64) },
+      identities,
+      packs: { rust: pack },
+    };
+    expect(() =>
+      assertSealedLock(lock, "rust", { ...identities, ...pack }),
+    ).not.toThrow();
+    expect(() =>
+      assertSealedLock({ ...lock, calibration_status: "FAIL" }, "rust", {
+        ...identities,
+        ...pack,
+      }),
+    ).toThrow(/calibration/);
+    expect(() =>
+      assertSealedLock(lock, "rust", { ...identities, ...pack, oracle: "new" }),
+    ).toThrow(/oracle/);
+    expect(() =>
+      assertSealedLock(lock, "kafka", { ...identities, ...pack }),
+    ).toThrow();
+  });
   it("rejects unknown/duplicate source membership and invented query supports", () => {
     expect(validateManifest(manifest).pack_id).toBe("fixture");
     expect(() =>
