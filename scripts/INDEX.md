@@ -33,6 +33,9 @@
 | [research/model-trace.ts](research/model-trace.ts) | 检查单次真实 wire attempt |
 | [research/gateway.ts](research/gateway.ts)                                   | run-owned 代理及调用计数实现          |
 | [research/cognitive-functional.ts](research/cognitive-functional.ts) | 连接既有 public Core，运行手工认知语料与六项 selected raw-text compatibility |
+| [research/core-cognition-semantic.ts](research/core-cognition-semantic.ts) | official Client 真实来源 formation-first qualification、resume、feedback/revision |
+| [research/core-cognition-contracts.ts](research/core-cognition-contracts.ts) | source/manifest/result identities、sealed 门禁与 source metrics |
+| [research/core-cognition-contracts.test.ts](research/core-cognition-contracts.test.ts)、[research/core-cognition-semantic.test.ts](research/core-cognition-semantic.test.ts) | 不调用 provider 的研究 runner 合同检查 |
 | [research/longitudinal.ts](research/longitudinal.ts) | 纵向认知模型 proposal 人工研究 |
 | [research/media.ts](research/media.ts)                                       | 媒体导入、派生和检索实验              |
 | [research/model-call-guard.test.ts](research/model-call-guard.test.ts)       | 预算恢复与耗尽合同                    |
