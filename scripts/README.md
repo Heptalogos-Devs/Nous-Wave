@@ -152,6 +152,18 @@ Runner 通过真实配置角色和 canonical Structured Output 生成一次 prop
 
 ## 小型认知功能验证
 
+### Core Cognition Semantic Qualification
+
+`corepack pnpm research:core-cognition` 连接已有普通 Core；[方法](../docs/research/core-cognition-semantic.md)与[实际结果](../docs/research/core-cognition-2026-10-07.md)由 research docs 维护。示例：
+
+```text
+corepack pnpm research:core-cognition --run-root data/instances/core-cognition-qualification/run --manifest docs/research/corpus/core-cognition/simon.json --phase formation --output data/research/runs/core-cognition-2026-10-07/simon-new --identities data/research/runs/core-cognition-2026-10-07/identities.json --ledger data/research/runs/core-cognition-2026-10-07/gateway-ledger.json --trace-root data/research/runs/core-cognition-2026-10-07/traces --max-model-calls 256 --max-elapsed-ms 600000
+```
+
+要求 ignored source cache 已就绪、model traffic 指向 `research:gateway`。`--manifest`、`--output`、`--identities`、`--ledger`、`--trace-root` 与两个正整数预算为必填；除 `acquire-check` 外还要求 `--run-root`。阶段为 `acquire-check / ingest / formation / review-export / retrieval / feedback / revision / all`，默认 `all`；首次 `all` 没有人工接受的 `review.json` 会在 retrieval gate 停止。`--through-checkpoint` 可限制 formation 的来源阶段。恢复使用同 output/manifest；未知非幂等 paid effect 不自动 replay。
+
+`identities.json` 必含 model、prompt、schema、embedding、config、active_config、vault、product_head、kernel_binary；值为 SHA/commit identity，可通过 production `inspect:model-contracts` 和实际配置生成。sealed live phase 额外要求 `--sealed-lock <ignored JSON>`：`calibration_status=PASS`、`calibration_results` 中 Simon/CPython result SHA256、`identities` 共同冻结 keys、`packs[pack_id]` 的 manifest/oracle/source keys；整组值必须与当前执行一致。失败 calibration 不能签发 passing lock。本轮已形成的失败/反馈证据不应再使用 `all` 重跑。
+
 [手工功能语料](../docs/research/corpus/functional/README.md)和[六项 text-only 选择](../docs/research/corpus/text-compatibility-selection.json)定义本轮范围。功能 runner 通过 public Client 连接已经运行的 Core，不负责数据库、Kernel、clock、embedding cache 或 Serving lifecycle。结果写入 ignored `data/research/`。全量外部 benchmark、付费 rerank/provider 比较与 RAGFlow 不在本轮执行。
 
 

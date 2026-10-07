@@ -2,6 +2,10 @@
 
 [返回文档目录](../INDEX.md)
 
+## Core Cognition Semantic Qualification（2026-10-07）
+
+[集中报告](core-cognition-2026-10-07.md)保存真实 source calibration、exact refs、usage 与状态。Simon formation 可用于部分 retrieval，CPython creation/acceptance 日期混淆传播到 Tag；bare-text closure guard 阻塞原始问题与 enrichment/profile 矩阵。反馈与独立 revision/history slices 实际通过，native 有截断但可核查的两跳 witness。Rust/Kafka sealed 因 calibration blockers 未执行；保留 enrichment `off`，不晋升 profile。
+
 ## 2026-10-02 文本检索
 
 测量使用 6 个文本来源、105 个语义单元和 40 条 grounded query。controlled 与 end-to-end 各使用固定 Authority；end-to-end 完成 105 次 formation。四个 track/variant 组合各执行 40 条查询。
