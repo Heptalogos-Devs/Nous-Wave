@@ -31,6 +31,14 @@ impl TextEmbeddingProvider for EmbeddingProbe {
     }
     fn producer(&self) -> ProducerSignature {
         ProducerSignature {
+            model_role: None,
+            model_profile: None,
+            execution_profile: None,
+            inference_controls_digest: None,
+            role_policy_digest: None,
+            prompt_id: None,
+            prompt_digest: None,
+
             signature_hash: "signals-producer".into(),
             provider_class: "probe".into(),
             operation: CapabilityOperation::TextEmbedding,
@@ -64,7 +72,7 @@ fn query() -> CognitiveQuery {
             domains: vec![ResultDomain::Memory],
         },
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         work_context: None,
         api_version: API_VERSION,
         subject: SubjectId::new(),

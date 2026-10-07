@@ -8,9 +8,9 @@
 
 use chrono::{DateTime, Utc};
 pub use nous_core::cognition::{
-    AcceptanceState, CognitionDependency, DependencyRelation, EvidenceLocator, EvidenceRef,
-    EvidenceRoot, EvidenceRootCertainty, IntegrityState, PurgeState, RevisionSupport, SupportRole,
-    SuppressionState, dependency_relation,
+    AcceptanceState, BasisRole, CognitionDependency, DependencyRelation, EpistemicRelation,
+    EvidenceLocator, EvidenceRef, EvidenceRoot, EvidenceRootCertainty, IntegrityState, PurgeState,
+    RevisionBasis, SuppressionState, dependency_relation,
 };
 use nous_core::{
     AssociationEvidenceId, CognitiveRef, CognitiveSchemaId, CognitiveSchemaRevisionId, EntityRef,
@@ -202,7 +202,7 @@ impl AssociationPolarity {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AssociationSupportClass {
+pub enum AssociationBasisClass {
     HostExplicit,
     SourceEvidence,
     CognitiveDerivation,
@@ -227,12 +227,21 @@ impl UseEventRef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AssociationSupport {
-    Revision(RevisionSupport),
+pub enum AssociationBasis {
+    Revision(RevisionBasis),
     UseEvent(UseEventRef),
 }
 
-impl AssociationSupportClass {
+impl AssociationBasis {
+    pub fn epistemic_relation(&self) -> Option<EpistemicRelation> {
+        match self {
+            Self::Revision(v) => v.epistemic_relation(),
+            Self::UseEvent(_) => None,
+        }
+    }
+}
+
+impl AssociationBasisClass {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::HostExplicit => "host_explicit",
@@ -252,8 +261,8 @@ pub struct AssociationEvidence {
     pub to: CognitiveRef,
     pub relation_kind: String,
     pub polarity: AssociationPolarity,
-    pub support_class: AssociationSupportClass,
-    pub supports: Vec<AssociationSupport>,
+    pub basis_class: AssociationBasisClass,
+    pub basis: Vec<AssociationBasis>,
     pub producer_signature_id: Option<Uuid>,
     pub valid_time: TemporalExtent,
     pub created_at: DateTime<Utc>,
@@ -281,7 +290,7 @@ pub struct ExplicitMemoryInput {
     pub representation_text: String,
     pub title: Option<String>,
     #[serde(default)]
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
     #[serde(default)]
     pub aboutness: Vec<EntityRef>,
     #[serde(default)]
@@ -298,17 +307,17 @@ impl ExplicitMemoryInput {
         }
         validate_content(&self.semantic_role, &self.representation_text)?;
         self.valid_time.validate()?;
-        if self.supports.is_empty() {
+        if self.basis.is_empty() {
             return Err(Error::Invalid("a Memory revision needs support".into()));
         }
-        validate_supports(
+        validate_basis(
             self.formation_mode,
             self.grounding_occurrence_id,
-            &self.supports,
+            &self.basis,
         )?;
         let mut keys = std::collections::BTreeSet::new();
-        for support in &self.supports {
-            if !keys.insert(support.canonical_key()) {
+        for basis in &self.basis {
+            if !keys.insert(basis.canonical_key()) {
                 return Err(Error::Invalid("duplicate revision support".into()));
             }
         }
@@ -341,18 +350,18 @@ pub fn validate_content(semantic_role: &str, representation_text: &str) -> Resul
     Ok(())
 }
 
-fn validate_supports(
+fn validate_basis(
     mode: FormationMode,
     grounding_occurrence: Option<OccurrenceId>,
-    supports: &[RevisionSupport],
+    basis: &[RevisionBasis],
 ) -> Result<()> {
     match mode {
         FormationMode::Grounded => {
             let occurrence = grounding_occurrence.ok_or_else(|| {
                 Error::Invalid("grounded formation requires grounding_occurrence_id".into())
             })?;
-            if !supports.iter().any(|support| {
-                matches!(support, RevisionSupport::Evidence(evidence) if evidence.occurrence_id == occurrence)
+            if !basis.iter().any(|basis| {
+                matches!(basis, RevisionBasis::Evidence(evidence) if evidence.occurrence_id == occurrence)
             }) {
                 return Err(Error::Invalid(
                     "grounding occurrence must be in the evidence support set".into(),
@@ -365,7 +374,7 @@ fn validate_supports(
                     "synthesized formation cannot have grounding_occurrence_id".into(),
                 ));
             }
-            if supports.len() < 2 {
+            if basis.len() < 2 {
                 return Err(Error::Invalid(
                     "synthesized formation needs at least two distinct inputs".into(),
                 ));
@@ -386,7 +395,7 @@ pub struct MemoryFormationProposal {
     pub semantic_role: String,
     pub representation_text: String,
     pub title: Option<String>,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
     pub aboutness: Vec<EntityRef>,
     pub valid_time: TemporalExtent,
 
@@ -405,7 +414,7 @@ impl MemoryFormationProposal {
             semantic_role: self.semantic_role,
             representation_text: self.representation_text,
             title: self.title,
-            supports: self.supports,
+            basis: self.basis,
             aboutness: self.aboutness,
             tags: Vec::new(),
             valid_time: self.valid_time,
@@ -509,7 +518,7 @@ pub struct SchemaEvidenceLink {
     pub subject_id: SubjectId,
     pub schema_revision_id: CognitiveSchemaRevisionId,
     pub role: SchemaEvidenceRole,
-    pub support: RevisionSupport,
+    pub basis: RevisionBasis,
     pub producer_signature_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub revoked_at: Option<DateTime<Utc>>,
@@ -539,7 +548,7 @@ pub struct CreateSchemaInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaEvidenceLinkInput {
     pub role: SchemaEvidenceRole,
-    pub support: RevisionSupport,
+    pub basis: RevisionBasis,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -567,8 +576,8 @@ pub struct CreateAssociationInput {
     pub to: CognitiveRef,
     pub relation_kind: String,
     pub polarity: AssociationPolarity,
-    pub support_class: AssociationSupportClass,
-    pub supports: Vec<AssociationSupport>,
+    pub basis_class: AssociationBasisClass,
+    pub basis: Vec<AssociationBasis>,
     pub valid_time: TemporalExtent,
 }
 
@@ -582,11 +591,12 @@ pub struct TemporalEvidence {
 mod tests {
     use super::*;
 
-    fn evidence(occurrence: OccurrenceId) -> RevisionSupport {
-        RevisionSupport::Evidence(EvidenceRef {
+    fn evidence(occurrence: OccurrenceId) -> RevisionBasis {
+        RevisionBasis::Evidence(EvidenceRef {
+            epistemic_relation: None,
             occurrence_id: occurrence,
             locator: EvidenceLocator::WholeOccurrence,
-            support_role: SupportRole::Direct,
+            basis_role: BasisRole::Direct,
         })
     }
 
@@ -603,7 +613,7 @@ mod tests {
             semantic_role: "fact".into(),
             representation_text: "bounded fact".into(),
             title: None,
-            supports: vec![evidence(occurrence)],
+            basis: vec![evidence(occurrence)],
             aboutness: Vec::new(),
             tags: Vec::new(),
             valid_time: TemporalExtent::Unknown,
@@ -627,7 +637,7 @@ mod tests {
             semantic_role: "fact".into(),
             representation_text: "bounded fact".into(),
             title: None,
-            supports: vec![evidence(OccurrenceId::new())],
+            basis: vec![evidence(OccurrenceId::new())],
             aboutness: Vec::new(),
             tags: Vec::new(),
             valid_time: TemporalExtent::Unknown,

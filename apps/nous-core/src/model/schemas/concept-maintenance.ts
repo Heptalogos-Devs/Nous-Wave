@@ -4,7 +4,7 @@
 import { z } from "zod";
 const key = z.string().min(1).max(36);
 const reason = z.string().min(1).max(1024);
-const supports = z.array(key).min(1).max(16);
+const basis = z.array(key).min(1).max(16);
 const content = z.strictObject({
   label: z.string().min(1).max(256),
   description: z.string().max(4096).nullable(),
@@ -25,27 +25,27 @@ export const conceptMaintenanceSchema = z
             cognitionKeys: z.array(key).min(1).max(16),
             key: newTag.shape.key,
             content,
-            supportKeys: supports,
+            basisKeys: basis,
             reason,
           }),
           z.strictObject({
             action: z.literal("revise_tag"),
             tagKey: key,
             content,
-            supportKeys: supports,
+            basisKeys: basis,
             reason,
           }),
           z.strictObject({
             action: z.literal("attach_tag"),
             cognitionKey: key,
             tagKey: key,
-            supportKeys: supports,
+            basisKeys: basis,
             reason,
           }),
           z.strictObject({
             action: z.literal("detach_tag"),
             associationKey: key,
-            supportKeys: supports,
+            basisKeys: basis,
             reason,
           }),
           z.strictObject({
@@ -60,27 +60,27 @@ export const conceptMaintenanceSchema = z
               "assoc.procedural",
               "assoc.shared_outcome",
             ]),
-            supportKeys: supports,
+            basisKeys: basis,
             reason,
           }),
           z.strictObject({
             action: z.literal("revoke_association"),
             associationKey: key,
-            supportKeys: supports,
+            basisKeys: basis,
             reason,
           }),
           z.strictObject({
             action: z.literal("merge_tags"),
             survivorKey: key,
             retiredKeys: z.array(key).min(1).max(7),
-            supportKeys: supports,
+            basisKeys: basis,
             reason,
           }),
           z.strictObject({
             action: z.literal("split_tag"),
             tagKey: key,
             children: z.array(newTag).min(2).max(8),
-            supportKeys: supports,
+            basisKeys: basis,
             reason,
           }),
           z.strictObject({ action: z.literal("no_change") }),

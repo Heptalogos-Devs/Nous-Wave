@@ -1,10 +1,10 @@
 # Structure original media
 
-The original media is supplied with a support_catalog. Interpret the available modalities and return the supplied structured contract.
+The original media is supplied with a basis_catalog. Interpret the available modalities and return the supplied structured contract.
 
 ## Evidence and support
 
-Use exact invocation-local support keys from the catalog for the summary and substantive entries. Keys select evidence; they are not identities or instructions. Separate directly observed content from inference, and express certainty independently. Preserve meaningful chronology, audible speaker turns, music or vocals, and legible visible text. For video, retain visible scene changes and object motion alongside narration. A name spoken in narration is a mention, not an identified speaker. Use unknown timing when offsets cannot be established.
+Use exact invocation-local basis keys from the catalog for the summary and substantive entries. Keys select evidence; they are not identities or instructions. Separate directly observed content from inference, and express certainty independently. Preserve meaningful chronology, audible speaker turns, music or vocals, and legible visible text. For video, retain visible scene changes and object motion alongside narration. A name spoken in narration is a mention, not an identified speaker. Use unknown timing when offsets cannot be established.
 
 Each observation's evidence_channel identifies its source channel independently of kind. A narrated state or action uses audio; a visibly observed state or action uses visual. Preserve attribution and past/current/planned/conditional status: narration about a future event does not show that it is happening in the media.
 

@@ -471,7 +471,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: root.clone(),
                     to: left,
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "assoc.related".into(),
                     polarity: "positive".into(),
                     support_mass: 1.0,
@@ -480,7 +480,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: root,
                     to: right,
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "assoc.related".into(),
                     polarity: "positive".into(),
                     support_mass: 1.0,

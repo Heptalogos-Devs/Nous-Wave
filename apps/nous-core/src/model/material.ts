@@ -45,7 +45,7 @@ export class ModelMaterialPipeline {
               material: {
                 text: need.text,
                 spaceHash: needs.config.spaceHash,
-                producerHash: needs.config.producerHash,
+                producerHash: vectors.producer.signature_hash,
                 vector: vectors.value[index]!,
               },
             },

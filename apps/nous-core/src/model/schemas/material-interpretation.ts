@@ -8,7 +8,7 @@ import type { JsonObject } from "@bufbuild/protobuf";
 const coverage = z
   .enum(["not_available", "observed", "limited", "uncertain"])
   .describe("Availability and observation coverage of this input modality.");
-const supports = z
+const basis_refs = z
   .array(z.string())
   .describe(
     "Invocation-local selectors from the exact supplied support catalog.",
@@ -38,10 +38,10 @@ export const materialInterpretationSchema = z
           .describe(
             "Concise synthesis of the supplied material; empty when no meaningful content is available.",
           ),
-        support_keys: supports,
+        basis_keys: basis_refs,
       })
       .describe(
-        "A synthesis grounded in exact source supports, with uncertainty preserved in its wording.",
+        "A synthesis grounded in exact source basis_refs, with uncertainty preserved in its wording.",
       ),
     coverage: z.strictObject({
       visual: coverage,
@@ -85,7 +85,7 @@ export const materialInterpretationSchema = z
             "Whether the observation is clear or uncertain, independently of its derivation basis.",
           ),
         ...time,
-        support_keys: supports,
+        basis_keys: basis_refs,
       }),
     ),
     mentions: z.array(
@@ -101,7 +101,7 @@ export const materialInterpretationSchema = z
           "other",
         ]),
         role: z.string().nullable(),
-        support_keys: supports,
+        basis_keys: basis_refs,
       }),
     ),
     embedded_text: z.array(
@@ -109,7 +109,7 @@ export const materialInterpretationSchema = z
         text: z.string(),
         fidelity: z.enum(["verbatim", "approximate", "uncertain"]),
         ...time,
-        support_keys: supports,
+        basis_keys: basis_refs,
       }),
     ),
     source_text: z.array(
@@ -117,7 +117,7 @@ export const materialInterpretationSchema = z
         text: z.string(),
         fidelity: z.enum(["verbatim", "approximate", "uncertain"]),
         ...time,
-        support_keys: supports,
+        basis_keys: basis_refs,
       }),
     ),
     speech: z.array(
@@ -131,21 +131,21 @@ export const materialInterpretationSchema = z
             "Evidence-grounded voice label; use a neutral speaker label or null when identity is unknown. A person named by narration is not necessarily the speaker.",
           ),
         ...time,
-        support_keys: supports,
+        basis_keys: basis_refs,
       }),
     ),
     interpretations: z.array(
       z.strictObject({
         content: z.string(),
         status: z.enum(["supported", "tentative"]),
-        support_keys: supports,
+        basis_keys: basis_refs,
       }),
     ),
     uncertainties: z.array(
       z.strictObject({
         issue: z.string(),
         alternatives: z.array(z.string()),
-        support_keys: supports,
+        basis_keys: basis_refs,
       }),
     ),
   })
@@ -164,12 +164,12 @@ type InterpretationInput = {
   visual: boolean;
   audio: boolean;
   sourceText: boolean;
-  supportKeys: ReadonlySet<string>;
+  basisKeys: ReadonlySet<string>;
   durationMs?: number;
 };
 export type StructuredMaterialContext = Omit<
   InterpretationInput,
-  "supportKeys"
+  "basisKeys"
 > & {
   catalog: Readonly<Record<string, { kind: string; value: string }>>;
 };
@@ -179,21 +179,21 @@ export function structuredMaterialResult(
 ) {
   const output = validateMaterialInterpretation(value, {
     ...context,
-    supportKeys: new Set(Object.keys(context.catalog)),
+    basisKeys: new Set(Object.keys(context.catalog)),
   });
-  const mapSupports = ({
-    support_keys,
+  const mapBasis = ({
+    basis_keys,
     ...item
   }: {
-    support_keys: string[];
+    basis_keys: string[];
     [field: string]: unknown;
   }) => ({
     ...item,
-    supports: support_keys.map((key) => context.catalog[key]!),
+    basis_refs: basis_keys.map((key) => context.catalog[key]!),
   });
   const payload: Record<string, unknown> = {
     ...output,
-    summary: mapSupports(output.summary),
+    summary: mapBasis(output.summary),
   };
   for (const group of [
     "observations",
@@ -204,7 +204,7 @@ export function structuredMaterialResult(
     "interpretations",
     "uncertainties",
   ] as const)
-    payload[group] = output[group].map(mapSupports);
+    payload[group] = output[group].map(mapBasis);
   return {
     text: projectMaterialInterpretation(output),
     structuredPayload: JSON.parse(JSON.stringify(payload)) as JsonObject,
@@ -222,7 +222,7 @@ function validateMaterialInterpretation(
     Buffer.byteLength(output.summary.content) > 8192
   )
     throw new Error("Structured material exceeds payload bounds");
-  if (output.summary.content.trim() && !output.summary.support_keys.length)
+  if (output.summary.content.trim() && !output.summary.basis_keys.length)
     throw new Error("Summary requires source support");
   const groups = [
     [output.summary],
@@ -246,18 +246,14 @@ function validateMaterialInterpretation(
           throw new Error("Structured material exceeds field byte bound");
       }
       if (
-        item.support_keys.length > 16 ||
-        new Set(item.support_keys).size !== item.support_keys.length
+        item.basis_keys.length > 16 ||
+        new Set(item.basis_keys).size !== item.basis_keys.length
       )
         throw new Error("Structured material support count invalid");
-      for (const key of item.support_keys)
-        if (!input.supportKeys.has(key))
+      for (const key of item.basis_keys)
+        if (!input.basisKeys.has(key))
           throw new Error("Unknown structured material support key");
-      if (
-        "basis" in item &&
-        item.basis === "direct" &&
-        !item.support_keys.length
-      )
+      if ("basis" in item && item.basis === "direct" && !item.basis_keys.length)
         throw new Error("Direct observation requires source support");
       if ("start_ms" in item) {
         const { start_ms: start, end_ms: end } = item;

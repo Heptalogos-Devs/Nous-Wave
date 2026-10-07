@@ -204,7 +204,12 @@ async function cli(...args: string[]) {
     [launcher, ...locationArgs, "--json", ...args],
     { cwd: verificationRoot, env, windowsHide: true, maxBuffer: 1048576 },
   );
-  return JSON.parse(result.stdout) as Record<string, unknown>;
+  const envelope = JSON.parse(result.stdout) as {
+    schemaVersion: string;
+    data: Record<string, unknown>;
+  };
+  assert.equal(envelope.schemaVersion, "nous.cli.v1");
+  return envelope.data;
 }
 try {
   await boot();
@@ -242,13 +247,13 @@ try {
       text: "Synthetic portable wiring: stable source identity.",
       epistemicClass: "observed",
 
-      supports: [
+      basis: [
         {
-          support: {
+          basis: {
             case: "evidence",
             value: {
               occurrenceId,
-              supportRole: "direct",
+              basisRole: "direct",
               locator: {
                 case: "derivedRepresentationId",
                 value: derived.selectedRepresentationId!,
@@ -261,7 +266,7 @@ try {
   });
   const response = await client.cognition.recall(
     subjectId,
-    '"stable source identity" $return(memory) $limit(5)',
+    "stable source identity $return(memory) $limit(5)",
   );
   assert(
     response.hits.some(
@@ -269,7 +274,7 @@ try {
         hit.revision?.value === memory.revisionId,
     ),
   );
-  await cli("trace", `memory:${memory.memoryId}`);
+  await cli("trace", `memory_revision:${memory.revisionId}`);
   await cli("use", `memory_revision:${memory.revisionId}`);
   const databaseState = await readFile(
     join(instanceRoot, "postgres.json"),
@@ -290,7 +295,7 @@ try {
   });
   const recalled = await restarted.cognition.recall(
     subjectId,
-    '"stable source identity" $return(memory) $limit(5)',
+    "stable source identity $return(memory) $limit(5)",
   );
   assert(
     recalled.hits.some(

@@ -1,10 +1,10 @@
 # Model Runtime 当前参考
 
-Core 启动配置用 `GatewayProfile → ModelProfile → RoleBinding` materialize 标准协议 clients。凭据只从 gateway 的 `credential_env` 读取。Kernel 保存经过规范化的 ProducerSignature 与不可变输入，不调用外部模型。
+Core 启动配置用 `ModelRole → RolePolicy → ordered ExecutionProfile → ModelProfile → GatewayProfile` materialize 标准协议 clients。凭据只从 gateway 的 `credential_env` 读取。Kernel 保存经过规范化的 ProducerSignature 与不可变输入，不调用外部模型。
 
 协议名称为 `openai-chat`、`openai-responses`、`openai-embeddings`、`openai-audio-transcription`、`rerank-v1`。SDK generation、embedding 和 transcription 使用显式 endpoint/model；rerank 使用有界 HTTP adapter。SDK retries 为 0，远程 destination 需要无 credential/query 的 HTTPS；literal loopback 可用 HTTP。
 
-各角色分别绑定模型、Prompt、参数、timeout 和 requirement。角色具备完整可执行配置时报告 READY；未完整配置为 NOT_CONFIGURED，本地 prerequisite 缺失为 UNAVAILABLE。HTTP、timeout 和输出校验失败由当次 operation 返回。
+RolePolicy 持有 1..4 个有序 execution routes、Prompt 与 optional|required requirement；ExecutionProfile 持有模型引用、reasoning、temperature、top_p、输出 token 上限、timeout 与有界 provider options。reasoning 接受 provider-default/none/minimal/low/medium/high/xhigh，并按声明能力校验。角色具备完整可执行配置时报告 READY；未完整配置为 NOT_CONFIGURED，本地 prerequisite 缺失为 UNAVAILABLE。HTTP、timeout 和输出校验失败由当次 operation 返回。
 
 Prompt 从仓库 `prompts/` 的 UTF-8 Markdown 加载；custom path 须落在允许 root，每份最多 128 KiB。logical id、内容 digest、role config digest 与实际 model/protocol 进入 producer。Prompt asset 缺失或无效时对应 role 不可执行。
 
@@ -19,7 +19,7 @@ Prompt 从仓库 `prompts/` 的 UTF-8 Markdown 加载；custom path 须落在允
 
 结构化角色通过 `model/schemas/contracts.ts` 唯一选择对应 Zod owner；Material 合同由 `model/schemas/material-interpretation.ts` 拥有，SDK 与 raw strict 请求共用同一派生 JSON Schema，outputSchemaDigest 进入 producer 与 derivation identity。自由描述不使用结构化 envelope；结构化表示保存一等 `structuredPayload` 和保留 basis/uncertainty 的 deterministic text projection。
 
-两阶段先提交描述，再由 Material owner 生成 description_segment DerivedRegion（UTF-8 byte span）。第二模型只输出 invocation-local support keys；提交前映射成 payload 中的 stable `supports` refs，Kernel 核验它们属于输入图。summary 和内容项都保存 stable supports；basis、certainty 与 evidence_channel 分开；证据通道独立于所陈述的 event/state/action，original source text 与视觉 embedded text 分开。字段可通过 `client.material.derivedRegion` 与 `client.material.materialize` 精确回读，支持链可回溯原始 SourceRegion/Artifact。
+两阶段先提交描述，再由 Material owner 生成 description_segment DerivedRegion（UTF-8 byte span）。第二模型只输出 invocation-local basis keys；提交前映射成 payload 中的 stable `basis_refs` refs，Kernel 核验它们属于输入图。summary 和内容项都保存 stable basis refs；basis、certainty 与 evidence_channel 分开；证据通道独立于所陈述的 event/state/action，original source text 与视觉 embedded text 分开。字段可通过 `client.material.derivedRegion` 与 `client.material.materialize` 精确回读，支持链可回溯原始 SourceRegion/Artifact。
 
 Structuring 失败保留已提交的 description。普通 recall 不重新解释媒体。显式 `supersedes` 是更新 lineage；同一 lineage/input/producer/strategy request 复用成功结果。
 
@@ -34,7 +34,7 @@ Memory revision 的 `producerSignatureId` 可用 `client.material.producer` 读�
 
 ## 纵向维护角色
 
-`episode_segmentation`、`journal_synthesis`、`memory_consolidation` 使用 text + structured_output profile 和 canonical Zod schema。Core 的 `client.cognition.grantMaintenance({ subjectId, maxOperations, maxModelCalls, maxElapsedMs })` 执行有界机会，Rust owner 验证并提交模型 proposal。Core 在 claim 前只允许可执行角色对应的 maintenance kinds；未配置角色不取得 lease 或增加 attempt count。临时 provider 故障使用 Configuration Service 的有界指数退避。角色配置、Prompt 和超时沿用现有 ModelProfile/RoleBinding 机制。数据身份与重试语义见 [纵向认知合同](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
+`episode_segmentation`、`journal_synthesis`、`memory_consolidation` 使用 text + structured_output profile 和 canonical Zod schema。Core 的 `client.cognition.grantMaintenance({ subjectId, maxOperations, maxModelCalls, maxElapsedMs })` 执行有界机会，Rust owner 验证并提交模型 proposal。Core 在 claim 前只允许可执行角色对应的 maintenance kinds；未配置角色不取得 lease 或增加 attempt count。临时 provider 故障使用 Configuration Service 的有界指数退避。角色配置、Prompt 和超时沿用现有 ModelProfile/ExecutionProfile/RolePolicy 机制。数据身份与重试语义见 [纵向认知合同](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
 
 ## 输入与投影
 
@@ -44,7 +44,7 @@ Projection Steward 接收经 consumer policy 筛选的 id/role/text，执行无�
 
 [返回文档目录](../INDEX.md)
 
-`concept_maintenance` 是独立 structured role，默认 Prompt 为 `prompts/memory/concept-maintenance.md`。Role READY 时才进入 maintenance allowed kinds；generation 沿同一固定 role/config/Prompt snapshot、provider-call reservation、durable proposal/receipt 与 lease/retry 路径。模型输入使用局部 cognition/tag/entity/association/support keys，禁止自由 UUID 或 catalog 外 refs；single noisy occurrence、单纯词法重叠和 exposure 不证明长期 concept。`no_change` 单独输出，新增 Tag 与后置 attachment 在同一 proposal 中表达。
+`concept_maintenance` 是独立 structured role，默认 Prompt 为 `prompts/memory/concept-maintenance.md`。Role READY 时才进入 maintenance allowed kinds；generation 沿同一固定 role/config/Prompt snapshot、provider-call reservation、durable proposal/receipt 与 lease/retry 路径。模型输入使用局部 cognition/tag/entity/association/basis keys，禁止自由 UUID 或 catalog 外 refs；single noisy occurrence、单纯词法重叠和 exposure 不证明长期 concept。`no_change` 单独输出，新增 Tag 与后置 attachment 在同一 proposal 中表达。
 
 
 ## Query concept role 与历史 embedding
@@ -52,3 +52,5 @@ Projection Steward 接收经 consumer policy 筛选的 id/role/text，执行无�
 `query_concept_enrichment` 是独立 structured role，使用 `prompts/query/concept-enrichment.md` 与严格 catalog-key/novel-text schema。它不复用 formation 或 concept-maintenance prompt，不创建 Tag，不用无支持的 inferred concept 充当事实证据。Existing match/query embedding 与 dense/Native/VCP 共享 Concept asset；reference default enrichment off，capability forbidden 不调用 role。
 
 历史 Query 执行可在 embedding 许可下通过同一 prepared token 发现、生成、提交截点 Owner-selected 文本的 cache miss，继续使用既有 embedding_materials/content digest。提交不得把 current Tag description 当作旧文本验证；有界 batch 不足或模型不可用按 required/optional 合同报告。Query prepare 只检查 captured representation/config/capabilities，不调用 provider。
+
+Execution snapshot 冻结完整 RolePolicy、routes、ExecutionProfiles、ModelProfiles、Prompt 内容和结构化合同。只允许有界 transport/timeout/HTTP/schema 回退；owner 的语义、catalog、ownership、provenance/lifecycle 拒绝不回退。保存 proposal 后重试复用原 proposal。每次实际 maintenance outbound 调用单独计入 grant；ProducerSignature 保存实际成功 route、模型、角色、controls/policy/Prompt/contract digests；workflow receipt 保存最多 64 个累积 attempts、failure class、usage、latency 与省略计数。Embedding 所有备用 route 必须共享完整 space signature，缓存、提交与 Serving 按实际 producer 分区。

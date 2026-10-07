@@ -12,7 +12,7 @@ impl MemoryService {
             &input.experience_time,
             &input.boundary_explanation,
             &input.members,
-            &input.supports,
+            &input.basis,
         )?;
         self.store.require_subject(input.subject).await?;
         let digest = operation_digest(
@@ -26,7 +26,7 @@ impl MemoryService {
                 "boundary_explanation": input.boundary_explanation,
                 "producer_signature_id": input.producer_signature_id,
                 "members": input.members,
-                "supports": input.supports,
+                "basis": input.basis,
             }),
         )?;
         let mut mutation = match self
@@ -58,7 +58,7 @@ impl MemoryService {
         };
         validate_episode_refs_in_tx(&self.store, mutation.tx(), input.subject, &input.members)
             .await?;
-        validate_episode_supports_in_tx(&self.store, mutation.tx(), input.subject, &input.supports)
+        validate_episode_basis_in_tx(&self.store, mutation.tx(), input.subject, &input.basis)
             .await?;
         validate_parent_and_overlap(
             mutation.tx(),
@@ -197,7 +197,7 @@ impl MemoryService {
 
     #[expect(
         clippy::too_many_lines,
-        reason = "Episode revision keeps fencing, hierarchy, members, supports, and receipt commit together"
+        reason = "Episode revision keeps fencing, hierarchy, members, basis, and receipt commit together"
     )]
     pub async fn revise_episode(&self, input: ReviseEpisodeInput) -> Result<EpisodeView> {
         let started_at = self.cognition.now(input.subject);
@@ -207,7 +207,7 @@ impl MemoryService {
             &input.experience_time,
             &input.boundary_explanation,
             &input.members,
-            &input.supports,
+            &input.basis,
         )?;
         if !matches!(input.intent.as_str(), "resegment" | "reinterpret") {
             return Err(Error::Invalid("invalid Episode revision intent".into()));
@@ -224,7 +224,7 @@ impl MemoryService {
                 "experience_time": input.experience_time,
                 "boundary_explanation": input.boundary_explanation,
                 "members": input.members,
-                "supports": input.supports,
+                "basis": input.basis,
             }),
         )?;
         let mut mutation = match self
@@ -261,7 +261,7 @@ impl MemoryService {
         }
         validate_episode_refs_in_tx(&self.store, mutation.tx(), input.subject, &input.members)
             .await?;
-        validate_episode_supports_in_tx(&self.store, mutation.tx(), input.subject, &input.supports)
+        validate_episode_basis_in_tx(&self.store, mutation.tx(), input.subject, &input.basis)
             .await?;
         let parent = input.parent_episode_revision_id;
         validate_parent_and_overlap(
@@ -301,7 +301,7 @@ impl MemoryService {
 
             producer_signature_id: input.producer_signature_id,
             members: input.members,
-            supports: input.supports,
+            basis: input.basis,
         };
         insert_episode_revision_with_intent(
             mutation.tx(),

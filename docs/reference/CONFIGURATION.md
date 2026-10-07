@@ -54,7 +54,7 @@ Set 的值统一使用 JSON 语法：boolean、number、带引号 string、array
 
 `gateway_profiles` 指定 endpoint、credential environment variable、enabled state 和 request timeout。Remote endpoint 使用 HTTPS；literal loopback 可使用 HTTP。凭据从 SecretRoot 的 dotenv 文件或进程环境读取，进程环境优先；凭据不进入公开输出。
 
-`model_profiles` 描述 gateway、标准 protocol、model identifier、能力和可选 revision。Embedding profile 同时声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics，组成 EmbeddingSpaceSignature。角色通过 `roles` 绑定 model profile、Prompt、generation parameters、timeout 与 `optional | preferred | required` requirement。
+`model_profiles` 描述 gateway、标准 protocol、model identifier、能力和可选 revision。Embedding profile 同时声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics，组成 EmbeddingSpaceSignature。角色通过 `roles` 绑定 model profile、Prompt、generation parameters、timeout 与 `optional | required` requirement。
 
 当前 role 包括 projection steward、Memory formation、material description/structuring/direct structuring、query embedding/rerank、speech transcription、episode segmentation、Journal synthesis 和 Memory consolidation。Supported protocol 是 `openai-chat`、`openai-responses`、`openai-embeddings`、`openai-audio-transcription` 与 `rerank-v1`。
 

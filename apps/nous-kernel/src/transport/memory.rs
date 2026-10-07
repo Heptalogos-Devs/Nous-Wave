@@ -26,7 +26,7 @@ pub(super) fn view(input: MemoryView) -> p::Memory {
         semantic_role: revision.semantic_role,
         text: revision.representation_text,
         title: revision.title,
-        supports: input.supports.into_iter().map(support_proto).collect(),
+        basis: input.basis.into_iter().map(basis_proto).collect(),
         aboutness: input
             .aboutness
             .into_iter()
@@ -82,10 +82,10 @@ fn memory_input(
         semantic_role: content.semantic_role,
         representation_text: content.text,
         title: content.title,
-        supports: content
-            .supports
+        basis: content
+            .basis
             .into_iter()
-            .map(support)
+            .map(basis)
             .collect::<Result<_>>()?,
         aboutness: content
             .aboutness
@@ -219,7 +219,7 @@ impl KernelService {
                     semantic_role: parsed.semantic_role,
                     representation_text: parsed.representation_text,
                     title: parsed.title,
-                    supports: parsed.supports,
+                    basis: parsed.basis,
                     aboutness: parsed.aboutness,
                     valid_time: parsed.valid_time,
 
@@ -325,7 +325,7 @@ fn view_from_revision(
         semantic_role: revision.semantic_role,
         text: revision.representation_text,
         title: revision.title,
-        supports: Vec::new(),
+        basis: Vec::new(),
         aboutness: Vec::new(),
         tags: Vec::new(),
         created_at: None,

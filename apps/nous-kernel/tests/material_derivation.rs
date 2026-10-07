@@ -50,6 +50,14 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         strategy: "describe_then_structure".into(),
         representation_kind: kind,
         producer: ProducerSignature {
+            model_role: None,
+            model_profile: None,
+            execution_profile: None,
+            inference_controls_digest: None,
+            role_policy_digest: None,
+            prompt_id: None,
+            prompt_digest: None,
+
             signature_hash: "untrusted supplied hash".into(),
             provider_class: "deterministic-local-test".into(),
             operation: CapabilityOperation::TextInterpretation,
@@ -65,7 +73,7 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         payload_text: Some("faithful representation".into()),
         payload_json: (kind == RepresentationKind::StructuredInterpretation).then(|| {
             let (kind,value)=nous_core::reference_parts(&input);
-            serde_json::json!({"summary":{"content":"faithful representation","supports":[{"kind":kind,"value":value}]},"coverage":{"visual":"not_available","audio":"not_available","embedded_text":"not_available","source_text":"observed"},"observations":[{"kind":"text","content":"source facts","evidence_channel":"source_text","basis":"direct","certainty":"clear","start_ms":null,"end_ms":null,"supports":[{"kind":kind,"value":value}]}],"mentions":[],"embedded_text":[],"source_text":[],"speech":[],"interpretations":[],"uncertainties":[]})
+            serde_json::json!({"summary":{"content":"faithful representation","basis_refs":[{"kind":kind,"value":value}]},"coverage":{"visual":"not_available","audio":"not_available","embedded_text":"not_available","source_text":"observed"},"observations":[{"kind":"text","content":"source facts","evidence_channel":"source_text","basis":"direct","certainty":"clear","start_ms":null,"end_ms":null,"basis_refs":[{"kind":kind,"value":value}]}],"mentions":[],"embedded_text":[],"source_text":[],"speech":[],"interpretations":[],"uncertainties":[]})
         }),
         payload_artifact_id: None,
         quality: serde_json::json!({}),
@@ -110,7 +118,7 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         CognitiveRef::DerivedRepresentation(description.derived_representation_id),
         RepresentationKind::StructuredInterpretation,
     );
-    structured_input.payload_json.as_mut().unwrap()["observations"][0]["supports"] = serde_json::json!([{"kind":"derived_region","value":segments[0].region.derived_region_id.0.to_string()}]);
+    structured_input.payload_json.as_mut().unwrap()["observations"][0]["basis_refs"] = serde_json::json!([{"kind":"derived_region","value":segments[0].region.derived_region_id.0.to_string()}]);
     let expected_payload = structured_input.payload_json.clone();
     let structured = runtime
         .material
@@ -148,10 +156,11 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
             .unwrap();
     assert_eq!(roots, vec![source.0]);
     let evidence = |representation| {
-        nous_core::RevisionSupport::Evidence(nous_core::EvidenceRef {
+        nous_core::RevisionBasis::Evidence(nous_core::EvidenceRef {
+            epistemic_relation: None,
             occurrence_id: observed.occurrence.occurrence_id,
             locator: nous_core::EvidenceLocator::DerivedRepresentation(representation),
-            support_role: nous_core::SupportRole::Interpretation,
+            basis_role: nous_core::BasisRole::Interpretation,
         })
     };
     assert_eq!(
@@ -171,7 +180,7 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         CognitiveRef::DerivedRepresentation(description.derived_representation_id),
         RepresentationKind::StructuredInterpretation,
     );
-    forged_support.payload_json.as_mut().unwrap()["observations"][0]["supports"] = serde_json::json!([{"kind":"source_region","value":other.source_region.as_ref().unwrap().source_region_id.0.to_string()}]);
+    forged_support.payload_json.as_mut().unwrap()["observations"][0]["basis_refs"] = serde_json::json!([{"kind":"source_region","value":other.source_region.as_ref().unwrap().source_region_id.0.to_string()}]);
     assert!(
         runtime
             .material
@@ -183,7 +192,7 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         CognitiveRef::DerivedRepresentation(description.derived_representation_id),
         RepresentationKind::StructuredInterpretation,
     );
-    forged_summary.payload_json.as_mut().unwrap()["summary"]["supports"] = serde_json::json!([{"kind":"source_region","value":other.source_region.as_ref().unwrap().source_region_id.0.to_string()}]);
+    forged_summary.payload_json.as_mut().unwrap()["summary"]["basis_refs"] = serde_json::json!([{"kind":"source_region","value":other.source_region.as_ref().unwrap().source_region_id.0.to_string()}]);
     assert!(
         runtime
             .material

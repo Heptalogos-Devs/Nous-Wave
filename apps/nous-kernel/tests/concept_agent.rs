@@ -5,7 +5,7 @@ mod test_support;
 use nous_core::*;
 use nous_kernel::transport::KernelService;
 use nous_memory::{
-    AssociationPolarity, AssociationSupport, AssociationSupportClass, CreateAssociationRequest,
+    AssociationBasis, AssociationBasisClass, AssociationPolarity, CreateAssociationRequest,
     CreateTagRequest,
 };
 use nous_protocol::nous::wave::v1alpha1 as p;
@@ -40,6 +40,14 @@ async fn agent_concept_reads_supported_edges_and_searches_the_tag_catalog() {
         .subject_id;
     let memory = rt.require_memory().unwrap();
     let producer = ProducerSignature {
+        model_role: None,
+        model_profile: None,
+        execution_profile: None,
+        inference_controls_digest: None,
+        role_policy_digest: None,
+        prompt_id: None,
+        prompt_digest: None,
+
         signature_hash: String::new(),
         provider_class: "deterministic_test".into(),
         operation: CapabilityOperation::ConceptMaintenanceText,
@@ -84,10 +92,11 @@ async fn agent_concept_reads_supported_edges_and_searches_the_tag_catalog() {
         "Deployment approval precedes rollout; rollout includes the Garden environment",
     )
     .await;
-    let support = AssociationSupport::Revision(RevisionSupport::Evidence(EvidenceRef {
+    let basis = AssociationBasis::Revision(RevisionBasis::Evidence(EvidenceRef {
+        epistemic_relation: None,
         occurrence_id: observed.occurrence.occurrence_id,
         locator: EvidenceLocator::WholeOccurrence,
-        support_role: SupportRole::Direct,
+        basis_role: BasisRole::Direct,
     }));
     let mut edge_ids = Vec::new();
     let mut requests = Vec::new();
@@ -99,8 +108,8 @@ async fn agent_concept_reads_supported_edges_and_searches_the_tag_catalog() {
             to: CognitiveRef::Tag(to),
             relation_kind: "assoc.related".into(),
             polarity: AssociationPolarity::Positive,
-            support_class: AssociationSupportClass::CognitiveDerivation,
-            supports: vec![support.clone()],
+            basis_class: AssociationBasisClass::CognitiveDerivation,
+            basis: vec![basis.clone()],
             producer_signature_id: None,
             valid_time: TemporalExtent::Unknown,
         };
@@ -227,7 +236,7 @@ async fn agent_concept_reads_supported_edges_and_searches_the_tag_catalog() {
         .into_inner();
     assert_eq!(one.nodes.len(), 2);
     assert_eq!(one.associations.len(), 1);
-    assert_eq!(one.associations[0].supports.len(), 1);
+    assert_eq!(one.associations[0].basis.len(), 1);
     let two = ConceptService::get_neighborhood(&service, Request::new(request(64, 2)))
         .await
         .unwrap()
@@ -271,8 +280,8 @@ async fn agent_concept_reads_supported_edges_and_searches_the_tag_catalog() {
                     tag_id: tags[1],
                     expected_revision_id: revision(tags[1]).await,
                 }],
-                supports: vec![match support {
-                    AssociationSupport::Revision(support) => support,
+                basis: vec![match basis {
+                    AssociationBasis::Revision(basis) => basis,
                     _ => unreachable!(),
                 }],
             },

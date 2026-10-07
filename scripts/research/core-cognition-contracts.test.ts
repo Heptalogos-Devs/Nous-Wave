@@ -82,7 +82,7 @@ describe("semantic research contracts", () => {
       assertSealedLock(lock, "kafka", { ...identities, ...pack }),
     ).toThrow();
   });
-  it("rejects unknown/duplicate source membership and invented query supports", () => {
+  it("rejects unknown/duplicate source membership and invented query basis", () => {
     expect(validateManifest(manifest).pack_id).toBe("fixture");
     expect(() =>
       validateManifest({

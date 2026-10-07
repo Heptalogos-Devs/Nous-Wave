@@ -27,7 +27,7 @@ pub(super) fn journal_revision_proto(value: nous_memory::JournalView) -> p::Jour
                 ordinal: ordinal as i32,
                 role: point.role.as_str().into(),
                 text: point.text,
-                supports: point.supports.into_iter().map(support_proto).collect(),
+                basis: point.basis.into_iter().map(basis_proto).collect(),
             })
             .collect(),
         sources: value.sources.into_iter().map(to_ref).collect(),

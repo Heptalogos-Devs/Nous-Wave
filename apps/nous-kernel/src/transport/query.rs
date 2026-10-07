@@ -225,7 +225,7 @@ pub(super) fn compile_query(
                 RevisionView::Current
             },
         },
-        text_only_compatibility: input.text_only_compatibility,
+
         work_context: input.work_context_id.as_deref().map(id).transpose()?,
         api_version: API_VERSION,
         subject: SubjectId(id(&input.subject_id)?),
@@ -456,8 +456,11 @@ fn hit(value: CognitiveHit, rank: usize) -> p::Hit {
             .evidence
             .into_iter()
             .map(|e| p::Evidence {
+                epistemic_relation: e
+                    .epistemic_relation
+                    .map(|relation| relation.as_str().into()),
                 reference: Some(to_ref(e.reference)),
-                support_role: e.support_role,
+                basis_role: e.basis_role,
             })
             .collect(),
         evidence_families: value
@@ -526,7 +529,7 @@ pub(super) fn inspect_bound_query(bound: &nous_runtime::BoundQuery) -> Result<St
     seeds.dedup();
     serde_json::to_string(&serde_json::json!({
         "prepared_query":bound.source_query, "query_id":bound.query_id,
-        "representation":bound.representation, "current_refs":bound.runtime_refs,
+        "representation":bound.representation, "context_snapshot":bound.context_snapshot.as_ref(), "current_refs":bound.runtime_refs,
         "query_activation":bound.activation, "concept_enrichment":bound.concept_enrichment,
         "query_concept_requirement":bound.source_query.capabilities.query_concept_enrichment,
         "historical_view":bound.historical_authority.as_ref().map(|view|serde_json::json!({"digest":view.snapshot_digest,"as_of":view.as_of,"revision_view":view.revision_view})),

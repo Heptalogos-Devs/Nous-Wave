@@ -45,7 +45,7 @@ enabled = false
 # 可选；1–300000 毫秒。示例值为 30 秒。
 request_timeout_ms = 30000
 
-# ModelProfile 是可复用路由；RoleBinding 分别给 formation、vision、embedding 等选择 profile。
+# ModelProfile 声明可复用模型资源；ExecutionProfile 拥有参数；RolePolicy 选择有序 routes。
 # protocol 选项：openai-chat / openai-responses / openai-embeddings /
 # openai-audio-transcription / rerank-v1。聊天选 chat，明确支持 Responses 时可改 responses。
 # capabilities 声明支持 text / image_input / structured_output / embedding /
@@ -108,63 +108,87 @@ model = ""
 capabilities = ["speech_transcription"]
 
 # Role 参数独立，不存在 global temperature/max tokens。
-# requirement：optional（不可用时保留基础路径）/ preferred（不可用时返回降级）/ required（不可用时 operation 失败）。
+# requirement：optional（不可用时显式降级）/ required（不可用时 operation 失败）。
 # 生成角色可设置 temperature 0–2、top_p 0–1、max_output_tokens 1–65536、timeout_ms 1–300000。
-# 模型不支持的 sampling 参数从对应 RoleBinding 删除。
+# 模型不支持的 sampling 参数从对应 ExecutionProfile 删除。
 # Prompt 可省略以使用项目默认；prompts/... 明确选择 ProgramRoot。
 # 用户覆盖用 config-prompts/...，相对 ConfigurationRoot/prompts；缺失时角色为 UNAVAILABLE。
 # 每份最多 128 KiB，修改会改变 producer。
 # ── 各认知角色使用的模型、Prompt 与生成参数 ──
-[roles.memory_formation]
+[execution_profiles.memory_formation]
 model = "formation"
-prompt = "prompts/memory/formation.md"
 temperature = 0.1
 max_output_tokens = 4096
-requirement = "preferred"
 
-[roles.projection_steward]
+[roles.memory_formation]
+routes = ["memory_formation"]
+prompt = "prompts/memory/formation.md"
+requirement = "optional"
+
+[execution_profiles.projection_steward]
 model = "formation"
-prompt = "prompts/projection/steward.md"
 temperature = 0.1
 max_output_tokens = 2048
+
+[roles.projection_steward]
+routes = ["projection_steward"]
+prompt = "prompts/projection/steward.md"
 requirement = "optional"
 
-[roles.material_description]
+[execution_profiles.material_description]
 model = "vision"
-prompt = "prompts/material/description.md"
 temperature = 0.1
 max_output_tokens = 8192
+
+[roles.material_description]
+routes = ["material_description"]
+prompt = "prompts/material/description.md"
 requirement = "optional"
 
-[roles.material_structuring]
+[execution_profiles.material_structuring]
 model = "formation"
-prompt = "prompts/material/structure.md"
 temperature = 0.1
 max_output_tokens = 4096
-requirement = "optional"
 
 # 原始图片/视频直接结构化：与描述、文本再结构化独立配置。
-[roles.material_direct_structuring]
+[roles.material_structuring]
+routes = ["material_structuring"]
+prompt = "prompts/material/structure.md"
+requirement = "optional"
+
+[execution_profiles.material_direct_structuring]
 model = "vision"
-prompt = "prompts/material/direct-structure.md"
 temperature = 0.1
 max_output_tokens = 4096
+
+[roles.material_direct_structuring]
+routes = ["material_direct_structuring"]
+prompt = "prompts/material/direct-structure.md"
 requirement = "optional"
+
+[execution_profiles.query_embedding]
+model = "embedding"
 
 [roles.query_embedding]
-model = "embedding"
-requirement = "preferred"
+routes = ["query_embedding"]
+requirement = "optional"
+
+[execution_profiles.query_rerank]
+model = "rerank"
 
 [roles.query_rerank]
-model = "rerank"
+routes = ["query_rerank"]
 requirement = "optional"
 
-[roles.speech_transcription]
+[execution_profiles.speech_transcription]
 model = "speech"
-requirement = "optional"
 
 # direct mode 使用多模态音频理解；transcription mode 使用 speech_transcription role。
 # ── 音频与视频输入方式和大小限制 ──
+[roles.speech_transcription]
+routes = ["speech_transcription"]
+requirement = "optional"
+
 [audio]
 # direct / transcription；后者要求 speech_transcription role。
 input_mode = "direct"

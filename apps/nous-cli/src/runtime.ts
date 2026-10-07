@@ -1,0 +1,341 @@
+// Copyright 2026 Aravine Zhu
+// SPDX-License-Identifier: Apache-2.0
+import { connectNousInstance } from "@nous-wave/client/node";
+import { NousError, type NousClient } from "@nous-wave/client";
+import { readFile } from "node:fs/promises";
+import { extname, resolve } from "node:path";
+import { parse as parseToml } from "smol-toml";
+import { CliError, uniqueReference } from "./agent.js";
+import { cliState, type Selection } from "./state.js";
+export const stringFlags = [
+  "run-root",
+  "instance-root",
+  "text",
+  "file",
+  "purpose",
+  "source",
+  "media-type",
+  "strategy",
+  "target",
+  "supersedes",
+  "representation",
+  "operation-id",
+  "aboutness-mode",
+  "query-file",
+  "subject",
+  "session",
+  "work-context",
+  "kind",
+  "name",
+  "canonical",
+  "lexical-ref",
+  "association-file",
+  "request-file",
+  "description",
+  "kind-hint",
+  "event-id",
+  "occurred-at",
+  "query-id",
+  "consumer",
+  "max-operations",
+  "max-model-calls",
+  "max-elapsed-ms",
+  "page-token",
+  "page-size",
+  "max-nodes",
+  "max-depth",
+  "max-batches",
+  "scope",
+  "cognition",
+  "entity",
+] as const;
+export const booleanFlags = [
+  "json",
+  "raw",
+  "developer",
+  "desired",
+  "advanced",
+  "clear",
+] as const;
+export const listFlags = ["tag", "aboutness", "alias"] as const;
+export type CliValues = Partial<Record<(typeof stringFlags)[number], string>> &
+  Partial<Record<(typeof booleanFlags)[number], boolean>> &
+  Partial<Record<(typeof listFlags)[number], string[]>>;
+function required(value: string | undefined, name: string): string {
+  if (!value) throw new CliError("INVALID_ARGUMENT", `${name} required`);
+  return value;
+}
+export async function createEnvironment(
+  values: CliValues,
+  connect = connectNousInstance,
+) {
+  if (values.raw && !values.developer)
+    throw new CliError("INVALID_ARGUMENT", "--raw requires --developer");
+  const local = cliState(
+    values["instance-root"] && resolve(values["instance-root"]),
+  );
+  const selected = await local.selection();
+  const sameSubject = !values.subject || values.subject === selected.subjectId;
+  const state: Selection = {
+    schemaVersion: 1,
+    ...(sameSubject ? selected : { lastQuery: selected.lastQuery }),
+    subjectId: values.subject ?? selected.subjectId,
+    sessionId: values.session ?? (sameSubject ? selected.sessionId : undefined),
+    workContextId:
+      values["work-context"] ??
+      (sameSubject ? selected.workContextId : undefined),
+  };
+  const subjectId = state.subjectId ?? "";
+  const original = await connect({
+    runRoot: resolve(
+      required(values["run-root"], "--run-root or nous launcher"),
+    ),
+  });
+  const replay: Record<string, (request: unknown) => Promise<unknown>> = {};
+  function mutation<I extends object, O>(
+    name: string,
+    fn: ((request: I) => Promise<O>) | undefined,
+  ) {
+    replay[name] = (request) => {
+      if (!fn)
+        throw new CliError("INVALID_ARGUMENT", "Client method unavailable");
+      return fn(request as I);
+    };
+    return async (request: I) => {
+      const id = crypto.randomUUID();
+      await local.writeReceipt(id, {
+        schemaVersion: 1,
+        name,
+        subjectId:
+          "subjectId" in request && typeof request.subjectId === "string"
+            ? request.subjectId
+            : undefined,
+        request,
+        status: "pending",
+      });
+      try {
+        if (!fn)
+          throw new CliError("INVALID_ARGUMENT", "Client method unavailable");
+        const result = await fn(request);
+        await local.writeReceipt(id, {
+          schemaVersion: 1,
+          name,
+          subjectId,
+          request,
+          status: "complete",
+        });
+        return result;
+      } catch (error) {
+        if (
+          error instanceof NousError &&
+          [3, 5, 6, 7, 8, 9, 10, 11, 12, 16].includes(error.code)
+        )
+          throw error;
+        const failure = new CliError(
+          "OUTCOME_UNKNOWN",
+          `Response unavailable; retry ${id} to reuse the saved operation`,
+        );
+        Object.assign(failure, { receipt: id });
+        throw failure;
+      }
+    };
+  }
+  const client: NousClient & Pick<typeof original, "artifacts"> = {
+    ...original,
+    subjects: {
+      ...original.subjects,
+      create: mutation("subjects.create", original.subjects?.create),
+    },
+    configuration: {
+      ...original.configuration,
+      setSystem: mutation(
+        "configuration.setSystem",
+        original.configuration?.setSystem,
+      ),
+      setSubject: mutation(
+        "configuration.setSubject",
+        original.configuration?.setSubject,
+      ),
+      clearSystem: mutation(
+        "configuration.clearSystem",
+        original.configuration?.clearSystem,
+      ),
+      clearSubject: mutation(
+        "configuration.clearSubject",
+        original.configuration?.clearSubject,
+      ),
+    },
+    model: {
+      ...original.model,
+      formFromObservation: mutation(
+        "model.formFromObservation",
+        original.model?.formFromObservation,
+      ),
+    },
+    cognition: {
+      ...original.cognition,
+      observe: mutation("cognition.observe", original.cognition?.observe),
+      reportUse: mutation("cognition.reportUse", original.cognition?.reportUse),
+      createWorkContext: mutation(
+        "cognition.createWorkContext",
+        original.cognition?.createWorkContext,
+      ),
+      updateWorkContext: mutation(
+        "cognition.updateWorkContext",
+        original.cognition?.updateWorkContext,
+      ),
+      pauseWorkContext: mutation(
+        "cognition.pauseWorkContext",
+        original.cognition?.pauseWorkContext,
+      ),
+      resumeWorkContext: mutation(
+        "cognition.resumeWorkContext",
+        original.cognition?.resumeWorkContext,
+      ),
+      endWorkContext: mutation(
+        "cognition.endWorkContext",
+        original.cognition?.endWorkContext,
+      ),
+      setActiveWorkContext: mutation(
+        "cognition.setActiveWorkContext",
+        original.cognition?.setActiveWorkContext,
+      ),
+    },
+    concepts: {
+      ...original.concepts,
+      createTag: mutation("concepts.createTag", original.concepts?.createTag),
+      reviseTag: mutation("concepts.reviseTag", original.concepts?.reviseTag),
+      mergeTags: mutation("concepts.mergeTags", original.concepts?.mergeTags),
+      splitTag: mutation("concepts.splitTag", original.concepts?.splitTag),
+      associate: mutation("concepts.associate", original.concepts?.associate),
+      revokeAssociation: mutation(
+        "concepts.revokeAssociation",
+        original.concepts?.revokeAssociation,
+      ),
+    },
+  };
+  async function resolveReference(text: string, kind = "") {
+    const resultNumber = /^result:(\d+)$/.exec(text);
+    if (resultNumber) {
+      if (state.lastQuery?.subjectId !== subjectId)
+        throw new CliError(
+          "RESULT_SUBJECT_MISMATCH",
+          "Result belongs to another Subject or no query is saved",
+        );
+      const ref = state.lastQuery.results[Number(resultNumber[1]) - 1];
+      if (!ref)
+        throw new CliError(
+          "NOT_FOUND",
+          "Result number is outside the saved query",
+        );
+      if (kind && kind !== ref.kind)
+        throw new CliError(
+          "REFERENCE_TYPE_MISMATCH",
+          "Result has another reference kind",
+        );
+      return ref;
+    }
+    if (kind === "tag" && /^[0-9a-f-]{36}$/i.test(text))
+      return { kind, value: text.toLowerCase() };
+    const canonical =
+      /^(entity|resource|memory|memory_revision|cognitive_schema|cognitive_schema_revision|episode|episode_revision|journal|journal_revision|tag|occurrence|external_object):(.+)$/.exec(
+        text,
+      );
+    if (
+      canonical &&
+      (["entity", "resource", "external_object"].includes(canonical[1]!) ||
+        /^[0-9a-f-]{36}$/i.test(canonical[2]!))
+    ) {
+      if (kind && kind !== canonical[1])
+        throw new CliError(
+          "REFERENCE_TYPE_MISMATCH",
+          "Reference has another kind",
+        );
+      return {
+        kind: canonical[1]!,
+        value: ["entity", "resource"].includes(canonical[1]!)
+          ? text
+          : canonical[2]!,
+      };
+    }
+    return uniqueReference(
+      await client.identity.resolve({
+        subjectId: required(subjectId, "Selected Subject"),
+        kind,
+        locator: {
+          case: /^\w+:/.test(text) ? "lexicalRef" : "name",
+          value: text,
+        },
+      }),
+    );
+  }
+  async function readText(path: string, maximum = 65536) {
+    let text = "";
+    if (path === "-") {
+      for await (const chunk of process.stdin) {
+        text += String(chunk);
+        if (Buffer.byteLength(text) > maximum)
+          throw new CliError("INVALID_ARGUMENT", "Input exceeds bound");
+      }
+    } else text = await readFile(path, "utf8");
+    if (Buffer.byteLength(text) > maximum)
+      throw new CliError("INVALID_ARGUMENT", "Input exceeds bound");
+    return text;
+  }
+  async function requestPayload(path?: string): Promise<unknown> {
+    const text = await readText(required(path, "Semantic TOML file"));
+    if (Buffer.byteLength(text) > 65536)
+      throw new CliError("INVALID_ARGUMENT", "Semantic TOML exceeds 64 KiB");
+    return parseToml(text);
+  }
+  return {
+    client,
+    values,
+    state,
+    subjectId,
+    required,
+    resolveReference,
+    requestPayload,
+    readText,
+    save: local.save,
+    async retry(id: string) {
+      const receipt = await local.receipt(id);
+      if (receipt.subjectId && receipt.subjectId !== subjectId)
+        throw new CliError(
+          "RESULT_SUBJECT_MISMATCH",
+          "Receipt belongs to another Subject",
+        );
+      const invoke = replay[receipt.name];
+      if (!invoke)
+        throw new CliError(
+          "INVALID_ARGUMENT",
+          "Receipt command is unavailable",
+        );
+      const result = await invoke(receipt.request);
+      await local.writeReceipt(id, { ...receipt, status: "complete" });
+      return result;
+    },
+    mediaType(this: void, path: string) {
+      const types: Record<string, string> = {
+        ".txt": "text/plain",
+        ".md": "text/markdown",
+        ".json": "application/json",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".wav": "audio/wav",
+        ".mp3": "audio/mpeg",
+        ".ogg": "audio/ogg",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+      };
+      return (
+        values["media-type"] ??
+        types[extname(path).toLowerCase()] ??
+        "application/octet-stream"
+      );
+    },
+  };
+}
+export type CliEnvironment = Awaited<ReturnType<typeof createEnvironment>>;

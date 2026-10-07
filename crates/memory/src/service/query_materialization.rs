@@ -68,20 +68,23 @@ pub(super) fn to_hit(
         evidence: if query.result_need.need_evidence {
             candidate
                 .view
-                .supports
+                .basis
                 .iter()
-                .map(|support| match support {
-                    RevisionSupport::Evidence(value) => EvidenceHandle {
+                .map(|basis| match basis {
+                    RevisionBasis::Evidence(value) => EvidenceHandle {
+                        epistemic_relation: value.epistemic_relation,
                         reference: value.cognitive_ref(),
-                        support_role: value.support_role.as_str().into(),
+                        basis_role: value.basis_role.as_str().into(),
                     },
-                    RevisionSupport::CognitionDependency(value) => EvidenceHandle {
+                    RevisionBasis::CognitionDependency(value) => EvidenceHandle {
+                        epistemic_relation: value.epistemic_relation,
                         reference: value.target_revision.clone(),
-                        support_role: value.support_role.as_str().into(),
+                        basis_role: value.basis_role.as_str().into(),
                     },
-                    RevisionSupport::Seed(value) => EvidenceHandle {
+                    RevisionBasis::Seed(value) => EvidenceHandle {
+                        epistemic_relation: None,
                         reference: CognitiveRef::CognitiveSeedVersion(value.seed_version_id),
-                        support_role: "seed".into(),
+                        basis_role: "seed".into(),
                     },
                 })
                 .collect()

@@ -57,22 +57,25 @@ impl ContextResolver for NousRuntime {
             }
 
             let evidence = memory
-                .supports
+                .basis
                 .iter()
                 .filter_map(|item| match item {
-                    nous_memory::RevisionSupport::Evidence(value) => Some(EvidenceHandle {
+                    nous_memory::RevisionBasis::Evidence(value) => Some(EvidenceHandle {
+                        epistemic_relation: value.epistemic_relation,
                         reference: value.cognitive_ref(),
-                        support_role: value.support_role.as_str().into(),
+                        basis_role: value.basis_role.as_str().into(),
                     }),
-                    nous_memory::RevisionSupport::CognitionDependency(value) => {
+                    nous_memory::RevisionBasis::CognitionDependency(value) => {
                         Some(EvidenceHandle {
+                            epistemic_relation: value.epistemic_relation,
                             reference: value.target_revision.clone(),
-                            support_role: value.support_role.as_str().into(),
+                            basis_role: value.basis_role.as_str().into(),
                         })
                     }
-                    nous_memory::RevisionSupport::Seed(value) => Some(EvidenceHandle {
+                    nous_memory::RevisionBasis::Seed(value) => Some(EvidenceHandle {
+                        epistemic_relation: None,
                         reference: CognitiveRef::CognitiveSeedVersion(value.seed_version_id),
-                        support_role: "seed".into(),
+                        basis_role: "seed".into(),
                     }),
                 })
                 .collect::<Vec<_>>();
@@ -160,8 +163,9 @@ fn material_context(
         .provenance
         .into_iter()
         .map(|reference| EvidenceHandle {
+            epistemic_relation: None,
             reference,
-            support_role: "source".into(),
+            basis_role: "source".into(),
         })
         .collect::<Vec<_>>();
     Ok(ContextSource {

@@ -261,11 +261,11 @@ pub struct ExperienceMember {
     pub occurred_time: ::core::option::Option<super::super::v1alpha1::TemporalExtent>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct SupportCatalogEntry {
+pub struct BasisCatalogEntry {
     #[prost(string, tag="1")]
     pub key: ::prost::alloc::string::String,
     #[prost(message, optional, tag="2")]
-    pub support: ::core::option::Option<super::super::v1alpha1::RevisionSupport>,
+    pub basis: ::core::option::Option<super::super::v1alpha1::RevisionBasis>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MaintenancePlan {
@@ -284,7 +284,7 @@ pub struct MaintenancePlan {
     #[prost(message, repeated, tag="7")]
     pub members: ::prost::alloc::vec::Vec<ExperienceMember>,
     #[prost(message, repeated, tag="8")]
-    pub supports: ::prost::alloc::vec::Vec<SupportCatalogEntry>,
+    pub basis: ::prost::alloc::vec::Vec<BasisCatalogEntry>,
     #[prost(message, optional, tag="9")]
     pub target: ::core::option::Option<JournalTarget>,
     #[prost(message, optional, tag="10")]
@@ -304,7 +304,7 @@ pub struct MaintenancePlan {
     #[prost(uint32, tag="17")]
     pub max_consolidation_actions: u32,
     #[prost(bool, tag="18")]
-    pub support_catalog_partial: bool,
+    pub basis_catalog_partial: bool,
     #[prost(bool, tag="19")]
     pub provenance_roots_partial: bool,
     #[prost(message, optional, tag="20")]
@@ -334,7 +334,7 @@ pub struct ConsolidationCandidate {
     #[prost(message, repeated, tag="7")]
     pub r#use: ::prost::alloc::vec::Vec<UseSummary>,
     #[prost(string, repeated, tag="11")]
-    pub eligible_support_keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    pub eligible_basis_keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, optional, tag="8")]
     pub valid_time: ::core::option::Option<super::super::v1alpha1::TemporalExtent>,
     #[prost(message, optional, tag="9")]
@@ -378,7 +378,7 @@ pub struct ConceptMaintenanceCatalog {
     #[prost(message, repeated, tag="5")]
     pub associations: ::prost::alloc::vec::Vec<ConceptAssociation>,
     #[prost(message, repeated, tag="6")]
-    pub supports: ::prost::alloc::vec::Vec<ConceptSupport>,
+    pub basis: ::prost::alloc::vec::Vec<ConceptBasis>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConceptReference {
@@ -408,11 +408,11 @@ pub struct ConceptAssociation {
     pub relation: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct ConceptSupport {
+pub struct ConceptBasis {
     #[prost(string, tag="1")]
     pub key: ::prost::alloc::string::String,
     #[prost(message, optional, tag="2")]
-    pub support: ::core::option::Option<super::super::v1alpha1::AssociationSupport>,
+    pub basis: ::core::option::Option<super::super::v1alpha1::AssociationBasis>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExpectedCognition {
@@ -433,6 +433,8 @@ pub struct EmbeddingConfig {
     pub model: ::prost::alloc::string::String,
     #[prost(uint32, tag="4")]
     pub dimension: u32,
+    #[prost(string, repeated, tag="5")]
+    pub producer_hashes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryEmbedding {
@@ -616,6 +618,8 @@ pub struct WorkflowReservation {
     pub lease_token: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(bool, tag="5")]
     pub busy: bool,
+    #[prost(string, optional, tag="6")]
+    pub execution_telemetry_json: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SaveWorkflowRequest {
@@ -631,6 +635,8 @@ pub struct SaveWorkflowRequest {
     pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="6")]
     pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="7")]
+    pub execution_telemetry_json: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReleaseWorkflowRequest {
@@ -685,6 +691,8 @@ pub struct FoundWorkflow {
     pub proposal_json: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="4")]
     pub outcome_json: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="5")]
+    pub execution_telemetry_json: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct QueryActivationResponse {

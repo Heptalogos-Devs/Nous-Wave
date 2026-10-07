@@ -131,6 +131,13 @@ const owners = [
     exposure: "standard",
   },
   {
+    path: "execution_profiles",
+    schema: modelConfigurationShape.execution_profiles,
+    default: {},
+    owner: "core-model",
+    exposure: "advanced",
+  },
+  {
     path: "roles",
     schema: modelConfigurationShape.roles,
     default: {},

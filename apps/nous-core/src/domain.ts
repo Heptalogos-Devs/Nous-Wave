@@ -7,7 +7,7 @@ export interface Ref {
 }
 interface Evidence {
   reference?: Ref;
-  supportRole: string;
+  basisRole: string;
 }
 type Requirement = "REQUIRED" | "PREFERRED" | "OPTIONAL" | "FORBIDDEN";
 export interface ConsumerPolicy {

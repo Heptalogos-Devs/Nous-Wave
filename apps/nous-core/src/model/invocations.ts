@@ -12,6 +12,7 @@ import {
   type UserContent,
 } from "ai";
 import { z } from "zod";
+import { resolvedEmbeddingRoute } from "./embedding-profile.js";
 import { canonicalDigest } from "../digest.js";
 import {
   providerContractForRole,
@@ -21,12 +22,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   roleNames,
-  resolveRoleBinding,
+  resolveExecutionProfile,
   modelRoleProblem,
   type ModelConfiguration,
   type ModelProfile,
   type ModelRole,
-  type RoleBinding,
+  type ExecutionProfile,
+  type RolePolicy,
   modelConfigurationSchema,
 } from "./configuration.js";
 import { PromptRegistry, type PromptAsset } from "./prompts.js";
@@ -35,12 +37,18 @@ import { modelRoleIdentity, invocationConfigDigest } from "./identity.js";
 class MediaProtocolError extends Error {}
 class ModelOutputError extends Error {}
 export class GenerationFailure extends Error {
-  constructor(role: ModelRole, reason: string) {
+  constructor(
+    role: ModelRole,
+    readonly reason: string,
+    readonly execution?: ExecutionTelemetry,
+  ) {
     super(`Model role ${role} invocation failed: ${reason}`);
   }
 }
 
 function safeGenerationFailure(error: unknown) {
+  if (error instanceof GenerationFailure) return error.reason;
+  if (error instanceof MediaProtocolError) return error.message;
   if (error instanceof ModelOutputError) return error.message;
   if (NoObjectGeneratedError.isInstance(error))
     return error.finishReason && error.finishReason !== "stop"
@@ -74,11 +82,31 @@ export type ModelProducerMetadata = {
   promptDigest?: string;
   outputSchemaDigest?: string;
   configDigest: string;
+  modelRole: ModelRole;
+  modelProfile: string;
+  executionProfile: string;
+  inferenceControlsDigest: string;
+  rolePolicyDigest: string;
+};
+type ExecutionAttempt = {
+  executionProfile: string;
+  modelProfile: string;
+  status: "succeeded" | "failed";
+  failureClass?: string;
+  latencyMs: number;
+  usage?: unknown;
+};
+export type ExecutionTelemetry = {
+  attempts: ExecutionAttempt[];
+  successfulExecutionProfile?: string;
 };
 type ReadyRole = {
   name: ModelRole;
   profile: ModelProfile;
-  binding: RoleBinding;
+  binding: ExecutionProfile;
+  executionName: string;
+  policy: RolePolicy;
+  policyDigest: string;
   prompt?: PromptAsset;
   provider: ReturnType<typeof createOpenAI>;
   baseURL: string;
@@ -126,11 +154,12 @@ function parseRerankResponse(input: unknown, count: number) {
 export class ModelInvocations {
   private prompts?: PromptRegistry;
   private promptPaths: Partial<Record<ModelRole, string>> = {};
-  private readonly active = new Map<ModelRole, ReadyRole>();
+  private readonly active = new Map<ModelRole, ReadyRole[]>();
+  private configuration!: ModelConfiguration;
   private readonly credentialOrigins = new Set<string>();
   private readonly requirements = new Map<
     ModelRole,
-    RoleBinding["requirement"]
+    RolePolicy["requirement"]
   >();
   private readonly states = new Map<
     ModelRole,
@@ -145,6 +174,7 @@ export class ModelInvocations {
     overridePromptRoot?: string,
   ) {
     const runtime = new ModelInvocations();
+    runtime.configuration = modelConfigurationSchema.parse(config);
     for (const gateway of Object.values(config.gateway_profiles))
       if (gateway.enabled)
         runtime.credentialOrigins.add(
@@ -152,94 +182,93 @@ export class ModelInvocations {
         );
     const prompts = new PromptRegistry(promptRoot, overridePromptRoot);
     runtime.prompts = prompts;
-    for (const role of roleNames) {
-      const path = config.roles[role]?.prompt;
-      if (path) runtime.promptPaths[role] = path;
-    }
-    for (const role of roleNames) {
-      const configuredBinding = config.roles[role];
-      const binding = configuredBinding
-        ? resolveRoleBinding(
-            configuredBinding,
-            config.model_profiles[configuredBinding.model]?.protocol ?? "",
-          )
-        : undefined;
-      runtime.requirements.set(role, binding?.requirement ?? "optional");
-      if (!binding) {
-        runtime.states.set(role, {
+    for (const name of roleNames) {
+      const policy = config.roles[name];
+      runtime.requirements.set(name, policy?.requirement ?? "optional");
+      if (!policy) {
+        runtime.states.set(name, {
           state: "NOT_CONFIGURED",
-          detail: "Role has no binding",
+          detail: "Role has no policy",
         });
         continue;
       }
-      const profile = config.model_profiles[binding.model]!;
-      if (!profile || !profile.model.trim()) {
-        runtime.states.set(role, {
-          state: "NOT_CONFIGURED",
-          detail: "Model identifier is unset",
-        });
-        continue;
-      }
-      const problem = modelRoleProblem(role, configuredBinding!, profile);
-      if (problem) {
-        runtime.states.set(role, { state: "UNAVAILABLE", detail: problem });
-        continue;
-      }
-      const gateway = config.gateway_profiles[profile.gateway]!;
-      if (!gateway) {
-        runtime.states.set(role, {
-          state: "NOT_CONFIGURED",
-          detail: "Gateway profile is absent",
-        });
-        continue;
-      }
-      const credential = process.env[gateway.credential_env];
-      if (!gateway.enabled || !credential) {
-        runtime.states.set(role, {
-          state: "UNAVAILABLE",
-          detail: gateway.enabled
-            ? "Credential environment is unavailable"
-            : "Gateway disabled",
-        });
-        continue;
-      }
+      if (policy.prompt) runtime.promptPaths[name] = policy.prompt;
+      const routes: ReadyRole[] = [];
+      let problem = "Execution route unavailable";
+      let prompt: PromptAsset | undefined;
       try {
-        const prompt = await prompts.load(role, binding.prompt);
-        const { profileDigest, configDigest } = modelRoleIdentity(
+        prompt = await prompts.load(name, policy.prompt);
+      } catch {
+        problem = "Prompt asset unavailable or invalid";
+      }
+      const policyDigest = canonicalDigest(policy);
+      for (const executionName of policy.routes) {
+        const configured = config.execution_profiles[executionName];
+        const profile = configured && config.model_profiles[configured.model];
+        if (!configured || !profile || !profile.model.trim()) {
+          problem = "Execution/model profile is absent or unset";
+          continue;
+        }
+        const binding = resolveExecutionProfile(configured, profile.protocol);
+        const mismatch = modelRoleProblem(name, binding, profile);
+        if (mismatch) {
+          problem = mismatch;
+          continue;
+        }
+        const gateway = config.gateway_profiles[profile.gateway];
+        const credential = gateway && process.env[gateway.credential_env];
+        if (!gateway?.enabled || !credential) {
+          problem = "Gateway disabled or credential unavailable";
+          continue;
+        }
+        if (!prompt && providerContractForRole(name)) {
+          problem = "Prompt asset unavailable or invalid";
+          continue;
+        }
+        const identity = modelRoleIdentity(profile, gateway, binding, prompt);
+        routes.push({
+          name,
           profile,
-          gateway,
           binding,
+          executionName,
+          policy,
+          policyDigest,
           prompt,
-        );
-        const provider = createOpenAI({
-          baseURL: gateway.base_url,
-          apiKey: credential,
-          name: "standard-gateway",
-          fetch: (input, init) => fetch(input, { ...init, redirect: "error" }),
-        });
-        runtime.active.set(role, {
-          name: role,
-          profile,
-          binding,
-          prompt,
-          provider,
+          provider: createOpenAI({
+            baseURL: gateway.base_url,
+            apiKey: credential,
+            name: "standard-gateway",
+            fetch: (destination, init) =>
+              fetch(destination, { ...init, redirect: "error" }),
+          }),
           credential,
           credentialEnv: gateway.credential_env,
           baseURL: gateway.base_url,
           timeout: binding.timeout_ms ?? gateway.request_timeout_ms,
-          profileDigest,
-          configDigest,
-        });
-        runtime.states.set(role, {
-          state: "READY",
-          detail: "Executable model configuration available",
-        });
-      } catch {
-        runtime.states.set(role, {
-          state: "UNAVAILABLE",
-          detail: "Prompt asset unavailable or invalid",
+          profileDigest: identity.profileDigest,
+          configDigest: canonicalDigest({
+            execution: identity.configDigest,
+            policyDigest,
+            executionName,
+          }),
         });
       }
+      if (name === "query_embedding" && routes.length > 1) {
+        const signature = (route: ReadyRole) =>
+          canonicalDigest({
+            model: route.profile.model,
+            embedding: route.profile.embedding,
+          });
+        if (routes.some((route) => signature(route) !== signature(routes[0]!)))
+          throw new Error(
+            "Embedding routes require the identical full embedding space signature",
+          );
+      }
+      runtime.active.set(name, routes);
+      runtime.states.set(name, {
+        state: routes.length ? "READY" : "UNAVAILABLE",
+        detail: routes.length ? "Executable ordered routes available" : problem,
+      });
     }
     return runtime;
   }
@@ -253,7 +282,7 @@ export class ModelInvocations {
     }));
   }
   profile(role: ModelRole) {
-    return this.active.get(role)?.profile;
+    return this.active.get(role)?.[0]?.profile;
   }
   requirement(role: ModelRole) {
     return this.requirements.get(role) ?? "optional";
@@ -262,21 +291,18 @@ export class ModelInvocations {
     const role = this.require(name);
     return snapshotSchema.parse({
       role: name,
-      configuration: {
-        gateway_profiles: {
-          [role.profile.gateway]: {
-            base_url: role.baseURL,
-            credential_env: role.credentialEnv,
-            enabled: true,
-            request_timeout_ms: role.timeout,
-          },
-        },
-        model_profiles: { [role.binding.model]: role.profile },
-        roles: { [name]: role.binding },
-      },
+      configuration: this.configuration,
       prompt: role.prompt,
       profileDigest: role.profileDigest,
-      configDigest: role.configDigest,
+      configDigest: canonicalDigest({
+        policy: role.policy,
+        configuration: this.configuration,
+        prompt: role.prompt && {
+          id: role.prompt.id,
+          digest: role.prompt.digest,
+        },
+        outputSchemaDigest: providerContractForRole(name)?.digest,
+      }),
     });
   }
   async snapshotPrompt(
@@ -297,11 +323,21 @@ export class ModelInvocations {
     );
     return snapshot;
   }
-  private hydrate(input: ModelRoleSnapshot): ReadyRole {
-    const snapshot = snapshotSchema.parse(input),
-      binding = snapshot.configuration.roles[snapshot.role]!;
-    const profile = snapshot.configuration.model_profiles[binding.model]!,
-      gateway = snapshot.configuration.gateway_profiles[profile.gateway]!;
+  private hydrate(input: ModelRoleSnapshot, executionName: string): ReadyRole {
+    const snapshot = snapshotSchema.parse(input);
+    const policy = snapshot.configuration.roles[snapshot.role];
+    if (!policy?.routes.includes(executionName))
+      throw new Error("Reserved execution route is absent");
+    const configured = snapshot.configuration.execution_profiles[executionName];
+    const profile =
+      configured && snapshot.configuration.model_profiles[configured.model];
+    const gateway =
+      profile && snapshot.configuration.gateway_profiles[profile.gateway];
+    if (!configured || !profile || !gateway)
+      throw new Error("Reserved execution resources unavailable");
+    const binding = resolveExecutionProfile(configured, profile.protocol);
+    const problem = modelRoleProblem(snapshot.role, binding, profile);
+    if (problem) throw new Error(problem);
     const credential = process.env[gateway.credential_env];
     if (
       !this.credentialOrigins.has(
@@ -311,33 +347,119 @@ export class ModelInvocations {
       throw new Error(
         "Reserved gateway credential destination is no longer authorized by current configuration",
       );
-    if (!credential)
+    if (!gateway.enabled || !credential)
       throw new Error("Reserved model credential reference unavailable");
+    const identity = modelRoleIdentity(
+      profile,
+      gateway,
+      binding,
+      snapshot.prompt,
+    );
+    const policyDigest = canonicalDigest(policy);
     return {
       name: snapshot.role,
       profile,
       binding,
+      executionName,
+      policy,
+      policyDigest,
       prompt: snapshot.prompt,
       baseURL: gateway.base_url,
       credential,
       credentialEnv: gateway.credential_env,
-      timeout: gateway.request_timeout_ms,
-      profileDigest: snapshot.profileDigest,
-      configDigest: snapshot.configDigest,
+      timeout: binding.timeout_ms ?? gateway.request_timeout_ms,
+      profileDigest: identity.profileDigest,
+      configDigest: canonicalDigest({
+        snapshot: snapshot.configDigest,
+        execution: identity.configDigest,
+        policyDigest,
+        executionName,
+      }),
       provider: createOpenAI({
         baseURL: gateway.base_url,
         apiKey: credential,
         name: "standard-gateway",
-        fetch: (request, options) =>
-          fetch(request, { ...options, redirect: "error" }),
+        fetch: (destination, init) =>
+          fetch(destination, { ...init, redirect: "error" }),
       }),
     };
   }
+  private async withRoutes<
+    T extends {
+      value: unknown;
+      producerMetadata: ModelProducerMetadata;
+      usage?: unknown;
+    },
+  >(
+    name: ModelRole,
+    invoke: (role: ReadyRole) => Promise<T>,
+    signal?: AbortSignal,
+    fixed?: ModelRoleSnapshot,
+    beforeAttempt?: () => void,
+  ) {
+    const snapshot = fixed ?? this.snapshot(name);
+    if (snapshot.role !== name) throw new Error("Reserved model role mismatch");
+    const policy = snapshot.configuration.roles[name];
+    const attempts: ExecutionAttempt[] = [];
+    for (const executionName of policy?.routes ?? []) {
+      if (signal?.aborted) throw signal.reason;
+      let role: ReadyRole;
+      try {
+        role = this.hydrate(snapshot, executionName);
+      } catch {
+        attempts.push({
+          executionProfile: executionName,
+          modelProfile:
+            snapshot.configuration.execution_profiles[executionName]?.model ??
+            "",
+          status: "failed",
+          failureClass: "route_unavailable",
+          latencyMs: 0,
+        });
+        continue;
+      }
+      // Budget admission is outside fallback handling. Exhaustion never tries another route.
+      beforeAttempt?.();
+      const started = performance.now();
+      try {
+        const result = await invoke(role);
+        attempts.push({
+          executionProfile: executionName,
+          modelProfile: role.binding.model,
+          status: "succeeded",
+          latencyMs: Math.round(performance.now() - started),
+          usage: "usage" in result ? result.usage : undefined,
+        });
+        const { usage: _usage, ...record } = result;
+        return {
+          ...record,
+          execution: {
+            attempts,
+            successfulExecutionProfile: executionName,
+          } satisfies ExecutionTelemetry,
+        };
+      } catch (error) {
+        if (signal?.aborted) throw signal.reason;
+        attempts.push({
+          executionProfile: executionName,
+          modelProfile: role.binding.model,
+          status: "failed",
+          failureClass: safeGenerationFailure(error),
+          latencyMs: Math.round(performance.now() - started),
+        });
+      }
+    }
+    throw new GenerationFailure(
+      name,
+      `all_execution_routes_failed:${attempts.at(-1)?.failureClass ?? "route_unavailable"}`,
+      { attempts },
+    );
+  }
   identity(role: ModelRole) {
-    return this.active.get(role)?.configDigest;
+    return this.active.get(role)?.[0]?.configDigest;
   }
   private require(role: ModelRole): ReadyRole {
-    const value = this.active.get(role);
+    const value = this.active.get(role)?.[0];
     if (!value) throw new Error(`Model role ${role} unavailable`);
     return value;
   }
@@ -351,6 +473,11 @@ export class ModelInvocations {
       promptId: role.prompt?.id,
       promptDigest: role.prompt?.digest,
       configDigest: role.configDigest,
+      modelRole: role.name,
+      modelProfile: role.binding.model,
+      executionProfile: role.executionName,
+      inferenceControlsDigest: canonicalDigest(role.binding),
+      rolePolicyDigest: role.policyDigest,
     };
   }
   private signal(role: ReadyRole, signal?: AbortSignal) {
@@ -365,29 +492,40 @@ export class ModelInvocations {
     promptRole?: ModelRole | { role: ModelRole; path: string },
     fixed?: ModelRoleSnapshot,
     media?: { bytes: Uint8Array; mediaType: string },
+    beforeAttempt?: () => void,
   ) {
-    let role = fixed ? this.hydrate(fixed) : this.require(name);
-    if (role.name !== name) throw new Error("Reserved model role mismatch");
+    let snapshot = fixed ?? this.snapshot(name);
     if (promptRole) {
-      const selectedRole =
+      const selected =
         typeof promptRole === "string" ? promptRole : promptRole.role;
       const prompt = await this.prompts?.load(
-        selectedRole,
+        selected,
         typeof promptRole === "string"
-          ? this.promptPaths[selectedRole]
+          ? this.promptPaths[selected]
           : promptRole.path,
       );
       if (!prompt) throw new Error("Strategy prompt unavailable");
-      role = {
-        ...role,
+      snapshot = {
+        ...snapshot,
         prompt,
-        configDigest: canonicalDigest({
-          binding: role.configDigest,
-          promptId: prompt.id,
-          promptDigest: prompt.digest,
-        }),
+        configDigest: invocationConfigDigest(snapshot.configDigest, prompt),
       };
     }
+    return this.withRoutes(
+      name,
+      (role) => this.generateOnce(name, content, signal, role, media),
+      signal,
+      snapshot,
+      beforeAttempt,
+    );
+  }
+  private async generateOnce<R extends ModelRole>(
+    name: R,
+    content: UserContent,
+    signal: AbortSignal | undefined,
+    role: ReadyRole,
+    media?: { bytes: Uint8Array; mediaType: string },
+  ) {
     if (
       role.profile.protocol !== "openai-chat" &&
       role.profile.protocol !== "openai-responses"
@@ -457,6 +595,9 @@ export class ModelInvocations {
             temperature: role.binding.temperature,
             top_p: role.binding.top_p,
             max_tokens: role.binding.max_output_tokens,
+            ...(role.binding.reasoning === "provider-default"
+              ? {}
+              : { reasoning_effort: role.binding.reasoning }),
             ...(schema
               ? {
                   response_format: {
@@ -537,6 +678,8 @@ export class ModelInvocations {
         temperature: role.binding.temperature,
         topP: role.binding.top_p,
         maxOutputTokens: role.binding.max_output_tokens,
+        reasoning: role.binding.reasoning,
+        providerOptions: role.binding.provider_options,
         maxRetries: 0,
         abortSignal: this.signal(role, signal),
       });
@@ -546,6 +689,7 @@ export class ModelInvocations {
       const value = schema ? schema.parse(result.output) : result.text;
       return {
         value: value as ModelGenerationOutput<R>,
+        usage: result.totalUsage,
         producerMetadata: {
           ...this.metadata(role),
           outputSchemaDigest: output?.digest,
@@ -563,7 +707,27 @@ export class ModelInvocations {
     }
   }
   async embeddingBatch(texts: string[], model: string, signal?: AbortSignal) {
-    const role = this.require("query_embedding");
+    const result = await this.withRoutes(
+      "query_embedding",
+      (role) => this.embeddingBatchOnce(texts, model, signal, role),
+      signal,
+    );
+    const producer = resolvedEmbeddingRoute(
+      this.configuration,
+      result.producerMetadata.executionProfile,
+    )?.producer;
+    if (!producer)
+      throw new Error(
+        "Successful embedding execution has no canonical producer",
+      );
+    return { ...result, producer };
+  }
+  private async embeddingBatchOnce(
+    texts: string[],
+    model: string,
+    signal: AbortSignal | undefined,
+    role: ReadyRole,
+  ) {
     if (
       role.profile.model !== model ||
       !role.profile.embedding ||
@@ -626,9 +790,18 @@ export class ModelInvocations {
     signal?: AbortSignal,
     fixed?: ModelRoleSnapshot,
   ) {
-    const role = fixed
-      ? this.hydrate(fixed)
-      : this.require("speech_transcription");
+    return this.withRoutes(
+      "speech_transcription",
+      (role) => this.transcriptionOnce(audio, signal, role),
+      signal,
+      fixed,
+    );
+  }
+  private async transcriptionOnce(
+    audio: Uint8Array,
+    signal: AbortSignal | undefined,
+    role: ReadyRole,
+  ) {
     try {
       const result = await transcribe({
         model: role.provider.transcription(role.profile.model),
@@ -649,7 +822,19 @@ export class ModelInvocations {
     topN: number,
     signal?: AbortSignal,
   ) {
-    const role = this.require("query_rerank");
+    return this.withRoutes(
+      "query_rerank",
+      (role) => this.rerankOnce(query, documents, topN, signal, role),
+      signal,
+    );
+  }
+  private async rerankOnce(
+    query: string,
+    documents: string[],
+    topN: number,
+    signal: AbortSignal | undefined,
+    role: ReadyRole,
+  ) {
     if (
       !query.trim() ||
       !documents.length ||

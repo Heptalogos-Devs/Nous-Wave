@@ -63,38 +63,51 @@ export class QueryOrchestrator {
             {},
             options,
           );
-          const keys = new Map(
-            [...texts].map((text) => [
-              text,
-              canonicalDigest({
-                text,
-                space: config.spaceHash,
-                producer: config.producerHash,
-              }),
-            ]),
-          );
-          const missing = [...texts].filter(
-            (text) => !this.queryVectors.has(keys.get(text)!),
-          );
+          const producers = config.producerHashes;
+          const key = (text: string, producer: string) =>
+            canonicalDigest({ text, space: config.spaceHash, producer });
+          const cached = (text: string) =>
+            producers
+              .map((producer) => ({
+                producer,
+                vector: this.queryVectors.get(key(text, producer)),
+              }))
+              .find((item) => item.vector);
+          const missing = [...texts].filter((text) => !cached(text));
           if (missing.length) {
             const vectors = await this.models.invocations.embeddingBatch(
               missing,
               config.model,
               options.signal ?? undefined,
             );
+            if (!producers.includes(vectors.producer.signature_hash))
+              throw new ConnectError(
+                "Embedding producer is not in the prepared configuration",
+                Code.FailedPrecondition,
+              );
             missing.forEach((text, index) =>
-              this.queryVectors.set(keys.get(text)!, vectors.value[index]!),
+              this.queryVectors.set(
+                key(text, vectors.producer.signature_hash),
+                vectors.value[index]!,
+              ),
             );
           }
-          for (const text of texts)
+          for (const text of texts) {
+            const selected = cached(text);
+            if (!selected?.vector)
+              throw new ConnectError(
+                "Query embedding material missing",
+                Code.Internal,
+              );
             material.push(
               create(QueryEmbeddingSchema, {
                 text,
                 spaceHash: config.spaceHash,
-                producerHash: config.producerHash,
-                vector: this.queryVectors.get(keys.get(text)!)!,
+                producerHash: selected.producer,
+                vector: selected.vector,
               }),
             );
+          }
           while (
             this.queryVectors.size >
             this.kernel.execution.query_embedding_cache_entries
@@ -142,11 +155,16 @@ export class QueryOrchestrator {
               "Query concept model role unavailable",
               Code.FailedPrecondition,
             );
-          conceptModelCalls = 1;
           const response = await this.models.invocations.generate(
             "query_concept_enrichment",
             activation.modelInput,
             options.signal ?? undefined,
+            undefined,
+            undefined,
+            undefined,
+            () => {
+              conceptModelCalls++;
+            },
           );
           conceptOutput = JSON.stringify(response.value);
         } catch (error) {

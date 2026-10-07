@@ -11,10 +11,7 @@ export interface Selector {
   locators: Locator[];
 }
 export type Atom =
-  | { kind: "text"; text: string }
-  | { kind: "concept"; text: string }
-  | Selector
-  | { kind: "universe" };
+  { kind: "text"; text: string } | { kind: "concept"; text: string } | Selector;
 export type Argument = string | number;
 export interface Directive {
   name: string;
@@ -25,17 +22,10 @@ interface Preference {
   negative: boolean;
   operand: Atom | { kind: "key"; value: string };
 }
-export interface Expression {
-  operation: "atom" | "all" | "any";
-  atom?: Atom;
-  children: Expression[];
+export interface QuerySyntax {
+  source: string;
+  intentText: string;
+  cues: Atom[];
   directives: Directive[];
   preferences: Preference[];
 }
-export const expression = (atom: Atom): Expression => ({
-  operation: "atom",
-  atom,
-  children: [],
-  directives: [],
-  preferences: [],
-});

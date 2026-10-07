@@ -6,7 +6,7 @@ import {
   episodePartitionSchema,
   journalSynthesisSchema,
   partitionIndices,
-  journalSupportKeys,
+  journalBasisKeys,
 } from "./longitudinal.js";
 
 describe("longitudinal proposal catalog contracts", () => {
@@ -48,26 +48,22 @@ describe("longitudinal proposal catalog contracts", () => {
         {
           role: "decision",
           text: "Continue the current plan",
-          supportKeys: ["episode-a", "observation-b"],
+          basisKeys: ["episode-a", "observation-b"],
         },
       ],
     });
     expect(() =>
-      journalSupportKeys(proposal, new Set(["episode-a", "observation-b"])),
+      journalBasisKeys(proposal, new Set(["episode-a", "observation-b"])),
     ).not.toThrow();
-    expect(() =>
-      journalSupportKeys(proposal, new Set(["episode-a"])),
-    ).toThrow();
+    expect(() => journalBasisKeys(proposal, new Set(["episode-a"]))).toThrow();
     if (proposal.action !== "commit")
       throw new Error("Expected commit proposal");
-    proposal.points[0]!.supportKeys = ["episode-a", "episode-a"];
-    expect(() =>
-      journalSupportKeys(proposal, new Set(["episode-a"])),
-    ).toThrow();
+    proposal.points[0]!.basisKeys = ["episode-a", "episode-a"];
+    expect(() => journalBasisKeys(proposal, new Set(["episode-a"]))).toThrow();
     expect(
       journalSynthesisSchema.safeParse({
         ...proposal,
-        points: [{ ...proposal.points[0], supportKeys: [] }],
+        points: [{ ...proposal.points[0], basisKeys: [] }],
       }).success,
     ).toBe(false);
   });

@@ -1,18 +1,18 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
-
 import { runCli } from "./commands.js";
 import { cliErrorPayload } from "./agent.js";
-const compact = process.argv.includes("--json");
-const json = (value: unknown) =>
-  JSON.stringify(
-    value,
-    (_, v: unknown) => (typeof v === "bigint" ? v.toString() : v),
-    compact ? undefined : 2,
-  );
+import { renderText } from "./output.js";
+const json = process.argv.includes("--json") || process.argv.includes("--raw");
+const render = (value: unknown) =>
+  json
+    ? JSON.stringify(value, (_, v: unknown) =>
+        typeof v === "bigint" ? v.toString() : v,
+      )
+    : renderText(value);
 runCli(process.argv.slice(2))
-  .then((result) => console.log(json(result)))
+  .then((result) => console.log(render(result)))
   .catch((error: unknown) => {
-    console.error(json(cliErrorPayload(error)));
+    console.error(render(cliErrorPayload(error)));
     process.exitCode = 1;
   });

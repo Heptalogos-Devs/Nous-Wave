@@ -37,7 +37,7 @@ impl JournalPointRole {
 pub struct JournalPoint {
     pub role: JournalPointRole,
     pub text: String,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,7 +109,7 @@ impl MemoryService {
             .bind(subject.0).bind(journal.0).bind(revision.map(|id| id.0)).fetch_optional(self.store.pool()).await.map_err(db)?
             .ok_or_else(|| Error::NotFound("Journal not found".into()))?;
         let revision = JournalRevisionId(row.try_get("journal_revision_id").map_err(db)?);
-        let point_rows = sqlx::query("SELECT p.ordinal,p.role,p.text,COALESCE(jsonb_agg(s.support ORDER BY s.support_no) FILTER(WHERE s.support_no IS NOT NULL),'[]') AS supports FROM journal_revision_points p LEFT JOIN journal_point_supports s USING(journal_revision_id,ordinal) WHERE p.journal_revision_id=$1 GROUP BY p.ordinal,p.role,p.text ORDER BY p.ordinal")
+        let point_rows = sqlx::query("SELECT p.ordinal,p.role,p.text,COALESCE(jsonb_agg(s.basis ORDER BY s.basis_no) FILTER(WHERE s.basis_no IS NOT NULL),'[]') AS basis FROM journal_revision_points p LEFT JOIN journal_point_basis s USING(journal_revision_id,ordinal) WHERE p.journal_revision_id=$1 GROUP BY p.ordinal,p.role,p.text ORDER BY p.ordinal")
             .bind(revision.0).fetch_all(self.store.pool()).await.map_err(db)?;
         let points = point_rows
             .into_iter()
@@ -117,7 +117,7 @@ impl MemoryService {
                 Ok(JournalPoint {
                     role: parse_enum(row.try_get("role").map_err(db)?, "Journal point role")?,
                     text: row.try_get("text").map_err(db)?,
-                    supports: serde_json::from_value(row.try_get("supports").map_err(db)?)
+                    basis: serde_json::from_value(row.try_get("basis").map_err(db)?)
                         .map_err(|error| Error::Infrastructure(error.to_string()))?,
                 })
             })

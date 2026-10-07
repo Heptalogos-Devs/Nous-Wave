@@ -67,8 +67,7 @@ impl MaterialService {
                 ));
             }
         }
-        self.validate_field_supports(&mut tx, &representation)
-            .await?;
+        self.validate_field_basis(&mut tx, &representation).await?;
         if let Some(artifact) = representation.payload_artifact_id {
             let owner: Option<Uuid> = sqlx::query_scalar(
                 "SELECT subject_id FROM artifacts WHERE artifact_id=$1 FOR SHARE",

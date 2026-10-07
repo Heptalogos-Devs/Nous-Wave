@@ -71,9 +71,7 @@ export async function executeConsolidation(
     proposal.actions.length > plan.maxConsolidationActions
   )
     invalid("Consolidation source or action envelope is invalid");
-  const supports = new Map(
-    plan.supports.map((entry) => [entry.key, entry.support]),
-  );
+  const basis = new Map(plan.basis.map((entry) => [entry.key, entry.basis]));
   const entities = new Map(
     plan.entities.map((entry) => [entry.key, entry.entityRef]),
   );
@@ -84,15 +82,15 @@ export async function executeConsolidation(
     plan.members.map((entry) => [entry.key, entry.occurrenceId]),
   );
   const results = [...progress];
-  const selectedSupports = (keys: string[], eligible?: string[]) => {
+  const selectedBasis = (keys: string[], eligible?: string[]) => {
     if (
       new Set(keys).size !== keys.length ||
       keys.some((key) => eligible && !eligible.includes(key))
     )
-      invalid("Duplicate or self-dependent consolidation supports");
+      invalid("Duplicate or self-dependent consolidation basis");
     return keys.map(
       (key) =>
-        supports.get(key) ??
+        basis.get(key) ??
         invalid("Consolidation support key is outside the catalog"),
     );
   };
@@ -132,7 +130,7 @@ export async function executeConsolidation(
       semanticRole: content.semanticRole,
       text: content.text,
       title: content.title ?? undefined,
-      supports: selectedSupports(content.supportKeys, eligible),
+      basis: selectedBasis(content.basisKeys, eligible),
       aboutness: selectedEntities(content.entityKeys),
       tags: [],
       validTime: time(content.validTime),
@@ -156,7 +154,7 @@ export async function executeConsolidation(
       formationKind: content.formationKind,
       evidenceLinks: content.evidence.map((link) => ({
         role: link.role,
-        support: selectedSupports([link.supportKey], eligible)[0],
+        basis: selectedBasis([link.basisKey], eligible)[0],
       })),
     });
   const endpoint = (
@@ -211,7 +209,7 @@ export async function executeConsolidation(
               memoryId: candidate.target!.objectId,
               expectedObjectEpoch: candidate.target!.expectedEpoch,
               intent: action.intent,
-              input: memory(action.content, candidate.eligibleSupportKeys),
+              input: memory(action.content, candidate.eligibleBasisKeys),
             },
             options,
           );
@@ -257,7 +255,7 @@ export async function executeConsolidation(
               schemaId: candidate.target!.objectId,
               expectedObjectEpoch: candidate.target!.expectedEpoch,
               intent: action.intent,
-              schema: schema(action.content, candidate.eligibleSupportKeys),
+              schema: schema(action.content, candidate.eligibleBasisKeys),
               copyLinkIds: [],
             },
             options,

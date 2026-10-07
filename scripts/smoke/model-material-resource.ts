@@ -142,7 +142,7 @@ const provider = createServer((request, response) => {
     const result = {
       summary: {
         content: "Local protocol continuity marker.",
-        support_keys: [key],
+        basis_keys: [key],
       },
       coverage: {
         visual: "not_available",
@@ -159,7 +159,7 @@ const provider = createServer((request, response) => {
           certainty: "clear",
           start_ms: null,
           end_ms: null,
-          support_keys: [key],
+          basis_keys: [key],
         },
       ],
       mentions: [],
@@ -193,7 +193,7 @@ if (!providerAddress || typeof providerAddress === "string")
 await mkdir(join(dataRoot, "config"));
 await writeFile(
   join(dataRoot, "config", "nous.toml"),
-  `config_revision = ${CONFIG_REVISION}\n[host]\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.smoke]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n[model_profiles.local]\ngateway = "smoke"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[roles.material_structuring]\nmodel = "local"\n[resource_profiles.ragflow]\nmax_material_bytes = 1048576\nadapter_kind = "ragflow"\nbase_url = "http://127.0.0.1:${providerAddress.port}/api/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n`,
+  `config_revision = ${CONFIG_REVISION}\n[host]\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.smoke]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n[model_profiles.local]\ngateway = "smoke"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[execution_profiles.material_structuring]\nmodel = "local"\n[roles.material_structuring]\nroutes = ["material_structuring"]\n[resource_profiles.ragflow]\nmax_material_bytes = 1048576\nadapter_kind = "ragflow"\nbase_url = "http://127.0.0.1:${providerAddress.port}/api/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n`,
 );
 const runtimeRoot = process.env.NOUS_WAVE_POSTGRES_RUNTIME
   ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
@@ -304,7 +304,12 @@ async function cli(...args: string[]) {
   const exit: unknown[] = await once(child, "exit");
   const code = exit[0];
   if (code !== 0) throw new Error(`CLI ${args[0]} failed: ${errors}`);
-  return JSON.parse(output) as Record<string, unknown>;
+  const envelope = JSON.parse(output) as {
+    schemaVersion: string;
+    data: Record<string, unknown>;
+  };
+  assert.equal(envelope.schemaVersion, "nous.cli.v1");
+  return envelope.data;
 }
 try {
   await boot();
@@ -353,7 +358,11 @@ try {
     sourceRegionId: String(observation.sourceRegionId),
     strategy: "direct_structured",
   });
-  assert.equal(direct.degradation.length, 0);
+  assert.equal(
+    direct.degradation.length,
+    0,
+    JSON.stringify(direct.degradation),
+  );
   assert.equal(direct.representations.length, 1);
   const directPayload = direct.representations[0]!.structuredPayload!;
   assert.deepEqual(directPayload.observations, [
@@ -365,7 +374,7 @@ try {
       certainty: "clear",
       start_ms: null,
       end_ms: null,
-      supports: [
+      basis_refs: [
         { kind: "source_region", value: String(observation.sourceRegionId) },
       ],
     },
@@ -386,12 +395,12 @@ try {
   assert.deepEqual(persisted.structuredPayload, structured.structuredPayload);
   assert.match(persisted.producer!.outputSchemaDigest!, /^[a-f0-9]{64}$/);
   const observations = persisted.structuredPayload!.observations as {
-    supports: { kind: string; value: string }[];
+    basis_refs: { kind: string; value: string }[];
   }[];
-  assert.equal(observations[0]!.supports[0]!.kind, "derived_region");
+  assert.equal(observations[0]!.basis_refs[0]!.kind, "derived_region");
   const segment = await client.material.derivedRegion({
     subjectId,
-    id: observations[0]!.supports[0]!.value,
+    id: observations[0]!.basis_refs[0]!.value,
   });
   assert.equal(
     segment.representationId,
@@ -432,7 +441,7 @@ try {
   assert.equal(resourceDescriptor.providerProfile, "ragflow");
   const resourceResult = await client.cognition.recall(
     subjectId,
-    '(("external chunk" $current(required)) || "unrelated") $return(memory,resource) $limit(2)',
+    "Retrieve external chunk $current(required) $return(memory,resource) $limit(2)",
   );
   assert.equal(resourceResult.resourceActions.length, 0);
   assert.equal(resourceResult.resourceRecords.length, 1);
@@ -445,8 +454,8 @@ try {
     resourceDescriptor.resourceRef,
   );
   assert.equal(resourceResult.hits.length, 0);
-  // One descriptor validation and two searches: root projection applies to both OR branches.
-  assert.equal(resourceProviderCalls, 3);
+  // One descriptor validation and one search for the single intent.
+  assert.equal(resourceProviderCalls, 2);
   const selectedRef = resourceResult.resourceRecords[0]!.reference!;
   const observedAt = {
     seconds: BigInt(Math.floor(Date.now() / 1000)),
@@ -542,7 +551,7 @@ try {
   });
   const unavailableResource = await client.cognition.recall(
     subjectId,
-    '"external chunk" $return(resource) $limit(2)',
+    "external chunk $return(resource) $limit(2)",
   );
   assert.equal(unavailableResource.resourceRecords.length, 1);
   assert.equal(unavailableResource.resourceActions.length, 1);
@@ -571,13 +580,13 @@ try {
       text: "Local consumer wiring marker: protocol continuity.",
       epistemicClass: "observed",
 
-      supports: [
+      basis: [
         {
-          support: {
+          basis: {
             case: "evidence",
             value: {
               occurrenceId,
-              supportRole: "direct",
+              basisRole: "direct",
               locator: {
                 case: "derivedRepresentationId",
                 value: extracted.selectedRepresentationId!,
@@ -590,7 +599,7 @@ try {
   });
   const response = await client.cognition.recall(
     subjectId,
-    '"protocol continuity" $return(memory) $limit(5)',
+    "protocol continuity $return(memory) $limit(5)",
   );
   assert(memory.producerSignatureId);
   const producer = await client.material.producer({
@@ -603,8 +612,8 @@ try {
   assert(
     response.hits.some((hit) => hit.revision?.value === memory.revisionId),
   );
-  await cli("query", '"protocol continuity" $return(memory) $limit(5)');
-  const trace = await cli("trace", `memory:${memory.memoryId}`);
+  await cli("query", "protocol continuity $return(memory) $limit(5)");
+  const trace = await cli("trace", `memory_revision:${memory.revisionId}`);
   assert(Array.isArray(trace.sources) && trace.sources.length === 1);
   assert(Array.isArray(trace.derivations) && trace.derivations.length >= 2);
   await cli("use", `memory_revision:${memory.revisionId}`);
@@ -634,10 +643,16 @@ preprocessing_identity = "identity"
 preprocessing_revision = "1"
 normalization = "l2"
 output_semantics = "dense"
-[roles.query_embedding]
+[execution_profiles.query_embedding]
 model = "embedding"
-[roles.memory_formation]
+[roles.query_embedding]
+routes = ["query_embedding"]
+
+[execution_profiles.memory_formation]
 model = "local"
+
+[roles.memory_formation]
+routes = ["memory_formation"]
 `,
   );
   await boot();
@@ -651,7 +666,7 @@ model = "local"
   assert(prepared.committed > 0 && prepared.degradation.length === 0);
   const recall = await restarted.cognition.recall(
     subjectId,
-    '"protocol continuity" $return(memory) $limit(5)',
+    "protocol continuity $return(memory) $limit(5)",
   );
   assert(recall.hits.some((hit) => hit.revision?.value === memory.revisionId));
   const formationRequest = {

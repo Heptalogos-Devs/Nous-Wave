@@ -1,6 +1,6 @@
 # Structure supplied evidence text
 
-The envelope supplies evidence_text, evidence_kind, an exact support_catalog and modalities of the underlying source. With committed_representation, only the committed description or transcript is available: the original media is not supplied. With original_text, the text itself is the source.
+The envelope supplies evidence_text, evidence_kind, an exact basis_catalog and modalities of the underlying source. With committed_representation, only the committed description or transcript is available: the original media is not supplied. With original_text, the text itself is the source.
 
 ## Fidelity
 

@@ -26,7 +26,10 @@ pub(super) fn fence(
     sources.retain(|(reference, _)| visible(reference));
     query.situation.current_refs.retain(visible);
     if let Some(context) = context {
-        context.references.retain(visible);
+        context.cognition_anchors.retain(visible);
+        context
+            .tag_anchors
+            .retain(|tag| visible(&CognitiveRef::Tag(*tag)));
     }
     excluded
         .into_iter()

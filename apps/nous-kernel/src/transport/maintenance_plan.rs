@@ -79,24 +79,26 @@ impl KernelService {
                 revision_id: episode.revision.episode_revision_id.0.to_string(),
                 expected_epoch: episode.object.object_epoch,
             });
-            let support = RevisionSupport::CognitionDependency(CognitionDependency {
+            let basis = RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: None,
                 target_revision: CognitiveRef::EpisodeRevision(
                     episode.revision.episode_revision_id,
                 ),
-                support_role: SupportRole::Direct,
+                basis_role: BasisRole::Direct,
             });
-            catalog.insert(support.canonical_key(), support);
-            for support in &episode.supports {
-                catalog.insert(support.canonical_key(), support.clone());
+            catalog.insert(basis.canonical_key(), basis);
+            for basis in &episode.basis {
+                catalog.insert(basis.canonical_key(), basis.clone());
             }
             for member in &episode.members {
                 if let CognitiveRef::Occurrence(id) = member.reference {
-                    let support = RevisionSupport::Evidence(EvidenceRef {
+                    let basis = RevisionBasis::Evidence(EvidenceRef {
+                        epistemic_relation: None,
                         occurrence_id: id,
                         locator: EvidenceLocator::WholeOccurrence,
-                        support_role: SupportRole::Direct,
+                        basis_role: BasisRole::Direct,
                     });
-                    catalog.insert(support.canonical_key(), support);
+                    catalog.insert(basis.canonical_key(), basis);
                 }
             }
         }
@@ -110,11 +112,11 @@ impl KernelService {
             plan.problem_code = Some("historical_repair_scope_exceeded".into());
             plan.next_due = None;
         }
-        plan.supports = catalog
+        plan.basis = catalog
             .into_iter()
-            .map(|(key, support)| k::SupportCatalogEntry {
+            .map(|(key, basis)| k::BasisCatalogEntry {
                 key,
-                support: Some(support_proto(support)),
+                basis: Some(basis_proto(basis)),
             })
             .collect();
         if claimed.kind == "memory_consolidate" && plan.status == "ready" {
@@ -198,12 +200,12 @@ impl KernelService {
                             relation: a.relation,
                         })
                         .collect(),
-                    supports: concepts
-                        .supports
+                    basis: concepts
+                        .basis
                         .into_iter()
-                        .map(|(key, support)| k::ConceptSupport {
+                        .map(|(key, basis)| k::ConceptBasis {
                             key,
-                            support: Some(super::concepts::association_support_proto(support)),
+                            basis: Some(super::concepts::association_basis_proto(basis)),
                         })
                         .collect(),
                 }),

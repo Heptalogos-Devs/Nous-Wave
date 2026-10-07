@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 mod test_support;
 use nous_core::*;
-use nous_memory::{AssociationPolarity, AssociationSupport, AssociationSupportClass};
+use nous_memory::{AssociationBasis, AssociationBasisClass, AssociationPolarity};
 use nous_memory::{CreateTagRequest, ReviseTagInput, TagContent, TagExpectation};
 use nous_runtime::{CognitiveRuntimeService, ManualCognitiveClock};
 use nous_subject::{CognitiveSeedInput, CreateSubject};
@@ -66,7 +66,7 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
         "original authority fact",
     );
     input.tags = vec![tag.tag_id];
-    let supports = input.supports.clone();
+    let basis = input.basis.clone();
     let memory = owner.form_memory(input).await.unwrap();
     let old = CognitiveRef::MemoryRevision(memory.revision.memory_revision_id);
     let exact_boundary = owner
@@ -112,7 +112,7 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
             semantic_role: "fact".into(),
             representation_text: "rephrased authority fact".into(),
             title: None,
-            supports: supports.clone(),
+            basis: basis.clone(),
             aboutness: vec![],
             valid_time: TemporalExtent::Unknown,
             epistemic_class: EpistemicClass::Observed,
@@ -183,11 +183,11 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
                 to: CognitiveRef::Tag(tag.tag_id),
                 relation_kind: "tag_attachment".into(),
                 polarity: AssociationPolarity::Positive,
-                support_class: AssociationSupportClass::HostExplicit,
-                supports: supports
+                basis_class: AssociationBasisClass::HostExplicit,
+                basis: basis
                     .iter()
                     .cloned()
-                    .map(AssociationSupport::Revision)
+                    .map(AssociationBasis::Revision)
                     .collect(),
                 producer_signature_id: None,
                 valid_time: TemporalExtent::Unknown,
@@ -317,7 +317,7 @@ async fn owner_projection_uses_recorded_revisions_and_past_concept_state() {
                     tag_id: tag.tag_id,
                     expected_revision_id: tag_revised.current_revision_id,
                 }],
-                supports,
+                basis,
             },
         )
         .await
@@ -396,7 +396,10 @@ async fn check_historical_binding(
             constraints: serde_json::json!({}),
             resume_conditions: vec![],
             budget_summary: serde_json::json!({}),
-            references: vec![old.clone(), future.clone()],
+            context_text: String::new(),
+            entity_anchors: vec![],
+            tag_anchors: vec![],
+            cognition_anchors: vec![old.clone(), future.clone()],
         })
         .await
         .unwrap();
@@ -410,7 +413,7 @@ async fn check_historical_binding(
             authority_view: AuthorityView::AsOf(view.as_of),
             ..Default::default()
         },
-        text_only_compatibility: false,
+
         situation: SituationDescriptor {
             current_refs: vec![CognitiveRef::Tag(future_tag)],
             ..Default::default()
@@ -628,7 +631,7 @@ async fn historical_material_query_runs_without_memory_micro_system() {
             authority_view: AuthorityView::AsOf(cut),
             ..Default::default()
         },
-        text_only_compatibility: false,
+
         situation: Default::default(),
         expression: CognitiveQueryExpr {
             cues: vec![Cue::Text(TextCue {
@@ -685,9 +688,12 @@ async fn check_permission_fence(
             authority_view: AuthorityView::AsOf(view.as_of),
             ..Default::default()
         },
-        text_only_compatibility: false,
+
         situation: Default::default(),
         expression: CognitiveQueryExpr {
+            cues: vec![Cue::Text(TextCue {
+                text: "read historical cognition".into(),
+            })],
             targets: vec![QueryTarget::Exact {
                 reference: reference.clone(),
             }],

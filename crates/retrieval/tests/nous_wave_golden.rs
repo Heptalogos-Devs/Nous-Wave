@@ -29,7 +29,7 @@ fn graph() -> WaveGraphGeneration {
     let edge = |from, to, mass, root: &str| WaveEdgeEvidence {
         from: reference(from),
         to: reference(to),
-        support_class: "host_explicit".into(),
+        basis_class: "host_explicit".into(),
         association_kind: "assoc.related".into(),
         polarity: "positive".into(),
         support_mass: mass,

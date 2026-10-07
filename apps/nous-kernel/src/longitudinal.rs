@@ -7,8 +7,8 @@ use crate::NousRuntime;
 use chrono::{DateTime, Utc};
 use nous_core::*;
 use nous_memory::{
-    EpisodeInput, EpisodeMemberInput, EpisodeView, EvidenceLocator, EvidenceRef, RevisionSupport,
-    SupportRole,
+    BasisRole, EpisodeInput, EpisodeMemberInput, EpisodeView, EvidenceLocator, EvidenceRef,
+    RevisionBasis,
 };
 use serde::{Deserialize, Serialize};
 
@@ -66,14 +66,15 @@ impl NousRuntime {
                             role: "experience".into(),
                         })
                         .collect(),
-                    supports: draft
+                    basis: draft
                         .members
                         .iter()
                         .map(|id| {
-                            RevisionSupport::Evidence(EvidenceRef {
+                            RevisionBasis::Evidence(EvidenceRef {
+                                epistemic_relation: None,
                                 occurrence_id: *id,
                                 locator: EvidenceLocator::WholeOccurrence,
-                                support_role: SupportRole::Direct,
+                                basis_role: BasisRole::Direct,
                             })
                         })
                         .collect(),

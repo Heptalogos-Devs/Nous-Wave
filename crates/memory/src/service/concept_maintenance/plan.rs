@@ -59,23 +59,22 @@ impl MemoryService {
             .chars()
             .take(4096)
             .collect::<String>();
-        let (source_supports, entities) = self.concept_focus_sources(subject, &focus).await?;
-        let mut supports = BTreeMap::new();
-        supports.insert(
+        let (source_basis, entities) = self.concept_focus_sources(subject, &focus).await?;
+        let mut basis = BTreeMap::new();
+        basis.insert(
             "s0".into(),
-            AssociationSupport::Revision(RevisionSupport::CognitionDependency(
-                CognitionDependency {
-                    target_revision: focus.clone(),
-                    support_role: SupportRole::Direct,
-                },
-            )),
+            AssociationBasis::Revision(RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: None,
+                target_revision: focus.clone(),
+                basis_role: BasisRole::Direct,
+            })),
         );
-        let mut support_keys = std::collections::HashSet::new();
-        for support in source_supports.into_iter().take(12) {
-            if support_keys.insert(support.canonical_key()) {
-                supports.insert(
-                    format!("s{}", supports.len()),
-                    AssociationSupport::Revision(support),
+        let mut basis_keys = std::collections::HashSet::new();
+        for source_basis_entry in source_basis.into_iter().take(12) {
+            if basis_keys.insert(source_basis_entry.canonical_key()) {
+                basis.insert(
+                    format!("s{}", basis.len()),
+                    AssociationBasis::Revision(source_basis_entry),
                 );
             }
         }
@@ -90,10 +89,10 @@ impl MemoryService {
         let provenance = self
             .provenance_summary(
                 subject,
-                &supports
+                &basis
                     .values()
-                    .filter_map(|support| match support {
-                        AssociationSupport::Revision(revision) => Some(revision.clone()),
+                    .filter_map(|basis| match basis {
+                        AssociationBasis::Revision(revision) => Some(revision.clone()),
                         _ => None,
                     })
                     .collect::<Vec<_>>(),
@@ -104,11 +103,9 @@ impl MemoryService {
             .iter()
             .filter(|root| root.certainty == EvidenceRootCertainty::Known)
             .count();
-        let focus_context = self
-            .concept_focus_context(subject, &focus, &supports)
-            .await?;
+        let focus_context = self.concept_focus_context(subject, &focus, &basis).await?;
         let mut cognition = vec![
-            serde_json::json!({"key":"c0","kind":reference_parts(&focus).0,"epoch":epoch,"text":text,"exactSupportKey":"s0","context":focus_context,"distinctRoots":distinct_roots}),
+            serde_json::json!({"key":"c0","kind":reference_parts(&focus).0,"epoch":epoch,"text":text,"exactBasisKey":"s0","context":focus_context,"distinctRoots":distinct_roots}),
         ];
         let mut neighbors = neighborhood.nodes.clone();
         for reference in nearby {
@@ -141,18 +138,19 @@ impl MemoryService {
                 .next()
             {
                 let key = format!("c{}", cognition.len());
-                let support_key = format!("s{}", supports.len());
-                supports.insert(
-                    support_key.clone(),
-                    AssociationSupport::Revision(RevisionSupport::CognitionDependency(
+                let basis_key = format!("s{}", basis.len());
+                basis.insert(
+                    basis_key.clone(),
+                    AssociationBasis::Revision(RevisionBasis::CognitionDependency(
                         CognitionDependency {
+                            epistemic_relation: None,
                             target_revision: reference.clone(),
-                            support_role: SupportRole::Contextual,
+                            basis_role: BasisRole::Contextual,
                         },
                     )),
                 );
                 references.insert(key.clone(), reference.clone());
-                cognition.push(serde_json::json!({"key":key,"kind":reference_parts(reference).0,"text":descriptor.text.chars().take(512).collect::<String>(),"exactSupportKey":support_key}));
+                cognition.push(serde_json::json!({"key":key,"kind":reference_parts(reference).0,"text":descriptor.text.chars().take(512).collect::<String>(),"exactBasisKey":basis_key}));
             }
         }
         let mut entity_input = Vec::new();
@@ -227,9 +225,9 @@ impl MemoryService {
         let use_rows=sqlx::query("SELECT consumer_ref,event_id,use_kind FROM cognitive_use_events WHERE subject_id=$1 AND ref_kind=$2 AND ref_value=$3 AND use_kind IN ('referenced','acted_on','result_supported','corrected','pinned') ORDER BY occurred_at DESC,event_id LIMIT 4")
             .bind(subject.0).bind(kind).bind(value).fetch_all(self.store.pool()).await.map_err(db)?;
         for row in use_rows {
-            supports.insert(
-                format!("s{}", supports.len()),
-                AssociationSupport::UseEvent(UseEventRef {
+            basis.insert(
+                format!("s{}", basis.len()),
+                AssociationBasis::UseEvent(UseEventRef {
                     subject_id: subject,
                     consumer_ref: row.try_get("consumer_ref").map_err(db)?,
                     event_id: UseEventId(row.try_get("event_id").map_err(db)?),
@@ -269,11 +267,11 @@ impl MemoryService {
                 }
             }
         }
-        let source_context = self.concept_source_text(subject, &supports).await?;
+        let source_context = self.concept_source_text(subject, &basis).await?;
         let model_input = serde_json::json!({"focusKey":"c0","policy":policy,"partial":partial,"cognition":cognition,"entities":entity_input,
             "tags":tags.iter().map(|tag|serde_json::json!({"key":tag.key,"content":tag.content,"aliases":tag.aliases,"attached":tag.attached,"semanticSimilarity":tag.semantic_score,"accretion":tag.accretion.as_ref().map(|s|serde_json::json!({"distinctRoots":s.independent_roots,"currentMembers":s.attached_cognition,"episodeRecurrence":s.cross_episode_recurrence,"observedSpanSeconds":s.observed_span_seconds,"associationDegree":s.association_degree,"meaningfulUse":s.meaningful_use,"counterevidence":s.counterevidence,"coherence":s.semantic_coherence,"genericity":s.broad_center,"reviewPriority":s.review_priority(&accretion_policy),"partial":s.partial}))})).collect::<Vec<_>>(),
             "associations":associations.iter().map(|a|serde_json::json!({"key":a.key,"from":a.from,"to":a.to,"relation":a.relation})).collect::<Vec<_>>(),
-            "supports":supports.iter().map(|(key,s)|serde_json::json!({"key":key,"kind":match s {AssociationSupport::Revision(RevisionSupport::CognitionDependency(_))=>"exact_cognition",AssociationSupport::Revision(_)=>"source_evidence",AssociationSupport::UseEvent(_)=>"meaningful_use"}})).collect::<Vec<_>>(),"queryFeedback":query_feedback,"queryFeedbackSemantics":"meaningful_use signal; not source evidence or mutation authorization","sourceContext":source_context,"mergeCandidates":merge_candidates,"splitCandidates":split_candidates});
+            "basis":basis.iter().map(|(key,s)|serde_json::json!({"key":key,"kind":match s {AssociationBasis::Revision(RevisionBasis::CognitionDependency(_))=>"exact_cognition",AssociationBasis::Revision(_)=>"source_evidence",AssociationBasis::UseEvent(_)=>"meaningful_use"}})).collect::<Vec<_>>(),"queryFeedback":query_feedback,"queryFeedbackSemantics":"meaningful_use signal; not source evidence or mutation authorization","sourceContext":source_context,"mergeCandidates":merge_candidates,"splitCandidates":split_candidates});
         if self.store.authority_seq(subject).await? != sequence {
             return Err(Error::Conflict("concept planning snapshot changed".into()));
         }
@@ -285,7 +283,7 @@ impl MemoryService {
             references,
             tags,
             associations,
-            supports,
+            basis,
             model_input,
         })
     }

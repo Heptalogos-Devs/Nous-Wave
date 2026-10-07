@@ -35,50 +35,82 @@ const plan = create(MaintenancePlanSchema, {
   cognitiveNow: timestampFromDate(new Date("2026-10-03T00:00:00Z")),
   status: "ready",
   sources: [{ revisionId: revision, expectedEpoch: 1n }],
-  supports: [
+  basis: [
     {
       key: "source",
-      support: {
-        support: {
+      basis: {
+        basis: {
           case: "cognitionDependency",
           value: {
             targetRevision: { kind: "episode_revision", value: revision },
-            supportRole: "direct",
+            basisRole: "direct",
           },
         },
       },
     },
   ],
 });
+function admitStub<T>(value: T) {
+  return async (
+    _input: string,
+    _signal?: AbortSignal,
+    _snapshot?: ModelRoleSnapshot,
+    beforeAttempt?: () => void,
+  ) => {
+    beforeAttempt?.();
+    return value;
+  };
+}
 function fixture() {
   const models = new ModelRuntime();
   vi.spyOn(models.invocations, "snapshot").mockReturnValue(
     {} as ModelRoleSnapshot,
   );
-  const synthesize = vi.spyOn(models, "synthesizeJournal").mockResolvedValue({
-    value: {
-      action: "commit",
-      title: null,
-      narrative: "A supported decision.",
-      points: [
-        {
-          role: "decision",
-          text: "Continue the plan.",
-          supportKeys: ["source"],
+  const synthesize = vi
+    .spyOn(models, "synthesizeJournal")
+    .mockImplementation(async (_input, _signal, _snapshot, beforeAttempt) => {
+      beforeAttempt?.();
+      return {
+        value: {
+          action: "commit",
+          title: null,
+          narrative: "A supported decision.",
+          points: [
+            {
+              role: "decision",
+              text: "Continue the plan.",
+              basisKeys: ["source"],
+            },
+          ],
         },
-      ],
-    },
-    producerMetadata: {
-      implementation: "semantic-stub",
-      protocol: "openai-chat",
-      model: "stub",
-      profileDigest: "a".repeat(64),
-      promptId: "program/journal/synthesis.md",
-      promptDigest: "b".repeat(64),
-      outputSchemaDigest: "c".repeat(64),
-      configDigest: "d".repeat(64),
-    },
-  });
+        execution: {
+          attempts: [
+            {
+              executionProfile: "stub",
+              modelProfile: "stub",
+              status: "succeeded" as const,
+              latencyMs: 0,
+            },
+          ],
+          successfulExecutionProfile: "stub",
+        },
+        producerMetadata: {
+          modelRole: "journal_synthesis" as const,
+          modelProfile: "stub",
+          executionProfile: "stub",
+          inferenceControlsDigest: "e".repeat(64),
+          rolePolicyDigest: "f".repeat(64),
+          implementation: "semantic-stub",
+          protocol: "openai-chat",
+          model: "stub",
+          profileDigest: "a".repeat(64),
+          promptId: "program/journal/synthesis.md",
+          promptDigest: "b".repeat(64),
+          outputSchemaDigest: "c".repeat(64),
+          configDigest: "d".repeat(64),
+        },
+      };
+    });
   let snapshotJson: string | undefined;
   let proposalJson: string | undefined;
   let outcomeJson: string | undefined;
@@ -163,7 +195,7 @@ describe("maintenance fixed workflow retry", () => {
       maintenanceOperationId({ ...need, triggerAuthoritySeq: 5n }),
     ).not.toBe(maintenanceOperationId(need));
   });
-  it("records a stale outcome and refreshes the need; invented supports are terminal", async () => {
+  it("records a stale outcome and refreshes the need; invented basis are terminal", async () => {
     const state = fixture();
     state.commit.mockRejectedValueOnce(
       new ConnectError("Source changed", Code.Aborted),
@@ -196,7 +228,7 @@ describe("maintenance fixed workflow retry", () => {
     const result = await invalid.synthesize("fixture");
     if (typeof result.value === "string" || result.value.action !== "commit")
       throw new Error("Expected commit");
-    result.value.points[0]!.supportKeys = ["invented"];
+    result.value.points[0]!.basisKeys = ["invented"];
     invalid.synthesize.mockResolvedValue(result);
     expect(
       (
@@ -417,26 +449,44 @@ describe("maintenance fixed workflow retry", () => {
       maxConsolidationActions: 8,
     });
     state.getPlan.mockResolvedValue(consolidationPlan);
-    const model = vi.spyOn(state.models, "consolidate").mockResolvedValue({
-      value: {
-        actions: [
-          {
-            action: "skip",
-            reason: "The source adds no reusable cognition.",
-          },
-        ],
-      },
-      producerMetadata: {
-        implementation: "semantic-stub",
-        protocol: "openai-chat",
-        model: "stub",
-        profileDigest: "a".repeat(64),
-        promptId: "program/memory/consolidation.md",
-        promptDigest: "b".repeat(64),
-        outputSchemaDigest: "c".repeat(64),
-        configDigest: "d".repeat(64),
-      },
-    });
+    const model = vi.spyOn(state.models, "consolidate").mockImplementation(
+      admitStub({
+        value: {
+          actions: [
+            {
+              action: "skip",
+              reason: "The source adds no reusable cognition.",
+            },
+          ],
+        },
+        execution: {
+          attempts: [
+            {
+              executionProfile: "stub",
+              modelProfile: "stub",
+              status: "succeeded" as const,
+              latencyMs: 0,
+            },
+          ],
+          successfulExecutionProfile: "stub",
+        },
+        producerMetadata: {
+          modelRole: "journal_synthesis" as const,
+          modelProfile: "stub",
+          executionProfile: "stub",
+          inferenceControlsDigest: "e".repeat(64),
+          rolePolicyDigest: "f".repeat(64),
+          implementation: "semantic-stub",
+          protocol: "openai-chat",
+          model: "stub",
+          profileDigest: "a".repeat(64),
+          promptId: "program/memory/consolidation.md",
+          promptDigest: "b".repeat(64),
+          outputSchemaDigest: "c".repeat(64),
+          configDigest: "d".repeat(64),
+        },
+      }),
+    );
     expect(
       (
         await runModelMaintenance(
@@ -475,7 +525,7 @@ it("routes concepts through bounded input and replays the saved outcome without 
     focusKey: "c0",
     cognition: [{ key: "c0", text: "Recorded approval before rollout" }],
     tags: [],
-    supports: [{ key: "s0", kind: "exact_cognition", targetKey: "c0" }],
+    basis: [{ key: "s0", kind: "exact_cognition", targetKey: "c0" }],
   });
   state.getPlan.mockResolvedValue(
     create(MaintenancePlanSchema, {
@@ -488,19 +538,37 @@ it("routes concepts through bounded input and replays the saved outcome without 
   );
   const generate = vi
     .spyOn(state.models, "maintainConcepts")
-    .mockResolvedValue({
-      value: { actions: [{ action: "no_change" }] },
-      producerMetadata: {
-        implementation: "semantic-stub",
-        protocol: "openai-chat",
-        model: "stub",
-        profileDigest: "a".repeat(64),
-        promptId: "program/memory/concept-maintenance.md",
-        promptDigest: "b".repeat(64),
-        outputSchemaDigest: "c".repeat(64),
-        configDigest: "d".repeat(64),
-      },
-    });
+    .mockImplementation(
+      admitStub({
+        value: { actions: [{ action: "no_change" }] },
+        execution: {
+          attempts: [
+            {
+              executionProfile: "stub",
+              modelProfile: "stub",
+              status: "succeeded" as const,
+              latencyMs: 0,
+            },
+          ],
+          successfulExecutionProfile: "stub",
+        },
+        producerMetadata: {
+          modelRole: "journal_synthesis" as const,
+          modelProfile: "stub",
+          executionProfile: "stub",
+          inferenceControlsDigest: "e".repeat(64),
+          rolePolicyDigest: "f".repeat(64),
+          implementation: "semantic-stub",
+          protocol: "openai-chat",
+          model: "stub",
+          profileDigest: "a".repeat(64),
+          promptId: "program/memory/concept-maintenance.md",
+          promptDigest: "b".repeat(64),
+          outputSchemaDigest: "c".repeat(64),
+          configDigest: "d".repeat(64),
+        },
+      }),
+    );
   const reserveCall = vi.fn();
   const first = await runModelMaintenance(
     state.kernel,
@@ -536,7 +604,7 @@ it("replays a committed consolidation action after a lost response without anoth
     semanticRole: "statement",
     text: "A durable supported conclusion",
     title: null,
-    supportKeys: ["source"],
+    basisKeys: ["source"],
     entityKeys: [],
     validTime: { kind: "unknown" },
     epistemicClass: "derived",
@@ -552,18 +620,31 @@ it("replays a committed consolidation action after a lost response without anoth
     }),
   );
   const metadata = (await state.synthesize("fixture")).producerMetadata;
-  const model = vi.spyOn(state.models, "consolidate").mockResolvedValue({
-    value: consolidationSchema.parse({
-      actions: [
-        { action: "create_memory", content: item },
-        {
-          action: "create_memory",
-          content: { ...item, supportKeys: ["invented"] },
-        },
-      ],
+  const model = vi.spyOn(state.models, "consolidate").mockImplementation(
+    admitStub({
+      value: consolidationSchema.parse({
+        actions: [
+          { action: "create_memory", content: item },
+          {
+            action: "create_memory",
+            content: { ...item, basisKeys: ["invented"] },
+          },
+        ],
+      }),
+      execution: {
+        attempts: [
+          {
+            executionProfile: "stub",
+            modelProfile: "stub",
+            status: "succeeded" as const,
+            latencyMs: 0,
+          },
+        ],
+        successfulExecutionProfile: "stub",
+      },
+      producerMetadata: metadata,
     }),
-    producerMetadata: metadata,
-  });
+  );
   const receipts = new Map<string, { revisionId: string }>();
   let lost = true;
   const form = vi.fn(async (request: { operationId: string }) => {

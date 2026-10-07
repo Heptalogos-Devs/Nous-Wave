@@ -47,23 +47,28 @@ export async function checkConfiguration(
     for (const role of roleNames) {
       const binding = models.roles[role];
       if (!binding) continue;
-      const profile = models.model_profiles[binding.model];
-      const problem = profile
-        ? modelRoleProblem(role, binding, profile)
-        : "Model profile is absent";
-      const gateway = profile
-        ? models.gateway_profiles[profile.gateway]
-        : undefined;
-      if (problem || !gateway || !profile?.model.trim())
-        diagnostics.push({
-          role,
-          state: problem && profile ? "UNAVAILABLE" : "NOT_CONFIGURED",
-          detail:
-            problem ??
-            (!gateway
-              ? "Gateway profile is absent"
-              : "Model identifier is unset"),
-        });
+      for (const executionName of binding.routes) {
+        const execution = models.execution_profiles[executionName];
+        const profile = execution
+          ? models.model_profiles[execution.model]
+          : undefined;
+        const problem = profile
+          ? modelRoleProblem(role, execution!, profile)
+          : "Model profile is absent";
+        const gateway = profile
+          ? models.gateway_profiles[profile.gateway]
+          : undefined;
+        if (problem || !gateway || !profile?.model.trim())
+          diagnostics.push({
+            role,
+            state: problem && profile ? "UNAVAILABLE" : "NOT_CONFIGURED",
+            detail:
+              problem ??
+              (!gateway
+                ? "Gateway profile is absent"
+                : "Model identifier is unset"),
+          });
+      }
       try {
         await prompts.load(role, binding.prompt);
       } catch {

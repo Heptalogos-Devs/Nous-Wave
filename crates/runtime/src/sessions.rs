@@ -35,11 +35,26 @@ impl CognitiveRuntimeService {
     }
 
     pub async fn session(&self, subject: SubjectId, session: SessionId) -> Result<SessionView> {
+        let mut tx = self.store.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        let session = self.session_in(subject, session, &mut tx).await?;
+        tx.commit().await.map_err(db)?;
+        Ok(session)
+    }
+    pub(crate) async fn session_in(
+        &self,
+        subject: SubjectId,
+        session: SessionId,
+        connection: &mut sqlx::PgConnection,
+    ) -> Result<SessionView> {
         let row = sqlx::query("SELECT session_id,subject_id,opened_at,last_activity_at,last_meaningful_use_at,closed_at,runtime_revision,active_work_context_id FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2")
-            .bind(subject.0).bind(session.0).fetch_optional(self.store.pool()).await.map_err(db)?
+            .bind(subject.0).bind(session.0).fetch_optional(&mut *connection).await.map_err(db)?
             .ok_or_else(|| Error::NotFound("session not found".into()))?;
         let refs = sqlx::query("SELECT ref_kind,ref_value,entry_reason,state,entered_at,last_meaningful_use_at,hold_until FROM resident_refs WHERE session_id=$1 AND state <> 'evicted' ORDER BY entered_at")
-            .bind(session.0).fetch_all(self.store.pool()).await.map_err(db)?;
+            .bind(session.0).fetch_all(&mut *connection).await.map_err(db)?;
         let mut resident = Vec::with_capacity(refs.len());
         for row in refs {
             let kind: String = row.try_get("ref_kind").map_err(db)?;

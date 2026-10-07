@@ -603,8 +603,6 @@ pub struct QueryRequest {
     pub work_context_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag="6")]
     pub situation: ::core::option::Option<QuerySituation>,
-    #[prost(bool, tag="7")]
-    pub text_only_compatibility: bool,
     #[prost(message, optional, tag="8")]
     pub capabilities: ::core::option::Option<QueryCapabilities>,
 }
@@ -634,7 +632,9 @@ pub struct Evidence {
     #[prost(message, optional, tag="1")]
     pub reference: ::core::option::Option<CognitiveRef>,
     #[prost(string, tag="2")]
-    pub support_role: ::prost::alloc::string::String,
+    pub basis_role: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub epistemic_relation: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Hit {
@@ -829,7 +829,9 @@ pub struct EvidenceRef {
     #[prost(string, tag="1")]
     pub occurrence_id: ::prost::alloc::string::String,
     #[prost(string, tag="6")]
-    pub support_role: ::prost::alloc::string::String,
+    pub basis_role: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="7")]
+    pub epistemic_relation: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(oneof="evidence_ref::Locator", tags="2, 3, 4, 5")]
     pub locator: ::core::option::Option<evidence_ref::Locator>,
 }
@@ -852,30 +854,32 @@ pub struct CognitionDependency {
     #[prost(message, optional, tag="1")]
     pub target_revision: ::core::option::Option<CognitiveRef>,
     #[prost(string, tag="2")]
-    pub support_role: ::prost::alloc::string::String,
+    pub basis_role: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="3")]
+    pub epistemic_relation: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct SeedSupportRef {
+pub struct SeedBasisRef {
     #[prost(message, optional, tag="1")]
     pub seed_version: ::core::option::Option<CognitiveRef>,
     #[prost(string, tag="2")]
     pub semantic_path: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct RevisionSupport {
-    #[prost(oneof="revision_support::Support", tags="1, 2, 3")]
-    pub support: ::core::option::Option<revision_support::Support>,
+pub struct RevisionBasis {
+    #[prost(oneof="revision_basis::Basis", tags="1, 2, 3")]
+    pub basis: ::core::option::Option<revision_basis::Basis>,
 }
-/// Nested message and enum types in `RevisionSupport`.
-pub mod revision_support {
+/// Nested message and enum types in `RevisionBasis`.
+pub mod revision_basis {
     #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
-    pub enum Support {
+    pub enum Basis {
         #[prost(message, tag="1")]
         Evidence(super::EvidenceRef),
         #[prost(message, tag="2")]
         CognitionDependency(super::CognitionDependency),
         #[prost(message, tag="3")]
-        Seed(super::SeedSupportRef),
+        Seed(super::SeedBasisRef),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -895,7 +899,7 @@ pub struct MemoryContent {
     #[prost(string, optional, tag="6")]
     pub title: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="7")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub basis: ::prost::alloc::vec::Vec<RevisionBasis>,
     #[prost(string, repeated, tag="8")]
     pub aboutness: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag="9")]
@@ -938,7 +942,7 @@ pub struct Memory {
     #[prost(string, optional, tag="14")]
     pub title: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="15")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub basis: ::prost::alloc::vec::Vec<RevisionBasis>,
     #[prost(string, repeated, tag="16")]
     pub aboutness: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag="17")]
@@ -1101,6 +1105,20 @@ pub struct ProducerSignature {
     pub config_digest: ::prost::alloc::string::String,
     #[prost(string, optional, tag="10")]
     pub output_schema_digest: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="11")]
+    pub model_role: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="12")]
+    pub model_profile: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="13")]
+    pub execution_profile: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="14")]
+    pub inference_controls_digest: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="15")]
+    pub role_policy_digest: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="16")]
+    pub prompt_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="17")]
+    pub prompt_digest: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DerivationInput {
@@ -1192,7 +1210,13 @@ pub struct WorkContext {
     #[prost(message, optional, tag="12")]
     pub ended_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, repeated, tag="13")]
-    pub references: ::prost::alloc::vec::Vec<CognitiveRef>,
+    pub cognition_anchors: ::prost::alloc::vec::Vec<CognitiveRef>,
+    #[prost(string, tag="14")]
+    pub context_text: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="15")]
+    pub entity_anchors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="16")]
+    pub tag_anchors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateWorkContextRequest {
@@ -1211,7 +1235,13 @@ pub struct CreateWorkContextRequest {
     #[prost(message, optional, tag="7")]
     pub budget_summary: ::core::option::Option<::prost_types::Struct>,
     #[prost(message, repeated, tag="8")]
-    pub references: ::prost::alloc::vec::Vec<CognitiveRef>,
+    pub cognition_anchors: ::prost::alloc::vec::Vec<CognitiveRef>,
+    #[prost(string, tag="9")]
+    pub context_text: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="10")]
+    pub entity_anchors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="11")]
+    pub tag_anchors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetWorkContextRequest {
@@ -1262,7 +1292,13 @@ pub struct UpdateWorkContextRequest {
     #[prost(message, optional, tag="9")]
     pub budget_summary: ::core::option::Option<::prost_types::Struct>,
     #[prost(message, repeated, tag="10")]
-    pub references: ::prost::alloc::vec::Vec<CognitiveRef>,
+    pub cognition_anchors: ::prost::alloc::vec::Vec<CognitiveRef>,
+    #[prost(string, tag="11")]
+    pub context_text: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="12")]
+    pub entity_anchors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="13")]
+    pub tag_anchors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct WorkContextMutationRequest {
@@ -1404,7 +1440,7 @@ pub struct EpisodeRevision {
     #[prost(message, repeated, tag="14")]
     pub members: ::prost::alloc::vec::Vec<EpisodeMember>,
     #[prost(message, repeated, tag="15")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub basis: ::prost::alloc::vec::Vec<RevisionBasis>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Episode {
@@ -1452,7 +1488,7 @@ pub struct CreateEpisodeRequest {
     #[prost(message, repeated, tag="10")]
     pub members: ::prost::alloc::vec::Vec<EpisodeMember>,
     #[prost(message, repeated, tag="11")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub basis: ::prost::alloc::vec::Vec<RevisionBasis>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReviseEpisodeRequest {
@@ -1479,7 +1515,7 @@ pub struct ReviseEpisodeRequest {
     #[prost(message, repeated, tag="12")]
     pub members: ::prost::alloc::vec::Vec<EpisodeMember>,
     #[prost(message, repeated, tag="13")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub basis: ::prost::alloc::vec::Vec<RevisionBasis>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct LinkEpisodeRevisionsRequest {
@@ -1611,7 +1647,7 @@ pub struct JournalPoint {
     #[prost(string, tag="3")]
     pub text: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="4")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub basis: ::prost::alloc::vec::Vec<RevisionBasis>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct JournalRevision {
@@ -1859,7 +1895,7 @@ pub struct MergeTagsRequest {
     #[prost(message, repeated, tag="4")]
     pub retired: ::prost::alloc::vec::Vec<TagRevisionTarget>,
     #[prost(message, repeated, tag="5")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub basis: ::prost::alloc::vec::Vec<RevisionBasis>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SplitTagRequest {
@@ -1872,7 +1908,7 @@ pub struct SplitTagRequest {
     #[prost(message, repeated, tag="4")]
     pub children: ::prost::alloc::vec::Vec<TagContent>,
     #[prost(message, repeated, tag="5")]
-    pub supports: ::prost::alloc::vec::Vec<RevisionSupport>,
+    pub basis: ::prost::alloc::vec::Vec<RevisionBasis>,
     #[prost(message, optional, tag="6")]
     pub producer: ::core::option::Option<ProducerSignature>,
 }
@@ -1898,16 +1934,16 @@ pub struct UseEventRef {
     pub event_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct AssociationSupport {
-    #[prost(oneof="association_support::Support", tags="1, 2")]
-    pub support: ::core::option::Option<association_support::Support>,
+pub struct AssociationBasis {
+    #[prost(oneof="association_basis::Basis", tags="1, 2")]
+    pub basis: ::core::option::Option<association_basis::Basis>,
 }
-/// Nested message and enum types in `AssociationSupport`.
-pub mod association_support {
+/// Nested message and enum types in `AssociationBasis`.
+pub mod association_basis {
     #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
-    pub enum Support {
+    pub enum Basis {
         #[prost(message, tag="1")]
-        Revision(super::RevisionSupport),
+        Revision(super::RevisionBasis),
         #[prost(message, tag="2")]
         UseEvent(super::UseEventRef),
     }
@@ -1925,9 +1961,9 @@ pub struct Association {
     #[prost(string, tag="5")]
     pub polarity: ::prost::alloc::string::String,
     #[prost(string, tag="6")]
-    pub support_class: ::prost::alloc::string::String,
+    pub basis_class: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="7")]
-    pub supports: ::prost::alloc::vec::Vec<AssociationSupport>,
+    pub basis: ::prost::alloc::vec::Vec<AssociationBasis>,
     #[prost(string, optional, tag="8")]
     pub producer_signature_id: ::core::option::Option<::prost::alloc::string::String>,
 }
@@ -1989,7 +2025,7 @@ pub struct SchemaEvidenceLink {
     #[prost(string, tag="2")]
     pub role: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
-    pub support: ::core::option::Option<RevisionSupport>,
+    pub basis: ::core::option::Option<RevisionBasis>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CognitiveSchema {

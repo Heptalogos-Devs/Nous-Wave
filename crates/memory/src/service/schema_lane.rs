@@ -174,7 +174,7 @@ pub(crate) async fn schema_direct_lane(
     }
     if !revision_ids.is_empty() {
         let rows = sqlx::query(
-            "SELECT support_kind,support_ref FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND role='support' AND schema_revision_id=ANY($2::uuid[]) AND revoked_at IS NULL ORDER BY support_kind,support_ref",
+            "SELECT basis_kind,basis_ref FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND role='support' AND schema_revision_id=ANY($2::uuid[]) AND revoked_at IS NULL ORDER BY basis_kind,basis_ref",
         )
         .bind(query.subject.0)
         .bind(revision_ids)
@@ -184,11 +184,11 @@ pub(crate) async fn schema_direct_lane(
         let rank = (output.candidates.len() + 1) as u32;
         for row in rows {
             let kind: String = row
-                .try_get("support_kind")
+                .try_get("basis_kind")
                 .map_err(nous_persistence::database_error)?;
             if let Ok(reference) = parse_reference(
                 &kind,
-                &row.try_get::<String, _>("support_ref")
+                &row.try_get::<String, _>("basis_ref")
                     .map_err(nous_persistence::database_error)?,
             ) {
                 output.candidates.push(LaneCandidate {

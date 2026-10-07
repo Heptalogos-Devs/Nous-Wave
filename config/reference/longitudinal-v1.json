@@ -16,7 +16,7 @@
       "query_cue_chars": 2048,
       "candidate_text_chars": 4096,
       "candidate_limit": 16,
-      "support_limit": 512,
+      "basis_limit": 512,
       "provenance_root_limit": 512,
       "entity_limit": 128
     },

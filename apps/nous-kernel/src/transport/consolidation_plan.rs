@@ -27,9 +27,12 @@ impl KernelService {
             .unwrap_or("");
         let cue: String = text.chars().take(policy.query_cue_chars).collect();
         let query = consolidation_query(subject, cue, policy.candidate_limit);
-        let result = Box::pin(self.0.query(query)).await?;
-        let schema_ids: Vec<uuid::Uuid> = result
-            .results
+        let hits = if text.trim().is_empty() {
+            Vec::new()
+        } else {
+            Box::pin(self.0.query(query)).await?.results
+        };
+        let schema_ids: Vec<uuid::Uuid> = hits
             .iter()
             .filter_map(
                 |hit| match hit.revision.as_ref().unwrap_or(&hit.reference) {
@@ -41,8 +44,7 @@ impl KernelService {
         let schemas: std::collections::BTreeMap<uuid::Uuid, sqlx::postgres::PgRow> = sqlx::query("SELECT schema_revision_id,schema_id,formation_kind,title,applicability_description,boundary_definition,tags FROM cognitive_schema_revisions WHERE schema_revision_id=ANY($1::uuid[])")
             .bind(schema_ids).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?
             .into_iter().map(|row| (row.get("schema_revision_id"), row)).collect();
-        let memory_ids: Vec<uuid::Uuid> = result
-            .results
+        let memory_ids: Vec<uuid::Uuid> = hits
             .iter()
             .filter_map(
                 |hit| match hit.revision.as_ref().unwrap_or(&hit.reference) {
@@ -52,8 +54,7 @@ impl KernelService {
             )
             .collect();
         let memory_objects: std::collections::BTreeMap<uuid::Uuid, uuid::Uuid> = sqlx::query("SELECT memory_revision_id,memory_id FROM memory_revisions WHERE subject_id=$1 AND memory_revision_id=ANY($2::uuid[])").bind(subject.0).bind(memory_ids).fetch_all(self.0.store.pool()).await.map_err(nous_persistence::database_error)?.into_iter().map(|row| (row.get("memory_revision_id"),row.get("memory_id"))).collect();
-        let references: Vec<_> = result
-            .results
+        let references: Vec<_> = hits
             .iter()
             .map(|hit| hit.revision.as_ref().unwrap_or(&hit.reference).clone())
             .collect();
@@ -71,7 +72,7 @@ impl KernelService {
                 entities.insert(entity.clone());
             }
         }
-        for hit in result.results {
+        for hit in hits {
             let reference = hit.revision.unwrap_or(hit.reference);
             if !matches!(
                 reference,
@@ -127,7 +128,7 @@ impl KernelService {
                     reference: Some(to_ref(reference)),
                     expected_epoch: epoch,
                 }),
-                eligible_support_keys: Vec::new(),
+                eligible_basis_keys: Vec::new(),
                 text,
                 cognitive_role: hit.cognitive_role.unwrap_or_default(),
                 formation_mode: formation,
@@ -178,11 +179,9 @@ impl KernelService {
         policy: &nous_memory::ConsolidationContextPolicy,
     ) -> Result<()> {
         let memory = self.require_memory()?;
-        let supports = memory
-            .consolidation_catalog_supports(subject, scopes)
-            .await?;
-        let provenance = memory.provenance_summary(subject, &supports).await?;
-        plan.support_catalog_partial = supports.len() > policy.support_limit;
+        let basis = memory.consolidation_catalog_basis(subject, scopes).await?;
+        let provenance = memory.provenance_summary(subject, &basis).await?;
+        plan.basis_catalog_partial = basis.len() > policy.basis_limit;
         plan.provenance_roots_partial = provenance.roots.len() > policy.provenance_root_limit;
         plan.provenance_roots = provenance
             .roots
@@ -193,22 +192,23 @@ impl KernelService {
                 certainty: enum_name(root.certainty),
             })
             .collect();
-        let source_support = RevisionSupport::CognitionDependency(CognitionDependency {
+        let source_support = RevisionBasis::CognitionDependency(CognitionDependency {
+            epistemic_relation: None,
             target_revision: scopes[0].clone(),
-            support_role: SupportRole::Direct,
+            basis_role: BasisRole::Direct,
         });
         let source_key = source_support.canonical_key();
         let bounded = std::iter::once(source_support)
             .chain(
-                supports
+                basis
                     .into_iter()
-                    .filter(|support| support.canonical_key() != source_key),
+                    .filter(|basis| basis.canonical_key() != source_key),
             )
-            .take(policy.support_limit);
-        plan.supports = bounded
-            .map(|support| k::SupportCatalogEntry {
-                key: support.canonical_key(),
-                support: Some(support_proto(support)),
+            .take(policy.basis_limit);
+        plan.basis = bounded
+            .map(|basis| k::BasisCatalogEntry {
+                key: basis.canonical_key(),
+                basis: Some(basis_proto(basis)),
             })
             .collect();
         for candidate in &mut plan.candidates {
@@ -229,7 +229,7 @@ impl KernelService {
                 .fetch_all(self.0.store.pool())
                 .await
                 .map_err(nous_persistence::database_error)?;
-            candidate.eligible_support_keys = plan.supports.iter().filter(|entry| !matches!(entry.support.as_ref().and_then(|support| support.support.as_ref()), Some(p::revision_support::Support::CognitionDependency(dependency)) if dependency.target_revision.as_ref().is_some_and(|target| target.kind == reference_parts(&reference).0 && revisions.iter().any(|id| id.to_string() == target.value)))).map(|entry| entry.key.clone()).collect();
+            candidate.eligible_basis_keys = plan.basis.iter().filter(|entry| !matches!(entry.basis.as_ref().and_then(|basis| basis.basis.as_ref()), Some(p::revision_basis::Basis::CognitionDependency(dependency)) if dependency.target_revision.as_ref().is_some_and(|target| target.kind == reference_parts(&reference).0 && revisions.iter().any(|id| id.to_string() == target.value)))).map(|entry| entry.key.clone()).collect();
         }
         plan.entities = entities
             .into_iter()
@@ -275,7 +275,7 @@ fn consolidation_query(subject: SubjectId, cue: String, limit: usize) -> Cogniti
             domains: vec![ResultDomain::Memory, ResultDomain::Schema],
         },
         temporal_frame: Default::default(),
-        text_only_compatibility: true,
+
         work_context: None,
         api_version: 1,
         subject,
@@ -308,10 +308,6 @@ mod tests {
             "Lin said this was her preferred trial rule.".into(),
             8,
         );
-        assert!(query.text_only_compatibility);
         assert!(query.validate().is_ok());
-        let mut intent = query;
-        intent.text_only_compatibility = false;
-        assert!(nous_runtime::validate_query_closure(&intent).is_err());
     }
 }

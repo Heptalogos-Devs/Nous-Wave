@@ -2,7 +2,7 @@
 
 Nous stores and retrieves long-term cognition for a Subject. A Subject is the
 person or autonomous identity whose knowledge and current work Nous maintains.
-A plain quoted question is already a complete query. Identity selectors, time,
+A plain Unicode question is already a complete query. Identity selectors, time,
 context and exploration are optional ways to make its meaning more precise.
 
 ## 1. Objects you need to know
@@ -10,9 +10,9 @@ context and exploration are optional ways to make its meaning more precise.
 - **Subject**: the identity whose cognition and operating context you query.
   Supply its ID explicitly or select it through the CLI.
 - **Cognition**: four durable kinds returned by default: Memory, CognitiveSchema,
-  Episode and Journal. A Memory states a supported fact or experience; a Schema
+  Episode and Journal. A Memory records the Subject’s cognition about a fact or experience; a Schema
   describes a reusable pattern/rule; an Episode organizes an experience; a
-  Journal gives a supported narrative over settled Episodes.
+  Journal gives a subjective narrative over settled Episodes.
 - **Tag**: a durable semantic concept with a stable identity and revisable label
   and description. A Tag can express a topic, rule, experience pattern or a
   sentence-like idea. Its meaning can be embedded for semantic retrieval.
@@ -30,27 +30,27 @@ context and exploration are optional ways to make its meaning more precise.
 
 ## 2. Start with plain text
 
-Write a self-contained intent. No Tag, Entity or WorkContext is required.
+Write a natural-language intent. No Tag, Entity or WorkContext is required.
 
 ```nousql
-"How does Python free-threading work?"
+How does Python free-threading work?
 ```
 
 Text queries use direct lexical and dense retrieval when their Serving families
 and embedding capability are available. They do not require graph diffusion,
 concept enrichment or a query concept model.
 
-Avoid unresolved pronouns such as “her project” unless you first identify the
-person and project. Prefer an explicit name, object and question.
+Pronouns and short follow-up questions are valid. Explicit names, typed anchors
+and durable WorkContext can improve interpretation; none is a closure gate.
 
 ## 3. Resolve identities when they matter
 
 ```nousql
-@e("Alice") && "deployment approval"
+deployment approval @e("Alice")
 ```
 
 ```nousql
-@tag("active-reader reclamation")
+Recall relevant cognition @tag("active-reader reclamation")
 ```
 
 An Entity selector is a typed cue. A Tag selector resolves a durable concept and
@@ -58,7 +58,7 @@ recalls its direct attachments. Names must resolve uniquely; ambiguity never
 turns into a vector guess. Use the chosen candidate's LexicalRef on retry.
 
 ```nousql
-@ref(mem:amber-lotus-cello-river)
+Inspect this cognition @ref(mem:amber-lotus-cello-river)
 ```
 
 This example shows syntax only. Replace its illustrative reference with a real
@@ -68,11 +68,11 @@ Other selectors are cues, not a promise to return that object itself.
 ## 4. Semantic text is different from a Tag
 
 ```nousql
-#migration
+Recall migration decisions #migration
 ```
 
 ```nousql
-@tag("KRaft migration")
+Recall relevant cognition @tag("KRaft migration")
 ```
 
 `#migration` contributes semantic concept text without an identity lookup.
@@ -82,20 +82,22 @@ It does not authorize a persistent concept mutation.
 
 ## 5. Combine intent and preferences
 
-Use explicit `&&`, `||` and parentheses. `&&` binds more tightly than `||`.
+One mandatory unquoted intent is combined with optional `$`, `@` and `#` syntax
+islands. `&&`, `||` and parentheses in prose are ordinary text, not operators.
+Escape literal island markers with `\$`, `\@`, `\#` and `\\`.
 
 ```nousql
-(@e("Alice") && "approval") || "deployment rollback"
+Approval and deployment rollback @e("Alice")
 ```
 
-Hard constraints restrict eligible results. A `+` or `-` preference changes
+Hard constraints restrict eligible results. A `$prefer` or `$avoid` preference changes
 ranking within eligible results; it does not make a prohibited result eligible.
 
 ```nousql
-"deployment" +"rollback" -"draft" +recent(recorded)
+deployment $prefer("rollback") $avoid("draft") $prefer(recent,recorded)
 ```
 
-A recent preference needs an explicit time axis. Bare `recent` is invalid.
+A recent preference needs an explicit time axis. Use `$prefer(recent,recorded)` or `$avoid(recent,formed)`.
 
 ## 6. Choose the right time axis
 
@@ -108,21 +110,21 @@ A recent preference needs an explicit time axis. Bare `recent` is invalid.
 | `recorded` | When the canonical revision was recorded. |
 
 ```nousql
-"deployment incidents" $time(occurred,within=30d)
+deployment incidents $time(occurred,within=30d)
 ```
 
 `within=30d` is relative to the prepared Subject CognitiveClock. It is unrelated
 to network timeouts, process wall-clock deadlines or retry durations.
 
 ```nousql
-"policy state" $time(valid,at="2026-05-01T00:00:00Z")
+policy state $time(valid,at="2026-05-01T00:00:00Z")
 ```
 
 Absolute timestamps must carry a timezone. Different axes can be combined;
 all constraints must match the same eligible evidence, not different observations.
 
 ```nousql
-"evidence received" $time(occurred,from="2026-01-01T00:00:00Z") $time(observed,to="2026-02-01T00:00:00Z")
+evidence received $time(occurred,from="2026-01-01T00:00:00Z") $time(observed,to="2026-02-01T00:00:00Z")
 ```
 
 An interval is start-inclusive and end-exclusive. Unknown times do not satisfy
@@ -135,11 +137,11 @@ A time filter and an Authority view answer different questions. `$time` filters
 chronology; `$asof` chooses the knowledge state used for retrieval.
 
 ```nousql
-"free-threading support status" $asof("2025-01-01T00:00:00Z")
+free-threading support status $asof("2025-01-01T00:00:00Z")
 ```
 
 ```nousql
-"support status" $asof(ago=30d)
+support status $asof(ago=30d)
 ```
 
 At that cut, names, canonical Tags, revision heads, relations and Serving assets
@@ -149,7 +151,7 @@ change the past view. Current permission and purge fences still apply.
 ## 8. Ask how cognition changed
 
 ```nousql
-"support status" $history
+support status $history
 ```
 
 The default view admits effective heads. `$history` also admits eligible prior
@@ -157,7 +159,7 @@ cognition revisions as independent retrieval documents. To exclude later
 knowledge while inspecting earlier changes, combine the two controls.
 
 ```nousql
-"support status" $history $asof("2025-01-01T00:00:00Z")
+support status $history $asof("2025-01-01T00:00:00Z")
 ```
 
 Five-axis filters still constrain the returned revisions. `$asof` and `$history`
@@ -166,18 +168,18 @@ are root-only and apply to the complete query, including identity resolution.
 ## 9. Direct recall versus associative exploration
 
 ```nousql
-@tag("active-reader reclamation")
+Recall relevant cognition @tag("active-reader reclamation")
 ```
 
 This asks for direct Tag attachments. A Tag with no attachments does not
 silently start graph diffusion.
 
 ```nousql
-@tag("active-reader reclamation") $explore
+Recall relevant cognition @tag("active-reader reclamation") $explore
 ```
 
 ```nousql
-"stale consumer problem" $explore
+stale consumer problem $explore
 ```
 
 These requests explicitly allow bounded associative recall. QueryActivation
@@ -190,15 +192,15 @@ Default results are Memory, Schema, Episode and Journal. Evidence and Resource
 are explicit choices rather than default top-level results.
 
 ```nousql
-"migration" $return(schema)
+migration $return(schema)
 ```
 
 ```nousql
-"migration" $return(memory,schema)
+migration $return(memory,schema)
 ```
 
 ```nousql
-"evidence received" $return(evidence)
+evidence received $return(evidence)
 ```
 
 `$return(cognition)` explicitly names the default set. Projection is root-only
@@ -207,11 +209,11 @@ and also limits exact targets. It does not request a particular physical lane.
 ## 11. Shape the answer and inspect it
 
 ```nousql
-"migration" $limit(10) $diagnostics(full)
+migration $limit(10) $diagnostics(full)
 ```
 
 ```nousql
-"migration" $materialize
+migration $materialize
 ```
 
 Use `query prepare` to inspect canonical query, captured time, resolved context,
@@ -236,8 +238,8 @@ CLI examples (the launcher supplies local instance discovery):
 
 ```sh
 nous help nousql --json
-nous query prepare '"deployment approval" $return(memory,schema)' --subject <subject-id> --json
-nous query '"deployment incidents" $time(occurred,within=30d)' --subject <subject-id> --json
+nous query prepare 'deployment approval $return(memory,schema)' --subject <subject-id> --json
+nous query 'deployment incidents $time(occurred,within=30d)' --subject <subject-id> --json
 nous use <returned-revision-ref> --kind referenced --query-id <query-id> --event-id <stable-event-id> --occurred-at <timestamp> --subject <subject-id> --json
 ```
 
@@ -248,7 +250,15 @@ request review; it cannot grant a model or commit a Tag maintenance proposal.
 
 Explicit formation Tags use `nous form <occurrence-id> --tag <tag-ref>`. Tag/Association
 mutation commands and maintenance grants are listed by `nous help`; use
-`--request-file` for structured revisions, merge/split and bounded maintenance.
+`--request-file` for CLI-owned semantic TOML revisions and merge/split.
+
+Use `context set --text`, `context pin --cognition result:1`, `context pause|resume`,
+`context select` and `context foreground` for reusable task state. Query results
+are saved as exact `result:N` revision references. Continue with `show`, `trace`
+or `use result:N`. Mutations save a receipt before RPC; `retry <receipt>` reuses
+the exact operation identity, inputs and expected revision after an unknown outcome.
+Default output is semantic text; `--json` selects the versioned CLI envelope.
+`--raw --developer` explicitly requests transport diagnostics.
 
 ## 13. Recover from errors
 
@@ -257,7 +267,7 @@ mutation commands and maintenance grants are listed by `nous help`; use
 | `UNKNOWN_REFERENCE` | Resolve a known name or use a returned LexicalRef. |
 | `AMBIGUOUS_REFERENCE` | Select one returned candidate; do not guess. |
 | `REFERENCE_TOMBSTONED` | Rediscover the current active identity. |
-| `UNRESOLVED_QUERY_REFERENCE` | Make pronouns, objects and time explicit. |
+| `UNRESOLVED_MACHINE_PLACEHOLDER` | Replace an unresolved machine placeholder with actual input. |
 | `STALE_CONTEXT` | Refresh current WorkContext/session references. |
 | `UNAVAILABLE` | Inspect capability and lane diagnostics before retrying. |
 

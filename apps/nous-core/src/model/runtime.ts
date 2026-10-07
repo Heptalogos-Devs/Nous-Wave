@@ -59,6 +59,7 @@ export class ModelRuntime {
     input: string,
     signal?: AbortSignal,
     snapshot?: ModelRoleSnapshot,
+    beforeAttempt?: () => void,
   ) {
     return this.invocations.generate(
       "episode_segmentation",
@@ -66,12 +67,15 @@ export class ModelRuntime {
       signal,
       undefined,
       snapshot,
+      undefined,
+      beforeAttempt,
     );
   }
   async synthesizeJournal(
     input: string,
     signal?: AbortSignal,
     snapshot?: ModelRoleSnapshot,
+    beforeAttempt?: () => void,
   ) {
     return this.invocations.generate(
       "journal_synthesis",
@@ -79,12 +83,15 @@ export class ModelRuntime {
       signal,
       undefined,
       snapshot,
+      undefined,
+      beforeAttempt,
     );
   }
   async maintainConcepts(
     input: string,
     signal?: AbortSignal,
     snapshot?: ModelRoleSnapshot,
+    beforeAttempt?: () => void,
   ) {
     return this.invocations.generate(
       "concept_maintenance",
@@ -92,12 +99,15 @@ export class ModelRuntime {
       signal,
       undefined,
       snapshot,
+      undefined,
+      beforeAttempt,
     );
   }
   async consolidate(
     input: string,
     signal?: AbortSignal,
     snapshot?: ModelRoleSnapshot,
+    beforeAttempt?: () => void,
   ) {
     return this.invocations.generate(
       "memory_consolidation",
@@ -105,6 +115,8 @@ export class ModelRuntime {
       signal,
       undefined,
       snapshot,
+      undefined,
+      beforeAttempt,
     );
   }
   async form(text: string, signal?: AbortSignal, snapshot?: ModelRoleSnapshot) {
@@ -118,6 +130,7 @@ export class ModelRuntime {
     return {
       ...formationSchema.parse(result.value),
       producerMetadata: result.producerMetadata,
+      execution: result.execution,
     };
   }
   async interpret(
@@ -145,6 +158,7 @@ export class ModelRuntime {
     return {
       text: interpretationSchema.parse({ text: result.value }).text,
       producerMetadata: result.producerMetadata,
+      execution: result.execution,
     };
   }
   async structure(
@@ -154,7 +168,9 @@ export class ModelRuntime {
     context?: StructuredMaterialContext,
   ) {
     if (!context)
-      throw new Error("Structured material requires a stable support catalog");
+      throw new Error(
+        "Structured material requires a stable formation basis catalog",
+      );
     const role =
       typeof input === "string"
         ? "material_structuring"
@@ -171,7 +187,7 @@ export class ModelRuntime {
             evidence_kind: context.sourceText
               ? "original_text"
               : "committed_representation",
-            support_catalog: Object.keys(context.catalog),
+            basis_catalog: Object.keys(context.catalog),
             modalities: {
               visual: context.visual,
               audio: context.audio,
@@ -188,7 +204,7 @@ export class ModelRuntime {
     if (Array.isArray(content))
       content.unshift({
         type: "text",
-        text: JSON.stringify({ support_catalog: Object.keys(context.catalog) }),
+        text: JSON.stringify({ basis_catalog: Object.keys(context.catalog) }),
       });
     const result = await this.invocations.generate(
       role,
@@ -200,6 +216,7 @@ export class ModelRuntime {
     return {
       ...structuredMaterialResult(result.value, context),
       producerMetadata: result.producerMetadata,
+      execution: result.execution,
     };
   }
   async describeMedia(
@@ -211,10 +228,12 @@ export class ModelRuntime {
     context?: StructuredMaterialContext,
   ) {
     if (structured && !context)
-      throw new Error("Structured material requires a stable support catalog");
+      throw new Error(
+        "Structured material requires a stable formation basis catalog",
+      );
     const result = await this.invocations.generate(
       structured ? "material_direct_structuring" : "material_description",
-      `Input media type: ${mediaType}. The attached material is the input evidence. Support catalog: ${JSON.stringify(Object.keys(context?.catalog ?? {}))}.`,
+      `Input media type: ${mediaType}. The attached material is the input evidence. Formation basis catalog: ${JSON.stringify(Object.keys(context?.catalog ?? {}))}.`,
       signal,
       undefined,
       fixed,
@@ -225,6 +244,7 @@ export class ModelRuntime {
         ? structuredMaterialResult(result.value, context!)
         : { text: interpretationSchema.parse({ text: result.value }).text }),
       producerMetadata: result.producerMetadata,
+      execution: result.execution,
     };
   }
   async describeScene(
@@ -244,14 +264,16 @@ export class ModelRuntime {
     )
       throw new Error("Video frame model capability is unavailable");
     if (structured && !context)
-      throw new Error("Structured material requires a stable support catalog");
+      throw new Error(
+        "Structured material requires a stable formation basis catalog",
+      );
     const content = [
       {
         type: "text" as const,
         text: JSON.stringify({
           sampled_timestamps: frames.map((f) => f.timestamp),
           transcript,
-          support_catalog: Object.keys(context?.catalog ?? {}),
+          basis_catalog: Object.keys(context?.catalog ?? {}),
         }),
       },
       ...frames.flatMap((frame, index) => [
@@ -286,6 +308,7 @@ export class ModelRuntime {
         ? structuredMaterialResult(result.value, context!)
         : { text: interpretationSchema.parse({ text: result.value }).text }),
       producerMetadata: result.producerMetadata,
+      execution: result.execution,
     };
   }
 

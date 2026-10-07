@@ -10,7 +10,7 @@ const resolve = async () => ({
 });
 it("separates root projection from query intent and rejects obsolete directives", async () => {
   const result = await compileNousQL(
-    '"migration" $return(schema,memory)',
+    "migration $return(schema,memory)",
     resolve,
     now,
   );
@@ -28,21 +28,21 @@ it("separates root projection from query intent and rejects obsolete directives"
     "resource",
   ]) {
     await expect(
-      compileNousQL(`"migration" $${domain}`, resolve, now),
+      compileNousQL(`migration $${domain}`, resolve, now),
     ).rejects.toThrow("Unknown directive");
   }
   for (const text of [
-    '"migration" $return(memory,memory)',
-    '"migration" $return(cognition,schema)',
+    "migration $return(memory,memory)",
+    "migration $return(cognition,schema)",
     '("a" $return(memory)) || "b"',
-    '"a" $return(memory) $return(schema)',
+    "a $return(memory) $return(schema)",
   ]) {
     await expect(compileNousQL(text, resolve, now)).rejects.toThrow();
   }
 });
 it("captures relative as-of and multiple independent time axes", async () => {
   const result = await compileNousQL(
-    '"policy" $asof(ago=30d) $history $time(observed,within=7d) $time(occurred,from="2026-01-01T00:00:00Z")',
+    'policy $asof(ago=30d) $history $time(observed,within=7d) $time(occurred,from="2026-01-01T00:00:00Z")',
     resolve,
     now,
   );
@@ -56,15 +56,15 @@ it("captures relative as-of and multiple independent time axes", async () => {
   expect(result.boundCanonical).not.toContain("within=");
   await expect(
     compileNousQL(
-      '"a" $time(observed,within=7d) $time(observed,within=30d)',
+      "a $time(observed,within=7d) $time(observed,within=30d)",
       resolve,
       now,
     ),
   ).rejects.toThrow("Duplicate");
   for (const text of [
-    '"a" $asof("2026-01-01")',
-    '"a" $asof(ago=0d)',
-    '"a" $asof("2026-01-01T00:00:00Z",ago=30d)',
+    'a $asof("2026-01-01")',
+    "a $asof(ago=0d)",
+    'a $asof("2026-01-01T00:00:00Z",ago=30d)',
     '("a" $history) || "b"',
     '("a" $asof(ago=30d)) || "b"',
   ]) {
@@ -72,10 +72,10 @@ it("captures relative as-of and multiple independent time axes", async () => {
   }
 });
 it("keeps semantic concept phrases distinct from durable Tag selectors", () => {
-  const text = "#active-reader-reclamation";
+  const text = "Recall reclamation #active-reader-reclamation";
   expect(canonical(parse(text))).toBe(text);
-  expect(parse(text).atom?.kind).toBe("concept");
-  expect(parse('@tag("active-reader reclamation")').atom?.kind).toBe(
-    "selector",
-  );
+  expect(parse(text).cues[0]?.kind).toBe("concept");
+  expect(
+    parse('Recall reclamation @tag("active-reader reclamation")').cues[0]?.kind,
+  ).toBe("selector");
 });

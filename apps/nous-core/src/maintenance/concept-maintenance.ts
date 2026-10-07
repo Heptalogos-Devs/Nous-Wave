@@ -59,8 +59,8 @@ export async function executeConceptMaintenance(
     catalog.tags.filter((t) => t.target).map((t) => [t.key, { ...t.target! }]),
   );
   const associations = new Map(catalog.associations.map((a) => [a.key, a]));
-  const supports = new Map(
-    catalog.supports.filter((s) => s.support).map((s) => [s.key, s.support!]),
+  const basis = new Map(
+    catalog.basis.filter((s) => s.basis).map((s) => [s.key, s.basis!]),
   );
   const results = [...progress];
   const applyTags = (result: ConceptActionResult) => {
@@ -104,13 +104,13 @@ export async function executeConceptMaintenance(
     }
     return references.get(key) ?? invalid("Unknown concept endpoint");
   };
-  const selectedSupports = (keys: string[]) =>
-    keys.map((key) => supports.get(key) ?? invalid("Unknown concept support"));
-  const revisionSupports = (keys: string[]) =>
-    selectedSupports(keys).map((s) =>
-      s.support.case === "revision"
-        ? s.support.value
-        : invalid("Tag lineage requires exact revision/source supports"),
+  const selectedBasis = (keys: string[]) =>
+    keys.map((key) => basis.get(key) ?? invalid("Unknown concept support"));
+  const revisionBasis = (keys: string[]) =>
+    selectedBasis(keys).map((s) =>
+      s.basis.case === "revision"
+        ? s.basis.value
+        : invalid("Tag lineage requires exact revision/source basis"),
     );
   const association = (key: string) =>
     associations.get(key) ?? invalid("Unknown concept association");
@@ -178,8 +178,8 @@ export async function executeConceptMaintenance(
             to: endpoint(toKey, index),
             relationKind: relation,
             polarity: "positive",
-            supportClass: "cognitive_derivation",
-            supports: selectedSupports(keys),
+            basisClass: "cognitive_derivation",
+            basis: selectedBasis(keys),
           },
         },
         options,
@@ -198,7 +198,7 @@ export async function executeConceptMaintenance(
           break;
         }
         case "create_tag": {
-          selectedSupports(action.supportKeys);
+          selectedBasis(action.basisKeys);
           for (const key of action.cognitionKeys) {
             if (
               !catalog.references.some(
@@ -225,7 +225,7 @@ export async function executeConceptMaintenance(
           break;
         }
         case "revise_tag":
-          selectedSupports(action.supportKeys);
+          selectedBasis(action.basisKeys);
           saveTag(
             action.tagKey,
             await kernel.concepts.reviseTag(
@@ -245,7 +245,7 @@ export async function executeConceptMaintenance(
             action.cognitionKey,
             action.tagKey,
             "tag_attachment",
-            action.supportKeys,
+            action.basisKeys,
           );
           break;
         case "create_association":
@@ -253,13 +253,13 @@ export async function executeConceptMaintenance(
             action.fromKey,
             action.toKey,
             action.relation,
-            action.supportKeys,
+            action.basisKeys,
           );
           break;
         case "detach_tag":
         case "revoke_association": {
           const target = association(action.associationKey);
-          selectedSupports(action.supportKeys);
+          selectedBasis(action.basisKeys);
           if (
             action.action === "detach_tag" &&
             target.relation !== "tag_attachment"
@@ -286,7 +286,7 @@ export async function executeConceptMaintenance(
               subjectId: plan.subjectId,
               survivor: tag(action.survivorKey, index),
               retired: action.retiredKeys.map((key) => tag(key, index)),
-              supports: revisionSupports(action.supportKeys),
+              basis: revisionBasis(action.basisKeys),
             },
             options,
           );
@@ -302,7 +302,7 @@ export async function executeConceptMaintenance(
               producer,
               parent: tag(action.tagKey, index),
               children: action.children.map((child) => content(child.content)),
-              supports: revisionSupports(action.supportKeys),
+              basis: revisionBasis(action.basisKeys),
             },
             options,
           );

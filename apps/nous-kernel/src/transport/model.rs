@@ -18,6 +18,11 @@ impl KernelService {
             producer_hash: provider.producer().signature_hash,
             model: space.model_identity,
             dimension: space.dimension,
+            producer_hashes: provider
+                .producers()
+                .iter()
+                .map(|p| p.signature_hash.clone())
+                .collect(),
         })
     }
     fn query_materials(
@@ -38,7 +43,13 @@ impl KernelService {
                 .embedding()
                 .ok_or_else(|| Error::Unavailable("embedding space not configured".into()))?;
             let space = provider.space();
-            let producer = provider.producer();
+            let producer = provider
+                .producers()
+                .into_iter()
+                .find(|p| p.signature_hash == material.producer_hash)
+                .ok_or_else(|| {
+                    Error::Invalid("query embedding producer is not authorized".into())
+                })?;
             if material.text != bound.representation.text
                 || material.text.len() > 131072
                 || material.space_hash != space.space_hash
@@ -111,8 +122,8 @@ impl KernelService {
         failure: Option<String>,
         calls: u32,
     ) -> Result<()> {
-        if calls > 1
-            || (output.is_some() && calls != 1)
+        if calls > 4
+            || (output.is_some() && calls == 0)
             || (output.is_none() && failure.is_none() && calls != 0)
         {
             return Err(Error::Invalid(
@@ -139,6 +150,7 @@ impl KernelService {
             let output = serde_json::from_str(&output)
                 .map_err(|_| Error::Invalid("invalid query concept output".into()))?;
             bound.activation.apply_concept_model(output)?;
+            bound.activation.model_calls = calls as usize;
         } else {
             bound.activation.model_calls = calls as usize;
             bound.activation.degradation.push(nous_core::Degradation {

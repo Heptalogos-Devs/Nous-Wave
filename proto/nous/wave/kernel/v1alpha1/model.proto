@@ -12,6 +12,7 @@ message EmbeddingConfig {
   string producer_hash = 2;
   string model = 3;
   uint32 dimension = 4;
+  repeated string producer_hashes = 5;
 }
 message QueryEmbedding { string text = 1; string space_hash = 2; string producer_hash = 3; repeated float vector = 4; }
 message PrepareQueryRequest { nous.wave.v1alpha1.QueryRequest query = 1; bool reserve_execution = 2; }
@@ -53,13 +54,13 @@ service KernelMaterialWorkflowService {
 message DescriptionSegment { string key = 1; string text = 2; nous.wave.v1alpha1.CognitiveRef reference = 3; }
 message DescriptionSegments { repeated DescriptionSegment segments = 1; }
 message ReserveWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string semantic_digest = 4; string snapshot_json = 5; optional string maintenance_need_id = 6; optional string maintenance_lease_token = 7; int64 maintenance_trigger_authority_seq = 8; uint64 maintenance_trigger_revision = 9; }
-message WorkflowReservation { string snapshot_json = 1; optional string proposal_json = 2; optional string outcome_json = 3; optional string lease_token = 4; bool busy = 5; }
-message SaveWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string lease_token = 4; optional string proposal_json = 5; optional string outcome_json = 6; }
+message WorkflowReservation { string snapshot_json = 1; optional string proposal_json = 2; optional string outcome_json = 3; optional string lease_token = 4; bool busy = 5; optional string execution_telemetry_json = 6; }
+message SaveWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string lease_token = 4; optional string proposal_json = 5; optional string outcome_json = 6; optional string execution_telemetry_json = 7; }
 message ReleaseWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string lease_token = 4; }
 message ResolvedMentionsRequest { string subject_id = 1; string occurrence_id = 2; }
 message ResolvedMention { string key = 1; string surface = 2; string entity_ref = 3; }
 message ResolvedMentionsResponse { repeated ResolvedMention candidates = 1; }
 message FindWorkflowRequest { string subject_id = 1; string owner = 2; string operation_key = 3; string semantic_digest = 4; }
-message FoundWorkflow { bool found = 1; optional string snapshot_json = 2; optional string proposal_json = 3; optional string outcome_json = 4; }
+message FoundWorkflow { bool found = 1; optional string snapshot_json = 2; optional string proposal_json = 3; optional string outcome_json = 4; optional string execution_telemetry_json = 5; }
 
 message QueryActivationResponse { string preparation_token = 1; string model_input = 2; }

@@ -31,10 +31,10 @@ const memory = z.strictObject({
   semanticRole: z.string().min(1).max(128),
   text: z.string().min(1).max(32768),
   title: z.string().max(8192).nullable(),
-  supportKeys: z
+  basisKeys: z
     .array(
       key.describe(
-        "Exact supports[].key; member and candidate keys are not support selectors. A revision cannot depend on its own target object; the owner records parent lineage automatically.",
+        "Exact basis[].key; member and candidate keys are not support selectors. A revision cannot depend on its own target object; the owner records parent lineage automatically.",
       ),
     )
     .min(1)
@@ -88,8 +88,8 @@ const schema = z.strictObject({
     .array(
       z.strictObject({
         role: z.enum(["support", "counterexample", "boundary_case"]),
-        supportKey: key.describe(
-          "Exact supports[].key grounding this evidence role. A revised Schema cannot cite its own target object as evidence; parent lineage is recorded automatically.",
+        basisKey: key.describe(
+          "Exact basis[].key grounding this evidence role. A revised Schema cannot cite its own target object as evidence; parent lineage is recorded automatically.",
         ),
       }),
     )

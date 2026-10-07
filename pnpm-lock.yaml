@@ -236,6 +236,15 @@ importers:
       '@nous-wave/client':
         specifier: workspace:*
         version: link:../../packages/client
+      citty:
+        specifier: 0.2.2
+        version: 0.2.2
+      smol-toml:
+        specifier: 1.9.0
+        version: 1.9.0
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   apps/nous-core:
     dependencies:
@@ -1449,6 +1458,9 @@ packages:
   chevrotain@13.2.0:
     resolution: {integrity: sha512-GTouk5YzgBxlTPCaDn5q0q2EJKkrYmnPF+HmF8v0Qo4r3iyPG7HJivkN1wthCXZcm3sIcZFpGTRovLPNdJNRCA==}
     engines: {node: '>=22.0.0'}
+
+  citty@0.2.2:
+    resolution: {integrity: sha512-+6vJA3L98yv+IdfKGZHBNiGW5KHn22e/JwID0Strsz8h4S/csAu/OuICwxrg44k5MRiZHWIo8XXuJgQTriRP4w==}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -2922,6 +2934,8 @@ snapshots:
       '@chevrotain/regexp-to-ast': 13.2.0
       '@chevrotain/types': 13.2.0
       '@chevrotain/utils': 13.2.0
+
+  citty@0.2.2: {}
 
   color-convert@2.0.1:
     dependencies:

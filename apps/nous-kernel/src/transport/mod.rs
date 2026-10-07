@@ -126,8 +126,11 @@ impl KernelService {
                         .evidence
                         .into_iter()
                         .map(|evidence| p::Evidence {
+                            epistemic_relation: evidence
+                                .epistemic_relation
+                                .map(|relation| relation.as_str().into()),
                             reference: Some(to_ref(evidence.reference)),
-                            support_role: evidence.support_role,
+                            basis_role: evidence.basis_role,
                         })
                         .collect();
                     segment.source_revision = source

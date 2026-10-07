@@ -8,13 +8,13 @@ impl MemoryService {
         &self,
         subject: SubjectId,
         focus: &CognitiveRef,
-    ) -> Result<(Vec<RevisionSupport>, Vec<EntityRef>)> {
+    ) -> Result<(Vec<RevisionBasis>, Vec<EntityRef>)> {
         match focus {
             CognitiveRef::MemoryRevision(id) => {
                 let entities:Vec<String> = sqlx::query_scalar("SELECT entity_ref FROM memory_revision_aboutness WHERE memory_revision_id=$1 ORDER BY entity_ref LIMIT 8")
                     .bind(id.0).fetch_all(self.store.pool()).await.map_err(db)?;
                 Ok((
-                    self.load_supports(*id).await?,
+                    self.load_basis(*id).await?,
                     entities
                         .into_iter()
                         .map(EntityRef::new)
@@ -33,7 +33,7 @@ impl MemoryService {
                     self.schema_links(subject, *id)
                         .await?
                         .into_iter()
-                        .map(|link| link.support)
+                        .map(|link| link.basis)
                         .collect(),
                     entities
                         .into_iter()
@@ -44,20 +44,21 @@ impl MemoryService {
             }
             CognitiveRef::EpisodeRevision(id) => {
                 let episode = self.episode_revision(subject, *id).await?;
-                let mut supports = episode.supports;
-                supports.extend(episode.members.into_iter().take(8).filter_map(|member| {
+                let mut basis = episode.basis;
+                basis.extend(episode.members.into_iter().take(8).filter_map(|member| {
                     match member.reference {
                         CognitiveRef::Occurrence(id) => {
-                            Some(RevisionSupport::Evidence(EvidenceRef {
+                            Some(RevisionBasis::Evidence(EvidenceRef {
+                                epistemic_relation: None,
                                 occurrence_id: id,
                                 locator: EvidenceLocator::WholeOccurrence,
-                                support_role: SupportRole::Direct,
+                                basis_role: BasisRole::Direct,
                             }))
                         }
                         _ => None,
                     }
                 }));
-                Ok((supports, Vec::new()))
+                Ok((basis, Vec::new()))
             }
             CognitiveRef::JournalRevision(id) => {
                 let journal = self.journal_revision(subject, *id).await?;
@@ -65,7 +66,7 @@ impl MemoryService {
                     journal
                         .points
                         .into_iter()
-                        .flat_map(|point| point.supports)
+                        .flat_map(|point| point.basis)
                         .take(16)
                         .collect(),
                     Vec::new(),
@@ -80,14 +81,14 @@ impl MemoryService {
         &self,
         subject: SubjectId,
         focus: &CognitiveRef,
-        supports: &BTreeMap<String, AssociationSupport>,
+        basis: &BTreeMap<String, AssociationBasis>,
     ) -> Result<serde_json::Value> {
-        let source_keys = supports
+        let source_keys = basis
             .iter()
-            .filter_map(|(key, support)| {
+            .filter_map(|(key, basis)| {
                 matches!(
-                    support,
-                    AssociationSupport::Revision(RevisionSupport::Evidence(_))
+                    basis,
+                    AssociationBasis::Revision(RevisionBasis::Evidence(_))
                 )
                 .then_some(key)
             })
@@ -106,12 +107,12 @@ impl MemoryService {
             CognitiveRef::EpisodeRevision(id) => {
                 let episode = self.episode_revision(subject, *id).await?;
                 let members=episode.members.into_iter().take(8).enumerate().map(|(ordinal,member)|{
-                    let keys=supports.iter().filter_map(|(key,support)|match (&member.reference,support) {
-                        (CognitiveRef::Occurrence(id),AssociationSupport::Revision(RevisionSupport::Evidence(e))) if *id==e.occurrence_id=>Some(key),
-                        (reference,AssociationSupport::Revision(RevisionSupport::CognitionDependency(d))) if *reference==d.target_revision=>Some(key),
+                    let keys=basis.iter().filter_map(|(key,basis)|match (&member.reference,basis) {
+                        (CognitiveRef::Occurrence(id),AssociationBasis::Revision(RevisionBasis::Evidence(e))) if *id==e.occurrence_id=>Some(key),
+                        (reference,AssociationBasis::Revision(RevisionBasis::CognitionDependency(d))) if *reference==d.target_revision=>Some(key),
                         _=>None,
                     }).collect::<Vec<_>>();
-                    serde_json::json!({"ordinal":ordinal,"role":member.role.chars().take(128).collect::<String>(),"supportKeys":keys})
+                    serde_json::json!({"ordinal":ordinal,"role":member.role.chars().take(128).collect::<String>(),"basisKeys":keys})
                 }).collect::<Vec<_>>();
                 serde_json::json!({"experienceTime":episode.revision.experience_time,"orderedMembers":members})
             }
@@ -124,17 +125,17 @@ impl MemoryService {
                 ));
             }
         };
-        Ok(serde_json::json!({"sourceSupportKeys":source_keys,"ownerContext":context}))
+        Ok(serde_json::json!({"sourceBasisKeys":source_keys,"ownerContext":context}))
     }
     pub(super) async fn concept_source_text(
         &self,
         subject: SubjectId,
-        supports: &BTreeMap<String, AssociationSupport>,
+        basis: &BTreeMap<String, AssociationBasis>,
     ) -> Result<serde_json::Value> {
         let mut result = serde_json::Map::new();
         let mut remaining: usize = 8192;
-        for (key, support) in supports {
-            let AssociationSupport::Revision(RevisionSupport::Evidence(e)) = support else {
+        for (key, basis) in basis {
+            let AssociationBasis::Revision(RevisionBasis::Evidence(e)) = basis else {
                 continue;
             };
             if remaining == 0 {

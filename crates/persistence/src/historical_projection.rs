@@ -240,7 +240,7 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                 from,
                 to,
                 &relation,
-                &row.get::<String, _>("support_class"),
+                &row.get::<String, _>("basis_class"),
                 &polarity,
                 format!(
                     "association:{}",
@@ -253,15 +253,15 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
         } else {
             vec![]
         };
-        let rows = sqlx::query("SELECT schema_revision_id,support_kind,support_ref FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND link_id=ANY($2::uuid[]) AND role='support' AND support_role<>'contradiction' AND support_kind<>'evidence'")
+        let rows = sqlx::query("SELECT schema_revision_id,basis_kind,basis_ref FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND link_id=ANY($2::uuid[]) AND role='support' AND epistemic_relation NOT IN ('contradicts','weakens','corrects','counterexample') AND basis_kind<>'evidence'")
             .bind(view.subject.0).bind(links).fetch_all(&mut *tx).await.map_err(database_error)?;
         for row in rows {
             let from = CognitiveRef::CognitiveSchemaRevision(CognitiveSchemaRevisionId(
                 row.get("schema_revision_id"),
             ));
             let to = parse_reference(
-                &row.get::<String, _>("support_kind"),
-                &row.get::<String, _>("support_ref"),
+                &row.get::<String, _>("basis_kind"),
+                &row.get::<String, _>("basis_ref"),
             )?;
             if nodes.contains(&from) && nodes.contains(&to) {
                 if let Some(&index) = indices.get(&to)
@@ -288,10 +288,10 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
             .unzip();
         let rows=sqlx::query(r#"
 WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), links AS (
- SELECT 'memory_revision' from_kind,d.memory_revision_id::text from_value,d.target_ref_kind to_kind,d.target_ref to_value FROM memory_revision_dependencies d JOIN selected s ON s.kind='memory_revision' AND s.value=d.memory_revision_id::text WHERE d.support_role<>'contradiction'
+ SELECT 'memory_revision' from_kind,d.memory_revision_id::text from_value,d.target_ref_kind to_kind,d.target_ref to_value FROM memory_revision_dependencies d JOIN selected s ON s.kind='memory_revision' AND s.value=d.memory_revision_id::text WHERE d.epistemic_relation NOT IN ('contradicts','weakens','corrects','counterexample')
  UNION ALL SELECT 'journal_revision',d.journal_revision_id::text,d.ref_kind,d.ref_value FROM journal_revision_sources d JOIN selected s ON s.kind='journal_revision' AND s.value=d.journal_revision_id::text
  UNION ALL SELECT 'episode_revision',d.episode_revision_id::text,d.ref_kind,d.ref_value FROM episode_revision_members d JOIN selected s ON s.kind='episode_revision' AND s.value=d.episode_revision_id::text
- UNION ALL SELECT 'episode_revision',d.episode_revision_id::text,d.support_kind,d.support_ref FROM episode_revision_supports d JOIN selected s ON s.kind='episode_revision' AND s.value=d.episode_revision_id::text WHERE d.support_kind<>'evidence' AND d.support_role<>'contradiction'
+ UNION ALL SELECT 'episode_revision',d.episode_revision_id::text,d.basis_kind,d.basis_ref FROM episode_revision_basis d JOIN selected s ON s.kind='episode_revision' AND s.value=d.episode_revision_id::text WHERE d.basis_kind<>'evidence' AND d.epistemic_relation NOT IN ('contradicts','weakens','corrects','counterexample')
 ) SELECT * FROM links WHERE $1::uuid IS NOT NULL ORDER BY from_kind,from_value,to_kind,to_value
 "#).bind(view.subject.0).bind(selected_kinds).bind(selected_values).fetch_all(&mut *tx).await.map_err(database_error)?;
         for row in rows {
@@ -308,10 +308,10 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), li
                     &mut edges,
                     from.clone(),
                     to.clone(),
-                    "cognition_support",
+                    "cognition_basis",
                     "derived_structure",
                     "positive",
-                    format!("structure:cognition-support:{from}:{to}"),
+                    format!("structure:cognition-basis:{from}:{to}"),
                 );
             }
         }
@@ -411,7 +411,7 @@ fn historical_pair(
         edges.push(TopologyEdgeSource {
             from,
             to,
-            support_class: class.into(),
+            basis_class: class.into(),
             association_kind: kind.into(),
             polarity: polarity.into(),
             support_mass: 1.0,

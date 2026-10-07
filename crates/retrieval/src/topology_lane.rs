@@ -114,12 +114,12 @@ pub(crate) fn topology_lane(
                 "route_seed": routes.get(&node).and_then(|path| path.first()).map(|seed_node|
                     observation.source_seeds().iter().filter(|seed| seed.node == *seed_node).collect::<Vec<_>>()),
                 "route_evidence": routes.get(&node).map(|path| path.windows(2).map(|pair| {
-                    let support = graph.edge_evidence(pair[0], pair[1]).take(16).collect::<Vec<_>>();
+                    let basis = graph.edge_evidence(pair[0], pair[1]).take(16).collect::<Vec<_>>();
                     serde_json::json!({
                         "from": graph.nodes[pair[0] as usize].reference,
                         "to": graph.nodes[pair[1] as usize].reference,
                         "flow": river.edges.iter().find(|edge| edge.from == pair[0] && edge.to == pair[1]).map(|edge| edge.flow),
-                        "support": support,
+                        "support": basis,
                         "support_truncated": graph.edge_evidence(pair[0], pair[1]).count() > 16,
                     })
                 }).collect::<Vec<_>>()),
@@ -167,7 +167,7 @@ fn source_seeds(graph: &crate::WaveGraphGeneration, bound: &BoundQuery) -> Vec<S
             let default = match seed.origin.as_str() {
                 "runtime_situation" => 0.85,
                 "entity_cue" => 0.90,
-                "tag_cue" | "semantic_concept_match" => 0.75,
+                "tag_cue" | "existing_semantic_match" => 0.75,
                 _ => 1.0,
             };
             seeds.push((

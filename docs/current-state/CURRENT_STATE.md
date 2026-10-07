@@ -7,11 +7,13 @@
 - Memory-only Subject：Subject capability、Memory/CognitiveSchema/Tag/AssociationEvidence Authority、不可变 revision、provenance、幂等和 lifecycle。
 - Material：Artifact、ObservationOccurrence、SourceRegion、DerivedRepresentation DAG、结构化 payload、DerivedRegion 与可追踪派生。
 - Runtime：Session、ResidentSet、UseEvent、WorkContext durable checkpoint 和跨 Session continuity；Runtime 同事务捕获 Session Experience、持久化分段 cursor/draft 和 MaintenanceNeed；Memory owner 提供 Episode/Journal revision、history、provenance 与 lifecycle。
-- 纵向认知：自动 interaction Episode、模型局部 N-to-M partition、supported Journal 和有界 host-granted Memory/Schema consolidation；CognitiveClock 支持内部确定性时间注入。
+- 纵向认知：自动 interaction Episode、模型局部 N-to-M partition、有 formation basis 的 Subject Journal 和有界 host-granted Memory/Schema consolidation；CognitiveClock 支持内部确定性时间注入。
 - Query/Serving：QueryExpr、exact read、lexical/dense/runtime lanes、固定 fusion、可选 model rerank、final Authority revalidation 和可重建 generation。
 - Authority mutation：Persistence envelope 统一 owner/operation locks、receipt replay、transaction 与合并 projection invalidation；领域 owner 保持独立数据模型和 mutation/lifecycle 验证。
-- Core 与官方 Client/CLI：Gateway/ModelProfile/RoleBinding、Prompt identity、media derivation、可选 External Resource/RAGFlow、trace 与流式材料上传。
+- Core 与官方 Client/CLI：ModelRole/RolePolicy/ExecutionProfile/ModelProfile/Gateway、Prompt identity、media derivation、可选 External Resource/RAGFlow、trace 与流式材料上传。
 - Windows x64 source-less portable package 的 assembly 与 runtime installation path。
+
+当前 Agent 接口使用非空 Unicode NousQL 意图与可选语法岛；自然语言指代不需要显式补全。WorkContext 持久化自由文本和 cognition/Entity/Tag anchors，Runtime 同事务冻结 Session/ResidentSet context snapshot，所有 retrieval profiles 共用 representation 和 activation，history 排除未来 cognition/Tag。CLI 使用 citty，默认语义文本、opt-in owned JSON、exact result:N 续接和原请求 receipt 恢复。模型 routes/controls/Prompt 冻结；逐次 fallback 计费并保存实际成功 producer 和有界累积 telemetry。Formation basis、来源 lineage 与 epistemic relation 分离；结构合法的认知错误仍可演化和纠正。
 
 ## Experimental
 
@@ -27,7 +29,7 @@ Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual deco
 
 ## Known Issues
 
-- `cargo dupes` 的 group 阈值在原始 PR HEAD 与本轮均超限；保留独立 enum/typed lifecycle 方法等必要相似形状，未放宽阈值或新增替代 gate。Memory row decoding、五轴 lane 收集、RPC forwarding 和 VCP scalar policy 的明确重复实现已合并。jscpd 仅排除独立 numerical golden 常量，当前 1.84% 通过。
+- `cargo dupes` 的 group 阈值在原始 PR HEAD 与本轮均超限；保留独立 enum/typed lifecycle 方法等必要相似形状，未放宽阈值或新增替代 gate。Memory row decoding、五轴 lane 收集、RPC forwarding 和 VCP scalar policy 的明确重复实现已合并。jscpd 仅排除独立 numerical golden 常量，当前比例由 audit 命令报告。
 
 - 真实模型可提出非法 selector 或无支持的 modality；owner 验证拒绝提交，两阶段保留已提交描述。当前代表性 case 的已发现问题已修复并重跑；NASA 低信号音频仅作为 research negative controls，不能泛化成产品语义缺陷。
 

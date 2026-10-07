@@ -39,18 +39,18 @@ impl MemoryService {
             return Err(Error::Conflict("Journal input snapshot is stale".into()));
         }
         let (journal, parent, revision_no) = journal_target_in(mutation.tx(), &input).await?;
-        let supports: Vec<_> = input
+        let basis: Vec<_> = input
             .points
             .iter()
-            .flat_map(|point| point.supports.clone())
+            .flat_map(|point| point.basis.clone())
             .collect();
-        self.validate_supports_in_tx(mutation.tx(), input.subject, &supports)
+        self.validate_basis_in_tx(mutation.tx(), input.subject, &basis)
             .await?;
         if let Some(target) = &input.target {
             self.validate_object_dependency_cycle(
                 input.subject,
                 &format!("journal:{}", target.journal_id.0),
-                &supports,
+                &basis,
             )
             .await?;
         }
@@ -179,10 +179,10 @@ fn validate_journal(input: &JournalInput) -> Result<()> {
         ));
     }
     for point in &input.points {
-        if point.text.trim().is_empty() || point.text.len() > 8192 || point.supports.len() > 16 {
+        if point.text.trim().is_empty() || point.text.len() > 8192 || point.basis.len() > 16 {
             return Err(Error::Invalid("Journal point is out of bounds".into()));
         }
-        validate_exact_supports(&point.supports)?;
+        validate_exact_basis(&point.basis)?;
     }
     Ok(())
 }
@@ -292,10 +292,10 @@ async fn validate_source_catalog_in(
             member.get::<String, _>("ref_value")
         ));
     }
-    let rows_supports = sqlx::query("SELECT occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM episode_revision_supports WHERE support_kind='evidence' AND episode_revision_id=ANY($1::uuid[])")
+    let rows_basis = sqlx::query("SELECT occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM episode_revision_basis WHERE basis_kind='evidence' AND episode_revision_id=ANY($1::uuid[])")
         .bind(ids).fetch_all(&mut **tx).await.map_err(db)?;
     let mut evidence_catalog = BTreeSet::new();
-    for row in rows_supports {
+    for row in rows_basis {
         evidence_catalog.insert((
             row.get::<Uuid, _>("occurrence_id"),
             row.get::<Option<Uuid>, _>("source_region_id"),
@@ -303,7 +303,7 @@ async fn validate_source_catalog_in(
             row.get::<Option<Uuid>, _>("derived_region_id"),
         ));
     }
-    let dependencies = sqlx::query("SELECT support_kind AS target_ref_kind,support_ref AS target_ref FROM episode_revision_supports WHERE support_kind<>'evidence' AND episode_revision_id=ANY($1::uuid[])")
+    let dependencies = sqlx::query("SELECT basis_kind AS target_ref_kind,basis_ref AS target_ref FROM episode_revision_basis WHERE basis_kind<>'evidence' AND episode_revision_id=ANY($1::uuid[])")
         .bind(ids).fetch_all(&mut **tx).await.map_err(db)?;
     for row in dependencies {
         allowed.insert(format!(
@@ -313,9 +313,9 @@ async fn validate_source_catalog_in(
         ));
     }
     for point in &input.points {
-        for support in &point.supports {
-            let key = match support {
-                RevisionSupport::Evidence(evidence) => {
+        for basis in &point.basis {
+            let key = match basis {
+                RevisionBasis::Evidence(evidence) => {
                     let (source, representation, region) = match evidence.locator {
                         EvidenceLocator::WholeOccurrence => (None, None, None),
                         EvidenceLocator::SourceRegion(id) => (Some(id.0), None, None),
@@ -337,7 +337,7 @@ async fn validate_source_catalog_in(
                     }
                     CognitiveRef::Occurrence(evidence.occurrence_id).to_string()
                 }
-                RevisionSupport::CognitionDependency(dependency) => {
+                RevisionBasis::CognitionDependency(dependency) => {
                     dependency.target_revision.to_string()
                 }
                 _ => {
@@ -406,9 +406,9 @@ async fn insert_journal_points(
     for (ordinal, point) in points.iter().enumerate() {
         sqlx::query("INSERT INTO journal_revision_points(journal_revision_id,ordinal,role,text) VALUES($1,$2,$3,$4)")
             .bind(revision.0).bind(ordinal as i32).bind(point.role.as_str()).bind(&point.text).execute(&mut **tx).await.map_err(db)?;
-        for (number, support) in point.supports.iter().enumerate() {
-            sqlx::query("INSERT INTO journal_point_supports(journal_revision_id,ordinal,support_no,support) VALUES($1,$2,$3,$4)")
-                .bind(revision.0).bind(ordinal as i32).bind(number as i32).bind(serde_json::to_value(support).map_err(|error|Error::Invalid(error.to_string()))?).execute(&mut **tx).await.map_err(db)?;
+        for (number, basis) in point.basis.iter().enumerate() {
+            sqlx::query("INSERT INTO journal_point_basis(journal_revision_id,ordinal,basis_no,basis) VALUES($1,$2,$3,$4)")
+                .bind(revision.0).bind(ordinal as i32).bind(number as i32).bind(serde_json::to_value(basis).map_err(|error|Error::Invalid(error.to_string()))?).execute(&mut **tx).await.map_err(db)?;
         }
     }
     Ok(())

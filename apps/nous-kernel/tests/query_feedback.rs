@@ -18,9 +18,12 @@ fn query(subject: SubjectId, reference: CognitiveRef) -> CognitiveQuery {
         work_context: None,
         projection: Default::default(),
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         situation: Default::default(),
         expression: CognitiveQueryExpr {
+            cues: vec![Cue::Text(TextCue {
+                text: "Inspect this exact cognition".into(),
+            })],
             targets: vec![QueryTarget::Exact { reference }],
             ..Default::default()
         },

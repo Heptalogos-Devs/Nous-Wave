@@ -10,6 +10,7 @@ import { initializeConfiguration } from "../src/configuration-file.js";
 import {
   CONFIG_REVISION,
   parseConfiguration,
+  parseEffectiveConfiguration,
   loadConfig,
 } from "../src/config.js";
 import { checkConfiguration } from "../src/configuration-check.js";
@@ -105,7 +106,7 @@ it("rejects stale configuration semantics and checks examples and explicit refer
       programRoot: process.cwd(),
     });
     const initialized = await initializeConfiguration(locations);
-    const text = `config_revision = ${CONFIG_REVISION}\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.local]\nbase_url = "http://127.0.0.1:3000/v1"\ncredential_env = "NOUS_OFFLINE_CHECK_TOKEN"\n[model_profiles.local]\ngateway = "local"\nprotocol = "openai-chat"\nmodel = "local"\ncapabilities = ["text"]\n[roles.memory_formation]\nmodel = "local"\nprompt = "config-prompts/missing.md"\n`;
+    const text = `config_revision = ${CONFIG_REVISION}\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.local]\nbase_url = "http://127.0.0.1:3000/v1"\ncredential_env = "NOUS_OFFLINE_CHECK_TOKEN"\n[model_profiles.local]\ngateway = "local"\nprotocol = "openai-chat"\nmodel = "local"\ncapabilities = ["text"]\n[execution_profiles.local]\nmodel = "local"\n[roles.memory_formation]\nroutes = ["local"]\nprompt = "config-prompts/missing.md"\n`;
     const missingKernel = `\n[host]\nkernel_executable = ${JSON.stringify(join(root, "missing-kernel"))}\n`;
     await writeFile(initialized.path, text + missingKernel);
     const result = await checkConfiguration(locations, true);
@@ -126,4 +127,20 @@ it("rejects stale configuration semantics and checks examples and explicit refer
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+it("retains Kernel-resolved execution profiles in the effective model configuration", () => {
+  const effective = parseEffectiveConfiguration({
+    execution_profiles: {
+      precise: { model: "local", reasoning: "high", max_output_tokens: 256 },
+    },
+    roles: {
+      memory_formation: { routes: ["precise"], requirement: "required" },
+    },
+  });
+  expect(effective.models.execution_profiles.precise).toMatchObject({
+    model: "local",
+    reasoning: "high",
+    max_output_tokens: 256,
+  });
 });

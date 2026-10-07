@@ -40,21 +40,21 @@ const plan = create(MaintenancePlanSchema, {
         target: { tagId: "tag-old", expectedRevisionId: "tag-revision" },
       },
     ],
-    supports: [
+    basis: [
       {
         key: "s0",
-        support: {
-          support: {
+        basis: {
+          basis: {
             case: "revision",
             value: {
-              support: {
+              basis: {
                 case: "cognitionDependency",
                 value: {
                   targetRevision: {
                     kind: "memory_revision",
                     value: "memory-revision",
                   },
-                  supportRole: "direct",
+                  basisRole: "direct",
                 },
               },
             },
@@ -73,14 +73,14 @@ const createTag = {
   key: "new_0",
   cognitionKeys: ["c0"],
   content,
-  supportKeys: ["s0"],
+  basisKeys: ["s0"],
   reason: "An accepted recurring procedure",
 };
 const attach = {
   action: "attach_tag",
   cognitionKey: "c0",
   tagKey: "new_0",
-  supportKeys: ["s0"],
+  basisKeys: ["s0"],
   reason: "This cognition expresses the concept",
 };
 function fixture() {
@@ -170,7 +170,7 @@ it("keeps independent commits and skips only dependencies of an invalid creation
       action: "revise_tag",
       tagKey: "t0",
       content,
-      supportKeys: ["s0"],
+      basisKeys: ["s0"],
       reason: "Clarify scope",
     },
     {
@@ -178,7 +178,7 @@ it("keeps independent commits and skips only dependencies of an invalid creation
       fromKey: "c0",
       toKey: "t0",
       relation: "assoc.related",
-      supportKeys: ["invented"],
+      basisKeys: ["invented"],
       reason: "Invented support",
     },
   ]);
@@ -220,7 +220,7 @@ it("maps split children and later revisions to actual returned identities", asyn
         { key: "new_a", content },
         { key: "new_b", content: { ...content, label: "Rollout procedure" } },
       ],
-      supportKeys: ["s0"],
+      basisKeys: ["s0"],
       reason: "Distinct concepts",
     },
     { ...attach, tagKey: "new_b" },
@@ -228,7 +228,7 @@ it("maps split children and later revisions to actual returned identities", asyn
       action: "revise_tag",
       tagKey: "new_a",
       content,
-      supportKeys: ["s0"],
+      basisKeys: ["s0"],
       reason: "Clarify child",
     },
   ]);

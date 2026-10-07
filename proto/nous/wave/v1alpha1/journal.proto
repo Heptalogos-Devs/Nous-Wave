@@ -10,7 +10,7 @@ message JournalPoint {
   int32 ordinal = 1;
   string role = 2;
   string text = 3;
-  repeated RevisionSupport supports = 4;
+  repeated RevisionBasis basis = 4;
 }
 message JournalRevision {
   string journal_revision_id = 1;

@@ -5,7 +5,7 @@ use super::*;
 use nous_persistence::database_error as db;
 use std::collections::HashSet;
 
-fn requested_supports(payload: &serde_json::Value) -> Result<HashSet<CognitiveRef>> {
+fn requested_basis(payload: &serde_json::Value) -> Result<HashSet<CognitiveRef>> {
     let mut requested = HashSet::new();
     let summary = payload
         .get("summary")
@@ -35,34 +35,34 @@ fn requested_supports(payload: &serde_json::Value) -> Result<HashSet<CognitiveRe
         fields.extend(items);
     }
     for item in fields {
-        if item.get("support_keys").is_some() {
+        if item.get("basis_keys").is_some() {
             return Err(Error::Invalid(
                 "invocation-local support keys cannot be persisted".into(),
             ));
         }
-        let supports = item
-            .get("supports")
+        let basis_refs = item
+            .get("basis_refs")
             .and_then(serde_json::Value::as_array)
-            .ok_or_else(|| Error::Invalid("structured field lacks stable supports".into()))?;
-        if supports.len() > 16
+            .ok_or_else(|| Error::Invalid("structured field lacks stable basis_refs".into()))?;
+        if basis_refs.len() > 16
             || ((item.get("basis").and_then(serde_json::Value::as_str) == Some("direct")
                 || (std::ptr::eq(item, summary)
                     && summary
                         .get("content")
                         .and_then(serde_json::Value::as_str)
                         .is_some_and(|text| !text.trim().is_empty())))
-                && supports.is_empty())
+                && basis_refs.is_empty())
         {
             return Err(Error::Invalid(
                 "structured field support bounds invalid".into(),
             ));
         }
-        for support in supports {
-            let kind = support
+        for basis in basis_refs {
+            let kind = basis
                 .get("kind")
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| Error::Invalid("invalid support kind".into()))?;
-            let value = support
+            let value = basis
                 .get("value")
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| Error::Invalid("invalid support identity".into()))?;
@@ -73,7 +73,7 @@ fn requested_supports(payload: &serde_json::Value) -> Result<HashSet<CognitiveRe
 }
 
 impl MaterialService {
-    pub(super) async fn validate_field_supports(
+    pub(super) async fn validate_field_basis(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         representation: &DerivedRepresentation,
@@ -81,7 +81,7 @@ impl MaterialService {
         let Some(payload) = &representation.payload_json else {
             return Ok(());
         };
-        let requested = requested_supports(payload)?;
+        let requested = requested_basis(payload)?;
         let mut allowed: HashSet<_> = representation
             .inputs
             .iter()

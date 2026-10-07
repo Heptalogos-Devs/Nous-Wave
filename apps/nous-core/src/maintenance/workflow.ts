@@ -31,10 +31,11 @@ import type { ModelRuntime } from "../model/runtime.js";
 import type {
   ModelRoleSnapshot,
   ModelProducerMetadata,
+  ExecutionTelemetry,
 } from "../model/invocations.js";
 import {
   partitionIndices,
-  journalSupportKeys,
+  journalBasisKeys,
   episodePartitionSchema,
   journalSynthesisSchema,
 } from "../model/schemas/longitudinal.js";
@@ -100,6 +101,13 @@ function producer(
     implementation: metadata.implementation,
     modelIdentity: metadata.model,
     modelRevision: metadata.modelRevision,
+    modelRole: metadata.modelRole,
+    modelProfile: metadata.modelProfile,
+    executionProfile: metadata.executionProfile,
+    inferenceControlsDigest: metadata.inferenceControlsDigest,
+    rolePolicyDigest: metadata.rolePolicyDigest,
+    promptId: metadata.promptId,
+    promptDigest: metadata.promptDigest,
     outputSchemaDigest: metadata.outputSchemaDigest,
     preprocessingIdentity: metadata.promptId!,
     preprocessingRevision: metadata.promptDigest!,
@@ -184,6 +192,7 @@ export async function runModelMaintenance(
     operationKey: operationId,
     leaseToken: reservation.leaseToken,
   };
+  let executionTelemetry: ExecutionTelemetry | undefined;
   try {
     const snapshot = snapshotSchema.parse(JSON.parse(reservation.snapshotJson));
     const plan = fromJson(MaintenancePlanSchema, snapshot.plan as JsonValue);
@@ -203,12 +212,20 @@ export async function runModelMaintenance(
           epoch: plan.target.expectedEpoch.toString(),
         };
       } else {
-        reserveModelCall();
         if (need.kind === "episode_resegment") {
           const result = await models.segmentEpisode(
             JSON.stringify(snapshot.plan),
             options.signal ?? undefined,
             snapshot.model as ModelRoleSnapshot,
+            reserveModelCall,
+          );
+          executionTelemetry = result.execution;
+          await kernel.modelWorkflow.saveWorkflow(
+            {
+              ...lease,
+              executionTelemetryJson: JSON.stringify(executionTelemetry),
+            },
+            { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
           );
           let segments;
           try {
@@ -284,6 +301,15 @@ export async function runModelMaintenance(
             plan.conceptModelInputJson,
             options.signal ?? undefined,
             snapshot.model as ModelRoleSnapshot,
+            reserveModelCall,
+          );
+          executionTelemetry = result.execution;
+          await kernel.modelWorkflow.saveWorkflow(
+            {
+              ...lease,
+              executionTelemetryJson: JSON.stringify(executionTelemetry),
+            },
+            { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
           );
           const proposal = conceptMaintenanceSchema.parse(result.value);
           proposed = {
@@ -303,6 +329,15 @@ export async function runModelMaintenance(
             JSON.stringify(snapshot.plan),
             options.signal ?? undefined,
             snapshot.model as ModelRoleSnapshot,
+            reserveModelCall,
+          );
+          executionTelemetry = result.execution;
+          await kernel.modelWorkflow.saveWorkflow(
+            {
+              ...lease,
+              executionTelemetryJson: JSON.stringify(executionTelemetry),
+            },
+            { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
           );
           proposed = {
             action: "consolidation",
@@ -321,12 +356,21 @@ export async function runModelMaintenance(
             JSON.stringify(snapshot.plan),
             options.signal ?? undefined,
             snapshot.model as ModelRoleSnapshot,
+            reserveModelCall,
+          );
+          executionTelemetry = result.execution;
+          await kernel.modelWorkflow.saveWorkflow(
+            {
+              ...lease,
+              executionTelemetryJson: JSON.stringify(executionTelemetry),
+            },
+            { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
           );
           const proposal = journalSynthesisSchema.parse(result.value);
           try {
-            journalSupportKeys(
+            journalBasisKeys(
               proposal,
-              new Set(plan.supports.map((entry) => entry.key)),
+              new Set(plan.basis.map((entry) => entry.key)),
             );
           } catch {
             throw new ConnectError(
@@ -353,8 +397,8 @@ export async function runModelMaintenance(
               epoch: plan.target.expectedEpoch.toString(),
             };
           } else {
-            const supports = new Map(
-              plan.supports.map((entry) => [entry.key, entry.support!]),
+            const basis = new Map(
+              plan.basis.map((entry) => [entry.key, entry.basis!]),
             );
             proposed = {
               action: "journal",
@@ -372,7 +416,7 @@ export async function runModelMaintenance(
                   ordinal,
                   role: point.role,
                   text: point.text,
-                  supports: point.supportKeys.map((key) => supports.get(key)!),
+                  basis: point.basisKeys.map((key) => basis.get(key)!),
                 })),
                 producer: {
                   $typeName: "nous.wave.v1alpha1.ProducerSignature",
@@ -387,7 +431,10 @@ export async function runModelMaintenance(
         }
       }
       await kernel.modelWorkflow.saveWorkflow(
-        { ...lease, proposalJson: JSON.stringify(proposed) },
+        {
+          ...lease,
+          proposalJson: JSON.stringify(proposed),
+        },
         options,
       );
     }
@@ -477,8 +524,14 @@ export async function runModelMaintenance(
     );
     return outcome;
   } catch (error) {
+    if (error instanceof GenerationFailure && error.execution)
+      await kernel.modelWorkflow.saveWorkflow(
+        { ...lease, executionTelemetryJson: JSON.stringify(error.execution) },
+        options,
+      );
     if (
-      (error instanceof ConnectError && error.code === Code.InvalidArgument) ||
+      (error instanceof ConnectError &&
+        [Code.InvalidArgument, Code.FailedPrecondition].includes(error.code)) ||
       error instanceof z.ZodError ||
       (error instanceof GenerationFailure &&
         /output_schema_invalid|output_json_invalid/.test(error.message))

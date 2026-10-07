@@ -5,6 +5,9 @@
   "license": "Apache-2.0",
   "type": "module",
   "dependencies": {
-    "@nous-wave/client": "workspace:*"
+    "@nous-wave/client": "workspace:*",
+    "citty": "0.2.2",
+    "smol-toml": "1.9.0",
+    "zod": "4.6.5"
   }
 }

@@ -9,7 +9,7 @@ use std::future::Future;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredEmbeddingConfig {
     pub space: EmbeddingSpaceSignature,
-    pub producer: ProducerSignature,
+    pub producers: Vec<ProducerSignature>,
 }
 #[derive(Debug, Clone)]
 pub struct QueryEmbedding {
@@ -62,23 +62,26 @@ pub fn validate_embedding_config(config: &StoredEmbeddingConfig) -> Result<()> {
     .to_hex()
     .to_string();
     if config.space.space_hash != expected
-        || config.producer.signature_hash
-            != AuthorityStore::canonical_producer(&config.producer)?.signature_hash
+        || config.space.dimension == 0
+        || config.space.dimension > 8192
+        || config.producers.is_empty()
+        || config.producers.len() > 4
     {
         return Err(Error::Invalid(
-            "resolved embedding signatures are not canonical".into(),
+            "invalid canonical embedding configuration".into(),
         ));
     }
-    if config.space.dimension == 0
-        || config.space.dimension > 8192
-        || config.space.space_hash.is_empty()
-        || config.producer.signature_hash.is_empty()
-        || config.producer.model_identity.as_deref() != Some(config.space.model_identity.as_str())
-        || config.producer.operation != CapabilityOperation::TextEmbedding
-    {
-        return Err(Error::Invalid(
-            "invalid embedding space/producer configuration".into(),
-        ));
+    let mut hashes = std::collections::HashSet::new();
+    for producer in &config.producers {
+        if producer.signature_hash != AuthorityStore::canonical_producer(producer)?.signature_hash
+            || producer.model_identity.as_deref() != Some(config.space.model_identity.as_str())
+            || producer.operation != CapabilityOperation::TextEmbedding
+            || !hashes.insert(&producer.signature_hash)
+        {
+            return Err(Error::Invalid(
+                "invalid canonical embedding producer".into(),
+            ));
+        }
     }
     Ok(())
 }
@@ -88,24 +91,35 @@ impl TextEmbeddingProvider for StoredEmbeddingProvider {
         self.config.space.clone()
     }
     fn producer(&self) -> ProducerSignature {
-        self.config.producer.clone()
+        self.config.producers[0].clone()
+    }
+    fn producers(&self) -> Vec<ProducerSignature> {
+        self.config.producers.clone()
     }
     async fn embed(&self, request: TextEmbeddingRequest) -> Result<TextEmbeddingOutput> {
-        if request.query {
-            let output =
-                query_material_output(&request.text, &self.config.space, &self.config.producer);
-            return output.ok_or_else(|| {
-                Error::Unavailable("Host did not supply compatible query embedding".into())
-            });
+        for producer in &self.config.producers {
+            if request.query {
+                if let Some(output) =
+                    query_material_output(&request.text, &self.config.space, producer)
+                {
+                    return Ok(output);
+                }
+            } else {
+                let vector = sqlx::query_scalar::<_,Vec<f32>>("SELECT vector FROM embedding_materials WHERE subject_id=$1 AND content_digest=$2 AND space_hash=$3 AND producer_hash=$4")
+                    .bind(request.subject.0).bind(blake3::hash(request.text.as_bytes()).to_hex().to_string()).bind(&self.config.space.space_hash).bind(&producer.signature_hash)
+                    .fetch_optional(self.store.pool()).await.map_err(db)?;
+                if let Some(vector) = vector {
+                    return Ok(TextEmbeddingOutput {
+                        vector,
+                        space: self.space(),
+                        producer: producer.clone(),
+                    });
+                }
+            }
         }
-        let vector=sqlx::query_scalar::<_,Vec<f32>>("SELECT vector FROM embedding_materials WHERE subject_id=$1 AND content_digest=$2 AND space_hash=$3 AND producer_hash=$4")
-            .bind(request.subject.0).bind(blake3::hash(request.text.as_bytes()).to_hex().to_string()).bind(&self.config.space.space_hash).bind(&self.config.producer.signature_hash)
-            .fetch_optional(self.store.pool()).await.map_err(db)?.ok_or_else(||Error::Unavailable("Host embedding material is not ready".into()))?;
-        Ok(TextEmbeddingOutput {
-            vector,
-            space: self.space(),
-            producer: self.producer(),
-        })
+        Err(Error::Unavailable(
+            "Host did not supply compatible embedding material".into(),
+        ))
     }
 }
 #[derive(Debug, Clone)]
@@ -138,7 +152,7 @@ impl ServingService {
             .embedding()
             .ok_or_else(|| Error::Unavailable("embedding space not configured".into()))?;
         let config = provider.space();
-        let producer = provider.producer();
+        let producers = provider.producers();
         let capabilities = self.projection_capabilities(subject).await?;
         let budget = self
             .configuration
@@ -174,8 +188,8 @@ impl ServingService {
             let digest = blake3::hash(doc.representation_text.as_bytes())
                 .to_hex()
                 .to_string();
-            let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM embedding_materials WHERE subject_id=$1 AND content_digest=$2 AND space_hash=$3 AND producer_hash=$4)")
-                .bind(subject.0).bind(&digest).bind(&config.space_hash).bind(&producer.signature_hash).fetch_one(self.store.pool()).await.map_err(db)?;
+            let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM embedding_materials WHERE subject_id=$1 AND content_digest=$2 AND space_hash=$3 AND producer_hash=ANY($4::text[]))")
+                .bind(subject.0).bind(&digest).bind(&config.space_hash).bind(producers.iter().map(|p| p.signature_hash.clone()).collect::<Vec<_>>()).fetch_one(self.store.pool()).await.map_err(db)?;
             if !exists {
                 needs.push(EmbeddingNeed {
                     reference: doc.reference,
@@ -216,7 +230,10 @@ impl ServingService {
             .embedding()
             .ok_or_else(|| Error::Unavailable("embedding not configured".into()))?;
         if configured.space().space_hash != space
-            || configured.producer().signature_hash != producer
+            || !configured
+                .producers()
+                .iter()
+                .any(|p| p.signature_hash == producer)
             || vector.len() != configured.space().dimension as usize
             || vector.iter().any(|v| !v.is_finite())
         {
