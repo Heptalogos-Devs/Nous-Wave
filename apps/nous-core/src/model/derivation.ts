@@ -5,9 +5,11 @@ import type { CallOptions } from "@connectrpc/connect";
 import type { DeriveMaterialRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
-import type {
-  ModelProducerMetadata,
-  ModelRoleSnapshot,
+import {
+  failedExecutionTelemetry,
+  type ExecutionTelemetry,
+  type ModelProducerMetadata,
+  type ModelRoleSnapshot,
 } from "./invocations.js";
 import type { ModelRole } from "./configuration.js";
 import { z } from "zod";
@@ -150,6 +152,14 @@ export async function deriveMaterial(
             : "verified-utf8-decoding-v1",
           modelIdentity: producerMetadata?.model,
           modelRevision: producerMetadata?.modelRevision,
+          modelRole: producerMetadata?.modelRole,
+          modelProfile: producerMetadata?.modelProfile,
+          executionProfile: producerMetadata?.executionProfile,
+          inferenceControlsDigest: producerMetadata?.inferenceControlsDigest,
+          rolePolicyDigest: producerMetadata?.rolePolicyDigest,
+          promptId: producerMetadata?.promptId,
+          promptDigest: producerMetadata?.promptDigest,
+
           outputSchemaDigest: producerMetadata?.outputSchemaDigest,
           preprocessingIdentity: `${producerMetadata ? (producerMetadata.promptId ?? "standard-audio-transcription") : "verified-utf8"}/${strategy}`,
           preprocessingRevision: producerMetadata?.promptDigest ?? "1",
@@ -177,6 +187,7 @@ export async function deriveMaterial(
     invoke: (snapshot: ModelRoleSnapshot) => Promise<{
       text: string;
       producerMetadata: ModelProducerMetadata;
+      execution: ExecutionTelemetry;
       structuredPayload?: JsonObject;
     }>,
     quality: Record<string, unknown> = {},
@@ -240,6 +251,7 @@ export async function deriveMaterial(
         ? (JSON.parse(reservation.proposalJson) as {
             text: string;
             producerMetadata: ModelProducerMetadata;
+            execution: ExecutionTelemetry;
             structuredPayload?: JsonObject;
           })
         : undefined;
@@ -248,7 +260,11 @@ export async function deriveMaterial(
           JSON.parse(reservation.snapshotJson) as ModelRoleSnapshot,
         );
         await kernel.modelWorkflow.saveWorkflow(
-          { ...lease, proposalJson: JSON.stringify(proposal) },
+          {
+            ...lease,
+            proposalJson: JSON.stringify(proposal),
+            executionTelemetryJson: JSON.stringify(proposal.execution),
+          },
           options,
         );
       }
@@ -271,6 +287,18 @@ export async function deriveMaterial(
         options,
       );
       return representation;
+    } catch (error) {
+      if (failedExecutionTelemetry(error))
+        await kernel.modelWorkflow.saveWorkflow(
+          {
+            ...lease,
+            executionTelemetryJson: JSON.stringify(
+              failedExecutionTelemetry(error),
+            ),
+          },
+          { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+        );
+      throw error;
     } finally {
       await kernel.modelWorkflow
         .releaseWorkflow(lease, {
@@ -442,6 +470,7 @@ export async function deriveMaterial(
               return {
                 text: result.value,
                 producerMetadata: result.producerMetadata,
+                execution: result.execution,
               };
             },
             samples.quality,
@@ -559,6 +588,7 @@ export async function deriveMaterial(
               return {
                 text: result.value,
                 producerMetadata: result.producerMetadata,
+                execution: result.execution,
               };
             },
           )

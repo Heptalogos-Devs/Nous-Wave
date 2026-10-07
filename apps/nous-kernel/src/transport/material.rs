@@ -191,8 +191,9 @@ impl KernelService {
                 .provenance
                 .into_iter()
                 .map(|r| p::Evidence {
+                    epistemic_relation: None,
                     reference: Some(to_ref(r)),
-                    support_role: "direct".into(),
+                    basis_role: "direct".into(),
                 })
                 .collect(),
             degradation: vec![],

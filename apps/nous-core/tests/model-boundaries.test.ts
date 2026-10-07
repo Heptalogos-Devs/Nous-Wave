@@ -7,7 +7,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
 import { modelConfigurationSchema } from "../src/model/configuration.js";
-import { ModelInvocations } from "../src/model/invocations.js";
+import {
+  ModelInvocations,
+  failedExecutionTelemetry,
+} from "../src/model/invocations.js";
 import { PromptRegistry } from "../src/model/prompts.js";
 import { providerContractForRole } from "../src/model/schemas/contracts.js";
 
@@ -55,7 +58,8 @@ describe("model protocol and provenance boundaries", () => {
           capabilities: ["text"],
         },
       },
-      roles: { query_embedding: { model: "chat" } },
+      execution_profiles: { chat: { model: "chat" } },
+      roles: { query_embedding: { routes: ["chat"] } },
     });
     const runtime = await ModelInvocations.create(configuration);
     expect(
@@ -203,10 +207,15 @@ describe("model protocol and provenance boundaries", () => {
             capabilities: ["rerank"],
           },
         },
-        roles: {
+        execution_profiles: {
           memory_formation: { model: "chat" },
           query_embedding: { model: "embedding" },
           query_rerank: { model: "rerank" },
+        },
+        roles: {
+          memory_formation: { routes: ["memory_formation"] },
+          query_embedding: { routes: ["query_embedding"] },
+          query_rerank: { routes: ["query_rerank"] },
         },
       });
       const runtime = await ModelInvocations.create(config);
@@ -314,7 +323,7 @@ describe("model protocol and provenance boundaries", () => {
             ["a", "b"],
             2,
           ),
-        ).rejects.toThrow("Rerank invocation failed");
+        ).rejects.toThrow("all_execution_routes_failed");
       }
       expect(JSON.stringify(formation.producerMetadata)).not.toContain(
         "fixture-secret",
@@ -338,6 +347,83 @@ describe("model protocol and provenance boundaries", () => {
           { bytes: Uint8Array.of(1), mediaType: "audio/mpeg" },
         ),
       ).rejects.toThrow("response_validation");
+      config.model_profiles.backup = {
+        ...config.model_profiles.chat!,
+        model: "chat-id",
+        reasoning_levels: ["provider-default", "high"],
+      };
+      config.execution_profiles.backup = {
+        model: "backup",
+        reasoning: "high",
+        max_output_tokens: 64,
+        provider_options: {},
+      };
+      config.roles.memory_formation = {
+        routes: ["memory_formation", "backup"],
+        requirement: "required",
+      };
+      const routed = await ModelInvocations.create(config);
+      const frozen = routed.snapshot("memory_formation");
+      config.model_profiles.backup.model = "changed-after-reservation";
+      let admitted = 0;
+      const start = requests.length;
+      const fallback = await routed.generate(
+        "memory_formation",
+        "evidence",
+        undefined,
+        undefined,
+        frozen,
+        undefined,
+        () => {
+          admitted++;
+        },
+      );
+      expect(admitted).toBe(2);
+      expect(
+        requests.slice(start).map((request) => request.body.model),
+      ).toEqual(["incomplete-chat", "chat-id"]);
+      expect(requests.at(-1)!.body.reasoning_effort).toBe("high");
+      expect(
+        fallback.execution.attempts.map((attempt) => attempt.status),
+      ).toEqual(["failed", "succeeded"]);
+      expect(fallback.producerMetadata).toMatchObject({
+        model: "chat-id",
+        modelProfile: "backup",
+        executionProfile: "backup",
+        modelRole: "memory_formation",
+      });
+      const beforeBudget = requests.length;
+      let admission = 0;
+      let admissionFailure: unknown;
+      try {
+        await routed.generate(
+          "memory_formation",
+          "evidence",
+          undefined,
+          undefined,
+          frozen,
+          undefined,
+          () => {
+            if (++admission > 1)
+              throw new Error("caller model budget exhausted");
+          },
+        );
+      } catch (error) {
+        admissionFailure = error;
+      }
+      expect(admissionFailure).toBeInstanceOf(Error);
+      expect((admissionFailure as Error).message).toBe(
+        "caller model budget exhausted",
+      );
+      expect(failedExecutionTelemetry(admissionFailure)?.attempts).toHaveLength(
+        1,
+      );
+      expect(fallback.execution.attempts.at(-1)?.usage).toMatchObject({
+        inputTokens: 1,
+        outputTokens: 2,
+        totalTokens: 3,
+      });
+      expect(requests.length - beforeBudget).toBe(1);
     } finally {
       delete process.env.NOUS_TEST_GATEWAY;
       await new Promise<void>((done) => server.close(() => done()));

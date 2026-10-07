@@ -18,6 +18,7 @@ rpc_service! {
             get_neighborhood(p::NeighborhoodRequest) -> p::NeighborhoodResponse;
             create_cognitive_schema(p::CreateCognitiveSchemaRequest) -> p::CognitiveSchema;
             get_cognitive_schema(p::GetCognitiveSchemaRequest) -> p::CognitiveSchema;
+            get_cognitive_schema_revision(p::ObjectRequest) -> p::CognitiveSchema;
             add_schema_evidence(p::AddSchemaEvidenceRequest) -> p::CognitiveSchema;
             revise_cognitive_schema(p::ReviseCognitiveSchemaRequest) -> p::CognitiveSchema;
             split_cognitive_schema(p::SplitCognitiveSchemaRequest) -> p::SplitCognitiveSchemaResponse;

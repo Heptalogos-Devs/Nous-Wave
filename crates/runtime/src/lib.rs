@@ -33,11 +33,10 @@ pub use query::{
     CognitiveContributor, CognitiveContributors, CognitiveProfile, CognitiveProfileRequirements,
     ConceptEnrichment, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput, LaneStatus,
     NovelConceptHypothesis, QUERY_REPRESENTATION, QueryActivation, QueryActivationView,
-    QueryConceptCandidate, QueryConceptOutput, QueryConceptSelection, QueryExecution, QueryPlan,
-    QueryReadLease, QueryRepresentation, QueryRepresentationLimits, QuerySemanticEmbedding,
-    SharedLaneProvider, TagActivation, TopologyWorkSummary, UnresolvedQueryReference, WorkCycle,
-    build_query_representation, register_retrieval_configuration, unresolved_query_references,
-    validate_query_closure,
+    QueryConceptCandidate, QueryConceptOutput, QueryConceptSelection, QueryContextSnapshot,
+    QueryExecution, QueryPlan, QueryReadLease, QueryRepresentation, QueryRepresentationLimits,
+    QuerySemanticEmbedding, SharedLaneProvider, TagActivation, TopologyWorkSummary, WorkCycle,
+    build_query_representation, register_retrieval_configuration,
 };
 pub use segmentation::{EpisodeDraft, SegmentationProgress};
 pub use work_contexts::*;

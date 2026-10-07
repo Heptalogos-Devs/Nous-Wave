@@ -221,6 +221,7 @@ export function createNousClient(transport: Transport) {
       neighborhood: call(concepts.getNeighborhood),
       createSchema: call(concepts.createCognitiveSchema),
       getSchema: call(concepts.getCognitiveSchema),
+      getSchemaRevision: call(concepts.getCognitiveSchemaRevision),
       addSchemaEvidence: call(concepts.addSchemaEvidence),
       reviseSchema: call(concepts.reviseCognitiveSchema),
       splitSchema: call(concepts.splitCognitiveSchema),

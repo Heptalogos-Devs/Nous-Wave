@@ -35,9 +35,7 @@ pub(crate) async fn activate(
     if activation.frozen {
         return Ok(activation);
     }
-    if bound.concept_enrichment == ConceptEnrichment::Off
-        || bound.source_query.text_only_compatibility
-    {
+    if bound.concept_enrichment == ConceptEnrichment::Off {
         return Ok(activation);
     }
     if let Some(generation) = snapshot
@@ -70,10 +68,9 @@ pub(crate) async fn activate(
                         .space
                         .as_ref()
                         .is_some_and(|space| embedding.space.compatible_with(space))
-                        || generation
-                            .producer
-                            .as_ref()
-                            .is_none_or(|p| p.signature_hash != embedding.producer.signature_hash)
+                        || !provider.producers().iter().any(|producer| {
+                            producer.signature_hash == embedding.producer.signature_hash
+                        })
                     {
                         Some("query/concept embedding space or producer mismatch".into())
                     } else {
@@ -91,8 +88,8 @@ pub(crate) async fn activate(
                             .map(|(tag, strength)| TagActivation {
                                 tag,
                                 strength,
-                                source: ActivationSource::SemanticConceptMatch,
-                                origin: "semantic_concept_match".into(),
+                                source: ActivationSource::ExistingSemanticMatch,
+                                origin: "existing_semantic_match".into(),
                             })
                             .collect();
                         activation

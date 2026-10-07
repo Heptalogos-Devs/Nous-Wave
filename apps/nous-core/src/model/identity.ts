@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { canonicalDigest } from "../digest.js";
-import type { ModelProfile, RoleBinding } from "./configuration.js";
+import type { ModelProfile, ExecutionProfile } from "./configuration.js";
 import type { PromptAsset } from "./prompts.js";
 
 export function modelRoleIdentity(
   profile: ModelProfile,
   gateway: { base_url: string; request_timeout_ms: number },
-  binding: RoleBinding,
+  binding: ExecutionProfile,
   prompt?: PromptAsset,
 ) {
   const profileDigest = canonicalDigest({

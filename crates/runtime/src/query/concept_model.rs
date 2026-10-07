@@ -49,8 +49,8 @@ impl QueryActivation {
             selected.push(TagActivation {
                 tag: candidate.tag,
                 strength: selection.strength,
-                source: ActivationSource::ModelConceptMatch,
-                origin: "model_concept_match".into(),
+                source: ActivationSource::ModelInferred,
+                origin: "model_inferred".into(),
             });
         }
         if output.novel_concepts.iter().any(|hypothesis| {
@@ -84,7 +84,7 @@ impl QueryActivation {
         self.seeds.retain(|seed| {
             !matches!(
                 seed.origin.as_str(),
-                "semantic_concept_match" | "model_concept_match"
+                "existing_semantic_match" | "model_inferred"
             )
         });
         self.seeds

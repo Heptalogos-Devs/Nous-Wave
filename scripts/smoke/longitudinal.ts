@@ -53,6 +53,11 @@ function proposalModels() {
     configDigest: "b".repeat(64),
   });
   const producerMetadata = {
+    modelRole: "journal_synthesis" as const,
+    modelProfile: "stub",
+    executionProfile: "stub",
+    inferenceControlsDigest: "e".repeat(64),
+    rolePolicyDigest: "f".repeat(64),
     implementation: "longitudinal-proposal-stub",
     protocol: "openai-chat",
     model: "deterministic",
@@ -64,7 +69,8 @@ function proposalModels() {
   };
   const plan = (input: string) =>
     fromJson(MaintenancePlanSchema, JSON.parse(input) as JsonValue);
-  models.segmentEpisode = async (input) => {
+  models.segmentEpisode = async (input, _signal, _snapshot, beforeAttempt) => {
+    beforeAttempt?.();
     calls.episode++;
     const source = plan(input);
     return {
@@ -79,17 +85,33 @@ function proposalModels() {
         ],
       }),
       producerMetadata,
+      execution: {
+        attempts: [
+          {
+            executionProfile: "stub",
+            modelProfile: "stub",
+            status: "succeeded" as const,
+            latencyMs: 0,
+          },
+        ],
+        successfulExecutionProfile: "stub",
+      },
     };
   };
-  models.synthesizeJournal = async (input) => {
+  models.synthesizeJournal = async (
+    input,
+    _signal,
+    _snapshot,
+    beforeAttempt,
+  ) => {
+    beforeAttempt?.();
     calls.journal++;
     const source = plan(input);
-    const supportKeys = source.supports
+    const basisKeys = source.basis
       .filter(
         (entry) =>
-          entry.support?.support.case === "cognitionDependency" &&
-          entry.support.support.value.targetRevision?.kind ===
-            "episode_revision",
+          entry.basis?.basis.case === "cognitionDependency" &&
+          entry.basis.basis.value.targetRevision?.kind === "episode_revision",
       )
       .map((entry) => entry.key);
     return {
@@ -101,22 +123,34 @@ function proposalModels() {
           {
             role: "decision",
             text: "Calibration plan confirmed.",
-            supportKeys,
+            basisKeys,
           },
         ],
       }),
       producerMetadata,
+      execution: {
+        attempts: [
+          {
+            executionProfile: "stub",
+            modelProfile: "stub",
+            status: "succeeded" as const,
+            latencyMs: 0,
+          },
+        ],
+        successfulExecutionProfile: "stub",
+      },
     };
   };
-  models.consolidate = async (input) => {
+  models.consolidate = async (input, _signal, _snapshot, beforeAttempt) => {
+    beforeAttempt?.();
     calls.consolidation++;
     const source = plan(input);
     const member = source.members[0];
     assert(member);
-    const evidence = source.supports.find(
+    const evidence = source.basis.find(
       (entry) =>
-        entry.support?.support.case === "evidence" &&
-        entry.support.support.value.occurrenceId === member.occurrenceId,
+        entry.basis?.basis.case === "evidence" &&
+        entry.basis.basis.value.occurrenceId === member.occurrenceId,
     );
     assert(evidence);
     const actions = source.candidates.some(
@@ -138,14 +172,28 @@ function proposalModels() {
               semanticRole: "calibration",
               text: "Calibration plan confirmed.",
               title: "Calibration",
-              supportKeys: [evidence.key],
+              basisKeys: [evidence.key],
               entityKeys: [],
               validTime: { kind: "unknown" },
               epistemicClass: "observed",
             },
           },
         ];
-    return { value: consolidationSchema.parse({ actions }), producerMetadata };
+    return {
+      value: consolidationSchema.parse({ actions }),
+      producerMetadata,
+      execution: {
+        attempts: [
+          {
+            executionProfile: "stub",
+            modelProfile: "stub",
+            status: "succeeded" as const,
+            latencyMs: 0,
+          },
+        ],
+        successfulExecutionProfile: "stub",
+      },
+    };
   };
   const enableFunctional = () => {
     functional = true;
@@ -154,7 +202,37 @@ function proposalModels() {
     });
     models.invocations.embeddingBatch = async (texts) => ({
       value: texts.map(() => [1, 0]),
+      producer: {
+        signature_hash: "smoke-unused",
+        provider_class: "openai-embeddings",
+        operation: "text_embedding",
+        implementation: "smoke",
+        model_identity: "deterministic-test",
+        model_revision: null,
+        output_schema_digest: null,
+        preprocessing_identity: "smoke",
+        preprocessing_revision: "1",
+        config_digest: "smoke",
+        model_role: "query_embedding",
+        model_profile: "stub",
+        execution_profile: "stub",
+        inference_controls_digest: "e".repeat(64),
+        role_policy_digest: "f".repeat(64),
+        prompt_id: null,
+        prompt_digest: null,
+      },
       producerMetadata,
+      execution: {
+        attempts: [
+          {
+            executionProfile: "stub",
+            modelProfile: "stub",
+            status: "succeeded" as const,
+            latencyMs: 0,
+          },
+        ],
+        successfulExecutionProfile: "stub",
+      },
     });
     models.form = async (input) => {
       const source = JSON.parse(input) as { evidenceText: string };
@@ -164,6 +242,17 @@ function proposalModels() {
         title: null,
         selectedEntityKeys: [],
         producerMetadata,
+        execution: {
+          attempts: [
+            {
+              executionProfile: "stub",
+              modelProfile: "stub",
+              status: "succeeded" as const,
+              latencyMs: 0,
+            },
+          ],
+          successfulExecutionProfile: "stub",
+        },
       };
     };
     models.consolidate = async () => ({
@@ -176,8 +265,25 @@ function proposalModels() {
         ],
       }),
       producerMetadata,
+      execution: {
+        attempts: [
+          {
+            executionProfile: "stub",
+            modelProfile: "stub",
+            status: "succeeded" as const,
+            latencyMs: 0,
+          },
+        ],
+        successfulExecutionProfile: "stub",
+      },
     });
-    models.segmentEpisode = async (input) => {
+    models.segmentEpisode = async (
+      input,
+      _signal,
+      _snapshot,
+      beforeAttempt,
+    ) => {
+      beforeAttempt?.();
       const source = plan(input);
       return {
         value: episodePartitionSchema.parse({
@@ -192,15 +298,43 @@ function proposalModels() {
           ],
         }),
         producerMetadata,
+        execution: {
+          attempts: [
+            {
+              executionProfile: "stub",
+              modelProfile: "stub",
+              status: "succeeded" as const,
+              latencyMs: 0,
+            },
+          ],
+          successfulExecutionProfile: "stub",
+        },
       };
     };
     models.synthesizeJournal = async () => ({
       value: journalSynthesisSchema.parse({ action: "no_change" }),
       producerMetadata,
+      execution: {
+        attempts: [
+          {
+            executionProfile: "stub",
+            modelProfile: "stub",
+            status: "succeeded" as const,
+            latencyMs: 0,
+          },
+        ],
+        successfulExecutionProfile: "stub",
+      },
     });
-    models.maintainConcepts = async (input) => {
+    models.maintainConcepts = async (
+      input,
+      _signal,
+      _snapshot,
+      beforeAttempt,
+    ) => {
+      beforeAttempt?.();
       const source = JSON.parse(input) as {
-        cognition: { key: string; text: string; exactSupportKey: string }[];
+        cognition: { key: string; text: string; exactBasisKey: string }[];
         tags: { key: string; content: { label: string } }[];
       };
       const focus = source.cognition[0]!;
@@ -251,7 +385,7 @@ function proposalModels() {
                 fromKey: focus.key,
                 toKey: candidate.key,
                 relation: "assoc.related",
-                supportKeys: [focus.exactSupportKey, candidate.exactSupportKey],
+                basisKeys: [focus.exactBasisKey, candidate.exactBasisKey],
                 reason:
                   "The supplied cognition describes the mechanism or remedy for this focus",
               }))
@@ -263,16 +397,27 @@ function proposalModels() {
             actions: extra.length ? extra : [{ action: "no_change" }],
           }),
           producerMetadata,
+          execution: {
+            attempts: [
+              {
+                executionProfile: "stub",
+                modelProfile: "stub",
+                status: "succeeded" as const,
+                latencyMs: 0,
+              },
+            ],
+            successfulExecutionProfile: "stub",
+          },
         };
       const tag = source.tags.find(
         (candidate) => candidate.content.label === label,
       );
-      const supportKeys = [focus.exactSupportKey];
+      const basisKeys = [focus.exactBasisKey];
       const attach = {
         action: "attach_tag",
         cognitionKey: focus.key,
         tagKey: tag?.key ?? "new_concept",
-        supportKeys,
+        basisKeys,
         reason: "The accepted focus expresses this durable concept",
       };
       const description =
@@ -291,7 +436,7 @@ function proposalModels() {
               key: "new_concept",
               cognitionKeys: [focus.key],
               content: { label, description, kind_hint: "practice" },
-              supportKeys,
+              basisKeys,
               reason: "The focus expresses a useful continuing practice",
             },
             attach,
@@ -310,7 +455,7 @@ function proposalModels() {
                 action: "merge_tags",
                 survivorKey: gate.key,
                 retiredKeys: [alias?.key ?? "new_concept"],
-                supportKeys,
+                basisKeys,
                 reason: "The focus explicitly identifies equivalent names",
               },
               { ...attach, tagKey: gate.key },
@@ -321,6 +466,17 @@ function proposalModels() {
           actions: [...orderedActions, ...extra].slice(0, 4),
         }),
         producerMetadata,
+        execution: {
+          attempts: [
+            {
+              executionProfile: "stub",
+              modelProfile: "stub",
+              status: "succeeded" as const,
+              latencyMs: 0,
+            },
+          ],
+          successfulExecutionProfile: "stub",
+        },
       };
     };
   };
@@ -434,9 +590,7 @@ async function scenario(endpoint: string, token: string) {
     assert.equal(episode.currentRevision?.members.length, 3);
     assert.equal(episode.currentRevision?.title, "Calibration sequence");
     assert(
-      journal.currentRevision?.points.every(
-        (point) => point.supports.length > 0,
-      ),
+      journal.currentRevision?.points.every((point) => point.basis.length > 0),
     );
     assert(calls.episode > 0 && calls.journal > 0 && calls.consolidation > 0);
     const refs = [
@@ -491,16 +645,24 @@ async function scenario(endpoint: string, token: string) {
       operationId: randomUUID(),
       subjectId,
       purpose: "Continue calibration",
-      references: refs,
+      cognitionAnchors: refs,
     });
-    assert.deepEqual(continuation.workContext?.references, refs);
+    assert.deepEqual(continuation.workContext?.cognitionAnchors, refs);
     const exact = await client.cognition.query({
       subjectId,
       expression: {
         operation: "atom",
-        cues: refs.map((reference) => ({
-          cue: { case: "reference", value: reference },
-        })),
+        cues: [
+          {
+            cue: {
+              case: "text",
+              value: "Inspect selected calibration cognition",
+            },
+          },
+          ...refs.map((reference) => ({
+            cue: { case: "reference" as const, value: reference },
+          })),
+        ],
       },
     });
     assert.equal(exact.hits.length, 3);
@@ -584,6 +746,8 @@ async function scenario(endpoint: string, token: string) {
               [
                 "node_modules/tsx/dist/cli.mjs",
                 "apps/nous-cli/src/main.ts",
+                "--instance-root",
+                runRoot,
                 "--run-root",
                 runRoot,
                 "--json",
@@ -593,7 +757,9 @@ async function scenario(endpoint: string, token: string) {
             );
             return {
               code: 0,
-              value: JSON.parse(result.stdout) as Record<string, unknown>,
+              value: (
+                JSON.parse(result.stdout) as { data: Record<string, unknown> }
+              ).data,
             };
           } catch (error) {
             const failure = error as { code: number; stderr: string };
@@ -642,7 +808,7 @@ async function scenario(endpoint: string, token: string) {
         );
         assert.equal(resolved.code, 0);
         assert.equal(resolved.value.status, "BOUND");
-        const expression = `("Prior consumer lease reclamation relevant to the build cache" && @e(${chosen.lexicalRef})) $return(memory) $limit(8)`;
+        const expression = `Prior consumer lease reclamation relevant to the build cache @e(${chosen.lexicalRef}) $return(memory) $limit(8)`;
         const prepared = await cli(
           "query",
           "prepare",
@@ -654,8 +820,8 @@ async function scenario(endpoint: string, token: string) {
         assert(typeof prepared.value.embeddingText === "string");
         const queried = await cli("query", expression, "--subject", subject);
         assert.equal(queried.code, 0, JSON.stringify(queried.value));
-        assert(Array.isArray(queried.value.hits));
-        assert(queried.value.hits.length > 0);
+        assert(Array.isArray(queried.value.results));
+        assert(queried.value.results.length > 0);
         console.error(
           "CLI Agent flow passed: help JSON, ambiguity, candidate LexicalRef, prepare, query",
         );

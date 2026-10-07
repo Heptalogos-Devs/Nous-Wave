@@ -11,6 +11,17 @@ impl MemoryService {
     ) -> Result<SchemaView> {
         self.schema_at(subject, schema_id, None).await
     }
+    pub async fn schema_revision(
+        &self,
+        subject: SubjectId,
+        revision: CognitiveSchemaRevisionId,
+    ) -> Result<SchemaView> {
+        let schema_id: Uuid = sqlx::query_scalar("SELECT r.schema_id FROM cognitive_schema_revisions r JOIN cognitive_schemas s ON s.schema_id=r.schema_id WHERE s.subject_id=$1 AND r.schema_revision_id=$2")
+            .bind(subject.0).bind(revision.0).fetch_optional(self.store.pool()).await.map_err(db)?
+            .ok_or_else(|| Error::NotFound("CognitiveSchema revision not found".into()))?;
+        self.schema_at(subject, CognitiveSchemaId(schema_id), Some(revision))
+            .await
+    }
     pub(super) async fn schema_at(
         &self,
         subject: SubjectId,
@@ -99,12 +110,14 @@ impl MemoryService {
         subject: SubjectId,
         revision: CognitiveSchemaRevisionId,
     ) -> Result<Vec<SchemaEvidenceLink>> {
-        let rows=sqlx::query("SELECT link_id,subject_id,schema_revision_id,role,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,producer_signature_id,created_at,revoked_at FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND schema_revision_id=$2 AND revoked_at IS NULL ORDER BY link_id").bind(subject.0).bind(revision.0).fetch_all(self.store.pool()).await.map_err(db)?;
+        let rows=sqlx::query("SELECT link_id,subject_id,schema_revision_id,role,basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,producer_signature_id,created_at,revoked_at,epistemic_relation FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND schema_revision_id=$2 AND revoked_at IS NULL ORDER BY link_id").bind(subject.0).bind(revision.0).fetch_all(self.store.pool()).await.map_err(db)?;
         rows.into_iter()
             .map(|row| {
-                let support = if row.try_get::<String, _>("support_kind").map_err(db)? == "evidence"
-                {
-                    RevisionSupport::Evidence(EvidenceRef {
+                let basis = if row.try_get::<String, _>("basis_kind").map_err(db)? == "evidence" {
+                    RevisionBasis::Evidence(EvidenceRef {
+                        epistemic_relation: parse_epistemic_relation(
+                            row.try_get("epistemic_relation").map_err(db)?,
+                        )?,
                         occurrence_id: OccurrenceId(row.try_get("occurrence_id").map_err(db)?),
                         locator: match (
                             row.try_get::<Option<Uuid>, _>("source_region_id")
@@ -130,20 +143,23 @@ impl MemoryService {
                                 ));
                             }
                         },
-                        support_role: parse_enum(
-                            row.try_get("support_role").map_err(db)?,
-                            "schema evidence support role",
+                        basis_role: parse_enum(
+                            row.try_get("basis_role").map_err(db)?,
+                            "schema evidence basis role",
                         )?,
                     })
                 } else {
-                    RevisionSupport::CognitionDependency(CognitionDependency {
-                        target_revision: parse_reference(
-                            &row.try_get::<String, _>("support_kind").map_err(db)?,
-                            &row.try_get::<String, _>("support_ref").map_err(db)?,
+                    RevisionBasis::CognitionDependency(CognitionDependency {
+                        epistemic_relation: parse_epistemic_relation(
+                            row.try_get("epistemic_relation").map_err(db)?,
                         )?,
-                        support_role: parse_enum(
-                            row.try_get("support_role").map_err(db)?,
-                            "schema dependency support role",
+                        target_revision: parse_reference(
+                            &row.try_get::<String, _>("basis_kind").map_err(db)?,
+                            &row.try_get::<String, _>("basis_ref").map_err(db)?,
+                        )?,
+                        basis_role: parse_enum(
+                            row.try_get("basis_role").map_err(db)?,
+                            "schema dependency basis role",
                         )?,
                     })
                 };
@@ -152,7 +168,7 @@ impl MemoryService {
                     subject_id: SubjectId(row.try_get("subject_id").map_err(db)?),
                     schema_revision_id: revision,
                     role: parse_enum(row.try_get("role").map_err(db)?, "schema evidence role")?,
-                    support,
+                    basis,
                     producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
                     created_at: row.try_get("created_at").map_err(db)?,
                     revoked_at: row.try_get("revoked_at").map_err(db)?,

@@ -5,7 +5,7 @@ mod test_support;
 use nous_core::*;
 use nous_kernel::transport::KernelService;
 use nous_memory::{
-    AssociationPolarity, AssociationSupport, AssociationSupportClass, CreateAssociationRequest,
+    AssociationBasis, AssociationBasisClass, AssociationPolarity, CreateAssociationRequest,
     CreateTagRequest, MergeTagsInput, SplitTagInput, TagContent, TagExpectation,
 };
 use nous_protocol::nous::wave::v1alpha1 as p;
@@ -177,12 +177,13 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
                 .memory_revision_id,
         );
     }
-    let supports = revisions
+    let basis = revisions
         .iter()
         .map(|id| {
-            RevisionSupport::CognitionDependency(CognitionDependency {
+            RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: None,
                 target_revision: CognitiveRef::MemoryRevision(*id),
-                support_role: SupportRole::Direct,
+                basis_role: BasisRole::Direct,
             })
         })
         .collect::<Vec<_>>();
@@ -195,8 +196,8 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
                 to: CognitiveRef::Tag(tags[1].tag_id),
                 relation_kind: "tag_attachment".into(),
                 polarity: AssociationPolarity::Positive,
-                support_class: AssociationSupportClass::HostExplicit,
-                supports: vec![AssociationSupport::Revision(supports[0].clone())],
+                basis_class: AssociationBasisClass::HostExplicit,
+                basis: vec![AssociationBasis::Revision(basis[0].clone())],
                 producer_signature_id: None,
                 valid_time: TemporalExtent::Unknown,
             },
@@ -208,7 +209,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         operation_id: OperationId::new(),
         survivor: expectation(&tags[0]),
         retired: vec![expectation(&tags[1])],
-        supports: vec![supports[0].clone()],
+        basis: vec![basis[0].clone()],
     };
     owner.merge_tags(subject, merge.clone()).await.unwrap();
     owner.merge_tags(subject, merge).await.unwrap();
@@ -326,7 +327,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
             subject,
             projection: Default::default(),
             temporal_frame: Default::default(),
-            text_only_compatibility: false,
+
             work_context: None,
             session: None,
             situation: Default::default(),
@@ -362,7 +363,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
                 operation_id: OperationId::new(),
                 survivor: expectation(&tags[2]),
                 retired: vec![expectation(&tags[0])],
-                supports: vec![supports[0].clone()],
+                basis: vec![basis[0].clone()],
             },
         )
         .await
@@ -379,7 +380,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         operation_id: OperationId::new(),
         parent: expectation(&tags[2]),
         children: vec![content("Approval policy"), content("Rollout procedure")],
-        supports: vec![supports[0].clone()],
+        basis: vec![basis[0].clone()],
     };
     let children = owner.split_tag(subject, split.clone()).await.unwrap();
     let replay = owner.split_tag(subject, split.clone()).await.unwrap();
@@ -401,7 +402,7 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         .unwrap();
     let mut invalid = split;
     invalid.operation_id = OperationId::new();
-    invalid.supports = vec![supports[0].clone(), supports[0].clone()];
+    invalid.basis = vec![basis[0].clone(), basis[0].clone()];
     assert!(owner.split_tag(subject, invalid).await.is_err());
     let after: i64 = sqlx::query_scalar("SELECT count(*) FROM tags WHERE subject_id=$1")
         .bind(subject.0)

@@ -4,7 +4,7 @@
 use super::*;
 use chrono::{DateTime, Utc};
 use nous_core::{CognitiveRef, Result, TemporalExtent};
-use nous_memory::{CognitionDependency, EvidenceLocator, EvidenceRef, RevisionSupport};
+use nous_memory::{CognitionDependency, EvidenceLocator, EvidenceRef, RevisionBasis};
 use prost_types::{Struct, Timestamp, Value, value::Kind};
 use serde::{Serialize, de::DeserializeOwned};
 use std::collections::BTreeMap;
@@ -83,12 +83,12 @@ pub fn temporal_proto(value: &TemporalExtent) -> p::TemporalExtent {
     }
 }
 
-pub fn support(value: p::RevisionSupport) -> Result<RevisionSupport> {
+pub fn basis(value: p::RevisionBasis) -> Result<RevisionBasis> {
     match value
-        .support
+        .basis
         .ok_or_else(|| Error::Invalid("revision support is empty".into()))?
     {
-        p::revision_support::Support::Evidence(value) => {
+        p::revision_basis::Basis::Evidence(value) => {
             let locator = match value
                 .locator
                 .ok_or_else(|| Error::Invalid("evidence locator is empty".into()))?
@@ -106,23 +106,33 @@ pub fn support(value: p::RevisionSupport) -> Result<RevisionSupport> {
                     EvidenceLocator::DerivedRegion(nous_core::DerivedRegionId(id(&value)?))
                 }
             };
-            Ok(RevisionSupport::Evidence(EvidenceRef {
+            Ok(RevisionBasis::Evidence(EvidenceRef {
+                epistemic_relation: value
+                    .epistemic_relation
+                    .as_deref()
+                    .map(enum_value)
+                    .transpose()?,
                 occurrence_id: nous_core::OccurrenceId(id(&value.occurrence_id)?),
                 locator,
-                support_role: enum_value(&value.support_role)?,
+                basis_role: enum_value(&value.basis_role)?,
             }))
         }
-        p::revision_support::Support::CognitionDependency(value) => {
-            Ok(RevisionSupport::CognitionDependency(CognitionDependency {
+        p::revision_basis::Basis::CognitionDependency(value) => {
+            Ok(RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: value
+                    .epistemic_relation
+                    .as_deref()
+                    .map(enum_value)
+                    .transpose()?,
                 target_revision: from_ref(required(value.target_revision, "target_revision")?)?,
-                support_role: enum_value(&value.support_role)?,
+                basis_role: enum_value(&value.basis_role)?,
             }))
         }
-        p::revision_support::Support::Seed(value) => {
+        p::revision_basis::Basis::Seed(value) => {
             let reference = from_ref(required(value.seed_version, "seed_version")?)?;
             match reference {
-                CognitiveRef::CognitiveSeedVersion(id) => Ok(RevisionSupport::Seed(
-                    nous_core::SeedSupportRef::new(id, value.semantic_path)?,
+                CognitiveRef::CognitiveSeedVersion(id) => Ok(RevisionBasis::Seed(
+                    nous_core::SeedBasisRef::new(id, value.semantic_path)?,
                 )),
                 _ => Err(Error::Invalid(
                     "seed support must target a Cognitive Seed version".into(),
@@ -132,9 +142,9 @@ pub fn support(value: p::RevisionSupport) -> Result<RevisionSupport> {
     }
 }
 
-pub fn support_proto(value: RevisionSupport) -> p::RevisionSupport {
-    let support = match value {
-        RevisionSupport::Evidence(value) => {
+pub fn basis_proto(value: RevisionBasis) -> p::RevisionBasis {
+    let basis = match value {
+        RevisionBasis::Evidence(value) => {
             let locator = match value.locator {
                 EvidenceLocator::WholeOccurrence => p::evidence_ref::Locator::WholeOccurrence(true),
                 EvidenceLocator::SourceRegion(id) => {
@@ -147,34 +157,42 @@ pub fn support_proto(value: RevisionSupport) -> p::RevisionSupport {
                     p::evidence_ref::Locator::DerivedRegionId(id.0.to_string())
                 }
             };
-            p::revision_support::Support::Evidence(p::EvidenceRef {
+            p::revision_basis::Basis::Evidence(p::EvidenceRef {
+                epistemic_relation: value.epistemic_relation.map(enum_name),
                 occurrence_id: value.occurrence_id.0.to_string(),
                 locator: Some(locator),
-                support_role: enum_name(value.support_role),
+                basis_role: enum_name(value.basis_role),
             })
         }
-        RevisionSupport::CognitionDependency(value) => {
-            p::revision_support::Support::CognitionDependency(p::CognitionDependency {
+        RevisionBasis::CognitionDependency(value) => {
+            p::revision_basis::Basis::CognitionDependency(p::CognitionDependency {
+                epistemic_relation: value.epistemic_relation.map(enum_name),
                 target_revision: Some(to_ref(value.target_revision)),
-                support_role: enum_name(value.support_role),
+                basis_role: enum_name(value.basis_role),
             })
         }
-        RevisionSupport::Seed(value) => p::revision_support::Support::Seed(p::SeedSupportRef {
+        RevisionBasis::Seed(value) => p::revision_basis::Basis::Seed(p::SeedBasisRef {
             seed_version: Some(to_ref(CognitiveRef::CognitiveSeedVersion(
                 value.seed_version_id,
             ))),
             semantic_path: value.semantic_path,
         }),
     };
-    p::RevisionSupport {
-        support: Some(support),
-    }
+    p::RevisionBasis { basis: Some(basis) }
 }
 pub fn from_ref(value: p::CognitiveRef) -> Result<CognitiveRef> {
     nous_core::parse_reference(&value.kind, &value.value)
 }
 pub fn from_producer(p: p::ProducerSignature) -> Result<nous_core::ProducerSignature> {
     Ok(nous_core::ProducerSignature {
+        model_role: p.model_role,
+        model_profile: p.model_profile,
+        execution_profile: p.execution_profile,
+        inference_controls_digest: p.inference_controls_digest,
+        role_policy_digest: p.role_policy_digest,
+        prompt_id: p.prompt_id,
+        prompt_digest: p.prompt_digest,
+
         signature_hash: String::new(),
         provider_class: p.provider_class,
         operation: enum_value(&p.operation)?,

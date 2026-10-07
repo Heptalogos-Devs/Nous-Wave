@@ -33,7 +33,7 @@ pub struct WaveNode {
 pub struct WaveEdgeEvidence {
     pub from: CognitiveRef,
     pub to: CognitiveRef,
-    pub support_class: String,
+    pub basis_class: String,
     pub association_kind: String,
     pub polarity: String,
     pub support_mass: f64,
@@ -490,7 +490,7 @@ impl WaveGraphGeneration {
                 continue;
             };
             let quality =
-                class_quality(&item.support_class, &config.class_quality) * item.support_mass;
+                class_quality(&item.basis_class, &config.class_quality) * item.support_mass;
             let entry = by_root
                 .entry((from, to, item.provenance_root.clone()))
                 .or_default();
@@ -615,7 +615,7 @@ pub struct TopologyArtifact {
 fn supported_relation(kind: &str) -> bool {
     matches!(
         kind,
-        "cognition_support"
+        "cognition_basis"
             | "aboutness"
             | "tag_attachment"
             | "schema_support"
@@ -659,7 +659,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: a.clone(),
                     to: b.clone(),
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "contradicts".into(),
                     polarity: "positive".into(),
                     support_mass: 1.0,
@@ -668,7 +668,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: a.clone(),
                     to: b.clone(),
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "assoc.related".into(),
                     polarity: "negative".into(),
                     support_mass: 1.0,
@@ -691,7 +691,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: a.clone(),
                     to: b.clone(),
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "assoc.related".into(),
                     polarity: "positive".into(),
                     support_mass: 0.6,
@@ -700,7 +700,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: a.clone(),
                     to: b.clone(),
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "assoc.related".into(),
                     polarity: "positive".into(),
                     support_mass: 0.9,
@@ -709,7 +709,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: a,
                     to: b,
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "assoc.related".into(),
                     polarity: "positive".into(),
                     support_mass: 0.4,
@@ -733,7 +733,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: a.clone(),
                     to: b,
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "assoc.related".into(),
                     polarity: "positive".into(),
                     support_mass: 1.0,
@@ -742,7 +742,7 @@ mod tests {
                 WaveEdgeEvidence {
                     from: a,
                     to: c,
-                    support_class: "host_explicit".into(),
+                    basis_class: "host_explicit".into(),
                     association_kind: "assoc.related".into(),
                     polarity: "positive".into(),
                     support_mass: 1.0,

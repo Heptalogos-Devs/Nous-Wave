@@ -22,7 +22,7 @@ DerivedRepresentation 保存 ordered exact inputs、strategy、representation ki
 
 素材策略为 description_only、direct_structured 与 describe_then_structure。结构化结果使用唯一的 Zod schema owner；schema digest 进入 ProducerSignature 与 derivation identity。DerivedRepresentation 可保存 structured JSON payload 和 deterministic text projection。每个结构化 support 都映射到输入 DAG 中可读回的 exact reference。
 
-description segmentation 以 UTF-8 byte coordinates 建立稳定 DerivedRegion。structured model 只返回 invocation-local support keys；Core 映射成 exact DerivedRegion，Material/Kernel 验证归属和输入图。第二阶段失败时保留已提交的 description，并返回该表示及显式 degradation。
+description segmentation 以 UTF-8 byte coordinates 建立稳定 DerivedRegion。structured model 只返回 invocation-local basis keys；Core 映射成 exact DerivedRegion，Material/Kernel 验证归属和输入图。第二阶段失败时保留已提交的 description，并返回该表示及显式 degradation。
 
 description segments 使用 `material.description_segment_bytes` 的稳定 UTF-8 范围，默认 2,048 bytes，并优先在换行处分段。region coordinates 保存 segmentation policy digest。Text segmentation 输入上限为 1 MiB，最多 512 个 DerivedRegion。Video frames mode 使用 FFmpeg 作有界抽帧；实验观测归 [Research](../../../research/README.md)。
 

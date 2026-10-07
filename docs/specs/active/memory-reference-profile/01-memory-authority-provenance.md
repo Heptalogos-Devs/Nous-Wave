@@ -12,6 +12,10 @@ Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/Associati
 - `EntityMention` 与 `CognitionAboutness` 分离；aboutness 不能反向伪造 source mention。
 - 发生、观察、有效、形成、记录时间保持不同语义；未知时间保持未知。
 
+## Formation basis 与认识判断
+
+长期 cognition 是 Subject 的认知与演化，可能出错、主观或被后续修订；来源验证不证明客观真值。RevisionBasis 的 EvidenceRef/CognitionDependency/SeedBasisRef 表达“如何形成”，basis_role 只有 direct/interpretation/contextual。EpistemicRelation 独立表达 supports、contradicts、corroborates、weakens、corrects、counterexample、inferred_from；明确 negative judgment 不投影为 positive cognition_basis adjacency。Schema evidence 的 support/counterexample/boundary_case 是真实判断，保持独立。相同 provenance roots 去重，语义断言、Source/Subject/时间归属、ownership、lifecycle、self-dependency 与 cycle 检查保持领域职责。
+
 ## Memory object/revision
 
 - Memory object 有稳定 identity；revision 内容 immutable；head、object epoch、lifecycle 和主体 authority sequence 分离。

@@ -19,7 +19,7 @@ fn member(value: p::EpisodeMember) -> Result<EpisodeMemberInput> {
 fn revision(
     value: nous_memory::EpisodeRevision,
     members: Vec<nous_memory::EpisodeMember>,
-    supports: Vec<nous_memory::RevisionSupport>,
+    basis: Vec<nous_memory::RevisionBasis>,
 ) -> p::EpisodeRevision {
     p::EpisodeRevision {
         episode_revision_id: value.episode_revision_id.0.to_string(),
@@ -43,7 +43,7 @@ fn revision(
                 role: member.role,
             })
             .collect(),
-        supports: supports.into_iter().map(support_proto).collect(),
+        basis: basis.into_iter().map(basis_proto).collect(),
     }
 }
 
@@ -60,7 +60,7 @@ pub(super) fn view(value: nous_memory::EpisodeView) -> p::Episode {
         suppression_state: enum_name(value.object.suppression_state),
         purge_state: enum_name(value.object.purge_state),
         created_at: Some(timestamp(value.object.created_at)),
-        current_revision: current.then(|| revision(value.revision, value.members, value.supports)),
+        current_revision: current.then(|| revision(value.revision, value.members, value.basis)),
     }
 }
 
@@ -104,11 +104,7 @@ impl KernelService {
                     .into_iter()
                     .map(member)
                     .collect::<Result<_>>()?,
-                supports: input
-                    .supports
-                    .into_iter()
-                    .map(support)
-                    .collect::<Result<_>>()?,
+                basis: input.basis.into_iter().map(basis).collect::<Result<_>>()?,
             })
             .await?;
         Ok(response(value))
@@ -137,7 +133,7 @@ impl KernelService {
                 EpisodeRevisionId(id(&input.id)?),
             )
             .await?;
-        Ok(revision(value.revision, value.members, value.supports))
+        Ok(revision(value.revision, value.members, value.basis))
     }
 
     pub(super) async fn list_episodes(
@@ -170,7 +166,7 @@ impl KernelService {
         Ok(p::ListEpisodeRevisionsResponse {
             items: values
                 .into_iter()
-                .map(|value| revision(value.revision, value.members, value.supports))
+                .map(|value| revision(value.revision, value.members, value.basis))
                 .collect(),
             next_page_token: String::new(),
         })
@@ -203,11 +199,7 @@ impl KernelService {
                         .into_iter()
                         .map(member)
                         .collect::<Result<_>>()?,
-                    supports: input
-                        .supports
-                        .into_iter()
-                        .map(support)
-                        .collect::<Result<_>>()?,
+                    basis: input.basis.into_iter().map(basis).collect::<Result<_>>()?,
                 })
                 .await?,
         ))

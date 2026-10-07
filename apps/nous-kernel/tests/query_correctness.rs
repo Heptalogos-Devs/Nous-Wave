@@ -11,10 +11,9 @@ use nous_core::{
     TextCue, TimeInterval, UseEventId,
 };
 use nous_memory::{
-    AssociationPolarity, AssociationSupport, AssociationSupportClass, CognitiveRole,
-    CreateSchemaInput, EvidenceLocator, EvidenceRef, FormationMode, RevisionSupport,
-    SchemaEvidenceLinkInput, SchemaEvidenceRole, SchemaFormationKind, SchemaScope, SupportRole,
-    UseEventRef,
+    AssociationBasis, AssociationBasisClass, AssociationPolarity, BasisRole, CognitiveRole,
+    CreateSchemaInput, EvidenceLocator, EvidenceRef, FormationMode, RevisionBasis,
+    SchemaEvidenceLinkInput, SchemaEvidenceRole, SchemaFormationKind, SchemaScope, UseEventRef,
 };
 use nous_runtime::{QueryPlan, UseFeedback, UseFeedbackEvent, UseKind};
 use nous_subject::{CognitiveSeedInput, CreateSubject};
@@ -25,7 +24,7 @@ fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
     CognitiveQuery {
         projection: Default::default(),
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
@@ -36,7 +35,9 @@ fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
             targets: Vec::new(),
             preferences: Vec::new(),
             children: Vec::new(),
-            cues: Vec::new(),
+            cues: vec![Cue::Text(nous_core::TextCue {
+                text: "Recall relevant cognition".into(),
+            })],
             constraints: QueryConstraints::default(),
         },
         exploration: Default::default(),
@@ -100,12 +101,13 @@ async fn self_dependent_revision_is_invalid_and_preserves_current_memory() {
             semantic_role: "fact".into(),
             representation_text: "A revised source fact".into(),
             title: None,
-            supports: vec![RevisionSupport::CognitionDependency(
+            basis: vec![RevisionBasis::CognitionDependency(
                 nous_core::CognitionDependency {
+                    epistemic_relation: None,
                     target_revision: CognitiveRef::MemoryRevision(
                         original.revision.memory_revision_id,
                     ),
-                    support_role: SupportRole::Direct,
+                    basis_role: BasisRole::Direct,
                 },
             )],
             aboutness: vec![],
@@ -361,6 +363,9 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
                 ..Default::default()
             },
             CognitiveQueryExpr {
+                cues: vec![Cue::Text(TextCue {
+                    text: "Recall memory within requested domain".into(),
+                })],
                 targets: vec![QueryTarget::Exact {
                     reference: CognitiveRef::MemoryRevision(first.revision.memory_revision_id),
                 }],
@@ -383,7 +388,12 @@ async fn entity_lane_uses_aboutness_and_multi_value_include() {
         |hit| hit.reference == CognitiveRef::MemoryRevision(first.revision.memory_revision_id)
     ));
     let mut request = query(subject);
-    request.expression.cues = vec![Cue::Entity(nous_core::EntityCue { entity_ref: alice })];
+    request.expression.cues = vec![
+        Cue::Text(nous_core::TextCue {
+            text: "Recall cognition for this entity".into(),
+        }),
+        Cue::Entity(nous_core::EntityCue { entity_ref: alice }),
+    ];
     request.expression.constraints.cognitive_roles_include =
         vec!["declarative".into(), "experiential".into()];
     let result = runtime.query(request.clone()).await.expect("entity query");
@@ -532,7 +542,12 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
         );
     }
     let mut request = query(subject);
-    request.expression.cues = vec![Cue::Entity(nous_core::EntityCue { entity_ref: entity })];
+    request.expression.cues = vec![
+        Cue::Text(nous_core::TextCue {
+            text: "Recall cognition for this entity".into(),
+        }),
+        Cue::Entity(nous_core::EntityCue { entity_ref: entity }),
+    ];
     let execution = runtime.execute_query(request, Some(64)).await.unwrap();
     assert_eq!(execution.result.results.len(), 3);
     let (pool, ticket) = runtime.cognition.retain_query(execution).unwrap();
@@ -553,7 +568,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
             semantic_role: "fact".into(),
             representation_text: "replacement candidate".into(),
             title: None,
-            supports: first.supports.clone(),
+            basis: first.basis.clone(),
             aboutness: first.aboutness.clone(),
             valid_time: TemporalExtent::Unknown,
 
@@ -597,6 +612,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
             lease,
             Some(&serde_json::json!({"text":"private-cognitive-marker"})),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -634,6 +650,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
                 &key,
                 lease,
                 Some(&serde_json::json!({"text":"resurrect"})),
+                None,
                 None
             )
             .await
@@ -847,10 +864,11 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         semantic_role: "fact".into(),
         representation_text: "new fenced fact".into(),
         title: None,
-        supports: vec![RevisionSupport::Evidence(EvidenceRef {
+        basis: vec![RevisionBasis::Evidence(EvidenceRef {
+            epistemic_relation: None,
             occurrence_id: observation.occurrence.occurrence_id,
             locator: EvidenceLocator::WholeOccurrence,
-            support_role: SupportRole::Direct,
+            basis_role: BasisRole::Direct,
         })],
         aboutness: Vec::new(),
         valid_time: Default::default(),
@@ -892,7 +910,7 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         .query(CognitiveQuery {
             projection: Default::default(),
             temporal_frame: Default::default(),
-            text_only_compatibility: false,
+
             work_context: None,
             api_version: nous_core::API_VERSION,
             subject,
@@ -905,7 +923,9 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
                 targets: vec![QueryTarget::Exact {
                     reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
                 }],
-                cues: Vec::new(),
+                cues: vec![Cue::Text(nous_core::TextCue {
+                    text: "Recall relevant cognition".into(),
+                })],
                 constraints: Default::default(),
             },
             exploration: Default::default(),
@@ -935,10 +955,11 @@ async fn synthesized_schema_requires_independent_known_roots() {
     let second = observation(&runtime, subject, "independent root").await;
     let link = |occurrence| SchemaEvidenceLinkInput {
         role: SchemaEvidenceRole::Support,
-        support: RevisionSupport::Evidence(EvidenceRef {
+        basis: RevisionBasis::Evidence(EvidenceRef {
+            epistemic_relation: None,
             occurrence_id: occurrence,
             locator: EvidenceLocator::WholeOccurrence,
-            support_role: SupportRole::Direct,
+            basis_role: BasisRole::Direct,
         }),
     };
     let base = || SchemaScope {
@@ -1081,10 +1102,11 @@ async fn stale_lexical_generation_cannot_return_old_revision() {
             semantic_role: "fact".into(),
             representation_text: "new lexical phrase".into(),
             title: None,
-            supports: vec![RevisionSupport::Evidence(EvidenceRef {
+            basis: vec![RevisionBasis::Evidence(EvidenceRef {
+                epistemic_relation: None,
                 occurrence_id: observation.occurrence.occurrence_id,
                 locator: EvidenceLocator::WholeOccurrence,
-                support_role: SupportRole::Direct,
+                basis_role: BasisRole::Direct,
             })],
             aboutness: Vec::new(),
             valid_time: TemporalExtent::Unknown,
@@ -1152,9 +1174,14 @@ async fn authority_lanes_reach_matches_beyond_first_n_objects() {
     tx.commit().await.expect("fixture commit");
     let tail_revision = tail_revision.expect("tail revision");
     let mut entity_query = query(subject);
-    entity_query.expression.cues = vec![Cue::Entity(nous_core::EntityCue {
-        entity_ref: EntityRef::new(target_entity).expect("entity"),
-    })];
+    entity_query.expression.cues = vec![
+        Cue::Text(nous_core::TextCue {
+            text: "Recall cognition for this entity".into(),
+        }),
+        Cue::Entity(nous_core::EntityCue {
+            entity_ref: EntityRef::new(target_entity).expect("entity"),
+        }),
+    ];
     let entity_result = runtime.query(entity_query).await.expect("entity query");
     assert!(entity_result.results.iter().any(|hit| {
         hit.reference == CognitiveRef::MemoryRevision(nous_core::MemoryRevisionId(tail_revision))
@@ -1213,7 +1240,7 @@ async fn memory_revision_identity_guard_rejects_disjoint_aboutness() {
             semantic_role: revision.semantic_role,
             representation_text: revision.representation_text,
             title: revision.title,
-            supports: revision.supports,
+            basis: revision.basis,
             aboutness: revision.aboutness,
             valid_time: revision.valid_time,
 
@@ -1231,7 +1258,7 @@ async fn memory_revision_identity_guard_rejects_disjoint_aboutness() {
     clippy::too_many_lines,
     reason = "association contract keeps invalid and valid producer paths together"
 )]
-async fn association_requires_exact_cognition_and_valid_support_class() {
+async fn association_requires_exact_cognition_and_valid_basis_class() {
     let (root, url, _postgres) = database().await;
     let runtime = open_runtime_with_serving(&url, &root, false, false, true).await;
     let subject = subject(&runtime).await;
@@ -1261,12 +1288,13 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
                 to: CognitiveRef::Entity(entity.clone()),
                 relation_kind: "assoc.related".into(),
                 polarity: AssociationPolarity::Positive,
-                support_class: AssociationSupportClass::HostExplicit,
-                supports: vec![AssociationSupport::Revision(RevisionSupport::Evidence(
+                basis_class: AssociationBasisClass::HostExplicit,
+                basis: vec![AssociationBasis::Revision(RevisionBasis::Evidence(
                     EvidenceRef {
+                        epistemic_relation: None,
                         occurrence_id: observation.occurrence.occurrence_id,
                         locator: EvidenceLocator::WholeOccurrence,
-                        support_role: SupportRole::Direct,
+                        basis_role: BasisRole::Direct,
                     },
                 ))],
                 producer_signature_id: None,
@@ -1305,8 +1333,8 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
                 to: CognitiveRef::Entity(entity.clone()),
                 relation_kind: "assoc.related".into(),
                 polarity: AssociationPolarity::Positive,
-                support_class: AssociationSupportClass::MeaningfulUse,
-                supports: vec![AssociationSupport::UseEvent(UseEventRef {
+                basis_class: AssociationBasisClass::MeaningfulUse,
+                basis: vec![AssociationBasis::UseEvent(UseEventRef {
                     subject_id: subject,
                     consumer_ref: "consumer:test:association".into(),
                     event_id,
@@ -1318,7 +1346,7 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
         )
         .await
         .expect("meaningful-use association");
-    assert_eq!(association.supports.len(), 1);
+    assert_eq!(association.basis.len(), 1);
     let topology = runtime
         .store
         .topology_projection_input(subject, true)
@@ -1681,13 +1709,14 @@ async fn association_requires_exact_cognition_and_valid_support_class() {
                 to: CognitiveRef::Entity(entity),
                 relation_kind: "assoc.derived".into(),
                 polarity: AssociationPolarity::Positive,
-                support_class: AssociationSupportClass::DerivedStructure,
-                supports: vec![AssociationSupport::Revision(
-                    RevisionSupport::CognitionDependency(nous_memory::CognitionDependency {
+                basis_class: AssociationBasisClass::DerivedStructure,
+                basis: vec![AssociationBasis::Revision(
+                    RevisionBasis::CognitionDependency(nous_memory::CognitionDependency {
+                        epistemic_relation: None,
                         target_revision: CognitiveRef::MemoryRevision(
                             memory.revision.memory_revision_id,
                         ),
-                        support_role: SupportRole::Direct,
+                        basis_role: BasisRole::Direct,
                     }),
                 )],
                 producer_signature_id: Some(producer),
@@ -2328,7 +2357,7 @@ fn nonempty_vcp_lab_material(
         edges: vec![nous_persistence::TopologyEdgeSource {
             from: tag_a.clone(),
             to: tag_b.clone(),
-            support_class: "source_evidence".into(),
+            basis_class: "source_evidence".into(),
             association_kind: "assoc.related".into(),
             polarity: "positive".into(),
             support_mass: 0.6,
@@ -2386,6 +2415,14 @@ async fn check_vcp_projection_material(
         .to_string();
     let producer =
         nous_persistence::AuthorityStore::canonical_producer(&nous_core::ProducerSignature {
+            model_role: None,
+            model_profile: None,
+            execution_profile: None,
+            inference_controls_digest: None,
+            role_policy_digest: None,
+            prompt_id: None,
+            prompt_digest: None,
+
             signature_hash: String::new(),
             provider_class: "fixture".into(),
             operation: nous_core::CapabilityOperation::TextEmbedding,
@@ -2402,7 +2439,7 @@ async fn check_vcp_projection_material(
         .serving
         .initialize_embedding(nous_retrieval::StoredEmbeddingConfig {
             space: space.clone(),
-            producer: producer.clone(),
+            producers: vec![producer.clone()],
         })
         .unwrap();
     let snapshot = runtime.configuration.snapshot_for_subject(subject).unwrap();
@@ -2469,8 +2506,12 @@ async fn check_vcp_projection_material(
         .await
         .unwrap();
     assert_eq!(material.authority_watermark, current);
+    assert_vcp_graph_assets(&material);
+}
+
+fn assert_vcp_graph_assets(material: &nous_retrieval::VcpProjectionMaterial) {
     let config = nous_retrieval::VcpAssetPolicy::default().graph;
-    let assets = nous_retrieval::vcp_graph_assets(&material, &[], &[], &config).unwrap();
+    let assets = nous_retrieval::vcp_graph_assets(material, &[], &[], &config).unwrap();
     assert!(
         assets
             .evidence
@@ -2492,7 +2533,7 @@ fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {
     CognitiveQuery {
         projection: Default::default(),
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
@@ -2588,9 +2629,14 @@ async fn query_reports_validation_budget_exhaustion() {
         .expect("temporal budget revisions");
     tx.commit().await.expect("budget commit");
     let mut query = text_query(subject);
-    query.expression.cues = vec![Cue::Entity(EntityCue {
-        entity_ref: nous_core::EntityRef::new("entity:budget").unwrap(),
-    })];
+    query.expression.cues = vec![
+        Cue::Text(nous_core::TextCue {
+            text: "Recall cognition for this entity".into(),
+        }),
+        Cue::Entity(EntityCue {
+            entity_ref: nous_core::EntityRef::new("entity:budget").unwrap(),
+        }),
+    ];
     query.result_need.limit = 8;
     query.expression.constraints = QueryConstraints {
         valid: Some(TimeInterval {
@@ -2828,6 +2874,14 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
             strategy: "deterministic-test".into(),
             representation_kind: nous_core::RepresentationKind::ExtractedText,
             producer: nous_core::ProducerSignature {
+                model_role: None,
+                model_profile: None,
+                execution_profile: None,
+                inference_controls_digest: None,
+                role_policy_digest: None,
+                prompt_id: None,
+                prompt_digest: None,
+
                 signature_hash: String::new(),
                 provider_class: "local-test".into(),
                 operation: nous_core::CapabilityOperation::TextInterpretation,
@@ -3033,4 +3087,76 @@ async fn subject_profiles_change_new_queries_and_preserve_inflight_preparation()
             .unwrap()
     );
     assert_ne!(frozen.enabled_lanes, changed.enabled_lanes);
+}
+
+#[tokio::test]
+async fn formation_basis_does_not_certify_claim_truth_and_judgment_round_trips() {
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let source = observation(&runtime, subject, "Created: 09-Jan-2023").await;
+    let owner = runtime.require_memory().unwrap();
+    let mut input = form_input(
+        subject,
+        source.occurrence.occurrence_id,
+        OperationId::new(),
+        "Created in 2022",
+    );
+    if let RevisionBasis::Evidence(evidence) = &mut input.basis[0] {
+        evidence.epistemic_relation = Some(nous_core::EpistemicRelation::Supports);
+    }
+    let original = owner.form_memory(input).await.unwrap();
+    let corrected = owner
+        .revise_memory(nous_memory::ReviseMemoryInput {
+            producer: None,
+            operation_id: OperationId::new(),
+            subject,
+            memory_id: original.object.memory_id,
+            expected_object_epoch: original.object.object_epoch,
+            intent: nous_memory::RevisionIntent::Correct,
+            formation_mode: FormationMode::Grounded,
+            grounding_occurrence_id: Some(source.occurrence.occurrence_id),
+            semantic_role: "reported_fact".into(),
+            representation_text: "Created on 09-Jan-2023".into(),
+            title: None,
+            basis: vec![RevisionBasis::Evidence(EvidenceRef {
+                occurrence_id: source.occurrence.occurrence_id,
+                locator: EvidenceLocator::WholeOccurrence,
+                basis_role: BasisRole::Interpretation,
+                epistemic_relation: Some(nous_core::EpistemicRelation::Corrects),
+            })],
+            aboutness: vec![],
+            valid_time: TemporalExtent::Unknown,
+            epistemic_class: EpistemicClass::Reported,
+        })
+        .await
+        .unwrap();
+    let prior = owner
+        .revision(subject, original.revision.memory_revision_id)
+        .await
+        .unwrap();
+    assert_eq!(prior.revision.representation_text, "Created in 2022");
+    let current = owner
+        .revision(subject, corrected.revision.memory_revision_id)
+        .await
+        .unwrap();
+    assert_eq!(
+        current.revision.representation_text,
+        "Created on 09-Jan-2023"
+    );
+    assert!(
+        matches!(&current.basis[0], RevisionBasis::Evidence(evidence) if evidence.basis_role == BasisRole::Interpretation && evidence.epistemic_relation == Some(nous_core::EpistemicRelation::Corrects))
+    );
+    assert_eq!(
+        owner
+            .provenance_summary(subject, &prior.basis)
+            .await
+            .unwrap()
+            .roots,
+        owner
+            .provenance_summary(subject, &current.basis)
+            .await
+            .unwrap()
+            .roots
+    );
 }

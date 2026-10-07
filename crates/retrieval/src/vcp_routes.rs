@@ -26,10 +26,10 @@ pub(crate) fn explain_routes(
         .iter()
         .map(|edge| ((edge.source_id, edge.target_id), edge))
         .collect();
-    let mut support = BTreeMap::<_, Vec<Value>>::new();
+    let mut basis = BTreeMap::<_, Vec<Value>>::new();
     for evidence in &generation.graph.evidence {
-        support.entry((evidence.source_id,evidence.target_id)).or_default().push(json!({
-            "provenance_root": evidence.provenance_root, "support_class": evidence.support_class,
+        basis.entry((evidence.source_id,evidence.target_id)).or_default().push(json!({
+            "provenance_root": evidence.provenance_root, "basis_class": evidence.basis_class,
             "association_kind": evidence.association_kind, "support_mass": evidence.support_mass,
             "polarity": "positive"
         }));
@@ -57,9 +57,9 @@ pub(crate) fn explain_routes(
                 .get(index)
                 .ok_or_else(|| Error::Invalid("VCP root ID outside asset".into()))?;
             if *mass > 0.0 && document_roots.contains_key(root) {
-                support.entry((edge.source_id,edge.target_id)).or_default().push(json!({
+                basis.entry((edge.source_id,edge.target_id)).or_default().push(json!({
                     "provenance_root": root,"association_kind": "vcp.document_cooccurrence",
-                    "support_class": "derived_structure","support_mass": mass,"polarity": "positive"
+                    "basis_class": "derived_structure","support_mass": mass,"polarity": "positive"
                 }));
             }
         }
@@ -86,7 +86,7 @@ pub(crate) fn explain_routes(
                 path.windows(2)
                     .map(|pair| {
                         let key = (pair[0], pair[1]);
-                        let evidence = support.get(&key);
+                        let evidence = basis.get(&key);
                         Ok(json!({ "from": generation.identities.reference(pair[0])?,
                 "to": generation.identities.reference(pair[1])?,
                 "flow": activated[&key].flow, "wormhole": activated[&key].wormhole,

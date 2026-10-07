@@ -390,8 +390,6 @@ pub enum QueryOperation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveQuery {
     #[serde(default)]
-    pub text_only_compatibility: bool,
-    #[serde(default)]
     pub projection: ResultProjection,
     #[serde(default)]
     pub temporal_frame: TemporalFrame,

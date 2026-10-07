@@ -81,6 +81,7 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
             token,
             Some(&serde_json::json!({"text":"validated proposal"})),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -113,6 +114,7 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
             resumed.lease_token.unwrap(),
             None,
             Some(&outcome),
+            None,
         )
         .await
         .unwrap();

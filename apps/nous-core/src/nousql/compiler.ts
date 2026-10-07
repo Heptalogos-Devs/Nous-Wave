@@ -13,8 +13,13 @@ import {
   type Cue,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { Ref } from "../domain.js";
-import { canonical, parse, resultDomainOrder } from "./parser.js";
-import type { Atom, Directive, Expression, Locator } from "./syntax.js";
+import {
+  canonical,
+  directiveText,
+  parse,
+  resultDomainOrder,
+} from "./parser.js";
+import type { Atom, Directive, Locator } from "./syntax.js";
 
 export type IdentityResolver = (
   kind: string,
@@ -40,26 +45,11 @@ export async function compileNousQL(
 ) {
   const syntax = parse(source);
   const sourceCanonical = canonical(syntax);
-  const temporalExpressions: string[] = [];
+  const temporalExpressions = syntax.directives
+    .filter((d) => ["time", "asof", "history"].includes(d.name))
+    .map(directiveText);
   let authorityTime: Date | undefined;
-  function temporalSources(node: Expression) {
-    for (const d of node.directives.filter((directive) =>
-      ["time", "asof", "history"].includes(directive.name),
-    ))
-      temporalExpressions.push(
-        canonical({
-          operation: "atom",
-          atom: { kind: "universe" },
-          children: [],
-          directives: [d],
-          preferences: [],
-        }).slice(2),
-      );
-    node.children.forEach(temporalSources);
-  }
-  temporalSources(syntax);
   async function bindAtom(atom: Atom): Promise<Cue[]> {
-    if (atom.kind === "universe") return [];
     if (atom.kind === "text" || atom.kind === "concept")
       return [
         create(CueSchema, {
@@ -107,42 +97,19 @@ export async function compileNousQL(
       });
     });
   }
-  async function lower(node: Expression, root = false): Promise<QueryExpr> {
+  async function lower(): Promise<QueryExpr> {
     const modifiers = create(QueryModifiersSchema, { constraints: {} });
-    const seen = new Set<string>();
-    for (const directive of node.directives) {
-      if (
-        !root &&
-        [
-          "return",
-          "asof",
-          "history",
-          "effort",
-          "limit",
-          "diagnostics",
-          "explore",
-          "materialize",
-        ].includes(directive.name)
-      )
-        invalid(`$${directive.name} is only allowed at query root`);
-      const key =
-        directive.name === "time"
-          ? `time:${directive.positional[0]}`
-          : directive.name;
-      if (seen.has(key)) invalid(`Duplicate directive $${directive.name}`);
-      seen.add(key);
+    for (const directive of syntax.directives)
       applyDirective(modifiers, directive, now);
-    }
-    if (root)
-      authorityTime = modifiers.asOf
-        ? new Date(
-            Number(modifiers.asOf.seconds) * 1000 +
-              modifiers.asOf.nanos / 1000000,
-          )
-        : modifiers.history
-          ? now
-          : undefined;
-    for (const preference of node.preferences) {
+    authorityTime = modifiers.asOf
+      ? new Date(
+          Number(modifiers.asOf.seconds) * 1000 +
+            modifiers.asOf.nanos / 1000000,
+        )
+      : modifiers.history
+        ? now
+        : undefined;
+    for (const preference of syntax.preferences) {
       if (preference.operand.kind === "key") {
         if (
           !/^recent:(occurred|observed|valid|formed|recorded)$/.test(
@@ -167,13 +134,16 @@ export async function compileNousQL(
       }
     }
     return create(QueryExprSchema, {
-      operation: node.operation,
-      cues: node.atom ? await bindAtom(node.atom) : [],
-      children: await Promise.all(node.children.map((child) => lower(child))),
+      operation: "atom",
+      cues: [
+        ...(await bindAtom({ kind: "text", text: syntax.intentText })),
+        ...(await Promise.all(syntax.cues.map(bindAtom))).flat(),
+      ],
+      children: [],
       modifiers,
     });
   }
-  const expression = await lower(syntax, true);
+  const expression = await lower();
   expression.modifiers ??= create(QueryModifiersSchema);
   expression.modifiers.clockNow = timestamp(now);
   expression.modifiers.temporalExpressions = temporalExpressions;

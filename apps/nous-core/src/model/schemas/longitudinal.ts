@@ -52,7 +52,7 @@ const journalPointSchema = z.strictObject({
     "reflection",
   ]),
   text: z.string().min(1).max(8192),
-  supportKeys: z
+  basisKeys: z
     .array(catalogKeySchema)
     .min(1)
     .max(16)
@@ -111,15 +111,15 @@ export function partitionIndices(
   }));
 }
 
-export function journalSupportKeys(
+export function journalBasisKeys(
   proposal: JournalSynthesisProposal,
   allowedKeys: ReadonlySet<string>,
 ) {
   if (proposal.action !== "commit") return;
   for (const point of proposal.points) {
     if (
-      new Set(point.supportKeys).size !== point.supportKeys.length ||
-      point.supportKeys.some((key) => !allowedKeys.has(key))
+      new Set(point.basisKeys).size !== point.basisKeys.length ||
+      point.basisKeys.some((key) => !allowedKeys.has(key))
     )
       throw new Error(
         "Journal point support must select distinct exact catalog keys",

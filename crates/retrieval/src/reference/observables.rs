@@ -156,13 +156,13 @@ pub fn reference_pure_scores(input: &ReferencePureInput<'_>) -> ReferencePureSco
             + cfg.pure_transfer_weight * unit(input.transfer_score))
             / weight,
     );
-    let support = unit(
+    let basis = unit(
         0.35 * o.local_coverage
             + 0.25 * o.transfer_coverage
             + 0.25 * unit(o.local_potential)
             + 0.15 * unit(o.transfer_potential),
     );
-    let raw = unit(0.625 * g.path_quality + 0.375 * support);
+    let raw = unit(0.625 * g.path_quality + 0.375 * basis);
     let reliability = (unit(g.path_quality / cfg.topology_path_saturation.max(1e-6))
         * o.query_chunk_score)
         .sqrt();

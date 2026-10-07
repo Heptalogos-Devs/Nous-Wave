@@ -474,13 +474,14 @@ fn partition_payload(
                 role: "experience".into(),
             })
             .collect(),
-        supports: occurrence_members
+        basis: occurrence_members
             .iter()
             .map(|id| {
-                RevisionSupport::Evidence(EvidenceRef {
+                RevisionBasis::Evidence(EvidenceRef {
+                    epistemic_relation: None,
                     occurrence_id: *id,
                     locator: EvidenceLocator::WholeOccurrence,
-                    support_role: SupportRole::Direct,
+                    basis_role: BasisRole::Direct,
                 })
             })
             .collect(),
@@ -491,7 +492,7 @@ fn partition_payload(
         &payload.experience_time,
         &payload.boundary_explanation,
         &payload.members,
-        &payload.supports,
+        &payload.basis,
     )?;
     Ok(payload)
 }

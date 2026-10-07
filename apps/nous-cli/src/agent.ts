@@ -46,6 +46,7 @@ export function cliErrorPayload(error: unknown) {
     return {
       code: error.code,
       message: error.message,
+      ...("receipt" in error ? { receipt: error.receipt } : {}),
       details: error.details,
       candidates: error.candidates,
     };
@@ -97,8 +98,10 @@ export const commandInventory = {
     "work-context": "WorkContext ID overrides local selection",
   },
   output: {
-    success: "stdout JSON; int64 as decimal strings",
-    error: "stderr JSON code/message/details/candidates; nonzero exit",
+    success:
+      "semantic text by default; --json returns nous.cli.v1 envelope; int64 as decimal strings",
+    error:
+      "stderr semantic error; --json provides code/message/details/candidates/receipt; nonzero exit",
   },
   commands: [
     { command: "status", description: "Instance status and capabilities" },
@@ -113,7 +116,7 @@ export const commandInventory = {
         "--kind <kind>",
         "--canonical <id>",
         "--name <name>",
-        "--alias <alias> (repeatable)",
+        "--alias <alias> (comma-separated)",
       ],
       example:
         "nous identity bind --kind entity --canonical entity:alice --name Alice --alias A --json",
@@ -125,8 +128,8 @@ export const commandInventory = {
         "search <text>",
         "resolve <name>",
         "create --name <label> [--description <text>]",
-        "revise|merge|split --request-file <JSON>",
-        "attach <exact-revision> --tag <ref> --association-file <supports JSON>",
+        "revise|merge|split --request-file <semantic TOML>",
+        "attach <exact-revision> --tag <ref> --association-file <basis TOML>",
       ],
       example: "nous tag resolve deploy --json",
     },
@@ -142,9 +145,12 @@ export const commandInventory = {
     },
     {
       command: "association create",
-      parameters: ["--operation-id <uuid>", "--association-file <json>"],
+      parameters: [
+        "--operation-id <uuid>",
+        "--association-file <semantic TOML>",
+      ],
       description:
-        "Official Client Association object; requires nonempty revision/use-event supports",
+        "CLI-owned semantic Association TOML; requires nonempty revision/use-event basis",
     },
     {
       command: "association revoke",
@@ -178,15 +184,15 @@ export const commandInventory = {
       command: "query",
       parameters: ["<NousQL> | --query-file <path>"],
       example:
-        "nous query '\"deployment decision\" $return(memory) $limit(5)' --json",
+        "nous query 'deployment decision $return(memory) $limit(5)' --json",
     },
     {
       command: "query prepare|inspect",
       parameters: ["<NousQL> | --query-file <path>"],
       description:
-        "Closed binding and representation inspection; no retrieval or provider call",
+        "Frozen binding and representation inspection; no retrieval or provider call",
       example:
-        "nous query prepare '\"deployment decision\" $return(memory)' --subject <id> --session <id> --work-context <id> --json",
+        "nous query prepare 'deployment decision $return(memory)' --subject <id> --session <id> --work-context <id> --json",
     },
     {
       command: "config list|describe|get|set|clear",
@@ -211,8 +217,8 @@ export const commandInventory = {
       parameters: [
         "<occurrence-id>",
         "--operation-id <uuid>",
-        "--aboutness <ref> (repeatable)",
-        "--tag <Tag ID/ref/LexicalRef> (repeatable)",
+        "--aboutness <ref> (comma-separated)",
+        "--tag <Tag ID/ref/LexicalRef> (comma-separated)",
       ],
     },
     {

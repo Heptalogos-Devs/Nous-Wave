@@ -1,7 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{CognitiveRuntimeService, WorkContextState, WorkContextView};
+use crate::{CognitiveRuntimeService, SessionView, WorkContextState, WorkContextView};
 use nous_configuration::*;
 use nous_core::*;
 use nous_persistence::QueryDescriptor;
@@ -44,6 +44,28 @@ pub(super) fn register(registry: &mut ConfigRegistryBuilder) -> Result<()> {
         },
     )
 }
+/// Query-local frozen input, never a second durable context authority.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryContextSnapshot {
+    pub work_context: Option<WorkContextView>,
+    pub session: Option<SessionView>,
+    pub situation_refs: Vec<CognitiveRef>,
+    pub source_refs: Vec<(CognitiveRef, String)>,
+    pub history_exclusions: Vec<Degradation>,
+    pub digest: String,
+}
+impl QueryContextSnapshot {
+    pub(super) fn freeze(&mut self) -> Result<()> {
+        self.digest.clear();
+        let bytes = serde_json::to_vec(self).map_err(|e| Error::Internal(e.to_string()))?;
+        self.digest = Sha256::digest(bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct QueryRepresentation {
     pub representation_version: String,
@@ -147,15 +169,12 @@ pub fn build_query_representation(
     limits: &QueryRepresentationLimits,
 ) -> QueryRepresentation {
     let raw = intent(&query.expression);
-    if query.text_only_compatibility {
-        return finish(raw, sources, BTreeSet::new(), None, "text-compatibility-v1");
-    }
     let mut builder = Builder {
         sections: Vec::new(),
         remaining: limits.total_chars,
         flags: BTreeSet::new(),
     };
-    builder.section("Intent", &raw, 2048);
+    builder.section("Intent", &raw, limits.total_chars);
     let semantic_concepts = query
         .scopes()
         .into_iter()
@@ -169,7 +188,6 @@ pub fn build_query_representation(
         })
         .collect::<Vec<_>>()
         .join("; ");
-    builder.section("Semantic concepts", &semantic_concepts, 2048);
     let temporal = query.scopes().iter().filter_map(|scope| {
         let c=&scope.constraints;
         let recent=scope.preferences.iter().filter_map(|p| match p.operand { PreferenceOperand::Recent(axis) => Some(format!("{}recent({axis:?})",if p.negative { "avoid " } else { "prefer " })), _ => None }).collect::<Vec<_>>();
@@ -193,7 +211,7 @@ pub fn build_query_representation(
         ),
         ("Resources", "resource", limits.max_context_items, 512),
     ] {
-        let values = descriptors
+        let mut values = descriptors
             .iter()
             .filter(|d| {
                 let kind = reference_parts(&d.reference).0;
@@ -208,7 +226,9 @@ pub fn build_query_representation(
             })
             .map(|d| d.text.trim().to_owned())
             .filter(|s| !s.is_empty())
-            .collect::<BTreeSet<_>>();
+            .collect::<Vec<_>>();
+        let mut seen = HashSet::new();
+        values.retain(|text| seen.insert(text.clone()));
         if values.len() > maximum {
             builder.flags.insert(label.into());
         }
@@ -225,6 +245,7 @@ pub fn build_query_representation(
             .join("\n");
         builder.section(label, &text, limits.total_chars);
     }
+    builder.section("Semantic concepts", &semantic_concepts, 2048);
     let objects = query
         .situation
         .object_descriptions
@@ -240,11 +261,12 @@ pub fn build_query_representation(
         builder.section(
             "Current work",
             &format!(
-                "{}\n{}",
+                "{}\n{}\n{}",
                 context.purpose,
+                context.context_text,
                 context.unresolved_questions.join("\n")
             ),
-            1024,
+            limits.total_chars,
         );
     }
     if let Some(consumer) = &query.situation.consumer {
@@ -304,23 +326,28 @@ impl CognitiveRuntimeService {
             }
         }
         let limits = config_snapshot.get(QUERY_REPRESENTATION)?;
+        if intent(&query.expression).chars().count() + "Intent:\n".len() + 2 > limits.total_chars {
+            return Err(Error::Invalid(
+                "query intent exceeds configured representation bound".into(),
+            ));
+        }
         let mut selected = representation_sources
             .iter()
-            .filter(|(_, source)| source.starts_with("explicit"))
+            .filter(|(_, source)| source.starts_with("explicit") || source == "work_context")
             .map(|(reference, _)| reference.clone())
             .collect::<Vec<_>>();
         let mut seen = HashSet::new();
         selected.retain(|reference| seen.insert(reference.clone()));
         let current_count = representation_sources
             .iter()
-            .filter(|(_, source)| !source.starts_with("explicit"))
+            .filter(|(_, source)| !source.starts_with("explicit") && source != "work_context")
             .map(|(reference, _)| reference.clone())
             .collect::<HashSet<_>>()
             .len();
         selected.extend(
             representation_sources
                 .iter()
-                .filter(|(_, source)| !source.starts_with("explicit"))
+                .filter(|(_, source)| !source.starts_with("explicit") && source != "work_context")
                 .map(|(reference, _)| reference.clone())
                 .filter(|reference| seen.insert(reference.clone()))
                 .take(limits.max_context_items),
@@ -328,10 +355,16 @@ impl CognitiveRuntimeService {
         let catalog_truncated = selected.len() > 256;
         selected.truncate(256);
         let descriptor_refs = selected;
-        let descriptors = self
+        let mut descriptors = self
             .store
             .query_descriptors_in_view(query.subject, &descriptor_refs, historical)
             .await?;
+        descriptors.sort_by_key(|descriptor| {
+            descriptor_refs
+                .iter()
+                .position(|reference| reference == &descriptor.reference)
+                .unwrap_or(usize::MAX)
+        });
         let mut representation = build_query_representation(
             query,
             &descriptors,
@@ -364,49 +397,103 @@ impl CognitiveRuntimeService {
         Ok(representation)
     }
 
+    pub(super) async fn prepare_query_context(
+        &self,
+        query: &mut CognitiveQuery,
+        view: Option<&nous_core::HistoricalAuthoritySnapshot>,
+    ) -> Result<QueryContextSnapshot> {
+        let mut context_snapshot = self.query_context(query).await?;
+        let mut work_context = context_snapshot.work_context.clone();
+        let mut representation_sources = context_snapshot.source_refs.clone();
+        let context_degradation = super::historical_context::fence(
+            query,
+            &mut work_context,
+            &mut representation_sources,
+            view,
+        );
+        context_snapshot.work_context = work_context.clone();
+        context_snapshot.history_exclusions = context_degradation.clone();
+        context_snapshot.source_refs = representation_sources.clone();
+        let admitted = representation_sources
+            .iter()
+            .map(|(r, _)| r)
+            .collect::<HashSet<_>>();
+        context_snapshot
+            .situation_refs
+            .retain(|r| admitted.contains(r));
+        if let Some(session) = &mut context_snapshot.session {
+            session.resident.retain(|r| admitted.contains(&r.reference));
+        }
+        context_snapshot.freeze()?;
+        Ok(context_snapshot)
+    }
     pub(super) async fn query_context(
         &self,
         query: &mut CognitiveQuery,
-    ) -> Result<(Option<WorkContextView>, Vec<(CognitiveRef, String)>)> {
+    ) -> Result<QueryContextSnapshot> {
+        let mut tx = self.store.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *tx)
+            .await
+            .map_err(nous_persistence::database_error)?;
+        let situation_refs = query.situation.current_refs.clone();
         let mut sources = query
             .situation
             .current_refs
             .iter()
             .cloned()
-            .map(|reference| (reference, "caller_situation".into()))
+            .map(|reference| (reference, "runtime_situation".into()))
             .collect::<Vec<_>>();
         let session = if let Some(id) = query.session {
-            Some(self.session(query.subject, id).await?)
+            Some(self.session_in(query.subject, id, &mut tx).await?)
         } else {
             None
         };
+        if session.as_ref().is_some_and(|s| s.closed_at.is_some()) {
+            return Err(Error::FailedPrecondition("STALE_CONTEXT".into()));
+        }
         let context_id = query.work_context.or_else(|| {
             session
                 .as_ref()
                 .and_then(|session| session.active_work_context_id)
         });
         let context = if let Some(id) = context_id {
-            let context = self.work_context(query.subject, id).await?;
+            let context = self.work_context_in(query.subject, id, &mut tx).await?;
             if context.state != WorkContextState::Open {
                 return Err(Error::FailedPrecondition("STALE_CONTEXT".into()));
             }
             sources.extend(
                 context
-                    .references
+                    .cognition_anchors
                     .iter()
                     .cloned()
-                    .map(|reference| (reference, "active_work_context".into())),
+                    .map(|reference| (reference, "work_context".into())),
+            );
+            sources.extend(
+                context
+                    .entity_anchors
+                    .iter()
+                    .cloned()
+                    .map(|entity| (CognitiveRef::Entity(entity), "work_context".into())),
+            );
+            sources.extend(
+                context
+                    .tag_anchors
+                    .iter()
+                    .copied()
+                    .map(|tag| (CognitiveRef::Tag(tag), "work_context".into())),
             );
             query
                 .situation
                 .current_refs
-                .extend(context.references.clone());
+                .extend(context.cognition_anchors.clone());
             query.work_context = Some(id);
             Some(context)
         } else {
             None
         };
-        if let Some(mut session) = session {
+        let mut session = session;
+        if let Some(session) = &mut session {
             session.resident.sort_by(|a, b| {
                 b.last_meaningful_use_at
                     .cmp(&a.last_meaningful_use_at)
@@ -422,8 +509,8 @@ impl CognitiveRuntimeService {
             query.situation.current_refs.extend(
                 session
                     .resident
-                    .into_iter()
-                    .map(|resident| resident.reference),
+                    .iter()
+                    .map(|resident| resident.reference.clone()),
             );
         }
         query
@@ -431,7 +518,17 @@ impl CognitiveRuntimeService {
             .current_refs
             .sort_by_key(ToString::to_string);
         query.situation.current_refs.dedup();
-        Ok((context, sources))
+        tx.commit()
+            .await
+            .map_err(nous_persistence::database_error)?;
+        Ok(QueryContextSnapshot {
+            work_context: context,
+            session,
+            situation_refs,
+            source_refs: sources,
+            history_exclusions: vec![],
+            digest: String::new(),
+        })
     }
 }
 
@@ -444,7 +541,7 @@ mod tests {
             subject: SubjectId::new(),
             projection: Default::default(),
             temporal_frame: Default::default(),
-            text_only_compatibility: false,
+
             work_context: None,
             session: None,
             situation: Default::default(),
@@ -481,7 +578,7 @@ mod tests {
     }
 
     #[test]
-    fn representation_is_semantic_deterministic_bounded_and_text_track_is_raw() {
+    fn representation_is_semantic_deterministic_and_bounded() {
         let mut query = query();
         let a = QueryDescriptor {
             reference: CognitiveRef::Tag(TagId::new()),
@@ -513,12 +610,14 @@ mod tests {
         let bounded = build_query_representation(&query, &[], None, vec![], &limits);
         assert!(bounded.text.chars().count() <= limits.total_chars);
         assert!(bounded.truncation_flags.contains(&"Intent".into()));
-        query.text_only_compatibility = true;
         query.expression.cues = vec![Cue::Text(TextCue {
             text: "What did I discuss yesterday?".into(),
         })];
         let raw = build_query_representation(&query, &[], None, vec![], &limits);
-        assert_eq!(raw.text, "What did I discuss yesterday?");
-        assert_eq!(raw.representation_version, "text-compatibility-v1");
+        assert_eq!(
+            raw.text,
+            "Intent:\nWhat did I discuss yesterday?\n\nCurrent objects:\nNous Wave issue triage"
+        );
+        assert_eq!(raw.representation_version, "cognitive-query-v2");
     }
 }

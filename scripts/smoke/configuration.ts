@@ -45,7 +45,12 @@ try {
       ],
       { maxBuffer: 2 * 1024 * 1024, windowsHide: true },
     );
-    return JSON.parse(result.stdout) as {
+    const parsed = JSON.parse(result.stdout) as {
+      schemaVersion?: string;
+      data?: unknown;
+    };
+    if (args[0] !== "check") assert.equal(parsed.schemaVersion, "nous.cli.v1");
+    return (args[0] === "check" ? parsed : parsed.data) as {
       valid?: boolean;
       descriptors?: { path: string; exposure: number }[];
     };

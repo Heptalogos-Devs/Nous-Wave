@@ -109,7 +109,7 @@ pub struct RuntimeStatus {
 pub struct MemoryView {
     pub object: MemoryObject,
     pub revision: MemoryRevision,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
     pub aboutness: Vec<EntityRef>,
     pub tags: Vec<TagId>,
     pub relations: Vec<MemoryRevisionRelation>,
@@ -134,7 +134,7 @@ pub struct ReviseMemoryInput {
     pub semantic_role: String,
     pub representation_text: String,
     pub title: Option<String>,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
     pub aboutness: Vec<EntityRef>,
     pub valid_time: TemporalExtent,
 
@@ -164,8 +164,8 @@ pub struct CreateAssociationRequest {
     pub to: CognitiveRef,
     pub relation_kind: String,
     pub polarity: AssociationPolarity,
-    pub support_class: AssociationSupportClass,
-    pub supports: Vec<AssociationSupport>,
+    pub basis_class: AssociationBasisClass,
+    pub basis: Vec<AssociationBasis>,
     pub producer_signature_id: Option<Uuid>,
     pub valid_time: TemporalExtent,
 }

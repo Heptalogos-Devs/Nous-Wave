@@ -237,11 +237,7 @@ impl KernelService {
                 Ok(JournalPoint {
                     role: enum_value(&point.role)?,
                     text: point.text,
-                    supports: point
-                        .supports
-                        .into_iter()
-                        .map(support)
-                        .collect::<Result<_>>()?,
+                    basis: point.basis.into_iter().map(basis).collect::<Result<_>>()?,
                 })
             })
             .collect::<Result<Vec<_>>>()?;

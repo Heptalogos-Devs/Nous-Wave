@@ -352,14 +352,14 @@ export class SemanticRun {
             semanticRole: "raw_source_control",
             text: unit.text,
             epistemicClass: "observed",
-            supports: [
+            basis: [
               {
-                support: {
+                basis: {
                   case: "evidence" as const,
                   value: {
                     occurrenceId: rawObservation.occurrenceId,
                     locator: { case: "wholeOccurrence" as const, value: true },
-                    supportRole: "direct",
+                    basisRole: "direct",
                   },
                 },
               },
@@ -598,7 +598,7 @@ export class SemanticRun {
     });
     await writeFile(
       join(this.output, "formation-review.md"),
-      `# Formation review\n\nSnapshot: ${fingerprint}\n\nReview every accepted claim, exact source membership, identity, temporal metadata, Tag reuse/overmerge, Association support, Schema boundaries and Accretion trace.\n\nDecision: INCONCLUSIVE until source-backed review.json is supplied.\n`,
+      `# Formation review\n\nSnapshot: ${fingerprint}\n\nReview every accepted claim, exact source membership, identity, temporal metadata, Tag reuse/overmerge, Association basis, Schema boundaries and Accretion trace.\n\nDecision: INCONCLUSIVE until source-backed review.json is supplied.\n`,
       { mode: 0o600 },
     );
     this.state.phases["review-export"] = "PASS";
@@ -690,11 +690,11 @@ export class SemanticRun {
     };
     for (let pass = 0; pass < 6; pass++) {
       for (const m of snapshot.memories) {
-        const refs = m.supports.map((s) =>
-          s.support.case === "evidence"
-            ? s.support.value.occurrenceId
-            : s.support.case === "cognitionDependency"
-              ? s.support.value.targetRevision?.value
+        const refs = m.basis.map((s) =>
+          s.basis.case === "evidence"
+            ? s.basis.value.occurrenceId
+            : s.basis.case === "cognitionDependency"
+              ? s.basis.value.targetRevision?.value
               : undefined,
         );
         propagate(m.revisionId, refs);
@@ -718,10 +718,10 @@ export class SemanticRun {
         propagate(
           s.currentRevisionId,
           s.evidenceLinks.map((l) =>
-            l.support?.support.case === "evidence"
-              ? l.support.support.value.occurrenceId
-              : l.support?.support.case === "cognitionDependency"
-                ? l.support.support.value.targetRevision?.value
+            l.basis?.basis.case === "evidence"
+              ? l.basis.basis.value.occurrenceId
+              : l.basis?.basis.case === "cognitionDependency"
+                ? l.basis.basis.value.targetRevision?.value
                 : undefined,
           ),
         );
@@ -790,15 +790,13 @@ export class SemanticRun {
         queryConceptEnrichment:
           variant === "model_enrichment" ? "optional" : "forbidden",
       },
-      textOnlyCompatibility:
-        track === "raw_control" && !q.knowledge_cut && variant === "plain",
     };
     if (variant === "context") {
       const key = "work-context",
         workRequest = {
           subjectId,
           operationId: this.id(key),
-          purpose: `Review ${this.manifest.pack_id} source chronology and current support boundaries.`,
+          purpose: `Review ${this.manifest.pack_id} source chronology and current basis boundaries.`,
         };
       const work = await this.call(key, workRequest, true, () =>
         this.client.cognition.createWorkContext(workRequest, this.options),
@@ -1204,14 +1202,14 @@ export class SemanticRun {
       semanticRole: "runtime_compatibility_rule",
       text,
       epistemicClass: "observed",
-      supports: [
+      basis: [
         {
-          support: {
+          basis: {
             case: "evidence" as const,
             value: {
               occurrenceId,
               locator: { case: "wholeOccurrence" as const, value: true },
-              supportRole: "direct",
+              basisRole: "direct",
             },
           },
         },

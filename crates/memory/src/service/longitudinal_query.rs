@@ -99,7 +99,7 @@ pub(super) async fn materialize_longitudinal(
                 *drops.entry("longitudinal_constraints".into()).or_default() += 1;
                 continue;
             }
-            let supports = if bound.source_query.result_need.need_evidence {
+            let basis = if bound.source_query.result_need.need_evidence {
                 evidence.get(&revision).cloned().unwrap_or_default()
             } else {
                 vec![]
@@ -108,7 +108,7 @@ pub(super) async fn materialize_longitudinal(
                 &row,
                 kind,
                 exact,
-                supports,
+                basis,
                 renderings.remove(&revision).unwrap_or_default(),
                 metadata,
             );
@@ -169,13 +169,11 @@ fn longitudinal_hit(
 ) -> CognitiveHit {
     if !evidence.is_empty() {
         for reference in rendering.sources {
-            if !evidence
-                .iter()
-                .any(|support| support.reference == reference)
-            {
+            if !evidence.iter().any(|basis| basis.reference == reference) {
                 evidence.push(EvidenceHandle {
+                    epistemic_relation: None,
                     reference,
-                    support_role: "interpretation".into(),
+                    basis_role: "interpretation".into(),
                 });
             }
         }
@@ -280,10 +278,10 @@ async fn longitudinal_evidence(
 ) -> Result<BTreeMap<Uuid, Vec<EvidenceHandle>>> {
     let mut result = BTreeMap::<Uuid, Vec<EvidenceHandle>>::new();
     if kind == "episode" {
-        let rows=sqlx::query("SELECT episode_revision_id,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM episode_revision_supports WHERE episode_revision_id=ANY($1::uuid[]) ORDER BY episode_revision_id,support_no")
+        let rows=sqlx::query("SELECT episode_revision_id,basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,epistemic_relation FROM episode_revision_basis WHERE episode_revision_id=ANY($1::uuid[]) ORDER BY episode_revision_id,basis_no")
             .bind(ids).fetch_all(service.store.pool()).await.map_err(db)?;
         for row in rows {
-            let reference = if row.get::<String, _>("support_kind") == "evidence" {
+            let reference = if row.get::<String, _>("basis_kind") == "evidence" {
                 if let Some(id) = row.get::<Option<Uuid>, _>("derived_region_id") {
                     CognitiveRef::DerivedRegion(DerivedRegionId(id))
                 } else if let Some(id) = row.get::<Option<Uuid>, _>("derived_representation_id") {
@@ -295,45 +293,50 @@ async fn longitudinal_evidence(
                 }
             } else {
                 parse_reference(
-                    &row.get::<String, _>("support_kind"),
-                    &row.get::<String, _>("support_ref"),
+                    &row.get::<String, _>("basis_kind"),
+                    &row.get::<String, _>("basis_ref"),
                 )?
             };
             result
                 .entry(row.get("episode_revision_id"))
                 .or_default()
                 .push(EvidenceHandle {
+                    epistemic_relation: nous_core::parse_epistemic_relation(
+                        row.get("epistemic_relation"),
+                    )?,
                     reference,
-                    support_role: row.get("support_role"),
+                    basis_role: row.get("basis_role"),
                 });
         }
     } else {
-        let rows=sqlx::query("SELECT journal_revision_id,support FROM journal_point_supports WHERE journal_revision_id=ANY($1::uuid[]) ORDER BY journal_revision_id,ordinal,support_no")
+        let rows=sqlx::query("SELECT journal_revision_id,basis FROM journal_point_basis WHERE journal_revision_id=ANY($1::uuid[]) ORDER BY journal_revision_id,ordinal,basis_no")
             .bind(ids).fetch_all(service.store.pool()).await.map_err(db)?;
         let mut seen = BTreeSet::new();
         for row in rows {
             let revision: Uuid = row.get("journal_revision_id");
-            let support: RevisionSupport = serde_json::from_value(row.get("support"))
+            let basis: RevisionBasis = serde_json::from_value(row.get("basis"))
                 .map_err(|error| Error::Infrastructure(error.to_string()))?;
-            if !seen.insert((revision, support.canonical_key())) {
+            if !seen.insert((revision, basis.canonical_key())) {
                 continue;
             }
-            let (reference, role) = match support {
-                RevisionSupport::Evidence(evidence) => {
-                    (evidence.cognitive_ref(), evidence.support_role)
+            let judgment = basis.epistemic_relation();
+            let (reference, role) = match basis {
+                RevisionBasis::Evidence(evidence) => {
+                    (evidence.cognitive_ref(), evidence.basis_role)
                 }
-                RevisionSupport::CognitionDependency(dependency) => {
-                    (dependency.target_revision, dependency.support_role)
+                RevisionBasis::CognitionDependency(dependency) => {
+                    (dependency.target_revision, dependency.basis_role)
                 }
-                RevisionSupport::Seed(_) => {
+                RevisionBasis::Seed(_) => {
                     return Err(Error::Infrastructure(
                         "Journal has invalid Seed support".into(),
                     ));
                 }
             };
             result.entry(revision).or_default().push(EvidenceHandle {
+                epistemic_relation: judgment,
                 reference,
-                support_role: role.as_str().into(),
+                basis_role: role.as_str().into(),
             });
         }
     }
@@ -443,9 +446,9 @@ WITH RECURSIVE lineage(root,kind,value) AS (
     SELECT l.root,e.kind,e.value FROM lineage l CROSS JOIN LATERAL (
         SELECT m.ref_kind AS kind,m.ref_value AS value FROM episode_revision_members m
         WHERE m.episode_revision_id=CASE WHEN l.kind='episode_revision' THEN l.value::uuid END
-        UNION SELECT CASE WHEN s.support_kind='evidence' THEN 'occurrence' ELSE s.support_kind END,
-            CASE WHEN s.support_kind='evidence' THEN s.occurrence_id::text ELSE s.support_ref END
-        FROM episode_revision_supports s WHERE s.episode_revision_id=CASE WHEN l.kind='episode_revision' THEN l.value::uuid END
+        UNION SELECT CASE WHEN s.basis_kind='evidence' THEN 'occurrence' ELSE s.basis_kind END,
+            CASE WHEN s.basis_kind='evidence' THEN s.occurrence_id::text ELSE s.basis_ref END
+        FROM episode_revision_basis s WHERE s.episode_revision_id=CASE WHEN l.kind='episode_revision' THEN l.value::uuid END
         UNION SELECT 'occurrence',e.occurrence_id::text FROM memory_revision_evidence e
         WHERE e.memory_revision_id=CASE WHEN l.kind='memory_revision' THEN l.value::uuid END
         UNION SELECT d.target_ref_kind,d.target_ref FROM memory_revision_dependencies d
@@ -456,8 +459,8 @@ WITH RECURSIVE lineage(root,kind,value) AS (
         WHERE d.memory_revision_id=CASE WHEN l.kind='memory_revision' THEN l.value::uuid END
         UNION SELECT 'occurrence',e.occurrence_id::text FROM memory_revision_evidence e
         WHERE e.memory_revision_id=CASE WHEN l.kind='memory_revision' THEN l.value::uuid END
-        UNION SELECT CASE WHEN e.support_kind='evidence' THEN 'occurrence' ELSE e.support_kind END,
-            CASE WHEN e.support_kind='evidence' THEN e.occurrence_id::text ELSE e.support_ref END
+        UNION SELECT CASE WHEN e.basis_kind='evidence' THEN 'occurrence' ELSE e.basis_kind END,
+            CASE WHEN e.basis_kind='evidence' THEN e.occurrence_id::text ELSE e.basis_ref END
         FROM cognitive_schema_evidence_links e WHERE e.schema_revision_id=CASE WHEN l.kind='cognitive_schema_revision' THEN l.value::uuid END AND (($4 AND e.link_id=ANY($5::uuid[])) OR (NOT $4 AND e.revoked_at IS NULL))
     ) e WHERE e.value IS NOT NULL
 )

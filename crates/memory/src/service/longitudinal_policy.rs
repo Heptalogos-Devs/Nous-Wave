@@ -20,7 +20,7 @@ pub struct ConsolidationContextPolicy {
     #[schemars(range(min = 1, max = 64))]
     pub candidate_limit: usize,
     #[schemars(range(min = 1, max = 512))]
-    pub support_limit: usize,
+    pub basis_limit: usize,
     #[schemars(range(min = 1, max = 512))]
     pub provenance_root_limit: usize,
     #[schemars(range(min = 1, max = 128))]

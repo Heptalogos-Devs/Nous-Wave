@@ -16,7 +16,7 @@ const materialInterpretationJsonSchema = structuredOutputContract(
 const output = () => ({
   summary: {
     content: "A rocket launch with uncertain commentary.",
-    support_keys: ["S000"],
+    basis_keys: ["S000"],
   },
   coverage: {
     visual: "observed",
@@ -33,7 +33,7 @@ const output = () => ({
       certainty: "uncertain",
       start_ms: 0,
       end_ms: 1000,
-      support_keys: ["S000"],
+      basis_keys: ["S000"],
     },
   ],
   mentions: [
@@ -41,7 +41,7 @@ const output = () => ({
       surface: "rocket",
       category: "object",
       role: null,
-      support_keys: ["S000"],
+      basis_keys: ["S000"],
     },
   ],
   embedded_text: [],
@@ -51,11 +51,11 @@ const output = () => ({
     {
       content: "May be a historical launch",
       status: "tentative",
-      support_keys: ["S000"],
+      basis_keys: ["S000"],
     },
   ],
   uncertainties: [
-    { issue: "No audio available", alternatives: [], support_keys: ["S000"] },
+    { issue: "No audio available", alternatives: [], basis_keys: ["S000"] },
   ],
 });
 const source = {
@@ -90,16 +90,16 @@ describe("Material interpretation contract", () => {
   });
   it("rejects unsupported direct facts, forged keys and source-time overflow", () => {
     const summary = output();
-    summary.summary.support_keys = [];
+    summary.summary.basis_keys = [];
     expect(() => structuredMaterialResult(summary, source)).toThrow(
       "Summary requires",
     );
-    summary.summary.support_keys = ["D999"];
+    summary.summary.basis_keys = ["D999"];
     expect(() => structuredMaterialResult(summary, source)).toThrow("Unknown");
     const forged = output();
-    forged.observations[0]!.support_keys = ["D999"];
+    forged.observations[0]!.basis_keys = ["D999"];
     expect(() => structuredMaterialResult(forged, source)).toThrow("Unknown");
-    forged.observations[0]!.support_keys = [];
+    forged.observations[0]!.basis_keys = [];
     expect(() => structuredMaterialResult(forged, source)).toThrow(
       "requires source support",
     );
@@ -126,11 +126,11 @@ describe("Material interpretation contract", () => {
     );
     expect(structuredMaterialResult(output(), source).text).toBe(text);
     expect(structuredPayload.observations).toMatchObject([
-      { supports: [{ kind: "source_region", value: "source-id" }] },
+      { basis_refs: [{ kind: "source_region", value: "source-id" }] },
     ]);
-    expect(JSON.stringify(structuredPayload)).not.toContain("support_keys");
+    expect(JSON.stringify(structuredPayload)).not.toContain("basis_keys");
     expect(structuredPayload.summary).toMatchObject({
-      supports: [{ kind: "source_region", value: "source-id" }],
+      basis_refs: [{ kind: "source_region", value: "source-id" }],
     });
     expect(text).toContain("[direct/uncertain/event; evidence=visual]");
     expect(text).toContain("[tentative] May be a historical launch");
@@ -152,7 +152,7 @@ describe("Material interpretation contract", () => {
           fidelity: "verbatim",
           start_ms: null,
           end_ms: null,
-          support_keys: ["S000"],
+          basis_keys: ["S000"],
         },
       ],
     };

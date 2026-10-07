@@ -156,7 +156,7 @@ mod tests {
         let edge = TopologyEdgeSource {
             from: a.clone(),
             to: b.clone(),
-            support_class: "source_evidence".into(),
+            basis_class: "source_evidence".into(),
             association_kind: "assoc.related".into(),
             polarity: "positive".into(),
             support_mass: 0.6,

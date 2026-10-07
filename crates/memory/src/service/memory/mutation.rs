@@ -18,7 +18,7 @@ impl MemoryService {
         let digest = operation_digest(
             "form_memory",
             input.subject,
-            &serde_json::json!({"cognitive_role":input.cognitive_role,"formation_mode":input.formation_mode,"grounding_occurrence_id":input.grounding_occurrence_id,"semantic_role":input.semantic_role,"representation_text":input.representation_text,"title":input.title,"supports":input.supports,"aboutness":input.aboutness,"tags":input.tags,"valid_time":input.valid_time,"epistemic_class":input.epistemic_class,"producer":input.producer}),
+            &serde_json::json!({"cognitive_role":input.cognitive_role,"formation_mode":input.formation_mode,"grounding_occurrence_id":input.grounding_occurrence_id,"semantic_role":input.semantic_role,"representation_text":input.representation_text,"title":input.title,"basis":input.basis,"aboutness":input.aboutness,"tags":input.tags,"valid_time":input.valid_time,"epistemic_class":input.epistemic_class,"producer":input.producer}),
         )?;
         let mut mutation = match self
             .start_mutation(input.subject, input.operation_id, "form_memory", &digest)
@@ -50,9 +50,9 @@ impl MemoryService {
             }
             MutationStart::Active(mutation) => mutation,
         };
-        self.validate_supports_for_subject(input.subject, &input.supports)
+        self.validate_basis_for_subject(input.subject, &input.basis)
             .await?;
-        self.validate_formation_semantics(input.subject, input.formation_mode, &input.supports)
+        self.validate_formation_semantics(input.subject, input.formation_mode, &input.basis)
             .await?;
         let formed_at = self
             .formation_time_in(mutation.tx(), input.subject, input.operation_id, started_at)
@@ -89,7 +89,7 @@ impl MemoryService {
         let memory_id = MemoryId::new();
         let revision_id = MemoryRevisionId::new();
         let now = self.cognition.now(input.subject);
-        self.validate_supports_in_tx(tx, input.subject, &input.supports)
+        self.validate_basis_in_tx(tx, input.subject, &input.basis)
             .await?;
         sqlx::query("INSERT INTO memory_objects(memory_id,subject_id,cognitive_role,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,accessibility_mode,created_at) VALUES($1,$2,$3,$4,1,'accepted','valid','normal','normal','auto',$5)")
             .bind(memory_id.0).bind(input.subject.0).bind(input.cognitive_role.as_str()).bind(revision_id.0).bind(now).execute(&mut **tx).await.map_err(db)?;
@@ -141,8 +141,8 @@ impl MemoryService {
         let (valid_kind, valid_start, valid_end) = temporal_columns(&input.valid_time);
         sqlx::query("INSERT INTO memory_revisions(memory_revision_id,memory_id,subject_id,revision_no,parent_revision_id,revision_intent,formation_mode,grounding_occurrence_id,semantic_role,title,representation_text,epistemic_class,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at,producer_signature_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)")
             .bind(revision_id.0).bind(memory_id.0).bind(input.subject.0).bind(revision_no).bind(parent.map(|id| id.0)).bind(revision_intent.map(|value| value.as_str())).bind(input.formation_mode.as_str()).bind(input.grounding_occurrence_id.map(|id| id.0)).bind(&input.semantic_role).bind(&input.title).bind(&input.representation_text).bind(format!("{:?}",input.epistemic_class).to_lowercase()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(formed_at).bind(recorded_at).bind(producer_id).execute(&mut **tx).await.map_err(db)?;
-        for (index, support) in input.supports.iter().enumerate() {
-            self.insert_support_in_tx(tx, revision_id, index as i32, support)
+        for (index, basis) in input.basis.iter().enumerate() {
+            self.insert_basis_in_tx(tx, revision_id, index as i32, basis)
                 .await?;
         }
         for entity in &input.aboutness {
@@ -173,15 +173,15 @@ impl MemoryService {
         Ok(())
     }
 
-    pub(in crate::service) async fn insert_support_in_tx(
+    pub(in crate::service) async fn insert_basis_in_tx(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         revision: MemoryRevisionId,
         evidence_no: i32,
-        support: &RevisionSupport,
+        basis: &RevisionBasis,
     ) -> Result<()> {
-        match support {
-            RevisionSupport::Evidence(evidence) => {
+        match basis {
+            RevisionBasis::Evidence(evidence) => {
                 let (source_region, derived_representation, derived_region) = match evidence.locator
                 {
                     EvidenceLocator::WholeOccurrence => (None, None, None),
@@ -189,10 +189,10 @@ impl MemoryService {
                     EvidenceLocator::DerivedRepresentation(id) => (None, Some(id.0), None),
                     EvidenceLocator::DerivedRegion(id) => (None, None, Some(id.0)),
                 };
-                sqlx::query("INSERT INTO memory_revision_evidence(memory_revision_id,occurrence_id,evidence_no,source_region_id,derived_representation_id,derived_region_id,support_role) VALUES($1,$2,$3,$4,$5,$6,$7)")
-                    .bind(revision.0).bind(evidence.occurrence_id.0).bind(evidence_no).bind(source_region).bind(derived_representation).bind(derived_region).bind(evidence.support_role.as_str()).execute(&mut **tx).await.map_err(db)?;
+                sqlx::query("INSERT INTO memory_revision_evidence(memory_revision_id,occurrence_id,evidence_no,source_region_id,derived_representation_id,derived_region_id,basis_role,epistemic_relation) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
+                    .bind(revision.0).bind(evidence.occurrence_id.0).bind(evidence_no).bind(source_region).bind(derived_representation).bind(derived_region).bind(evidence.basis_role.as_str()).bind(epistemic_relation_text(evidence.epistemic_relation)).execute(&mut **tx).await.map_err(db)?;
             }
-            RevisionSupport::CognitionDependency(dependency) => {
+            RevisionBasis::CognitionDependency(dependency) => {
                 let (kind, value) = reference_parts(&dependency.target_revision);
                 if !matches!(
                     dependency.target_revision,
@@ -205,9 +205,9 @@ impl MemoryService {
                         "cognition dependency must target an exact revision".into(),
                     ));
                 }
-                sqlx::query("INSERT INTO memory_revision_dependencies(memory_revision_id,target_ref_kind,target_ref,support_role) VALUES($1,$2,$3,$4)").bind(revision.0).bind(kind).bind(value).bind(dependency.support_role.as_str()).execute(&mut **tx).await.map_err(db)?;
+                sqlx::query("INSERT INTO memory_revision_dependencies(memory_revision_id,target_ref_kind,target_ref,basis_role,epistemic_relation) VALUES($1,$2,$3,$4,$5)").bind(revision.0).bind(kind).bind(value).bind(dependency.basis_role.as_str()).bind(epistemic_relation_text(dependency.epistemic_relation)).execute(&mut **tx).await.map_err(db)?;
             }
-            RevisionSupport::Seed(_) => {
+            RevisionBasis::Seed(_) => {
                 return Err(Error::Invalid(
                     "Memory revisions cannot use Cognitive Seed support".into(),
                 ));
@@ -247,14 +247,14 @@ impl MemoryService {
         validate_content(&input.semantic_role, &input.representation_text)?;
         input.valid_time.validate()?;
         self.store.require_subject(input.subject).await?;
-        self.validate_supports_for_subject(input.subject, &input.supports)
+        self.validate_basis_for_subject(input.subject, &input.basis)
             .await?;
-        self.validate_formation_semantics(input.subject, input.formation_mode, &input.supports)
+        self.validate_formation_semantics(input.subject, input.formation_mode, &input.basis)
             .await?;
         let digest = operation_digest(
             "revise_memory",
             input.subject,
-            &serde_json::json!({"memory_id":input.memory_id,"expected_object_epoch":input.expected_object_epoch,"intent":input.intent,"formation_mode":input.formation_mode,"grounding_occurrence_id":input.grounding_occurrence_id,"semantic_role":input.semantic_role,"representation_text":input.representation_text,"title":input.title,"supports":input.supports,"aboutness":input.aboutness,"valid_time":input.valid_time,"epistemic_class":input.epistemic_class,"producer":input.producer}),
+            &serde_json::json!({"memory_id":input.memory_id,"expected_object_epoch":input.expected_object_epoch,"intent":input.intent,"formation_mode":input.formation_mode,"grounding_occurrence_id":input.grounding_occurrence_id,"semantic_role":input.semantic_role,"representation_text":input.representation_text,"title":input.title,"basis":input.basis,"aboutness":input.aboutness,"valid_time":input.valid_time,"epistemic_class":input.epistemic_class,"producer":input.producer}),
         )?;
         let mut mutation = match self
             .start_mutation(input.subject, input.operation_id, "revise_memory", &digest)
@@ -328,10 +328,10 @@ impl MemoryService {
         self.validate_object_dependency_cycle(
             input.subject,
             &format!("memory:{}", input.memory_id.0),
-            &input.supports.clone(),
+            &input.basis.clone(),
         )
         .await?;
-        self.validate_supports_in_tx(tx, input.subject, &input.supports)
+        self.validate_basis_in_tx(tx, input.subject, &input.basis)
             .await?;
         let parent = MemoryRevisionId(row.try_get("current_revision_id").map_err(db)?);
         let parent_aboutness = sqlx::query_scalar::<_, String>(
@@ -372,7 +372,7 @@ impl MemoryService {
             semantic_role: input.semantic_role.clone(),
             representation_text: input.representation_text.clone(),
             title: input.title.clone(),
-            supports: input.supports.clone(),
+            basis: input.basis.clone(),
             aboutness: input.aboutness.clone(),
             tags: Vec::new(),
             valid_time: input.valid_time.clone(),

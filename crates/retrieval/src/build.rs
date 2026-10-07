@@ -319,7 +319,7 @@ impl ServingService {
             .map(|edge| WaveEdgeEvidence {
                 from: edge.from,
                 to: edge.to,
-                support_class: edge.support_class,
+                basis_class: edge.basis_class,
                 association_kind: edge.association_kind,
                 polarity: edge.polarity,
                 support_mass: edge.support_mass,
@@ -380,7 +380,10 @@ impl ServingService {
             TextEmbeddingOutput {
                 vector,
                 space: provider.space(),
-                producer: provider.producer(),
+                producer: concepts
+                    .and_then(|generation| generation.record(tag))
+                    .and_then(|record| record.vector_producer.clone())
+                    .ok_or_else(|| Error::Invalid("concept vector producer missing".into()))?,
             }
         } else {
             provider
@@ -392,7 +395,10 @@ impl ServingService {
                 .await?
         };
         if !output.space.compatible_with(&provider.space())
-            || output.producer.signature_hash != provider.producer().signature_hash
+            || !provider
+                .producers()
+                .iter()
+                .any(|p| p.signature_hash == output.producer.signature_hash)
         {
             return Err(Error::Conflict(
                 "projection embedding disagrees with configured space/producer".into(),
@@ -545,7 +551,8 @@ fn is_text(media: &str) -> bool {
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
         "lexical" | "dense" | "exact" => 5,
-        "topology" => 10,
+        "topology" => 11,
+        "concept" => 2,
         _ => 1,
     }
 }

@@ -12,7 +12,7 @@ use uuid::Uuid;
 pub struct TopologyEdgeSource {
     pub from: CognitiveRef,
     pub to: CognitiveRef,
-    pub support_class: String,
+    pub basis_class: String,
     pub association_kind: String,
     pub polarity: String,
     pub support_mass: f64,
@@ -41,7 +41,7 @@ fn link(
     TopologyEdgeSource {
         from,
         to,
-        support_class: "derived_structure".into(),
+        basis_class: "derived_structure".into(),
         association_kind: kind.into(),
         polarity: "positive".into(),
         support_mass: 1.0,
@@ -205,7 +205,7 @@ async fn topology_snapshot_in(
         }
 
         let association_rows = sqlx::query(
-                "SELECT association_evidence_id,from_ref_kind,from_ref,to_ref_kind,to_ref,support_class,relation_kind,polarity FROM association_evidence WHERE subject_id=$1 AND revoked_at IS NULL",
+                "SELECT association_evidence_id,from_ref_kind,from_ref,to_ref_kind,to_ref,basis_class,relation_kind,polarity FROM association_evidence WHERE subject_id=$1 AND revoked_at IS NULL",
             )
             .bind(subject.0)
             .fetch_all(&mut **tx)
@@ -248,22 +248,22 @@ async fn topology_snapshot_in(
             }
             nodes.insert(from.clone());
             nodes.insert(to.clone());
-            let support_class: String = row.try_get("support_class").map_err(db)?;
+            let basis_class: String = row.try_get("basis_class").map_err(db)?;
             let relation_kind: String = row.try_get("relation_kind").map_err(db)?;
             let polarity: String = row.try_get("polarity").map_err(db)?;
-            let supports = sqlx::query(
-                    "SELECT support_kind,support_ref,occurrence_id FROM association_evidence_supports WHERE association_evidence_id=$1 ORDER BY support_kind,support_ref",
+            let basis = sqlx::query(
+                    "SELECT basis_kind,basis_ref,occurrence_id FROM association_evidence_basis WHERE association_evidence_id=$1 ORDER BY basis_kind,basis_ref",
                 )
                 .bind(association_id)
                 .fetch_all(&mut **tx)
                 .await
                 .map_err(db)?;
             let mut roots = HashSet::new();
-            for support in supports {
-                let kind: String = support.try_get("support_kind").map_err(db)?;
+            for basis in basis {
+                let kind: String = basis.try_get("basis_kind").map_err(db)?;
                 match kind.as_str() {
                     "evidence" => {
-                        if let Some(occurrence) = support
+                        if let Some(occurrence) = basis
                             .try_get::<Option<Uuid>, _>("occurrence_id")
                             .map_err(db)?
                         {
@@ -276,7 +276,7 @@ async fn topology_snapshot_in(
                                 tx,
                                 subject,
                                 &kind,
-                                &support.try_get::<String, _>("support_ref").map_err(db)?,
+                                &basis.try_get::<String, _>("basis_ref").map_err(db)?,
                                 &mut HashSet::new(),
                             )
                             .await?,
@@ -285,7 +285,7 @@ async fn topology_snapshot_in(
                     "use_event" => {
                         roots.insert(format!(
                             "use_event:{}",
-                            support.try_get::<String, _>("support_ref").map_err(db)?
+                            basis.try_get::<String, _>("basis_ref").map_err(db)?
                         ));
                     }
                     _ => {}
@@ -298,7 +298,7 @@ async fn topology_snapshot_in(
                 edges.push(TopologyEdgeSource {
                     from: from.clone(),
                     to: to.clone(),
-                    support_class: support_class.clone(),
+                    basis_class: basis_class.clone(),
                     association_kind: relation_kind.clone(),
                     polarity: polarity.clone(),
                     support_mass: 1.0,
@@ -312,7 +312,7 @@ async fn topology_snapshot_in(
                     edges.push(TopologyEdgeSource {
                         from: to.clone(),
                         to: from.clone(),
-                        support_class: support_class.clone(),
+                        basis_class: basis_class.clone(),
                         association_kind: relation_kind.clone(),
                         polarity: polarity.clone(),
                         support_mass: 1.0,
@@ -466,7 +466,7 @@ pub(crate) async fn revision_roots_in_view(
             }
         } else if kind == "cognitive_schema_revision" {
             let rows = sqlx::query(
-                "SELECT support_kind,support_ref,occurrence_id FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND schema_revision_id=$2 AND (($3 AND link_id=ANY($4::uuid[])) OR (NOT $3 AND revoked_at IS NULL))",
+                "SELECT basis_kind,basis_ref,occurrence_id FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND schema_revision_id=$2 AND (($3 AND link_id=ANY($4::uuid[])) OR (NOT $3 AND revoked_at IS NULL))",
             )
             .bind(subject.0)
             .bind(id)
@@ -475,8 +475,8 @@ pub(crate) async fn revision_roots_in_view(
             .await
             .map_err(db)?;
             for row in rows {
-                let support_kind: String = row.try_get("support_kind").map_err(db)?;
-                if support_kind == "evidence" {
+                let basis_kind: String = row.try_get("basis_kind").map_err(db)?;
+                if basis_kind == "evidence" {
                     if let Some(occurrence) = row
                         .try_get::<Option<Uuid>, _>("occurrence_id")
                         .map_err(db)?
@@ -485,7 +485,7 @@ pub(crate) async fn revision_roots_in_view(
                             .extend(occurrence_roots_in_view(tx, subject, occurrence, view).await?);
                     }
                 } else {
-                    stack.push((support_kind, row.try_get("support_ref").map_err(db)?));
+                    stack.push((basis_kind, row.try_get("basis_ref").map_err(db)?));
                 }
             }
         } else if kind == "occurrence" {
@@ -500,11 +500,11 @@ pub(crate) async fn revision_roots_in_view(
                     .map(|id| ("source_region".into(), id.to_string())),
             );
         } else if kind == "episode_revision" {
-            let rows = sqlx::query("SELECT s.support_kind,s.support_ref,s.occurrence_id FROM episode_revision_supports s JOIN episode_revisions r USING(episode_revision_id) WHERE r.subject_id=$1 AND r.episode_revision_id=$2")
+            let rows = sqlx::query("SELECT s.basis_kind,s.basis_ref,s.occurrence_id FROM episode_revision_basis s JOIN episode_revisions r USING(episode_revision_id) WHERE r.subject_id=$1 AND r.episode_revision_id=$2")
                 .bind(subject.0).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
             for row in rows {
-                let support_kind: String = row.try_get("support_kind").map_err(db)?;
-                if support_kind == "evidence" {
+                let basis_kind: String = row.try_get("basis_kind").map_err(db)?;
+                if basis_kind == "evidence" {
                     if let Some(occurrence) = row
                         .try_get::<Option<Uuid>, _>("occurrence_id")
                         .map_err(db)?
@@ -513,7 +513,7 @@ pub(crate) async fn revision_roots_in_view(
                             .extend(occurrence_roots_in_view(tx, subject, occurrence, view).await?);
                     }
                 } else {
-                    stack.push((support_kind, row.try_get("support_ref").map_err(db)?));
+                    stack.push((basis_kind, row.try_get("basis_ref").map_err(db)?));
                 }
             }
         } else if kind == "journal_revision" {

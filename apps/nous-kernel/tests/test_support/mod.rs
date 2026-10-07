@@ -10,8 +10,8 @@ use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, RuntimeDirective,
 };
 use nous_memory::{
-    CognitiveRole, EvidenceLocator, EvidenceRef, ExplicitMemoryInput, FormationMode,
-    RevisionSupport, SupportRole,
+    BasisRole, CognitiveRole, EvidenceLocator, EvidenceRef, ExplicitMemoryInput, FormationMode,
+    RevisionBasis,
 };
 use nous_retrieval::ServingOptions;
 use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};
@@ -284,10 +284,11 @@ pub(crate) fn form_input(
         semantic_role: "fact".into(),
         representation_text: text.into(),
         title: None,
-        supports: vec![RevisionSupport::Evidence(EvidenceRef {
+        basis: vec![RevisionBasis::Evidence(EvidenceRef {
+            epistemic_relation: None,
             occurrence_id: occurrence,
             locator: EvidenceLocator::WholeOccurrence,
-            support_role: SupportRole::Direct,
+            basis_role: BasisRole::Direct,
         })],
         aboutness: Vec::new(),
         tags: Vec::new(),
@@ -317,6 +318,14 @@ impl nous_retrieval::TextEmbeddingProvider for LongitudinalEmbedding {
     }
     fn producer(&self) -> nous_core::ProducerSignature {
         nous_core::ProducerSignature {
+            model_role: None,
+            model_profile: None,
+            execution_profile: None,
+            inference_controls_digest: None,
+            role_policy_digest: None,
+            prompt_id: None,
+            prompt_digest: None,
+
             signature_hash: "longitudinal-test-producer".into(),
             provider_class: "test".into(),
             operation: nous_core::CapabilityOperation::TextEmbedding,

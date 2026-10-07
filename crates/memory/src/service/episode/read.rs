@@ -16,7 +16,7 @@ impl MemoryService {
             .ok_or_else(|| Error::NotFound("Episode not found".into()))?;
         let revision_id: Uuid = row.try_get("episode_revision_id").map_err(db)?;
         let members = load_members(self.store.pool(), revision_id).await?;
-        let supports = load_supports(self.store.pool(), revision_id).await?;
+        let basis = load_basis(self.store.pool(), revision_id).await?;
         let relations = sqlx::query("SELECT from_revision_id,to_revision_id,relation,created_at FROM episode_revision_relations WHERE from_revision_id=$1 OR to_revision_id=$1 ORDER BY created_at")
             .bind(revision_id).fetch_all(self.store.pool()).await.map_err(db)?
             .into_iter().map(|row| Ok(EpisodeRelation {
@@ -75,7 +75,7 @@ impl MemoryService {
                 producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
             },
             members,
-            supports,
+            basis,
             relations,
         })
     }

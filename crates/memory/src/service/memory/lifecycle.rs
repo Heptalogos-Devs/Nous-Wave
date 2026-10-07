@@ -182,7 +182,7 @@ impl MemoryService {
                         "memory",
                         &[memory.0],
                         sequence,
-                        "support_purged",
+                        "basis_purged",
                     )
                     .await?;
                 }
@@ -232,14 +232,14 @@ impl MemoryService {
         sqlx::query("DELETE FROM work_context_refs WHERE ref_kind='memory_revision' AND ref_value=ANY($1::text[])")
             .bind(&workflow_refs).execute(&mut **mutation.tx()).await.map_err(db)?;
         for revision in &revisions {
-            sqlx::query("UPDATE cognitive_schema_evidence_links SET revoked_at=COALESCE(revoked_at,$3) WHERE support_kind='memory_revision' AND support_ref=$1 AND revoked_at IS NULL AND subject_id=$2")
+            sqlx::query("UPDATE cognitive_schema_evidence_links SET revoked_at=COALESCE(revoked_at,$3) WHERE basis_kind='memory_revision' AND basis_ref=$1 AND revoked_at IS NULL AND subject_id=$2")
                 .bind(revision.to_string()).bind(subject.0).bind(self.cognition.now(subject)).execute(&mut **mutation.tx()).await.map_err(db)?;
             let use_rows=sqlx::query("SELECT subject_id,consumer_ref,event_id,request_digest FROM cognitive_use_events WHERE ref_kind='memory_revision' AND ref_value=$1").bind(revision.to_string()).fetch_all(&mut **mutation.tx()).await.map_err(db)?;
             for row in use_rows {
                 sqlx::query("INSERT INTO purged_use_receipts(subject_id,consumer_ref,event_id,request_digest,purged_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING").bind(row.try_get::<Uuid,_>("subject_id").map_err(db)?).bind(row.try_get::<String,_>("consumer_ref").map_err(db)?).bind(row.try_get::<Uuid,_>("event_id").map_err(db)?).bind(row.try_get::<String,_>("request_digest").map_err(db)?).bind(self.cognition.now(subject)).execute(&mut **mutation.tx()).await.map_err(db)?;
             }
             sqlx::query("DELETE FROM cognitive_use_events WHERE ref_kind='memory_revision' AND ref_value=$1").bind(revision.to_string()).execute(&mut **mutation.tx()).await.map_err(db)?;
-            sqlx::query("DELETE FROM association_evidence WHERE subject_id=$1 AND association_evidence_id IN (SELECT association_evidence_id FROM association_evidence_supports WHERE support_kind='memory_revision' AND support_ref=$2)")
+            sqlx::query("DELETE FROM association_evidence WHERE subject_id=$1 AND association_evidence_id IN (SELECT association_evidence_id FROM association_evidence_basis WHERE basis_kind='memory_revision' AND basis_ref=$2)")
                 .bind(subject.0).bind(revision.to_string()).execute(&mut **mutation.tx()).await.map_err(db)?;
         }
         sqlx::query("DELETE FROM association_evidence WHERE subject_id=$1 AND ((from_ref_kind='memory_revision' AND from_ref IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$2)) OR (to_ref_kind='memory_revision' AND to_ref IN (SELECT memory_revision_id::text FROM memory_revisions WHERE memory_id=$2)))").bind(subject.0).bind(memory.0).execute(&mut **mutation.tx()).await.map_err(db)?;

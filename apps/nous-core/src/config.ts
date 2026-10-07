@@ -81,6 +81,7 @@ export function parseEffectiveConfiguration(values: Record<string, unknown>) {
   const models = modelConfigurationSchema.parse({
     gateway_profiles: values.gateway_profiles,
     model_profiles: values.model_profiles,
+    execution_profiles: values.execution_profiles,
     roles: values.roles,
     audio: values.audio,
     video: values.video,

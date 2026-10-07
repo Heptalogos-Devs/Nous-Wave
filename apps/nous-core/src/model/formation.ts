@@ -7,7 +7,10 @@ import { FormMemoryRequestSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/
 import { type FormationRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
-import type { ModelRoleSnapshot } from "./invocations.js";
+import {
+  failedExecutionTelemetry,
+  type ModelRoleSnapshot,
+} from "./invocations.js";
 import { canonicalDigest } from "../digest.js";
 import { z } from "zod";
 
@@ -221,6 +224,10 @@ export async function formObservation(
         options.signal ?? undefined,
         snapshot.model as ModelRoleSnapshot,
       );
+      await kernel.modelWorkflow.saveWorkflow(
+        { ...lease, executionTelemetryJson: JSON.stringify(result.execution) },
+        { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+      );
       if (
         new Set(result.selectedEntityKeys).size !==
           result.selectedEntityKeys.length ||
@@ -266,18 +273,27 @@ export async function formObservation(
             implementation: "ai-sdk@7.0.102/openai@4.0.67",
             modelIdentity: result.producerMetadata.model,
             modelRevision: result.producerMetadata.modelRevision,
+            modelRole: result.producerMetadata.modelRole,
+            modelProfile: result.producerMetadata.modelProfile,
+            executionProfile: result.producerMetadata.executionProfile,
+            inferenceControlsDigest:
+              result.producerMetadata.inferenceControlsDigest,
+            rolePolicyDigest: result.producerMetadata.rolePolicyDigest,
+            promptId: result.producerMetadata.promptId,
+            promptDigest: result.producerMetadata.promptDigest,
+
             outputSchemaDigest: result.producerMetadata.outputSchemaDigest,
             preprocessingIdentity: result.producerMetadata.promptId!,
             preprocessingRevision: result.producerMetadata.promptDigest!,
             configDigest: result.producerMetadata.configDigest,
           },
-          supports: [
+          basis: [
             {
-              support: {
+              basis: {
                 case: "evidence",
                 value: {
                   occurrenceId: r.occurrenceId,
-                  supportRole: "interpretation",
+                  basisRole: "interpretation",
                   locator: snapshot.representationId
                     ? {
                         case: "derivedRepresentationId",
@@ -316,6 +332,18 @@ export async function formObservation(
       memory,
       degradation: [],
     };
+  } catch (error) {
+    if (failedExecutionTelemetry(error))
+      await kernel.modelWorkflow.saveWorkflow(
+        {
+          ...lease,
+          executionTelemetryJson: JSON.stringify(
+            failedExecutionTelemetry(error),
+          ),
+        },
+        { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+      );
+    throw error;
   } finally {
     await kernel.modelWorkflow
       .releaseWorkflow(lease, {

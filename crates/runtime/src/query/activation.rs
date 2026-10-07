@@ -33,8 +33,8 @@ pub(super) fn register(registry: &mut ConfigRegistryBuilder) -> Result<()> {
 #[serde(rename_all = "snake_case")]
 pub enum ActivationSource {
     ExplicitQuery,
-    SemanticConceptMatch,
-    ModelConceptMatch,
+    ExistingSemanticMatch,
+    ModelInferred,
     EntityContext,
     WorkContext,
     RuntimeContext,
@@ -247,7 +247,9 @@ fn explicit_tag_activations(seeds: &[ActivationSeed]) -> Vec<TagActivation> {
                 Some(TagActivation {
                     tag,
                     strength: 1.0,
-                    source: if seed.origin == "runtime_situation" {
+                    source: if seed.origin == "work_context" {
+                        ActivationSource::WorkContext
+                    } else if seed.origin == "runtime_situation" {
                         ActivationSource::RuntimeContext
                     } else {
                         ActivationSource::ExplicitQuery

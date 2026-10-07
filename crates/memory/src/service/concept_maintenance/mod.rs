@@ -69,7 +69,7 @@ pub struct ConceptPlan {
     pub references: BTreeMap<String, CognitiveRef>,
     pub tags: Vec<ConceptTag>,
     pub associations: Vec<ConceptAssociation>,
-    pub supports: BTreeMap<String, AssociationSupport>,
+    pub basis: BTreeMap<String, AssociationBasis>,
     pub model_input: serde_json::Value,
 }
 impl MemoryService {

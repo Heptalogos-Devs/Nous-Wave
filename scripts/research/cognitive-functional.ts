@@ -264,7 +264,7 @@ export async function runCognitiveFunctional(
             (a) =>
               a.relationKind === "tag_attachment" &&
               a.to?.value === id &&
-              a.supports.length > 0,
+              a.basis.length > 0,
           )
         )
           failures.push(`attachment_missing:${key}:${concept.key}`);
@@ -296,7 +296,7 @@ export async function runCognitiveFunctional(
           (a) =>
             a.to?.value === memories.get(to)!.revisionId &&
             a.relationKind === `assoc.${relation}` &&
-            a.supports.length > 0,
+            a.basis.length > 0,
         )
       )
         failures.push(`relation_missing:${from}:${to}`);
@@ -593,14 +593,14 @@ export async function runSelectedTextCompatibility(
           groundingOccurrenceId: observation.occurrenceId,
           semanticRole: "raw_text_compatibility",
           text: source.text,
-          supports: [
+          basis: [
             {
-              support: {
+              basis: {
                 case: "evidence",
                 value: {
                   occurrenceId: observation.occurrenceId,
                   locator: { case: "wholeOccurrence", value: true },
-                  supportRole: "direct",
+                  basisRole: "direct",
                 },
               },
             },
@@ -612,7 +612,7 @@ export async function runSelectedTextCompatibility(
     }
     const request: Parameters<NousClient["cognition"]["query"]>[0] = {
       subjectId,
-      textOnlyCompatibility: true,
+
       capabilities: { textEmbedding: "forbidden", rerank: "forbidden" },
       expression: {
         operation: "atom",

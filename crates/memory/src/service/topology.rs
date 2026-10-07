@@ -19,7 +19,7 @@ impl MemoryService {
         let digest = operation_digest(
             "create_association",
             subject,
-            &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"support_class":input.support_class,"supports":input.supports,"producer_signature_id":input.producer_signature_id,"producer":input.producer,"valid_time":input.valid_time}),
+            &serde_json::json!({"from":input.from,"to":input.to,"relation_kind":input.relation_kind,"polarity":input.polarity,"basis_class":input.basis_class,"basis":input.basis,"producer_signature_id":input.producer_signature_id,"producer":input.producer,"valid_time":input.valid_time}),
         )?;
         let mut mutation = match self
             .start_mutation(subject, input.operation_id, "create_association", &digest)
@@ -53,7 +53,7 @@ impl MemoryService {
         };
         self.store.validate_reference(subject, &input.from).await?;
         self.store.validate_reference(subject, &input.to).await?;
-        self.validate_association_supports(subject, &input).await?;
+        self.validate_association_basis(subject, &input).await?;
         if input.producer.is_some() {
             self.require_current_concept_endpoint(mutation.tx(), subject, &input.from)
                 .await?;
@@ -158,8 +158,8 @@ impl MemoryService {
         let (valid_kind, valid_start, valid_end) = temporal_columns(&input.valid_time);
         let (from_kind, from_ref) = reference_parts(&input.from);
         let (to_kind, to_ref) = reference_parts(&input.to);
-        sqlx::query("INSERT INTO association_evidence(association_evidence_id,subject_id,from_ref_kind,from_ref,to_ref_kind,to_ref,relation_kind,polarity,support_class,valid_time_kind,valid_time_start,valid_time_end,producer_signature_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(id.0).bind(subject.0).bind(from_kind).bind(from_ref).bind(to_kind).bind(to_ref).bind(&input.relation_kind).bind(input.polarity.as_str()).bind(input.support_class.as_str()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.producer_signature_id).bind(now).execute(&mut **tx).await.map_err(db)?;
-        for support in &input.supports {
+        sqlx::query("INSERT INTO association_evidence(association_evidence_id,subject_id,from_ref_kind,from_ref,to_ref_kind,to_ref,relation_kind,polarity,basis_class,valid_time_kind,valid_time_start,valid_time_end,producer_signature_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(id.0).bind(subject.0).bind(from_kind).bind(from_ref).bind(to_kind).bind(to_ref).bind(&input.relation_kind).bind(input.polarity.as_str()).bind(input.basis_class.as_str()).bind(valid_kind).bind(valid_start).bind(valid_end).bind(input.producer_signature_id).bind(now).execute(&mut **tx).await.map_err(db)?;
+        for basis in &input.basis {
             let (
                 kind,
                 value,
@@ -168,8 +168,8 @@ impl MemoryService {
                 source_region,
                 derived_representation,
                 derived_region,
-            ) = association_support_parts(support)?;
-            sqlx::query("INSERT INTO association_evidence_supports(association_evidence_id,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
+            ) = association_basis_parts(basis)?;
+            sqlx::query("INSERT INTO association_evidence_basis(association_evidence_id,basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,epistemic_relation) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
                 .bind(id.0)
                 .bind(kind)
                 .bind(value)
@@ -178,6 +178,7 @@ impl MemoryService {
                 .bind(source_region)
                 .bind(derived_representation)
                 .bind(derived_region)
+                .bind(epistemic_relation_text(basis.epistemic_relation()))
                 .execute(&mut **tx)
                 .await
                 .map_err(db)?;
@@ -279,13 +280,13 @@ impl MemoryService {
             &row.try_get::<String, _>("to_ref_kind").map_err(db)?,
             &row.try_get::<String, _>("to_ref").map_err(db)?,
         )?;
-        let supports=sqlx::query("SELECT support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM association_evidence_supports WHERE association_evidence_id=$1 ORDER BY support_kind,support_ref,support_role").bind(id.0).fetch_all(self.store.pool()).await.map_err(db)?.into_iter().map(|row| {
-            let kind: String = row.try_get("support_kind").map_err(db)?;
-            let support_role = parse_enum(row.try_get("support_role").map_err(db)?, "association support role")?;
+        let basis=sqlx::query("SELECT basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,epistemic_relation FROM association_evidence_basis WHERE association_evidence_id=$1 ORDER BY basis_kind,basis_ref,basis_role").bind(id.0).fetch_all(self.store.pool()).await.map_err(db)?.into_iter().map(|row| {
+            let kind: String = row.try_get("basis_kind").map_err(db)?;
+            let basis_role = parse_enum(row.try_get("basis_role").map_err(db)?, "association basis role")?;
             if kind == "use_event" {
-                let value = row.try_get::<String, _>("support_ref").map_err(db)?;
+                let value = row.try_get::<String, _>("basis_ref").map_err(db)?;
                 let (consumer_ref, event_id) = parse_use_event_key(&value)?;
-                Ok(AssociationSupport::UseEvent(UseEventRef {
+                Ok(AssociationBasis::UseEvent(UseEventRef {
                     subject_id: subject,
                     consumer_ref,
                     event_id: UseEventId(event_id),
@@ -302,15 +303,17 @@ impl MemoryService {
                     (None, None, None) => EvidenceLocator::WholeOccurrence,
                     _ => return Err(Error::Infrastructure("association evidence locator is invalid".into())),
                 };
-                Ok(AssociationSupport::Revision(RevisionSupport::Evidence(EvidenceRef {
+                Ok(AssociationBasis::Revision(RevisionBasis::Evidence(EvidenceRef {
+                    epistemic_relation: parse_epistemic_relation(row.try_get("epistemic_relation").map_err(db)?)?,
                     occurrence_id: OccurrenceId(row.try_get("occurrence_id").map_err(db)?),
                     locator,
-                    support_role,
+                    basis_role,
                 })))
             } else {
-                Ok(AssociationSupport::Revision(RevisionSupport::CognitionDependency(CognitionDependency {
-                    target_revision: parse_reference(&kind, &row.try_get::<String, _>("support_ref").map_err(db)?)?,
-                    support_role,
+                Ok(AssociationBasis::Revision(RevisionBasis::CognitionDependency(CognitionDependency {
+                    epistemic_relation: parse_epistemic_relation(row.try_get("epistemic_relation").map_err(db)?)?,
+                    target_revision: parse_reference(&kind, &row.try_get::<String, _>("basis_ref").map_err(db)?)?,
+                    basis_role,
                 })))
             }
         }).collect::<Result<Vec<_>>>()?;
@@ -321,11 +324,11 @@ impl MemoryService {
             to,
             relation_kind: row.try_get("relation_kind").map_err(db)?,
             polarity: parse_enum(row.try_get("polarity").map_err(db)?, "association polarity")?,
-            support_class: parse_enum(
-                row.try_get("support_class").map_err(db)?,
+            basis_class: parse_enum(
+                row.try_get("basis_class").map_err(db)?,
                 "association support class",
             )?,
-            supports,
+            basis,
             producer_signature_id: row.try_get("producer_signature_id").map_err(db)?,
             valid_time: temporal_from_columns(
                 row.try_get("valid_time_kind").map_err(db)?,
@@ -337,23 +340,23 @@ impl MemoryService {
         })
     }
 
-    async fn validate_association_supports(
+    async fn validate_association_basis(
         &self,
         subject: SubjectId,
         input: &CreateAssociationRequest,
     ) -> Result<()> {
         let mut has_source_evidence = false;
         let mut use_events = Vec::new();
-        for support in &input.supports {
-            match support {
-                AssociationSupport::Revision(value) => {
-                    if matches!(value, RevisionSupport::Evidence(_)) {
+        for basis in &input.basis {
+            match basis {
+                AssociationBasis::Revision(value) => {
+                    if matches!(value, RevisionBasis::Evidence(_)) {
                         has_source_evidence = true;
                     }
-                    self.validate_supports_for_subject(subject, std::slice::from_ref(value))
+                    self.validate_basis_for_subject(subject, std::slice::from_ref(value))
                         .await?;
                 }
-                AssociationSupport::UseEvent(value) => {
+                AssociationBasis::UseEvent(value) => {
                     if value.subject_id != subject {
                         return Err(Error::Invalid(
                             "association UseEvent support belongs to another Subject".into(),
@@ -386,15 +389,15 @@ impl MemoryService {
                 }
             }
         }
-        match input.support_class {
-            AssociationSupportClass::HostExplicit => {}
-            AssociationSupportClass::SourceEvidence if !has_source_evidence => {
+        match input.basis_class {
+            AssociationBasisClass::HostExplicit => {}
+            AssociationBasisClass::SourceEvidence if !has_source_evidence => {
                 return Err(Error::Invalid(
                     "source_evidence association needs an EvidenceRef support".into(),
                 ));
             }
-            AssociationSupportClass::CognitiveDerivation
-            | AssociationSupportClass::DerivedStructure => {
+            AssociationBasisClass::CognitiveDerivation
+            | AssociationBasisClass::DerivedStructure => {
                 if let Some(producer) = &input.producer {
                     if producer.operation != CapabilityOperation::ConceptMaintenanceText {
                         return Err(Error::Invalid(
@@ -419,21 +422,21 @@ impl MemoryService {
                     }
                 }
                 if input
-                    .supports
+                    .basis
                     .iter()
-                    .all(|support| matches!(support, AssociationSupport::UseEvent(_)))
+                    .all(|basis| matches!(basis, AssociationBasis::UseEvent(_)))
                 {
                     return Err(Error::Invalid(
                         "derived association needs revision provenance support".into(),
                     ));
                 }
             }
-            AssociationSupportClass::MeaningfulUse if use_events.is_empty() => {
+            AssociationBasisClass::MeaningfulUse if use_events.is_empty() => {
                 return Err(Error::Invalid(
                     "meaningful_use association needs a UseEventRef support".into(),
                 ));
             }
-            AssociationSupportClass::MeaningfulUse => {
+            AssociationBasisClass::MeaningfulUse => {
                 if use_events.iter().any(Option::is_none) {
                     return Err(Error::Invalid(
                         "purged UseEvent receipts cannot prove meaningful-use kind".into(),
@@ -453,7 +456,7 @@ impl MemoryService {
                     }
                 }
             }
-            AssociationSupportClass::SourceEvidence => {}
+            AssociationBasisClass::SourceEvidence => {}
         }
         Ok(())
     }
@@ -543,8 +546,8 @@ impl MemoryService {
     clippy::type_complexity,
     reason = "the tuple mirrors the normalized support columns written atomically"
 )]
-fn association_support_parts(
-    support: &AssociationSupport,
+fn association_basis_parts(
+    basis: &AssociationBasis,
 ) -> Result<(
     String,
     String,
@@ -554,17 +557,17 @@ fn association_support_parts(
     Option<Uuid>,
     Option<Uuid>,
 )> {
-    match support {
-        AssociationSupport::UseEvent(value) => Ok((
+    match basis {
+        AssociationBasis::UseEvent(value) => Ok((
             "use_event".into(),
             value.canonical_key(),
-            SupportRole::Contextual.as_str().into(),
+            BasisRole::Contextual.as_str().into(),
             None,
             None,
             None,
             None,
         )),
-        AssociationSupport::Revision(RevisionSupport::Evidence(value)) => {
+        AssociationBasis::Revision(RevisionBasis::Evidence(value)) => {
             let (source_region, derived_representation, derived_region) = match value.locator {
                 EvidenceLocator::WholeOccurrence => (None, None, None),
                 EvidenceLocator::SourceRegion(id) => (Some(id.0), None, None),
@@ -574,26 +577,26 @@ fn association_support_parts(
             Ok((
                 "evidence".into(),
                 value.canonical_key(),
-                value.support_role.as_str().into(),
+                value.basis_role.as_str().into(),
                 Some(value.occurrence_id.0),
                 source_region,
                 derived_representation,
                 derived_region,
             ))
         }
-        AssociationSupport::Revision(RevisionSupport::CognitionDependency(value)) => {
+        AssociationBasis::Revision(RevisionBasis::CognitionDependency(value)) => {
             let (kind, reference) = reference_parts(&value.target_revision);
             Ok((
                 kind,
                 reference,
-                value.support_role.as_str().into(),
+                value.basis_role.as_str().into(),
                 None,
                 None,
                 None,
                 None,
             ))
         }
-        AssociationSupport::Revision(RevisionSupport::Seed(_)) => Err(Error::Invalid(
+        AssociationBasis::Revision(RevisionBasis::Seed(_)) => Err(Error::Invalid(
             "Association support cannot use Cognitive Seed support".into(),
         )),
     }
@@ -640,8 +643,8 @@ fn validate_association_input(input: &CreateAssociationRequest) -> Result<()> {
     {
         return Err(Error::Invalid("relation_kind is invalid".into()));
     }
-    if !(1..=16).contains(&input.supports.len()) {
-        return Err(Error::Invalid("association needs 1..16 supports".into()));
+    if !(1..=16).contains(&input.basis.len()) {
+        return Err(Error::Invalid("association needs 1..16 basis".into()));
     }
     input.valid_time.validate()?;
     validate_association_endpoint(&input.from)?;

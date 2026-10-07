@@ -1,8 +1,8 @@
-//! Cognition-owner shared lifecycle, support, and provenance primitives.
+//! Cognition-owner shared lifecycle, basis, and provenance primitives.
 //!
 //! Domain-specific cognition types remain in their owning crates. These types
 //! are shared because every cognition owner must apply the same lifecycle and
-//! exact-support semantics without depending on another domain.
+//! exact-basis semantics without depending on another domain.
 
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
@@ -15,12 +15,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SeedSupportRef {
+pub struct SeedBasisRef {
     pub seed_version_id: CognitiveSeedVersionId,
     pub semantic_path: String,
 }
 
-impl SeedSupportRef {
+impl SeedBasisRef {
     pub fn new(
         seed_version_id: CognitiveSeedVersionId,
         semantic_path: impl Into<String>,
@@ -79,31 +79,65 @@ pub enum EvidenceLocator {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SupportRole {
+pub enum BasisRole {
     Direct,
-    Corroborating,
     Interpretation,
-    Contradiction,
     Contextual,
 }
 
-impl SupportRole {
+impl BasisRole {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Direct => "direct",
-            Self::Corroborating => "corroborating",
             Self::Interpretation => "interpretation",
-            Self::Contradiction => "contradiction",
             Self::Contextual => "contextual",
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EpistemicRelation {
+    Supports,
+    Contradicts,
+    Corroborates,
+    Weakens,
+    Corrects,
+    Counterexample,
+    InferredFrom,
+}
+impl EpistemicRelation {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Supports => "supports",
+            Self::Contradicts => "contradicts",
+            Self::Corroborates => "corroborates",
+            Self::Weakens => "weakens",
+            Self::Corrects => "corrects",
+            Self::Counterexample => "counterexample",
+            Self::InferredFrom => "inferred_from",
+        }
+    }
+}
+pub fn epistemic_relation_text(relation: Option<EpistemicRelation>) -> &'static str {
+    relation.map_or("", EpistemicRelation::as_str)
+}
+pub fn parse_epistemic_relation(value: String) -> Result<Option<EpistemicRelation>> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    serde_json::from_value(serde_json::Value::String(value))
+        .map(Some)
+        .map_err(|_| Error::Infrastructure("invalid epistemic relation".into()))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvidenceRef {
     pub occurrence_id: OccurrenceId,
     pub locator: EvidenceLocator,
-    pub support_role: SupportRole,
+    pub basis_role: BasisRole,
+    #[serde(default)]
+    pub epistemic_relation: Option<EpistemicRelation>,
 }
 
 impl EvidenceRef {
@@ -124,10 +158,11 @@ impl EvidenceRef {
             EvidenceLocator::DerivedRegion(id) => format!("derived_region:{id:?}"),
         };
         format!(
-            "{}|{}|{}",
+            "{}|{}|{}|{}",
             self.occurrence_id.0,
             locator,
-            self.support_role.as_str()
+            self.basis_role.as_str(),
+            epistemic_relation_text(self.epistemic_relation)
         )
     }
 }
@@ -190,26 +225,36 @@ pub fn dependency_relation(left: &[EvidenceRoot], right: &[EvidenceRoot]) -> Dep
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitionDependency {
     pub target_revision: CognitiveRef,
-    pub support_role: SupportRole,
+    pub basis_role: BasisRole,
+    #[serde(default)]
+    pub epistemic_relation: Option<EpistemicRelation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
-pub enum RevisionSupport {
+pub enum RevisionBasis {
     Evidence(EvidenceRef),
     CognitionDependency(CognitionDependency),
-    Seed(SeedSupportRef),
+    Seed(SeedBasisRef),
 }
 
-impl RevisionSupport {
+impl RevisionBasis {
+    pub fn epistemic_relation(&self) -> Option<EpistemicRelation> {
+        match self {
+            Self::Evidence(v) => v.epistemic_relation,
+            Self::CognitionDependency(v) => v.epistemic_relation,
+            Self::Seed(_) => None,
+        }
+    }
     pub fn canonical_key(&self) -> String {
         match self {
             Self::Evidence(value) => format!("evidence:{}", value.canonical_key()),
             Self::CognitionDependency(value) => {
                 format!(
-                    "dependency:{}|{}",
+                    "dependency:{}|{}|{}",
                     value.target_revision,
-                    value.support_role.as_str()
+                    value.basis_role.as_str(),
+                    epistemic_relation_text(value.epistemic_relation)
                 )
             }
             Self::Seed(value) => {
@@ -219,16 +264,16 @@ impl RevisionSupport {
     }
 }
 
-pub fn validate_exact_supports(supports: &[RevisionSupport]) -> Result<()> {
-    if supports.is_empty() {
+pub fn validate_exact_basis(basis: &[RevisionBasis]) -> Result<()> {
+    if basis.is_empty() {
         return Err(Error::Invalid("a cognition revision needs support".into()));
     }
     let mut keys = BTreeSet::new();
-    for support in supports {
-        if !keys.insert(support.canonical_key()) {
+    for basis in basis {
+        if !keys.insert(basis.canonical_key()) {
             return Err(Error::Invalid("duplicate revision support".into()));
         }
-        if let RevisionSupport::CognitionDependency(value) = support
+        if let RevisionBasis::CognitionDependency(value) = basis
             && !matches!(
                 value.target_revision,
                 CognitiveRef::MemoryRevision(_)

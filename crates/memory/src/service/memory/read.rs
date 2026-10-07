@@ -36,7 +36,7 @@ impl MemoryService {
             .ok_or_else(|| Error::NotFound("memory not found".into()))?;
         let revision_id = MemoryRevisionId(row.try_get("memory_revision_id").map_err(db)?);
         let (object, revision_value) = decode_memory_row(&row, subject)?;
-        let supports = self.load_supports(revision_id).await?;
+        let basis = self.load_basis(revision_id).await?;
         let aboutness = sqlx::query_scalar::<_, String>("SELECT entity_ref FROM memory_revision_aboutness WHERE memory_revision_id=$1 ORDER BY entity_ref")
             .bind(revision_id.0).fetch_all(self.store.pool()).await.map_err(db)?.into_iter().map(EntityRef::new).collect::<Result<Vec<_>>>()?;
         let tags = sqlx::query_scalar::<_, Uuid>(
@@ -74,7 +74,7 @@ impl MemoryService {
         Ok(MemoryView {
             object,
             revision: revision_value,
-            supports,
+            basis,
             aboutness,
             tags,
             relations,
@@ -85,12 +85,12 @@ impl MemoryService {
         })
     }
 
-    pub(in crate::service) async fn load_supports(
+    pub(in crate::service) async fn load_basis(
         &self,
         revision: MemoryRevisionId,
-    ) -> Result<Vec<RevisionSupport>> {
-        let mut supports = Vec::new();
-        for row in sqlx::query("SELECT occurrence_id,source_region_id,derived_representation_id,derived_region_id,support_role FROM memory_revision_evidence WHERE memory_revision_id=$1 ORDER BY evidence_no")
+    ) -> Result<Vec<RevisionBasis>> {
+        let mut basis = Vec::new();
+        for row in sqlx::query("SELECT occurrence_id,source_region_id,derived_representation_id,derived_region_id,basis_role,epistemic_relation FROM memory_revision_evidence WHERE memory_revision_id=$1 ORDER BY evidence_no")
             .bind(revision.0).fetch_all(self.store.pool()).await.map_err(db)? {
             let locator = match (
                 row.try_get::<Option<Uuid>, _>("source_region_id").map_err(db)?,
@@ -103,13 +103,15 @@ impl MemoryService {
                 (None, None, None) => EvidenceLocator::WholeOccurrence,
                 _ => return Err(Error::Infrastructure("evidence locator union is invalid".into())),
             };
-            supports.push(RevisionSupport::Evidence(EvidenceRef { occurrence_id: OccurrenceId(row.try_get("occurrence_id").map_err(db)?), locator, support_role: parse_enum(row.try_get("support_role").map_err(db)?, "support role")? }));
+            basis.push(RevisionBasis::Evidence(EvidenceRef {
+                    epistemic_relation: parse_epistemic_relation(row.try_get("epistemic_relation").map_err(db)?)?, occurrence_id: OccurrenceId(row.try_get("occurrence_id").map_err(db)?), locator, basis_role: parse_enum(row.try_get("basis_role").map_err(db)?, "basis role")? }));
         }
-        for row in sqlx::query("SELECT target_ref_kind,target_ref,support_role FROM memory_revision_dependencies WHERE memory_revision_id=$1 ORDER BY target_ref_kind,target_ref")
+        for row in sqlx::query("SELECT target_ref_kind,target_ref,basis_role,epistemic_relation FROM memory_revision_dependencies WHERE memory_revision_id=$1 ORDER BY target_ref_kind,target_ref")
             .bind(revision.0).fetch_all(self.store.pool()).await.map_err(db)? {
-            supports.push(RevisionSupport::CognitionDependency(CognitionDependency { target_revision: parse_reference(&row.try_get::<String, _>("target_ref_kind").map_err(db)?, &row.try_get::<String, _>("target_ref").map_err(db)?)?, support_role: parse_enum(row.try_get("support_role").map_err(db)?, "support role")? }));
+            basis.push(RevisionBasis::CognitionDependency(CognitionDependency {
+                    epistemic_relation: parse_epistemic_relation(row.try_get("epistemic_relation").map_err(db)?)?, target_revision: parse_reference(&row.try_get::<String, _>("target_ref_kind").map_err(db)?, &row.try_get::<String, _>("target_ref").map_err(db)?)?, basis_role: parse_enum(row.try_get("basis_role").map_err(db)?, "basis role")? }));
         }
-        Ok(supports)
+        Ok(basis)
     }
 
     pub(in crate::service) async fn temporal_evidence(

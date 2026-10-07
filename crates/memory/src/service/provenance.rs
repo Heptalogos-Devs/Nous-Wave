@@ -15,21 +15,21 @@ pub struct ProvenanceSummary {
 }
 
 impl MemoryService {
-    pub(crate) async fn validate_supports_in_tx(
+    pub(crate) async fn validate_basis_in_tx(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         subject: SubjectId,
-        supports: &[RevisionSupport],
+        basis: &[RevisionBasis],
     ) -> Result<()> {
-        for support in supports {
-            match support {
-                RevisionSupport::Evidence(evidence) => {
+        for basis in basis {
+            match basis {
+                RevisionBasis::Evidence(evidence) => {
                     sqlx::query("SELECT occurrence_id FROM observation_occurrences WHERE subject_id=$1 AND occurrence_id=$2 FOR SHARE")
                         .bind(subject.0).bind(evidence.occurrence_id.0)
                         .fetch_optional(&mut **tx).await.map_err(db)?
                         .ok_or_else(|| Error::Invalid("evidence occurrence is outside Subject".into()))?;
                 }
-                RevisionSupport::CognitionDependency(dependency) => {
+                RevisionBasis::CognitionDependency(dependency) => {
                     let (query, id, _) = dependency_query(&dependency.target_revision, true)?;
                     let row = sqlx::query(query)
                         .bind(subject.0)
@@ -39,7 +39,7 @@ impl MemoryService {
                         .map_err(db)?;
                     require_dependency_row(row)?;
                 }
-                RevisionSupport::Seed(_) => {
+                RevisionBasis::Seed(_) => {
                     return Err(Error::Invalid(
                         "Memory revisions cannot use Cognitive Seed support".into(),
                     ));
@@ -53,14 +53,14 @@ impl MemoryService {
         &self,
         subject: SubjectId,
         owner_key: &str,
-        supports: &[RevisionSupport],
+        basis: &[RevisionBasis],
     ) -> Result<()> {
-        let mut stack = supports
+        let mut stack = basis
             .iter()
-            .filter_map(|support| match support {
-                RevisionSupport::CognitionDependency(value) => Some(value.target_revision.clone()),
-                RevisionSupport::Evidence(_) => None,
-                RevisionSupport::Seed(_) => None,
+            .filter_map(|basis| match basis {
+                RevisionBasis::CognitionDependency(value) => Some(value.target_revision.clone()),
+                RevisionBasis::Evidence(_) => None,
+                RevisionBasis::Seed(_) => None,
             })
             .collect::<Vec<_>>();
         let mut visited = BTreeSet::new();
@@ -74,8 +74,8 @@ impl MemoryService {
             if !visited.insert(reference.to_string()) {
                 continue;
             }
-            for nested in self.revision_supports(subject, reference).await? {
-                if let RevisionSupport::CognitionDependency(value) = nested {
+            for nested in self.revision_basis(subject, reference).await? {
+                if let RevisionBasis::CognitionDependency(value) = nested {
                     stack.push(value.target_revision);
                 }
             }
@@ -86,13 +86,13 @@ impl MemoryService {
     pub async fn provenance_summary(
         &self,
         subject: SubjectId,
-        supports: &[RevisionSupport],
+        basis: &[RevisionBasis],
     ) -> Result<ProvenanceSummary> {
         let mut summary = ProvenanceSummary::default();
         let mut stack = Vec::new();
-        for support in supports {
-            match support {
-                RevisionSupport::Evidence(evidence) => {
+        for basis in basis {
+            match basis {
+                RevisionBasis::Evidence(evidence) => {
                     for root in self.evidence_roots(subject, evidence).await? {
                         summary
                             .normalized_inputs
@@ -100,12 +100,12 @@ impl MemoryService {
                         summary.roots.insert(root);
                     }
                 }
-                RevisionSupport::CognitionDependency(dependency) => {
+                RevisionBasis::CognitionDependency(dependency) => {
                     let key = dependency.target_revision.to_string();
                     summary.normalized_inputs.insert(format!("revision:{key}"));
                     stack.push((dependency.target_revision.clone(), false));
                 }
-                RevisionSupport::Seed(_) => {
+                RevisionBasis::Seed(_) => {
                     return Err(Error::Invalid(
                         "Memory revisions cannot use Cognitive Seed support".into(),
                     ));
@@ -133,18 +133,18 @@ impl MemoryService {
             self.validate_dependency_target(subject, &reference).await?;
             active.insert(key.clone());
             stack.push((reference.clone(), true));
-            let nested = self.revision_supports(subject, reference).await?;
-            for support in nested.into_iter().rev() {
-                match support {
-                    RevisionSupport::Evidence(evidence) => {
+            let nested = self.revision_basis(subject, reference).await?;
+            for basis in nested.into_iter().rev() {
+                match basis {
+                    RevisionBasis::Evidence(evidence) => {
                         summary
                             .roots
                             .extend(self.evidence_roots(subject, &evidence).await?);
                     }
-                    RevisionSupport::CognitionDependency(dependency) => {
+                    RevisionBasis::CognitionDependency(dependency) => {
                         stack.push((dependency.target_revision, false));
                     }
-                    RevisionSupport::Seed(_) => {
+                    RevisionBasis::Seed(_) => {
                         return Err(Error::Invalid(
                             "Memory revisions cannot use Cognitive Seed support".into(),
                         ));
@@ -159,12 +159,12 @@ impl MemoryService {
         &self,
         subject: SubjectId,
         mode: FormationMode,
-        supports: &[RevisionSupport],
+        basis: &[RevisionBasis],
     ) -> Result<()> {
         if !matches!(mode, FormationMode::Synthesized) {
             return Ok(());
         }
-        let summary = self.provenance_summary(subject, supports).await?;
+        let summary = self.provenance_summary(subject, basis).await?;
         if summary.normalized_inputs.len() < 2 {
             return Err(Error::Invalid(
                 "synthesized formation needs at least two normalized inputs".into(),
@@ -286,28 +286,28 @@ impl MemoryService {
         Ok(format!("{kind}:{object}"))
     }
 
-    async fn revision_supports(
+    async fn revision_basis(
         &self,
         subject: SubjectId,
         reference: CognitiveRef,
-    ) -> Result<Vec<RevisionSupport>> {
+    ) -> Result<Vec<RevisionBasis>> {
         match reference {
-            CognitiveRef::MemoryRevision(revision) => self.load_supports(revision).await,
+            CognitiveRef::MemoryRevision(revision) => self.load_basis(revision).await,
             CognitiveRef::CognitiveSchemaRevision(revision) => Ok(self
                 .schema_links(subject, revision)
                 .await?
                 .into_iter()
-                .map(|link| link.support)
+                .map(|link| link.basis)
                 .collect()),
             CognitiveRef::EpisodeRevision(revision) => {
-                Ok(self.episode_revision(subject, revision).await?.supports)
+                Ok(self.episode_revision(subject, revision).await?.basis)
             }
             CognitiveRef::JournalRevision(revision) => Ok(self
                 .journal_revision(subject, revision)
                 .await?
                 .points
                 .into_iter()
-                .flat_map(|point| point.supports)
+                .flat_map(|point| point.basis)
                 .collect()),
             _ => Err(Error::Invalid(
                 "cognition dependency needs exact revision".into(),

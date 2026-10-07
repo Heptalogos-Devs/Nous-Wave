@@ -26,6 +26,15 @@ const embeddingSchema = z.strictObject({
   normalization: nonempty,
   output_semantics: nonempty,
 });
+const reasoningLevels = [
+  "provider-default",
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+] as const;
 const modelBaseSchema = z.strictObject({
   gateway: nonempty,
   model: z.string().max(512).default(""),
@@ -44,6 +53,10 @@ const modelBaseSchema = z.strictObject({
     )
     .min(1),
   model_revision: nonempty.optional(),
+  reasoning_levels: z
+    .array(z.enum(reasoningLevels))
+    .max(7)
+    .default(["provider-default"]),
 });
 // The protocol/embedding contract is native Zod, including the exported JSON Schema.
 const modelSchema = z.discriminatedUnion("protocol", [
@@ -67,31 +80,41 @@ const generationTokensSchema = z
   .min(1)
   .max(65_536)
   .default(4096);
-const bindingSchema = z.strictObject({
+const executionProfileSchema = z.strictObject({
   model: nonempty,
-  prompt: nonempty.optional(),
+  reasoning: z.enum(reasoningLevels).default("provider-default"),
   temperature: z.number().min(0).max(2).optional(),
   top_p: z.number().min(0).max(1).optional(),
-  max_output_tokens: generationTokensSchema
-    .unwrap()
-    .optional()
-    .meta({ default: generationTokensSchema.parse(undefined) }),
+  max_output_tokens: generationTokensSchema.unwrap().optional(),
   timeout_ms: boundedTimeout.optional(),
-  requirement: z
-    .enum(["optional", "preferred", "required"])
-    .default("optional"),
+  provider_options: z
+    .record(z.string().max(64), z.record(z.string().max(128), z.json()))
+    .refine(
+      (value) => Buffer.byteLength(JSON.stringify(value)) <= 16384,
+      "Provider options exceed 16 KiB",
+    )
+    .default({}),
 });
-const generationBindingSchema = bindingSchema.extend({
-  max_output_tokens: generationTokensSchema,
+const rolePolicySchema = z.strictObject({
+  routes: z
+    .array(nonempty)
+    .min(1)
+    .max(4)
+    .refine(
+      (routes) => new Set(routes).size === routes.length,
+      "Duplicate execution route",
+    ),
+  prompt: nonempty.optional(),
+  requirement: z.enum(["optional", "required"]).default("optional"),
 });
-/** Apply per-role schema defaults only to generation protocols. */
-export function resolveRoleBinding(
-  binding: z.infer<typeof bindingSchema>,
+/** Resolve execution defaults using declared resource protocol, independently from RolePolicy. */
+export function resolveExecutionProfile(
+  execution: ExecutionProfile,
   protocol: string,
-) {
+): ExecutionProfile {
   return ["openai-chat", "openai-responses"].includes(protocol)
-    ? generationBindingSchema.parse(binding)
-    : binding;
+    ? { ...execution, max_output_tokens: execution.max_output_tokens ?? 4096 }
+    : execution;
 }
 
 export const modelConfigurationShape = {
@@ -146,14 +169,15 @@ export const modelConfigurationShape = {
     .default("description_only"),
   gateway_profiles: z.record(z.string(), gatewaySchema).default({}),
   model_profiles: z.record(z.string(), modelSchema).default({}),
-  roles: z.partialRecord(z.enum(roleNames), bindingSchema).default({}),
+  execution_profiles: z.record(z.string(), executionProfileSchema).default({}),
+  roles: z.partialRecord(z.enum(roleNames), rolePolicySchema).default({}),
 };
 export const modelConfigurationSchema = z.strictObject(modelConfigurationShape);
 
 /** Cross-profile graph readiness is an owner diagnostic, not a second Catalog validator. */
 export function modelRoleProblem(
   role: string,
-  binding: z.infer<typeof bindingSchema>,
+  binding: ExecutionProfile,
   model: z.infer<typeof modelSchema>,
 ): string | undefined {
   const protocol =
@@ -184,17 +208,18 @@ export function modelRoleProblem(
     !model.capabilities.includes("structured_output")
   )
     return "Role requires structured_output";
-  if (protocol && binding.prompt)
-    return "Role does not consume a system prompt";
   if (
     role === "material_direct_structuring" &&
     (!model.capabilities.includes("image_input") ||
       !model.capabilities.includes("structured_output"))
   )
     return "Direct structuring requires image_input and structured_output";
+  if (!model.reasoning_levels.includes(binding.reasoning))
+    return "Unsupported reasoning level";
   if (
     protocol &&
-    (binding.temperature !== undefined ||
+    (binding.reasoning !== "provider-default" ||
+      binding.temperature !== undefined ||
       binding.top_p !== undefined ||
       binding.max_output_tokens !== undefined)
   )
@@ -202,4 +227,5 @@ export function modelRoleProblem(
 }
 export type ModelConfiguration = z.infer<typeof modelConfigurationSchema>;
 export type ModelProfile = z.infer<typeof modelSchema>;
-export type RoleBinding = z.infer<typeof bindingSchema>;
+export type ExecutionProfile = z.infer<typeof executionProfileSchema>;
+export type RolePolicy = z.infer<typeof rolePolicySchema>;

@@ -15,7 +15,7 @@ import {
   episodePartitionSchema,
   journalSynthesisSchema,
   partitionIndices,
-  journalSupportKeys,
+  journalBasisKeys,
 } from "../../apps/nous-core/src/model/schemas/longitudinal.js";
 import { consolidationSchema } from "../../apps/nous-core/src/model/schemas/consolidation.js";
 
@@ -63,7 +63,7 @@ async function run() {
     plan.status !== "ready" ||
     !plan.subjectId ||
     plan.members.length > 2048 ||
-    plan.supports.length > 512 ||
+    plan.basis.length > 512 ||
     plan.candidates.length > 32
   )
     throw new Error(
@@ -102,9 +102,9 @@ async function run() {
     );
   } else if (role === "journal_synthesis") {
     result = await models.synthesizeJournal(input, signal.signal, snapshot);
-    journalSupportKeys(
+    journalBasisKeys(
       journalSynthesisSchema.parse(result.value),
-      new Set(plan.supports.map((support) => support.key)),
+      new Set(plan.basis.map((basis) => basis.key)),
     );
   } else {
     result = await models.consolidate(input, signal.signal, snapshot);

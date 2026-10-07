@@ -15,10 +15,10 @@ impl k::kernel_model_workflow_service_server::KernelModelWorkflowService for Ker
         let input = request.into_inner();
         let result:Result<_>=async {
             private_workflow_owner(&input.owner)?;
-            let row=sqlx::query("SELECT semantic_digest,snapshot,proposal,outcome FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(id(&input.subject_id)?).bind(&input.owner).bind(&input.operation_key).fetch_optional(self.0.store.pool()).await.map_err(db)?;
-            let Some(row)=row else{return Ok(k::FoundWorkflow{found:false,snapshot_json:None,proposal_json:None,outcome_json:None});};
+            let row=sqlx::query("SELECT semantic_digest,snapshot,proposal,outcome,execution_telemetry FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(id(&input.subject_id)?).bind(&input.owner).bind(&input.operation_key).fetch_optional(self.0.store.pool()).await.map_err(db)?;
+            let Some(row)=row else{return Ok(k::FoundWorkflow{found:false,execution_telemetry_json:None,snapshot_json:None,proposal_json:None,outcome_json:None});};
             if row.try_get::<String,_>("semantic_digest").map_err(db)?!=input.semantic_digest{return Err(Error::Conflict("model operation identity has different semantic input".into()));}
-            Ok(k::FoundWorkflow{found:true,snapshot_json:Some(row.try_get::<serde_json::Value,_>("snapshot").map_err(db)?.to_string()),proposal_json:row.try_get::<Option<serde_json::Value>,_>("proposal").map_err(db)?.map(|value|value.to_string()),outcome_json:row.try_get::<Option<serde_json::Value>,_>("outcome").map_err(db)?.map(|value|value.to_string())})
+            Ok(k::FoundWorkflow{found:true,execution_telemetry_json:row.try_get::<Option<serde_json::Value>,_>("execution_telemetry").map_err(db)?.map(|value|value.to_string()),snapshot_json:Some(row.try_get::<serde_json::Value,_>("snapshot").map_err(db)?.to_string()),proposal_json:row.try_get::<Option<serde_json::Value>,_>("proposal").map_err(db)?.map(|value|value.to_string()),outcome_json:row.try_get::<Option<serde_json::Value>,_>("outcome").map_err(db)?.map(|value|value.to_string())})
         }.await;
         result.map(Response::new).map_err(status)
     }
@@ -86,6 +86,7 @@ impl k::kernel_model_workflow_service_server::KernelModelWorkflowService for Ker
                 outcome_json: reserved.outcome.map(|value| value.to_string()),
                 lease_token: reserved.lease_token.map(|value| value.to_string()),
                 busy: reserved.busy,
+                execution_telemetry_json: reserved.execution_telemetry.map(|v| v.to_string()),
             })
         }
         .await;
@@ -108,6 +109,11 @@ impl k::kernel_model_workflow_service_server::KernelModelWorkflowService for Ker
                 .as_deref()
                 .map(workflow_json)
                 .transpose()?;
+            let execution_telemetry = input
+                .execution_telemetry_json
+                .as_deref()
+                .map(workflow_json)
+                .transpose()?;
             self.0
                 .store
                 .save_model_workflow(
@@ -117,6 +123,7 @@ impl k::kernel_model_workflow_service_server::KernelModelWorkflowService for Ker
                     id(&input.lease_token)?,
                     proposal.as_ref(),
                     outcome.as_ref(),
+                    execution_telemetry.as_ref(),
                 )
                 .await
         }

@@ -34,7 +34,7 @@ pub struct EpisodeInput {
 
     pub producer_signature_id: Option<Uuid>,
     pub members: Vec<EpisodeMemberInput>,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +51,7 @@ pub struct ReviseEpisodeInput {
 
     pub producer_signature_id: Option<Uuid>,
     pub members: Vec<EpisodeMemberInput>,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,7 +105,7 @@ pub struct EpisodeView {
     pub object: EpisodeObject,
     pub revision: EpisodeRevision,
     pub members: Vec<EpisodeMember>,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
     pub relations: Vec<EpisodeRelation>,
 }
 
@@ -115,7 +115,7 @@ fn validate_episode_input(
     time: &TemporalExtent,
     boundary: &str,
     members: &[EpisodeMemberInput],
-    supports: &[RevisionSupport],
+    basis: &[RevisionBasis],
 ) -> Result<()> {
     if !track.is_empty() && (track.len() > 128 || track.chars().any(char::is_control)) {
         return Err(Error::Invalid("Episode track_key is out of bounds".into()));
@@ -132,8 +132,8 @@ fn validate_episode_input(
     if members.is_empty() || members.len() > 2048 {
         return Err(Error::Invalid("Episode members are out of bounds".into()));
     }
-    if supports.is_empty() || supports.len() > 256 {
-        return Err(Error::Invalid("Episode supports are out of bounds".into()));
+    if basis.is_empty() || basis.len() > 256 {
+        return Err(Error::Invalid("Episode basis are out of bounds".into()));
     }
     let mut keys = BTreeSet::new();
     for member in members {
@@ -146,7 +146,7 @@ fn validate_episode_input(
             ));
         }
     }
-    validate_exact_supports(supports)
+    validate_exact_basis(basis)
 }
 
 async fn validate_episode_refs_in_tx(
@@ -177,21 +177,21 @@ async fn validate_episode_refs_in_tx(
     Ok(())
 }
 
-async fn validate_episode_supports_in_tx(
+async fn validate_episode_basis_in_tx(
     store: &AuthorityStore,
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     subject: SubjectId,
-    supports: &[RevisionSupport],
+    basis: &[RevisionBasis],
 ) -> Result<()> {
-    for support in supports {
-        match support {
-            RevisionSupport::Evidence(value) => {
+    for basis in basis {
+        match basis {
+            RevisionBasis::Evidence(value) => {
                 let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM observation_occurrences WHERE subject_id=$1 AND occurrence_id=$2)").bind(subject.0).bind(value.occurrence_id.0).fetch_one(&mut **tx).await.map_err(db)?;
                 if !exists {
                     return Err(Error::Invalid("Episode evidence is outside Subject".into()));
                 }
             }
-            RevisionSupport::CognitionDependency(value) => {
+            RevisionBasis::CognitionDependency(value) => {
                 if !matches!(
                     value.target_revision,
                     CognitiveRef::MemoryRevision(_)
@@ -209,7 +209,7 @@ async fn validate_episode_supports_in_tx(
                     return Err(Error::Invalid("Episode support is outside Subject".into()));
                 }
             }
-            RevisionSupport::Seed(_) => {
+            RevisionBasis::Seed(_) => {
                 return Err(Error::Invalid(
                     "Episode cannot use Cognitive Seed support".into(),
                 ));
@@ -383,8 +383,8 @@ async fn insert_episode_revision_with_intent(
         let (kind, value) = reference_parts(&member.reference);
         sqlx::query("INSERT INTO episode_revision_members(episode_revision_id,ordinal,ref_kind,ref_value,role) VALUES($1,$2,$3,$4,$5)").bind(revision.0).bind(ordinal as i32).bind(kind).bind(value).bind(&member.role).execute(&mut **tx).await.map_err(db)?;
     }
-    for (support_no, support) in input.supports.iter().enumerate() {
-        insert_episode_support(tx, revision, support_no as i32, support).await?;
+    for (basis_no, basis) in input.basis.iter().enumerate() {
+        insert_episode_support(tx, revision, basis_no as i32, basis).await?;
     }
     Ok(())
 }
@@ -392,12 +392,11 @@ async fn insert_episode_revision_with_intent(
 async fn insert_episode_support(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     revision: EpisodeRevisionId,
-    support_no: i32,
-    support: &RevisionSupport,
+    basis_no: i32,
+    basis: &RevisionBasis,
 ) -> Result<()> {
-    let (kind, reference, occurrence, source_region, derived, derived_region, role) = match support
-    {
-        RevisionSupport::Evidence(value) => {
+    let (kind, reference, occurrence, source_region, derived, derived_region, role) = match basis {
+        RevisionBasis::Evidence(value) => {
             let (source, derived, derived_region) = match value.locator {
                 EvidenceLocator::WholeOccurrence => (None, None, None),
                 EvidenceLocator::SourceRegion(id) => (Some(id.0), None, None),
@@ -411,10 +410,10 @@ async fn insert_episode_support(
                 source,
                 derived,
                 derived_region,
-                value.support_role.as_str().to_owned(),
+                value.basis_role.as_str().to_owned(),
             )
         }
-        RevisionSupport::CognitionDependency(value) => {
+        RevisionBasis::CognitionDependency(value) => {
             let (kind, reference) = reference_parts(&value.target_revision);
             (
                 kind,
@@ -423,17 +422,17 @@ async fn insert_episode_support(
                 None,
                 None,
                 None,
-                value.support_role.as_str().to_owned(),
+                value.basis_role.as_str().to_owned(),
             )
         }
-        RevisionSupport::Seed(_) => {
+        RevisionBasis::Seed(_) => {
             return Err(Error::Invalid(
                 "Episode cannot use Cognitive Seed support".into(),
             ));
         }
     };
-    sqlx::query("INSERT INTO episode_revision_supports(episode_revision_id,support_no,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-        .bind(revision.0).bind(support_no).bind(kind).bind(reference).bind(role).bind(occurrence).bind(source_region).bind(derived).bind(derived_region).execute(&mut **tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO episode_revision_basis(episode_revision_id,basis_no,basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,epistemic_relation) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
+        .bind(revision.0).bind(basis_no).bind(kind).bind(reference).bind(role).bind(occurrence).bind(source_region).bind(derived).bind(derived_region).bind(epistemic_relation_text(basis.epistemic_relation())).execute(&mut **tx).await.map_err(db)?;
     Ok(())
 }
 
@@ -441,12 +440,12 @@ async fn load_members(pool: &sqlx::PgPool, revision: Uuid) -> Result<Vec<Episode
     sqlx::query("SELECT ordinal,ref_kind,ref_value,role FROM episode_revision_members WHERE episode_revision_id=$1 ORDER BY ordinal").bind(revision).fetch_all(pool).await.map_err(db)?.into_iter().map(|row| Ok(EpisodeMember { ordinal: row.try_get("ordinal").map_err(db)?, reference: parse_reference(&row.try_get::<String,_>("ref_kind").map_err(db)?, &row.try_get::<String,_>("ref_value").map_err(db)?)?, role: row.try_get("role").map_err(db)? })).collect()
 }
 
-async fn load_supports(pool: &sqlx::PgPool, revision: Uuid) -> Result<Vec<RevisionSupport>> {
-    let rows = sqlx::query("SELECT support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM episode_revision_supports WHERE episode_revision_id=$1 ORDER BY support_no").bind(revision).fetch_all(pool).await.map_err(db)?;
+async fn load_basis(pool: &sqlx::PgPool, revision: Uuid) -> Result<Vec<RevisionBasis>> {
+    let rows = sqlx::query("SELECT basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,epistemic_relation FROM episode_revision_basis WHERE episode_revision_id=$1 ORDER BY basis_no").bind(revision).fetch_all(pool).await.map_err(db)?;
     rows.into_iter()
         .map(|row| {
-            let role = parse_enum(row.try_get("support_role").map_err(db)?, "support role")?;
-            let kind: String = row.try_get("support_kind").map_err(db)?;
+            let role = parse_enum(row.try_get("basis_role").map_err(db)?, "basis role")?;
+            let kind: String = row.try_get("basis_kind").map_err(db)?;
             if kind == "evidence" {
                 let locator = if let Some(value) = row
                     .try_get::<Option<Uuid>, _>("source_region_id")
@@ -466,20 +465,26 @@ async fn load_supports(pool: &sqlx::PgPool, revision: Uuid) -> Result<Vec<Revisi
                 } else {
                     EvidenceLocator::WholeOccurrence
                 };
-                return Ok(RevisionSupport::Evidence(EvidenceRef {
+                return Ok(RevisionBasis::Evidence(EvidenceRef {
+                    epistemic_relation: parse_epistemic_relation(
+                        row.try_get("epistemic_relation").map_err(db)?,
+                    )?,
                     occurrence_id: OccurrenceId(
                         row.try_get::<Uuid, _>("occurrence_id").map_err(db)?,
                     ),
                     locator,
-                    support_role: role,
+                    basis_role: role,
                 }));
             }
-            Ok(RevisionSupport::CognitionDependency(CognitionDependency {
+            Ok(RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: parse_epistemic_relation(
+                    row.try_get("epistemic_relation").map_err(db)?,
+                )?,
                 target_revision: parse_reference(
                     &kind,
-                    &row.try_get::<String, _>("support_ref").map_err(db)?,
+                    &row.try_get::<String, _>("basis_ref").map_err(db)?,
                 )?,
-                support_role: role,
+                basis_role: role,
             }))
         })
         .collect()

@@ -87,16 +87,17 @@ impl MemoryService {
         input: SchemaEvidenceLinkInput,
     ) -> Result<()> {
         let id = SchemaEvidenceLinkId::new();
+        let epistemic_relation = input.basis.epistemic_relation();
         let (
             kind,
             value,
-            support_role,
+            basis_role,
             occurrence,
             source_region,
             derived_representation,
             derived_region,
-        ) = match input.support {
-            RevisionSupport::Evidence(e) => {
+        ) = match input.basis {
+            RevisionBasis::Evidence(e) => {
                 let (sr, dr, drr) = match e.locator {
                     EvidenceLocator::WholeOccurrence => (None, None, None),
                     EvidenceLocator::SourceRegion(id) => (Some(id.0), None, None),
@@ -106,32 +107,32 @@ impl MemoryService {
                 (
                     "evidence".to_owned(),
                     e.canonical_key(),
-                    e.support_role.as_str().to_owned(),
+                    e.basis_role.as_str().to_owned(),
                     Some(e.occurrence_id.0),
                     sr,
                     dr,
                     drr,
                 )
             }
-            RevisionSupport::CognitionDependency(d) => {
+            RevisionBasis::CognitionDependency(d) => {
                 let (k, v) = reference_parts(&d.target_revision);
                 (
                     k,
                     v,
-                    d.support_role.as_str().to_owned(),
+                    d.basis_role.as_str().to_owned(),
                     None,
                     None,
                     None,
                     None,
                 )
             }
-            RevisionSupport::Seed(_) => {
+            RevisionBasis::Seed(_) => {
                 return Err(Error::Invalid(
                     "CognitiveSchema cannot use Cognitive Seed support".into(),
                 ));
             }
         };
-        sqlx::query("INSERT INTO cognitive_schema_evidence_links(link_id,subject_id,schema_revision_id,role,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)").bind(id.0).bind(subject.0).bind(revision.0).bind(input.role.as_str()).bind(kind).bind(value).bind(support_role).bind(occurrence).bind(source_region).bind(derived_representation).bind(derived_region).bind(self.cognition.now(subject)).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO cognitive_schema_evidence_links(link_id,subject_id,schema_revision_id,role,basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,created_at,epistemic_relation) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)").bind(id.0).bind(subject.0).bind(revision.0).bind(input.role.as_str()).bind(kind).bind(value).bind(basis_role).bind(occurrence).bind(source_region).bind(derived_representation).bind(derived_region).bind(self.cognition.now(subject)).bind(epistemic_relation_text(epistemic_relation)).execute(&mut **tx).await.map_err(db)?;
         Ok(())
     }
 
@@ -144,7 +145,7 @@ impl MemoryService {
         link: SchemaEvidenceLinkInput,
     ) -> Result<SchemaView> {
         self.store.require_subject(subject).await?;
-        self.validate_supports_for_subject(subject, std::slice::from_ref(&link.support))
+        self.validate_basis_for_subject(subject, std::slice::from_ref(&link.basis))
             .await?;
         let digest = operation_digest(
             "add_schema_evidence",
@@ -172,7 +173,7 @@ impl MemoryService {
                 "expected schema object epoch is stale".into(),
             ));
         }
-        self.validate_supports_in_tx(mutation.tx(), subject, std::slice::from_ref(&link.support))
+        self.validate_basis_in_tx(mutation.tx(), subject, std::slice::from_ref(&link.basis))
             .await?;
         self.insert_schema_link(
             mutation.tx(),
@@ -191,7 +192,7 @@ impl MemoryService {
             "schema",
             &[schema_id.0],
             sequence,
-            "source_support_changed",
+            "source_basis_changed",
         )
         .await?;
         mutation
@@ -280,7 +281,7 @@ impl MemoryService {
         .map_err(db)?;
         let mut copied_links = input.evidence_links.clone();
         for link_id in &input.copy_link_ids {
-            let link = sqlx::query("SELECT schema_revision_id,role,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM cognitive_schema_evidence_links WHERE link_id=$1 AND subject_id=$2 AND revoked_at IS NULL")
+            let link = sqlx::query("SELECT schema_revision_id,role,basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,epistemic_relation FROM cognitive_schema_evidence_links WHERE link_id=$1 AND subject_id=$2 AND revoked_at IS NULL")
                 .bind(link_id.0)
                 .bind(input.subject.0)
                 .fetch_optional(&mut **mutation.tx())
@@ -296,17 +297,17 @@ impl MemoryService {
             }
             copied_links.push(decode_schema_link_input(link)?);
         }
-        let copied_supports = copied_links
+        let copied_basis = copied_links
             .iter()
-            .map(|link| link.support.clone())
+            .map(|link| link.basis.clone())
             .collect::<Vec<_>>();
         self.validate_object_dependency_cycle(
             input.subject,
             &format!("schema:{}", input.schema_id.0),
-            &copied_supports,
+            &copied_basis,
         )
         .await?;
-        self.validate_supports_in_tx(mutation.tx(), input.subject, &copied_supports)
+        self.validate_basis_in_tx(mutation.tx(), input.subject, &copied_basis)
             .await?;
         let revision_id = CognitiveSchemaRevisionId::new();
         let parent_scope = sqlx::query(
@@ -416,7 +417,7 @@ impl MemoryService {
             validate_schema_content(child)?;
             child.applicability_scope.valid_time.validate()?;
             for link in &child.evidence_links {
-                self.validate_supports_for_subject(subject, std::slice::from_ref(&link.support))
+                self.validate_basis_for_subject(subject, std::slice::from_ref(&link.basis))
                     .await?;
             }
         }
@@ -488,13 +489,13 @@ impl MemoryService {
                 .iter()
                 .map(|v| v.0)
                 .collect::<Vec<_>>();
-            let child_supports = child
+            let child_basis = child
                 .evidence_links
                 .iter()
-                .map(|link| link.support.clone())
+                .map(|link| link.basis.clone())
                 .collect::<Vec<_>>();
             if matches!(child.formation_kind, SchemaFormationKind::Synthesized) {
-                let summary = self.provenance_summary(subject, &child_supports).await?;
+                let summary = self.provenance_summary(subject, &child_basis).await?;
                 let independent_roots = summary
                     .roots
                     .iter()
@@ -506,7 +507,7 @@ impl MemoryService {
                     ));
                 }
             }
-            self.validate_supports_in_tx(mutation.tx(), subject, &child_supports)
+            self.validate_basis_in_tx(mutation.tx(), subject, &child_basis)
                 .await?;
             sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)").bind(child_id.0).bind(subject.0).bind(child_revision.0).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
             sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(child_revision.0).bind(child_id.0).bind(&child.title).bind(&child.structural_claim).bind(&child.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&child.boundary_definition).bind(child.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(now).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
@@ -627,12 +628,12 @@ impl MemoryService {
         let mut merged_links = std::collections::BTreeMap::new();
         for (_, revision) in &source_revisions {
             for link in active_schema_link_inputs(mutation.tx(), subject, *revision).await? {
-                let key = format!("{}|{}", link.role.as_str(), link.support.canonical_key());
+                let key = format!("{}|{}", link.role.as_str(), link.basis.canonical_key());
                 merged_links.entry(key).or_insert(link);
             }
         }
         for link in merged.evidence_links.clone() {
-            let key = format!("{}|{}", link.role.as_str(), link.support.canonical_key());
+            let key = format!("{}|{}", link.role.as_str(), link.basis.canonical_key());
             merged_links.entry(key).or_insert(link);
         }
         if merged_links.len() < 2 {
@@ -641,14 +642,14 @@ impl MemoryService {
             ));
         }
         for link in merged_links.values() {
-            self.validate_supports_for_subject(subject, std::slice::from_ref(&link.support))
+            self.validate_basis_for_subject(subject, std::slice::from_ref(&link.basis))
                 .await?;
         }
-        let merged_supports = merged_links
+        let merged_basis = merged_links
             .values()
-            .map(|link| link.support.clone())
+            .map(|link| link.basis.clone())
             .collect::<Vec<_>>();
-        self.validate_supports_in_tx(mutation.tx(), subject, &merged_supports)
+        self.validate_basis_in_tx(mutation.tx(), subject, &merged_basis)
             .await?;
         let new_id = CognitiveSchemaId::new();
         let new_revision = CognitiveSchemaRevisionId::new();

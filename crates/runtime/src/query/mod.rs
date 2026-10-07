@@ -8,11 +8,10 @@ mod activation;
 pub use activation::*;
 mod representation;
 pub use representation::{
-    QUERY_REPRESENTATION, QueryRepresentation, QueryRepresentationLimits,
+    QUERY_REPRESENTATION, QueryContextSnapshot, QueryRepresentation, QueryRepresentationLimits,
     build_query_representation,
 };
 mod closure;
-pub use closure::{UnresolvedQueryReference, unresolved_query_references, validate_query_closure};
 mod cognitive_profile;
 pub use cognitive_profile::{COGNITIVE_PROFILE, CognitiveProfile, CognitiveProfileRequirements};
 mod bind;

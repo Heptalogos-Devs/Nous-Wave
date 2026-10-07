@@ -150,7 +150,7 @@ mod tests {
         CognitiveQuery {
             projection: Default::default(),
             temporal_frame: Default::default(),
-            text_only_compatibility: false,
+
             work_context: None,
             api_version: API_VERSION,
             subject: SubjectId::new(),

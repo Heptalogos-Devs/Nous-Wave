@@ -22,6 +22,9 @@ pub struct TextEmbeddingOutput {
 pub trait TextEmbeddingProvider: Send + Sync {
     fn space(&self) -> EmbeddingSpaceSignature;
     fn producer(&self) -> ProducerSignature;
+    fn producers(&self) -> Vec<ProducerSignature> {
+        vec![self.producer()]
+    }
     async fn embed(&self, request: TextEmbeddingRequest) -> Result<TextEmbeddingOutput>;
 }
 
@@ -47,6 +50,9 @@ impl TextEmbeddingProvider for RequestEmbedding {
     fn producer(&self) -> ProducerSignature {
         self.inner.producer()
     }
+    fn producers(&self) -> Vec<ProducerSignature> {
+        self.inner.producers()
+    }
     async fn embed(&self, request: TextEmbeddingRequest) -> Result<TextEmbeddingOutput> {
         if !request.query || request.text != self.text {
             return Err(Error::Invalid(
@@ -55,12 +61,14 @@ impl TextEmbeddingProvider for RequestEmbedding {
         }
         self.output
             .get_or_init(|| async {
-                if let Some(output) = crate::material::query_material_output(
-                    &request.text,
-                    &self.space(),
-                    &self.producer(),
-                ) {
-                    return Ok(output);
+                for producer in self.producers() {
+                    if let Some(output) = crate::material::query_material_output(
+                        &request.text,
+                        &self.space(),
+                        &producer,
+                    ) {
+                        return Ok(output);
+                    }
                 }
                 self.inner
                     .embed(request)

@@ -10,7 +10,7 @@ import { cliErrorPayload } from "./agent.js";
 
 const exec = promisify(execFile);
 describe("Agent CLI protocol", () => {
-  it("prepares with explicit context and passes the frozen preparation inspection through", async () => {
+  it("prepares with explicit context and summarizes the frozen inspection", async () => {
     const prepared = {
       boundQuery: '{"representation":{"sha256":"digest"}}',
       embeddingText: "complete intent",
@@ -26,7 +26,9 @@ describe("Agent CLI protocol", () => {
       [
         "query",
         "inspect",
-        '"decision" $return(memory)',
+        "decision $return(memory)",
+        "--instance-root",
+        "/tmp/nous-cli-agent-tests",
         "--run-root",
         "/tmp/nous",
         "--subject",
@@ -39,14 +41,17 @@ describe("Agent CLI protocol", () => {
       connect,
     );
     expect(result).toMatchObject({
-      ...prepared,
-      boundQuery: { representation: { sha256: "digest" } },
+      schemaVersion: "nous.cli.v1",
+      data: {
+        intent: "decision $return(memory)",
+        representation: { sha256: "digest", chars: 15 },
+      },
     });
     expect(prepareQuery).toHaveBeenCalledWith({
       subjectId: "s",
       sessionId: "sess",
       workContextId: "work",
-      nousql: '"decision" $return(memory)',
+      nousql: "decision $return(memory)",
     });
     expect(query).not.toHaveBeenCalled();
   });
@@ -71,6 +76,8 @@ describe("Agent CLI protocol", () => {
           "Alice",
           "--kind",
           "entity",
+          "--instance-root",
+          "/tmp/nous-cli-agent-tests",
           "--run-root",
           "/tmp/nous",
           "--subject",
@@ -103,7 +110,7 @@ describe("Agent CLI protocol", () => {
       "--json",
     ]);
     const parsed: unknown = JSON.parse(help.stdout);
-    expect(parsed).toHaveProperty("commands");
+    expect(parsed).toHaveProperty("data.commands");
     expect(help.stdout).toContain('"command":"query prepare|inspect"');
     expect(help.stderr).toBe("");
     const failure: unknown = await exec(process.execPath, [
@@ -150,14 +157,14 @@ it("formation passes explicit Tag identities without an inference model", async 
     [
       "form",
       "occ",
+      "--instance-root",
+      "/tmp/nous-cli-agent-tests",
       "--run-root",
       "/tmp/nous",
       "--subject",
       "s",
       "--tag",
-      "tag:amber-lotus-cello-river",
-      "--tag",
-      "tag:44444444-4444-4444-8444-444444444444",
+      "tag:amber-lotus-cello-river,tag:44444444-4444-4444-8444-444444444444",
     ],
     vi.fn().mockResolvedValue(client),
   );
@@ -188,6 +195,8 @@ it("routes explicit Tag creation and bounded maintenance grants to Concept/Host 
     [
       "tag",
       "create",
+      "--instance-root",
+      "/tmp/nous-cli-agent-tests",
       "--run-root",
       "/tmp/nous",
       "--subject",
@@ -217,6 +226,8 @@ it("routes explicit Tag creation and bounded maintenance grants to Concept/Host 
     [
       "maintenance",
       "grant",
+      "--instance-root",
+      "/tmp/nous-cli-agent-tests",
       "--run-root",
       "/tmp/nous",
       "--subject",
@@ -239,6 +250,8 @@ it("routes explicit Tag creation and bounded maintenance grants to Concept/Host 
       [
         "maintenance",
         "grant",
+        "--instance-root",
+        "/tmp/nous-cli-agent-tests",
         "--run-root",
         "/tmp/nous",
         "--subject",
@@ -261,6 +274,8 @@ it("uses exact typed revisions and caller-stable feedback identity", async () =>
     [
       "use",
       ref,
+      "--instance-root",
+      "/tmp/nous-cli-agent-tests",
       "--run-root",
       "/tmp/nous",
       "--subject",
@@ -297,6 +312,8 @@ it("uses exact typed revisions and caller-stable feedback identity", async () =>
       [
         "use",
         "memory:33333333-3333-4333-8333-333333333333",
+        "--instance-root",
+        "/tmp/nous-cli-agent-tests",
         "--run-root",
         "/tmp/nous",
         "--subject",
@@ -311,11 +328,11 @@ it("serves NousQL JSON guidance without requiring a daemon or instance", async (
   const connect = vi.fn();
   const result = await runCli(["help", "nousql", "--json"], connect);
   expect(connect).not.toHaveBeenCalled();
-  expect(result).toHaveProperty("concepts");
-  expect(result).toHaveProperty("selectors");
-  expect(result).toHaveProperty("time");
-  expect(result).toHaveProperty("exploration");
-  expect(result).toHaveProperty("projection");
+  expect(result).toHaveProperty("data.concepts");
+  expect(result).toHaveProperty("data.selectors");
+  expect(result).toHaveProperty("data.time");
+  expect(result).toHaveProperty("data.exploration");
+  expect(result).toHaveProperty("data.projection");
   const text = JSON.stringify(result);
   for (const token of [
     "$time",

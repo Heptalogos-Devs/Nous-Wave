@@ -85,9 +85,9 @@ message Preference { bool negative = 1; Cue cue = 2; string key = 3; }
 message QueryExpr { string operation = 1; repeated Cue cues = 2; repeated QueryExpr children = 3; QueryModifiers modifiers = 4; }
 message QueryCapabilities { string text_embedding = 1; string multimodal_interpretation = 2; string residual_sensing = 3; string rerank = 4; string query_concept_enrichment = 5; }
 message QuerySituation { optional string consumer = 1; repeated CognitiveRef current_refs = 2; repeated string current_objects = 3; map<string,string> object_descriptions = 4; }
-message QueryRequest { string subject_id = 1; optional string session_id = 2; QueryExpr expression = 3; optional string nousql = 4; optional string work_context_id = 5; QuerySituation situation = 6; bool text_only_compatibility = 7; QueryCapabilities capabilities = 8; }
+message QueryRequest { string subject_id = 1; optional string session_id = 2; QueryExpr expression = 3; optional string nousql = 4; optional string work_context_id = 5; QuerySituation situation = 6; reserved 7; QueryCapabilities capabilities = 8; }
 message PreparedQueryResponse { string bound_query = 1; optional string preparation_token = 2; string embedding_text = 3; bool embedding_required = 4; string text_embedding_requirement = 5; string rerank_requirement = 6; string concept_enrichment_mode = 7; string concept_enrichment_requirement = 8; bool historical_view = 9; }
-message Evidence { CognitiveRef reference = 1; string support_role = 2; }
+message Evidence { CognitiveRef reference = 1; string basis_role = 2; optional string epistemic_relation = 3; }
 message Hit {
   CognitiveRef reference = 1;
   CognitiveRef revision = 2;
@@ -118,11 +118,12 @@ message ReportUseResponse { uint32 accepted_count = 1; uint32 duplicate_count = 
 message EvidenceRef {
   string occurrence_id = 1;
   oneof locator { bool whole_occurrence = 2; string source_region_id = 3; string derived_representation_id = 4; string derived_region_id = 5; }
-  string support_role = 6;
+  string basis_role = 6;
+  optional string epistemic_relation = 7;
 }
-message CognitionDependency { CognitiveRef target_revision = 1; string support_role = 2; }
-message SeedSupportRef { CognitiveRef seed_version = 1; string semantic_path = 2; }
-message RevisionSupport { oneof support { EvidenceRef evidence = 1; CognitionDependency cognition_dependency = 2; SeedSupportRef seed = 3; } }
+message CognitionDependency { CognitiveRef target_revision = 1; string basis_role = 2; optional string epistemic_relation = 3; }
+message SeedBasisRef { CognitiveRef seed_version = 1; string semantic_path = 2; }
+message RevisionBasis { oneof basis { EvidenceRef evidence = 1; CognitionDependency cognition_dependency = 2; SeedBasisRef seed = 3; } }
 message MemoryContent {
   ProducerSignature producer = 13;
   string cognitive_role = 1;
@@ -131,7 +132,7 @@ message MemoryContent {
   string semantic_role = 4;
   string text = 5;
   optional string title = 6;
-  repeated RevisionSupport supports = 7;
+  repeated RevisionBasis basis = 7;
   repeated string aboutness = 8;
   repeated string tags = 9;
   TemporalExtent valid_time = 10;
@@ -153,7 +154,7 @@ message Memory {
   string semantic_role = 12;
   string text = 13;
   optional string title = 14;
-  repeated RevisionSupport supports = 15;
+  repeated RevisionBasis basis = 15;
   repeated string aboutness = 16;
   repeated string tags = 17;
   google.protobuf.Timestamp created_at = 18;
@@ -179,7 +180,7 @@ message MemoryHistoryRequest { string subject_id = 1; string memory_id = 2; Page
 
 message Artifact { string artifact_id = 1; string subject_id = 2; string content_hash = 3; uint64 byte_length = 4; string media_type = 5; google.protobuf.Timestamp created_at = 6; google.protobuf.Struct metadata = 7; }
 message MaterialLimits { uint64 max_upload_bytes = 1; }
-message ProducerSignature { string signature_hash = 1; string provider_class = 2; string operation = 3; string implementation = 4; optional string model_identity = 5; optional string model_revision = 6; string preprocessing_identity = 7; string preprocessing_revision = 8; string config_digest = 9; optional string output_schema_digest = 10; }
+message ProducerSignature { string signature_hash = 1; string provider_class = 2; string operation = 3; string implementation = 4; optional string model_identity = 5; optional string model_revision = 6; string preprocessing_identity = 7; string preprocessing_revision = 8; string config_digest = 9; optional string output_schema_digest = 10; optional string model_role = 11; optional string model_profile = 12; optional string execution_profile = 13; optional string inference_controls_digest = 14; optional string role_policy_digest = 15; optional string prompt_id = 16; optional string prompt_digest = 17; }
 message DerivationInput { uint32 ordinal = 1; CognitiveRef reference = 2; string role = 3; }
 message RepresentationListRequest { string subject_id = 1; optional string source_region_id = 2; optional string artifact_id = 3; optional string kind = 4; uint32 limit = 5; }
 message ListArtifactsResponse { repeated Artifact items = 1; string next_page_token = 2; }
@@ -199,7 +200,10 @@ message WorkContext {
   google.protobuf.Timestamp created_at = 10;
   google.protobuf.Timestamp updated_at = 11;
   google.protobuf.Timestamp ended_at = 12;
-  repeated CognitiveRef references = 13;
+  repeated CognitiveRef cognition_anchors = 13;
+  string context_text = 14;
+  repeated string entity_anchors = 15;
+  repeated string tag_anchors = 16;
 }
 message CreateWorkContextRequest {
   string operation_id = 1;
@@ -209,7 +213,10 @@ message CreateWorkContextRequest {
   google.protobuf.Struct constraints = 5;
   repeated string resume_conditions = 6;
   google.protobuf.Struct budget_summary = 7;
-  repeated CognitiveRef references = 8;
+  repeated CognitiveRef cognition_anchors = 8;
+  string context_text = 9;
+  repeated string entity_anchors = 10;
+  repeated string tag_anchors = 11;
 }
 message GetWorkContextRequest { string subject_id = 1; string work_context_id = 2; }
 message ListWorkContextsRequest { string subject_id = 1; Page page = 2; }
@@ -225,7 +232,10 @@ message UpdateWorkContextRequest {
   google.protobuf.Struct constraints = 7;
   repeated string resume_conditions = 8;
   google.protobuf.Struct budget_summary = 9;
-  repeated CognitiveRef references = 10;
+  repeated CognitiveRef cognition_anchors = 10;
+  string context_text = 11;
+  repeated string entity_anchors = 12;
+  repeated string tag_anchors = 13;
 }
 message WorkContextMutationRequest {
   string operation_id = 1;
@@ -262,7 +272,7 @@ message EpisodeRevision {
   google.protobuf.Timestamp recorded_at = 12;
   optional string producer_signature_id = 13;
   repeated EpisodeMember members = 14;
-  repeated RevisionSupport supports = 15;
+  repeated RevisionBasis basis = 15;
 }
 message Episode {
   string episode_id = 1;
@@ -287,7 +297,7 @@ message CreateEpisodeRequest {
   string boundary_explanation = 7;
   optional string producer_signature_id = 9;
   repeated EpisodeMember members = 10;
-  repeated RevisionSupport supports = 11;
+  repeated RevisionBasis basis = 11;
 }
 message ReviseEpisodeRequest {
   string operation_id = 1;
@@ -301,7 +311,7 @@ message ReviseEpisodeRequest {
   string boundary_explanation = 9;
   optional string producer_signature_id = 11;
   repeated EpisodeMember members = 12;
-  repeated RevisionSupport supports = 13;
+  repeated RevisionBasis basis = 13;
 }
 message LinkEpisodeRevisionsRequest { string operation_id = 1; string subject_id = 2; string from_revision_id = 3; string to_revision_id = 4; string relation = 5; }
 message EpisodeMutationRequest { string operation_id = 1; string subject_id = 2; string episode_id = 3; int64 expected_object_epoch = 4; }

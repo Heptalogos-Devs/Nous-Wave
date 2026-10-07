@@ -6,6 +6,7 @@ import { create } from "@bufbuild/protobuf";
 import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 import {
   CognitiveRefSchema,
+  CueSchema,
   CognitiveSeedSchema,
   CreateEpisodeRequestSchema,
   CreateSubjectRequestSchema,
@@ -19,7 +20,7 @@ import {
   ObservationInputSchema,
   QueryExprSchema,
   QueryRequestSchema,
-  RevisionSupportSchema,
+  RevisionBasisSchema,
   SetActiveWorkContextRequestSchema,
   SubjectCapabilitiesSchema,
   SubjectRequestSchema,
@@ -36,22 +37,29 @@ const instant = create(TimestampSchema, {
   nanos: 0,
 });
 
-function emptyQuery(sessionId: string) {
+function contextQuery(sessionId: string) {
   return create(QueryRequestSchema, {
     subjectId,
     sessionId,
-    expression: create(QueryExprSchema, { operation: "atom" }),
+    expression: create(QueryExprSchema, {
+      operation: "atom",
+      cues: [
+        create(CueSchema, {
+          cue: { case: "text", value: "runtime continuity" },
+        }),
+      ],
+    }),
   });
 }
 
 function evidence(occurrenceId: string) {
-  return create(RevisionSupportSchema, {
-    support: {
+  return create(RevisionBasisSchema, {
+    basis: {
       case: "evidence",
       value: create(EvidenceRefSchema, {
         occurrenceId,
         locator: { case: "wholeOccurrence", value: true },
-        supportRole: "direct",
+        basisRole: "direct",
       }),
     },
   });
@@ -105,7 +113,7 @@ async function main() {
           groundingOccurrenceId: observed.occurrenceId,
           semanticRole: "fact",
           text: "runtime continuity",
-          supports: [evidence(observed.occurrenceId)],
+          basis: [evidence(observed.occurrenceId)],
           validTime: create(TemporalExtentSchema, {}),
 
           epistemicClass: "observed",
@@ -117,7 +125,7 @@ async function main() {
         operationId: "00000000-0000-0000-0000-000000009905",
         subjectId,
         purpose: "continue the runtime task",
-        references: [
+        cognitionAnchors: [
           create(CognitiveRefSchema, {
             kind: "memory_revision",
             value: memory.revisionId,
@@ -141,7 +149,7 @@ async function main() {
     if (foreground.runtimeRevision !== foregroundReplay.runtimeRevision)
       throw new Error("foreground replay changed Runtime revision");
     const activeQuery = await client.cognition.query(
-      emptyQuery(sessionA.sessionId),
+      contextQuery(sessionA.sessionId),
     );
     if (
       !activeQuery.hits.some((hit) => hit.revision?.value === memory.revisionId)
@@ -186,7 +194,7 @@ async function main() {
       }),
     );
     const continued = await current.client.cognition.query(
-      emptyQuery(sessionB.sessionId),
+      contextQuery(sessionB.sessionId),
     );
     if (
       !continued.hits.some((hit) => hit.revision?.value === memory.revisionId)
@@ -212,7 +220,7 @@ async function main() {
             role: "member",
           }),
         ],
-        supports: [evidence(observed.occurrenceId)],
+        basis: [evidence(observed.occurrenceId)],
       }),
     );
     const episodeValue = episode.episode;
@@ -238,7 +246,7 @@ async function main() {
           role: "member",
         }),
       ],
-      supports: [evidence(observed.occurrenceId)],
+      basis: [evidence(observed.occurrenceId)],
     });
     const history = await current.client.memory.listEpisodeRevisions({
       subjectId,
@@ -269,7 +277,7 @@ async function main() {
         workContextId: contextId,
         expectedRevision: context.workContext?.revision,
         purpose: "continue the runtime task with an Episode",
-        references: [
+        cognitionAnchors: [
           create(CognitiveRefSchema, {
             kind: "memory_revision",
             value: memory.revisionId,
@@ -282,7 +290,7 @@ async function main() {
       }),
     );
     const episodeRuntimeQuery = await current.client.cognition.query(
-      emptyQuery(sessionB.sessionId),
+      contextQuery(sessionB.sessionId),
     );
     if (
       !episodeRuntimeQuery.hits.some(
@@ -300,7 +308,7 @@ async function main() {
     if (restartedEpisode.episode?.currentRevisionId !== currentRevision)
       throw new Error("restart changed the current Episode revision");
     const restartedQuery = await current.client.cognition.query(
-      emptyQuery(sessionB.sessionId),
+      contextQuery(sessionB.sessionId),
     );
     if (
       !restartedQuery.hits.some(

@@ -279,12 +279,7 @@ impl CognitiveRuntimeService {
                 cache.insert(reference.clone(), canonical.clone());
                 canonical
             };
-            let family = match source.as_str() {
-                "active_work_context" => "runtime_work_context",
-                "caller_situation" => "runtime_situation",
-                other => other,
-            };
-            resolved.push((canonical, family.to_owned()));
+            resolved.push((canonical, source.clone()));
         }
         let mut refs = cache.into_values().collect::<Vec<_>>();
         refs.sort_by_key(ToString::to_string);
@@ -374,19 +369,21 @@ impl CognitiveRuntimeService {
             self.require_session(query.subject, session).await?;
         }
 
-        let (mut work_context, mut representation_sources) = self.query_context(&mut query).await?;
-        let context_degradation = super::historical_context::fence(
-            &mut query,
-            &mut work_context,
-            &mut representation_sources,
-            view,
-        );
+        let context_snapshot = self.prepare_query_context(&mut query, view).await?;
+        let mut representation_sources = context_snapshot.source_refs.clone();
+        let context_degradation = context_snapshot.history_exclusions.clone();
         let (exact_bindings, mut allowed_revision_refs) =
             self.bind_exact_targets(&query, view).await?;
         let (runtime_refs, runtime_sources) = self
             .bind_runtime_sources(query.subject, &representation_sources, view)
             .await?;
-        let topology_seed_refs = self.bind_structural_query_refs(&query, view).await?;
+        let mut topology_seed_refs = self.bind_structural_query_refs(&query, view).await?;
+        topology_seed_refs.extend(
+            runtime_sources
+                .iter()
+                .filter(|(_, s)| s == "work_context")
+                .cloned(),
+        );
 
         if let Some(view) = view {
             allowed_revision_refs.extend(
@@ -402,13 +399,13 @@ impl CognitiveRuntimeService {
                 allowed_revision_refs,
             }
         };
-        let concept_enrichment = if query.text_only_compatibility {
-            super::ConceptEnrichment::Off
-        } else {
-            config_snapshot.get(super::CONCEPT_ENRICHMENT)?
-        };
+        let concept_enrichment = config_snapshot.get(super::CONCEPT_ENRICHMENT)?;
         let mut enabled_lanes = planned_profile_lanes(&query, retrieval_policy.cognitive_profile);
-        if concept_enrichment != super::ConceptEnrichment::Off {
+        if concept_enrichment != super::ConceptEnrichment::Off
+            || runtime_refs
+                .iter()
+                .any(|reference| matches!(reference, CognitiveRef::Tag(_)))
+        {
             enabled_lanes.push(EvidenceFamily::TagDirect);
             enabled_lanes.sort();
             enabled_lanes.dedup();
@@ -433,7 +430,7 @@ impl CognitiveRuntimeService {
         let representation = self
             .resolve_query_representation(
                 &query,
-                work_context,
+                context_snapshot.work_context.clone(),
                 representation_sources,
                 &config_snapshot,
                 view,
@@ -448,6 +445,7 @@ impl CognitiveRuntimeService {
         );
         activation.degradation.extend(context_degradation);
         Ok(BoundQuery {
+            context_snapshot: std::sync::Arc::new(context_snapshot),
             historical_authority,
             activation_view: None,
             activation,
@@ -487,7 +485,12 @@ impl BoundQuery {
             .query_override(super::COGNITIVE_PROFILE, profile)?;
         bound.retrieval_policy = resolve_retrieval_policy(&bound.config_snapshot)?;
         bound.enabled_lanes = planned_profile_lanes(&bound.source_query, profile);
-        if bound.concept_enrichment != super::ConceptEnrichment::Off {
+        if bound.concept_enrichment != super::ConceptEnrichment::Off
+            || bound
+                .runtime_refs
+                .iter()
+                .any(|reference| matches!(reference, CognitiveRef::Tag(_)))
+        {
             bound.enabled_lanes.push(EvidenceFamily::TagDirect);
             bound.enabled_lanes.sort();
             bound.enabled_lanes.dedup();

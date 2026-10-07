@@ -19,7 +19,7 @@ import {
   QueryExprSchema,
   QueryRequestSchema,
   ReportUseRequestSchema,
-  RevisionSupportSchema,
+  RevisionBasisSchema,
   SubjectCapabilitiesSchema,
   SubjectRequestSchema,
   TemporalExtentSchema,
@@ -48,7 +48,11 @@ function queryExpression(text?: string) {
             cue: { case: "text", value: text },
           }),
         ]
-      : [],
+      : [
+          create(CueSchema, {
+            cue: { case: "text", value: "Recall current cognition" },
+          }),
+        ],
   });
 }
 
@@ -133,14 +137,14 @@ async function main() {
           groundingOccurrenceId: observed.occurrenceId,
           semanticRole: "fact",
           text: "Alice is present",
-          supports: [
-            create(RevisionSupportSchema, {
-              support: {
+          basis: [
+            create(RevisionBasisSchema, {
+              basis: {
                 case: "evidence",
                 value: create(EvidenceRefSchema, {
                   occurrenceId: observed.occurrenceId,
                   locator: { case: "wholeOccurrence", value: true },
-                  supportRole: "direct",
+                  basisRole: "direct",
                 }),
               },
             }),
@@ -154,10 +158,10 @@ async function main() {
     if (!formed.memoryId || !formed.revisionId)
       throw new Error("Memory identity missing");
     if (
-      !formed.supports.some(
-        (support) =>
-          support.support.case === "evidence" &&
-          support.support.value.occurrenceId === observed.occurrenceId,
+      !formed.basis.some(
+        (basis) =>
+          basis.basis.case === "evidence" &&
+          basis.basis.value.occurrenceId === observed.occurrenceId,
       )
     )
       throw new Error("Memory provenance does not trace to Observation");

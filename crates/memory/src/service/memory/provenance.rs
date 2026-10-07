@@ -4,17 +4,17 @@
 use super::*;
 
 impl MemoryService {
-    pub(in crate::service) async fn validate_supports_for_subject(
+    pub(in crate::service) async fn validate_basis_for_subject(
         &self,
         subject: SubjectId,
-        supports: &[RevisionSupport],
+        basis: &[RevisionBasis],
     ) -> Result<()> {
-        for support in supports {
-            match support {
-                RevisionSupport::Evidence(evidence) => {
+        for basis in basis {
+            match basis {
+                RevisionBasis::Evidence(evidence) => {
                     self.validate_evidence(subject, evidence).await?
                 }
-                RevisionSupport::CognitionDependency(dependency) => {
+                RevisionBasis::CognitionDependency(dependency) => {
                     if !matches!(
                         dependency.target_revision,
                         CognitiveRef::MemoryRevision(_)
@@ -30,7 +30,7 @@ impl MemoryService {
                         .validate_reference(subject, &dependency.target_revision)
                         .await?;
                 }
-                RevisionSupport::Seed(_) => {
+                RevisionBasis::Seed(_) => {
                     return Err(Error::Invalid(
                         "Memory revisions cannot use Cognitive Seed support".into(),
                     ));
@@ -41,7 +41,7 @@ impl MemoryService {
         // mutation starts.  This is also the deterministic cycle check; a
         // model or caller cannot bypass it by presenting a syntactically
         // valid direct edge.
-        self.provenance_summary(subject, supports).await?;
+        self.provenance_summary(subject, basis).await?;
         Ok(())
     }
 

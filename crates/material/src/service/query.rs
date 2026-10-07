@@ -157,8 +157,9 @@ fn material_hit(
         entity_refs: Vec::new(),
         evidence: if query.result_need.need_evidence {
             vec![EvidenceHandle {
+                epistemic_relation: None,
                 reference: reference.clone(),
-                support_role: "source".into(),
+                basis_role: "source".into(),
             }]
         } else {
             Vec::new()

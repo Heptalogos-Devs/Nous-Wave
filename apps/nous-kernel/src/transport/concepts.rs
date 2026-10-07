@@ -3,7 +3,7 @@
 
 use super::*;
 use nous_core::{OperationId, Result, SubjectId};
-use nous_memory::{AssociationSupport, UseEventRef};
+use nous_memory::{AssociationBasis, UseEventRef};
 use nous_memory::{CreateAssociationRequest, CreateTagRequest};
 use nous_persistence::database_error as db;
 use sqlx::Row;
@@ -67,10 +67,10 @@ impl KernelService {
                         .into_iter()
                         .map(tag_target)
                         .collect::<Result<Vec<_>>>()?,
-                    supports: input
-                        .supports
+                    basis: input
+                        .basis
                         .into_iter()
-                        .map(super::support)
+                        .map(super::basis)
                         .collect::<Result<Vec<_>>>()?,
                 },
             )
@@ -91,10 +91,10 @@ impl KernelService {
                     operation_id: OperationId(id(&input.operation_id)?),
                     parent: tag_target(required(input.parent, "parent")?)?,
                     children: input.children.into_iter().map(tag_content).collect(),
-                    supports: input
-                        .supports
+                    basis: input
+                        .basis
                         .into_iter()
-                        .map(super::support)
+                        .map(super::basis)
                         .collect::<Result<Vec<_>>>()?,
                 },
             )
@@ -184,11 +184,11 @@ impl KernelService {
         let association = required(input.association, "association")?;
         let from = from_ref(required(association.from, "association.from")?)?;
         let to = from_ref(required(association.to, "association.to")?)?;
-        let supports = association
-            .supports
+        let basis = association
+            .basis
             .into_iter()
-            .map(association_support)
-            .collect::<Result<Vec<AssociationSupport>>>()?;
+            .map(association_basis)
+            .collect::<Result<Vec<AssociationBasis>>>()?;
         let result = self
             .require_memory()?
             .create_association(
@@ -199,8 +199,8 @@ impl KernelService {
                     to: to.clone(),
                     relation_kind: association.relation_kind.clone(),
                     polarity: enum_value(&association.polarity)?,
-                    support_class: enum_value(&association.support_class)?,
-                    supports,
+                    basis_class: enum_value(&association.basis_class)?,
+                    basis,
                     producer_signature_id: association
                         .producer_signature_id
                         .as_deref()
@@ -217,11 +217,11 @@ impl KernelService {
             to: Some(to_ref(result.to)),
             relation_kind: result.relation_kind,
             polarity: enum_name(result.polarity),
-            support_class: enum_name(result.support_class),
-            supports: result
-                .supports
+            basis_class: enum_name(result.basis_class),
+            basis: result
+                .basis
                 .into_iter()
-                .map(association_support_proto)
+                .map(association_basis_proto)
                 .collect(),
             producer_signature_id: result.producer_signature_id.map(|value| value.to_string()),
         })
@@ -271,12 +271,8 @@ impl KernelService {
                     to: Some(to_ref(a.to)),
                     relation_kind: a.relation_kind,
                     polarity: enum_name(a.polarity),
-                    support_class: enum_name(a.support_class),
-                    supports: a
-                        .supports
-                        .into_iter()
-                        .map(association_support_proto)
-                        .collect(),
+                    basis_class: enum_name(a.basis_class),
+                    basis: a.basis.into_iter().map(association_basis_proto).collect(),
                     producer_signature_id: a.producer_signature_id.map(|id| id.to_string()),
                 })
                 .collect(),
@@ -285,16 +281,16 @@ impl KernelService {
     }
 }
 
-fn association_support(value: p::AssociationSupport) -> Result<AssociationSupport> {
+fn association_basis(value: p::AssociationBasis) -> Result<AssociationBasis> {
     match value
-        .support
+        .basis
         .ok_or_else(|| Error::Invalid("empty association support".into()))?
     {
-        p::association_support::Support::Revision(value) => {
-            Ok(AssociationSupport::Revision(super::support(value)?))
+        p::association_basis::Basis::Revision(value) => {
+            Ok(AssociationBasis::Revision(super::basis(value)?))
         }
-        p::association_support::Support::UseEvent(value) => {
-            Ok(AssociationSupport::UseEvent(UseEventRef {
+        p::association_basis::Basis::UseEvent(value) => {
+            Ok(AssociationBasis::UseEvent(UseEventRef {
                 subject_id: SubjectId(id(&value.subject_id)?),
                 consumer_ref: value.consumer_ref,
                 event_id: nous_core::UseEventId(id(&value.event_id)?),
@@ -303,22 +299,20 @@ fn association_support(value: p::AssociationSupport) -> Result<AssociationSuppor
     }
 }
 
-pub(super) fn association_support_proto(value: AssociationSupport) -> p::AssociationSupport {
-    let support = match value {
-        AssociationSupport::Revision(value) => {
-            p::association_support::Support::Revision(super::support_proto(value))
+pub(super) fn association_basis_proto(value: AssociationBasis) -> p::AssociationBasis {
+    let basis = match value {
+        AssociationBasis::Revision(value) => {
+            p::association_basis::Basis::Revision(super::basis_proto(value))
         }
-        AssociationSupport::UseEvent(value) => {
-            p::association_support::Support::UseEvent(p::UseEventRef {
+        AssociationBasis::UseEvent(value) => {
+            p::association_basis::Basis::UseEvent(p::UseEventRef {
                 subject_id: value.subject_id.0.to_string(),
                 consumer_ref: value.consumer_ref,
                 event_id: value.event_id.0.to_string(),
             })
         }
     };
-    p::AssociationSupport {
-        support: Some(support),
-    }
+    p::AssociationBasis { basis: Some(basis) }
 }
 
 fn tag_row(row: sqlx::postgres::PgRow) -> Result<p::Tag> {

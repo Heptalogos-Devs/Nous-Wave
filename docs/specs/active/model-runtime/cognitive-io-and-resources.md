@@ -8,13 +8,13 @@ Core owns model and Resource host calls; Material owns Artifact/Observation/Deri
 
 Core 的 `model/schemas/material-interpretation.ts` 是唯一 model-facing Zod owner，供 inferred type、local parse、AI SDK Output.object、raw strict JSON Schema 使用。根与嵌套对象 strict、字段 required、可缺省 scalar 为 null；资源数量/byte/time/support/modality 约束在 Material validator 校验。Schema 定义 JSON 结构，Prompt 描述忠实度与任务。
 
-输出包含带 supports 的 summary、coverage(visual/audio/embedded_text/source_text)、observations、mentions、embedded_text、source_text、speech、interpretations、uncertainties。Observation 的 basis 为 direct/inferred，certainty 为 clear/uncertain，两个轴分别表示推导依据和认识确定性；evidence_channel 为 visual/audio/source_text，独立于 observation kind。转写直接陈述的 state/action 使用 audio evidence，不声称观察到视觉事件。source_text 表示原始 text-like source；embedded_text 只表示视觉媒体中的可见文字，description/transcript 的文本传输不会制造原始 text source modality。direct 与 two-stage 使用同一 schema。direct 项必须有 support；audio-only 不产生 visual direct observation；image-only 不制造 speech；未知 support key 失败。未完成/refusal/非法输出不能 commit。
+输出包含带 basis_refs 的 summary、coverage(visual/audio/embedded_text/source_text)、observations、mentions、embedded_text、source_text、speech、interpretations、uncertainties。Observation 的 basis 为 direct/inferred，certainty 为 clear/uncertain，两个轴分别表示推导依据和认识确定性；evidence_channel 为 visual/audio/source_text，独立于 observation kind。转写直接陈述的 state/action 使用 audio evidence，不声称观察到视觉事件。source_text 表示原始 text-like source；embedded_text 只表示视觉媒体中的可见文字，description/transcript 的文本传输不会制造原始 text source modality。direct 与 two-stage 使用同一 schema。direct 项必须有 support；audio-only 不产生 visual direct observation；image-only 不制造 speech；未知 support key 失败。未完成/refusal/非法输出不能 commit。
 
 规范 provider schema 的 digest 进入 ProducerSignature 和 derivation workflow identity。DerivedRepresentation 保存 structured payload 与 deterministic text projection；text projection 保留 uncertainty/basis，算法 identity 进入 preprocessing digest。payload_text、payload_json、payload_artifact 至少包含一项。
 
 Text structuring envelope 的 evidence_kind 为 original_text 或 committed_representation；evidence_text 是该 invocation 实际可用正文。第二阶段仅访问已提交文本和其 segment catalog，不能由文本传输推断新的 source modality。
 
-description_only 提交自由描述。direct_structured 给模型 invocation-local source catalog。describe_then_structure 第一阶段成功立即提交；Material 对已提交文本做 deterministic UTF-8 byte segmentation，保存 description_segment DerivedRegion(ordinal/start/end/digest)，将 D001 等 keys 提交第二模型。模型只输出 keys；本地映射成稳定引用后保存字段 supports。第二阶段失败保留 description、selected 指向 description、显式 degradation。graph 回到原始 Artifact，shared roots 去重，unknown dependency 不成为独立证据。
+description_only 提交自由描述。direct_structured 给模型 invocation-local source catalog。describe_then_structure 第一阶段成功立即提交；Material 对已提交文本做 deterministic UTF-8 byte segmentation，保存 description_segment DerivedRegion(ordinal/start/end/digest)，将 D001 等 keys 提交第二模型。模型只输出 keys；本地映射成稳定引用后保存字段 basis_refs。第二阶段失败保留 description、selected 指向 description、显式 degradation。graph 回到原始 Artifact，shared roots 去重，unknown dependency 不成为独立证据。
 
 ## Resource 与续接
 

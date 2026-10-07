@@ -61,6 +61,7 @@ it("prepares before embedding and sends one complete representation for an expre
     "Intent:\nALL OF: Alice's release; Nous Wave tasks\n\nCurrent work:\nRelease stabilization";
   const embedding = vi.fn(async (texts: string[]) => ({
     value: texts.map(() => [1, 0]),
+    producer: { signature_hash: "producer" },
   }));
   const execute = vi.fn(async () => ({
     response: create(QueryResponseSchema, {
@@ -82,6 +83,7 @@ it("prepares before embedding and sends one complete representation for an expre
       getEmbeddingConfig: async () => ({
         spaceHash: "space",
         producerHash: "producer",
+        producerHashes: ["producer"],
         model: "fake",
       }),
     },
@@ -285,7 +287,12 @@ it.each(["optional", "required"])(
 
 it("discovers and commits historical document embeddings against the reserved query view", async () => {
   const listEmbeddingNeeds = vi.fn(async () => ({
-    config: { spaceHash: "space", producerHash: "producer", model: "fake" },
+    config: {
+      spaceHash: "space",
+      producerHash: "producer",
+      producerHashes: ["producer"],
+      model: "fake",
+    },
     needs: [
       {
         reference: { kind: "tag", value: "old" },
@@ -297,6 +304,7 @@ it("discovers and commits historical document embeddings against the reserved qu
   const commitEmbedding = vi.fn(async () => ({}));
   const embeddingBatch = vi.fn(async (texts: string[]) => ({
     value: texts.map(() => [1, 0]),
+    producer: { signature_hash: "producer" },
   }));
   const kernel = {
     execution: coreExecutionSchema.parse(undefined),
@@ -306,6 +314,7 @@ it("discovers and commits historical document embeddings against the reserved qu
       getEmbeddingConfig: async () => ({
         spaceHash: "space",
         producerHash: "producer",
+        producerHashes: ["producer"],
         model: "fake",
       }),
     },

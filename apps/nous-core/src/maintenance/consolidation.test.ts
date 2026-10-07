@@ -24,16 +24,16 @@ const plan = create(MaintenancePlanSchema, {
     expectedEpoch: 2n,
   },
   members: [{ key: "member", occurrenceId: occurrence }],
-  supports: [
+  basis: [
     {
       key: "source",
-      support: {
-        support: {
+      basis: {
+        basis: {
           case: "evidence",
           value: {
             occurrenceId: occurrence,
             locator: { case: "wholeOccurrence", value: true },
-            supportRole: "direct",
+            basisRole: "direct",
           },
         },
       },
@@ -44,7 +44,7 @@ const plan = create(MaintenancePlanSchema, {
       key: "target",
       cognitiveRole: "declarative",
       formationMode: "grounded",
-      eligibleSupportKeys: ["source"],
+      eligibleBasisKeys: ["source"],
       target: {
         reference: { kind: "memory_revision", value: revision },
         objectId: "memory-owner-id",
@@ -60,7 +60,7 @@ const content = {
   semanticRole: "statement",
   text: "A useful supported fact.",
   title: null,
-  supportKeys: ["source"],
+  basisKeys: ["source"],
   entityKeys: [],
   validTime: { kind: "unknown" },
   epistemicClass: "derived",
@@ -73,7 +73,7 @@ const schemaContent = {
   formationKind: "explicit_import",
   entityKeys: [],
   validTime: { kind: "unknown" },
-  evidence: [{ role: "support", supportKey: "source" }],
+  evidence: [{ role: "support", basisKey: "source" }],
 };
 function fixture() {
   const form = vi.fn(
@@ -151,7 +151,7 @@ it("preserves earlier commits, skips failed dependencies and continues independe
       { action: "create_memory", content },
       {
         action: "create_memory",
-        content: { ...content, supportKeys: ["invented"] },
+        content: { ...content, basisKeys: ["invented"] },
       },
       {
         action: "link_relation",

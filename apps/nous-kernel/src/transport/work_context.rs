@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
-use nous_core::{OperationId, Result, SessionId, SubjectId};
+use nous_core::{EntityRef, OperationId, Result, SessionId, SubjectId, TagId};
 use nous_runtime::{CreateWorkContextInput, UpdateWorkContextInput};
 
 fn view(value: nous_runtime::WorkContextView) -> p::WorkContext {
@@ -22,7 +22,18 @@ fn view(value: nous_runtime::WorkContextView) -> p::WorkContext {
         created_at: Some(timestamp(value.created_at)),
         updated_at: Some(timestamp(value.updated_at)),
         ended_at: value.ended_at.map(timestamp),
-        references: value.references.into_iter().map(to_ref).collect(),
+        cognition_anchors: value.cognition_anchors.into_iter().map(to_ref).collect(),
+        context_text: value.context_text,
+        entity_anchors: value
+            .entity_anchors
+            .into_iter()
+            .map(|v| v.as_str().to_owned())
+            .collect(),
+        tag_anchors: value
+            .tag_anchors
+            .into_iter()
+            .map(|v| v.0.to_string())
+            .collect(),
     }
 }
 
@@ -43,8 +54,19 @@ impl KernelService {
                 constraints: object(input.constraints),
                 resume_conditions: input.resume_conditions,
                 budget_summary: object(input.budget_summary),
-                references: input
-                    .references
+                context_text: input.context_text,
+                entity_anchors: input
+                    .entity_anchors
+                    .into_iter()
+                    .map(EntityRef::new)
+                    .collect::<Result<_>>()?,
+                tag_anchors: input
+                    .tag_anchors
+                    .into_iter()
+                    .map(|v| Ok(TagId(id(&v)?)))
+                    .collect::<Result<_>>()?,
+                cognition_anchors: input
+                    .cognition_anchors
                     .into_iter()
                     .map(from_ref)
                     .collect::<Result<_>>()?,
@@ -104,8 +126,19 @@ impl KernelService {
                 constraints: object(input.constraints),
                 resume_conditions: input.resume_conditions,
                 budget_summary: object(input.budget_summary),
-                references: input
-                    .references
+                context_text: input.context_text,
+                entity_anchors: input
+                    .entity_anchors
+                    .into_iter()
+                    .map(EntityRef::new)
+                    .collect::<Result<_>>()?,
+                tag_anchors: input
+                    .tag_anchors
+                    .into_iter()
+                    .map(|v| Ok(TagId(id(&v)?)))
+                    .collect::<Result<_>>()?,
+                cognition_anchors: input
+                    .cognition_anchors
                     .into_iter()
                     .map(from_ref)
                     .collect::<Result<_>>()?,

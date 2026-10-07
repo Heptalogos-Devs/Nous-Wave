@@ -8,6 +8,7 @@ pub struct ConceptRecord {
     pub revision: uuid::Uuid,
     pub semantic: TagSemanticRepresentation,
     pub vector: Option<Vec<f32>>,
+    pub vector_producer: Option<ProducerSignature>,
     pub attachments: Vec<CognitiveRef>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +41,9 @@ impl ConceptGeneration {
             ));
         }
         for record in &self.records {
+            if record.vector.is_some() != record.vector_producer.is_some() {
+                return Err(Error::Invalid("concept vector producer missing".into()));
+            }
             if record.semantic.version != TAG_REPRESENTATION_VERSION
                 || record.semantic.digest
                     != blake3::hash(
@@ -113,10 +117,10 @@ impl ServingService {
                 .find_map(|g| {
                     g.record(tag.tag)
                         .filter(|r| r.semantic.digest == tag.semantic.digest)
-                        .and_then(|r| r.vector.clone())
+                        .and_then(|r| Some((r.vector.clone()?, r.vector_producer.clone()?)))
                 });
-            let vector = if let Some(vector) = reused {
-                Some(vector)
+            let (vector, vector_producer) = if let Some((vector, producer)) = reused {
+                (Some(vector), Some(producer))
             } else if let Some(provider) = provider {
                 let output = provider
                     .embed(TextEmbeddingRequest {
@@ -126,21 +130,25 @@ impl ServingService {
                     })
                     .await?;
                 if !output.space.compatible_with(&provider.space())
-                    || output.producer.signature_hash != provider.producer().signature_hash
+                    || !provider
+                        .producers()
+                        .iter()
+                        .any(|producer| producer.signature_hash == output.producer.signature_hash)
                 {
                     return Err(Error::Conflict(
                         "concept embedding space/producer mismatch".into(),
                     ));
                 }
-                Some(output.vector)
+                (Some(output.vector), Some(output.producer))
             } else {
-                None
+                (None, None)
             };
             records.push(ConceptRecord {
                 tag: tag.tag,
                 revision: tag.revision,
                 semantic: tag.semantic,
                 vector,
+                vector_producer,
                 attachments: tag.attachments,
             });
         }

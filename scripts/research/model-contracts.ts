@@ -10,7 +10,7 @@ import {
 } from "../../apps/nous-core/src/config.js";
 import {
   roleNames,
-  resolveRoleBinding,
+  resolveExecutionProfile,
   type ModelRole,
 } from "../../apps/nous-core/src/model/configuration.js";
 import { PromptRegistry } from "../../apps/nous-core/src/model/prompts.js";
@@ -68,16 +68,20 @@ if (rel === ".." || rel.startsWith(`..${sep}`) || rel.startsWith(sep))
 for (const role of values.role ? [values.role as ModelRole] : roleNames) {
   const contract = providerContractForRole(role);
   const configured = configuration?.roles[role];
-  const profile = configured
-    ? configuration?.model_profiles[configured.model]
+  const executionName = configured?.routes[0];
+  const execution = executionName
+    ? configuration?.execution_profiles[executionName]
+    : undefined;
+  const profile = execution
+    ? configuration?.model_profiles[execution.model]
     : undefined;
   const gateway = profile
     ? configuration?.gateway_profiles[profile.gateway]
     : undefined;
-  const binding = configured
-    ? resolveRoleBinding(configured, profile?.protocol ?? "")
+  const binding = execution
+    ? resolveExecutionProfile(execution, profile?.protocol ?? "")
     : undefined;
-  const basePrompt = await prompts.load(role, binding?.prompt);
+  const basePrompt = await prompts.load(role, configured?.prompt);
   const prompt = values["prompt-path"]
     ? await prompts.load(role, values["prompt-path"])
     : basePrompt;
@@ -100,7 +104,7 @@ for (const role of values.role ? [values.role as ModelRole] : roleNames) {
     prompt_digest: prompt?.digest ?? null,
     ...(profile
       ? {
-          model_profile: configured!.model,
+          model_profile: execution!.model,
           model: profile.model,
           protocol: profile.protocol,
           model_revision: profile.model_revision ?? null,

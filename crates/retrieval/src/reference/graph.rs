@@ -202,8 +202,8 @@ pub fn reference_graph_from_facts(
     let anchors = anchor_gain.iter().copied().collect::<BTreeMap<_, _>>();
     let mut rows = BTreeMap::<i64, Vec<(i64, f64, bool)>>::new();
     let mut inflow = BTreeMap::<i64, f64>::new();
-    for ((from, to), support) in &fact {
-        let evidence = (1.0 + support.max(0.0) * config.evidence_compression.max(0.01)).ln();
+    for ((from, to), basis) in &fact {
+        let evidence = (1.0 + basis.max(0.0) * config.evidence_compression.max(0.01)).ln();
         let wormhole =
             evidence * anchors.get(to).copied().unwrap_or(1.0) >= config.tension_threshold.max(0.0);
         let weight = evidence

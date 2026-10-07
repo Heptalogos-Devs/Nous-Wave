@@ -41,7 +41,7 @@ pub struct MergeTagsInput {
     pub operation_id: OperationId,
     pub survivor: TagExpectation,
     pub retired: Vec<TagExpectation>,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SplitTagInput {
@@ -49,7 +49,7 @@ pub struct SplitTagInput {
     pub operation_id: OperationId,
     pub parent: TagExpectation,
     pub children: Vec<TagContent>,
-    pub supports: Vec<RevisionSupport>,
+    pub basis: Vec<RevisionBasis>,
 }
 
 impl MemoryService {
@@ -308,7 +308,7 @@ impl MemoryService {
         if input.retired.iter().any(|tag| !ids.insert(tag.tag_id)) {
             return Err(Error::Invalid("duplicate merge Tag".into()));
         }
-        self.validate_tag_lineage_in(tx, subject, &input.supports)
+        self.validate_tag_lineage_in(tx, subject, &input.basis)
             .await?;
         self.expect_tag_in(tx, subject, &input.survivor).await?;
         for (index, tag) in input.retired.iter().enumerate() {
@@ -323,7 +323,7 @@ impl MemoryService {
                 input.survivor.tag_id,
                 index,
                 "merged_into",
-                &input.supports,
+                &input.basis,
             )
             .await?;
         }
@@ -348,7 +348,7 @@ impl MemoryService {
                 return Err(Error::Invalid("duplicate split concept".into()));
             }
         }
-        self.validate_tag_lineage_in(tx, subject, &input.supports)
+        self.validate_tag_lineage_in(tx, subject, &input.basis)
             .await?;
         self.expect_tag_in(tx, subject, &input.parent).await?;
         let mut result = Vec::new();
@@ -364,7 +364,7 @@ impl MemoryService {
                 child.tag_id,
                 index,
                 "split_into",
-                &input.supports,
+                &input.basis,
             )
             .await?;
             result.push(child);
@@ -375,25 +375,21 @@ impl MemoryService {
         &self,
         tx: &mut Transaction<'_, Postgres>,
         subject: SubjectId,
-        supports: &[RevisionSupport],
+        basis: &[RevisionBasis],
     ) -> Result<()> {
-        if !(1..=16).contains(&supports.len()) {
-            return Err(Error::Invalid(
-                "Tag lineage needs 1..16 exact supports".into(),
-            ));
+        if !(1..=16).contains(&basis.len()) {
+            return Err(Error::Invalid("Tag lineage needs 1..16 exact basis".into()));
         }
         let mut keys = HashSet::new();
-        for support in supports {
-            if matches!(support, RevisionSupport::Seed(_)) || !keys.insert(support.canonical_key())
-            {
+        for basis in basis {
+            if matches!(basis, RevisionBasis::Seed(_)) || !keys.insert(basis.canonical_key()) {
                 return Err(Error::Invalid(
                     "invalid or duplicate Tag lineage support".into(),
                 ));
             }
         }
-        self.validate_supports_for_subject(subject, supports)
-            .await?;
-        self.validate_supports_in_tx(tx, subject, supports).await?;
+        self.validate_basis_for_subject(subject, basis).await?;
+        self.validate_basis_in_tx(tx, subject, basis).await?;
         Ok(())
     }
     #[expect(
@@ -409,10 +405,10 @@ impl MemoryService {
         child: TagId,
         index: usize,
         relation: &str,
-        supports: &[RevisionSupport],
+        basis: &[RevisionBasis],
     ) -> Result<()> {
-        sqlx::query("INSERT INTO tag_lineage(lineage_id,subject_id,operation_id,parent_tag_id,child_tag_id,parent_revision_id,child_revision_id,child_index,relation,supports,created_at) SELECT $1,$2,$3,$4,$5,p.current_revision_id,c.current_revision_id,$6,$7,$8,$9 FROM tags p JOIN tags c ON c.subject_id=p.subject_id WHERE p.subject_id=$2 AND p.tag_id=$4 AND c.tag_id=$5")
-            .bind(Uuid::now_v7()).bind(subject.0).bind(operation.0).bind(parent.0).bind(child.0).bind(i32::try_from(index).map_err(|_| Error::Invalid("lineage index exceeded".into()))?).bind(relation).bind(serde_json::to_value(supports).map_err(|e| Error::Infrastructure(e.to_string()))?).bind(AuthorityStore::authority_time_in(tx).await?).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO tag_lineage(lineage_id,subject_id,operation_id,parent_tag_id,child_tag_id,parent_revision_id,child_revision_id,child_index,relation,basis,created_at) SELECT $1,$2,$3,$4,$5,p.current_revision_id,c.current_revision_id,$6,$7,$8,$9 FROM tags p JOIN tags c ON c.subject_id=p.subject_id WHERE p.subject_id=$2 AND p.tag_id=$4 AND c.tag_id=$5")
+            .bind(Uuid::now_v7()).bind(subject.0).bind(operation.0).bind(parent.0).bind(child.0).bind(i32::try_from(index).map_err(|_| Error::Invalid("lineage index exceeded".into()))?).bind(relation).bind(serde_json::to_value(basis).map_err(|e| Error::Infrastructure(e.to_string()))?).bind(AuthorityStore::authority_time_in(tx).await?).execute(&mut **tx).await.map_err(db)?;
         Ok(())
     }
     async fn sync_tag_identity_in(

@@ -3,6 +3,7 @@
 
 mod test_support;
 use nous_core::*;
+use nous_memory::CreateTagRequest;
 use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::*;
 
@@ -12,7 +13,7 @@ fn query(subject: SubjectId) -> CognitiveQuery {
         subject,
         projection: Default::default(),
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         work_context: None,
         session: None,
         situation: Default::default(),
@@ -88,6 +89,23 @@ async fn preparation_captures_work_context_exact_sources_and_frozen_policy_witho
         )
         .await
         .unwrap();
+    let pinned_tag = runtime
+        .require_memory()
+        .unwrap()
+        .create_tag(
+            subject,
+            CreateTagRequest {
+                operation_id: OperationId::new(),
+                label: "Release planning".into(),
+                description: Some("Subject release checkpoint".into()),
+                kind_hint: None,
+                origin: "host_explicit".into(),
+                producer: None,
+            },
+        )
+        .await
+        .unwrap()
+        .tag_id;
     let context = runtime
         .cognition
         .create_work_context(nous_runtime::CreateWorkContextInput {
@@ -98,7 +116,10 @@ async fn preparation_captures_work_context_exact_sources_and_frozen_policy_witho
             constraints: serde_json::json!({}),
             resume_conditions: vec![],
             budget_summary: serde_json::json!({}),
-            references: vec![reference.clone()],
+            context_text: "TASK CONTEXT ".repeat(150),
+            entity_anchors: vec![entity.clone()],
+            tag_anchors: vec![pinned_tag],
+            cognition_anchors: vec![reference.clone()],
         })
         .await
         .unwrap();
@@ -136,12 +157,47 @@ async fn preparation_captures_work_context_exact_sources_and_frozen_policy_witho
     assert!(!first.representation.text.contains("UNRELATED HISTORY"));
     assert!(!first.representation.text.contains("entity:alice-opaque"));
     assert!(first.runtime_refs.contains(&reference));
+    assert_eq!(
+        first
+            .context_snapshot
+            .work_context
+            .as_ref()
+            .unwrap()
+            .entity_anchors,
+        vec![EntityRef::new("entity:alice-opaque").unwrap()]
+    );
+    assert!(first.representation.text.matches("TASK CONTEXT").count() > 100);
+    for profile in nous_runtime::CognitiveProfile::ALL {
+        let selected = first.for_profile(profile).unwrap();
+        assert!(selected.enabled_lanes.contains(&EvidenceFamily::TagDirect));
+        assert!(
+            selected
+                .activation
+                .explicit_tags
+                .iter()
+                .any(|tag| tag.tag == pinned_tag
+                    && tag.source == nous_runtime::ActivationSource::WorkContext)
+        );
+        assert_eq!(
+            selected.context_snapshot.digest,
+            first.context_snapshot.digest
+        );
+        assert_eq!(selected.representation.sha256, first.representation.sha256);
+    }
+    assert_eq!(
+        first.context_snapshot.digest,
+        first
+            .for_profile(nous_runtime::CognitiveProfile::NousNodePotential)
+            .unwrap()
+            .context_snapshot
+            .digest
+    );
     assert!(
         first
             .representation
             .source_refs
             .iter()
-            .any(|(r, source)| r == &reference && source == "active_work_context")
+            .any(|(r, source)| r == &reference && source == "work_context")
     );
     assert!(
         runtime
@@ -219,10 +275,32 @@ async fn preparation_captures_work_context_exact_sources_and_frozen_policy_witho
             constraints: context.constraints,
             resume_conditions: context.resume_conditions,
             budget_summary: context.budget_summary,
-            references: context.references,
+            context_text: String::new(),
+            entity_anchors: vec![],
+            tag_anchors: vec![],
+            cognition_anchors: context.cognition_anchors,
         })
         .await
         .unwrap();
+    assert_eq!(
+        first
+            .context_snapshot
+            .work_context
+            .as_ref()
+            .unwrap()
+            .revision,
+        1
+    );
+    assert!(
+        first
+            .representation
+            .text
+            .contains(&"TASK CONTEXT ".repeat(100))
+    );
+    assert_eq!(
+        frozen.context_snapshot.digest,
+        first.context_snapshot.digest
+    );
     let changed = runtime.cognition.bind_query(request).await.unwrap();
     assert_ne!(changed.representation.sha256, first.representation.sha256);
     let mut runtime_query = query(subject);
@@ -258,8 +336,7 @@ async fn preparation_captures_work_context_exact_sources_and_frozen_policy_witho
         })
         .await
         .unwrap();
-    let frozen_results = runtime
-        .execute_bound_query(frozen_runtime, None)
+    let frozen_results = Box::pin(runtime.execute_bound_query(frozen_runtime, None))
         .await
         .unwrap()
         .result;
@@ -284,21 +361,11 @@ async fn preparation_captures_work_context_exact_sources_and_frozen_policy_witho
             .cognition
             .bind_query(raw.clone())
             .await
-            .unwrap_err()
-            .to_string()
-            .contains("UNRESOLVED_QUERY_REFERENCE")
-    );
-    raw.text_only_compatibility = true;
-    assert_eq!(
-        runtime
-            .cognition
-            .bind_query(raw.clone())
-            .await
             .unwrap()
             .representation
-            .text,
-        "What did I discuss yesterday?"
+            .text
+            .contains("What did I discuss yesterday?")
     );
     raw.session = Some(session.session_id);
-    assert!(runtime.cognition.bind_query(raw).await.is_err());
+    assert!(runtime.cognition.bind_query(raw).await.is_ok());
 }

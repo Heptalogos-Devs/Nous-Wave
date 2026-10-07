@@ -19,18 +19,18 @@ export const nousqlHelp = {
       "Subject logical time captured at query preparation; relative windows use this clock, not network timeout time.",
   },
   selectors: {
-    text: '"self-contained question" is a first-class lexical+dense query.',
+    text: "self-contained question is a first-class lexical+dense query.",
     concept: "#concept supplies semantic text without resolving a durable Tag.",
     entity:
       '@e("Alice") is an exact-resolved entity cue, not an exact cognition read.',
-    tag: '@tag("reader reclamation") activates a durable Tag and directly recalls its attachments.',
+    tag: 'Recall relevant cognition @tag("reader reclamation") activates a durable Tag and directly recalls its attachments.',
     schema: '@schema("rule") supplies a schema cue.',
     resource: '@r("resource") supplies a resource cue.',
     exact:
       "@ref(mem:amber-lotus-cello-river) reads an exact identity; use returned LexicalRefs, never invent them.",
     object: '@object("host-ref") supplies an opaque Host object cue.',
     composition:
-      "Use explicit &&, || and parentheses; +atom/-atom are preferences, not hard constraints.",
+      "Mandatory unquoted Unicode intent plus optional $/@/# syntax islands; $prefer and $avoid express preferences; escape literal markers with backslash.",
   },
   time: {
     axes: {
@@ -68,24 +68,24 @@ export const nousqlHelp = {
     AMBIGUOUS_REFERENCE: "Choose a candidate LexicalRef and retry.",
     REFERENCE_TOMBSTONED:
       "Rediscover an active identity; do not guess a replacement.",
-    UNRESOLVED_QUERY_REFERENCE:
-      "Replace vague pronouns with self-contained entities, objects and time.",
+    UNRESOLVED_MACHINE_PLACEHOLDER:
+      "Resolve a machine placeholder; ordinary pronouns remain valid.",
     STALE_CONTEXT: "Refresh current work/session references before retrying.",
     UNAVAILABLE:
       "Inspect capability/lane diagnostics; optional degradation is explicit.",
   },
   examples: [
-    '"How does Python free-threading work?"',
-    '@e("Alice") && "deployment approval"',
-    '@tag("active-reader reclamation")',
-    "#migration",
-    '"deployment incidents" $time(occurred,within=30d)',
-    '"policy state" $time(valid,at="2026-05-01T00:00:00Z")',
-    '"evidence received" $time(occurred,from="2026-01-01T00:00:00Z") $time(observed,to="2026-02-01T00:00:00Z")',
-    '"support status" $asof("2025-01-01T00:00:00Z")',
-    '"support status" $history',
-    '@tag("active-reader reclamation") $explore',
-    '"stale consumer problem" $explore',
-    '"migration" $return(memory,schema) $limit(10) $diagnostics(full)',
+    "How does Python free-threading work?",
+    'deployment approval @e("Alice")',
+    'Recall relevant cognition @tag("active-reader reclamation")',
+    "Recall migration decisions #migration",
+    "deployment incidents $time(occurred,within=30d)",
+    'policy state $time(valid,at="2026-05-01T00:00:00Z")',
+    'evidence received $time(occurred,from="2026-01-01T00:00:00Z") $time(observed,to="2026-02-01T00:00:00Z")',
+    'support status $asof("2025-01-01T00:00:00Z")',
+    "support status $history",
+    'Recall relevant cognition @tag("active-reader reclamation") $explore',
+    "stale consumer problem $explore",
+    "migration $return(memory,schema) $limit(10) $diagnostics(full)",
   ],
 };

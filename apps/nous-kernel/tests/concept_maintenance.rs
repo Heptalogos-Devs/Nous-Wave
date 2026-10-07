@@ -10,6 +10,14 @@ use nous_subject::{CognitiveSeedInput, CreateSubject};
 use test_support::*;
 fn producer() -> ProducerSignature {
     ProducerSignature {
+        model_role: None,
+        model_profile: None,
+        execution_profile: None,
+        inference_controls_digest: None,
+        role_policy_digest: None,
+        prompt_id: None,
+        prompt_digest: None,
+
         signature_hash: String::new(),
         provider_class: "deterministic-fixture".into(),
         operation: CapabilityOperation::ConceptMaintenanceText,
@@ -142,7 +150,7 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
         wire_catalog.references[0].reference.as_ref().unwrap().value,
         reference_parts(&revisions[0]).1
     );
-    assert_eq!(wire_catalog.supports[0].key, "s0");
+    assert_eq!(wire_catalog.basis[0].key, "s0");
     assert!(
         reply
             .concept_model_input_json
@@ -212,11 +220,12 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
                     to: tag.clone(),
                     relation_kind: "tag_attachment".into(),
                     polarity: AssociationPolarity::Positive,
-                    support_class: AssociationSupportClass::CognitiveDerivation,
-                    supports: vec![AssociationSupport::Revision(
-                        RevisionSupport::CognitionDependency(CognitionDependency {
+                    basis_class: AssociationBasisClass::CognitiveDerivation,
+                    basis: vec![AssociationBasis::Revision(
+                        RevisionBasis::CognitionDependency(CognitionDependency {
+                            epistemic_relation: None,
                             target_revision: reference.clone(),
-                            support_role: SupportRole::Direct,
+                            basis_role: BasisRole::Direct,
                         }),
                     )],
                     producer_signature_id: None,
@@ -236,11 +245,12 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
                 to: revisions[1].clone(),
                 relation_kind: "assoc.related".into(),
                 polarity: AssociationPolarity::Positive,
-                support_class: AssociationSupportClass::CognitiveDerivation,
-                supports: vec![AssociationSupport::Revision(
-                    RevisionSupport::CognitionDependency(CognitionDependency {
+                basis_class: AssociationBasisClass::CognitiveDerivation,
+                basis: vec![AssociationBasis::Revision(
+                    RevisionBasis::CognitionDependency(CognitionDependency {
+                        epistemic_relation: None,
                         target_revision: revisions[0].clone(),
-                        support_role: SupportRole::Direct,
+                        basis_role: BasisRole::Direct,
                     }),
                 )],
                 producer_signature_id: None,
@@ -442,12 +452,17 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
         subject,
         projection: Default::default(),
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         work_context: None,
         session: None,
         situation: Default::default(),
         expression: CognitiveQueryExpr {
-            cues: vec![Cue::Tag(TagCue { tag: tag_id })],
+            cues: vec![
+                Cue::Text(nous_core::TextCue {
+                    text: "Recall this maintained concept".into(),
+                }),
+                Cue::Tag(TagCue { tag: tag_id }),
+            ],
             ..Default::default()
         },
         exploration: ExplorationIntent::AroundTag,
@@ -490,13 +505,9 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
                 .as_array()
                 .unwrap()
             {
-                let support = edge["support"].as_array().unwrap();
-                assert!(!support.is_empty());
-                assert!(
-                    support
-                        .iter()
-                        .all(|item| item["provenance_root"].is_string())
-                );
+                let basis = edge["support"].as_array().unwrap();
+                assert!(!basis.is_empty());
+                assert!(basis.iter().all(|item| item["provenance_root"].is_string()));
             }
         }
     }
@@ -536,9 +547,10 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
                 .iter()
                 .map(|reference| SchemaEvidenceLinkInput {
                     role: SchemaEvidenceRole::Support,
-                    support: RevisionSupport::CognitionDependency(CognitionDependency {
+                    basis: RevisionBasis::CognitionDependency(CognitionDependency {
+                        epistemic_relation: None,
                         target_revision: reference.clone(),
-                        support_role: SupportRole::Direct,
+                        basis_role: BasisRole::Direct,
                     }),
                 })
                 .collect(),
@@ -616,12 +628,13 @@ async fn episode_relations(rt: &NousRuntime, subject: SubjectId, revisions: &[Co
                     role: if index == 0 { "procedure" } else { "outcome" }.into(),
                 })
                 .collect(),
-            supports: revisions
+            basis: revisions
                 .iter()
                 .map(|reference| {
-                    RevisionSupport::CognitionDependency(CognitionDependency {
+                    RevisionBasis::CognitionDependency(CognitionDependency {
+                        epistemic_relation: None,
                         target_revision: reference.clone(),
-                        support_role: SupportRole::Direct,
+                        basis_role: BasisRole::Direct,
                     })
                 })
                 .collect(),
@@ -638,10 +651,10 @@ async fn episode_relations(rt: &NousRuntime, subject: SubjectId, revisions: &[Co
     for reference in revisions {
         assert!(projection.edges.iter().any(|edge| edge.from == episode_ref
             && &edge.to == reference
-            && edge.association_kind == "cognition_support"));
+            && edge.association_kind == "cognition_basis"));
         assert!(projection.edges.iter().any(|edge| &edge.from == reference
             && edge.to == episode_ref
-            && edge.association_kind == "cognition_support"));
+            && edge.association_kind == "cognition_basis"));
     }
     assert!(
         !rt.store

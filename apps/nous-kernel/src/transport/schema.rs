@@ -49,7 +49,7 @@ fn schema_input(
             .map(|link| {
                 Ok(SchemaEvidenceLinkInput {
                     role: enum_value(&link.role)?,
-                    support: support(required(link.support, "support")?)?,
+                    basis: basis(required(link.basis, "basis")?)?,
                 })
             })
             .collect::<Result<_>>()?,
@@ -92,7 +92,7 @@ fn schema_view(value: SchemaView) -> p::CognitiveSchema {
             .map(|link| p::SchemaEvidenceLink {
                 link_id: link.link_id.0.to_string(),
                 role: enum_name(link.role),
-                support: Some(support_proto(link.support)),
+                basis: Some(basis_proto(link.basis)),
             })
             .collect(),
         formed_at: Some(timestamp(revision.formed_at)),
@@ -135,13 +135,27 @@ impl KernelService {
         ))
     }
 
+    pub(super) async fn get_cognitive_schema_revision(
+        &self,
+        input: p::ObjectRequest,
+    ) -> Result<p::CognitiveSchema> {
+        Ok(schema_view(
+            self.require_memory()?
+                .schema_revision(
+                    SubjectId(id(&input.subject_id)?),
+                    nous_core::CognitiveSchemaRevisionId(id(&input.id)?),
+                )
+                .await?,
+        ))
+    }
+
     pub(super) async fn add_schema_evidence(
         &self,
         input: p::AddSchemaEvidenceRequest,
     ) -> Result<p::CognitiveSchema> {
         let subject = SubjectId(id(&input.subject_id)?);
         let link = required(input.link, "link")?;
-        let support = support(required(link.support, "support")?)?;
+        let basis = basis(required(link.basis, "basis")?)?;
         Ok(schema_view(
             self.require_memory()?
                 .add_schema_evidence(
@@ -151,7 +165,7 @@ impl KernelService {
                     input.expected_object_epoch,
                     SchemaEvidenceLinkInput {
                         role: enum_value(&link.role)?,
-                        support,
+                        basis,
                     },
                 )
                 .await?,
@@ -182,7 +196,7 @@ impl KernelService {
                 .map(|link| {
                     Ok(SchemaEvidenceLinkInput {
                         role: enum_value(&link.role)?,
-                        support: support(required(link.support, "support")?)?,
+                        basis: basis(required(link.basis, "basis")?)?,
                     })
                 })
                 .collect::<Result<_>>()?,

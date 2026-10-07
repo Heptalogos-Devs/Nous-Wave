@@ -188,7 +188,7 @@ it("frames without a transcript cannot acquire audio evidence in either structur
             : {
                 summary: {
                   content: "Invented speech",
-                  support_keys: [
+                  basis_keys: [
                     role === "material_structuring" ? "D001" : "S000",
                   ],
                 },

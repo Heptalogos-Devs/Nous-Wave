@@ -96,7 +96,15 @@ impl KernelService {
                 let reference = if let Some(value)=row.try_get::<Option<Uuid>,_>("source_region_id").map_err(db)? { nous_core::CognitiveRef::SourceRegion(nous_core::SourceRegionId(value)) } else if let Some(value)=row.try_get::<Option<Uuid>,_>("input_representation_id").map_err(db)? { nous_core::CognitiveRef::DerivedRepresentation(nous_core::DerivedRepresentationId(value)) } else { nous_core::CognitiveRef::DerivedRegion(nous_core::DerivedRegionId(row.try_get("derived_region_id").map_err(db)?)) };
                 Ok(p::DerivationInput { ordinal: row.try_get::<i32,_>("ordinal").map_err(db)? as u32, reference: Some(to_ref(reference)), role: row.try_get("role").map_err(db)? })
             }).collect::<Result<Vec<_>>>()?,
-            producer: Some(p::ProducerSignature { signature_hash: field("signature_hash")?, provider_class: field("provider_class")?, operation: field("operation")?.replace('.', "_"), implementation: field("implementation")?, model_identity: producer.get("model_identity").and_then(serde_json::Value::as_str).map(str::to_owned), model_revision: producer.get("model_revision").and_then(serde_json::Value::as_str).map(str::to_owned), output_schema_digest: producer.get("output_schema_digest").and_then(serde_json::Value::as_str).map(str::to_owned), preprocessing_identity: field("preprocessing_identity")?, preprocessing_revision: field("preprocessing_revision")?, config_digest: field("config_digest")? }),
+            producer: Some(p::ProducerSignature {
+            model_role: producer.get("model_role").and_then(serde_json::Value::as_str).map(str::to_owned),
+            model_profile: producer.get("model_profile").and_then(serde_json::Value::as_str).map(str::to_owned),
+            execution_profile: producer.get("execution_profile").and_then(serde_json::Value::as_str).map(str::to_owned),
+            inference_controls_digest: producer.get("inference_controls_digest").and_then(serde_json::Value::as_str).map(str::to_owned),
+            role_policy_digest: producer.get("role_policy_digest").and_then(serde_json::Value::as_str).map(str::to_owned),
+            prompt_id: producer.get("prompt_id").and_then(serde_json::Value::as_str).map(str::to_owned),
+            prompt_digest: producer.get("prompt_digest").and_then(serde_json::Value::as_str).map(str::to_owned),
+ signature_hash: field("signature_hash")?, provider_class: field("provider_class")?, operation: field("operation")?.replace('.', "_"), implementation: field("implementation")?, model_identity: producer.get("model_identity").and_then(serde_json::Value::as_str).map(str::to_owned), model_revision: producer.get("model_revision").and_then(serde_json::Value::as_str).map(str::to_owned), output_schema_digest: producer.get("output_schema_digest").and_then(serde_json::Value::as_str).map(str::to_owned), preprocessing_identity: field("preprocessing_identity")?, preprocessing_revision: field("preprocessing_revision")?, config_digest: field("config_digest")? }),
             quality: to_object(r.try_get("quality").map_err(db)?),
             supersedes: r.try_get::<Option<Uuid>,_>("supersedes").map_err(db)?.map(|id|id.to_string()),
             strategy: r.try_get("strategy").map_err(db)?,

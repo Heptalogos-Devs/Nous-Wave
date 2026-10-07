@@ -355,6 +355,20 @@ pub struct ProducerSignature {
     pub preprocessing_identity: String,
     pub preprocessing_revision: String,
     pub config_digest: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_role: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inference_controls_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role_policy_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt_digest: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -464,8 +478,10 @@ pub struct FreshnessDescriptor {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvidenceHandle {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epistemic_relation: Option<EpistemicRelation>,
     pub reference: CognitiveRef,
-    pub support_role: String,
+    pub basis_role: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

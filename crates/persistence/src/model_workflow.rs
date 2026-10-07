@@ -37,6 +37,7 @@ pub struct WorkflowReservation {
     pub outcome: Option<Value>,
     pub lease_token: Option<Uuid>,
     pub busy: bool,
+    pub execution_telemetry: Option<Value>,
 }
 
 impl AuthorityStore {
@@ -94,7 +95,7 @@ impl AuthorityStore {
         };
 
         sqlx::query("INSERT INTO model_workflow_operations(subject_id,owner,operation_key,semantic_digest,snapshot,maintenance_need_id,maintenance_trigger_revision) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING").bind(subject.0).bind(owner).bind(key).bind(digest).bind(snapshot).bind(maintenance_need_id).bind(maintenance_trigger).execute(&mut *tx).await.map_err(db)?;
-        let row=sqlx::query("SELECT snapshot,proposal,outcome,semantic_digest,lease_until>now() AS live FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 FOR UPDATE").bind(subject.0).bind(owner).bind(key).fetch_one(&mut *tx).await.map_err(db)?;
+        let row=sqlx::query("SELECT snapshot,proposal,outcome,execution_telemetry,semantic_digest,lease_until>now() AS live FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 FOR UPDATE").bind(subject.0).bind(owner).bind(key).fetch_one(&mut *tx).await.map_err(db)?;
         if row.try_get::<String, _>("semantic_digest").map_err(db)? != digest {
             return Err(Error::Conflict(
                 "model operation identity has different semantic input".into(),
@@ -123,6 +124,7 @@ impl AuthorityStore {
             outcome,
             lease_token: token,
             busy,
+            execution_telemetry: row.try_get("execution_telemetry").map_err(db)?,
         })
     }
 
@@ -134,6 +136,7 @@ impl AuthorityStore {
         token: Uuid,
         proposal: Option<&Value>,
         outcome: Option<&Value>,
+        execution_telemetry: Option<&Value>,
     ) -> Result<()> {
         WorkflowOwner::new(owner)?;
         for value in [proposal, outcome].into_iter().flatten() {
@@ -145,7 +148,15 @@ impl AuthorityStore {
                 return Err(Error::Invalid("model workflow value exceeds bound".into()));
             }
         }
-        let updated=sqlx::query("UPDATE model_workflow_operations SET proposal=CASE WHEN $6::jsonb IS NULL THEN COALESCE($5,proposal) ELSE NULL END,outcome=COALESCE($6,outcome),snapshot=CASE WHEN $6::jsonb IS NULL THEN snapshot ELSE '{}'::jsonb END,lease_token=CASE WHEN $6::jsonb IS NULL THEN lease_token ELSE NULL END,lease_until=CASE WHEN $6::jsonb IS NULL THEN lease_until ELSE NULL END,updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 AND lease_token=$4 AND lease_until>now() AND outcome IS NULL").bind(subject.0).bind(owner).bind(key).bind(token).bind(proposal).bind(outcome).execute(self.pool()).await.map_err(db)?;
+        if let Some(telemetry) = execution_telemetry
+            && serde_json::to_vec(telemetry)
+                .map_err(|error| Error::Invalid(error.to_string()))?
+                .len()
+                > 262144
+        {
+            return Err(Error::Invalid("execution telemetry exceeds bound".into()));
+        }
+        let updated=sqlx::query("UPDATE model_workflow_operations SET execution_telemetry=CASE WHEN $7::jsonb IS NULL THEN execution_telemetry ELSE COALESCE(execution_telemetry,'{}'::jsonb)||$7::jsonb||jsonb_build_object('attempts',(SELECT COALESCE(jsonb_agg(item ORDER BY ordinal),'[]'::jsonb) FROM jsonb_array_elements(COALESCE(execution_telemetry->'attempts','[]'::jsonb)||COALESCE($7::jsonb->'attempts','[]'::jsonb)) WITH ORDINALITY AS items(item,ordinal) WHERE ordinal<=64),'omittedAttempts',COALESCE((execution_telemetry->>'omittedAttempts')::int,0)+GREATEST(jsonb_array_length(COALESCE(execution_telemetry->'attempts','[]'::jsonb))+jsonb_array_length(COALESCE($7::jsonb->'attempts','[]'::jsonb))-64,0)) END,proposal=CASE WHEN $6::jsonb IS NULL THEN COALESCE($5,proposal) ELSE NULL END,outcome=COALESCE($6,outcome),snapshot=CASE WHEN $6::jsonb IS NULL THEN snapshot ELSE '{}'::jsonb END,lease_token=CASE WHEN $6::jsonb IS NULL THEN lease_token ELSE NULL END,lease_until=CASE WHEN $6::jsonb IS NULL THEN lease_until ELSE NULL END,updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 AND lease_token=$4 AND lease_until>now() AND outcome IS NULL").bind(subject.0).bind(owner).bind(key).bind(token).bind(proposal).bind(outcome).bind(execution_telemetry).execute(self.pool()).await.map_err(db)?;
         if updated.rows_affected() != 1 {
             return Err(Error::Conflict(
                 "model workflow lease expired or changed".into(),

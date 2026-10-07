@@ -113,7 +113,7 @@ pub struct VcpEvidenceContribution {
     pub source_id: i64,
     pub target_id: i64,
     pub provenance_root: String,
-    pub support_class: String,
+    pub basis_class: String,
     pub association_kind: String,
     pub support_mass: f64,
 }
@@ -140,7 +140,7 @@ pub fn vcp_evidence_contributions(
             from,
             to,
             root,
-            e.support_class.clone(),
+            e.basis_class.clone(),
             e.association_kind.clone(),
         );
         contributions
@@ -152,13 +152,13 @@ pub fn vcp_evidence_contributions(
         .into_iter()
         .map(
             |(
-                (source_id, target_id, provenance_root, support_class, association_kind),
+                (source_id, target_id, provenance_root, basis_class, association_kind),
                 support_mass,
             )| VcpEvidenceContribution {
                 source_id,
                 target_id,
                 provenance_root,
-                support_class,
+                basis_class,
                 association_kind,
                 support_mass,
             },
@@ -248,8 +248,8 @@ mod tests {
         let edge = TopologyEdgeSource {
             from: first.clone(),
             to: second.clone(),
-            support_class: "source_evidence".into(),
-            association_kind: "supports".into(),
+            basis_class: "source_evidence".into(),
+            association_kind: "basis".into(),
             polarity: "positive".into(),
             support_mass: 0.6,
             provenance_root: Some("occurrence:one".into()),
@@ -265,7 +265,7 @@ mod tests {
         assert_eq!(values.len(), 2);
         assert_eq!(values[0].support_mass, 0.9);
         assert_eq!(values[1].support_mass, 0.6);
-        assert_eq!(values[0].support_class, "source_evidence");
+        assert_eq!(values[0].basis_class, "source_evidence");
         let metadata = serde_json::json!({"final_score":0.9});
         let ranked = vec![
             (ids.id(&body).unwrap(), metadata.clone()),

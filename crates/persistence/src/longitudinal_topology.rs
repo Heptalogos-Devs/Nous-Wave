@@ -1,4 +1,4 @@
-//! Current cognitive nodes and exact source support, projected as structure.
+//! Current cognitive nodes and exact source basis, projected as structure.
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
@@ -31,11 +31,11 @@ UNION ALL SELECT 'cognitive_schema_revision',current_revision_id::text FROM cogn
         .collect::<Result<HashSet<_>>>()?;
     nodes.extend(live.iter().cloned());
     let rows = sqlx::query(r#"
-SELECT 'memory_revision' from_kind,d.memory_revision_id::text from_value,d.target_ref_kind to_kind,d.target_ref to_value FROM memory_revision_dependencies d JOIN memory_revisions r USING(memory_revision_id) WHERE r.subject_id=$1 AND d.support_role<>'contradiction'
+SELECT 'memory_revision' from_kind,d.memory_revision_id::text from_value,d.target_ref_kind to_kind,d.target_ref to_value FROM memory_revision_dependencies d JOIN memory_revisions r USING(memory_revision_id) WHERE r.subject_id=$1 AND d.epistemic_relation NOT IN ('contradicts','weakens','corrects','counterexample')
 UNION ALL SELECT 'journal_revision',s.journal_revision_id::text,s.ref_kind,s.ref_value FROM journal_revision_sources s JOIN journal_revisions r USING(journal_revision_id) WHERE r.subject_id=$1
 UNION ALL SELECT 'episode_revision',m.episode_revision_id::text,m.ref_kind,m.ref_value FROM episode_revision_members m JOIN episode_revisions r USING(episode_revision_id) WHERE r.subject_id=$1
-UNION ALL SELECT 'episode_revision',s.episode_revision_id::text,s.support_kind,s.support_ref FROM episode_revision_supports s JOIN episode_revisions r USING(episode_revision_id) WHERE r.subject_id=$1 AND s.support_kind<>'evidence' AND s.support_role<>'contradiction'
-UNION ALL SELECT 'cognitive_schema_revision',s.schema_revision_id::text,s.support_kind,s.support_ref FROM cognitive_schema_evidence_links s WHERE s.subject_id=$1 AND s.support_kind<>'evidence' AND s.revoked_at IS NULL AND s.role='support' AND s.support_role<>'contradiction'
+UNION ALL SELECT 'episode_revision',s.episode_revision_id::text,s.basis_kind,s.basis_ref FROM episode_revision_basis s JOIN episode_revisions r USING(episode_revision_id) WHERE r.subject_id=$1 AND s.basis_kind<>'evidence' AND s.epistemic_relation NOT IN ('contradicts','weakens','corrects','counterexample')
+UNION ALL SELECT 'cognitive_schema_revision',s.schema_revision_id::text,s.basis_kind,s.basis_ref FROM cognitive_schema_evidence_links s WHERE s.subject_id=$1 AND s.basis_kind<>'evidence' AND s.revoked_at IS NULL AND s.role='support' AND s.epistemic_relation NOT IN ('contradicts','weakens','corrects','counterexample')
 "#).bind(subject.0).fetch_all(&mut **tx).await.map_err(db)?;
     let mut pairs = HashSet::new();
     for row in rows {
@@ -61,15 +61,15 @@ UNION ALL SELECT 'cognitive_schema_revision',s.schema_revision_id::text,s.suppor
         {
             continue;
         }
-        // Traversal in both directions has the same exact support identity;
+        // Traversal in both directions has the same exact basis identity;
         // adjacency makes no assertion of causal direction or independence.
-        let root = format!("structure:cognition-support:{from}:{to}");
+        let root = format!("structure:cognition-basis:{from}:{to}");
         for (source, target) in [(from.clone(), to.clone()), (to, from)] {
             edges.push(TopologyEdgeSource {
                 from: source,
                 to: target,
-                support_class: "derived_structure".into(),
-                association_kind: "cognition_support".into(),
+                basis_class: "derived_structure".into(),
+                association_kind: "cognition_basis".into(),
                 polarity: "positive".into(),
                 support_mass: 1.0,
                 provenance_root: Some(root.clone()),

@@ -7,7 +7,7 @@ use nous_protocol::public::{
 mod test_support;
 
 use chrono::{Duration, SubsecRound, Utc};
-use nous_core::{SourceClass, TemporalExtent};
+use nous_core::{Cue, SourceClass, TemporalExtent};
 use nous_kernel::{NousRuntime, RuntimeOptions};
 use nous_material::{
     ObservationInput, ObservationMaterial, OccurrenceDescriptor, RuntimeDirective,
@@ -329,7 +329,7 @@ async fn assert_owner_timestamp_replay(
             semantic_role: input.semantic_role.clone(),
             representation_text: "corrected owner-timed memory".into(),
             title: None,
-            supports: input.supports.clone(),
+            basis: input.basis.clone(),
             aboutness: vec![],
             valid_time: TemporalExtent::Unknown,
             epistemic_class: input.epistemic_class,
@@ -596,8 +596,7 @@ async fn assert_partition_revision(
 #[tokio::test]
 async fn journal_lineage_revalidation_and_receipt_are_exact() {
     use nous_core::{
-        CognitionDependency, CognitiveRef, IntegrityState, OperationId, RevisionSupport,
-        SupportRole,
+        BasisRole, CognitionDependency, CognitiveRef, IntegrityState, OperationId, RevisionBasis,
     };
     use nous_memory::{JournalInput, JournalPoint, JournalPointRole};
     let (root, url, _postgres) = database().await;
@@ -607,9 +606,10 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     let episode = journal_source_episode(&rt, &clock, subject).await;
     assert_maintenance_planning(&rt, &clock, subject).await;
     let memory = rt.require_memory().unwrap();
-    let support = RevisionSupport::CognitionDependency(CognitionDependency {
+    let basis = RevisionBasis::CognitionDependency(CognitionDependency {
+        epistemic_relation: None,
         target_revision: CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
-        support_role: SupportRole::Direct,
+        basis_role: BasisRole::Direct,
     });
     let input = JournalInput {
         operation_id: OperationId::new(),
@@ -625,7 +625,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
         points: vec![JournalPoint {
             role: JournalPointRole::Summary,
             text: "Point-only detail: two independent sources.".into(),
-            supports: vec![support],
+            basis: vec![basis],
         }],
         producer: None,
     };
@@ -633,12 +633,13 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     let recall =
         assert_longitudinal_materialization(&rt, &clock, subject, &episode, &journal).await;
     let dependencies = create_journal_dependents(&rt, subject, &episode, &journal).await;
-    let support = RevisionSupport::CognitionDependency(CognitionDependency {
+    let basis = RevisionBasis::CognitionDependency(CognitionDependency {
+        epistemic_relation: None,
         target_revision: CognitiveRef::JournalRevision(journal.revision.journal_revision_id),
-        support_role: SupportRole::Direct,
+        basis_role: BasisRole::Direct,
     });
     let provenance = memory
-        .provenance_summary(subject, std::slice::from_ref(&support))
+        .provenance_summary(subject, std::slice::from_ref(&basis))
         .await
         .unwrap();
     assert_eq!(provenance.roots.len(), 2);
@@ -646,7 +647,7 @@ async fn journal_lineage_revalidation_and_receipt_are_exact() {
     let mut invalid = input.clone();
     invalid.operation_id = OperationId::new();
     invalid.expected_authority_seq = rt.store.authority_seq(subject).await.unwrap();
-    invalid.points[0].supports = vec![support];
+    invalid.points[0].basis = vec![basis];
     assert!(memory.commit_journal(invalid).await.is_err());
     memory
         .suppress_episode(
@@ -718,7 +719,7 @@ async fn assert_longitudinal_materialization(
     let query = CognitiveQuery {
         projection: Default::default(),
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
@@ -731,7 +732,9 @@ async fn assert_longitudinal_materialization(
                 .cloned()
                 .map(|reference| QueryTarget::Exact { reference })
                 .collect(),
-            cues: vec![],
+            cues: vec![Cue::Text(nous_core::TextCue {
+                text: "Inspect the selected experience".into(),
+            })],
             constraints: Default::default(),
             preferences: vec![],
             children: vec![],
@@ -910,11 +913,14 @@ async fn assert_longitudinal_use(
             constraints: serde_json::json!({}),
             resume_conditions: vec![],
             budget_summary: serde_json::json!({}),
-            references: references.clone(),
+            context_text: String::new(),
+            entity_anchors: vec![],
+            tag_anchors: vec![],
+            cognition_anchors: references.clone(),
         })
         .await
         .unwrap();
-    assert_eq!(context.references, references);
+    assert_eq!(context.cognition_anchors, references);
     let session = rt
         .cognition
         .open_session(subject, serde_json::json!({}))
@@ -971,7 +977,7 @@ async fn assert_journal_protocol(
         .into_inner();
     assert_eq!(
         current.journal.unwrap().current_revision.unwrap().points[0]
-            .supports
+            .basis
             .len(),
         1
     );
@@ -1080,7 +1086,7 @@ async fn assert_maintenance_planning(
         assert!(plan.members[0].text.starts_with("object:source-a"));
         assert_eq!(plan.members[0].text.len(), 2047);
         assert!(!plan.members[0].text.contains(char::REPLACEMENT_CHARACTER));
-        assert!(plan.supports.len() >= 3);
+        assert!(plan.basis.len() >= 3);
         if kind == "memory_consolidate" {
             assert!(plan.consolidation_source.is_some());
             assert_eq!(plan.provenance_roots.len(), 2);
@@ -1121,7 +1127,10 @@ async fn ended_work_context_wakes_and_closes_experience_before_idle_deadline() {
             constraints: serde_json::json!({}),
             resume_conditions: vec![],
             budget_summary: serde_json::json!({}),
-            references: vec![],
+            context_text: String::new(),
+            entity_anchors: vec![],
+            tag_anchors: vec![],
+            cognition_anchors: vec![],
         })
         .await
         .unwrap();
@@ -1189,6 +1198,14 @@ async fn ended_work_context_wakes_and_closes_experience_before_idle_deadline() {
 
 fn consolidation_producer() -> nous_core::ProducerSignature {
     nous_core::ProducerSignature {
+        model_role: None,
+        model_profile: None,
+        execution_profile: None,
+        inference_controls_digest: None,
+        role_policy_digest: None,
+        prompt_id: None,
+        prompt_digest: None,
+
         signature_hash: String::new(),
         provider_class: "semantic-stub".into(),
         operation: nous_core::CapabilityOperation::MemoryConsolidationText,
@@ -1216,13 +1233,12 @@ fn consolidation_memory(episode: &EpisodeView) -> nous_memory::ExplicitMemoryInp
         semantic_role: "statement".into(),
         representation_text: "A reusable observed fact.".into(),
         title: None,
-        supports: vec![nous_core::RevisionSupport::Evidence(
-            nous_core::EvidenceRef {
-                occurrence_id: occurrence,
-                locator: nous_core::EvidenceLocator::WholeOccurrence,
-                support_role: nous_core::SupportRole::Direct,
-            },
-        )],
+        basis: vec![nous_core::RevisionBasis::Evidence(nous_core::EvidenceRef {
+            epistemic_relation: None,
+            occurrence_id: occurrence,
+            locator: nous_core::EvidenceLocator::WholeOccurrence,
+            basis_role: nous_core::BasisRole::Direct,
+        })],
         aboutness: vec![],
         valid_time: TemporalExtent::Unknown,
         epistemic_class: nous_core::EpistemicClass::Derived,
@@ -1244,12 +1260,12 @@ fn consolidation_schema(episode: &EpisodeView) -> nous_memory::CreateSchemaInput
         boundary_definition: "Applies to these observed contexts.".into(),
         formation_kind: nous_memory::SchemaFormationKind::Synthesized,
         evidence_links: episode
-            .supports
+            .basis
             .iter()
             .cloned()
-            .map(|support| nous_memory::SchemaEvidenceLinkInput {
+            .map(|basis| nous_memory::SchemaEvidenceLinkInput {
                 role: nous_memory::SchemaEvidenceRole::Support,
-                support,
+                basis,
             })
             .collect(),
     }
@@ -1363,14 +1379,13 @@ async fn assert_journal_consolidation(
         .evidence_links
         .push(nous_memory::SchemaEvidenceLinkInput {
             role: nous_memory::SchemaEvidenceRole::Support,
-            support: nous_core::RevisionSupport::CognitionDependency(
-                nous_core::CognitionDependency {
-                    target_revision: nous_core::CognitiveRef::JournalRevision(
-                        journal.revision.journal_revision_id,
-                    ),
-                    support_role: nous_core::SupportRole::Direct,
-                },
-            ),
+            basis: nous_core::RevisionBasis::CognitionDependency(nous_core::CognitionDependency {
+                epistemic_relation: None,
+                target_revision: nous_core::CognitiveRef::JournalRevision(
+                    journal.revision.journal_revision_id,
+                ),
+                basis_role: nous_core::BasisRole::Direct,
+            }),
         });
     let schema = rt
         .require_memory()
@@ -1505,21 +1520,22 @@ async fn create_journal_dependents(
     episode: &EpisodeView,
     journal: &nous_memory::JournalView,
 ) -> Vec<nous_core::CognitiveRef> {
-    use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
+    use nous_core::{BasisRole, CognitionDependency, CognitiveRef, OperationId, RevisionBasis};
     use nous_memory::FormationMode;
     let journal_ref = CognitiveRef::JournalRevision(journal.revision.journal_revision_id);
     let mut content = consolidation_memory(episode);
     content.formation_mode = FormationMode::Synthesized;
     content.grounding_occurrence_id = None;
-    content.supports = [
+    content.basis = [
         journal_ref.clone(),
         CognitiveRef::EpisodeRevision(episode.revision.episode_revision_id),
     ]
     .into_iter()
     .map(|target_revision| {
-        RevisionSupport::CognitionDependency(CognitionDependency {
+        RevisionBasis::CognitionDependency(CognitionDependency {
+            epistemic_relation: None,
             target_revision,
-            support_role: SupportRole::Direct,
+            basis_role: BasisRole::Direct,
         })
     })
     .collect();
@@ -1539,9 +1555,10 @@ async fn create_journal_dependents(
         .cloned()
         .map(|target_revision| nous_memory::SchemaEvidenceLinkInput {
             role: nous_memory::SchemaEvidenceRole::Support,
-            support: RevisionSupport::CognitionDependency(CognitionDependency {
+            basis: RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: None,
                 target_revision,
-                support_role: SupportRole::Direct,
+                basis_role: BasisRole::Direct,
             }),
         })
         .collect();
@@ -1563,9 +1580,10 @@ async fn create_journal_dependents(
                 reference: refs[0].clone(),
                 role: "context".into(),
             }],
-            supports: vec![RevisionSupport::CognitionDependency(CognitionDependency {
+            basis: vec![RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: None,
                 target_revision: refs[0].clone(),
-                support_role: SupportRole::Direct,
+                basis_role: BasisRole::Direct,
             })],
         })
         .await
@@ -1718,9 +1736,9 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
     let text = results[0].representation.as_ref().unwrap();
     assert!(text.contains("cobalt harbor"));
     assert!(!text.contains('界'));
-    assert!(results[0].evidence.iter().any(|support| support.reference
+    assert!(results[0].evidence.iter().any(|basis| basis.reference
         == CognitiveRef::DerivedRepresentation(first)
-        && support.support_role == "interpretation"));
+        && basis.basis_role == "interpretation"));
     let fragments = rt
         .store
         .episode_member_text_input(
@@ -1773,7 +1791,7 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
     assert_eq!(
         rt.require_memory()
             .unwrap()
-            .provenance_summary(subject, &current.supports)
+            .provenance_summary(subject, &current.basis)
             .await
             .unwrap()
             .roots
@@ -1842,7 +1860,7 @@ fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::
     let mut query = CognitiveQuery {
         projection: Default::default(),
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         work_context: None,
         api_version: nous_core::API_VERSION,
         subject,
@@ -1991,18 +2009,18 @@ async fn assert_consolidation_context(
         let target = candidate.target.as_ref().unwrap();
         assert!(!target.object_id.is_empty());
         let own = target.reference.as_ref().unwrap();
-        for key in &candidate.eligible_support_keys {
-            let support = plan
-                .supports
+        for key in &candidate.eligible_basis_keys {
+            let basis = plan
+                .basis
                 .iter()
-                .find(|support| &support.key == key)
+                .find(|basis| &basis.key == key)
                 .unwrap()
-                .support
+                .basis
                 .as_ref()
                 .unwrap();
-            if let Some(nous_protocol::public::revision_support::Support::CognitionDependency(
+            if let Some(nous_protocol::public::revision_basis::Basis::CognitionDependency(
                 dependency,
-            )) = &support.support
+            )) = &basis.basis
             {
                 assert_ne!(dependency.target_revision.as_ref().unwrap(), own);
             }
@@ -2036,7 +2054,7 @@ async fn assert_consolidation_policy(
         .get(nous_memory::CONSOLIDATION_CONTEXT)
         .unwrap();
     policy.candidate_text_chars = 64;
-    policy.support_limit = 1;
+    policy.basis_limit = 1;
     policy.provenance_root_limit = 1;
     rt.configuration
         .set_subject_override(
@@ -2061,8 +2079,8 @@ async fn assert_consolidation_policy(
             .iter()
             .all(|c| c.text.chars().count() <= 64)
     );
-    assert_eq!(bounded.supports.len(), 1);
-    assert!(bounded.support_catalog_partial);
+    assert_eq!(bounded.basis.len(), 1);
+    assert!(bounded.basis_catalog_partial);
     assert!(bounded.provenance_roots.len() <= 1);
 }
 
@@ -2071,7 +2089,7 @@ async fn manual_episode_sources(
     clock: &ManualCognitiveClock,
     subject: nous_core::SubjectId,
 ) -> (nous_core::OccurrenceId, EpisodeView, EpisodeView) {
-    use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
+    use nous_core::{BasisRole, CognitionDependency, CognitiveRef, OperationId, RevisionBasis};
     use nous_memory::{EpisodeInput, EpisodeMemberInput};
     let occurrence = rt
         .material
@@ -2081,10 +2099,11 @@ async fn manual_episode_sources(
         .occurrence
         .occurrence_id;
     let memory = rt.require_memory().unwrap();
-    let evidence = RevisionSupport::Evidence(nous_core::EvidenceRef {
+    let evidence = RevisionBasis::Evidence(nous_core::EvidenceRef {
+        epistemic_relation: None,
         occurrence_id: occurrence,
         locator: nous_core::EvidenceLocator::WholeOccurrence,
-        support_role: SupportRole::Direct,
+        basis_role: BasisRole::Direct,
     });
     let first = memory
         .create_episode(EpisodeInput {
@@ -2100,7 +2119,7 @@ async fn manual_episode_sources(
                 reference: CognitiveRef::Occurrence(occurrence),
                 role: "evidence".into(),
             }],
-            supports: vec![evidence],
+            basis: vec![evidence],
         })
         .await
         .unwrap();
@@ -2124,9 +2143,10 @@ async fn manual_episode_sources(
                 reference: reference.clone(),
                 role: "context".into(),
             }],
-            supports: vec![RevisionSupport::CognitionDependency(CognitionDependency {
+            basis: vec![RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: None,
                 target_revision: reference,
-                support_role: SupportRole::Direct,
+                basis_role: BasisRole::Direct,
             })],
         })
         .await
@@ -2183,7 +2203,7 @@ async fn assert_manual_consolidation_plans(
 
 #[tokio::test]
 async fn manual_episode_planning_and_complete_journal_revalidation() {
-    use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
+    use nous_core::{BasisRole, CognitionDependency, CognitiveRef, OperationId, RevisionBasis};
     use nous_memory::{EpisodeMemberInput, JournalInput, JournalPoint, JournalPointRole};
     let (root, url, _postgres) = database().await;
     let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
@@ -2210,11 +2230,12 @@ async fn manual_episode_planning_and_complete_journal_revalidation() {
             points: vec![JournalPoint {
                 role: JournalPointRole::Summary,
                 text: "Supported continuation.".into(),
-                supports: vec![RevisionSupport::CognitionDependency(CognitionDependency {
+                basis: vec![RevisionBasis::CognitionDependency(CognitionDependency {
+                    epistemic_relation: None,
                     target_revision: CognitiveRef::EpisodeRevision(
                         second.revision.episode_revision_id,
                     ),
-                    support_role: SupportRole::Direct,
+                    basis_role: BasisRole::Direct,
                 })],
             }],
             producer: None,
@@ -2251,7 +2272,7 @@ async fn manual_episode_planning_and_complete_journal_revalidation() {
                     role: member.role.clone(),
                 })
                 .collect(),
-            supports: second.supports.clone(),
+            basis: second.basis.clone(),
         })
         .await
         .unwrap();
@@ -2499,14 +2520,15 @@ async fn drafts_commit_replay_and_ack_reclaim_runtime_rows() {
                 role: "experience".into(),
             })
             .collect(),
-        supports: draft
+        basis: draft
             .members
             .iter()
             .map(|id| {
-                nous_core::RevisionSupport::Evidence(nous_core::EvidenceRef {
+                nous_core::RevisionBasis::Evidence(nous_core::EvidenceRef {
+                    epistemic_relation: None,
                     occurrence_id: *id,
                     locator: nous_core::EvidenceLocator::WholeOccurrence,
-                    support_role: nous_core::SupportRole::Direct,
+                    basis_role: nous_core::BasisRole::Direct,
                 })
             })
             .collect(),
@@ -2608,6 +2630,7 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
                 token,
                 None,
                 Some(&serde_json::json!({"status":"no_change"})),
+                None,
             )
             .await
             .unwrap();
@@ -2771,7 +2794,7 @@ async fn maintenance_terminal_retention_workflow_cleanup_and_execution_backoff()
     reason = "one regression covers blocked source scopes and their event-driven recovery"
 )]
 async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
-    use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
+    use nous_core::{BasisRole, CognitionDependency, CognitiveRef, OperationId, RevisionBasis};
     use nous_memory::{JournalInput, JournalPoint, JournalPointRole};
     let (root, url, _postgres) = database().await;
     let at = Utc::now().trunc_subsecs(6);
@@ -2815,14 +2838,15 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             points: vec![JournalPoint {
                 role: JournalPointRole::Summary,
                 text: "Both experiences.".into(),
-                supports: episodes
+                basis: episodes
                     .iter()
                     .map(|episode| {
-                        RevisionSupport::CognitionDependency(CognitionDependency {
+                        RevisionBasis::CognitionDependency(CognitionDependency {
+                            epistemic_relation: None,
                             target_revision: CognitiveRef::EpisodeRevision(
                                 episode.revision.episode_revision_id,
                             ),
-                            support_role: SupportRole::Direct,
+                            basis_role: BasisRole::Direct,
                         })
                     })
                     .collect(),
@@ -2851,7 +2875,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
                     role: member.role.clone(),
                 })
                 .collect(),
-            supports: episode.supports.clone(),
+            basis: episode.basis.clone(),
         })
         .await
         .unwrap();
@@ -3099,10 +3123,11 @@ async fn assert_schema_clock(
         formation_kind: nous_memory::SchemaFormationKind::ExplicitImport,
         evidence_links: vec![nous_memory::SchemaEvidenceLinkInput {
             role: nous_memory::SchemaEvidenceRole::Support,
-            support: nous_core::RevisionSupport::Evidence(nous_core::EvidenceRef {
+            basis: nous_core::RevisionBasis::Evidence(nous_core::EvidenceRef {
+                epistemic_relation: None,
                 occurrence_id: occurrence,
                 locator: nous_core::EvidenceLocator::WholeOccurrence,
-                support_role: nous_core::SupportRole::Direct,
+                basis_role: nous_core::BasisRole::Direct,
             }),
         }],
     };
@@ -3196,7 +3221,7 @@ async fn assert_subject_pagination(rt: &NousRuntime) {
 
 #[tokio::test]
 async fn historical_schema_episode_journal_use_past_heads_and_history_documents() {
-    use nous_core::{CognitionDependency, CognitiveRef, OperationId, RevisionSupport, SupportRole};
+    use nous_core::{BasisRole, CognitionDependency, CognitiveRef, OperationId, RevisionBasis};
     let (root, url, _pg) = database().await;
     let clock = Arc::new(ManualCognitiveClock::new(Utc::now().trunc_subsecs(6)));
     let rt = runtime_with_clock_serving(&url, &root, clock.clone(), true).await;
@@ -3224,11 +3249,12 @@ async fn historical_schema_episode_journal_use_past_heads_and_history_documents(
         points: vec![nous_memory::JournalPoint {
             role: nous_memory::JournalPointRole::Summary,
             text: "archival past summary".into(),
-            supports: vec![RevisionSupport::CognitionDependency(CognitionDependency {
+            basis: vec![RevisionBasis::CognitionDependency(CognitionDependency {
+                epistemic_relation: None,
                 target_revision: CognitiveRef::EpisodeRevision(
                     episode.revision.episode_revision_id,
                 ),
-                support_role: SupportRole::Direct,
+                basis_role: BasisRole::Direct,
             })],
         }],
         producer: None,
@@ -3279,13 +3305,11 @@ async fn historical_schema_episode_journal_use_past_heads_and_history_documents(
         expected_epoch: new_episode.object.object_epoch,
     }];
     journal_input.narrative = "archival future journal".into();
-    journal_input.points[0].supports =
-        vec![RevisionSupport::CognitionDependency(CognitionDependency {
-            target_revision: CognitiveRef::EpisodeRevision(
-                new_episode.revision.episode_revision_id,
-            ),
-            support_role: SupportRole::Direct,
-        })];
+    journal_input.points[0].basis = vec![RevisionBasis::CognitionDependency(CognitionDependency {
+        epistemic_relation: None,
+        target_revision: CognitiveRef::EpisodeRevision(new_episode.revision.episode_revision_id),
+        basis_role: BasisRole::Direct,
+    })];
     let new_journal = owner.commit_journal(journal_input).await.unwrap();
     let new = vec![
         CognitiveRef::CognitiveSchemaRevision(new_schema.revision.schema_revision_id),
@@ -3314,7 +3338,9 @@ async fn assert_historical_domains(
     for reference in old {
         let state = view.cognition_for(reference).unwrap();
         let mut exact = query.clone();
-        exact.expression.cues.clear();
+        exact.expression.cues = vec![Cue::Text(nous_core::TextCue {
+            text: "read archival cognition".into(),
+        })];
         exact.expression.targets = vec![QueryTarget::Exact {
             reference: state.object.clone(),
         }];
@@ -3421,7 +3447,7 @@ async fn historical_episode_text(
                     role: member.role.clone(),
                 })
                 .collect(),
-            supports: episode.supports.clone(),
+            basis: episode.basis.clone(),
         })
         .await
         .unwrap()

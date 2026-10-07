@@ -33,6 +33,14 @@ impl TextEmbeddingProvider for Probe {
     }
     fn producer(&self) -> ProducerSignature {
         ProducerSignature {
+            model_role: None,
+            model_profile: None,
+            execution_profile: None,
+            inference_controls_digest: None,
+            role_policy_digest: None,
+            prompt_id: None,
+            prompt_digest: None,
+
             signature_hash: "concept-probe".into(),
             provider_class: "deterministic_test".into(),
             operation: CapabilityOperation::TextEmbedding,
@@ -57,14 +65,22 @@ impl TextEmbeddingProvider for Probe {
         })
     }
 }
-fn query(subject: SubjectId, cues: Vec<Cue>) -> CognitiveQuery {
+fn query(subject: SubjectId, mut cues: Vec<Cue>) -> CognitiveQuery {
+    if !cues.iter().any(|cue| matches!(cue, Cue::Text(_))) {
+        cues.insert(
+            0,
+            Cue::Text(TextCue {
+                text: "Recall the selected concepts".into(),
+            }),
+        );
+    }
     CognitiveQuery {
         api_version: API_VERSION,
         subject,
         session: None,
         projection: Default::default(),
         temporal_frame: Default::default(),
-        text_only_compatibility: false,
+
         work_context: None,
         situation: Default::default(),
         expression: CognitiveQueryExpr {
@@ -264,16 +280,6 @@ async fn direct_concept_recall_is_independent_and_vectors_are_shared_across_prof
             .any(|d| d.code == "concept_enrichment_unavailable")
     );
     assert_eq!(probe.calls.lock().unwrap().len(), calls_before_prepare);
-    let mut compatibility = query(subject, vec![text.clone()]);
-    compatibility.text_only_compatibility = true;
-    let compatibility = rt.execute_query(compatibility, None).await.unwrap();
-    assert!(compatibility.bound.activation.inferred_tags.is_empty());
-    assert!(
-        !compatibility
-            .bound
-            .enabled_lanes
-            .contains(&EvidenceFamily::TagDirect)
-    );
     let concept_id = enriched.bound.activation.concept_generation.unwrap();
     for profile in [
         "vcp-dtsc-v9.2.1-adapter-v1",
@@ -411,7 +417,7 @@ async fn direct_concept_recall_is_independent_and_vectors_are_shared_across_prof
         .await
         .unwrap();
     assert!(
-        !semantic
+        semantic
             .bound
             .enabled_lanes
             .contains(&EvidenceFamily::Lexical)
@@ -582,7 +588,7 @@ async fn check_model_catalog_activity(
             .as_array()
             .unwrap()
             .iter()
-            .any(|item| item["source"] == "model_concept_match"
+            .any(|item| item["source"] == "model_inferred"
                 && item["tag"] == serde_json::json!(tag))
     );
     assert_eq!(rt.store.authority_seq(subject).await.unwrap(), before);

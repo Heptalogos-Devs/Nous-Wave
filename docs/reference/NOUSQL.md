@@ -2,13 +2,13 @@
 
 [文档目录](../INDEX.md) · [自包含 Agent 手册](../agent/NOUSQL.md)
 
-NousQL 表达检索意图，Core 编译成 typed QueryExpr，Kernel Runtime 绑定查询，Serving 提供候选，Memory/Material owner 最终验证和物化。长期语义依据 [Architecture-Vault `2de60296`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/2de60296bc80d790e9dd508bc6b3abd19c7d3236/docs/Nous-Wave/TARGET_DESIGN.md)。
+NousQL 表达检索意图，Core 编译成 typed QueryExpr，Kernel Runtime 绑定查询，Serving 提供候选，Memory/Material owner 最终验证和物化。长期语义依据 [Architecture-Vault `5b96c63d`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/5b96c63da34b0a4c697b6961ae10ba6aa4de3ee1/docs/Nous-Wave/TARGET_DESIGN.md)。
 
 ## 文本与身份
 
-引号文本是独立的 lexical+dense 查询路径，不要求 Entity、Tag、WorkContext、concept model 或扩散。`#concept` 是独立 semantic text cue，不解析 durable Tag，也不走 lexical-only 伪造。`@tag` 解析 durable semantic concept，直接召回 attachment；`@e`、`@schema`、`@r`、`@object` 是 typed cues，只有 `@ref` 是 exact read。名称歧义必须选择返回的 LexicalRef，不退化为向量猜测。
+必需的未加引号 Unicode 自然语言意图是独立的 lexical+dense 查询路径，不要求 Entity、Tag、WorkContext、concept model 或扩散。`#concept` 是独立 semantic text cue，不解析 durable Tag，也不走 lexical-only 伪造。`@tag` 解析 durable semantic concept，直接召回 attachment；`@e`、`@schema`、`@r`、`@object` 是 typed cues，只有 `@ref` 是 exact read。名称歧义必须选择返回的 LexicalRef，不退化为向量猜测。
 
-布尔组合使用 `&&`、`||` 与括号，AND 对 canonical candidate identity 取交集，OR 取并集。父 hard constraints 继承，子约束细化；整树共享预算。软偏好为 `+atom`、`-atom` 和显式轴的 `+recent(axis)`/`-recent(axis)`。
+表达式为单一自然语言意图与可选 `$`、`@`、`#` 语法岛。删除 quoted root、selector-only、universe、布尔查询树和裸正负偏好语法；普通文本中的符号保持原意。字面标记用 `\$`、`\@`、`\#`、`\\` 转义。偏好使用 `$prefer("text")`、`$avoid("text")`、`$prefer(recent,recorded)`。
 
 ## 返回域
 
@@ -20,7 +20,7 @@ NousQL 表达检索意图，Core 编译成 typed QueryExpr，Kernel Runtime 绑�
 
 相对时间使用 query preparation 捕获的 Subject CognitiveClock。`$asof(timestamp)`/`$asof(ago=30d)` 选择 Authority 知识截点；`$history` 允许 eligible prior cognition revisions 作为独立 documents。二者可组合，与五轴过滤独立。默认 current view 只投影 effective heads。
 
-Historical exact binding、名称/别名、Tag canonicalization、immutable descriptors、attachments、AssociationEvidence、Schema links、Entity bindings 和 Material interpretations 使用截点状态。当前权限撤销、purge 与物理缺失仍是硬约束。当前 WorkContext 中晚于截点的 cognition refs 在 representation/activation 前剔除，当前问题和 purpose 保留。
+Historical exact binding、名称/别名、Tag canonicalization、immutable descriptors、attachments、AssociationEvidence、Schema links、Entity bindings 和 Material interpretations 使用截点状态。当前权限撤销、purge 与物理缺失仍是硬约束。冻结 QueryContextSnapshot 中晚于截点的 cognition anchors 在 representation/activation 前剔除，当前问题和 purpose 保留。
 
 ## 直接召回、概念与扩散
 
@@ -34,9 +34,9 @@ QueryActivation 统一 explicit Tags、exact/current cognition、Entity/Schema c
 
 `$return`、`$asof`、`$history`、`$effort`、`$limit`、`$diagnostics`、`$explore`、`$materialize` 为 root-only。其他支持项包括 `$source`、`$modality`、`$cognitiveRole`、`$formationMode`、`$evidenceClass`、`$authority`、`$current`、`$exclude`。`$current(none|prefer|required)` 属于 Resource freshness constraint，不能被子 scope 放宽。
 
-查询上限为 32 KiB、2048 tokens、16 层语法嵌套，`$limit` 为 1–2048。persona/relation/rel 认知仍 unavailable；此次不增加 Self/Social/Motivation。
+查询上限为 32 KiB、2048 tokens，`$limit` 为 1–2048。persona/relation/rel 认知仍 unavailable；此次不增加 Self/Social/Motivation。
 
-Query 可显式提供 Session、WorkContext、Situation refs/objects/descriptions/consumer。正式 TextCue 必须可独立解释，未闭合代词返回 `UNRESOLVED_QUERY_REFERENCE`。独立研究的 text-only 输入保持单一原始 TextCue，不添加 context/exploration/enrichment。
+Query 可显式提供 Session、WorkContext、Situation refs/objects/descriptions/consumer。正式 TextCue 必须非空；自然语言代词没有 closure gate。只拒绝明确的未解析 machine placeholder。独立研究的 text-only 输入保持单一原始 TextCue，不添加 context/exploration/enrichment。
 
 CapabilityPolicy 包括 textEmbedding、multimodalInterpretation、residualSensing、rerank、queryConceptEnrichment。Forbidden 不调用对应 provider/model；required 不满足时显式失败或 partial，optional 才允许有诊断的 degradation。Host embedding/profile 与 query concept role 分离。
 

@@ -52,7 +52,7 @@ async fn active_schema_link_inputs(
     subject: SubjectId,
     revision: CognitiveSchemaRevisionId,
 ) -> Result<Vec<SchemaEvidenceLinkInput>> {
-    let rows = sqlx::query("SELECT role,support_kind,support_ref,support_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND schema_revision_id=$2 AND revoked_at IS NULL ORDER BY link_id")
+    let rows = sqlx::query("SELECT role,basis_kind,basis_ref,basis_role,occurrence_id,source_region_id,derived_representation_id,derived_region_id,epistemic_relation FROM cognitive_schema_evidence_links WHERE subject_id=$1 AND schema_revision_id=$2 AND revoked_at IS NULL ORDER BY link_id")
         .bind(subject.0)
         .bind(revision.0)
         .fetch_all(&mut **tx)
@@ -62,12 +62,9 @@ async fn active_schema_link_inputs(
 }
 
 fn decode_schema_link_input(row: sqlx::postgres::PgRow) -> Result<SchemaEvidenceLinkInput> {
-    let support_kind: String = row.try_get("support_kind").map_err(db)?;
-    let support_role = parse_enum(
-        row.try_get("support_role").map_err(db)?,
-        "schema support role",
-    )?;
-    let support = if support_kind == "evidence" {
+    let basis_kind: String = row.try_get("basis_kind").map_err(db)?;
+    let basis_role = parse_enum(row.try_get("basis_role").map_err(db)?, "schema basis role")?;
+    let basis = if basis_kind == "evidence" {
         let locator = match (
             row.try_get::<Option<Uuid>, _>("source_region_id")
                 .map_err(db)?,
@@ -90,23 +87,29 @@ fn decode_schema_link_input(row: sqlx::postgres::PgRow) -> Result<SchemaEvidence
                 ));
             }
         };
-        RevisionSupport::Evidence(EvidenceRef {
+        RevisionBasis::Evidence(EvidenceRef {
+            epistemic_relation: parse_epistemic_relation(
+                row.try_get("epistemic_relation").map_err(db)?,
+            )?,
             occurrence_id: OccurrenceId(row.try_get("occurrence_id").map_err(db)?),
             locator,
-            support_role,
+            basis_role,
         })
     } else {
-        RevisionSupport::CognitionDependency(CognitionDependency {
-            target_revision: parse_reference(
-                &support_kind,
-                &row.try_get::<String, _>("support_ref").map_err(db)?,
+        RevisionBasis::CognitionDependency(CognitionDependency {
+            epistemic_relation: parse_epistemic_relation(
+                row.try_get("epistemic_relation").map_err(db)?,
             )?,
-            support_role,
+            target_revision: parse_reference(
+                &basis_kind,
+                &row.try_get::<String, _>("basis_ref").map_err(db)?,
+            )?,
+            basis_role,
         })
     };
     Ok(SchemaEvidenceLinkInput {
         role: parse_enum(row.try_get("role").map_err(db)?, "schema evidence role")?,
-        support,
+        basis,
     })
 }
 
@@ -124,23 +127,23 @@ impl MemoryService {
     pub(super) async fn validate_schema_formation(&self, input: &CreateSchemaInput) -> Result<()> {
         validate_schema_content(input)?;
         input.applicability_scope.valid_time.validate()?;
-        let supports: Vec<_> = input
+        let basis: Vec<_> = input
             .evidence_links
             .iter()
-            .map(|link| link.support.clone())
+            .map(|link| link.basis.clone())
             .collect();
-        if supports.is_empty() {
+        if basis.is_empty() {
             return Err(Error::Invalid(
                 "Schema revision requires evidence links".into(),
             ));
         }
-        for support in &supports {
-            validate_exact_supports(std::slice::from_ref(support))?;
+        for basis in &basis {
+            validate_exact_basis(std::slice::from_ref(basis))?;
         }
-        self.validate_supports_for_subject(input.subject, &supports)
+        self.validate_basis_for_subject(input.subject, &basis)
             .await?;
         if input.formation_kind == SchemaFormationKind::Synthesized {
-            self.validate_formation_semantics(input.subject, FormationMode::Synthesized, &supports)
+            self.validate_formation_semantics(input.subject, FormationMode::Synthesized, &basis)
                 .await?;
         }
         Ok(())
@@ -155,13 +158,12 @@ impl MemoryService {
         let schema_id = CognitiveSchemaId::new();
         let revision_id = CognitiveSchemaRevisionId::new();
         let now = self.cognition.now(input.subject);
-        let supports: Vec<_> = input
+        let basis: Vec<_> = input
             .evidence_links
             .iter()
-            .map(|link| link.support.clone())
+            .map(|link| link.basis.clone())
             .collect();
-        self.validate_supports_in_tx(tx, input.subject, &supports)
-            .await?;
+        self.validate_basis_in_tx(tx, input.subject, &basis).await?;
         sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)")
             .bind(schema_id.0).bind(input.subject.0).bind(revision_id.0).bind(now).execute(&mut **tx).await.map_err(db)?;
         self.write_schema_revision_in(

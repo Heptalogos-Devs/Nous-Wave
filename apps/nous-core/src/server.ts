@@ -193,7 +193,7 @@ export async function createCore(settings: CoreOptions) {
             value: r.value,
           })),
           evidence: s.evidence.map((e) => ({
-            supportRole: e.supportRole,
+            basisRole: e.basisRole,
             reference: e.reference
               ? { kind: e.reference.kind, value: e.reference.value }
               : undefined,
