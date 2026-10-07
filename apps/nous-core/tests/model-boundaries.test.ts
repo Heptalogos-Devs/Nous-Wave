@@ -7,7 +7,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
 import { modelConfigurationSchema } from "../src/model/configuration.js";
-import { ModelInvocations } from "../src/model/invocations.js";
+import {
+  ModelInvocations,
+  failedExecutionTelemetry,
+} from "../src/model/invocations.js";
 import { PromptRegistry } from "../src/model/prompts.js";
 import { providerContractForRole } from "../src/model/schemas/contracts.js";
 
@@ -391,8 +394,9 @@ describe("model protocol and provenance boundaries", () => {
       });
       const beforeBudget = requests.length;
       let admission = 0;
-      await expect(
-        routed.generate(
+      let admissionFailure: unknown;
+      try {
+        await routed.generate(
           "memory_formation",
           "evidence",
           undefined,
@@ -403,8 +407,22 @@ describe("model protocol and provenance boundaries", () => {
             if (++admission > 1)
               throw new Error("caller model budget exhausted");
           },
-        ),
-      ).rejects.toThrow("caller model budget exhausted");
+        );
+      } catch (error) {
+        admissionFailure = error;
+      }
+      expect(admissionFailure).toBeInstanceOf(Error);
+      expect((admissionFailure as Error).message).toBe(
+        "caller model budget exhausted",
+      );
+      expect(failedExecutionTelemetry(admissionFailure)?.attempts).toHaveLength(
+        1,
+      );
+      expect(fallback.execution.attempts.at(-1)?.usage).toMatchObject({
+        inputTokens: 1,
+        outputTokens: 2,
+        totalTokens: 3,
+      });
       expect(requests.length - beforeBudget).toBe(1);
     } finally {
       delete process.env.NOUS_TEST_GATEWAY;

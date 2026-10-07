@@ -35,17 +35,58 @@ import { PromptRegistry, type PromptAsset } from "./prompts.js";
 import { modelRoleIdentity, invocationConfigDigest } from "./identity.js";
 
 class MediaProtocolError extends Error {}
-class ModelOutputError extends Error {}
+class ModelOutputError extends Error {
+  constructor(
+    message: string,
+    readonly usage?: unknown,
+  ) {
+    super(message);
+  }
+}
 export class GenerationFailure extends Error {
   constructor(
     role: ModelRole,
     readonly reason: string,
     readonly execution?: ExecutionTelemetry,
+    readonly usage?: unknown,
   ) {
     super(`Model role ${role} invocation failed: ${reason}`);
   }
 }
 
+const interruptedExecutions = new WeakMap<object, ExecutionTelemetry>();
+export function failedExecutionTelemetry(
+  error: unknown,
+): ExecutionTelemetry | undefined {
+  return error instanceof GenerationFailure
+    ? error.execution
+    : error && typeof error === "object"
+      ? interruptedExecutions.get(error)
+      : undefined;
+}
+function usageCounts(input: unknown) {
+  if (!input || typeof input !== "object") return undefined;
+  const counters = Object.fromEntries(Object.entries(input));
+  const count = (entry: unknown) => {
+    const value =
+      entry && typeof entry === "object" && "total" in entry
+        ? entry.total
+        : entry;
+    return typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value >= 0
+      ? value
+      : undefined;
+  };
+  const usage = {
+    inputTokens: count(counters.inputTokens ?? counters.prompt_tokens),
+    outputTokens: count(counters.outputTokens ?? counters.completion_tokens),
+    totalTokens: count(counters.totalTokens ?? counters.total_tokens),
+  };
+  return Object.values(usage).some((value) => value !== undefined)
+    ? usage
+    : undefined;
+}
 function safeGenerationFailure(error: unknown) {
   if (error instanceof GenerationFailure) return error.reason;
   if (error instanceof MediaProtocolError) return error.message;
@@ -419,7 +460,13 @@ export class ModelInvocations {
         continue;
       }
       // Budget admission is outside fallback handling. Exhaustion never tries another route.
-      beforeAttempt?.();
+      try {
+        beforeAttempt?.();
+      } catch (error) {
+        if (error && typeof error === "object")
+          interruptedExecutions.set(error, { attempts: [...attempts] });
+        throw error;
+      }
       const started = performance.now();
       try {
         const result = await invoke(role);
@@ -428,7 +475,7 @@ export class ModelInvocations {
           modelProfile: role.binding.model,
           status: "succeeded",
           latencyMs: Math.round(performance.now() - started),
-          usage: "usage" in result ? result.usage : undefined,
+          usage: "usage" in result ? usageCounts(result.usage) : undefined,
         });
         const { usage: _usage, ...record } = result;
         return {
@@ -445,6 +492,10 @@ export class ModelInvocations {
           modelProfile: role.binding.model,
           status: "failed",
           failureClass: safeGenerationFailure(error),
+          usage:
+            error instanceof GenerationFailure
+              ? usageCounts(error.usage)
+              : undefined,
           latencyMs: Math.round(performance.now() - started),
         });
       }
@@ -655,6 +706,7 @@ export class ModelInvocations {
         const value = schema ? schema.parse(JSON.parse(text)) : text;
         return {
           value: value as ModelGenerationOutput<R>,
+          usage: usageCounts(result.usage),
           producerMetadata: {
             ...this.metadata(role),
             implementation: "gateway-chat-media-v1",
@@ -685,7 +737,10 @@ export class ModelInvocations {
       });
       if (!schema && !result.text.trim()) throw new Error("Empty model output");
       if (schema && result.finishReason !== "stop")
-        throw new ModelOutputError(`output_incomplete_${result.finishReason}`);
+        throw new ModelOutputError(
+          `output_incomplete_${result.finishReason}`,
+          result.totalUsage,
+        );
       const value = schema ? schema.parse(result.output) : result.text;
       return {
         value: value as ModelGenerationOutput<R>,
@@ -703,7 +758,15 @@ export class ModelInvocations {
           `Direct media invocation failed at ${mediaStage}`,
         );
       // Provider error bodies may echo headers, input material, or credentials.
-      throw new GenerationFailure(name, safeGenerationFailure(error));
+      throw new GenerationFailure(
+        name,
+        safeGenerationFailure(error),
+        undefined,
+        NoObjectGeneratedError.isInstance(error) ||
+          error instanceof ModelOutputError
+          ? usageCounts(error.usage)
+          : undefined,
+      );
     }
   }
   async embeddingBatch(texts: string[], model: string, signal?: AbortSignal) {

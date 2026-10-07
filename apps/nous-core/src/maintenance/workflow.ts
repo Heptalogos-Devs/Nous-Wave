@@ -25,7 +25,10 @@ import {
   ProducerSignatureSchema,
   type ProducerSignature,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
-import { GenerationFailure } from "../model/invocations.js";
+import {
+  GenerationFailure,
+  failedExecutionTelemetry,
+} from "../model/invocations.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "../model/runtime.js";
 import type {
@@ -524,9 +527,14 @@ export async function runModelMaintenance(
     );
     return outcome;
   } catch (error) {
-    if (error instanceof GenerationFailure && error.execution)
+    if (failedExecutionTelemetry(error))
       await kernel.modelWorkflow.saveWorkflow(
-        { ...lease, executionTelemetryJson: JSON.stringify(error.execution) },
+        {
+          ...lease,
+          executionTelemetryJson: JSON.stringify(
+            failedExecutionTelemetry(error),
+          ),
+        },
         options,
       );
     if (

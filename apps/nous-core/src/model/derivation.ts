@@ -6,7 +6,7 @@ import type { DeriveMaterialRequest } from "@nous-wave/protocol/nous/wave/v1alph
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
 import {
-  GenerationFailure,
+  failedExecutionTelemetry,
   type ExecutionTelemetry,
   type ModelProducerMetadata,
   type ModelRoleSnapshot,
@@ -288,9 +288,14 @@ export async function deriveMaterial(
       );
       return representation;
     } catch (error) {
-      if (error instanceof GenerationFailure && error.execution)
+      if (failedExecutionTelemetry(error))
         await kernel.modelWorkflow.saveWorkflow(
-          { ...lease, executionTelemetryJson: JSON.stringify(error.execution) },
+          {
+            ...lease,
+            executionTelemetryJson: JSON.stringify(
+              failedExecutionTelemetry(error),
+            ),
+          },
           { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
         );
       throw error;

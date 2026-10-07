@@ -7,7 +7,10 @@ import { FormMemoryRequestSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/
 import { type FormationRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
-import { GenerationFailure, type ModelRoleSnapshot } from "./invocations.js";
+import {
+  failedExecutionTelemetry,
+  type ModelRoleSnapshot,
+} from "./invocations.js";
 import { canonicalDigest } from "../digest.js";
 import { z } from "zod";
 
@@ -330,9 +333,14 @@ export async function formObservation(
       degradation: [],
     };
   } catch (error) {
-    if (error instanceof GenerationFailure && error.execution)
+    if (failedExecutionTelemetry(error))
       await kernel.modelWorkflow.saveWorkflow(
-        { ...lease, executionTelemetryJson: JSON.stringify(error.execution) },
+        {
+          ...lease,
+          executionTelemetryJson: JSON.stringify(
+            failedExecutionTelemetry(error),
+          ),
+        },
         { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
       );
     throw error;
