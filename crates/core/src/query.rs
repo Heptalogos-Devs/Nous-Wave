@@ -420,7 +420,8 @@ pub struct CognitiveQuery {
 
 impl CognitiveQuery {
     pub fn requests_resources(&self) -> bool {
-        self.resources.synopsis_only
+        self.projection.domains.contains(&ResultDomain::Resource)
+            || self.resources.synopsis_only
             || self.exploration == ExplorationIntent::Global
             || self.scopes().iter().any(|scope| {
                 scope.constraints.current_authority != CurrentAuthorityNeed::None

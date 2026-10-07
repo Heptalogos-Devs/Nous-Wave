@@ -165,12 +165,21 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
         .await
         .unwrap();
     let mut request = query(owner);
-    request.projection.domains = vec![nous_core::ResultDomain::Resource];
     request.expression.cues = vec![Cue::Text(TextCue {
         text: "external fact".into(),
     })];
-    request.expression.constraints.current_authority = nous_core::CurrentAuthorityNeed::Required;
+    assert!(!request.requests_resources());
+    request.projection.domains = vec![nous_core::ResultDomain::Resource];
+    assert!(request.requests_resources());
     request.result_need.limit = 1;
+    let explicit = runtime.execute_query(request.clone(), None).await.unwrap();
+    let (pool, ticket) = runtime.cognition.retain_query(explicit).unwrap();
+    assert_eq!(pool.resource_actions.len(), 1);
+    runtime
+        .cognition
+        .release_query(owner, ticket.unwrap())
+        .unwrap();
+    request.expression.constraints.current_authority = nous_core::CurrentAuthorityNeed::Required;
     for case in [
         "valid",
         "max_material",

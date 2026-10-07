@@ -43,19 +43,25 @@ const provider = createServer((request, response) => {
       resourceProviderCalls++;
       response.setHeader("Content-Type", "application/json");
       const content = resourceContent;
+      const unrelated =
+        request.method === "POST" &&
+        (JSON.parse(Buffer.concat(chunks).toString()) as { question?: string })
+          .question === "unrelated";
       const data =
         request.method === "POST"
           ? {
-              chunks: [
-                {
-                  id: "chunk1",
-                  dataset_id: "dataset1",
-                  document_id: "document1",
-                  content,
-                  document_keyword: "source.txt",
-                  similarity: 0.8,
-                },
-              ],
+              chunks: unrelated
+                ? []
+                : [
+                    {
+                      id: "chunk1",
+                      dataset_id: "dataset1",
+                      document_id: "document1",
+                      content,
+                      document_keyword: "source.txt",
+                      similarity: 0.8,
+                    },
+                  ],
             }
           : request.url.includes("/documents/")
             ? {
@@ -439,7 +445,8 @@ try {
     resourceDescriptor.resourceRef,
   );
   assert.equal(resourceResult.hits.length, 0);
-  assert.equal(resourceProviderCalls, 2);
+  // One descriptor validation and two searches: root projection applies to both OR branches.
+  assert.equal(resourceProviderCalls, 3);
   const selectedRef = resourceResult.resourceRecords[0]!.reference!;
   const observedAt = {
     seconds: BigInt(Math.floor(Date.now() / 1000)),
@@ -679,6 +686,7 @@ model = "local"
       result: "FAIL",
       stage: "real-consumer-local",
       error: error instanceof Error ? error.message : "Unknown failure",
+      stack: error instanceof Error ? error.stack : undefined,
     }),
   );
   process.exitCode = 1;

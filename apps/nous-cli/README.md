@@ -68,3 +68,16 @@ Tag revise/merge/split 的 request file 是对应 `client.concepts` typed reques
 Formation 的 explicit Tags 接受 Tag UUID、`tag:<uuid>` 或 LexicalRef；名称先 `tag resolve`。Memory owner 校验主体、active/canonical identity、merge 映射和最多 128 个输入，重复 attachment 去重；形成时写入现有 revision tags。自动 inferred Tag 继续由 Host grant 下的 concept maintenance 负责。
 
 Use 接受 Memory/Schema/Episode/Journal 的 exact revision，不静默解析 mutable object 到新 head。`--kind` 包含 presented、referenced、acted_on、result_supported、result_refuted、corrected、pinned；`--consumer` 默认为第一方 CLI identity。重试复用 event ID 与同一个 `--occurred-at`；相同 ID 的不同内容会产生 conflict。Maintenance grant 的 operations 上限 32、model calls 上限 32，0 model calls 只授权无需模型的工作，elapsed 上限 300000 ms。
+
+
+## NousQL Agent 指南与时间查询
+
+`nous help nousql` / `nous help nousql --json` 不要求 daemon/instance，返回概念定义、selectors、五轴时间、asof/history、direct/explore、projection 和可执行示例。完整 [Agent 手册](../../docs/agent/NOUSQL.md) 的 fenced examples 由测试自动 parse/compile。
+
+```sh
+nous query prepare '"migration" $return(memory,schema) $asof(ago=30d)' --subject <id> --json
+nous query '"support status" $history $time(recorded,within=30d)' --subject <id> --json
+nous use memory_revision:<uuid> --kind referenced --query-id <query-id> --event-id <uuid> --occurred-at 2026-10-07T00:00:00Z --json
+```
+
+Projection 只在 query 根定义，默认四类 cognition；历史名称/Tag canonicalization 使用同一 captured cut。`--query-id` 关联实际返回的 exact revision，不能用无关结果作为反馈。Presented 不触发概念 review，refutation 不提供正向 support；维护仍须 bounded grant。
