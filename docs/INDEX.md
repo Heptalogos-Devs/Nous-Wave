@@ -25,6 +25,7 @@
 - [研究入口](research/README.md)
 - [研究语料与 oracle](research/corpus/README.md)
 - [手工认知功能语料](research/corpus/functional/README.md)
+- [Core Cognition Semantic Qualification](research/core-cognition-semantic.md)
 - [实验方法](research/retrieval-media-methods.md)
 - [检索与媒体观测](research/observations.md)
 - [VCP source conformance](research/vcp-conformance.md)
