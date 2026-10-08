@@ -9,7 +9,7 @@ tracked tree 保存 source manifest、少量 oracle metadata 和手工功能场�
 - [VCP source manifest](cognitive-retrieval-sources.json)：冻结 reference source identity。
 - [媒体来源](media.json)、[音频 negative controls](audio-negative-controls.json)。
 - [个人文本来源](personal.json)、[个人查询](personal-queries.json)。
-- Core Cognition：[Simon](core-cognition/simon.json)、[CPython](core-cognition/cpython.json)、[Rust sealed 候选](core-cognition/rust.json)、[Kafka sealed 候选](core-cognition/kafka.json)、[独立 revision oracle](core-cognition/revision-slice.json)、[2026-10-07 稳定结果](core-cognition/results-2026-10-07.json)。[方法与状态](../core-cognition-semantic.md)说明 formation gate 与 sealed 未执行原因。
+- Core Cognition：[Simon](core-cognition/simon.json)、[CPython](core-cognition/cpython.json)、[Rust sealed 候选](core-cognition/rust.json)、[Kafka sealed 候选](core-cognition/kafka.json)、[独立 revision oracle](core-cognition/revision-slice.json)、[2026-10-07 稳定结果](core-cognition/results-2026-10-07.json)。[2026-10-08 v2 稳定结果](core-cognition/results-2026-10-08.json)保存本轮实际 source identities、费用与已执行 sealed。[方法](../core-cognition-semantic.md)区分结构完整性与语义质量。
 - [原始文本 manifest](manifest.json)、[查询](queries.json)、[已有观测元数据](observed-results.json)。
 
 先验证 formation 与 Tag/Association maintenance，再解释四 profile 的小型 readout。六项文本兼容性仅作 smoke，不宣称全量 benchmark accuracy。全量 LongMemEval/LoCoMo、RAGFlow 和付费 rerank/provider 比较本轮不执行。
