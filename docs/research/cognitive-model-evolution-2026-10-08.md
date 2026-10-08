@@ -36,7 +36,41 @@ Pro default Simon Journal 正确区分 2020 年 4 月开始 TIL 与 2022 年文�
 
 真实 PostgreSQL concept maintenance 测试验证 Tag-only、Association-only producer 可读且跨 Subject 返回 NotFound；相关 Rust clippy 通过。重启普通 Core 后，official Client 对先前同一个 producer 的读取成功，返回原 Mini/profile/Prompt/config signature。旧 v2 Authority 未被改写。研究 runner 的 maintenance grant 采用当前 API 支持的 300 秒上限，并留出响应传输时间，以容纳此次实测较慢的强模型角色。
 
-## 当前研究问题
+## 新 Subject 的持续经历
+
+独立 CPython Subject `0ce739c0-66b4-5a0a-a853-2300400bb307` 的起点显式重放 v2 Mini 的错误 Memory（accepted on 09-Jan-2023）和错误 Tag；两者由 Host 提交，绑定本 Subject 新观察的真实 PEP 单元，原 trace 3/67 身份保留，没有将重放伪装为新的 Mini 推理。首次普通 maintenance 的 Pro 修订了 Tag，准确区分 Created 与接受日期；原 Memory 仍为 revision 1。
+
+随后两个真实 Council 来源进入第二 Session：`discuss.python.org` post 107496/version 1（2023-07-28 notice）与 post 123112/version 2（2023-10-24 acceptance）。原文、发布时间、post/version 与 hashes 在生成前冻结，模型未收到预写的日期答案。Pro formation 保留通知、接受说明及渐进、实验性、可逆的条件。第三 Session 读取冻结的 PEP 779。新 evidence 与 concept maintenance 已提交；旧 Memory 仍存在，后续继续检查 settled Episode／Journal／consolidation 的候选与 owner outcome。
+
+独立 Simon Subject `9ffac9c0-6afa-565d-a14d-f10fac39b976` 在三个实际 Session 中读取 TIL advice、link blog 与 beats，三个 Memory 由真实 Pro 调用形成。Session 关闭没有强制拆分 Episode，符合当前连续经历语义。本轮使用 SystemCognitiveClock 和 reference hard idle 1800 秒、settle delay 300 秒，未注入时间；尚在等待自然到期的阶段不能算作缺失角色能力。
+
+## 已执行的检索对照
+
+Qwen `qwen3.7-text-rerank` 对 v2 四个不可变候选池的真实重排：Simon practice 的目标仍第 1；CPython 3.13 的两个目标来源从 1/3 变为 1/4；Rust dyn reference 从第 2 降至第 5；Kafka 3.6 从第 2 升至第 1。候选池、exact revision、text hashes、原 query identity、scores 与 producer 均保留。该调用只改变排序，不能补充池外来源或修正候选中的错误命题。当前选择按需 rerank，不设为所有查询的 required。
+
+新 Subject 的短跟问、WorkContext text／Tag／Entity、显式指称与 model enrichment 已执行。小池内都能覆盖现有 Memory，排序却不同：CPython 的 Tag anchor 把仍含错误日期的旧 Memory 推到第一，显式 query 把 Council acceptance 说明排在第一；Simon Tag anchor 偏向早期 advice，显式 query 偏向后期 beats。因此高 Source Recall 并不说明当前命题正确，Context／Tag 也不是无条件收益。
+
+首次 Serving preparation 被上游拒绝：embedding endpoint 最多 10 条，配置却允许一次 14 条。失败保留，修正本地 max_batch_size=10 并重启后，CPython 14、Simon 11 份材料成功提交；后续比较使用未降级的 lexical/dense 条件。Query Pro 曾把必需字段 novel_concepts 写成 novel_conceptions，被 SDK 合同拒绝；已明确精确字段名。另一输出把 beats 解释为 recurring thematic areas，而 supplied catalog 并未建立这种意义；新 Prompt 要求 novel hypotheses 使用短检索概念或问题，保留未消解词义。相同输入／最终 Prompt 的 Lite 与 Pro 对照均通过合同，Pro 用约 7–10 秒，Lite 约 45–52 秒。它们是 query-local hypotheses，没有写入 Tag Authority。
+
+Native/VCP 在小池内未增加 baseline 未获的有用 Memory。Simon Native 访问 5 个节点、激活 7 条边、最大 2 hops 后报告截断，实际可见 readout 是已有 Tag attachment，尚无新增关联收益。CPython Native 首次报告 generation/profile mismatch；查明 baseline prewarming 将 Native 图错误标成 baseline，而缓存键有意复用同一 Native asset。Retrieval builder 已统一图与 metadata 的 Native asset identity，并提升可重建 artifact revision；baseline／Native 仍复用同一资产，Runtime 查询 profile 保持独立。真实 PostgreSQL query correctness 场景验证 baseline prewarm 和反复 VCP／Native 切换，19 个相关测试通过，公开 Core 的修复后对照待重跑。
+
+## 当前配置决定
+
+本轮先采用以下配置作为部署起点；自然演化的实际 owner 提交结果仍会补充到角色结论。所有 structured roles 使用 32768 output budget、300 秒执行上限，不把 formation 的短延迟套用到 Journal。
+
+| Role | 模型与 reasoning | 选择依据 |
+| --- | --- | --- |
+| Memory Formation | Pro / minimal | 同一澄清 Prompt 的 PEP、Rust dyn、Kafka 3.6 均保留日期归属、Self:Sized 例外、Early Access／禁止 downgrade 等关键条件，约 12／16／21 秒 |
+| Concept Maintenance | Pro / high | high 固定输入首次 Tag 保留关键条件；Pro default 已修订错误 Tag，还需 high 在真实新 evidence 后的 continuing revision |
+| Journal Synthesis | Lite / high | CPython 的 support keys 与阶段叙述正确；原强模型 NOT_RUN 已补齐，实际约 125 秒 |
+| Memory Consolidation | Lite / high | 76512 input tokens 的真实 CPython 输入成功提出有范围的阶段 Schema；owner 与 continuing revision 尚待自然执行 |
+| Episode Segmentation | Pro / provider-default | 将由真实多 Session 经历的合法 partition、顺序与组织质量决定最终保留 |
+| Query Concept Enrichment | Pro / provider-default，默认 off | 同一最终 Prompt 的输出有界、合法，未观察小池新增检索收益；显式指称／WorkContext 是优先输入 |
+| Query Rerank | Qwen rerank，按需 | Kafka 排序改善、Rust 排序退化，避免无条件 required |
+
+费用不是上述选择的主要约束。实际调用包含 schema 拒绝、HTTP 失败及配置失败；usage 与 latency 不只统计成功产物，最终保留 New API credit 扣费和 supplier bill 的可知范围。
+
+## 剩余研究工作
 
 继续比较 formation 的日期、归因、限制与否定保留；正确 Memory 的首次概念形成与错误概念复审；真实 Episode 的 Journal、consolidation/Schema 与跨 Session 分段。长期轨迹检查新来源、候选发现、MaintenanceNeed、固定输入、proposal、owner outcome 与 recall，区分自然 revision、明确 Host correction 和纯模型重新生成。
 

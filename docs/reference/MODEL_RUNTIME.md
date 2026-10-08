@@ -8,6 +8,8 @@ RolePolicy 持有 1..4 个有序 execution routes、Prompt 与 optional|required
 
 Prompt 从仓库 `prompts/` 的 UTF-8 Markdown 加载；custom path 须落在允许 root，每份最多 128 KiB。logical id、内容 digest、role config digest 与实际 model/protocol 进入 producer。Prompt asset 缺失或无效时对应 role 不可执行。
 
+SDK generation 使用独立 `instructions` 与 user material；provider adapter 决定实际 system/developer 映射。Prompt 按任务、来源忠实性、selector 目录和输出合同组织。结构化验证约束输出形状与目录引用，不能把模型生成的姓名、日期或概括自动当作事实正确。Query enrichment 的 novel concepts 是短检索概念／问题，未消解的词义保持未消解。
+
 ## Material 与 formation
 
 `client.model.deriveMaterial({ subjectId, sourceRegionId, strategy, target, supersedes })` 返回实际 committed `representations[]`、selected representation 和 degradation。Configuration 的 `material.strategy` 默认 `description_only`，还接受 `direct_structured`、`describe_then_structure`。
@@ -26,6 +28,8 @@ Structuring 失败保留已提交的 description。普通 recall 不重新解释
 `client.model.formFromObservation({ operationId, subjectId, occurrenceId, representationId?, aboutnessMode?, explicitAboutness? })` 使用指定表示，或按实际媒体策略选择最新描述/转写。operationId 由调用方稳定提供；同 ID/input 重放 outcome，不受后续配置变化影响，不同 input conflict。未解释的 binary source 返回 `material_representation_required`。Aboutness 支持 explicit、select_from_resolved_mentions（默认）与 none；select 模式只使用 Kernel 提供的 resolved mention candidate keys，Actor identity 单独保存于 Observation。
 
 Memory revision 的 `producerSignatureId` 可用 `client.material.producer` 读取。Material 的表示、inputs、DerivedRegion、SourceRegion、Artifact 都有同 Subject 的 public read path。`nous trace` 只经 official Client 展开这条链，保存的 producer 不包含 token。
+
+同一 producer read 也覆盖 Episode、Journal、Schema、Tag revisions 与 AssociationEvidence；historical revisions／revoked association 的实际引用仍可追溯，跨 Subject 不开放未引用的签名。最新角色模型与 reasoning 部署建议、真实上下文和延迟观测见 [Cognitive Model & Evolution Research](../research/cognitive-model-evolution-2026-10-08.md)。Embedding 的 max_batch_size 要按实际 endpoint 配置；本轮 Doubao endpoint 明确拒绝超过 10 条的输入，配置为 10 后完整 preparation 成功。
 
 使用 `corepack pnpm inspect:model-contracts --all` 导出实际 provider schema、Prompt 与 digest；通过 research gateway 的 `--trace-root` 和 `inspect:model-trace` 检查真实 New API wire attempt。命令详见 [开发脚本](../../scripts/README.md#模型合同与-trace-检查)。
 
