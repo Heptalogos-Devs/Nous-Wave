@@ -30,6 +30,10 @@ Use `memory.get({ subjectId, id: memoryId })` for current head/epoch and `memory
 
 `concepts.createSchema/reviseSchema/splitSchema/mergeSchemas/addSchemaEvidence` use the public Schema contracts, exact evidence and object epoch. A schema is a supported transferable pattern with explicit applicability and boundary, not an arbitrary list of remembered facts. `subjects.seed/adoptSeed` read/adopt versioned sources; adoption does not silently replace already committed cognition.
 
+`concepts.suppressSchema/restoreSchema/withdrawSchema/reacceptSchema/purgeSchema` take `subjectId`, `schemaId`, `expectedObjectEpoch`, and `operationId`. They use the Memory owner's lifecycle and dependency fences, without creating a content revision. Purge clears Schema revision content and resident/context/Association references, and revokes incoming Schema evidence links. Provenance and receipt identities may remain; previously recorded UseEvents replay as duplicates through content-free purge receipts. It does not delete shared admitted Material.
+
+Mutation replay preserves the original operation and exact immutable revision. Returned mutable lifecycle state and object epoch describe the object's current state; a delayed suppress replay after restore does not suppress it again. Authorized `memory.get/revision` and Schema management reads expose content with current lifecycle fields for inspection and repair, including withdrawn/suppressed objects. Ordinary NousQL enforces visibility, including exact query targets; management reads do not recover purged content.
+
 ## Session, identities and consumers
 
 Session state is isolated; WorkContexts belong to Subject and can continue across Sessions. Pause/end clears affected Session foreground bindings atomically; resume does not foreground a Session. Ended contexts cannot mutate/resume. `cognition.openSession/getSession/listSessions/closeSession` and WorkContext methods use this Runtime owner contract.

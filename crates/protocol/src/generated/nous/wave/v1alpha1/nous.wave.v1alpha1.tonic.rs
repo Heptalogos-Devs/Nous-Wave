@@ -1473,6 +1473,31 @@ pub mod concept_service_server {
             &self,
             request: tonic::Request<super::MergeCognitiveSchemasRequest>,
         ) -> std::result::Result<tonic::Response<super::CognitiveSchema>, tonic::Status>;
+        ///
+        async fn suppress_cognitive_schema(
+            &self,
+            request: tonic::Request<super::CognitiveSchemaMutationRequest>,
+        ) -> std::result::Result<tonic::Response<super::CognitiveSchema>, tonic::Status>;
+        ///
+        async fn restore_cognitive_schema(
+            &self,
+            request: tonic::Request<super::CognitiveSchemaMutationRequest>,
+        ) -> std::result::Result<tonic::Response<super::CognitiveSchema>, tonic::Status>;
+        ///
+        async fn withdraw_cognitive_schema(
+            &self,
+            request: tonic::Request<super::CognitiveSchemaMutationRequest>,
+        ) -> std::result::Result<tonic::Response<super::CognitiveSchema>, tonic::Status>;
+        ///
+        async fn reaccept_cognitive_schema(
+            &self,
+            request: tonic::Request<super::CognitiveSchemaMutationRequest>,
+        ) -> std::result::Result<tonic::Response<super::CognitiveSchema>, tonic::Status>;
+        ///
+        async fn purge_cognitive_schema(
+            &self,
+            request: tonic::Request<super::CognitiveSchemaMutationRequest>,
+        ) -> std::result::Result<tonic::Response<()>, tonic::Status>;
     }
     ///
     #[derive(Debug)]
@@ -2326,6 +2351,261 @@ pub mod concept_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = MergeCognitiveSchemasSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.ConceptService/SuppressCognitiveSchema" => {
+                    #[allow(non_camel_case_types)]
+                    struct SuppressCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
+                    impl<
+                        T: ConceptService,
+                    > tonic::server::UnaryService<super::CognitiveSchemaMutationRequest>
+                    for SuppressCognitiveSchemaSvc<T> {
+                        type Response = super::CognitiveSchema;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::CognitiveSchemaMutationRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ConceptService>::suppress_cognitive_schema(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SuppressCognitiveSchemaSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.ConceptService/RestoreCognitiveSchema" => {
+                    #[allow(non_camel_case_types)]
+                    struct RestoreCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
+                    impl<
+                        T: ConceptService,
+                    > tonic::server::UnaryService<super::CognitiveSchemaMutationRequest>
+                    for RestoreCognitiveSchemaSvc<T> {
+                        type Response = super::CognitiveSchema;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::CognitiveSchemaMutationRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ConceptService>::restore_cognitive_schema(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RestoreCognitiveSchemaSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.ConceptService/WithdrawCognitiveSchema" => {
+                    #[allow(non_camel_case_types)]
+                    struct WithdrawCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
+                    impl<
+                        T: ConceptService,
+                    > tonic::server::UnaryService<super::CognitiveSchemaMutationRequest>
+                    for WithdrawCognitiveSchemaSvc<T> {
+                        type Response = super::CognitiveSchema;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::CognitiveSchemaMutationRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ConceptService>::withdraw_cognitive_schema(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = WithdrawCognitiveSchemaSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.ConceptService/ReacceptCognitiveSchema" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReacceptCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
+                    impl<
+                        T: ConceptService,
+                    > tonic::server::UnaryService<super::CognitiveSchemaMutationRequest>
+                    for ReacceptCognitiveSchemaSvc<T> {
+                        type Response = super::CognitiveSchema;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::CognitiveSchemaMutationRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ConceptService>::reaccept_cognitive_schema(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReacceptCognitiveSchemaSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/nous.wave.v1alpha1.ConceptService/PurgeCognitiveSchema" => {
+                    #[allow(non_camel_case_types)]
+                    struct PurgeCognitiveSchemaSvc<T: ConceptService>(pub Arc<T>);
+                    impl<
+                        T: ConceptService,
+                    > tonic::server::UnaryService<super::CognitiveSchemaMutationRequest>
+                    for PurgeCognitiveSchemaSvc<T> {
+                        type Response = ();
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::CognitiveSchemaMutationRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ConceptService>::purge_cognitive_schema(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PurgeCognitiveSchemaSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

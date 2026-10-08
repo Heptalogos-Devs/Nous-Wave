@@ -2108,6 +2108,17 @@ pub struct GetCognitiveSchemaRequest {
     pub schema_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CognitiveSchemaMutationRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub schema_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AddSchemaEvidenceRequest {
     #[prost(string, tag="1")]
     pub operation_id: ::prost::alloc::string::String,

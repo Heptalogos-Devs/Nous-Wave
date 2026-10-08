@@ -16,4 +16,8 @@ References are deduplicated by canonical exact `CognitiveRef` while source famil
 - runtime query returns resident and active WorkContext candidates with source diagnostics;
 - Projection/Managed Context reads active WorkContext refs through Kernel and revalidates them before exposure.
 
+Known Memory, Schema, Episode and Journal references remain Subject cognition when supplied in request situation. Current Memory-owner lifecycle validation removes hidden, invalid and purged cognition; a failed materialization removes the segment instead of relabeling an empty reference as external authority. Other canonical references also retain Subject ownership validation. Consumer `memory` policy covers all four cognition families.
+
+Core Projection assigns segment identities from the final selected, bounded content, exact source references, evidence, authority/stability and source revision. Per-read contribution IDs do not change that identity. Managed Context appends only to a synchronized unchanged prefix: a repeated unchanged projection produces an empty APPEND with the same cursor; actual source/content change produces RESET. Tracks are process-local, so restart or an unknown cursor produces RESET.
+
 [返回文档目录](../../INDEX.md)

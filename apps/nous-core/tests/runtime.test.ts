@@ -75,6 +75,58 @@ describe("managed context synchronization", () => {
   });
 });
 describe("projection authority boundaries", () => {
+  it("applies the cognition consumer policy to Schema contributions", async () => {
+    const planner = new ProjectionPlanner(
+      new Map([["test", { ...policy, memory: "FORBIDDEN" } as ConsumerPolicy]]),
+    );
+    const input = {
+      ...segment("schema", "supported pattern"),
+      sourceRefs: [
+        { kind: "cognitive_schema_revision", value: "schema revision" },
+      ],
+    };
+    const result = await planner.build(projection(input), {
+      maxItems: 5,
+      maxTextBytes: 20,
+    });
+    expect(result.segments).toEqual([]);
+  });
+  it("keeps projected segment identity stable across fresh contribution IDs and resets on evidence drift", async () => {
+    const planner = new ProjectionPlanner(new Map([["test", policy]]));
+    const compiler = new ContextCompiler(256);
+    const key = { subjectId: "s", sessionId: "session", consumerId: "test" };
+    const original = segment("source", "same content");
+    const first = await planner.build(projection(original), {
+      maxItems: 5,
+      maxTextBytes: 20,
+    });
+    const second = await planner.build(
+      projection({ ...original, segmentId: "fresh contribution ID" }),
+      { maxItems: 5, maxTextBytes: 20 },
+    );
+    expect(second.segments[0]?.segmentId).toBe(first.segments[0]?.segmentId);
+    expect(second.projectionId).toBe(first.projectionId);
+    const initial = compiler.compile(key, "1", first);
+    const unchanged = compiler.compile(key, "1", second, initial.cursor);
+    expect(unchanged.kind).toBe("APPEND");
+    expect(unchanged.projection.segments).toEqual([]);
+    expect(unchanged.cursor).toEqual(initial.cursor);
+    const changed = await planner.build(
+      projection({
+        ...original,
+        evidence: [
+          {
+            basisRole: "direct",
+            reference: { kind: "occurrence", value: "different source" },
+          },
+        ],
+      }),
+      { maxItems: 5, maxTextBytes: 20 },
+    );
+    expect(compiler.compile(key, "1", changed, unchanged.cursor).kind).toBe(
+      "RESET",
+    );
+  });
   it("rejects invented model refs and preserves deterministic source selection", async () => {
     const model = new ModelRuntime();
     vi.spyOn(model.invocations, "profile").mockReturnValue({} as never);
@@ -85,7 +137,9 @@ describe("projection authority boundaries", () => {
       new Map([["test", policy]]),
       model,
     ).build(projection(segment("a")), { maxItems: 5, maxTextBytes: 20 });
-    expect(result.segments.map((s) => s.segmentId)).toEqual(["a"]);
+    expect(result.segments.map((s) => s.sourceRefs)).toEqual([
+      [{ kind: "memory", value: "a" }],
+    ]);
     expect(result.degradation[0]?.code).toBe("steward_rejected");
   });
   it("enforces bytes without splitting UTF-8 and keeps required sources", async () => {

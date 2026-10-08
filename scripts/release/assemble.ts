@@ -15,6 +15,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { parseArgs } from "node:util";
 import { bundleApplication } from "./bundle.js";
 import { loadNotices } from "./notices.js";
 import { writeManifest } from "./manifest.js";
@@ -24,6 +25,12 @@ import {
   verifyRuntime,
 } from "../../apps/nous-core/src/runtime-packs.js";
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const { values } = parseArgs({
+  options: { "runtime-root": { type: "string" } },
+});
+const runtimePacks = values["runtime-root"]
+  ? resolve(values["runtime-root"])
+  : workspacePaths.runtime;
 if (process.platform !== "win32" || process.arch !== "x64")
   throw new Error("Windows x64 assembly requires Windows x64");
 const parent = join(workspacePaths.releases, "windows-x64");
@@ -53,14 +60,13 @@ for (const name of ["nous-kernel.exe", "libc++.dll", "libunwind.dll"])
 for (const [source, target] of [
   ["prompts", "prompts"],
   ["crates/persistence/migrations", "migrations"],
-  ["data/runtime/manifest", "manifest"],
 ])
   await cp(join(repo, source!), join(program, target!), { recursive: true });
+await cp(join(runtimePacks, "manifest"), join(program, "manifest"), {
+  recursive: true,
+});
 const components = JSON.parse(
-  await readFile(
-    join(workspacePaths.runtime, "manifest/runtimes.json"),
-    "utf8",
-  ),
+  await readFile(join(runtimePacks, "manifest/runtimes.json"), "utf8"),
 ) as {
   packs: {
     component: string;
@@ -94,7 +100,7 @@ for (const name of ["node", "postgresql", "ffmpeg"]) {
   await installRuntime(
     locations,
     name,
-    join(workspacePaths.runtime, "packs", pack.archive),
+    join(runtimePacks, "packs", pack.archive),
   );
   await verifyRuntime(locations, name);
   await cp(join(cache, name), join(output, "runtime", name), {

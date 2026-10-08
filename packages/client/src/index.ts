@@ -239,6 +239,11 @@ export function createNousClient(transport: Transport) {
       reviseSchema: call(concepts.reviseCognitiveSchema),
       splitSchema: call(concepts.splitCognitiveSchema),
       mergeSchemas: call(concepts.mergeCognitiveSchemas),
+      suppressSchema: call(concepts.suppressCognitiveSchema),
+      restoreSchema: call(concepts.restoreCognitiveSchema),
+      withdrawSchema: call(concepts.withdrawCognitiveSchema),
+      reacceptSchema: call(concepts.reacceptCognitiveSchema),
+      purgeSchema: call(concepts.purgeCognitiveSchema),
     },
     system: {
       status: call(system.getStatus),

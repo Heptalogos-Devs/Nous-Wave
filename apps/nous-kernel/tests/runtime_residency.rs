@@ -265,19 +265,20 @@ async fn projection_materializes_supported_memory_within_the_text_budget() {
         .await
         .expect("session");
     let service = nous_kernel::transport::KernelService(runtime);
+    let request = nous_protocol::public::ProjectionRequest {
+        subject_id: subject.0.to_string(),
+        session_id: session.session_id.0.to_string(),
+        consumer_id: "default".into(),
+        max_items: 4,
+        max_text_bytes: 8,
+        situation_refs: vec![nous_protocol::public::CognitiveRef {
+            kind: "memory_revision".into(),
+            value: memory.revision.memory_revision_id.0.to_string(),
+        }],
+        ..Default::default()
+    };
     let projection = service
-        .build_contribution_batch(nous_protocol::public::ProjectionRequest {
-            subject_id: subject.0.to_string(),
-            session_id: session.session_id.0.to_string(),
-            consumer_id: "default".into(),
-            max_items: 4,
-            max_text_bytes: 8,
-            situation_refs: vec![nous_protocol::public::CognitiveRef {
-                kind: "memory_revision".into(),
-                value: memory.revision.memory_revision_id.0.to_string(),
-            }],
-            ..Default::default()
-        })
+        .build_contribution_batch(request.clone())
         .await
         .expect("projection");
     assert!(projection.degradation.is_empty());
@@ -287,4 +288,28 @@ async fn projection_materializes_supported_memory_within_the_text_budget() {
         projection.segments[0].source_revision.as_deref(),
         Some(memory.revision.memory_revision_id.0.to_string().as_str())
     );
+    let owner = service.0.require_memory().unwrap();
+    owner
+        .suppress(subject, memory.object.memory_id, OperationId::new(), 1)
+        .await
+        .unwrap();
+    assert!(
+        service
+            .build_contribution_batch(request.clone())
+            .await
+            .unwrap()
+            .segments
+            .is_empty()
+    );
+    owner
+        .restore(subject, memory.object.memory_id, OperationId::new(), 2)
+        .await
+        .unwrap();
+    owner
+        .purge_memory(subject, memory.object.memory_id, OperationId::new(), 3)
+        .await
+        .unwrap();
+    let purged = service.build_contribution_batch(request).await.unwrap();
+    assert!(purged.segments.is_empty());
+    assert_eq!(purged.degradation[0].code, "projection_source_unavailable");
 }

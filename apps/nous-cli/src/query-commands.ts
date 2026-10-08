@@ -244,7 +244,7 @@ export async function readCommands(env: CliEnvironment, reference?: string) {
           ),
         }
       : {
-          next: "Binary source; derive <occurrence-id> for a textual interpretation",
+          next: "Binary source; derive <SourceRegion reference> for a textual interpretation. Use the src: reference returned by observe or trace.",
         }),
     evidence: material.evidence,
     degradation: material.degradation,

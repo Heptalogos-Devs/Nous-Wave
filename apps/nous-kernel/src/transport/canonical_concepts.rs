@@ -23,6 +23,11 @@ rpc_service! {
             revise_cognitive_schema(p::ReviseCognitiveSchemaRequest) -> p::CognitiveSchema;
             split_cognitive_schema(p::SplitCognitiveSchemaRequest) -> p::SplitCognitiveSchemaResponse;
             merge_cognitive_schemas(p::MergeCognitiveSchemasRequest) -> p::CognitiveSchema;
+            suppress_cognitive_schema(p::CognitiveSchemaMutationRequest) -> p::CognitiveSchema;
+            restore_cognitive_schema(p::CognitiveSchemaMutationRequest) -> p::CognitiveSchema;
+            withdraw_cognitive_schema(p::CognitiveSchemaMutationRequest) -> p::CognitiveSchema;
+            reaccept_cognitive_schema(p::CognitiveSchemaMutationRequest) -> p::CognitiveSchema;
+            purge_cognitive_schema(p::CognitiveSchemaMutationRequest) -> ();
         }
         custom {}
     }

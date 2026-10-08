@@ -57,7 +57,9 @@ Mini 将原文“连续多条问题”转述成“跨多个任务”。Pro 仍�
 
 当前一个研发分支和 draft [PR 22](https://github.com/Heptalogos-Devs/Nous-Wave/pull/22) 已建立。Node24.21、PostgreSQL18.6 与 FFmpeg9.0.2 本地 runtime packs 和 shipping LLVM-MinGW 已实际取得，第一版 shipping Kernel 已编译；最新 owner/协议变化后仍需重建并完成 source-less Portable 使用，不能把 pack/build 成功视作实际运行成功。
 
-可丢弃操作 Agent 已完成 Memory 历史/rephrase/accessibility/withdraw/reaccept/suppress/restore、Schema 来源失效与再验证、双 Session foreground/pause/resume、UseEvent replay。原管理任务仍被 Schema lifecycle API 缺失和未配置自身 consumer policy 阻断，待 owner 修复后继续临时 cognition 的 purge 与清理。长期实例继续实际 Pro/Lite 维护、media、Serving 恢复与 Portable；本轮最新 query 出现 dense ready/candidates11 但同时保留 `Host did not supply compatible embedding material` degradation，正在定位两阶段 preparation/execution 的状态归属。
+原临时知识管理任务已完成，详见下面的实际轨迹。长期实例补齐两份新 document embedding material 后，原封重跑最新问题返回 complete、dense ready/candidates11，不再有 `Host did not supply compatible embedding material` degradation；这次是新 document material 尚未准备，不能错误归因成先前已经修复的 query-vector failure cache。
+
+当前继续媒体任务、实际 Pro/Lite 长期维护与 fallback、Serving 重建和 Portable。Portable 初次实际组装因 runtime/node/licenses/node/LICENSE 缺失失败；取得的开发 PostgreSQL 也不具备 shipping LLVM-MinGW notice/source 布局。已核验官方 PostgreSQL18.6、FFmpeg9.0.2 与 LLVM-MinGW20260922 Linux cross toolchain 的固定 hashes，并在 WSL Ubuntu 按仓库脚本构建独立 shipping runtime。Assembler 增加显式 runtime-root 输入，使 shipping catalog 不更换正在运行实例依赖的开发 manifest identity。编译、组装与真正无源码运行仍需继续，不能据下载、校验或 build 日志宣告 Portable 完成。
 
 ## Stable references in actual Agent use
 
@@ -68,3 +70,21 @@ Mini 将原文“连续多条问题”转述成“跨多个任务”。Pro 仍�
 第三个全新 Codex 进程只通过实际 stdio MCP，以返回的 sub/ctx/session/result:N/memrev/obs 引用完成相同研究续接与来源读取；query 更新后仍用同一 exact memrev 读取，两个名称及稳定 Tag 地址一致。原 MCP WorkContext 保存checkpoint revision13，两个旧 exact anchors保留、追加本次实读来源支持的exact Memory，Session关闭。两个使用者均未输入 UUID 参数、未读本地consumer状态/旧日志/实现源码，没有回退 UUID。历史 Memory/source 中已有 UUID 保持原文，不能据此改写已存认知。原始新操作证据在 ignored `cli-user/operations-lexical.md` 与 `codex-mcp/lexical-session.jsonl`。
 
 主研发 Agent 随后实际 query 后用 `use memrev:product-showcase-shortcut-fiction --query-id query:last --kind referenced` 返回acceptedCount1，再将词汇化 Objective/Decisions/Current Work 保存到 `ctx:outer-zodiac-reps-delicate` revision3。当前 Goal 继续，尚未交付全系统完成或合并结论。
+
+## Administrator task completed after owner repairs
+
+公开 Schema lifecycle 缺失确实阻止临时规则清理，已在 Memory owner 增加 suppress/restore/withdraw/reaccept/purge，并贯通 canonical ConceptService/官方 Client。操作 Agent 在原 Schema 上实际 withdraw→reaccept→suppress→restore，immutable revision不变，epoch3→7；旧 suppress 请求延后重放不重新施加状态。普通与 exact query 在隐藏状态均无命中，管理 read 返回带当前状态的正文。独立 consumer policy 配置后，其实际 projection 成功。
+
+连续同请求、同七段正文与 sourceRuntimeRevision 的 managed context 每次 RESET，原因是 per-read contribution ID 进入 projected identity。Core Projection 现在以最终选择/预算后的内容、来源、evidence、revision与authority生成稳定段身份。部署后同请求 known cursor 实际返回空 APPEND/同epoch同revision同Projection ID；移除真正投影的来源后 RESET。未进入投影的 WorkContext 自由文本变化不触发 RESET，操作 Agent 已修正最初的判断。
+
+两个 Memory 与一个 Schema 按事先冻结的原请求 purge，并分别成功重放。管理/exact/history/旧 revise receipt不能恢复正文；current/history/as-of query无命中，LexicalRef exact为TOMBSTONED。Schema acted_on UseEvent在purge后重放accepted0/duplicate1，Session revision和ResidentSet不变。共享admitted Spec保持可读，临时Subject配置覆盖已撤除，active Seed恢复原版本。Context ended revision8、两个原Session及过滤复查的新Session均closed。实际证据为 ignored operator/REPORT.md、quality-final.json、final-state.json、postpurge-filter-summary.json 与冻结请求/响应。
+
+清理后还发现 known purged Memory/Schema situation refs被空段标成external_current_authority。Memory owner现检查当前cognition eligibility，Kernel contribution丢弃不可用/隐藏/清除引用，materialization失败同样移除段；Core memory policy涵盖四种cognition。部署后用保存的purged situation refs实际返回segments=[]、各自projection_source_unavailable，无外部authority回退。一般canonical refs继续执行Subject ownership验证。管理任务没有未完成清理步骤。
+
+## Media work currently held for repairs
+
+原生媒体使用者在同一Subject、新私有consumer/session中复用原Siri权限截图及Pro direct_structured派生，并实际执行describe_then_structure。它依据真正inputs纠正了将相邻文本query hit误当图片来源的初始判断；图像两阶段的derived region只读回description UTF8 244..294的50-byte引文，不能当作独立像素OCR。结构输出却标visual observed/direct clear，并以未提供audio支持非audible场景，丢失既有不确定性，需要在media interpretation owner修正。
+
+真实ark-demo audio与video已admit。音频direct_structured没有representation，网关trace84明确报该Pro模型不支持input_audio，不是可凭空改述为成功的transcript。视频Pro description模型报告Big Ben/Westminster Bridge车流和AI生成字样，不能与Siri图拼成同一操作；结构阶段trace86 HTTP200但output_schema_invalid，当前只能保留description。SourceRegion/Artifact也缺少公开逆向原Occurrence发现路径，阻止从已admitted图片事件直接form。CLI binary read的错误derive Occurrence提示已改为SourceRegion。
+
+媒体实践知识已由Pro形成并经query/show/trace/read/use/pin保存为memrev:cornmeal-cylinder-reenter-backlands；其依据是使用者真实研究记录，不是raw-media transcript或官方合同。待修复任务checkpoint为ctx:gliding-swarm-accuracy-unsafe revision4，Session仍open，无在途模型活动；完整操作在ignored media-user/operations.md。下一轮从同一任务继续，不重新摄入图片或伪造新来源。

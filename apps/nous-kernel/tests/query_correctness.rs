@@ -947,6 +947,152 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one temporary Schema cohort checks visibility and replay across lifecycle changes and irreversible purge without redundant database setup"
+)]
+async fn schema_lifecycle_fences_queries_and_purge_cannot_replay_content() {
+    use nous_memory::schema::SchemaLifecycleAction as Action;
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let source = observation(
+        &runtime,
+        subject,
+        "Temporary operating rule: open tasks can be continued; ended tasks cannot.",
+    )
+    .await;
+    let owner = runtime.require_memory().unwrap();
+    let schema = owner
+        .create_schema(CreateSchemaInput {
+            producer: None,
+            operation_id: OperationId::new(),
+            subject,
+            title: Some("Temporary operating rule".into()),
+            structural_claim:
+                "Continue an open task after explicitly selecting its durable context".into(),
+            applicability_scope: SchemaScope {
+                description: "Open development tasks".into(),
+                aboutness: vec![],
+                tags: vec![],
+                valid_time: Default::default(),
+            },
+            boundary_definition: "Does not authorize resuming an ended task".into(),
+            formation_kind: SchemaFormationKind::ExplicitImport,
+            evidence_links: vec![SchemaEvidenceLinkInput {
+                role: SchemaEvidenceRole::Support,
+                basis: RevisionBasis::Evidence(EvidenceRef {
+                    epistemic_relation: None,
+                    occurrence_id: source.occurrence.occurrence_id,
+                    locator: EvidenceLocator::WholeOccurrence,
+                    basis_role: BasisRole::Direct,
+                }),
+            }],
+        })
+        .await
+        .unwrap();
+    let schema_id = schema.schema.schema_id;
+    let revision_id = schema.revision.schema_revision_id;
+    let exact = || {
+        let mut request = query(subject);
+        request.projection.domains = vec![nous_core::ResultDomain::Schema];
+        request.expression.targets = vec![QueryTarget::Exact {
+            reference: CognitiveRef::CognitiveSchemaRevision(revision_id),
+        }];
+        request
+    };
+    assert_eq!(runtime.query(exact()).await.unwrap().results.len(), 1);
+    let use_input = UseFeedback {
+        subject,
+        session_id: None,
+        consumer_ref: "consumer:test:schema-cleanup".into(),
+        events: vec![UseFeedbackEvent {
+            query_id: None,
+            event_id: UseEventId::new(),
+            reference: CognitiveRef::CognitiveSchemaRevision(revision_id),
+            use_kind: UseKind::Referenced,
+            occurred_at: Utc::now(),
+            context: serde_json::json!({}),
+        }],
+    };
+    assert_eq!(
+        runtime
+            .cognition
+            .use_feedback(use_input.clone())
+            .await
+            .unwrap()
+            .0,
+        1
+    );
+    let suppress_operation = OperationId::new();
+    let suppressed = owner
+        .mutate_schema_lifecycle(subject, schema_id, suppress_operation, 1, Action::Suppress)
+        .await
+        .unwrap();
+    assert_eq!(suppressed.schema.object_epoch, 2);
+    assert_eq!(suppressed.revision.schema_revision_id, revision_id);
+    assert!(runtime.query(exact()).await.unwrap().results.is_empty());
+    assert!(matches!(
+        owner
+            .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 1, Action::Restore)
+            .await,
+        Err(nous_core::Error::Conflict(_))
+    ));
+    owner
+        .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 2, Action::Restore)
+        .await
+        .unwrap();
+    let replay = owner
+        .mutate_schema_lifecycle(subject, schema_id, suppress_operation, 1, Action::Suppress)
+        .await
+        .unwrap();
+    assert_eq!(replay.schema.object_epoch, 3);
+    assert_eq!(
+        replay.schema.suppression_state,
+        nous_core::SuppressionState::Normal
+    );
+    assert_eq!(runtime.query(exact()).await.unwrap().results.len(), 1);
+    owner
+        .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 3, Action::Withdraw)
+        .await
+        .unwrap();
+    assert!(runtime.query(exact()).await.unwrap().results.is_empty());
+    owner
+        .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 4, Action::Reaccept)
+        .await
+        .unwrap();
+    assert_eq!(runtime.query(exact()).await.unwrap().results.len(), 1);
+    let purge_operation = OperationId::new();
+    owner
+        .purge_schema(subject, schema_id, purge_operation, 5)
+        .await
+        .unwrap();
+    let duplicate = runtime.cognition.use_feedback(use_input).await.unwrap();
+    assert_eq!((duplicate.0, duplicate.1), (0, 1));
+    owner
+        .purge_schema(subject, schema_id, purge_operation, 5)
+        .await
+        .unwrap();
+    assert!(matches!(
+        owner.schema_revision(subject, revision_id).await,
+        Err(nous_core::Error::NotFound(_))
+    ));
+    assert!(matches!(
+        owner
+            .mutate_schema_lifecycle(subject, schema_id, suppress_operation, 1, Action::Suppress)
+            .await,
+        Err(nous_core::Error::NotFound(_))
+    ));
+    assert!(
+        runtime
+            .material
+            .artifact(subject, source.artifact.as_ref().unwrap().artifact_id)
+            .await
+            .is_ok()
+    );
+}
+
+#[tokio::test]
 async fn synthesized_schema_requires_independent_known_roots() {
     let (root, url, _postgres) = database().await;
     let runtime = open_runtime(&url, &root).await;

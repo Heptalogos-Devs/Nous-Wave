@@ -3,7 +3,7 @@
 
 use super::*;
 use nous_core::{CognitiveSchemaId, EntityRef, OperationId, Result, SubjectId, TagId};
-use nous_memory::schema::SchemaView;
+use nous_memory::schema::{SchemaLifecycleAction, SchemaView};
 use nous_memory::{
     CreateSchemaInput, ReviseSchemaInput, SchemaEvidenceLinkInput, SchemaFormationKind, SchemaScope,
 };
@@ -103,6 +103,66 @@ fn schema_view(value: SchemaView) -> p::CognitiveSchema {
 }
 
 impl KernelService {
+    async fn schema_lifecycle(
+        &self,
+        input: p::CognitiveSchemaMutationRequest,
+        action: SchemaLifecycleAction,
+    ) -> Result<p::CognitiveSchema> {
+        Ok(schema_view(
+            self.require_memory()?
+                .mutate_schema_lifecycle(
+                    SubjectId(id(&input.subject_id)?),
+                    CognitiveSchemaId(id(&input.schema_id)?),
+                    OperationId(id(&input.operation_id)?),
+                    input.expected_object_epoch,
+                    action,
+                )
+                .await?,
+        ))
+    }
+
+    pub(super) async fn suppress_cognitive_schema(
+        &self,
+        input: p::CognitiveSchemaMutationRequest,
+    ) -> Result<p::CognitiveSchema> {
+        self.schema_lifecycle(input, SchemaLifecycleAction::Suppress)
+            .await
+    }
+    pub(super) async fn restore_cognitive_schema(
+        &self,
+        input: p::CognitiveSchemaMutationRequest,
+    ) -> Result<p::CognitiveSchema> {
+        self.schema_lifecycle(input, SchemaLifecycleAction::Restore)
+            .await
+    }
+    pub(super) async fn withdraw_cognitive_schema(
+        &self,
+        input: p::CognitiveSchemaMutationRequest,
+    ) -> Result<p::CognitiveSchema> {
+        self.schema_lifecycle(input, SchemaLifecycleAction::Withdraw)
+            .await
+    }
+    pub(super) async fn reaccept_cognitive_schema(
+        &self,
+        input: p::CognitiveSchemaMutationRequest,
+    ) -> Result<p::CognitiveSchema> {
+        self.schema_lifecycle(input, SchemaLifecycleAction::Reaccept)
+            .await
+    }
+    pub(super) async fn purge_cognitive_schema(
+        &self,
+        input: p::CognitiveSchemaMutationRequest,
+    ) -> Result<()> {
+        self.require_memory()?
+            .purge_schema(
+                SubjectId(id(&input.subject_id)?),
+                CognitiveSchemaId(id(&input.schema_id)?),
+                OperationId(id(&input.operation_id)?),
+                input.expected_object_epoch,
+            )
+            .await
+    }
+
     pub(super) async fn create_cognitive_schema(
         &self,
         input: p::CreateCognitiveSchemaRequest,
