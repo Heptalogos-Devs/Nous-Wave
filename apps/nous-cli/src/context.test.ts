@@ -200,12 +200,10 @@ it("renders Evidence/Resource and mixed hits while preserving each owner continu
     { kind: "source_region", value: "30000000-0000-4000-8000-000000000002" },
     { kind: "resource", value: "resource:source" },
   ];
-  const sourceRegion = vi
-    .fn()
-    .mockResolvedValue({
-      sourceRegionId: refs[1]!.value,
-      artifactId: "artifact",
-    });
+  const sourceRegion = vi.fn().mockResolvedValue({
+    sourceRegionId: refs[1]!.value,
+    artifactId: "artifact",
+  });
   const getResource = vi
     .fn()
     .mockResolvedValue({ resourceRef: refs[2]!.value });

@@ -56,14 +56,12 @@ it("splits only source bytes, preserving Unicode, full coverage and deterministi
   expect(sourceUnits(text, 12000)).toEqual(units);
 });
 it("prepares unquoted checkpoints and keeps the original TextCue in Tag and exploration arms", async () => {
-  const prepareQuery = vi
-    .fn()
-    .mockResolvedValue({
-      boundQuery: JSON.stringify({
-        temporal_frame: { clock_now: "2026-10-08T00:00:00Z" },
-        authority_watermark: 7,
-      }),
-    });
+  const prepareQuery = vi.fn().mockResolvedValue({
+    boundQuery: JSON.stringify({
+      temporal_frame: { clock_now: "2026-10-08T00:00:00Z" },
+      authority_watermark: 7,
+    }),
+  });
   const client = { cognition: { prepareQuery } } as unknown as NousClient;
   const s = state();
   s.freeze = {
