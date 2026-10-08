@@ -1,8 +1,10 @@
 # Cognitive Model & Evolution Research — 2026-10-08
 
-[返回 Research](README.md) · [v2 报告](core-cognition-2026-10-08.md)
+[返回 Research](README.md) · [v2 报告](core-cognition-2026-10-08.md) · [本轮稳定 metadata](corpus/core-cognition/results-evolution-2026-10-08.json)
 
-本轮研究正在执行。基础代码为当前 `master` `20e9bf87c2d7b0aab177ff94ec13412e29b7a8d0`，长期语义 Authority 为 Vault `5b96c63da34b0a4c697b6961ae10ba6aa4de3ee1`。新实验使用独立身份和 ignored `data/research/runs/cognitive-model-evolution-2026-10-08/`，既有 v1/v2 结果保留。
+本轮真实研究已完成。基础代码为 fetch 后的 `master` `20e9bf87c2d7b0aab177ff94ec13412e29b7a8d0`，长期语义 Authority 为 Vault `5b96c63da34b0a4c697b6961ae10ba6aa4de3ee1`。新实验使用独立身份和 ignored `data/research/runs/cognitive-model-evolution-2026-10-08/`，既有 v1/v2 结果保留。执行与推断依据 AntiGPT；没有第二 Runtime、Benchmark 平台或全参数矩阵。
+
+结论：更强角色模型和清晰 Prompt 能改善来源保真，并通过既有长期维护自然修订错误 Memory；它们仍会误用时间范围、把模型局部视图当作完整经验、过度修订已有 cognition。当前采用 Pro minimal formation、Pro high concepts、Lite high Journal／consolidation、Pro default segmentation；查询默认直接检索，按需 enrichment／rerank。下一研发重点是继续提高维护输入的完整性语义和修订节制，而不是扩建 Runtime。
 
 ## 首批实际模型观测
 
@@ -38,11 +40,21 @@ Pro default Simon Journal 正确区分 2020 年 4 月开始 TIL 与 2022 年文�
 
 ## 新 Subject 的持续经历
 
-独立 CPython Subject `0ce739c0-66b4-5a0a-a853-2300400bb307` 的起点显式重放 v2 Mini 的错误 Memory（accepted on 09-Jan-2023）和错误 Tag；两者由 Host 提交，绑定本 Subject 新观察的真实 PEP 单元，原 trace 3/67 身份保留，没有将重放伪装为新的 Mini 推理。首次普通 maintenance 的 Pro 修订了 Tag，准确区分 Created 与接受日期；原 Memory 仍为 revision 1。
+独立 CPython Subject `0ce739c0-66b4-5a0a-a853-2300400bb307` 的起点显式重放 v2 Mini 的错误 Memory（accepted on 09-Jan-2023）和错误 Tag；两者由 Host 提交，绑定本 Subject 新观察的真实 PEP 单元，原 trace 3/67 身份保留，没有将重放伪装为新的 Mini 推理。首次普通 maintenance 的 Pro 修订了 Tag，准确区分 Created 与接受日期；该阶段原 Memory 仍为 revision 1。
 
-随后两个真实 Council 来源进入第二 Session：`discuss.python.org` post 107496/version 1（2023-07-28 notice）与 post 123112/version 2（2023-10-24 acceptance）。原文、发布时间、post/version 与 hashes 在生成前冻结，模型未收到预写的日期答案。Pro formation 保留通知、接受说明及渐进、实验性、可逆的条件。第三 Session 读取冻结的 PEP 779。新 evidence 与 concept maintenance 已提交；旧 Memory 仍存在，后续继续检查 settled Episode／Journal／consolidation 的候选与 owner outcome。
+随后两个真实 Council 来源进入第二 Session：`discuss.python.org` post 107496/version 1（2023-07-28 notice）与 post 123112/version 2（2023-10-24 acceptance）。原文、发布时间、post/version 与 hashes 在生成前冻结，模型未收到预写的日期答案。Pro formation 保留通知、接受说明及渐进、实验性、可逆的条件。第三 Session 读取冻结的 PEP 779。新 evidence 与 concept maintenance 提交后，旧 Memory 仍存在；直到 settled Journal 进入 consolidation，候选目录把错误 Memory 的 exact revision／epoch、正文和 eligible basis 提供给 Lite high。
 
-独立 Simon Subject `9ffac9c0-6afa-565d-a14d-f10fac39b976` 在三个实际 Session 中读取 TIL advice、link blog 与 beats，三个 Memory 由真实 Pro 调用形成。Session 关闭没有强制拆分 Episode，符合当前连续经历语义。本轮使用 SystemCognitiveClock 和 reference hard idle 1800 秒、settle delay 300 秒，未注入时间；尚在等待自然到期的阶段不能算作缺失角色能力。
+实际 trace 95 的 Lite high 提出 revise_memory／intent=correct，而非另建 Memory。Owner 提交同一 Memory `01a11994-0685-7561-9425-2acd05491342` 的 revision 2 `01a119c7-3122-7b20-895f-e6adf3c11ce7`，支持是本 Subject 的 PEP、7 月 notice、10 月 acceptance 三个 exact occurrences。正文区分创建日期、意向通知与正式接受公告，保留 rollout／rollback 条件。没有 Host 更正文案或负反馈提示。公开 Client 的当前 Tag recall 返回新 head、排除旧 head，修订前 as-of 返回旧 head、没有未来修订；history API 保留两版。新 evidence 并未即时修订 Memory，但现有长期维护机制能够在充分来源和可执行强模型下完成 continuing correction。
+
+同一次自然修订把复合命题的 validTime 起点设为 2023-01-09，这不能由 PEP 创建日期证明。Host 随后仅把 validTime 改为 unknown，提交 revision 3 `01a119d6-f451-7a50-95c2-5e07e8885919`，正文、来源、对象身份保留，没有模型调用。这是显式 Host 更正时间适用范围，不能计作模型自发修复。
+
+独立 Simon Subject `9ffac9c0-6afa-565d-a14d-f10fac39b976` 在三个实际 Session 中读取 TIL advice、link blog 与 beats，三个 Memory 由真实 Pro 调用形成。本轮使用 SystemCognitiveClock 和 reference hard idle 1800 秒、settle delay 300 秒，未注入时间。两个 Subject 自然提交的 Episode 均保留跨 Session 连续性；Pro 对四个 CPython／三个 Simon 有序成员的 semantic review 均返回有内容依据的 no_change，没有把 Session 或文档自动当作边界。
+
+Lite high 的两个 Journal 均经 owner 提交，保留源文作者归属、TIL 数量／日期关系及 CPython 的意向／接受／阶段条件。Journal 有一处把输入 catalog 的 truncation 概括成 Subject 没有观察完整材料；Prompt 已明确 bounded model view 与完整 Subject experience 的区别。
+
+Simon Episode consolidation 实际 create_schema，公开 schema query／exact revision／producer read 均读到相同身份及三个来源链接。Schema 有作者和适用范围边界，未被当作普遍法则；但 validTime 错用支持文章的 2022–2026 日期区间。新 Prompt 固定输入复测返回 unknown validTime（纯重新生成），Host 随后修订同一 Schema、复制三个原来源链接，将当前 validity 设为 unknown。旧 exact revision 保留原时间区间。Journal consolidation 的 trace 96 看到了既有 Schema，未复制 Schema／Memory，提交 elaborates 与 temporal_successor 两条关系。
+
+强模型长程工作需要独立机会：CPython 首次 Episode consolidation 的共享 grant 剩余约 146 秒，调用在 elapsed cap 处被中断，trace 93 保留 incomplete response，不能归为模型不可用。给单次调用完整 budget 后，Journal consolidation 约 235 秒提交自然 correction；Simon 后续整合约 264 秒提交关系。研究 runner 默认一个模型调用／grant，避免在前序耗时后压缩下一调用预算。
 
 ## 已执行的检索对照
 
@@ -52,28 +64,44 @@ Qwen `qwen3.7-text-rerank` 对 v2 四个不可变候选池的真实重排：Simo
 
 首次 Serving preparation 被上游拒绝：embedding endpoint 最多 10 条，配置却允许一次 14 条。失败保留，修正本地 max_batch_size=10 并重启后，CPython 14、Simon 11 份材料成功提交；后续比较使用未降级的 lexical/dense 条件。Query Pro 曾把必需字段 novel_concepts 写成 novel_conceptions，被 SDK 合同拒绝；已明确精确字段名。另一输出把 beats 解释为 recurring thematic areas，而 supplied catalog 并未建立这种意义；新 Prompt 要求 novel hypotheses 使用短检索概念或问题，保留未消解词义。相同输入／最终 Prompt 的 Lite 与 Pro 对照均通过合同，Pro 用约 7–10 秒，Lite 约 45–52 秒。它们是 query-local hypotheses，没有写入 Tag Authority。
 
-Native/VCP 在小池内未增加 baseline 未获的有用 Memory。Simon Native 访问 5 个节点、激活 7 条边、最大 2 hops 后报告截断，实际可见 readout 是已有 Tag attachment，尚无新增关联收益。CPython Native 首次报告 generation/profile mismatch；查明 baseline prewarming 将 Native 图错误标成 baseline，而缓存键有意复用同一 Native asset。Retrieval builder 已统一图与 metadata 的 Native asset identity，并提升可重建 artifact revision；baseline／Native 仍复用同一资产，Runtime 查询 profile 保持独立。真实 PostgreSQL query correctness 场景验证 baseline prewarm 和反复 VCP／Native 切换，19 个相关测试通过，公开 Core 的修复后对照待重跑。
+Native/VCP 在小池内未增加 baseline 未获的有用 Memory。Simon Native 访问 5 个节点、激活 7 条边、最大 2 hops 后报告截断，实际可见 readout 是已有 Tag attachment，尚无新增关联收益。CPython Native 首次报告 generation/profile mismatch；查明 baseline prewarming 将 Native 图错误标成 baseline，而缓存键有意复用同一 Native asset。Retrieval builder 已统一图与 metadata 的 Native asset identity，并提升可重建 artifact revision；baseline／Native 仍复用同一资产，Runtime 查询 profile 保持独立。真实 PostgreSQL query correctness 场景验证 baseline prewarm 和反复 VCP／Native 切换，19 个相关测试通过；修复后公开 Core 两组都执行 Native，lexical/dense ready，剩余诊断为传播 work-budget 截断。
+
+复核保留的 v2 witness：Simon writing-recurrence 经 person Entity 连到另一 blogging Memory；CPython native-boundary 经 project Entity 连到 reference-counting、3.13 howto、GC 等不同主题 Memory，均 complete=false。这些路径展示 activated association 的实际到达，usefulness 按目标命题覆盖判断，route 的合同是 witnessed path。广泛 Entity hub 连接的不同主题需要逐项核对；本轮观察到传播截断与命题错配，选择 direct baseline 作为当前默认。
 
 ## 当前配置决定
 
-本轮先采用以下配置作为部署起点；自然演化的实际 owner 提交结果仍会补充到角色结论。所有 structured roles 使用 32768 output budget、300 秒执行上限，不把 formation 的短延迟套用到 Journal。
+本轮采用以下配置作为当前部署起点。所有 structured roles 使用 32768 output budget、300 秒执行上限；模型名称是本机 New API 可用资源，选择依据实际输入、source fidelity 和 owner outcome，不是普遍模型排名。ModelRole 的语义与 ExecutionProfile 的 reasoning／预算分别保存。
 
 | Role | 模型与 reasoning | 选择依据 |
 | --- | --- | --- |
 | Memory Formation | Pro / minimal | 同一澄清 Prompt 的 PEP、Rust dyn、Kafka 3.6 均保留日期归属、Self:Sized 例外、Early Access／禁止 downgrade 等关键条件，约 12／16／21 秒 |
-| Concept Maintenance | Pro / high | high 固定输入首次 Tag 保留关键条件；Pro default 已修订错误 Tag，还需 high 在真实新 evidence 后的 continuing revision |
+| Concept Maintenance | Pro / high | high 首次 Tag 保留关键条件；真实 Episode／新 evidence 维护创建 scoped concepts，已有错误 Tag 的 Pro default 修订成功 |
 | Journal Synthesis | Lite / high | CPython 的 support keys 与阶段叙述正确；原强模型 NOT_RUN 已补齐，实际约 125 秒 |
-| Memory Consolidation | Lite / high | 76512 input tokens 的真实 CPython 输入成功提出有范围的阶段 Schema；owner 与 continuing revision 尚待自然执行 |
-| Episode Segmentation | Pro / provider-default | 将由真实多 Session 经历的合法 partition、顺序与组织质量决定最终保留 |
+| Memory Consolidation | Lite / high | 自然 continuing Memory correction、Schema 创建与后续关系提交均成功；时间适用范围仍需 source-faithful review，单次可达 235–264 秒 |
+| Episode Segmentation | Pro / provider-default | 两个真实多 Session neighborhood 合法 no_change，按经历用途保持连续，未机械按 Session／文档切分 |
 | Query Concept Enrichment | Pro / provider-default，默认 off | 同一最终 Prompt 的输出有界、合法，未观察小池新增检索收益；显式指称／WorkContext 是优先输入 |
 | Query Rerank | Qwen rerank，按需 | Kafka 排序改善、Rust 排序退化，避免无条件 required |
 
 费用不是上述选择的主要约束。实际调用包含 schema 拒绝、HTTP 失败及配置失败；usage 与 latency 不只统计成功产物，最终保留 New API credit 扣费和 supplier bill 的可知范围。
 
-## 剩余研究工作
+## Skip、输入完整性与技术决定
 
-继续比较 formation 的日期、归因、限制与否定保留；正确 Memory 的首次概念形成与错误概念复审；真实 Episode 的 Journal、consolidation/Schema 与跨 Session 分段。长期轨迹检查新来源、候选发现、MaintenanceNeed、固定输入、proposal、owner outcome 与 recall，区分自然 revision、明确 Host correction 和纯模型重新生成。
+补充对照采用已读回的真实当前 Schema 和两条现有关系，作为明确标记的纯模型 current-state control，未把预期 skip 或更正文案写进输入。Lite high 首次提出重写三项 Memory／Schema，并把局部 source view 缺少的信息描述为完整 cognition 的问题；这些提案未提交。逐字符核对表明本次 candidate text 完整，截断在 member/source view，不能把这次行为归因于 candidate clipping。
+
+修订 Prompt 后，同一 current-state control 加上完整性标记的 Lite high 返回 explicit skip，理由是三项 grounded Memory、现有 synthesized Schema 和两条关系已经覆盖来源，重复创建／改写无新价值。调用约 88 秒、22870 tokens。当前数据的 candidate 标记均为 false；该对照同时改变了 Prompt 和显式标记，结果支持更清晰的输入语义，不分离两者的因果贡献。
+
+Kernel 在配置预算真的截短 candidate 时新增 text_truncated，Protobuf／Rust／TypeScript bindings 同步更新，真实数据库的 64-character bounded scenario 验证标记。Prompt 明确 bounded view 的遗漏不等于原来源／存储 cognition 缺失、不能仅为缩写或未知细节做 correction。Journal 同样区分局部输入与 Subject 完整经验，consolidation 明确 publication span 与 world-valid applicability 不同。这些规则服务一般维护，不含本轮案例答案。
+
+下一项最有价值的研发是让持续 consolidation 更稳定地识别“有新支持／反证的 continuing change”与“完整 cognition 在局部视图中看起来不完整”，并提供有界的现有关系上下文。本轮 current-state control 的 relations 由 public Client 加入，生产 consolidation catalog 尚不包含它们；已有 owner 防止重复关系存储，输入层仍可减少无意义重复提案。该工作沿现有 Memory／Schema planner 与 owner 推进。Native/VCP 当前没有支持全局启用的增益证据，保留 direct baseline 与按需探索。
+
+## 实际调用与费用
+
+共享 research gateway 共 98 attempts，完整接收 94 个 HTTP 200 responses；另有 whitelist/token quota 403、上游 500、embedding batch 400 和一次 elapsed-cap abort。Schema 拒绝仍计入已付费的 200 响应。已知 gateway usage 为 635974 tokens；New API token 1 的对应时间窗账单为 669716 tokens，包含一个未完整收到的额外 Lite completion，其差额 33742 与中断调用相符，但未以 request ID 独立关联。
+
+New API 实际扣除 22262637 quota units；公开 status 的 quota_per_unit=500000、usd_exchange_rate=6.9，对应平台 credit 44.525274 USD、界面折算 307.2243906 CNY。它不是供应商现金账单，supplier bill 未提供。本轮原始 HTTP、失败、模型返回身份、Prompt／schema／config hashes、调用 latency／usage、source IDs、当前与历史读回均保留；不把各 Subject 的共享账单重复求和。
 
 固定模型输入对照复用 [现有 longitudinal 脚本](../../scripts/research/longitudinal.ts) 的 `--invocation`，从既有 gateway capture 只取实际 user input，通过当前 ModelRuntime、PromptRegistry 和 Structured Contract Registry 生成 proposal。它记录 producer/attempt telemetry，不提交 Authority。真实演化经普通 Core 和 official Client；rerank、enrichment、Context 与 Native/VCP 的判断继续使用实际 cognition。
 
-费用不作为主要选择约束。角色/default 配置及必要的 Prompt、RolePolicy、owner/算法修正由实际观测决定，最终结果在本页与现有 Research 体系提交。
+## 验证与交付
+
+相关数据库 scenarios、官方 smoke 与完整 just check 在本机执行；截断 metadata 的新合同已 regenerate、typecheck、proto lint，并再次进入完整检查。PR #21 始终在同一 `codex/cognitive-model-evolution` 分支交付。最终 integration 状态以 GitHub PR／CI 为准；本地检查不作为独立评审或其他平台运行证据。

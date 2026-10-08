@@ -111,7 +111,7 @@ message MaintenancePlan {
 }
 message RefreshMaintenanceRequest { MaintenanceNeed claimed = 1; }
 
-message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; string text = 3; string cognitive_role = 4; string formation_mode = 5; repeated string entity_refs = 6; repeated UseSummary use = 7; repeated string eligible_basis_keys = 11; nous.wave.v1alpha1.TemporalExtent valid_time = 8; google.protobuf.Timestamp formed_at = 9; google.protobuf.Timestamp recorded_at = 10; }
+message ConsolidationCandidate { string key = 1; ExpectedCognition target = 2; string text = 3; string cognitive_role = 4; string formation_mode = 5; repeated string entity_refs = 6; repeated UseSummary use = 7; repeated string eligible_basis_keys = 11; nous.wave.v1alpha1.TemporalExtent valid_time = 8; google.protobuf.Timestamp formed_at = 9; google.protobuf.Timestamp recorded_at = 10; bool text_truncated = 12; }
 message ConsolidationEntity { string key = 1; string entity_ref = 2; }
 message ProvenanceRoot { string key = 1; string certainty = 2; }
 message UseSummary { string kind = 1; uint64 count = 2; google.protobuf.Timestamp last_used_at = 3; }

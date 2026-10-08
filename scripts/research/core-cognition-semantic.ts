@@ -395,7 +395,7 @@ export class SemanticRun {
       }
     }
   }
-  async grant(key: string, subjectId: string, maxModelCalls = 8) {
+  async grant(key: string, subjectId: string, maxModelCalls = 1) {
     const old = this.state.operations[key];
     if (old?.status === "complete") return old.result as Grant;
     if (old) throw new Error(`BLOCKED uncertain grant: ${key}`);

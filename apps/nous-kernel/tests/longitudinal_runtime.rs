@@ -2079,6 +2079,13 @@ async fn assert_consolidation_policy(
             .iter()
             .all(|c| c.text.chars().count() <= 64)
     );
+    assert!(
+        bounded
+            .candidates
+            .iter()
+            .any(|candidate| candidate.text_truncated),
+        "bounded candidate prefixes must remain distinguishable from complete cognition"
+    );
     assert_eq!(bounded.basis.len(), 1);
     assert!(bounded.basis_catalog_partial);
     assert!(bounded.provenance_roots.len() <= 1);

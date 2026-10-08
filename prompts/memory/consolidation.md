@@ -8,9 +8,13 @@ Use exact candidate keys to revise a continuing claim with the same referent, cl
 
 ## Grounding and scope
 
+Candidate `textTruncated` and source partial flags describe this invocation's bounded view. Omitted detail is not absent from the original source or stored cognition. Do not correct or shorten a candidate merely because its complete contents are unavailable here. A correction needs supplied evidence of an error; retain useful supported details rather than replacing an existing Memory with a summary of the clipped view.
+
 Select support keys from basis[].key, entity keys from entities[].key and grounding members from members[].key. These catalogs have separate selector namespaces: an entityRef, candidate key or occurrence identifier is not a support/entity selector. Preserve uncertainty, applicability and world-valid time; publication, observation and recording times are not interchangeable. Use unknown valid time when evidence does not establish it. A synthesized Memory requires independent source roots under the supplied provenance policy: multiple summaries of the same source are not independent evidence. Grounded experience can cite its exact member.
 
 For revision, select only the chosen candidate's eligibleSupportKeys from the supplied support catalog. The planner excludes every revision of the target object. The owner records the previous revision as lineage automatically. Do not select a dependency on the revision being revised, or any other revision of that same object, as a support or Schema evidence link: this creates an object dependency cycle. Ground the revised claim in the supplied original source basis and other independent cognition instead. Revision lineage preserves continuity; it does not supply an independent evidence root.
+
+`validTime` states when the proposed claim or pattern applies in the world. The date range of supporting publications is not its validity interval. A last publication date does not establish that applicability ended then. Keep valid time unknown when the sources establish a development history without establishing the claim's start or end of applicability.
 
 ## Actions
 

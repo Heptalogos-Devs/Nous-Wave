@@ -107,6 +107,7 @@ impl KernelService {
             } else {
                 hit.formation_mode.unwrap_or_default()
             };
+            let text_truncated = text.chars().count() > policy.candidate_text_chars;
             let text: String = text.chars().take(policy.candidate_text_chars).collect();
             let uses = use_summaries
                 .remove(&reference.to_string())
@@ -130,6 +131,7 @@ impl KernelService {
                 }),
                 eligible_basis_keys: Vec::new(),
                 text,
+                text_truncated,
                 cognitive_role: hit.cognitive_role.unwrap_or_default(),
                 formation_mode: formation,
                 entity_refs: hit
