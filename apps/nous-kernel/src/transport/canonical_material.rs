@@ -63,7 +63,20 @@ rpc_service! {
                 let input = request.into_inner();
                 let result: nous_core::Result<_> = async {
                     use sqlx::Row;
-                    let r = sqlx::query("SELECT p.* FROM producer_signatures p WHERE p.producer_signature_id=$2 AND (EXISTS(SELECT 1 FROM derived_representations d WHERE d.subject_id=$1 AND d.producer_signature_id=p.producer_signature_id) OR EXISTS(SELECT 1 FROM memory_revisions m WHERE m.subject_id=$1 AND m.producer_signature_id=p.producer_signature_id) OR EXISTS(SELECT 1 FROM episode_revisions e JOIN episode_objects o USING(episode_id) WHERE o.subject_id=$1 AND e.producer_signature_id=p.producer_signature_id) OR EXISTS(SELECT 1 FROM journal_revisions j JOIN journal_objects o USING(journal_id) WHERE o.subject_id=$1 AND j.producer_signature_id=p.producer_signature_id) OR EXISTS(SELECT 1 FROM cognitive_schema_revisions s JOIN cognitive_schemas o USING(schema_id) WHERE o.subject_id=$1 AND s.producer_signature_id=p.producer_signature_id))").bind(id(&input.subject_id)?).bind(id(&input.id)?).fetch_optional(self.0.store.pool()).await.map_err(nous_persistence::database_error)?.ok_or_else(||Error::NotFound("producer is not referenced by Subject".into()))?;
+                    let subject = SubjectId(id(&input.subject_id)?);
+                    let producer = id(&input.id)?;
+                    let referenced = self.0.material.references_producer(subject, producer).await?
+                        || match &self.0.memory {
+                            Some(memory) => memory.references_producer(subject, producer).await?,
+                            None => false,
+                        };
+                    if !referenced {
+                        return Err(Error::NotFound("producer is not referenced by Subject".into()));
+                    }
+                    let r = sqlx::query("SELECT * FROM producer_signatures WHERE producer_signature_id=$1")
+                        .bind(producer).fetch_optional(self.0.store.pool()).await
+                        .map_err(nous_persistence::database_error)?
+                        .ok_or_else(|| Error::NotFound("producer signature not found".into()))?;
                     Ok(p::ProducerSignature {
             model_role: r.try_get("model_role").map_err(nous_persistence::database_error)?,
             model_profile: r.try_get("model_profile").map_err(nous_persistence::database_error)?,

@@ -15,6 +15,24 @@ pub struct ProvenanceSummary {
 }
 
 impl MemoryService {
+    pub async fn references_producer(&self, subject: SubjectId, producer: Uuid) -> Result<bool> {
+        sqlx::query_scalar(
+            "SELECT EXISTS (
+                SELECT 1 FROM memory_revisions WHERE subject_id=$1 AND producer_signature_id=$2
+                UNION ALL SELECT 1 FROM episode_revisions WHERE subject_id=$1 AND producer_signature_id=$2
+                UNION ALL SELECT 1 FROM journal_revisions r JOIN journal_objects o USING(journal_id) WHERE o.subject_id=$1 AND r.producer_signature_id=$2
+                UNION ALL SELECT 1 FROM cognitive_schema_revisions r JOIN cognitive_schemas o USING(schema_id) WHERE o.subject_id=$1 AND r.producer_signature_id=$2
+                UNION ALL SELECT 1 FROM tag_revisions r JOIN tags t USING(tag_id) WHERE t.subject_id=$1 AND r.producer_signature_id=$2
+                UNION ALL SELECT 1 FROM association_evidence WHERE subject_id=$1 AND producer_signature_id=$2
+            )",
+        )
+        .bind(subject.0)
+        .bind(producer)
+        .fetch_one(self.store.pool())
+        .await
+        .map_err(db)
+    }
+
     pub(crate) async fn validate_basis_in_tx(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,

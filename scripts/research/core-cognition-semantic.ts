@@ -187,7 +187,7 @@ export class SemanticRun {
   ) {
     this.options = {
       signal: AbortSignal.timeout(maxElapsed),
-      timeoutMs: Math.min(maxElapsed, 300000),
+      timeoutMs: Math.min(maxElapsed, 330000),
     };
   }
   save = () => saveJson(join(this.output, "state.json"), this.state);
@@ -404,7 +404,7 @@ export class SemanticRun {
       subjectId,
       maxOperations: 16,
       maxModelCalls: Math.min(remaining, maxModelCalls),
-      maxElapsedMs: Math.min(120000, this.maxElapsed),
+      maxElapsedMs: Math.min(300000, this.maxElapsed),
     };
     return this.call(key, request, false, () =>
       this.client.cognition.grantMaintenance(request, this.options),

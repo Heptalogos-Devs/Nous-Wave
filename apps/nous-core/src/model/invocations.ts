@@ -719,7 +719,7 @@ export class ModelInvocations {
           role.profile.protocol === "openai-chat"
             ? role.provider.chat(role.profile.model)
             : role.provider.responses(role.profile.model),
-        system: role.prompt?.text,
+        instructions: role.prompt?.text,
         messages: [{ role: "user", content }],
         output: output
           ? Output.object({

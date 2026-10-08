@@ -38,6 +38,35 @@ async fn claim(rt: &NousRuntime, subject: SubjectId) -> MaintenanceNeed {
         .pop()
         .unwrap()
 }
+async fn assert_subject_producer(rt: &NousRuntime, subject: SubjectId, implementation: &str) {
+    use nous_protocol::nous::wave::v1alpha1 as p;
+    use p::material_service_server::MaterialService;
+    let producer: uuid::Uuid = sqlx::query_scalar(
+        "SELECT producer_signature_id FROM producer_signatures WHERE implementation=$1",
+    )
+    .bind(implementation)
+    .fetch_one(rt.store.pool())
+    .await
+    .unwrap();
+    let service = nous_kernel::transport::KernelService(rt.clone());
+    let request = |subject: SubjectId| {
+        tonic::Request::new(p::ObjectRequest {
+            subject_id: subject.0.to_string(),
+            id: producer.to_string(),
+        })
+    };
+    let found = service
+        .get_producer(request(subject))
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(found.implementation, implementation);
+    let foreign = service
+        .get_producer(request(SubjectId::new()))
+        .await
+        .unwrap_err();
+    assert_eq!(foreign.code(), tonic::Code::NotFound);
+}
 #[tokio::test]
 #[expect(
     clippy::too_many_lines,
@@ -209,12 +238,15 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
     assert_eq!(candidates.tags[0].target.tag_id, lexical.tag_id);
     assert!(!candidates.tags[0].attached);
     let concept = lexical;
+    assert_subject_producer(&rt, subject, "topology-fixture").await;
     let tag = CognitiveRef::Tag(concept.tag_id);
+    let mut association_producer = producer();
+    association_producer.implementation = "association-only-fixture".into();
     for reference in &revisions {
         owner
             .create_association(
                 CreateAssociationRequest {
-                    producer: Some(producer()),
+                    producer: Some(association_producer.clone()),
                     operation_id: OperationId::new(),
                     from: reference.clone(),
                     to: tag.clone(),
@@ -236,6 +268,7 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
             .await
             .unwrap();
     }
+    assert_subject_producer(&rt, subject, "association-only-fixture").await;
     owner
         .create_association(
             CreateAssociationRequest {
