@@ -14,6 +14,7 @@
 ## 使用参考
 
 - [接口参考入口](reference/README.md)
+- [Official Client operations](reference/CLIENT.md)
 - [NousQL](reference/NOUSQL.md)
 - [Configuration](reference/CONFIGURATION.md)
 - [Model Runtime](reference/MODEL_RUNTIME.md)

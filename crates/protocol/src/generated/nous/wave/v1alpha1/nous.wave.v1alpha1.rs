@@ -967,6 +967,10 @@ pub struct Memory {
     pub relations_truncated: bool,
     #[prost(string, optional, tag="27")]
     pub revision_intent: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="29")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="30")]
+    pub grounding_occurrence_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TemporalEvidence {
@@ -1594,6 +1598,8 @@ pub struct BindIdentityRequest {
     pub display_name: ::prost::alloc::string::String,
     #[prost(string, repeated, tag="4")]
     pub aliases: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(bool, tag="5")]
+    pub address_only: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ResolveIdentityRequest {

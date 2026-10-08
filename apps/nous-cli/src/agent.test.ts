@@ -28,8 +28,9 @@ it("invalidates result indices when the next query fails", async () => {
     })
     .mockRejectedValueOnce(new Error("query rejected"));
   const revision = vi.fn();
+  const reportUse = vi.fn().mockResolvedValue({ acceptedCount: 1 });
   const client = {
-    cognition: { query },
+    cognition: { query, reportUse },
     memory: { revision },
   } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
   const connect = vi.fn().mockResolvedValue(client);
@@ -42,6 +43,21 @@ it("invalidates result indices when the next query fails", async () => {
     "s",
   ];
   await runCli(["query", "first", ...globals], connect);
+  await runCli(
+    [
+      "use",
+      "memory_revision:33333333-3333-4333-8333-333333333333",
+      "--query-id",
+      "query:last",
+      ...globals,
+    ],
+    connect,
+  );
+  expect(reportUse).toHaveBeenCalledWith(
+    expect.objectContaining({
+      events: [expect.objectContaining({ queryId: "first" })],
+    }),
+  );
   await expect(
     runCli(["query", "invalid", ...globals], connect),
   ).rejects.toThrow("query rejected");
@@ -49,6 +65,18 @@ it("invalidates result indices when the next query fails", async () => {
     runCli(["show", "result:1", ...globals], connect),
   ).rejects.toMatchObject({ code: "RESULT_SUBJECT_MISMATCH" });
   expect(revision).not.toHaveBeenCalled();
+  await expect(
+    runCli(
+      [
+        "use",
+        "memory_revision:33333333-3333-4333-8333-333333333333",
+        "--query-id",
+        "query:last",
+        ...globals,
+      ],
+      connect,
+    ),
+  ).rejects.toMatchObject({ code: "RESULT_SUBJECT_MISMATCH" });
 });
 it("reads source text through its Material owner with explicit byte bounds", async () => {
   const id = "33333333-3333-4333-8333-333333333333";

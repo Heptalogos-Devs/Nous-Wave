@@ -55,4 +55,16 @@ Mini 将原文“连续多条问题”转述成“跨多个任务”。Pro 仍�
 
 当前分支的输入、reader、deadline、maintenance和文本改动已通过相应回归、TypeScript全套、static checks和文档导航；这些检查保护修复，实际成果是上面的任务完成与缺陷续接。研究Core在9472、真实gateway在18002，独立Authority roots为 `data/instances/dogfooding/`，凭据只读既有SecretRoot。
 
-接下来继续可丢弃实例的lifecycle/历史视图/幂等恢复、实际Pro/Lite维护、media与Portable。现机器只有developer PostgreSQL，尚无Portable runtime packs、shipping LLVM-MinGW或现成发布包；需要实际补齐安装/发布条件再判断Portable。一个分支、一个PR和最终squash merge仍待完成。
+当前一个研发分支和 draft [PR 22](https://github.com/Heptalogos-Devs/Nous-Wave/pull/22) 已建立。Node24.21、PostgreSQL18.6 与 FFmpeg9.0.2 本地 runtime packs 和 shipping LLVM-MinGW 已实际取得，第一版 shipping Kernel 已编译；最新 owner/协议变化后仍需重建并完成 source-less Portable 使用，不能把 pack/build 成功视作实际运行成功。
+
+可丢弃操作 Agent 已完成 Memory 历史/rephrase/accessibility/withdraw/reaccept/suppress/restore、Schema 来源失效与再验证、双 Session foreground/pause/resume、UseEvent replay。原管理任务仍被 Schema lifecycle API 缺失和未配置自身 consumer policy 阻断，待 owner 修复后继续临时 cognition 的 purge 与清理。长期实例继续实际 Pro/Lite 维护、media、Serving 恢复与 Portable；本轮最新 query 出现 dense ready/candidates11 但同时保留 `Host did not supply compatible embedding material` degradation，正在定位两阶段 preparation/execution 的状态归属。
+
+## Stable references in actual Agent use
+
+用户指出正常界面暴露过多 UUID，实际调查确认已有 LexicalRef 未被创建/身份/上下文/Material 输出一致采用，输入也有只认 canonical UUID 的分支。修复复用同一 Authority Directory：Subject、Session、WorkContext、Association 以及当前 cognition/Material kinds 返回持久地址；normal text 将 evidence oneof locator 一并转换，后续命令和全局选择参数解析这些引用。地址获取不改写已有名称/alias，不更改 source text，不截断 UUID。机器 JSON、developer 和 raw 诊断保留 canonical identities。正常 query 的来源提示现包含 `read`，query-linked feedback 使用 consumer-local `query:last`，result:N 自动关联当前 query；失败新 query 同时清除两者。
+
+隔离原生 CLI 使用者实际以 `sub:colossal-attach-imperial-step`、`ctx:camper-probably-hydration-chief`、`session:preview-lair-penny-pupil`、`memrev:dealing-turmoil-clothing-ivy`、`obs:roamer-pardon-scabby-cosigner` 和 `src:outbreak-approval-chant-quail` 完成恢复/show/trace/read，换全新 consumer root 后同一 Subject 的词汇引用仍有效。来源读回1967bytes/partialfalse，完整 admitted README7600bytes/partialfalse。Tag 原名称/旧alias保持BOUND。相同工作上下文已保存词汇 checkpoint revision10，使用者Session关闭。
+
+第三个全新 Codex 进程只通过实际 stdio MCP，以返回的 sub/ctx/session/result:N/memrev/obs 引用完成相同研究续接与来源读取；query 更新后仍用同一 exact memrev 读取，两个名称及稳定 Tag 地址一致。原 MCP WorkContext 保存checkpoint revision13，两个旧 exact anchors保留、追加本次实读来源支持的exact Memory，Session关闭。两个使用者均未输入 UUID 参数、未读本地consumer状态/旧日志/实现源码，没有回退 UUID。历史 Memory/source 中已有 UUID 保持原文，不能据此改写已存认知。原始新操作证据在 ignored `cli-user/operations-lexical.md` 与 `codex-mcp/lexical-session.jsonl`。
+
+主研发 Agent 随后实际 query 后用 `use memrev:product-showcase-shortcut-fiction --query-id query:last --kind referenced` 返回acceptedCount1，再将词汇化 Objective/Decisions/Current Work 保存到 `ctx:outer-zodiac-reps-delicate` revision3。当前 Goal 继续，尚未交付全系统完成或合并结论。

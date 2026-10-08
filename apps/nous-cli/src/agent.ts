@@ -94,9 +94,9 @@ export const commandInventory = {
   nousql:
     "nous help nousql [--json]; standalone Agent guide without connecting to a daemon",
   contextFlags: {
-    subject: "Subject ID overrides local selection",
-    session: "Session ID overrides local selection",
-    "work-context": "WorkContext ID overrides local selection",
+    subject: "Subject lexical reference overrides local selection",
+    session: "Session lexical reference overrides local selection",
+    "work-context": "WorkContext lexical reference overrides local selection",
   },
   output: {
     success:
@@ -108,7 +108,7 @@ export const commandInventory = {
     {
       command: "read",
       parameters: [
-        "<occurrence|artifact|source_region|derived_representation|derived_region>:<UUID> | result:N",
+        "<obs:|art:|src:|repr:|region: lexical reference> | result:N",
         "--max-bytes 1..1048576 (default 65536)",
       ],
       description:
@@ -124,7 +124,7 @@ export const commandInventory = {
       command: "identity bind",
       parameters: [
         "--kind <kind>",
-        "--canonical <id>",
+        "--canonical <reference>",
         "--name <name>",
         "--alias <alias> (comma-separated)",
       ],
@@ -151,12 +151,12 @@ export const commandInventory = {
         "--max-nodes 1..256",
         "--max-depth 1..4",
       ],
-      example: "nous association neighborhood memory:<id>",
+      example: "nous association neighborhood <Memory lexical reference>",
     },
     {
       command: "association create",
       parameters: [
-        "--operation-id <uuid>",
+        "--operation-id <stable operation identity> (optional; generated)",
         "--association-file <semantic TOML>",
       ],
       description:
@@ -164,7 +164,10 @@ export const commandInventory = {
     },
     {
       command: "association revoke",
-      parameters: ["<association-id>", "--operation-id <uuid>"],
+      parameters: [
+        "<association reference>",
+        "--operation-id <stable operation identity> (optional; generated)",
+      ],
       description:
         "Revoke one exact AssociationEvidence, including a Tag attachment",
     },
@@ -182,10 +185,10 @@ export const commandInventory = {
       parameters: [
         "<exact cognition revision>",
         "--kind presented|referenced|acted_on|result_supported|result_refuted|corrected|pinned",
-        "--event-id <uuid>",
+        "--event-id <stable event identity> (optional; generated)",
         "--consumer <ref>",
         "--occurred-at <ISO timestamp>",
-        "--query-id <UUID>",
+        "--query-id query:last (optional; result:N links automatically)",
       ],
       description:
         "Typed meaningful use; stable retry reuses event ID and occurrence timestamp",
@@ -206,7 +209,7 @@ export const commandInventory = {
       command: "config list|describe|get|set|clear",
       parameters: [
         "[path] [JSON value]",
-        "--subject <id>",
+        "--subject <Subject lexical reference>",
         "--desired",
         "--advanced|--developer",
       ],
@@ -223,15 +226,16 @@ export const commandInventory = {
     {
       command: "form",
       parameters: [
-        "<occurrence-id>",
-        "--operation-id <uuid>",
+        "<Occurrence reference>",
+        "--operation-id <stable operation identity> (optional; generated)",
         "--aboutness <ref> (comma-separated)",
+        "--aboutness-mode explicit|select_from_resolved_mentions|none (defaults to explicit with --aboutness)",
         "--tag <Tag ID/ref/LexicalRef> (comma-separated)",
       ],
     },
     {
       command: "derive",
-      parameters: ["<source-region-id>", "--strategy <strategy>"],
+      parameters: ["<SourceRegion reference>", "--strategy <strategy>"],
     },
     { command: "embeddings prepare", parameters: ["--max-batches <n>"] },
     { command: "trace", parameters: ["<canonical-or-lexical-ref>"] },
@@ -251,7 +255,7 @@ export const commandInventory = {
       command:
         "context create|set|pin|unpin|clear|select|foreground|show|pause|resume|list|end",
       parameters: [
-        "[id]",
+        "[WorkContext lexical reference]",
         "--purpose <purpose>",
         "--text <task context> | --file <path|->",
         "--cognition <exact-ref|result:N> --entity <real-ref> --tag <real-ref>",

@@ -10,7 +10,12 @@ export async function deriveCommands(
   const { client, values, subjectId, required } = env;
   return client.model.deriveMaterial({
     subjectId,
-    sourceRegionId: required(action, "Source region ID"),
+    sourceRegionId: (
+      await env.resolveReference(
+        required(action, "Source region reference"),
+        "source_region",
+      )
+    ).value,
     strategy: values.strategy,
     target: values.target,
     supersedes: values.supersedes,

@@ -68,6 +68,7 @@ uuid_id!(DerivedRepresentationId);
 uuid_id!(DerivedRegionId);
 uuid_id!(TagId);
 uuid_id!(SessionId);
+uuid_id!(WorkContextId);
 uuid_id!(DerivationId);
 uuid_id!(ServingGenerationId);
 uuid_id!(UseEventId);
@@ -144,6 +145,9 @@ pub enum CognitiveRef {
     ExternalObject(ObjectRef),
     Occurrence(OccurrenceId),
     Session(SessionId),
+    Subject(SubjectId),
+    WorkContext(WorkContextId),
+    Association(AssociationEvidenceId),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -567,6 +571,9 @@ impl fmt::Display for CognitiveRef {
             Self::ExternalObject(id) => f.write_str(id.as_str()),
             Self::Occurrence(id) => write!(f, "occurrence:{}", id.0),
             Self::Session(id) => write!(f, "session:{}", id.0),
+            Self::Subject(id) => write!(f, "subject:{}", id.0),
+            Self::WorkContext(id) => write!(f, "work_context:{}", id.0),
+            Self::Association(id) => write!(f, "association:{}", id.0),
         }
     }
 }

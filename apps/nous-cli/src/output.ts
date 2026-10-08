@@ -50,6 +50,8 @@ function cognitionSummary(value: unknown) {
     "boundaryExplanation",
     "cognitiveRole",
     "semanticRole",
+    "epistemicClass",
+    "groundingOccurrenceId",
     "formationMode",
     "acceptanceState",
     "integrityState",
@@ -131,7 +133,9 @@ export function renderText(value: unknown, depth = 0): string {
     typeof value.kind === "string" &&
     typeof value.value === "string"
   )
-    return `${value.kind}:${value.value}`;
+    return value.value.includes(":")
+      ? value.value
+      : `${value.kind}:${value.value}`;
   if (
     "seconds" in value &&
     Object.keys(value).every((key) => ["seconds", "nanos"].includes(key))

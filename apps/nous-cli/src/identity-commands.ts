@@ -26,10 +26,10 @@ export async function identityCommands(
   if (action === "bind")
     return client.identity.bind({
       subjectId,
-      canonical: {
-        kind: required(values.kind, "--kind"),
-        value: required(values.canonical, "--canonical"),
-      },
+      canonical: await env.resolveReference(
+        required(values.canonical, "--canonical"),
+        required(values.kind, "--kind"),
+      ),
       displayName: required(values.name, "--name"),
       aliases: values.alias ?? [],
     });

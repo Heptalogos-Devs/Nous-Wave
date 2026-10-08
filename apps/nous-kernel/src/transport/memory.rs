@@ -24,6 +24,8 @@ pub(super) fn view(input: MemoryView) -> p::Memory {
         accessibility_mode: enum_name(object.accessibility_mode),
         accessibility_level: enum_name(input.accessibility_level),
         semantic_role: revision.semantic_role,
+        epistemic_class: enum_name(revision.epistemic_class),
+        grounding_occurrence_id: revision.grounding_occurrence_id.map(|id| id.0.to_string()),
         text: revision.representation_text,
         title: revision.title,
         basis: input.basis.into_iter().map(basis_proto).collect(),
@@ -98,7 +100,7 @@ fn memory_input(
             .map(|value| Ok(nous_core::TagId(id(&value)?)))
             .collect::<Result<_>>()?,
         valid_time: temporal(content.valid_time)?,
-        epistemic_class: enum_value(&content.epistemic_class)?,
+        epistemic_class: enum_value(&content.epistemic_class).map_err(|_| Error::Invalid("MemoryContent.epistemic_class must be observed, reported, derived, inferred, narrative, or simulated".into()))?,
     })
 }
 
@@ -213,7 +215,12 @@ impl KernelService {
                     subject,
                     memory_id: nous_core::MemoryId(id(&input.memory_id)?),
                     expected_object_epoch: input.expected_object_epoch,
-                    intent: enum_value(&input.intent)?,
+                    intent: enum_value(&input.intent).map_err(|_| {
+                        Error::Invalid(
+                            "Memory revision intent must be correct, rephrase, or reinterpret"
+                                .into(),
+                        )
+                    })?,
                     formation_mode: parsed.formation_mode,
                     grounding_occurrence_id: parsed.grounding_occurrence_id,
                     semantic_role: parsed.semantic_role,
@@ -323,6 +330,8 @@ fn view_from_revision(
         accessibility_mode: String::new(),
         accessibility_level: String::new(),
         semantic_role: revision.semantic_role,
+        epistemic_class: enum_name(revision.epistemic_class),
+        grounding_occurrence_id: revision.grounding_occurrence_id.map(|id| id.0.to_string()),
         text: revision.representation_text,
         title: revision.title,
         basis: Vec::new(),

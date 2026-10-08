@@ -75,7 +75,11 @@ function valuesOf(ctx: CommandContext): CliValues {
   }
   return values;
 }
-export async function runCli(rawArgs: string[], connect = connectNousInstance) {
+export async function runCli(
+  rawArgs: string[],
+  connect = connectNousInstance,
+  present?: (value: unknown, env: CliEnvironment) => Promise<unknown>,
+) {
   let globals: CliValues = defaults;
   let result: unknown;
   let completed = false;
@@ -102,6 +106,8 @@ export async function runCli(rawArgs: string[], connect = connectNousInstance) {
           action ? ctx.args._[0] : ctx.args._[1],
           [family, ...(action ? [action] : []), ...ctx.args._],
         );
+        if (present && !values.raw && !values.json && !values.developer)
+          result = await present(result, env);
         if (!values.raw)
           result = semanticOutput(
             action ? `${family}.${action}` : family,

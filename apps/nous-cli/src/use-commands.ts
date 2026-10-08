@@ -48,6 +48,15 @@ export async function useCommands(
       "INVALID_ARGUMENT",
       "--occurred-at requires an ISO timestamp with offset",
     );
+  const queryId = values["query-id"];
+  if (
+    queryId === "query:last" &&
+    (!state.lastQuery || state.lastQuery.subjectId !== subjectId)
+  )
+    throw new CliError(
+      "RESULT_SUBJECT_MISMATCH",
+      "No query is saved for this Subject",
+    );
   return client.cognition.reportUse({
     subjectId,
     sessionId: state.sessionId,
@@ -56,7 +65,7 @@ export async function useCommands(
       {
         eventId: values["event-id"] ?? crypto.randomUUID(),
         queryId:
-          values["query-id"] ??
+          (queryId === "query:last" ? state.lastQuery?.queryId : queryId) ??
           (/^result:\d+$/.test(text) ? state.lastQuery?.queryId : undefined),
         reference,
         kind,

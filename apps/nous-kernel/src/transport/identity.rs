@@ -34,17 +34,20 @@ impl KernelService {
         &self,
         input: p::BindIdentityRequest,
     ) -> Result<p::IdentityBinding> {
-        Ok(binding(
+        let subject = SubjectId(id(&input.subject_id)?);
+        let reference = from_ref(required(input.canonical, "canonical")?)?;
+        let result = if input.address_only {
             self.0
                 .store
-                .bind_identity(
-                    SubjectId(id(&input.subject_id)?),
-                    from_ref(required(input.canonical, "canonical")?)?,
-                    input.display_name,
-                    input.aliases,
-                )
-                .await?,
-        ))
+                .ensure_identity_address(subject, reference, input.display_name)
+                .await?
+        } else {
+            self.0
+                .store
+                .bind_identity(subject, reference, input.display_name, input.aliases)
+                .await?
+        };
+        Ok(binding(result))
     }
     pub(super) async fn resolve_identity(
         &self,
@@ -54,7 +57,11 @@ impl KernelService {
             p::resolve_identity_request::Locator::Name(name) => (name, false),
             p::resolve_identity_request::Locator::LexicalRef(reference) => (reference, true),
         };
-        let subject = SubjectId(id(&input.subject_id)?);
+        let subject = if input.subject_id.is_empty() && input.kind == "subject" && lexical {
+            self.0.store.subject_for_lexical(&locator).await?
+        } else {
+            SubjectId(id(&input.subject_id)?)
+        };
         let (status, bindings) = if let Some(at) = input.as_of {
             let view = self
                 .0

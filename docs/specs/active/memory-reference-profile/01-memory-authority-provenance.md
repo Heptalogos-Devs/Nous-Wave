@@ -19,6 +19,7 @@ Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/Associati
 ## Memory object/revision
 
 - Memory object 有稳定 identity；revision 内容 immutable；head、object epoch、lifecycle 和主体 authority sequence 分离。
+- Public Memory current/exact/history 输出保留 revision 的 epistemic_class 与可选 grounding_occurrence_id，使完整来源支持修订无需猜测或丢失认识类别。类别为 observed/reported/derived/inferred/narrative/simulated，独立于 cognitive role 与 formation mode。
 - Cognitive role 与 formation mode 正交。当前 role 至少包括 `experiential`、`declarative`、`procedural_experience`；formation mode 至少包括 `grounded`、`synthesized`。
 - 同一 referent、claim family、scope 和 world-valid interval 的纠正、澄清、收窄或重新解释创建新 revision；后续新 world state、独立事件或不同有效时间形成新 object/successor。
 - Revision 提交必须检查 expected head/epoch、权限、source/provenance、lifecycle 和幂等 operation identity。head 变化不得静默覆盖。
@@ -56,6 +57,8 @@ Authority commit 只发布 projection invalidation/watermark；lexical、dense�
 [返回文档目录](../../INDEX.md)
 
 ## Semantic Concept 与显式 Tag
+
+CLI/MCP 的默认操作地址由同一个 Authority Directory 提供。Subject、Session、WorkContext、Association 与既有 cognition/Material kinds 都可获得持久 LexicalRef；Subject 词汇引用可在尚未选择 Subject 时解析，其余引用继续校验所选 Subject ownership。显示地址分配只建立缺失的 binding，不覆盖已有 display name/alias，不创建新的 cognition 或 content revision。普通交互使用词汇引用、唯一名称与 consumer-local result:N/query:last；canonical UUID 保留在内部协议、机器 DTO 和显式诊断中。Exact revision 的词汇地址仍绑定原 revision，不重绑 head。
 
 Tag 是共享 embeddable semantic concept，稳定 identity 与 immutable semantic revisions 分离。Current reads 使用 current canonical Tag；as-of reads 使用截点状态，未来 revise/merge/split 不改写历史意义。normalized label/description/kind_hint 产生 versioned canonical text/digest，别名不进入 semantic representation。
 

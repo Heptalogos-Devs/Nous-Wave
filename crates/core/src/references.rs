@@ -30,6 +30,9 @@ pub fn reference_parts(reference: &CognitiveRef) -> (String, String) {
         CognitiveRef::ExternalObject(id) => ("external_object".into(), id.as_str().into()),
         CognitiveRef::Occurrence(id) => ("occurrence".into(), id.0.to_string()),
         CognitiveRef::Session(id) => ("session".into(), id.0.to_string()),
+        CognitiveRef::Subject(id) => ("subject".into(), id.0.to_string()),
+        CognitiveRef::WorkContext(id) => ("work_context".into(), id.0.to_string()),
+        CognitiveRef::Association(id) => ("association".into(), id.0.to_string()),
     }
 }
 
@@ -119,6 +122,21 @@ pub fn parse_reference(kind: &str, value: &str) -> Result<CognitiveRef> {
             value
                 .parse()
                 .map_err(|_| Error::Invalid("invalid session ref".into()))?,
+        )),
+        "subject" => CognitiveRef::Subject(SubjectId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Subject ref".into()))?,
+        )),
+        "work_context" => CognitiveRef::WorkContext(WorkContextId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid WorkContext ref".into()))?,
+        )),
+        "association" => CognitiveRef::Association(AssociationEvidenceId(
+            value
+                .parse()
+                .map_err(|_| Error::Invalid("invalid Association ref".into()))?,
         )),
         _ => return Err(Error::Invalid("unknown reference kind".into())),
     })

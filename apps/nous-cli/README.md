@@ -8,18 +8,22 @@
 corepack pnpm nous subject create
 corepack pnpm nous session open
 corepack pnpm nous observe text --text "实际来源的有界原文" --source "https://example.com/source"
-corepack pnpm nous form <occurrence-id> --tag tag:<uuid>,tag:<lexical-ref>
+corepack pnpm nous form <返回的 obs:词汇引用> --tag <返回的 Tag 词汇引用>
 corepack pnpm nous context create --purpose "继续部署评估" --text "当前任务、限制和未决问题"
 corepack pnpm nous context foreground
 corepack pnpm nous query 'Alice 的部署项目进展怎样？ $return(memory,schema) $limit(5)'
 corepack pnpm nous query '后续还有什么限制？'
 corepack pnpm nous show result:1
 corepack pnpm nous trace result:1
-corepack pnpm nous context pin --cognition result:1 --entity entity:alice --tag tag:<uuid>
+corepack pnpm nous context pin --cognition result:1 --entity entity:alice --tag <Tag 词汇引用>
 corepack pnpm nous use result:1 --kind referenced
 ```
 
-默认输出语义文本；`--json` 返回 `schemaVersion="nous.cli.v1"` 的 CLI-owned envelope，int64 使用十进制字符串。`--raw --developer` 显式选择原始 Client DTO 诊断。成功仅写 stdout，错误仅写 stderr 并返回非零码；错误保留 code、message、details、candidates 和未知结果的 receipt。
+默认输出语义文本，正常操作使用 `result:N`、稳定 LexicalRef 或能唯一解析的名称。Subject、Session、WorkContext、认知 revision 和 Material 来源都返回可再次输入的词汇引用，例如 `sub:colossal-attach-imperial-step`、`ctx:outer-zodiac-reps-delicate`。这些引用由 Authority 持久保存，跨进程与 consumer state root 有效；不是 UUID 的截断，也不随标题修改改变。相同名称有歧义时，使用明确的词汇引用。精确 revision 的词汇引用仍指向原 revision。
+
+`--subject`、`--session`、`--work-context` 与各命令引用参数接受返回的词汇引用。`identity bind --kind <kind> --canonical <词汇引用> --name <名称> --alias <别名>` 可显式设置可读名称；普通显示不会覆盖既有名称或别名。原始来源、Memory 内容与自由文本保持原文，因此历史资料中已有的 UUID 不被改写。
+
+`--json` 返回 `schemaVersion="nous.cli.v1"` 的机器 envelope，保留 canonical IDs，int64 使用十进制字符串。`--developer` 保留诊断身份和 query trace，`--raw --developer` 显式选择原始 Client DTO。正常文本省略这些内部追踪身份。成功仅写 stdout，错误仅写 stderr 并返回非零码；错误保留 code、message、details、candidates 和未知结果的 receipt。
 
 Launcher 提供 RunRoot/InstanceRoot。`--subject`、`--session`、`--work-context` 覆盖本地选择。查询和幂等修改需要 InstanceRoot 保存续接状态；只读查询准备、配置与 status 可仅指定 RunRoot。Query 的 `result:N` 按实际命中顺序保存真实引用，并限定到原 Subject。Memory、Schema、Episode、Journal 保留 exact immutable revision，`show/trace/use` 不替换成最新 head。Evidence/Resource 与混合 hits 正常展示，每条只提供 owner 支持的后续动作；外部 Resource records 单独显示稳定来源身份。
 
@@ -33,30 +37,30 @@ Launcher 提供 RunRoot/InstanceRoot。`--subject`、`--session`、`--work-conte
 
 ```toml
 # revise-tag.toml
- target = "tag:<实际 UUID 或 LexicalRef>"
+ target = "<返回的 Tag 词汇引用>"
  label = "新的概念名称"
  description = "概念语义"
 ```
 
 ```toml
 # merge-tags.toml
-survivor = "tag:<实际 UUID>"
-retired = ["tag:<实际 UUID>"]
+survivor = "<保留的 Tag 词汇引用>"
+retired = ["<合并的 Tag 词汇引用>"]
 [[basis]]
-ref = "memory_revision:<实际 UUID>"
+ref = "<返回的 memrev:词汇引用>"
 role = "direct"
 epistemic_relation = "corroborates"
 ```
 
 ```toml
 # association.toml
-from = "memory_revision:<实际 UUID>"
-to = "tag:<实际 UUID>"
+from = "<返回的 memrev:词汇引用>"
+to = "<返回的 Tag 词汇引用>"
 relation = "tag_attachment"
 polarity = "positive"
 basis_class = "host_explicit"
 [[basis]]
-ref = "occurrence:<实际 UUID>"
+ref = "<返回的 obs:词汇引用>"
 role = "contextual"
 ```
 
@@ -64,9 +68,11 @@ role = "contextual"
 
 `help` 与 `help nousql` 不连接 daemon。[NousQL Agent 手册](../../docs/agent/NOUSQL.md) 提供 Unicode 意图、可选语法岛、五轴时间、history/asof、direct/explore 与 projection 的可执行示例。`query prepare|inspect` 不调用 provider，输出冻结 representation、context snapshot 和能力降级；普通 query 使用同一 preparation 协议执行。
 
-`show` 显示 cognition revision 内容或 Material 对象元数据。核对原始来源时，使用 `read occurrence:<UUID>`、`read source_region:<UUID>`、`read artifact:<UUID>`、`read derived_representation:<UUID>` 或 `read derived_region:<UUID>`；也可续接 `read result:N` 的 Material hit。读取通过 Material Authority，默认最多 64 KiB，`--max-bytes` 可设到 1 MiB，返回实际范围、总量与 partial。文本材料返回原文，二进制材料返回元数据和 derive 提示。
+`show` 显示 cognition revision 内容或 Material 对象元数据。核对原始来源时，复制返回的 `obs:`、`src:`、`art:`、`repr:` 或 `region:` 词汇引用执行 `read <引用>`；也可续接 `read result:N` 的 Material hit。读取通过 Material Authority，默认最多 64 KiB，`--max-bytes` 可设到 1 MiB，返回实际范围、总量与 partial。文本材料返回原文，二进制材料返回元数据和 derive 提示。
 
 `maintenance grant --max-operations 2 --max-model-calls 1 --max-elapsed-ms 30000` 明确授权有界维护；每次实际模型调用都计入预算，包括 execution fallback。Use 接受 exact cognition revision，refutation 是负反馈，不能自动授权模型活动或概念修改。Tag list/search 与 association neighborhood 维持有界分页和遍历。
+
+Query 返回本 consumer 的 `query:last`。`use result:N` 自动关联该查询；通过词汇引用反馈时可写 `use <memrev:引用> --kind referenced --query-id query:last`。`query:last` 与 `result:N` 都在下一次 query 时更新，失败的新 query 清除它们，不能跨 Subject 使用。
 
 ## 多 Agent 与 stdio MCP
 
@@ -76,7 +82,7 @@ role = "contextual"
 node --import tsx apps/nous-cli/src/main.ts --run-root <Core RunRoot> --instance-root <Agent 私有目录> --consumer consumer:codex:research help
 ```
 
-复用长期 Subject 时运行 `subject use <实际 ID>`，每个并行 Agent 单独 `session open`。不要复制 Core Authority 数据库来隔离本地选择。
+复用长期 Subject 时运行 `subject use <返回的 sub:词汇引用>`，每个并行 Agent 单独 `session open`。不要复制 Core Authority 数据库来隔离本地选择。
 
 `nous --locator <bootstrap.toml> mcp --state-root <Agent 私有目录> --consumer consumer:codex:research` 启动官方 MCP SDK v2 stdio consumer。MCP 必须显式指定私有 state root 和稳定 consumer；它只通过参数数组调用同一 CLI，同一连接的调用串行执行。stdout 仅用于 MCP 协议。三个工具为 `nous_help`、`nous_command`（`args` 是 argv 字符串数组，不是 shell 命令）和 `nous_query`。错误保留 CLI 文本与未知结果 receipt；用 `nous_command` 调用 `retry <receipt>` 恢复。
 

@@ -126,6 +126,7 @@ export async function queryCommands(
   if (values.raw) return response;
   return {
     queryId: response.queryId,
+    queryRef: "query:last",
     status: response.status,
     results: response.hits.map((hit, index) => ({
       lexicalRef: hit.lexicalRef,
@@ -138,16 +139,17 @@ export async function queryCommands(
       next: cognitionKinds.has(refs[index]!.kind)
         ? `show result:${index + 1} | trace result:${index + 1} | use result:${index + 1} | context pin --cognition result:${index + 1}`
         : refs[index]!.kind === "occurrence"
-          ? `show result:${index + 1} | context pin --cognition result:${index + 1}`
-          : [
-                "artifact",
-                "source_region",
-                "derived_representation",
-                "derived_region",
-                "resource",
-              ].includes(refs[index]!.kind)
+          ? `show result:${index + 1} | read result:${index + 1} | context pin --cognition result:${index + 1}`
+          : refs[index]!.kind === "resource"
             ? `show result:${index + 1}`
-            : "Returned source reference; cognition use and pin are unavailable",
+            : [
+                  "artifact",
+                  "source_region",
+                  "derived_representation",
+                  "derived_region",
+                ].includes(refs[index]!.kind)
+              ? `show result:${index + 1} | read result:${index + 1}`
+              : "Returned source reference; cognition use and pin are unavailable",
     })),
     resourceRecords: response.resourceRecords,
     resourceActions: response.resourceActions,

@@ -76,6 +76,46 @@ export async function createEnvironment(
     values["instance-root"] && resolve(values["instance-root"]),
   );
   const selected = await local.selection();
+  const original = await connect({
+    runRoot: resolve(
+      required(values["run-root"], "--run-root or nous launcher"),
+    ),
+  });
+  async function addressId(kind: string, text: string, subject: string) {
+    if (!/^[a-z]+:[a-z]+(?:-[a-z]+){3}$/.test(text)) return text;
+    return uniqueReference(
+      await original.identity.resolve({
+        subjectId: kind === "subject" ? "" : subject,
+        kind,
+        locator: { case: "lexicalRef", value: text },
+      }),
+    ).value;
+  }
+  const selectedSubject = values.subject
+    ? await addressId("subject", values.subject, "")
+    : selected.subjectId;
+  values = {
+    ...values,
+    ...(values.subject ? { subject: selectedSubject } : {}),
+    ...(values.session
+      ? {
+          session: await addressId(
+            "session",
+            values.session,
+            selectedSubject ?? "",
+          ),
+        }
+      : {}),
+    ...(values["work-context"]
+      ? {
+          "work-context": await addressId(
+            "work_context",
+            values["work-context"],
+            selectedSubject ?? "",
+          ),
+        }
+      : {}),
+  };
   const sameSubject = !values.subject || values.subject === selected.subjectId;
   const state: Selection = {
     schemaVersion: 1,
@@ -87,11 +127,6 @@ export async function createEnvironment(
       (sameSubject ? selected.workContextId : undefined),
   };
   const subjectId = state.subjectId ?? "";
-  const original = await connect({
-    runRoot: resolve(
-      required(values["run-root"], "--run-root or nous launcher"),
-    ),
-  });
   const replay: Record<string, (request: unknown) => Promise<unknown>> = {};
   function mutation<I extends object, O>(
     name: string,
@@ -236,10 +271,10 @@ export async function createEnvironment(
         );
       return ref;
     }
-    if (kind === "tag" && /^[0-9a-f-]{36}$/i.test(text))
+    if (kind && /^[0-9a-f-]{36}$/i.test(text))
       return { kind, value: text.toLowerCase() };
     const canonical =
-      /^(entity|resource|memory|memory_revision|cognitive_schema|cognitive_schema_revision|episode|episode_revision|journal|journal_revision|tag|occurrence|artifact|source_region|derived_representation|derived_region|external_object):(.+)$/.exec(
+      /^(subject|session|work_context|association|entity|resource|memory|memory_revision|cognitive_schema|cognitive_schema_revision|episode|episode_revision|journal|journal_revision|tag|occurrence|artifact|source_region|derived_representation|derived_region|external_object):(.+)$/.exec(
         text,
       );
     if (
@@ -261,7 +296,8 @@ export async function createEnvironment(
     }
     return uniqueReference(
       await client.identity.resolve({
-        subjectId: required(subjectId, "Selected Subject"),
+        subjectId:
+          kind === "subject" ? "" : required(subjectId, "Selected Subject"),
         kind,
         locator: {
           case: /^\w+:/.test(text) ? "lexicalRef" : "name",

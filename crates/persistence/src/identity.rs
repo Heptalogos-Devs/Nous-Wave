@@ -37,6 +37,14 @@ pub fn lexical_prefix(kind: &str) -> Result<&'static str> {
         "derived_representation" => "repr",
         "derived_region" => "region",
         "session" => "session",
+        "subject" => "sub",
+        "work_context" => "ctx",
+        "association" => "assoc",
+        "episode" => "ep",
+        "episode_revision" => "eprev",
+        "journal" => "journal",
+        "journal_revision" => "journalrev",
+        "cognitive_seed_version" => "seed",
         "resource" => "res",
         _ => return Err(Error::Invalid("object kind has no lexical address".into())),
     })
@@ -59,6 +67,14 @@ pub fn validate_lexical(value: &str) -> Result<&str> {
             | "repr"
             | "region"
             | "session"
+            | "sub"
+            | "ctx"
+            | "assoc"
+            | "ep"
+            | "eprev"
+            | "journal"
+            | "journalrev"
+            | "seed"
             | "res"
     ) {
         return Err(Error::Invalid("INVALID_LEXICAL_REF".into()));
@@ -70,6 +86,20 @@ pub fn validate_lexical(value: &str) -> Result<&str> {
     Ok(kind)
 }
 impl AuthorityStore {
+    /// Locate the Subject address before a consumer has selected a Subject.
+    pub async fn subject_for_lexical(&self, lexical: &str) -> Result<SubjectId> {
+        if validate_lexical(lexical)? != "sub" {
+            return Err(Error::Invalid("REFERENCE_TYPE_MISMATCH".into()));
+        }
+        let canonical: String = sqlx::query_scalar("SELECT b.canonical_ref FROM lexical_bindings b JOIN lexical_visibility v USING(lexical_ref) WHERE b.object_kind='subject' AND b.lexical_ref=$1 AND b.tombstoned_at IS NULL AND v.subject_id::text=b.canonical_ref")
+            .bind(lexical).fetch_optional(self.pool()).await.map_err(database_error)?
+            .ok_or_else(|| Error::NotFound("UNKNOWN_REFERENCE".into()))?;
+        canonical
+            .parse()
+            .map(SubjectId)
+            .map_err(|_| Error::Infrastructure("invalid Subject address".into()))
+    }
+
     pub async fn bind_identity(
         &self,
         subject: SubjectId,
@@ -77,10 +107,37 @@ impl AuthorityStore {
         display_name: String,
         aliases: Vec<String>,
     ) -> Result<IdentityBinding> {
+        self.bind_identity_mode(subject, reference, display_name, aliases, false)
+            .await
+    }
+    pub async fn ensure_identity_address(
+        &self,
+        subject: SubjectId,
+        reference: CognitiveRef,
+        display_name: String,
+    ) -> Result<IdentityBinding> {
+        self.bind_identity_mode(subject, reference, display_name, vec![], true)
+            .await
+    }
+    async fn bind_identity_mode(
+        &self,
+        subject: SubjectId,
+        reference: CognitiveRef,
+        display_name: String,
+        aliases: Vec<String>,
+        address_only: bool,
+    ) -> Result<IdentityBinding> {
         self.require_subject(subject).await?;
         let mut tx = self.begin().await?;
         let binding = self
-            .bind_identity_in(&mut tx, subject, reference, display_name, aliases)
+            .bind_identity_in_mode(
+                &mut tx,
+                subject,
+                reference,
+                display_name,
+                aliases,
+                address_only,
+            )
             .await?;
         tx.commit().await.map_err(database_error)?;
         let kind = reference_parts(&binding.canonical).0;
@@ -100,9 +157,21 @@ impl AuthorityStore {
         &self,
         tx: &mut Transaction<'_, Postgres>,
         subject: SubjectId,
+        reference: CognitiveRef,
+        display_name: String,
+        aliases: Vec<String>,
+    ) -> Result<IdentityBinding> {
+        self.bind_identity_in_mode(tx, subject, reference, display_name, aliases, false)
+            .await
+    }
+    async fn bind_identity_in_mode(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        subject: SubjectId,
         mut reference: CognitiveRef,
         display_name: String,
         mut aliases: Vec<String>,
+        address_only: bool,
     ) -> Result<IdentityBinding> {
         if let CognitiveRef::Tag(tag) = reference {
             reference = crate::tags::canonical_topology_ref_in(tx, subject, CognitiveRef::Tag(tag))
@@ -163,8 +232,8 @@ impl AuthorityStore {
                 Error::Infrastructure("LexicalRef collision retry bound exceeded".into())
             })?
         };
-        sqlx::query("INSERT INTO lexical_visibility(subject_id,lexical_ref,display_name,aliases) VALUES($1,$2,$3,$4) ON CONFLICT(subject_id,lexical_ref) DO UPDATE SET display_name=CASE WHEN excluded.display_name='' THEN lexical_visibility.display_name ELSE excluded.display_name END,aliases=CASE WHEN cardinality(excluded.aliases)=0 THEN lexical_visibility.aliases ELSE excluded.aliases END")
-            .bind(subject.0).bind(&lexical).bind(&display_name).bind(&aliases).execute(&mut **tx).await.map_err(database_error)?;
+        sqlx::query("INSERT INTO lexical_visibility(subject_id,lexical_ref,display_name,aliases) VALUES($1,$2,$3,$4) ON CONFLICT(subject_id,lexical_ref) DO UPDATE SET display_name=CASE WHEN excluded.display_name='' THEN lexical_visibility.display_name ELSE excluded.display_name END,aliases=CASE WHEN cardinality(excluded.aliases)=0 THEN lexical_visibility.aliases ELSE excluded.aliases END WHERE NOT $5")
+            .bind(subject.0).bind(&lexical).bind(&display_name).bind(&aliases).bind(address_only).execute(&mut **tx).await.map_err(database_error)?;
         Ok(IdentityBinding {
             lexical_ref: lexical,
             canonical: reference,
