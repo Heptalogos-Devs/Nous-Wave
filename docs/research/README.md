@@ -1,5 +1,7 @@
 # Research
 
+[Cognitive Model & Evolution Research](cognitive-model-evolution-2026-10-08.md)继续研究更强模型的角色配置与持续认知演化。
+
 [Research Corpus](corpus/README.md) 记录当前来源、语料、oracle 与结果文件。[实验方法](retrieval-media-methods.md) 描述查询 track、provenance relevance 和指标；[观测结果](observations.md) 保存实际检索与媒体结论。
 
 [Core Cognition Semantic Qualification](core-cognition-semantic.md) 定义真实来源、formation-first 校准与 sealed qualification 的执行合同。
