@@ -10,6 +10,7 @@ import {
   verifyDigest,
   validateIdentities,
   assertSealedLock,
+  validateFormationReview,
 } from "./core-cognition-contracts.js";
 const manifest = {
   version: 1,
@@ -43,6 +44,27 @@ const manifest = {
   ],
 };
 describe("semantic research contracts", () => {
+  it("continues structurally sound cognition with semantic errors but stops invalid source basis", () => {
+    const review = {
+      reviewed_for_retrieval: true,
+      snapshot_digest: "a".repeat(64),
+      notes: ["Exact basis belongs to this Subject and source receipt"],
+      structural_blockers: [],
+      semantic_observations: [
+        "Creation date incorrectly interpreted as acceptance; track correction",
+      ],
+    };
+    expect(validateFormationReview(review)).toEqual(review);
+    expect(() =>
+      validateFormationReview({
+        ...review,
+        structural_blockers: ["foreign basis"],
+      }),
+    ).toThrow(/integrity/);
+    expect(() =>
+      validateFormationReview({ ...review, reviewed_for_retrieval: false }),
+    ).toThrow(/review/);
+  });
   it("requires reproducible identities and rejects sealed work after failed calibration or pack drift", () => {
     expect(() => validateIdentities({})).toThrow(/model/);
     const identities = Object.fromEntries(

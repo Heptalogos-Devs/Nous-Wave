@@ -2,6 +2,10 @@
 
 [返回文档目录](../INDEX.md)
 
+## Cognition Qualification v2（2026-10-08）
+
+[实际报告](core-cognition-2026-10-08.md)与[稳定 metadata](corpus/core-cognition/results-2026-10-08.json)保存 fresh Simon/CPython 与已执行 Rust/Kafka sealed。143 个 retrieval arms 完成，历史/时间条件没有 forbidden future-source matches。高推理 formation 避免 PEP 703 创建/接受混淆，默认 concept maintenance 随后仍引入错误月份，高推理复审未纠正。原 Subject 上的明确 Host correction 成功，current/as-of/history 保留正确 revision 边界。任务 Context/显式 referent 有收益，也有排名干扰；model enrichment 无一致收益，Native/VCP 不晋升默认。保留 enrichment off 和 baseline。认知错误作为质量观测继续研究。
+
 ## Core Cognition Semantic Qualification（2026-10-07）
 
 [集中报告](core-cognition-2026-10-07.md)保存真实 source calibration、exact refs、usage 与状态。Simon formation 可用于部分 retrieval，CPython creation/acceptance 日期混淆传播到 Tag；bare-text closure guard 阻塞原始问题与 enrichment/profile 矩阵。反馈与独立 revision/history slices 实际通过，native 有截断但可核查的两跳 witness。Rust/Kafka sealed 因 calibration blockers 未执行；保留 enrichment `off`，不晋升 profile。

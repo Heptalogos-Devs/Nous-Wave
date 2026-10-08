@@ -90,7 +90,16 @@ export function semanticOutput(kind: string, input: unknown) {
       ]),
       next: "form <occurrenceId>",
     };
-  else if (kind === "show") data = cognitionSummary(input);
+  else if (kind === "show")
+    data = [
+      "revisionId",
+      "memoryId",
+      "schemaId",
+      "episodeId",
+      "journalId",
+    ].some((key) => key in source)
+      ? cognitionSummary(input)
+      : input;
   else if (kind === "trace")
     data = { ...source, cognition: cognitionSummary(source.cognition) };
   return { schemaVersion: "nous.cli.v1", kind, data };

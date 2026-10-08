@@ -1,6 +1,6 @@
 # Query & Serving
 
-长期寻址、Query preparation、概念维护和 owner materialization 语义依据 [Architecture-Vault `2de60296`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/2de60296bc80d790e9dd508bc6b3abd19c7d3236/docs/Nous-Wave/TARGET_DESIGN.md)。
+长期寻址、Query preparation、概念维护和 owner materialization 语义依据 [Architecture-Vault `5b96c63`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/5b96c63da34b0a4c697b6961ae10ba6aa4de3ee1/docs/Nous-Wave/TARGET_DESIGN.md)。
 
 [返回文档目录](../../INDEX.md)
 
@@ -83,7 +83,7 @@ QueryRequest 支持 `work_context_id` 和 `situation`（consumer、current refs�
 
 Representation 顺序固定：Intent、Temporal orientation、Entities、Concepts、Schemas、Current cognition、Resources、Current objects、Current work、Consumer/task。Entity 使用 display name/必要 aliases，Tag 使用 label/description/kind，cognition 使用 bounded owner text；opaque identity 留在 exact/source refs，不当语义正文。缺失 descriptor 和超界截断显式报告；total budget 保持 UTF-8 完整字符。
 
-`retrieval.query.representation` 是 typed Developer/SubjectOverrideAllowed/Live policy：配置只有 `total_chars=8192` 与 `max_context_items=16`；durable context_text 上限 64 KiB，total_chars 默认 8192、可配置到 32768；Current work 不再固定 1024 上限，必需 intent 超界拒绝而不截断。Intent、显式时间/selector descriptor、Entity/Tag、current refs、WorkContext 按优先级分配预算，之后按固定 section 顺序渲染。`sha256` 对实际 representation text 计算。
+`retrieval.query.representation` 是 typed Developer/SubjectOverrideAllowed/Live policy：配置只有 `total_chars=8192` 与 `max_context_items=16`；durable context_text 上限 64 KiB，total_chars 默认 8192、可配置到 32768；Current work 不再固定 1024 上限，必需 intent 超界拒绝而不截断。预算按 Intent → 显式时间/selector/semantic cue → WorkContext Entity/Tag → Current work purpose/questions/text → pinned cognition → ResidentSet/旁路背景分配，随后按固定 section 顺序渲染。同一 descriptor 取其最高输入优先级；截断同时报告 section 和受影响的输入来源类别。`sha256` 对实际 representation text 计算。
 
 Core 查询先取得一次冻结 BoundQuery 的 bounded preparation token，再为完整 representation 生成最多一份 embedding，Kernel 直接消费该 token，保持 ConfigSnapshot 与 context 一致。Preparation/validation tickets 共用 query slots/lease，single-use、Subject-bound，并在 failure/finalize/release/expiry 清理。Dense、EPA/VCP sensing 与 expression leaves 共享 request embedding（包括 provider failure），lexical leaf 仍使用该 leaf intent；All/Any 的集合语义保持不变。Rerank 接收同一完整 representation 和原 validated candidates。
 

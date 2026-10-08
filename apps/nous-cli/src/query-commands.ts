@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { CliError } from "./agent.js";
 import type { CliEnvironment } from "./runtime.js";
-const immutableKinds = new Set([
+const cognitionKinds = new Set([
   "memory_revision",
   "cognitive_schema_revision",
   "episode_revision",
   "journal_revision",
-  "occurrence",
 ]);
 export async function queryCommands(
   env: CliEnvironment,
@@ -109,10 +108,10 @@ export async function queryCommands(
   }
   const response = await client.cognition.query(request);
   const refs = response.hits.map((hit) => hit.revision ?? hit.reference);
-  if (refs.some((ref) => !ref || !immutableKinds.has(ref.kind)))
+  if (refs.some((ref) => !ref))
     throw new CliError(
       "REFERENCE_TYPE_MISMATCH",
-      "Query result has no exact immutable revision for continuation",
+      "Query result has no reference",
     );
   await save({
     ...state,
@@ -134,9 +133,23 @@ export async function queryCommands(
       authority: hit.authority,
       cognitiveRole: hit.cognitiveRole,
       formationMode: hit.formationMode,
+      next: cognitionKinds.has(refs[index]!.kind)
+        ? `show result:${index + 1} | trace result:${index + 1} | use result:${index + 1} | context pin --cognition result:${index + 1}`
+        : refs[index]!.kind === "occurrence"
+          ? `show result:${index + 1} | context pin --cognition result:${index + 1}`
+          : [
+                "artifact",
+                "source_region",
+                "derived_representation",
+                "derived_region",
+                "resource",
+              ].includes(refs[index]!.kind)
+            ? `show result:${index + 1}`
+            : "Returned source reference; cognition use and pin are unavailable",
     })),
+    resourceRecords: response.resourceRecords,
+    resourceActions: response.resourceActions,
     degradation: response.degradation,
-    next: "show result:1 | trace result:1 | use result:1 | context pin --cognition result:1",
   };
 }
 export async function showCommands(env: CliEnvironment, reference?: string) {
@@ -156,10 +169,20 @@ export async function showCommands(env: CliEnvironment, reference?: string) {
       return client.memory.getJournalRevision(input);
     case "occurrence":
       return client.material.occurrence(input);
+    case "artifact":
+      return client.material.getArtifact(input);
+    case "source_region":
+      return client.material.sourceRegion(input);
+    case "derived_representation":
+      return client.material.representation(input);
+    case "derived_region":
+      return client.material.derivedRegion(input);
+    case "resource":
+      return client.resources.get(input);
     default:
       throw new CliError(
         "REFERENCE_TYPE_MISMATCH",
-        "show requires an exact immutable revision or occurrence",
+        `show is unavailable for ${ref.kind}; use the returned source details`,
       );
   }
 }

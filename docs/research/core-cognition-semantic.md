@@ -4,9 +4,9 @@
 
 ## 执行边界
 
-Cognition / Agent Runtime Rebase 完成 Squash Merge 后，另开 research 分支和 fresh Subjects 执行 v2；本次 rebase 不调用付费模型，不选择 retrieval algorithm winner。长期语义依据 [Vault `5b96c63`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/5b96c63da34b0a4c697b6961ae10ba6aa4de3ee1/docs/Nous-Wave/TARGET_DESIGN.md)。
+Cognition / Agent Runtime Rebase 已完成 Squash Merge，v2 在一个独立研发分支和同一 PR 中修正预算/CLI/runner 后，使用 fresh Subjects 执行。长期语义依据 [Vault `5b96c63`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/5b96c63da34b0a4c697b6961ae10ba6aa4de3ee1/docs/Nous-Wave/TARGET_DESIGN.md)。
 
-[2026-10-07 v1 报告](core-cognition-2026-10-07.md)和[稳定结果 metadata](corpus/core-cognition/results-2026-10-07.json)是不可变的已执行证据。v2 不复用 v1 Subject Authority，也不改写 manifests/oracles 来隐藏其观测。现有 [official Client runner](../../scripts/research/core-cognition-semantic.ts)在 rebase 中只迁移到当前 API/grammar；v2 的实际轨迹、calibration 和 sealed 执行在独立研究分支完成。
+[2026-10-07 v1 报告](core-cognition-2026-10-07.md)和[稳定结果 metadata](corpus/core-cognition/results-2026-10-07.json)是不可变的已执行证据。v2 不复用 v1 Subject Authority，也不改写 manifests/oracles 来隐藏其观测。现有 [official Client runner](../../scripts/research/core-cognition-semantic.ts)消费当前 API/grammar；[v2 实际报告](core-cognition-2026-10-08.md)与[稳定结果](corpus/core-cognition/results-2026-10-08.json)记录本轮 calibration、轨迹与 sealed。
 
 ## Cognition trajectory
 
@@ -35,6 +35,8 @@ Formation basis 表示实际输入，provenance 保留真实 lineage；epistemic
 Simon + CPython v2 回答 Role × Execution、context 价值/干扰、enrichment 默认值、Native/VCP 增量、错误修正/持续和历史忠实性后，才决定是否执行 [Rust](corpus/core-cognition/rust.json) 与 [Kafka](corpus/core-cognition/kafka.json) sealed。Kubernetes Sidecar 是 reserve。Fresh version 固定 source/oracle/model/Prompt/schema/config/embedding/code/Vault identities；sealed 不在运行中改变这些身份。
 
 ## Evidence 与恢复
+
+v2 review 的 `reviewed_for_retrieval` 表示已阅读实际认知与 exact source basis、结构正常且可用于当前研究；`structural_blockers` 与 `semantic_observations` 分开记录。错误日期、错误归因和概念误合并不阻塞后续检索。Sealed lock 的 calibration `PASS` 表示经过上述复核并形成了可用部署判断，不表示认知全部正确。检索比较冻结 cut，后续反馈或修订另存轨迹与新 cut。
 
 运行只经普通 Core 和 official Client；第三方原文、model trace 与逐次回执留在 ignored data，tracked 报告记录自写判断、短 locator、refs、hash 和实际指标。operation intent 在 RPC 前保存；已有 proposal 的基础设施重试复用同一 proposal 和 operation identity。
 

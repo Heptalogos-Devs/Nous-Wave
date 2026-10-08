@@ -11,7 +11,8 @@ corepack pnpm nous observe text --text "实际来源的有界原文" --source "h
 corepack pnpm nous form <occurrence-id> --tag tag:<uuid>,tag:<lexical-ref>
 corepack pnpm nous context create --purpose "继续部署评估" --text "当前任务、限制和未决问题"
 corepack pnpm nous context foreground
-corepack pnpm nous query '她的项目进展怎样？ $return(memory,schema) $limit(5)'
+corepack pnpm nous query 'Alice 的部署项目进展怎样？ $return(memory,schema) $limit(5)'
+corepack pnpm nous query '后续还有什么限制？'
 corepack pnpm nous show result:1
 corepack pnpm nous trace result:1
 corepack pnpm nous context pin --cognition result:1 --entity entity:alice --tag tag:<uuid>
@@ -20,7 +21,9 @@ corepack pnpm nous use result:1 --kind referenced
 
 默认输出语义文本；`--json` 返回 `schemaVersion="nous.cli.v1"` 的 CLI-owned envelope，int64 使用十进制字符串。`--raw --developer` 显式选择原始 Client DTO 诊断。成功仅写 stdout，错误仅写 stderr 并返回非零码；错误保留 code、message、details、candidates 和未知结果的 receipt。
 
-Launcher 提供 RunRoot/InstanceRoot。`--subject`、`--session`、`--work-context` 覆盖本地选择。查询和幂等修改需要 InstanceRoot 保存续接状态；只读查询准备、配置与 status 可仅指定 RunRoot。Query 的 `result:N` 始终保存实际命中的 immutable revision，并限定到原 Subject；`show/trace/use` 不将该引用替换成最新 head。Memory、Schema、Episode、Journal 均有 exact revision 读取。
+Launcher 提供 RunRoot/InstanceRoot。`--subject`、`--session`、`--work-context` 覆盖本地选择。查询和幂等修改需要 InstanceRoot 保存续接状态；只读查询准备、配置与 status 可仅指定 RunRoot。Query 的 `result:N` 按实际命中顺序保存真实引用，并限定到原 Subject。Memory、Schema、Episode、Journal 保留 exact immutable revision，`show/trace/use` 不替换成最新 head。Evidence/Resource 与混合 hits 正常展示，每条只提供 owner 支持的后续动作；外部 Resource records 单独显示稳定来源身份。
+
+按[官方 Agent 手册](../../docs/agent/NOUSQL.md#prefer-explicit-referents-for-retrieval)强烈建议显式化能够可靠辨认的指称，使用名称和关键词增强 lexical、embedding 与 Entity/Tag activation；不确定时仍直接查询原文。一次创建并 foreground 的 WorkContext 可连续供多条问题使用，任务变化时才更新文本或 anchors。
 
 `context set --text <text>` 或 `--file <path|->` 更新自由文本；`--purpose` 可同时修改目的。`pin/unpin` 使用 `--cognition`、`--entity`、`--tag` 的逗号分隔引用；cognition 只接受 exact revision 或 Occurrence。`clear --scope text|anchors|all` 清理相应字段；`pause/resume/end` 管理生命周期，`select <id>` 保存选择，`foreground [id]` 在选中 Session 激活，`foreground --clear` 解除激活。所有更新保留未修改字段并提交读取到的 expected revision。context_text 上限 64 KiB，与 query representation 预算分离。
 

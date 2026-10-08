@@ -5,7 +5,10 @@ import {
   operation,
   sourceUnits,
   type RunState,
+  SemanticRun,
 } from "./core-cognition-semantic.js";
+import type { NousClient } from "@nous-wave/client";
+import type { Manifest } from "./core-cognition-contracts.js";
 const state = (): RunState => ({
   version: 1,
   run_id: "r",
@@ -51,4 +54,61 @@ it("splits only source bytes, preserving Unicode, full coverage and deterministi
   expect(units.every((u) => Buffer.byteLength(u.text) <= 12000)).toBe(true);
   expect(units.at(-1)?.end).toBe(Buffer.byteLength(text));
   expect(sourceUnits(text, 12000)).toEqual(units);
+});
+it("prepares unquoted checkpoints and keeps the original TextCue in Tag and exploration arms", async () => {
+  const prepareQuery = vi.fn().mockResolvedValue({
+    boundQuery: JSON.stringify({
+      temporal_frame: { clock_now: "2026-10-08T00:00:00Z" },
+      authority_watermark: 7,
+    }),
+  });
+  const client = { cognition: { prepareQuery } } as unknown as NousClient;
+  const s = state();
+  s.freeze = {
+    formed: "7",
+    raw_control: "0",
+    snapshot_digest: "d",
+    review_digest: "r",
+    tag_bindings: { q: "real-tag" },
+  };
+  const run = new SemanticRun(
+    client,
+    {} as Manifest,
+    s,
+    "data/research/test",
+    "unused",
+    10,
+    1000,
+    "unused",
+  );
+  expect(await run.captureCut("s")).toEqual({
+    cut: "2026-10-08T00:00:00Z",
+    authority_seq: "7",
+  });
+  expect(prepareQuery).toHaveBeenCalledWith(
+    expect.objectContaining({ nousql: "source qualification checkpoint" }),
+    expect.anything(),
+  );
+  const q = {
+    id: "q",
+    text: "Why did he change it?",
+    category: "weak-cue",
+    expected_sources: [],
+    forbidden_sources: [],
+    oracle_notes: "original intent",
+    variants: [],
+  };
+  for (const variant of ["tag_direct", "explore"]) {
+    const request = await run.queryRequest(q, variant, "formed", [
+      { tagId: "real-tag" },
+    ] as Parameters<SemanticRun["queryRequest"]>[3]);
+    expect(request.expression?.cues).toEqual([
+      { cue: { case: "text", value: q.text } },
+      { cue: { case: "tagId", value: "real-tag" } },
+    ]);
+    if (variant === "explore")
+      expect(request.expression?.modifiers?.exploration).toBe(
+        "bounded_associative",
+      );
+  }
 });

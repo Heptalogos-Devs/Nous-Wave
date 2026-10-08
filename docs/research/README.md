@@ -5,6 +5,8 @@
 [Core Cognition Semantic Qualification](core-cognition-semantic.md) 定义真实来源、formation-first 校准与 sealed qualification 的执行合同。
 [2026-10-07 实际结果](core-cognition-2026-10-07.md)记录 calibration grounding/query closure blockers、已执行 slices 与未执行 sealed packs。
 
+[2026-10-08 v2 实际结果](core-cognition-2026-10-08.md)记录 fresh cognition trajectory、Context/Role/retrieval 对照及已完成 Rust/Kafka sealed；[稳定 metadata](corpus/core-cognition/results-2026-10-08.json)保留来源、调用、费用与 exact identities。
+
 [VCP source conformance](vcp-conformance.md) 记录 frozen production 数学合同、Nous 差异与 reference/adapter 的实际实现状态。
 
 研究 runner 位于 `scripts/research/`，通过 official Client 操作系统。原始来源内容、媒体、逐条输出和运行日志保存在 ignored 的 `data/research/`。

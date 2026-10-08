@@ -28,6 +28,7 @@ import {
   stableId,
   verifyDigest,
   validateIdentities,
+  validateFormationReview,
   type Identities,
   type Manifest,
   type SemanticQuery,
@@ -413,7 +414,7 @@ export class SemanticRun {
     const prepared = await this.client.cognition.prepareQuery(
       {
         subjectId,
-        nousql: '"source qualification checkpoint"',
+        nousql: "source qualification checkpoint",
         capabilities: {
           textEmbedding: "forbidden",
           rerank: "forbidden",
@@ -598,7 +599,7 @@ export class SemanticRun {
     });
     await writeFile(
       join(this.output, "formation-review.md"),
-      `# Formation review\n\nSnapshot: ${fingerprint}\n\nReview every accepted claim, exact source membership, identity, temporal metadata, Tag reuse/overmerge, Association basis, Schema boundaries and Accretion trace.\n\nDecision: INCONCLUSIVE until source-backed review.json is supplied.\n`,
+      `# Formation review\n\nSnapshot: ${fingerprint}\n\nRead the actual claims and exact source basis. Record owner/source/identity violations in structural_blockers; record chronology, attribution, Tag reuse/overmerge and Schema errors in semantic_observations. Semantic errors remain eligible for trajectory research. Supply notes and reviewed_for_retrieval in review.json after source-backed review.\n`,
       { mode: 0o600 },
     );
     this.state.phases["review-export"] = "PASS";
@@ -606,21 +607,9 @@ export class SemanticRun {
   }
   async freeze() {
     if (this.state.freeze) return;
-    const review = parseJson(
-      await readFile(join(this.output, "review.json"), "utf8"),
-    ) as {
-      decision: string;
-      snapshot_digest: string;
-      notes: string[];
-      blockers: string[];
-      tag_bindings?: Record<string, string>;
-    };
-    if (
-      review.decision !== "ACCEPTABLE_FOR_RETRIEVAL" ||
-      !review.notes?.length ||
-      review.blockers?.length
-    )
-      throw new Error("BLOCKED: formation review does not authorize retrieval");
+    const review = validateFormationReview(
+      parseJson(await readFile(join(this.output, "review.json"), "utf8")),
+    );
     const snapshot = await this.snapshot();
     if (digest(json(snapshot)) !== review.snapshot_digest)
       throw new Error("Review snapshot drift");
@@ -743,7 +732,12 @@ export class SemanticRun {
         diagnostics: "full",
       };
     const cues: NonNullable<Query["expression"]>["cues"] = [
-      { cue: { case: "text", value: q.text } },
+      {
+        cue: {
+          case: "text",
+          value: variant === "explicit" ? (q.explicit_text ?? q.text) : q.text,
+        },
+      },
     ];
     if (q.knowledge_cut)
       modifiers.asOf = at(this.state.checkpoints[q.knowledge_cut]!.cut);
@@ -776,7 +770,7 @@ export class SemanticRun {
           : undefined);
       if (!id || !tags.some((t) => t.tagId === id))
         throw new Error(`NOT_RUN: no unique naturally formed Tag for ${q.id}`);
-      cues.splice(0, cues.length, { cue: { case: "tagId", value: id } });
+      cues.push({ cue: { case: "tagId", value: id } });
       if (variant === "explore") modifiers.exploration = "bounded_associative";
     }
     if (variant === "profiles") modifiers.exploration = "bounded_associative";
@@ -791,23 +785,87 @@ export class SemanticRun {
           variant === "model_enrichment" ? "optional" : "forbidden",
       },
     };
-    if (variant === "context") {
-      const key = "work-context",
+    if (variant.startsWith("context")) {
+      const selectedTag = this.state.freeze?.tag_bindings?.[q.id];
+      if (
+        ["context_tag", "context_combined"].includes(variant) &&
+        (!selectedTag || !tags.some((tag) => tag.tagId === selectedTag))
+      )
+        throw new Error(
+          `NOT_RUN: no reviewed naturally formed context Tag for ${q.id}`,
+        );
+      const task = q.context ?? {
+        purpose: `Review ${this.manifest.pack_id} cognition`,
+        text:
+          {
+            simon:
+              "Investigate Simon Willison's blogging practices, link blog and beats. Compare their development over time.",
+            cpython:
+              "Investigate CPython free-threading, PEP 703, PEP 779, Python 3.13 and Python 3.14, including extension compatibility.",
+            rust: "Investigate Rust async functions in traits, executor requirements and dyn compatibility.",
+            kafka:
+              "Investigate Kafka KRaft metadata migration, ZooKeeper and release-specific operational constraints.",
+          }[this.manifest.pack_id] ??
+          `Investigate ${this.manifest.pack_id} source chronology.`,
+      };
+      const key = `work-context/${variant}/${digest(json(task))}`,
         workRequest = {
           subjectId,
           operationId: this.id(key),
-          purpose: `Review ${this.manifest.pack_id} source chronology and current basis boundaries.`,
+          purpose: task.purpose,
+          contextText: ["context", "context_combined"].includes(variant)
+            ? task.text
+            : "",
+          entityAnchors: ["context_entity", "context_combined"].includes(
+            variant,
+          )
+            ? (task.entity_refs ?? (q.entity_ref ? [q.entity_ref] : []))
+            : [],
+          tagAnchors: ["context_tag", "context_combined"].includes(variant)
+            ? [selectedTag!]
+            : [],
         };
       const work = await this.call(key, workRequest, true, () =>
         this.client.cognition.createWorkContext(workRequest, this.options),
       );
-      request.workContextId = work.workContext?.workContextId;
+      const session = await this.call(
+        `${key}/session`,
+        { subjectId },
+        false,
+        () => this.client.cognition.openSession({ subjectId }, this.options),
+      );
+      const foregroundRequest = {
+        subjectId,
+        sessionId: session.sessionId,
+        workContextId: work.workContext!.workContextId,
+        expectedRuntimeRevision: session.runtimeRevision,
+        operationId: this.id(`${key}/foreground`),
+      };
+      await this.call(`${key}/foreground`, foregroundRequest, true, () =>
+        this.client.cognition.setActiveWorkContext(
+          foregroundRequest,
+          this.options,
+        ),
+      );
+      request.sessionId = session.sessionId;
     }
     return request;
   }
   async retrieval() {
     await this.freeze();
     const snapshot = await this.snapshot();
+    // Establish isolated reusable runtime arms before recording the retrieval watermark.
+    for (const query of this.manifest.queries)
+      for (const variant of query.variants.filter((value) =>
+        value.startsWith("context"),
+      )) {
+        try {
+          await this.queryRequest(query, variant, "formed", snapshot.tags);
+        } catch (error) {
+          if (!(error instanceof Error) || !error.message.startsWith("NOT_RUN"))
+            throw error;
+        }
+      }
     for (const track of ["formed", "raw_control"] as const) {
       for (let batch = 0; batch < 64; batch++) {
         const key = `embeddings/${track}/${batch}`;
@@ -899,49 +957,10 @@ export class SemanticRun {
               }
               throw error;
             }
-            let prepared: Awaited<
-              ReturnType<NousClient["cognition"]["prepareQuery"]>
-            >;
-            try {
-              prepared = await this.client.cognition.prepareQuery(
-                request,
-                this.options,
-              );
-            } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message.includes("UNRESOLVED_QUERY_REFERENCE")
-              ) {
-                await this.call(
-                  key,
-                  { q, variant, profile },
-                  true,
-                  async () => ({
-                    pack: this.manifest.pack_id,
-                    query_key: q.id,
-                    track,
-                    variant,
-                    profile,
-                    status: "BLOCKED",
-                    executed: false,
-                    problem: error.message,
-                  }),
-                );
-                await saveJson(
-                  join(this.output, "query-results.json"),
-                  Object.entries(this.state.operations)
-                    .filter(
-                      ([k, o]) =>
-                        k.startsWith("query/") &&
-                        !k.endsWith("/response") &&
-                        o.status === "complete",
-                    )
-                    .map(([, o]) => o.result),
-                );
-                continue;
-              }
-              throw error;
-            }
+            const prepared = await this.client.cognition.prepareQuery(
+              request,
+              this.options,
+            );
             const hash = digest(prepared.embeddingText);
             if (preparedDigest && preparedDigest !== hash)
               throw new Error(
@@ -949,6 +968,7 @@ export class SemanticRun {
               );
             preparedDigest = hash;
             await this.budget();
+            const started = performance.now();
             const response = await this.call(
               `${key}/response`,
               request,
@@ -973,6 +993,9 @@ export class SemanticRun {
               variant,
               profile,
               prepared_digest: hash,
+              prepared_input: prepared,
+              elapsed_ms: performance.now() - started,
+              intent: request.expression?.cues?.[0]?.cue,
               authority_cut: authority,
               result_refs: response.hits.map(normalizeHit),
               source_matches: matches,
@@ -1234,7 +1257,15 @@ export class SemanticRun {
         subjectId,
         expression: {
           operation: "atom",
-          cues: [{ cue: { case: "tagId", value: tag.tagId } }],
+          cues: [
+            {
+              cue: {
+                case: "text",
+                value: "free-threaded CPython GIL runtime re-enablement",
+              },
+            },
+            { cue: { case: "tagId", value: tag.tagId } },
+          ],
           modifiers: {
             limit: 10,
             materialize: true,
@@ -1287,7 +1318,7 @@ export class SemanticRun {
     const historyRequest: Query = {
       subjectId,
       nousql:
-        '"free-threaded CPython GIL runtime re-enablement" $history $diagnostics(full)',
+        "free-threaded CPython GIL runtime re-enablement $history $diagnostics(full)",
       capabilities: {
         textEmbedding: "forbidden",
         rerank: "forbidden",
