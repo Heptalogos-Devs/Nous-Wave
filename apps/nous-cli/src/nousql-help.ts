@@ -14,12 +14,12 @@ export const nousqlHelp = {
     lexicalRef:
       "A stable Agent-readable reference; resolve names once and continue with the returned LexicalRef.",
     workContext:
-      "A bounded current task with purpose and exact cognition references; optional query context.",
+      "A reusable current task with purpose, context text and real cognition/Entity/Tag anchors. Select it once and foreground it in a Session; subsequent queries consume the frozen task context.",
     cognitiveClock:
       "Subject logical time captured at query preparation; relative windows use this clock, not network timeout time.",
   },
   selectors: {
-    text: "self-contained question is a first-class lexical+dense query.",
+    text: "Strong recommendation: make confidently known referents explicit using concrete names and useful keywords for lexical, embedding and Entity/Tag activation. Preserve uncertainty; if unresolved, the original pronoun or short question remains a valid lexical+dense query.",
     concept: "#concept supplies semantic text without resolving a durable Tag.",
     entity:
       '@e("Alice") is an exact-resolved entity cue, not an exact cognition read.',
@@ -76,6 +76,10 @@ export const nousqlHelp = {
   },
   examples: [
     "How does Python free-threading work?",
+    "Why did Simon Willison change his blogging practice later?",
+    "Why did he change it later?",
+    "她为什么修改这个决定？",
+    "彼は後で何を変更しましたか？",
     'deployment approval @e("Alice")',
     'Recall relevant cognition @tag("active-reader reclamation")',
     "Recall migration decisions #migration",
@@ -87,5 +91,15 @@ export const nousqlHelp = {
     'Recall relevant cognition @tag("active-reader reclamation") $explore',
     "stale consumer problem $explore",
     "migration $return(memory,schema) $limit(10) $diagnostics(full)",
+  ],
+  workflow: [
+    "nous subject use <actual-subject-id>",
+    "nous session open",
+    'nous context create --purpose "Investigate CPython free-threading" --text "Compare PEP 703, Python 3.13 and Python 3.14 extension compatibility."',
+    "nous context foreground",
+    "nous identity resolve --kind entity --name CPython",
+    "nous context pin --entity <returned-entity-ref>",
+    "nous query 'When did the support status change?'",
+    "nous query 'Which extension limitations remained?'",
   ],
 };

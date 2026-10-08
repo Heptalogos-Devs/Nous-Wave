@@ -71,6 +71,8 @@ export interface SemanticQuery {
   time_end?: string;
   entity_ref?: string;
   concept_text?: string;
+  explicit_text?: string;
+  context?: { purpose: string; text: string; entity_refs?: string[] };
 }
 export interface Manifest {
   version: 1;
@@ -177,6 +179,10 @@ export function validateManifest(value: unknown): Manifest {
           "history",
           "entity",
           "context",
+          "context_entity",
+          "context_tag",
+          "context_combined",
+          "explicit",
           "tag_direct",
           "explore",
           "existing_enrichment",
@@ -257,6 +263,31 @@ export async function loadManifest(path: string) {
   };
 }
 export type Identities = Record<string, string>;
+export interface FormationReview {
+  reviewed_for_retrieval: boolean;
+  snapshot_digest: string;
+  notes: string[];
+  structural_blockers: string[];
+  semantic_observations: string[];
+  tag_bindings?: Record<string, string>;
+}
+/** Semantic mistakes remain observable cognition; only integrity prevents comparison. */
+export function validateFormationReview(value: unknown): FormationReview {
+  const review = record(value);
+  text(review.snapshot_digest, "snapshot_digest");
+  const notes = strings(review.notes, "notes");
+  const blockers = strings(review.structural_blockers, "structural_blockers");
+  strings(review.semantic_observations, "semantic_observations");
+  if (
+    review.reviewed_for_retrieval !== true ||
+    !notes.length ||
+    blockers.length
+  )
+    throw new Error(
+      "BLOCKED: source/owner integrity review required for retrieval",
+    );
+  return review as unknown as FormationReview;
+}
 export function validateIdentities(value: unknown): Identities {
   const identities = record(value);
   for (const key of [
@@ -286,7 +317,7 @@ export function assertSealedLock(
   const lock = record(value);
   if (lock.calibration_status !== "PASS")
     throw new Error(
-      "BLOCKED: sealed qualification requires passing calibration",
+      "BLOCKED: sealed qualification requires structurally sound, reviewed, decision-useful calibration",
     );
   const results = record(lock.calibration_results);
   for (const key of ["simon", "cpython"])

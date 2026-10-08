@@ -192,3 +192,85 @@ it("freezes semantic TOML targets and input before a recoverable mutation", asyn
     await rm(root, { recursive: true, force: true });
   }
 });
+
+it("renders Evidence/Resource and mixed hits while preserving each owner continuation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nous-cli-source-results-"));
+  const refs = [
+    { kind: "memory_revision", value: "30000000-0000-4000-8000-000000000001" },
+    { kind: "source_region", value: "30000000-0000-4000-8000-000000000002" },
+    { kind: "resource", value: "resource:source" },
+  ];
+  const sourceRegion = vi
+    .fn()
+    .mockResolvedValue({
+      sourceRegionId: refs[1]!.value,
+      artifactId: "artifact",
+    });
+  const getResource = vi
+    .fn()
+    .mockResolvedValue({ resourceRef: refs[2]!.value });
+  const readRevision = vi
+    .fn()
+    .mockResolvedValue({ revisionId: refs[0]!.value });
+  const reportUse = vi.fn();
+  const query = vi.fn();
+  const connect = vi.fn().mockResolvedValue({
+    cognition: { query, reportUse },
+    material: { sourceRegion },
+    memory: { revision: readRevision },
+    resources: { get: getResource },
+  });
+  const flags = [
+    "--run-root",
+    root,
+    "--instance-root",
+    root,
+    "--subject",
+    "subject",
+  ];
+  try {
+    for (const selection of [[refs[1]!], [refs[2]!], refs]) {
+      query.mockResolvedValue({
+        queryId: "q",
+        hits: selection.map((reference) => ({
+          reference,
+          text: reference.kind,
+        })),
+        resourceRecords: [{ reference: { entryId: "external-source" } }],
+        degradation: [],
+      });
+      const result = await runCli(
+        ["query", "source $return(memory,evidence,resource)", ...flags],
+        connect,
+      );
+      expect(result).toMatchObject({
+        data: {
+          results: selection.map((ref, index) => ({
+            result: `result:${index + 1}`,
+            ref: `${ref.kind}:${ref.value}`,
+          })),
+          resourceRecords: [{ reference: { entryId: "external-source" } }],
+        },
+      });
+    }
+    expect(await runCli(["show", "result:2", ...flags], connect)).toMatchObject(
+      { data: { sourceRegionId: refs[1]!.value } },
+    );
+    await runCli(["show", "result:3", ...flags], connect);
+    expect(getResource).toHaveBeenCalledWith({
+      subjectId: "subject",
+      id: "resource:source",
+    });
+    await expect(
+      runCli(["use", "result:2", ...flags], connect),
+    ).rejects.toMatchObject({ code: "INVALID_ARGUMENT" });
+    expect(reportUse).not.toHaveBeenCalled();
+    await runCli(["show", "result:1", ...flags], connect);
+    expect(readRevision).toHaveBeenCalledWith({
+      subjectId: "subject",
+      id: refs[0]!.value,
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

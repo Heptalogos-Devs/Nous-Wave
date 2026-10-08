@@ -6,6 +6,8 @@ NousQL 表达检索意图，Core 编译成 typed QueryExpr，Kernel Runtime 绑�
 
 ## 文本与身份
 
+Agent [强烈建议显式化能够可靠识别的指称](../agent/NOUSQL.md#prefer-explicit-referents-for-retrieval)：使用具体名称和关键词，帮助 lexical、embedding 与 Entity/Tag activation。不能消解时原始自然语言仍正常查询。WorkContext 的自由文本与真实 Entity/Tag descriptors 在同一冻结 representation 中参与 embedding；foreground 后可跨多次查询复用。
+
 必需的未加引号 Unicode 自然语言意图是独立的 lexical+dense 查询路径，不要求 Entity、Tag、WorkContext、concept model 或扩散。`#concept` 是独立 semantic text cue，不解析 durable Tag，也不走 lexical-only 伪造。`@tag` 解析 durable semantic concept，直接召回 attachment；`@e`、`@schema`、`@r`、`@object` 是 typed cues，只有 `@ref` 是 exact read。名称歧义必须选择返回的 LexicalRef，不退化为向量猜测。
 
 表达式为单一自然语言意图与可选 `$`、`@`、`#` 语法岛。删除 quoted root、selector-only、universe、布尔查询树和裸正负偏好语法；普通文本中的符号保持原意。字面标记用 `\$`、`\@`、`\#`、`\\` 转义。偏好使用 `$prefer("text")`、`$avoid("text")`、`$prefer(recent,recorded)`。

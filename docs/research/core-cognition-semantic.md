@@ -36,6 +36,8 @@ Simon + CPython v2 回答 Role × Execution、context 价值/干扰、enrichment
 
 ## Evidence 与恢复
 
+v2 review 的 `reviewed_for_retrieval` 表示已阅读实际认知与 exact source basis、结构正常且可用于当前研究；`structural_blockers` 与 `semantic_observations` 分开记录。错误日期、错误归因和概念误合并不阻塞后续检索。Sealed lock 的 calibration `PASS` 表示经过上述复核并形成了可用部署判断，不表示认知全部正确。检索比较冻结 cut，后续反馈或修订另存轨迹与新 cut。
+
 运行只经普通 Core 和 official Client；第三方原文、model trace 与逐次回执留在 ignored data，tracked 报告记录自写判断、短 locator、refs、hash 和实际指标。operation intent 在 RPC 前保存；已有 proposal 的基础设施重试复用同一 proposal 和 operation identity。
 
 按轨迹记录初次错误、后来纠正、持续与传播、current recall、history/as-of fidelity，以及 context/Role × Execution 的收益和干扰。保留 source Recall@1/5/10、MRR、错误来源、stale leakage、empty rate、latency/usage；absence oracle 的分数保持 null。状态仅用 PASS、FAIL、NOT_RUN、BLOCKED。

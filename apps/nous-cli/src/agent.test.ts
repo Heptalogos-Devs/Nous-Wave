@@ -333,7 +333,10 @@ it("serves NousQL JSON guidance without requiring a daemon or instance", async (
   expect(result).toHaveProperty("data.time");
   expect(result).toHaveProperty("data.exploration");
   expect(result).toHaveProperty("data.projection");
+  expect(result).toHaveProperty("data.workflow");
   const text = JSON.stringify(result);
+  expect(text).toContain("Strong recommendation");
+  expect(text).toContain("original pronoun");
   for (const token of [
     "$time",
     "$asof",

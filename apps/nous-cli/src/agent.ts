@@ -108,7 +108,7 @@ export const commandInventory = {
     {
       command: "identity resolve",
       parameters: ["--kind <kind> --name <name> | --lexical-ref <ref>"],
-      example: "nous identity resolve --kind entity --name Alice --json",
+      example: "nous identity resolve --kind entity --name Alice",
     },
     {
       command: "identity bind",
@@ -119,7 +119,7 @@ export const commandInventory = {
         "--alias <alias> (comma-separated)",
       ],
       example:
-        "nous identity bind --kind entity --canonical entity:alice --name Alice --alias A --json",
+        "nous identity bind --kind entity --canonical entity:alice --name Alice --alias A",
     },
     {
       command: "tag list|get|search|resolve|create|revise|merge|split|attach",
@@ -131,7 +131,7 @@ export const commandInventory = {
         "revise|merge|split --request-file <semantic TOML>",
         "attach <exact-revision> --tag <ref> --association-file <basis TOML>",
       ],
-      example: "nous tag resolve deploy --json",
+      example: "nous tag resolve deploy",
     },
     {
       command: "association neighborhood",
@@ -141,7 +141,7 @@ export const commandInventory = {
         "--max-nodes 1..256",
         "--max-depth 1..4",
       ],
-      example: "nous association neighborhood memory:<id> --json",
+      example: "nous association neighborhood memory:<id>",
     },
     {
       command: "association create",
@@ -183,16 +183,14 @@ export const commandInventory = {
     {
       command: "query",
       parameters: ["<NousQL> | --query-file <path>"],
-      example:
-        "nous query 'deployment decision $return(memory) $limit(5)' --json",
+      example: "nous query 'deployment decision $return(memory) $limit(5)'",
     },
     {
       command: "query prepare|inspect",
       parameters: ["<NousQL> | --query-file <path>"],
       description:
         "Frozen binding and representation inspection; no retrieval or provider call",
-      example:
-        "nous query prepare 'deployment decision $return(memory)' --subject <id> --session <id> --work-context <id> --json",
+      example: "nous query prepare 'deployment decision $return(memory)'",
     },
     {
       command: "config list|describe|get|set|clear",
@@ -228,8 +226,18 @@ export const commandInventory = {
     { command: "embeddings prepare", parameters: ["--max-batches <n>"] },
     { command: "trace", parameters: ["<canonical-or-lexical-ref>"] },
     {
-      command: "context create|foreground|show|end",
-      parameters: ["[id]", "--text <purpose> (create)"],
+      command:
+        "context create|set|pin|unpin|clear|select|foreground|show|pause|resume|list|end",
+      parameters: [
+        "[id]",
+        "--purpose <purpose>",
+        "--text <task context> | --file <path|->",
+        "--cognition <exact-ref|result:N> --entity <real-ref> --tag <real-ref>",
+        "clear --scope text|anchors|all",
+        "foreground --clear",
+      ],
+      example:
+        'nous context create --purpose "Investigate CPython free-threading" --text "Compare PEP 703 and Python 3.13/3.14 extension compatibility."',
     },
   ],
 };

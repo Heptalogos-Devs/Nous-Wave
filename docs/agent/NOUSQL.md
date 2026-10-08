@@ -20,7 +20,8 @@ context and exploration are optional ways to make its meaning more precise.
   `mem:amber-lotus-cello-river`. Names discover identities; a returned LexicalRef
   lets you continue using that exact identity. Never invent a LexicalRef.
 - **WorkContext**: a bounded current task or question, with a purpose and exact
-  cognition references. It can enrich a query, but is not required for text recall.
+  cognition references, context text and real Entity/Tag anchors. A Session can
+  foreground it once and reuse it for subsequent questions.
 - **CognitiveClock**: the Subject's logical clock captured when a query is
   prepared. A live Host may advance it with real time. Replay, simulation and
   tests may set it independently. Relative query time uses this clock.
@@ -40,8 +41,24 @@ Text queries use direct lexical and dense retrieval when their Serving families
 and embedding capability are available. They do not require graph diffusion,
 concept enrichment or a query concept model.
 
-Pronouns and short follow-up questions are valid. Explicit names, typed anchors
-and durable WorkContext can improve interpretation; none is a closure gate.
+### Prefer explicit referents for retrieval
+
+**Strong recommendation: make known referents explicit before retrieval.** When
+the conversation, selected WorkContext, Session or a returned reference identifies
+a person, project, object, event or technical concept, put its concrete name and
+useful keywords into the query text. This improves lexical term exposure,
+embedding semantics and Entity/Tag activation. Preserve the caller's intended
+question and uncertainty. If you cannot resolve a referent confidently, query the
+original text and let available runtime context contribute. Pronouns, ellipsis
+and short follow-up text remain valid queries in every language.
+
+When the task identifies Simon Willison and his blogging practice, prefer
+`Why did Simon Willison change his blogging practice later?` to
+`Why did he change it later?`. The latter remains executable when its referents
+are uncertain. `她为什么修改这个决定？` and `彼は後で何を変更しましたか？` follow
+the same rule. Do not invent identities, insert an oracle answer, run a rewriting
+model on every turn, or ask for clarification merely to make text eligible.
+Exact selectors are optional and must resolve to real identities.
 
 ## 3. Resolve identities when they matter
 
@@ -223,7 +240,9 @@ activation, generations, degradation and the query concept model call count.
 
 ## 12. A complete Agent workflow
 
-1. Select the Subject and write a self-contained plain-text intent.
+1. Select the Subject. Preferably expand referents you can identify from current
+   work into concrete searchable names and terms. If expansion is uncertain or
+   unavailable, query the original text.
 2. Resolve Entity/Tag names only when identity matters.
 3. On ambiguity, choose a returned candidate LexicalRef and retry.
 4. Add the appropriate time axes when the question has chronology.
@@ -237,10 +256,22 @@ activation, generations, degradation and the query concept model call count.
 CLI examples (the launcher supplies local instance discovery):
 
 ```sh
-nous help nousql --json
-nous query prepare 'deployment approval $return(memory,schema)' --subject <subject-id> --json
-nous query 'deployment incidents $time(occurred,within=30d)' --subject <subject-id> --json
-nous use <returned-revision-ref> --kind referenced --query-id <query-id> --event-id <stable-event-id> --occurred-at <timestamp> --subject <subject-id> --json
+nous help nousql
+nous subject use <actual-subject-id>
+nous session open
+nous context create --purpose "Investigate CPython free-threading" --text "Compare PEP 703, Python 3.13 experimental support, Python 3.14 support and extension compatibility."
+nous context foreground
+nous identity resolve --kind entity --name CPython
+nous context pin --entity <returned-entity-ref>
+nous tag search free-threading
+nous context pin --tag <returned-tag-ref>
+nous query prepare 'When did the support status change?'
+nous query 'When did the support status change?'
+nous query 'Which extension-compatibility limitations remained?'
+nous show result:1
+nous trace result:1
+nous context pin --cognition result:1
+nous use result:1 --kind referenced --event-id <stable-event-id> --occurred-at <timestamp>
 ```
 
 For a retry, preserve the UseEvent ID, timestamp and consumer identity. `presented`
@@ -254,8 +285,15 @@ mutation commands and maintenance grants are listed by `nous help`; use
 
 Use `context set --text`, `context pin --cognition result:1`, `context pause|resume`,
 `context select` and `context foreground` for reusable task state. Query results
-are saved as exact `result:N` revision references. Continue with `show`, `trace`
-or `use result:N`. Mutations save a receipt before RPC; `retry <receipt>` reuses
+retain real references in query order under `result:N`. Cognition hits retain
+their exact immutable revisions for `show`, `trace`, `use` and cognition pin;
+Evidence/Resource hits expose the actions their owners support. Mixed results
+remain usable even when a source hit cannot receive cognition use. External
+resource records appear separately with their stable external identity.
+Reuse the selected WorkContext across questions; update its text or anchors only
+when the task changes. `CPython`, `PEP 703` and `free-threading` are useful text
+keywords; `@tag(...)` activates a real durable concept and `#concept` is an
+ephemeral cue. Mutations save a receipt before RPC; `retry <receipt>` reuses
 the exact operation identity, inputs and expected revision after an unknown outcome.
 Default output is semantic text; `--json` selects the versioned CLI envelope.
 `--raw --developer` explicitly requests transport diagnostics.

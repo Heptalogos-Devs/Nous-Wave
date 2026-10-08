@@ -77,12 +77,27 @@ pub struct QueryRepresentation {
 }
 
 struct Builder {
-    sections: Vec<(&'static str, String)>,
+    sections: Vec<(&'static str, String, u8)>,
     remaining: usize,
     flags: BTreeSet<String>,
 }
 impl Builder {
     fn section(&mut self, label: &'static str, value: &str, limit: usize) {
+        let priority = match label {
+            "Intent" => 0,
+            "Temporal orientation" | "Semantic concepts" => 1,
+            "Current work" => 3,
+            _ => 5,
+        };
+        self.prioritized_section(label, value, limit, priority);
+    }
+    fn prioritized_section(
+        &mut self,
+        label: &'static str,
+        value: &str,
+        limit: usize,
+        priority: u8,
+    ) {
         if value.trim().is_empty() {
             return;
         }
@@ -90,35 +105,48 @@ impl Builder {
             self.flags.insert(label.into());
         }
         self.sections
-            .push((label, value.trim().chars().take(limit).collect()));
+            .push((label, value.trim().chars().take(limit).collect(), priority));
     }
     fn render(&mut self) -> String {
         // Allocation priority is independent of the fixed semantic section order.
-        let priority = |label| match label {
-            "Intent" => 0,
-            "Temporal orientation" => 1,
-            "Entities" | "Concepts" => 2,
-            "Schemas" | "Current cognition" => 3,
-            "Current work" => 4,
-            _ => 5,
-        };
         let mut indices = (0..self.sections.len()).collect::<Vec<_>>();
-        indices.sort_by_key(|i| priority(self.sections[*i].0));
+        indices.sort_by_key(|i| self.sections[*i].2);
         for index in indices {
-            let (label, value) = &mut self.sections[index];
+            let (label, value, priority) = &mut self.sections[index];
             let header = label.chars().count() + 4; // label, colon, newline and section separation
             let available = self.remaining.saturating_sub(header);
             if value.chars().count() > available {
                 self.flags.insert((*label).into());
+                self.flags.insert(format!(
+                    "{label}:{}",
+                    match priority {
+                        1 => "explicit_query",
+                        2 => "work_context_anchor",
+                        3 => "current_work",
+                        4 => "work_context_cognition",
+                        _ => "runtime_background",
+                    }
+                ));
                 *value = value.chars().take(available).collect();
             }
             if !value.is_empty() {
                 self.remaining -= header + value.chars().count();
             }
         }
-        self.sections
-            .iter()
-            .filter(|(_, value)| !value.is_empty())
+        let mut rendered: Vec<(&str, String)> = Vec::new();
+        for (label, value, _) in &self.sections {
+            if value.is_empty() {
+                continue;
+            }
+            if let Some((_, text)) = rendered.iter_mut().find(|(name, _)| name == label) {
+                text.push('\n');
+                text.push_str(value);
+            } else {
+                rendered.push((label, value.clone()));
+            }
+        }
+        rendered
+            .into_iter()
             .map(|(label, value)| format!("{label}:\n{value}"))
             .collect::<Vec<_>>()
             .join("\n\n")
@@ -224,26 +252,46 @@ pub fn build_query_representation(
                     kind == select
                 }
             })
-            .map(|d| d.text.trim().to_owned())
-            .filter(|s| !s.is_empty())
+            .map(|d| {
+                let priority = sources
+                    .iter()
+                    .filter(|(reference, _)| reference == &d.reference)
+                    .map(|(_, source)| {
+                        if source.starts_with("explicit") {
+                            1
+                        } else if source == "work_context" {
+                            if matches!(select, "entity" | "tag") {
+                                2
+                            } else {
+                                4
+                            }
+                        } else {
+                            5
+                        }
+                    })
+                    .min()
+                    .unwrap_or(5);
+                (d.text.trim().to_owned(), priority)
+            })
+            .filter(|(text, _)| !text.is_empty())
             .collect::<Vec<_>>();
+        values.sort_by_key(|(_, priority)| *priority);
         let mut seen = HashSet::new();
-        values.retain(|text| seen.insert(text.clone()));
+        values.retain(|(text, _)| seen.insert(text.clone()));
         if values.len() > maximum {
             builder.flags.insert(label.into());
         }
-        let text = values
-            .into_iter()
-            .take(maximum)
-            .map(|text| {
-                if text.chars().count() > chars {
-                    builder.flags.insert(label.into());
-                }
-                format!("- {}", text.chars().take(chars).collect::<String>())
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        builder.section(label, &text, limits.total_chars);
+        for (text, priority) in values.into_iter().take(maximum) {
+            if text.chars().count() > chars {
+                builder.flags.insert(label.into());
+            }
+            builder.prioritized_section(
+                label,
+                &format!("- {}", text.chars().take(chars).collect::<String>()),
+                limits.total_chars,
+                priority,
+            );
+        }
     }
     builder.section("Semantic concepts", &semantic_concepts, 2048);
     let objects = query
@@ -263,8 +311,8 @@ pub fn build_query_representation(
             &format!(
                 "{}\n{}\n{}",
                 context.purpose,
-                context.context_text,
-                context.unresolved_questions.join("\n")
+                context.unresolved_questions.join("\n"),
+                context.context_text
             ),
             limits.total_chars,
         );
@@ -558,6 +606,79 @@ mod tests {
             capabilities: Default::default(),
             diagnostics: Default::default(),
         }
+    }
+    #[test]
+    fn explicit_and_pinned_descriptors_precede_work_and_resident_background() {
+        let query = query();
+        let tag = CognitiveRef::Tag(TagId::new());
+        let exact = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+        let mut descriptors = vec![
+            QueryDescriptor {
+                reference: tag.clone(),
+                text: "Pinned blogging practice".into(),
+            },
+            QueryDescriptor {
+                reference: exact.clone(),
+                text: "Explicit selected revision".into(),
+            },
+        ];
+        let mut sources = vec![
+            (tag, "work_context".into()),
+            (exact, "explicit_exact".into()),
+        ];
+        for index in 0..16 {
+            let reference = CognitiveRef::MemoryRevision(MemoryRevisionId::new());
+            descriptors.push(QueryDescriptor {
+                reference: reference.clone(),
+                text: format!("Resident {index}: {}", "background ".repeat(60)),
+            });
+            sources.push((reference, "runtime_resident".into()));
+        }
+        let now = chrono::Utc::now();
+        let context = WorkContextView {
+            work_context_id: uuid::Uuid::new_v4(),
+            subject_id: query.subject,
+            state: WorkContextState::Open,
+            purpose: "Investigate blogging".into(),
+            context_text: format!(
+                "Simon Willison link blog beats task context {}",
+                "task background ".repeat(600)
+            ),
+            unresolved_questions: vec!["Why did the practice change?".into()],
+            constraints: serde_json::json!({}),
+            resume_conditions: vec![],
+            budget_summary: serde_json::json!({}),
+            revision: 1,
+            created_at: now,
+            updated_at: now,
+            ended_at: None,
+            cognition_anchors: vec![],
+            entity_anchors: vec![],
+            tag_anchors: vec![],
+        };
+        let representation = build_query_representation(
+            &query,
+            &descriptors,
+            Some(context),
+            sources,
+            &QueryRepresentationLimits::default(),
+        );
+        assert!(representation.text.contains("Alice develops Nous Wave"));
+        assert!(representation.text.contains("Pinned blogging practice"));
+        assert!(representation.text.contains("Explicit selected revision"));
+        assert!(
+            representation
+                .text
+                .contains("Simon Willison link blog beats task context")
+        );
+        assert!(representation.text.contains("Why did the practice change?"));
+        assert!(
+            representation
+                .truncation_flags
+                .contains(&"Current cognition:runtime_background".into())
+        );
+        assert_eq!(representation.text.matches("Current cognition:").count(), 1);
+        assert!(representation.text.chars().count() <= 8192);
     }
     #[test]
     fn allocation_preserves_context_priority_and_fixed_section_order() {
