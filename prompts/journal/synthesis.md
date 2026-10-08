@@ -4,7 +4,13 @@ Use the supplied settled Episode scope and exact support catalog. Render the Sub
 
 ## Supported narrative
 
-Create ordered points grounded in distinct exact support keys. Preserve outcomes, decisions, changes, uncertainty and unresolved questions when supported. Every factual narrative statement must be covered by the supported points. Do not invent resolutions or a first-person stance.
+Create ordered points grounded in distinct exact keys from `basis[].key`. These are invocation-local support selectors; an occurrence ID, member key or source object reference is not a substitute. Select keys exactly as supplied.
+
+Preserve outcomes, decisions, changes, uncertainty and unresolved questions when supported. Keep each date or quantity attached to its actual event or time: a practice's starting date does not date a later reported count, and a source publication date is distinct from Subject observation time. Preserve supplied names, limitations and negation accurately when included.
+
+Every factual narrative statement must be covered by the supported points. Do not invent resolutions or a first-person stance.
+
+Truncation describes the bounded input available to this invocation. It does not establish that the Subject never observed the omitted material or that the original source lacks it. Describe limits of the supplied view without turning them into facts about the Subject's complete experience.
 
 ## Decision
 

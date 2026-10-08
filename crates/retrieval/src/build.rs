@@ -88,7 +88,7 @@ impl ServingService {
         let config_digest = self.config_digest(subject, family, snapshot).await?;
         let implementation_revision = implementation_revision(family);
         let cognitive_profile = (family == "topology")
-            .then(|| snapshot.get(nous_runtime::COGNITIVE_PROFILE))
+            .then(|| topology_asset_profile(snapshot))
             .transpose()?;
         let record = ServingRecord {
             generation_id: id,
@@ -352,7 +352,7 @@ impl ServingService {
             .collect();
         let path = dir.join("topology.json");
         let config = resolve_wave_config(snapshot)?;
-        let cognitive_profile = snapshot.get(nous_runtime::COGNITIVE_PROFILE)?;
+        let cognitive_profile = nous_runtime::CognitiveProfile::NousNodePotential;
         tokio::task::spawn_blocking(move || {
             let mut graph = WaveGraphGeneration::build(nodes, &edges, config)?;
             graph.generation_id = id;
@@ -551,8 +551,20 @@ fn is_text(media: &str) -> bool {
 pub(crate) fn implementation_revision(family: &str) -> u64 {
     match family {
         "lexical" | "dense" | "exact" => 5,
-        "topology" => 11,
+        "topology" => 12,
         "concept" => 2,
         _ => 1,
     }
+}
+
+fn topology_asset_profile(
+    snapshot: &nous_configuration::ConfigSnapshot,
+) -> Result<nous_runtime::CognitiveProfile> {
+    let selected = snapshot.get(nous_runtime::COGNITIVE_PROFILE)?;
+    Ok(match selected {
+        nous_runtime::CognitiveProfile::VcpDtsc | nous_runtime::CognitiveProfile::VcpRiverMemo => {
+            selected
+        }
+        _ => nous_runtime::CognitiveProfile::NousNodePotential,
+    })
 }

@@ -341,6 +341,8 @@ pub struct ConsolidationCandidate {
     pub formed_at: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag="10")]
     pub recorded_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(bool, tag="12")]
+    pub text_truncated: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConsolidationEntity {

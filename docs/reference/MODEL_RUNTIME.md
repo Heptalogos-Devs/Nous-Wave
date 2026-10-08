@@ -8,6 +8,8 @@ RolePolicy 持有 1..4 个有序 execution routes、Prompt 与 optional|required
 
 Prompt 从仓库 `prompts/` 的 UTF-8 Markdown 加载；custom path 须落在允许 root，每份最多 128 KiB。logical id、内容 digest、role config digest 与实际 model/protocol 进入 producer。Prompt asset 缺失或无效时对应 role 不可执行。
 
+SDK generation 使用独立 `instructions` 与 user material；provider adapter 决定实际 system/developer 映射。Prompt 按任务、来源忠实性、selector 目录和输出合同组织。结构化验证约束输出形状与目录引用，不能把模型生成的姓名、日期或概括自动当作事实正确。Query enrichment 的 novel concepts 是短检索概念／问题，未消解的词义保持未消解。
+
 ## Material 与 formation
 
 `client.model.deriveMaterial({ subjectId, sourceRegionId, strategy, target, supersedes })` 返回实际 committed `representations[]`、selected representation 和 degradation。Configuration 的 `material.strategy` 默认 `description_only`，还接受 `direct_structured`、`describe_then_structure`。
@@ -27,6 +29,8 @@ Structuring 失败保留已提交的 description。普通 recall 不重新解释
 
 Memory revision 的 `producerSignatureId` 可用 `client.material.producer` 读取。Material 的表示、inputs、DerivedRegion、SourceRegion、Artifact 都有同 Subject 的 public read path。`nous trace` 只经 official Client 展开这条链，保存的 producer 不包含 token。
 
+同一 producer read 也覆盖 Episode、Journal、Schema、Tag revisions 与 AssociationEvidence；historical revisions／revoked association 的实际引用仍可追溯，跨 Subject 不开放未引用的签名。最新角色模型与 reasoning 部署建议、真实上下文和延迟观测见 [Cognitive Model & Evolution Research](../research/cognitive-model-evolution-2026-10-08.md)。Embedding 的 max_batch_size 要按实际 endpoint 配置；本轮 Doubao endpoint 明确拒绝超过 10 条的输入，配置为 10 后完整 preparation 成功。
+
 使用 `corepack pnpm inspect:model-contracts --all` 导出实际 provider schema、Prompt 与 digest；通过 research gateway 的 `--trace-root` 和 `inspect:model-trace` 检查真实 New API wire attempt。命令详见 [开发脚本](../../scripts/README.md#模型合同与-trace-检查)。
 
 完整配置与语义合同见 [Gateway/model/Prompt Spec](../specs/active/model-runtime/gateway-model-and-prompts.md)、[Material Spec](../specs/active/model-runtime/material-derivation.md)。
@@ -35,6 +39,15 @@ Memory revision 的 `producerSignatureId` 可用 `client.material.producer` 读�
 ## 纵向维护角色
 
 `episode_segmentation`、`journal_synthesis`、`memory_consolidation` 使用 text + structured_output profile 和 canonical Zod schema。Core 的 `client.cognition.grantMaintenance({ subjectId, maxOperations, maxModelCalls, maxElapsedMs })` 执行有界机会，Rust owner 验证并提交模型 proposal。Core 在 claim 前只允许可执行角色对应的 maintenance kinds；未配置角色不取得 lease 或增加 attempt count。临时 provider 故障使用 Configuration Service 的有界指数退避。角色配置、Prompt 和超时沿用现有 ModelProfile/ExecutionProfile/RolePolicy 机制。数据身份与重试语义见 [纵向认知合同](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
+
+强模型的长程维护实测可达 235–264 秒。一次 grant 的 elapsed budget 由全部调用共享；先前调用耗时后，下一调用的可用时间会变短。研究 runner 默认每次 grant 一个模型调用；Host 可按实际角色延迟安排后续机会。Node Client 默认 transport timeout 为 30 秒，长程调用须同时给足 API 与 transport 时间，例如：
+
+```ts
+await client.cognition.grantMaintenance(
+  { subjectId, maxOperations: 16, maxModelCalls: 1, maxElapsedMs: 300_000 },
+  { timeoutMs: 330_000 },
+);
+```
 
 ## 输入与投影
 

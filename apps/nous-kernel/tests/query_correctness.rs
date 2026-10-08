@@ -1974,6 +1974,29 @@ async fn check_vcp_native_switch_freshness(
         concept_vectors: true,
     };
     let mut visited = std::collections::HashSet::new();
+    runtime
+        .configuration
+        .set_system_override(
+            OperationId::new(),
+            nous_runtime::COGNITIVE_PROFILE.path(),
+            serde_json::json!("baseline-rrf"),
+        )
+        .await
+        .unwrap();
+    let baseline = runtime.configuration.snapshot_for_subject(subject).unwrap();
+    let prepared = runtime
+        .serving
+        .prepare_with_snapshot(subject, need, &baseline)
+        .await
+        .unwrap();
+    assert!(prepared.degradation.is_empty());
+    let native_asset = runtime.serving.publisher.snapshot_for(subject);
+    assert_eq!(
+        native_asset.topology.as_ref().unwrap().cognitive_profile,
+        nous_runtime::CognitiveProfile::NousNodePotential,
+        "baseline prewarming must produce the reusable Native asset"
+    );
+    visited.insert(prepared.generations["topology"]);
     for index in 0..100 {
         let profile = match index % 4 {
             0 | 2 => "vcp-dtsc-v9.2.1-adapter-v1",

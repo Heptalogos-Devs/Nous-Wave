@@ -25,6 +25,15 @@ fn derivation_identity(representation: &DerivedRepresentation) -> Result<(String
     Ok((input_digest, key))
 }
 impl MaterialService {
+    pub async fn references_producer(&self, subject: SubjectId, producer: Uuid) -> Result<bool> {
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM derived_representations WHERE subject_id=$1 AND producer_signature_id=$2)")
+            .bind(subject.0)
+            .bind(producer)
+            .fetch_one(self.store.pool())
+            .await
+            .map_err(db)
+    }
+
     pub async fn persist_derived_representation(
         &self,
         mut representation: DerivedRepresentation,
