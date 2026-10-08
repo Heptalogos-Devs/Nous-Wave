@@ -323,6 +323,55 @@ describe("maintenance fixed workflow retry", () => {
       log.mockRestore();
     }
   });
+  it("defers unfinished work when the granted opportunity actually expires", async () => {
+    const state = fixture();
+    const finish = vi.fn(async () => ({}));
+    Object.assign(state.kernel.maintenance, {
+      getMaintenancePolicy: vi.fn(async () => ({
+        enabled: true,
+        maxOperations: 1,
+        experienceBatchSize: 256,
+        workerLeaseSeconds: 120,
+        retryMaxAttempts: 4,
+      })),
+      claimMaintenance: vi.fn(async () => ({ needs: [need] })),
+      finishMaintenance: finish,
+    });
+    state.synthesize.mockImplementation(
+      async (_input, signal, _snapshot, beforeAttempt) => {
+        beforeAttempt?.();
+        if (!signal) throw new Error("missing opportunity signal");
+        return new Promise<never>((_done, reject) =>
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          }),
+        );
+      },
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const result = await grantMaintenance(state.kernel, state.models, {
+        $typeName: "nous.wave.v1alpha1.MaintenanceGrantRequest",
+        subjectId: subject,
+        maxOperations: 1,
+        maxModelCalls: 1,
+        maxElapsedMs: 30,
+      });
+      expect(result.results[0]).toMatchObject({
+        status: "deferred",
+        problemCode: "opportunity_budget_exhausted",
+      });
+      expect(finish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          disposition: "pending",
+          retryDelaySeconds: 0,
+        }),
+        expect.anything(),
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
   it("uses bounded exponential retry for provider failure and then blocks", async () => {
     const state = fixture();
     vi.spyOn(state.models.invocations, "capabilities", "get").mockReturnValue([

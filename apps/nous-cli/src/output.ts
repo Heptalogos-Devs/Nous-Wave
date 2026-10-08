@@ -116,10 +116,12 @@ export function renderText(value: unknown, depth = 0): string {
   if (typeof value !== "object") return "";
   if (Array.isArray(value))
     return value
-      .map(
-        (item, index) =>
-          `${"  ".repeat(depth)}${index + 1}. ${renderText(item, depth + 1).trimStart()}`,
-      )
+      .flatMap((item, index) => {
+        const body = renderText(item, depth + 1);
+        return body
+          ? [`${"  ".repeat(depth)}${index + 1}. ${body.trimStart()}`]
+          : [];
+      })
       .join("\n");
   if ("schemaVersion" in value && "data" in value)
     return renderText(value.data, depth);
@@ -130,8 +132,23 @@ export function renderText(value: unknown, depth = 0): string {
     typeof value.value === "string"
   )
     return `${value.kind}:${value.value}`;
-  if ("case" in value && "value" in value && typeof value.case === "string")
-    return `${value.case}: ${renderText(value.value, depth)}`;
+  if (
+    "seconds" in value &&
+    Object.keys(value).every((key) => ["seconds", "nanos"].includes(key))
+  ) {
+    const date = new Date(
+      Number(value.seconds) * 1000 +
+        ("nanos" in value ? Number(value.nanos) / 1000000 : 0),
+    );
+    if (Number.isFinite(date.getTime())) return date.toISOString();
+  }
+  if ("case" in value && "value" in value && typeof value.case === "string") {
+    const body = renderText(value.value, depth + 1);
+    if (!body) return "";
+    return body.includes("\n")
+      ? `${"  ".repeat(depth)}${value.case}:\n${body}`
+      : `${"  ".repeat(depth)}${value.case}: ${body.trimStart()}`;
+  }
   return Object.entries(value)
     .filter(
       ([key, item]) =>
@@ -140,10 +157,13 @@ export function renderText(value: unknown, depth = 0): string {
         item !== "" &&
         (!Array.isArray(item) || item.length),
     )
-    .map(([key, item]) =>
-      typeof item === "object" && item !== null
-        ? `${"  ".repeat(depth)}${key}:\n${renderText(item, depth + 1)}`
-        : `${"  ".repeat(depth)}${key}: ${String(item)}`,
-    )
+    .map(([key, item]) => {
+      const body = renderText(item, depth + 1);
+      if (!body) return "";
+      return body.includes("\n") || Array.isArray(item)
+        ? `${"  ".repeat(depth)}${key}:\n${body}`
+        : `${"  ".repeat(depth)}${key}: ${body.trimStart()}`;
+    })
+    .filter(Boolean)
     .join("\n");
 }

@@ -64,4 +64,30 @@ role = "contextual"
 
 `help` 与 `help nousql` 不连接 daemon。[NousQL Agent 手册](../../docs/agent/NOUSQL.md) 提供 Unicode 意图、可选语法岛、五轴时间、history/asof、direct/explore 与 projection 的可执行示例。`query prepare|inspect` 不调用 provider，输出冻结 representation、context snapshot 和能力降级；普通 query 使用同一 preparation 协议执行。
 
+`show` 显示 cognition revision 内容或 Material 对象元数据。核对原始来源时，使用 `read occurrence:<UUID>`、`read source_region:<UUID>`、`read artifact:<UUID>`、`read derived_representation:<UUID>` 或 `read derived_region:<UUID>`；也可续接 `read result:N` 的 Material hit。读取通过 Material Authority，默认最多 64 KiB，`--max-bytes` 可设到 1 MiB，返回实际范围、总量与 partial。文本材料返回原文，二进制材料返回元数据和 derive 提示。
+
 `maintenance grant --max-operations 2 --max-model-calls 1 --max-elapsed-ms 30000` 明确授权有界维护；每次实际模型调用都计入预算，包括 execution fallback。Use 接受 exact cognition revision，refutation 是负反馈，不能自动授权模型活动或概念修改。Tag list/search 与 association neighborhood 维持有界分页和遍历。
+
+## 多 Agent 与 stdio MCP
+
+同一个真实 Core 可以服务多个 Agent。每个 Agent 使用独立 InstanceRoot 保存选择、result:N 和 receipt，RunRoot 指向同一个 Core discovery；长期 cognition 仍按 Subject 共享。源码入口示例：
+
+```sh
+node --import tsx apps/nous-cli/src/main.ts --run-root <Core RunRoot> --instance-root <Agent 私有目录> --consumer consumer:codex:research help
+```
+
+复用长期 Subject 时运行 `subject use <实际 ID>`，每个并行 Agent 单独 `session open`。不要复制 Core Authority 数据库来隔离本地选择。
+
+`nous --locator <bootstrap.toml> mcp --state-root <Agent 私有目录> --consumer consumer:codex:research` 启动官方 MCP SDK v2 stdio consumer。MCP 必须显式指定私有 state root 和稳定 consumer；它只通过参数数组调用同一 CLI，同一连接的调用串行执行。stdout 仅用于 MCP 协议。三个工具为 `nous_help`、`nous_command`（`args` 是 argv 字符串数组，不是 shell 命令）和 `nous_query`。错误保留 CLI 文本与未知结果 receipt；用 `nous_command` 调用 `retry <receipt>` 恢复。
+
+Codex 项目 `.codex/config.toml` 的源码配置示例，替换全部绝对路径：
+
+```toml
+[mcp_servers.nous]
+command = "C:/path/to/node.exe"
+args = ["--import", "tsx", "C:/path/to/Nous-Wave/apps/nous-cli/src/mcp-main.ts", "--run-root", "C:/path/to/Core/run", "--state-root", "C:/path/to/Agent/state", "--consumer", "consumer:codex:research"]
+cwd = "C:/path/to/Nous-Wave"
+tool_timeout_sec = 360
+```
+
+Portable 使用包内 Node 与 `program/cli/mcp-main.js`，去掉 `--import tsx`。其他支持 stdio 的 Host（包括 OpenCode）可复用同一 command/args。Agent 从 `nous_help` 和 `nous_help` 的 `topic="nousql"` 开始，然后通过 `nous_command` 选择 Subject、打开 Session、恢复 WorkContext。每个并行使用者在配置中绑定自己的 state root/consumer；同一 Agent 重启保留该目录与 Subject ID。

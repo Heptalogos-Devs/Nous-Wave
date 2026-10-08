@@ -97,6 +97,7 @@ export async function grantMaintenance(
   let modelCalls = 0;
   if (!policy.enabled)
     return {
+      disposition: "disabled_by_policy",
       results,
       modelCalls,
       elapsedMs: Math.round(performance.now() - started),
@@ -180,7 +181,13 @@ export async function grantMaintenance(
         nextDue = "nextDue" in outcome ? outcome.nextDue : undefined;
       }
     } catch (error) {
-      if (
+      if (signal.aborted) {
+        // Host opportunity exhaustion leaves the durable need available to the next grant.
+        status = "deferred";
+        problemCode = options.signal?.aborted
+          ? "opportunity_canceled"
+          : "opportunity_budget_exhausted";
+      } else if (
         error instanceof ConnectError &&
         error.code === Code.InvalidArgument
       ) {
@@ -251,6 +258,11 @@ export async function grantMaintenance(
     if (status === "internal_failure") break;
   }
   return {
+    disposition: signal.aborted
+      ? "opportunity_exhausted"
+      : results.length
+        ? "processed"
+        : "no_eligible_work",
     results,
     modelCalls,
     elapsedMs: Math.round(performance.now() - started),

@@ -16,6 +16,7 @@
 | 临时 PostgreSQL 清理    | [maintenance/cleanup_embedded_postgres.ps1](maintenance/cleanup_embedded_postgres.ps1) | `just clean-test-temp`                                                    |
 
 - [开发脚本](README.md)
+- [Dogfooding 本地 Resource 宿主](research/dogfooding.ts)：复用生产 Core bootstrap，读取可变本地资料并注入研究 adapter。
 
 ## 模块与其他脚本
 

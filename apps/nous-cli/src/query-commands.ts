@@ -1,6 +1,6 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
-import { CliError } from "./agent.js";
+import { CliError, boundedInteger } from "./agent.js";
 import type { CliEnvironment } from "./runtime.js";
 const cognitionKinds = new Set([
   "memory_revision",
@@ -106,6 +106,8 @@ export async function queryCommands(
       degradation: bound.query_activation?.degradation,
     };
   }
+  // A failed new query must not leave result:N pointing at an unrelated old answer.
+  await save({ ...state, lastQuery: undefined });
   const response = await client.cognition.query(request);
   const refs = response.hits.map((hit) => hit.revision ?? hit.reference);
   if (refs.some((ref) => !ref))
@@ -149,6 +151,12 @@ export async function queryCommands(
     })),
     resourceRecords: response.resourceRecords,
     resourceActions: response.resourceActions,
+    diagnostics: response.diagnostics && {
+      ...response.diagnostics,
+      ...(response.diagnostics.trace
+        ? { trace: JSON.parse(response.diagnostics.trace) as unknown }
+        : {}),
+    },
     degradation: response.degradation,
   };
 }
@@ -185,4 +193,58 @@ export async function showCommands(env: CliEnvironment, reference?: string) {
         `show is unavailable for ${ref.kind}; use the returned source details`,
       );
   }
+}
+
+export async function readCommands(env: CliEnvironment, reference?: string) {
+  const ref = await env.resolveReference(
+    env.required(reference, "Material reference or result:N"),
+  );
+  if (
+    ![
+      "occurrence",
+      "artifact",
+      "source_region",
+      "derived_representation",
+      "derived_region",
+    ].includes(ref.kind)
+  )
+    throw new CliError(
+      "REFERENCE_TYPE_MISMATCH",
+      "read requires a Material reference; show reads cognition revisions",
+    );
+  const material = await env.client.material.materialize({
+    subjectId: env.subjectId,
+    reference: ref,
+    maxBytes: BigInt(
+      boundedInteger(
+        env.values["max-bytes"] ?? "65536",
+        1,
+        1048576,
+        "--max-bytes",
+      ),
+    ),
+  });
+  const textLike = /^text\/|^application\/(?:json|xml|.*\+json)(?:;|$)/.test(
+    material.mediaType,
+  );
+  return {
+    reference: material.reference,
+    mediaType: material.mediaType,
+    totalBytes: material.totalBytes,
+    rangeStart: material.rangeStart,
+    rangeEnd: material.rangeEnd,
+    partial: material.partial,
+    ...(textLike
+      ? {
+          text: new TextDecoder("utf-8", { fatal: true }).decode(
+            material.content,
+            { stream: material.partial },
+          ),
+        }
+      : {
+          next: "Binary source; derive <occurrence-id> for a textual interpretation",
+        }),
+    evidence: material.evidence,
+    degradation: material.degradation,
+  };
 }

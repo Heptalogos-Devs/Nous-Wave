@@ -840,12 +840,10 @@ export class ModelInvocations {
         "statusCode" in error &&
         typeof error.statusCode === "number" &&
         Number.isInteger(error.statusCode)
-          ? ` (HTTP ${error.statusCode})`
-          : "";
-      // oxlint-disable-next-line preserve-caught-error -- Provider causes can expose credentials or corpus text; only numeric status is public.
-      throw new Error(
-        `Embedding batch invocation failed validation or transport${status}`,
-      );
+          ? `gateway_http_${error.statusCode}`
+          : "embedding_validation_or_transport";
+      // Provider causes can expose credentials or corpus text; only numeric status is public.
+      throw new ModelOutputError(status);
     }
   }
   async transcription(

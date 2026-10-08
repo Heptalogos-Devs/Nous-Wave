@@ -7,8 +7,106 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { runCli } from "./commands.js";
 import { cliErrorPayload } from "./agent.js";
+import { workspaceTemp } from "../../../scripts/workspace.js";
 
 const exec = promisify(execFile);
+it("invalidates result indices when the next query fails", async () => {
+  const root = await workspaceTemp("tests", "cli-failed-query-");
+  const query = vi
+    .fn()
+    .mockResolvedValueOnce({
+      queryId: "first",
+      hits: [
+        {
+          reference: {
+            kind: "memory_revision",
+            value: "33333333-3333-4333-8333-333333333333",
+          },
+          text: "old result",
+        },
+      ],
+    })
+    .mockRejectedValueOnce(new Error("query rejected"));
+  const revision = vi.fn();
+  const client = {
+    cognition: { query },
+    memory: { revision },
+  } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
+  const connect = vi.fn().mockResolvedValue(client);
+  const globals = [
+    "--run-root",
+    "/tmp/nous",
+    "--instance-root",
+    root,
+    "--subject",
+    "s",
+  ];
+  await runCli(["query", "first", ...globals], connect);
+  await expect(
+    runCli(["query", "invalid", ...globals], connect),
+  ).rejects.toThrow("query rejected");
+  await expect(
+    runCli(["show", "result:1", ...globals], connect),
+  ).rejects.toMatchObject({ code: "RESULT_SUBJECT_MISMATCH" });
+  expect(revision).not.toHaveBeenCalled();
+});
+it("reads source text through its Material owner with explicit byte bounds", async () => {
+  const id = "33333333-3333-4333-8333-333333333333";
+  const materialize = vi.fn().mockResolvedValue({
+    reference: { kind: "source_region", value: id },
+    mediaType: "text/markdown",
+    content: new TextEncoder().encode("真实来源原文"),
+    totalBytes: 18n,
+    rangeStart: 0n,
+    rangeEnd: 18n,
+    partial: false,
+    evidence: [],
+    degradation: [],
+  });
+  const client = { material: { materialize } } as unknown as Awaited<
+    ReturnType<typeof connectNousInstance>
+  >;
+  const result = await runCli(
+    [
+      "read",
+      `source_region:${id}`,
+      "--run-root",
+      "/tmp/nous",
+      "--subject",
+      "s",
+    ],
+    vi.fn().mockResolvedValue(client),
+  );
+  expect(result).toHaveProperty("data.text", "真实来源原文");
+  expect(materialize).toHaveBeenCalledWith({
+    subjectId: "s",
+    reference: { kind: "source_region", value: id },
+    maxBytes: 65536n,
+  });
+});
+it("continues canonical Material references returned by observe and trace", async () => {
+  const id = "33333333-3333-4333-8333-333333333333";
+  const sourceRegion = vi.fn().mockResolvedValue({ sourceRegionId: id });
+  const resolve = vi.fn();
+  const client = {
+    material: { sourceRegion },
+    identity: { resolve },
+  } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
+  const result = await runCli(
+    [
+      "show",
+      `source_region:${id}`,
+      "--run-root",
+      "/tmp/nous",
+      "--subject",
+      "s",
+    ],
+    vi.fn().mockResolvedValue(client),
+  );
+  expect(result).toHaveProperty("data.sourceRegionId", id);
+  expect(sourceRegion).toHaveBeenCalledWith({ subjectId: "s", id });
+  expect(resolve).not.toHaveBeenCalled();
+});
 describe("Agent CLI protocol", () => {
   it("prepares with explicit context and summarizes the frozen inspection", async () => {
     const prepared = {

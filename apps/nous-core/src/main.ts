@@ -26,15 +26,15 @@ import { verifyRuntime } from "./runtime-packs.js";
 import { startMaintenanceLoop } from "./maintenance/grants.js";
 import { ResourceRegistry } from "./resources/registry.js";
 
-async function main() {
-  const { values } = parseArgs({
-    options: {
-      home: { type: "string" },
-      locator: { type: "string" },
-      development: { type: "boolean", default: false },
-      "stop-on-stdin-close": { type: "boolean", default: false },
-    },
-  });
+export async function runCore(
+  values: {
+    home?: string;
+    locator?: string;
+    development?: boolean;
+    "stop-on-stdin-close"?: boolean;
+  },
+  resources?: ResourceRegistry,
+) {
   const locations = await resolveLocations({
     home: values.home,
     locator: values.locator,
@@ -106,7 +106,7 @@ async function main() {
       kernel: kernel.client,
       token,
       consumers: effective.consumers,
-      resources: new ResourceRegistry(effective.resourceProfiles),
+      resources: resources ?? new ResourceRegistry(effective.resourceProfiles),
       models,
       execution: effective.execution,
     });
@@ -129,7 +129,20 @@ async function main() {
     await instance.release();
   }
 }
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  const { values } = parseArgs({
+    options: {
+      home: { type: "string" },
+      locator: { type: "string" },
+      development: { type: "boolean", default: false },
+      "stop-on-stdin-close": { type: "boolean", default: false },
+    },
+  });
+  runCore(values).catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}

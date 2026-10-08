@@ -31,7 +31,7 @@ pub trait TextEmbeddingProvider: Send + Sync {
 pub(crate) struct RequestEmbedding {
     inner: std::sync::Arc<dyn TextEmbeddingProvider>,
     text: String,
-    output: tokio::sync::OnceCell<std::result::Result<TextEmbeddingOutput, String>>,
+    output: tokio::sync::OnceCell<TextEmbeddingOutput>,
 }
 impl RequestEmbedding {
     pub(crate) fn new(inner: std::sync::Arc<dyn TextEmbeddingProvider>, text: String) -> Self {
@@ -60,7 +60,7 @@ impl TextEmbeddingProvider for RequestEmbedding {
             ));
         }
         self.output
-            .get_or_init(|| async {
+            .get_or_try_init(|| async {
                 for producer in self.producers() {
                     if let Some(output) = crate::material::query_material_output(
                         &request.text,
@@ -70,13 +70,9 @@ impl TextEmbeddingProvider for RequestEmbedding {
                         return Ok(output);
                     }
                 }
-                self.inner
-                    .embed(request)
-                    .await
-                    .map_err(|error| error.to_string())
+                self.inner.embed(request).await
             })
             .await
-            .clone()
-            .map_err(Error::Unavailable)
+            .cloned()
     }
 }

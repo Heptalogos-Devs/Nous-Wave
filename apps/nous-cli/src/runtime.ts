@@ -45,6 +45,7 @@ export const stringFlags = [
   "max-nodes",
   "max-depth",
   "max-batches",
+  "max-bytes",
   "scope",
   "cognition",
   "entity",
@@ -238,7 +239,7 @@ export async function createEnvironment(
     if (kind === "tag" && /^[0-9a-f-]{36}$/i.test(text))
       return { kind, value: text.toLowerCase() };
     const canonical =
-      /^(entity|resource|memory|memory_revision|cognitive_schema|cognitive_schema_revision|episode|episode_revision|journal|journal_revision|tag|occurrence|external_object):(.+)$/.exec(
+      /^(entity|resource|memory|memory_revision|cognitive_schema|cognitive_schema_revision|episode|episode_revision|journal|journal_revision|tag|occurrence|artifact|source_region|derived_representation|derived_region|external_object):(.+)$/.exec(
         text,
       );
     if (

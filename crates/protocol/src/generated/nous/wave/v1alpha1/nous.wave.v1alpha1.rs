@@ -1774,6 +1774,8 @@ pub struct MaintenanceGrantResponse {
     pub model_calls: u32,
     #[prost(uint32, tag="3")]
     pub elapsed_ms: u32,
+    #[prost(string, tag="4")]
+    pub disposition: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResourceDescriptor {

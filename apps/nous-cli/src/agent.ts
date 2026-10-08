@@ -76,6 +76,7 @@ export function cliErrorPayload(error: unknown) {
     9: "FAILED_PRECONDITION",
     10: "STALE_CONTEXT",
     14: "UNAVAILABLE",
+    4: "DEADLINE_EXCEEDED",
   };
   return {
     code:
@@ -104,6 +105,15 @@ export const commandInventory = {
       "stderr semantic error; --json provides code/message/details/candidates/receipt; nonzero exit",
   },
   commands: [
+    {
+      command: "read",
+      parameters: [
+        "<occurrence|artifact|source_region|derived_representation|derived_region>:<UUID> | result:N",
+        "--max-bytes 1..1048576 (default 65536)",
+      ],
+      description:
+        "Read admitted source/derived text through Material Authority; show returns object metadata. Partial output is explicit; binary sources return a derivation hint.",
+    },
     { command: "status", description: "Instance status and capabilities" },
     {
       command: "identity resolve",
@@ -225,6 +235,18 @@ export const commandInventory = {
     },
     { command: "embeddings prepare", parameters: ["--max-batches <n>"] },
     { command: "trace", parameters: ["<canonical-or-lexical-ref>"] },
+    {
+      command: "show",
+      parameters: ["<exact-reference|LexicalRef|result:N>"],
+      description:
+        "Read exact cognition content or Material object metadata; read retrieves source text.",
+    },
+    {
+      command: "retry",
+      parameters: ["<saved-receipt-id>"],
+      description:
+        "Replay original frozen operation inputs; preserve the consumer state root.",
+    },
     {
       command:
         "context create|set|pin|unpin|clear|select|foreground|show|pause|resume|list|end",

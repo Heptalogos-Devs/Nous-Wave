@@ -107,9 +107,13 @@ async function main() {
         "apps",
         serve ? "nous-core" : "nous-cli",
         "src",
-        "main.ts",
+        command === "mcp" ? "mcp-main.ts" : "main.ts",
       )
-    : join(locations.program, serve ? "core" : "cli", "main.js");
+    : join(
+        locations.program,
+        serve ? "core" : "cli",
+        command === "mcp" ? "mcp-main.js" : "main.js",
+      );
   const nodeArgs = development
     ? [join(locations.program, "node_modules", "tsx", "dist", "cli.mjs"), entry]
     : [entry];
@@ -120,7 +124,7 @@ async function main() {
       locations.run,
       "--instance-root",
       locations.instance,
-      ...forwarded,
+      ...(command === "mcp" ? forwarded.slice(1) : forwarded),
     );
   if (serve && !nodeArgs.includes("--stop-on-stdin-close"))
     nodeArgs.push("--stop-on-stdin-close");

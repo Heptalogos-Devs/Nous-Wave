@@ -8,5 +8,13 @@ export async function statusCommands(env: CliEnvironment) {
   return {
     status: await client.system.status({}),
     capabilities: await client.system.capabilities({}),
+    ...(env.subjectId
+      ? {
+          subjectId: env.subjectId,
+          serving: await client.system.projections({
+            subjectId: env.subjectId,
+          }),
+        }
+      : {}),
   };
 }

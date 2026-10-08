@@ -34,7 +34,7 @@ import { associationCommands } from "./association-commands.js";
 import { useCommands } from "./use-commands.js";
 import { traceCommands } from "./trace-commands.js";
 import { contextCommands } from "./context-commands.js";
-import { queryCommands, showCommands } from "./query-commands.js";
+import { queryCommands, showCommands, readCommands } from "./query-commands.js";
 const argsDef: ArgsDef = Object.fromEntries<ArgDef>([
   ...stringFlags.map((name) => [name, { type: "string" }] as const),
   ...listFlags.map((name) => [name, { type: "string" }] as const),
@@ -211,6 +211,7 @@ export async function runCli(rawArgs: string[], connect = connectNousInstance) {
       use: leaf("use", useCommands),
       trace: leaf("trace", traceCommands),
       show: leaf("show", (env, ref) => showCommands(env, ref)),
+      read: leaf("read", (env, ref) => readCommands(env, ref)),
       context: family("context", contextCommands, [
         "create",
         "list",

@@ -32,6 +32,8 @@ MaintenanceNeed 在 active scope 内合并 trigger，due time 使用 CognitiveCl
 
 公开 `GrantMaintenance` 接收 `max_operations`、`max_model_calls`、`max_elapsed_ms`。Core standalone loop 完整使用 active Subject pagination，保存跨 poll tick 的 continuation；每个 Subject 每次获得至多一个操作机会，耗尽 tick budget 后从停止处继续，列表尾部 wrap。删除、停用或失效 page token 会跳过或重新建立 cursor。Core restart 可以从稳定列表起点开始。全局 operation/model/elapsed budgets 限制每次 tick；Kernel 没有自主认知 cron，只持有 durable needs、claim、lease 与 owner semantics。
 
+Grant response 的 disposition 明确区分 `disabled_by_policy`、`no_eligible_work`、`processed` 与 `opportunity_exhausted`。Host 机会耗尽或取消时，尚未完成的 need 返回 pending/deferred，保存已提交 proposal 与进度，不把机会预算当成 owner invariant failure 或 provider retry exhaustion；下一次明确 grant 继续 durable work。Provider 自身超时仍按 infrastructure retry 处理。官方 Client 默认 deadline 覆盖请求机会及回应余量，显式 caller deadline 优先。
+
 维护种类为 `episode_segment`、`episode_resegment`、`journal_review`、`journal_revalidate`、`memory_consolidate`。Core 根据当前可执行角色构造 claim 的 allowed kinds：resegment 需要 `episode_segmentation`，Journal review/revalidate 需要 `journal_synthesis`，consolidation 需要 `memory_consolidation`；初始 segmentation 无需模型。未就绪角色的 needs 保持 durable、无 worker lease、attempt count 不增长。角色配置按当前 Core model runtime 的 restart 生效合同处理。
 
 MaintenanceNeed 状态为 `pending / leased / blocked / satisfied / obsolete`。deferred 表示时间推进或已知未来事件能够改变条件，保留带 next due 的 pending work。blocked 表示依赖、配置或输入需要实际改变，不参与普通 due-time lease。来源 revision/lifecycle、显式 maintenance refresh 或有效配置快照变化可重新激活 blocked need；retry exhaustion 还可由当前 executable model configuration digest 的变化唤醒。真实 provider/network 故障使用配置的指数退避，等待基础设施时间；连续失败达到 retry attempt 上限后 blocked。新 trigger 重置 retry 状态，每个 need 的 trigger revision 随真实 trigger 或配置唤醒推进；执行期间的新 trigger revision 保留为 pending work。

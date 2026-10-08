@@ -1,5 +1,7 @@
 # Research
 
+[Full-System Dogfooding](full-system-dogfooding-2026-10-08.md)记录真实 Codex CLI/MCP 持续研发、consumer 隔离、来源读取、恢复和实际问题修正。
+
 [Cognitive Model & Evolution Research](cognitive-model-evolution-2026-10-08.md)记录更强模型的角色配置、自然 continuing correction、Schema／Journal、多 Session 与检索对照；[稳定 metadata](corpus/core-cognition/results-evolution-2026-10-08.json)保留实际身份、调用、费用与关键轨迹。
 
 [Research Corpus](corpus/README.md) 记录当前来源、语料、oracle 与结果文件。[实验方法](retrieval-media-methods.md) 描述查询 track、provenance relevance 和指标；[观测结果](observations.md) 保存实际检索与媒体结论。
