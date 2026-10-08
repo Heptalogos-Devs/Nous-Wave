@@ -12,6 +12,7 @@ import type { ModelRuntime } from "../model/runtime.js";
 import { canonicalDigest } from "../digest.js";
 import { GenerationFailure } from "../model/invocations.js";
 import { runModelMaintenance } from "./workflow.js";
+import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 
 const roles = {
   episode_resegment: "episode_segmentation",
@@ -184,6 +185,7 @@ export async function grantMaintenance(
       if (signal.aborted) {
         // Host opportunity exhaustion leaves the durable need available to the next grant.
         status = "deferred";
+        nextDue = timestampFromDate(new Date());
         problemCode = options.signal?.aborted
           ? "opportunity_canceled"
           : "opportunity_budget_exhausted";

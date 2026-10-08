@@ -19,17 +19,18 @@ const execute = promisify(execFile);
 let repo = "";
 export async function preparedPublicFile(repositoryRoot: string, url: string) {
   const key = createHash("sha256").update(url).digest("hex");
-  return readFile(join(workspacePaths.cache, "licenses", key), "utf8").catch(
-    () => {
-      throw new Error(
-        "Prepared notice missing; run corepack pnpm release:notices",
-      );
-    },
-  );
+  return readFile(
+    join(repositoryRoot, "data", "cache", "licenses", key),
+    "utf8",
+  ).catch(() => {
+    throw new Error(
+      "Prepared notice missing; run corepack pnpm release:notices",
+    );
+  });
 }
 async function publicFile(url: string) {
   const key = createHash("sha256").update(url).digest("hex");
-  const cache = join(repo, "data", "runtime-build", "license-cache", key);
+  const cache = join(repo, "data", "cache", "licenses", key);
   const cached = await readFile(cache, "utf8").catch(() => undefined);
   if (cached !== undefined) return cached;
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -111,13 +112,11 @@ async function noticeKey(
 export async function prepareNotices(
   repositoryRoot: string,
   packages: Map<string, BundledPackage>,
+  runtimeRoot = workspacePaths.runtime,
 ) {
   repo = repositoryRoot;
   const catalog = JSON.parse(
-    await readFile(
-      join(workspacePaths.runtime, "manifest/runtimes.json"),
-      "utf8",
-    ),
+    await readFile(join(runtimeRoot, "manifest/runtimes.json"), "utf8"),
   ) as {
     packs: {
       component: string;

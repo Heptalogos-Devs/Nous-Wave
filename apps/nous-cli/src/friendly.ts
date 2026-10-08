@@ -84,8 +84,22 @@ export async function friendlyOutput(
     key = "",
     parent: Record<string, unknown> = {},
   ): Promise<unknown> {
-    // Detailed wire traces remain available through --developer / --json.
-    if (key === "diagnostics") return undefined;
+    // Keep useful execution facts; detailed wire traces remain diagnostic output.
+    if (key === "diagnostics") {
+      if (!value || typeof value !== "object") return undefined;
+      const diagnostics = value as Record<string, unknown>;
+      const publicFields = Object.fromEntries(
+        [
+          "candidateCounts",
+          "laneStatus",
+          "topologyComplete",
+          "topologyDiscardedMass",
+        ]
+          .filter((name) => diagnostics[name] !== undefined)
+          .map((name) => [name, diagnostics[name]]),
+      );
+      return Object.keys(publicFields).length ? visit(publicFields) : undefined;
+    }
     if (Array.isArray(value))
       return Promise.all(value.map((item) => visit(item, key, parent)));
     if (typeof value === "string") {

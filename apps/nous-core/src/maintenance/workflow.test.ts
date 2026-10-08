@@ -325,7 +325,9 @@ describe("maintenance fixed workflow retry", () => {
   });
   it("defers unfinished work when the granted opportunity actually expires", async () => {
     const state = fixture();
-    const finish = vi.fn(async () => ({}));
+    const finish = vi.fn(
+      async (_input: { nextDue?: { seconds: bigint } }) => ({}),
+    );
     Object.assign(state.kernel.maintenance, {
       getMaintenancePolicy: vi.fn(async () => ({
         enabled: true,
@@ -368,6 +370,7 @@ describe("maintenance fixed workflow retry", () => {
         }),
         expect.anything(),
       );
+      expect(typeof finish.mock.calls[0]?.[0].nextDue?.seconds).toBe("bigint");
     } finally {
       log.mockRestore();
     }

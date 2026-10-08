@@ -6,6 +6,25 @@ import { friendlyOutput } from "./friendly.js";
 import type { CliEnvironment } from "./runtime.js";
 import { renderText } from "./output.js";
 
+it("keeps real retrieval participation visible without wire identities", async () => {
+  const result = await friendlyOutput(
+    {
+      diagnostics: {
+        laneStatus: { dense: "ready", lexical: "ready" },
+        candidateCounts: { dense_candidates: 5n },
+        trace: { queryId: "33333333-3333-4333-8333-333333333333" },
+      },
+    },
+    { subjectId: "s" } as CliEnvironment,
+  );
+  expect(result).toEqual({
+    diagnostics: {
+      laneStatus: { dense: "ready", lexical: "ready" },
+      candidateCounts: { dense_candidates: 5n },
+    },
+  });
+});
+
 it("keeps exact evidence locators actionable without altering source text or labels", async () => {
   const id = "33333333-3333-4333-8333-333333333333";
   const bind = vi.fn(async (request: { canonical: { kind: string } }) => ({

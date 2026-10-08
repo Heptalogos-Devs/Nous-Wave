@@ -110,9 +110,10 @@ export const commandInventory = {
       parameters: [
         "<obs:|art:|src:|repr:|region: lexical reference> | result:N",
         "--max-bytes 1..1048576 (default 65536)",
+        "--output <new-file> saves complete exact bytes for native media inspection",
       ],
       description:
-        "Read admitted source/derived text through Material Authority; show returns object metadata. Partial output is explicit; binary sources return a derivation hint.",
+        "Read admitted source/derived content through Material Authority; show returns object metadata. Partial output is explicit. --output exports exact complete bytes without overwriting an existing file.",
     },
     { command: "status", description: "Instance status and capabilities" },
     {

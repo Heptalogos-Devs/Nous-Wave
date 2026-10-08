@@ -2202,6 +2202,22 @@ pub struct Occurrence {
     #[prost(message, optional, tag="10")]
     pub context: ::core::option::Option<::prost_types::Struct>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct OccurrenceListRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub artifact_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub limit: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OccurrenceListResponse {
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<Occurrence>,
+    #[prost(bool, tag="2")]
+    pub truncated: bool,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SourceRegion {
     #[prost(string, tag="1")]

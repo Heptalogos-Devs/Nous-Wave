@@ -46,6 +46,7 @@ export const stringFlags = [
   "max-depth",
   "max-batches",
   "max-bytes",
+  "output",
   "scope",
   "cognition",
   "entity",

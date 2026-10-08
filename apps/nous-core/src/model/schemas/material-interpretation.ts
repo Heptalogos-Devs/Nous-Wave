@@ -6,8 +6,10 @@ import { structuredOutputContract } from "./provider.js";
 import type { JsonObject } from "@bufbuild/protobuf";
 
 const coverage = z
-  .enum(["not_available", "observed", "limited", "uncertain"])
-  .describe("Availability and observation coverage of this input modality.");
+  .enum(["not_available", "observed", "reported", "limited", "uncertain"])
+  .describe(
+    "Underlying source coverage. reported means supplied only through a description/transcript; observed requires original input.",
+  );
 const basis_refs = z
   .array(z.string())
   .describe(
@@ -75,9 +77,9 @@ export const materialInterpretationSchema = z
             "Underlying source channel supplying this evidence, independently of its topic/kind. A state or action narrated in speech uses audio; one stated in original text uses source_text. This does not claim the narrated event was visually observed.",
           ),
         basis: z
-          .enum(["direct", "inferred"])
+          .enum(["direct", "reported", "inferred"])
           .describe(
-            "Whether this observation is directly available in the supplied evidence or inferred from it.",
+            "direct requires original source input; reported preserves a claim in a supplied description/transcript; inferred is a further inference.",
           ),
         certainty: z
           .enum(["clear", "uncertain"])
@@ -159,8 +161,11 @@ export type MaterialInterpretation = z.infer<
 >;
 const contract = structuredOutputContract(materialInterpretationSchema);
 export const materialInterpretationSchemaDigest = contract.digest;
-export const materialProjectionIdentity = "material-interpretation-text-v3";
+export const materialProjectionIdentity = "material-interpretation-text-v4";
+// Semantic checks are outside JSON Schema and must invalidate successful workflow reuse too.
+export const materialValidationIdentity = "material-interpretation-policy-v2";
 type InterpretationInput = {
+  evidenceAccess: "original" | "representation";
   visual: boolean;
   audio: boolean;
   sourceText: boolean;
@@ -193,6 +198,7 @@ export function structuredMaterialResult(
   });
   const payload: Record<string, unknown> = {
     ...output,
+    evidence_access: context.evidenceAccess,
     summary: mapBasis(output.summary),
   };
   for (const group of [
@@ -206,7 +212,7 @@ export function structuredMaterialResult(
   ] as const)
     payload[group] = output[group].map(mapBasis);
   return {
-    text: projectMaterialInterpretation(output),
+    text: `Evidence access: ${context.evidenceAccess}\n${projectMaterialInterpretation(output)}`,
     structuredPayload: JSON.parse(JSON.stringify(payload)) as JsonObject,
   };
 }
@@ -217,6 +223,16 @@ function validateMaterialInterpretation(
   input: InterpretationInput,
 ): MaterialInterpretation {
   const output = materialInterpretationSchema.parse(value);
+  if (
+    input.evidenceAccess === "representation" &&
+    (Object.values(output.coverage).some(
+      (coverageStatus) => coverageStatus === "observed",
+    ) ||
+      output.observations.some((item) => item.basis === "direct"))
+  )
+    throw new Error(
+      "Committed representation cannot establish direct source observation",
+    );
   if (
     Buffer.byteLength(JSON.stringify(output)) > 262144 ||
     Buffer.byteLength(output.summary.content) > 8192
@@ -253,7 +269,11 @@ function validateMaterialInterpretation(
       for (const key of item.basis_keys)
         if (!input.basisKeys.has(key))
           throw new Error("Unknown structured material support key");
-      if ("basis" in item && item.basis === "direct" && !item.basis_keys.length)
+      if (
+        "basis" in item &&
+        (item.basis === "direct" || item.basis === "reported") &&
+        !item.basis_keys.length
+      )
         throw new Error("Direct observation requires source support");
       if ("start_ms" in item) {
         const { start_ms: start, end_ms: end } = item;
@@ -284,7 +304,10 @@ function validateMaterialInterpretation(
     source_text: input.sourceText,
   };
   for (const observation of output.observations)
-    if (!channels[observation.evidence_channel])
+    if (
+      !channels[observation.evidence_channel] ||
+      output.coverage[observation.evidence_channel] === "not_available"
+    )
       throw new Error(
         `Structured material invents unavailable ${observation.evidence_channel} evidence`,
       );

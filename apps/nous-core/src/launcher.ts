@@ -13,6 +13,7 @@ import {
 import { checkConfiguration } from "./configuration-check.js";
 import { resolveLocations } from "./locations.js";
 import { initializeConfiguration } from "./configuration-file.js";
+import { launcherCommandOffset } from "./launcher-arguments.js";
 import {
   installRuntime,
   listRuntimes,
@@ -48,7 +49,8 @@ async function main() {
     locator: values.locator,
     installationHome,
   });
-  const [command, action, name] = forwarded;
+  const commandOffset = launcherCommandOffset(forwarded);
+  const [command, action, name] = forwarded.slice(commandOffset);
   if (command === "config" && action === "check") {
     const checked = await checkConfiguration(locations, values.development);
     console.log(JSON.stringify(checked));
@@ -69,7 +71,7 @@ async function main() {
       );
     } else if (action === "install" && name) {
       const { values: install } = parseArgs({
-        args: forwarded.slice(3),
+        args: forwarded.slice(commandOffset + 3),
         options: { pack: { type: "string" } },
       });
       await initializeConfiguration(locations);
@@ -117,14 +119,20 @@ async function main() {
   const nodeArgs = development
     ? [join(locations.program, "node_modules", "tsx", "dist", "cli.mjs"), entry]
     : [entry];
-  if (serve) nodeArgs.push(...profileArgs, ...forwarded.slice(1));
+  if (serve)
+    nodeArgs.push(...profileArgs, ...forwarded.slice(commandOffset + 1));
   else
     nodeArgs.push(
       "--run-root",
       locations.run,
       "--instance-root",
       locations.instance,
-      ...(command === "mcp" ? forwarded.slice(1) : forwarded),
+      ...(command === "mcp"
+        ? [
+            ...forwarded.slice(0, commandOffset),
+            ...forwarded.slice(commandOffset + 1),
+          ]
+        : forwarded),
     );
   if (serve && !nodeArgs.includes("--stop-on-stdin-close"))
     nodeArgs.push("--stop-on-stdin-close");

@@ -325,6 +325,7 @@ export function createNousClient(transport: Transport) {
       purgeJournal: call(memory.purgeJournal),
     },
     material: {
+      occurrences: call(material.listOccurrences),
       derivedRegion: call(material.getDerivedRegion),
       producer: call(material.getProducer),
       representations: call(material.listDerivedRepresentations),

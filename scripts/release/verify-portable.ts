@@ -12,6 +12,7 @@ import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { workspaceTemp } from "../workspace.js";
 import assert from "node:assert/strict";
+import { parse, stringify } from "smol-toml";
 const execute = promisify(execFile);
 const { values } = parseArgs({
   options: {
@@ -144,7 +145,12 @@ await execute(node, [launcher, "init", ...locationArgs], {
 });
 assert.equal(await readFile(join(configRoot, "nous.toml"), "utf8"), initial);
 await mkdir(configRoot, { recursive: true });
-await writeFile(join(configRoot, "nous.toml"), "port = 0\n" + initial);
+const configuration = parse(initial);
+configuration.host = {
+  ...(configuration.host as Record<string, unknown> | undefined),
+  port: 0,
+};
+await writeFile(join(configRoot, "nous.toml"), stringify(configuration));
 const env = {
   ...process.env,
   PATH: join(process.env.SystemRoot!, "System32"),

@@ -45,6 +45,8 @@ message SplitCognitiveSchemaResponse { repeated CognitiveSchema children = 1; }
 
 
 message Occurrence { string occurrence_id = 1; string subject_id = 2; optional string artifact_id = 3; string source_class = 4; optional string external_object_ref = 5; TemporalExtent occurred_time = 6; google.protobuf.Timestamp observed_at = 7; optional string conversation_ref = 8; optional string actor_entity_ref = 9; google.protobuf.Struct context = 10; }
+message OccurrenceListRequest { string subject_id = 1; string artifact_id = 2; uint32 limit = 3; }
+message OccurrenceListResponse { repeated Occurrence items = 1; bool truncated = 2; }
 message SourceRegion { string source_region_id = 1; string artifact_id = 2; string coordinate_kind = 3; google.protobuf.Struct coordinate = 4; string coordinate_hash = 5; optional string parent_source_region_id = 6; }
 message DerivedRepresentation { string representation_id = 1; string subject_id = 2; repeated DerivationInput inputs = 3; string kind = 4; string producer_signature = 5; int32 revision = 6; optional string text = 7; optional string artifact_id = 8; ProducerSignature producer = 9; google.protobuf.Struct quality = 10; optional string supersedes = 11; string strategy = 12; google.protobuf.Struct structured_payload = 13; }
 message RepresentationListResponse { repeated DerivedRepresentation items = 1; bool truncated = 2; }

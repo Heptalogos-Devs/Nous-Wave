@@ -114,10 +114,15 @@ it("reads source text through its Material owner with explicit byte bounds", asy
 });
 it("continues canonical Material references returned by observe and trace", async () => {
   const id = "33333333-3333-4333-8333-333333333333";
-  const sourceRegion = vi.fn().mockResolvedValue({ sourceRegionId: id });
+  const sourceRegion = vi
+    .fn()
+    .mockResolvedValue({ sourceRegionId: id, artifactId: "a" });
+  const occurrences = vi
+    .fn()
+    .mockResolvedValue({ items: [], truncated: false });
   const resolve = vi.fn();
   const client = {
-    material: { sourceRegion },
+    material: { sourceRegion, occurrences },
     identity: { resolve },
   } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
   const result = await runCli(
@@ -133,6 +138,11 @@ it("continues canonical Material references returned by observe and trace", asyn
   );
   expect(result).toHaveProperty("data.sourceRegionId", id);
   expect(sourceRegion).toHaveBeenCalledWith({ subjectId: "s", id });
+  expect(occurrences).toHaveBeenCalledWith({
+    subjectId: "s",
+    artifactId: "a",
+    limit: 20,
+  });
   expect(resolve).not.toHaveBeenCalled();
 });
 describe("Agent CLI protocol", () => {

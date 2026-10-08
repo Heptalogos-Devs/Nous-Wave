@@ -214,7 +214,10 @@ it("renders Evidence/Resource and mixed hits while preserving each owner continu
   const query = vi.fn();
   const connect = vi.fn().mockResolvedValue({
     cognition: { query, reportUse },
-    material: { sourceRegion },
+    material: {
+      sourceRegion,
+      occurrences: vi.fn().mockResolvedValue({ items: [], truncated: false }),
+    },
     memory: { revision: readRevision },
     resources: { get: getResource },
   });

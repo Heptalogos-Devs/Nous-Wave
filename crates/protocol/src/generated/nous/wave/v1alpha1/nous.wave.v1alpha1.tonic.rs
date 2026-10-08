@@ -6776,6 +6776,14 @@ pub mod material_service_server {
     #[async_trait]
     pub trait MaterialService: std::marker::Send + std::marker::Sync + 'static {
         ///
+        async fn list_occurrences(
+            &self,
+            request: tonic::Request<super::OccurrenceListRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OccurrenceListResponse>,
+            tonic::Status,
+        >;
+        ///
         async fn get_derived_region(
             &self,
             request: tonic::Request<super::ObjectRequest>,
@@ -6918,6 +6926,52 @@ pub mod material_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/nous.wave.v1alpha1.MaterialService/ListOccurrences" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListOccurrencesSvc<T: MaterialService>(pub Arc<T>);
+                    impl<
+                        T: MaterialService,
+                    > tonic::server::UnaryService<super::OccurrenceListRequest>
+                    for ListOccurrencesSvc<T> {
+                        type Response = super::OccurrenceListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::OccurrenceListRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as MaterialService>::list_occurrences(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListOccurrencesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/nous.wave.v1alpha1.MaterialService/GetDerivedRegion" => {
                     #[allow(non_camel_case_types)]
                     struct GetDerivedRegionSvc<T: MaterialService>(pub Arc<T>);

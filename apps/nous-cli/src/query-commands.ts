@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { CliError, boundedInteger } from "./agent.js";
 import type { CliEnvironment } from "./runtime.js";
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 const cognitionKinds = new Set([
   "memory_revision",
   "cognitive_schema_revision",
@@ -136,6 +138,7 @@ export async function queryCommands(
       authority: hit.authority,
       cognitiveRole: hit.cognitiveRole,
       formationMode: hit.formationMode,
+      evidenceFamilies: hit.evidenceFamilies,
       next: cognitionKinds.has(refs[index]!.kind)
         ? `show result:${index + 1} | trace result:${index + 1} | use result:${index + 1} | context pin --cognition result:${index + 1}`
         : refs[index]!.kind === "occurrence"
@@ -179,10 +182,24 @@ export async function showCommands(env: CliEnvironment, reference?: string) {
       return client.memory.getJournalRevision(input);
     case "occurrence":
       return client.material.occurrence(input);
-    case "artifact":
-      return client.material.getArtifact(input);
-    case "source_region":
-      return client.material.sourceRegion(input);
+    case "artifact": {
+      const artifact = await client.material.getArtifact(input);
+      const observations = await client.material.occurrences({
+        subjectId,
+        artifactId: artifact.artifactId,
+        limit: 20,
+      });
+      return { ...artifact, observations };
+    }
+    case "source_region": {
+      const region = await client.material.sourceRegion(input);
+      const observations = await client.material.occurrences({
+        subjectId,
+        artifactId: region.artifactId,
+        limit: 20,
+      });
+      return { ...region, observations };
+    }
     case "derived_representation":
       return client.material.representation(input);
     case "derived_region":
@@ -229,6 +246,15 @@ export async function readCommands(env: CliEnvironment, reference?: string) {
   const textLike = /^text\/|^application\/(?:json|xml|.*\+json)(?:;|$)/.test(
     material.mediaType,
   );
+  const outputPath = env.values.output && resolve(env.values.output);
+  if (outputPath) {
+    if (material.partial)
+      throw new CliError(
+        "INVALID_ARGUMENT",
+        "Source is partial; increase --max-bytes or select a bounded region before exporting",
+      );
+    await writeFile(outputPath, material.content, { flag: "wx" });
+  }
   return {
     reference: material.reference,
     mediaType: material.mediaType,
@@ -236,6 +262,7 @@ export async function readCommands(env: CliEnvironment, reference?: string) {
     rangeStart: material.rangeStart,
     rangeEnd: material.rangeEnd,
     partial: material.partial,
+    ...(outputPath ? { outputPath } : {}),
     ...(textLike
       ? {
           text: new TextDecoder("utf-8", { fatal: true }).decode(
@@ -244,7 +271,7 @@ export async function readCommands(env: CliEnvironment, reference?: string) {
           ),
         }
       : {
-          next: "Binary source; derive <SourceRegion reference> for a textual interpretation. Use the src: reference returned by observe or trace.",
+          next: "Inspect original bytes with read <reference> --max-bytes <bound> --output <new-file>; derive <src: reference> creates a model interpretation.",
         }),
     evidence: material.evidence,
     degradation: material.degradation,

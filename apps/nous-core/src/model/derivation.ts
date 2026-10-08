@@ -19,6 +19,7 @@ import { canonicalDigest } from "../digest.js";
 import {
   materialInterpretationSchemaDigest,
   materialProjectionIdentity,
+  materialValidationIdentity,
   type StructuredMaterialContext,
 } from "./schemas/material-interpretation.js";
 import type { JsonObject } from "@bufbuild/protobuf";
@@ -171,6 +172,9 @@ export async function deriveMaterial(
                   projection: structuredPayload
                     ? materialProjectionIdentity
                     : undefined,
+                  validation: structuredPayload
+                    ? materialValidationIdentity
+                    : undefined,
                 })
               : (producerMetadata?.configDigest ?? "utf8-fatal-v1"),
         },
@@ -215,6 +219,10 @@ export async function deriveMaterial(
       projection:
         kind === "structured_interpretation"
           ? materialProjectionIdentity
+          : undefined,
+      validation:
+        kind === "structured_interpretation"
+          ? materialValidationIdentity
           : undefined,
     });
     const identity = {
@@ -317,8 +325,20 @@ export async function deriveMaterial(
   const mime = source.mediaType.split(";")[0]?.trim().toLowerCase() ?? "";
   const textual = mime.startsWith("text/") || mime === "application/json";
   const directContext: StructuredMaterialContext = {
+    evidenceAccess: "original",
     visual: mime.startsWith("image/") || mime.startsWith("video/"),
-    audio: mime.startsWith("audio/") || mime.startsWith("video/"),
+    audio:
+      mime.startsWith("audio/") ||
+      (mime.startsWith("video/") &&
+        Boolean(
+          models.invocations
+            .profile(
+              strategy === "direct_structured"
+                ? "material_direct_structuring"
+                : "material_description",
+            )
+            ?.capabilities.includes("audio_input"),
+        )),
     sourceText: textual,
     catalog: { S000: { kind: "source_region", value: request.sourceRegionId } },
   };
@@ -358,7 +378,11 @@ export async function deriveMaterial(
           segments.map((item) => `[${item.key}] ${item.text}`).join("\n"),
           signal,
           snapshot,
-          { ...available, catalog },
+          {
+            ...available,
+            evidenceAccess: textual ? "original" : "representation",
+            catalog,
+          },
         ),
       {},
       canonicalDigest({
