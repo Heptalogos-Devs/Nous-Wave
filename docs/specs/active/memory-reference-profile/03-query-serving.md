@@ -58,6 +58,8 @@ Episode/Journal 使用 current lifecycle 与适用的 hard constraints，不参�
 
 每类 projection 使用 immutable generation，绑定 authority watermark、producer/build identity、configuration digest、artifact checksum 和 vector-space identity。Authority 提交只使 generation 失效；重建生成新的 generation id，但语义结果必须仍指向同一 Authority identity/revision。watermark race 不得发布过期快照为 current。
 
+复用包含artifact可读性/checksum验证。Serving owner拒绝缺失或损坏generation后，Persistence在同一family/space publication锁下标记该精确generation failed、仅删除仍指向它的current指针。相同watermark/config的重建不能再次复用失效current并删除新artifact。并发已发布的另一个current不被清除；Authority认知不随cache失效改写。failed artifact同样受read lease/grace保护并进入回收。
+
 Episode/Journal 的文本 projection 支持 exact、lexical、dense；它们不进入 topology。
 
 Episode canonical text 包含 title、boundary explanation、experience time，以及前 16 个成员中 occurrence 的有界文本片段。文本 Artifact 读取至多 2 KiB 的完整 UTF-8 前缀；媒体 occurrence 选择同 Artifact 的 ready coverage 派生文本，按 created time 与精确 representation ID 确定顺序，每段同样限制为 2 KiB。Serving 和查询正文共用该成员输入；描述更新使文本 projection 失效，不修改 Episode Authority。查询 evidence 保留所用派生描述的 exact ref 与 interpretation role，独立根仍由来源 lineage 决定。

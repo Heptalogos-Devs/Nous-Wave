@@ -39,12 +39,14 @@ impl ServingService {
                 .iter()
                 .filter(|record| record.family == family && record.space == space)
             {
-                if self.compatible(record, &bound.config_snapshot).await
-                    && self.open_record(record).is_ok()
-                {
+                if !self.compatible(record, &bound.config_snapshot).await {
+                    continue;
+                }
+                if self.open_record(record).is_ok() {
                     reusable = Some(record.clone());
                     break;
                 }
+                self.store.fail_serving_generation(record).await?;
             }
             let outcome = match reusable {
                 Some(record) => {

@@ -37,7 +37,7 @@ impl ServingService {
             - chrono::Duration::from_std(grace)
                 .map_err(|error| Error::Invalid(error.to_string()))?;
         let mut tx = self.store.begin().await?;
-        let rows = sqlx::query("SELECT generation_id,artifact_location FROM serving_generations g WHERE subject_id=$1 AND state='retired' AND published_at<$2 AND COALESCE(metadata->>'research_pinned','false')<>'true' AND NOT EXISTS (SELECT 1 FROM serving_current c WHERE c.generation_id=g.generation_id) FOR UPDATE")
+        let rows = sqlx::query("SELECT generation_id,artifact_location FROM serving_generations g WHERE subject_id=$1 AND state IN ('retired','failed') AND artifact_location<>'' AND published_at<$2 AND COALESCE(metadata->>'research_pinned','false')<>'true' AND NOT EXISTS (SELECT 1 FROM serving_current c WHERE c.generation_id=g.generation_id) FOR UPDATE")
             .bind(subject.0).bind(cutoff).fetch_all(&mut *tx).await.map_err(nous_persistence::database_error)?;
         let mut report = ReclamationReport {
             readers_active: !readers.is_empty(),
