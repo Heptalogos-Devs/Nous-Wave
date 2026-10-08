@@ -85,8 +85,9 @@ it("prepares unquoted checkpoints and keeps the original TextCue in Tag and expl
     cut: "2026-10-08T00:00:00Z",
     authority_seq: "7",
   });
-  expect(prepareQuery.mock.calls[0]?.[0].nousql).toBe(
-    "source qualification checkpoint",
+  expect(prepareQuery).toHaveBeenCalledWith(
+    expect.objectContaining({ nousql: "source qualification checkpoint" }),
+    expect.anything(),
   );
   const q = {
     id: "q",

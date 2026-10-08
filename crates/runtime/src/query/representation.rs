@@ -189,6 +189,24 @@ fn intent(node: &CognitiveQueryExpr) -> String {
     )
 }
 
+fn descriptor_priority(
+    reference: &CognitiveRef,
+    sources: &[(CognitiveRef, String)],
+    semantic_anchor: bool,
+) -> u8 {
+    sources
+        .iter()
+        .filter(|(candidate, _)| candidate == reference)
+        .map(|(_, source)| match source.as_str() {
+            explicit if explicit.starts_with("explicit") => 1,
+            "work_context" if semantic_anchor => 2,
+            "work_context" => 4,
+            _ => 5,
+        })
+        .min()
+        .unwrap_or(5)
+}
+
 pub fn build_query_representation(
     query: &CognitiveQuery,
     descriptors: &[QueryDescriptor],
@@ -253,24 +271,8 @@ pub fn build_query_representation(
                 }
             })
             .map(|d| {
-                let priority = sources
-                    .iter()
-                    .filter(|(reference, _)| reference == &d.reference)
-                    .map(|(_, source)| {
-                        if source.starts_with("explicit") {
-                            1
-                        } else if source == "work_context" {
-                            if matches!(select, "entity" | "tag") {
-                                2
-                            } else {
-                                4
-                            }
-                        } else {
-                            5
-                        }
-                    })
-                    .min()
-                    .unwrap_or(5);
+                let priority =
+                    descriptor_priority(&d.reference, &sources, matches!(select, "entity" | "tag"));
                 (d.text.trim().to_owned(), priority)
             })
             .filter(|(text, _)| !text.is_empty())
