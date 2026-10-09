@@ -80,7 +80,6 @@ export async function runCore(
       ...Object.values(effective.models.gateway_profiles).map(
         (g) => g.credential_env,
       ),
-      ...Object.values(effective.resourceProfiles).map((p) => p.credential_env),
     ]);
     const externalFfmpeg = await resolveMediaExecutables(
       locations,
@@ -106,7 +105,7 @@ export async function runCore(
       kernel: kernel.client,
       token,
       consumers: effective.consumers,
-      resources: resources ?? new ResourceRegistry(effective.resourceProfiles),
+      resources: resources ?? new ResourceRegistry(),
       models,
       execution: effective.execution,
     });

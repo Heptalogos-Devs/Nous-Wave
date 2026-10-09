@@ -7,7 +7,6 @@ import { parse } from "smol-toml";
 import { parseEnv } from "node:util";
 import { modelConfigurationSchema } from "./model/configuration.js";
 import type { RuntimeLocations } from "./locations.js";
-import { resourceProfilesSchema } from "./resources/configuration.js";
 import {
   CONFIG_REVISION,
   bootstrapSchema,
@@ -100,7 +99,6 @@ export function parseEffectiveConfiguration(values: Record<string, unknown>) {
   return {
     models,
     execution: coreExecutionSchema.parse(values.core_execution),
-    resourceProfiles: resourceProfilesSchema.parse(values.resource_profiles),
     consumers: consumers.map((c) => ({
       consumerId: c.consumer_id,
       revision: c.revision,

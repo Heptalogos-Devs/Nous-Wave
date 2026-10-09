@@ -72,7 +72,7 @@ CLI Catalog descriptor 为整块 `video`：使用 `nous config describe video` �
 
 `video.input_mode` 为 `direct`（默认）或 `frames`。Direct 将原始 Artifact bytes 作为 chat 的 `video_url` 发送；frames 使用有界 FFmpeg 抽帧与可选音轨转写。FFmpeg 来自显式 executable 或当前 RuntimeRoot 已安装 pack。两种 mode 都受来源字节上限约束；frames 另受时长、帧数、单帧、音频与进程时限约束。没有隐式模式回退。frames 的实验观测见 [Research](../research/README.md)。
 
-`resource_profiles.<name>` 当前支持 `adapter_kind = "ragflow"`，配置 endpoint、credential environment variable、enabled state、timeout 与单条 material byte 上限。Resource profile 连接操作者管理的 RAGFlow API；直接输入 Nous 的材料经原生 Material 与 Serving 处理。
+外部 Resource adapter 由宿主在启动时显式提供，并按 `adapter_kind`/`provider_profile` 解析。普通安装默认没有外部 provider；直接输入 Nous 的材料由 Material 与原生 Serving 管理。Resource descriptor 和 selected reference 使用公共资源合同；研究宿主的 LocalDocuments 使用同一生产接纳路径。目录不包含供应商专属 `resource_profiles` 配置。
 
 `consumers` 按 consumer id/revision 保存 Memory、Runtime、Resource contribution requirements 与 item/text budgets。Consumer policy 为一次调用限定各 owner 可贡献的内容和预算；领域 Authority 仍由对应 owner 持有。
 

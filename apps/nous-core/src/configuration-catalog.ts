@@ -3,7 +3,6 @@
 
 import { z } from "zod";
 import { modelConfigurationShape } from "./model/configuration.js";
-import { resourceProfilesSchema } from "./resources/configuration.js";
 
 export const CONFIG_REVISION = 2;
 const requirement = z.enum(["REQUIRED", "PREFERRED", "OPTIONAL", "FORBIDDEN"]);
@@ -173,13 +172,6 @@ const owners = [
     exposure: "developer",
   },
   {
-    path: "resource_profiles",
-    schema: resourceProfilesSchema,
-    default: {},
-    owner: "core-resource",
-    exposure: "advanced",
-  },
-  {
     path: "consumers",
     schema: consumersSchema,
     default: consumersSchema.parse(undefined),
@@ -214,9 +206,7 @@ function coreDescriptors() {
     apply_mode: "restart_process",
     semantic_effect: "operational",
     unit: null,
-    sensitivity: ["gateway_profiles", "resource_profiles", "database"].includes(
-      owner.path,
-    )
+    sensitivity: ["gateway_profiles", "database"].includes(owner.path)
       ? "credential_reference"
       : "normal",
     reference_profile: null,

@@ -89,6 +89,11 @@ export async function materializeResource(
         "Resource adapter is not configured",
         Code.FailedPrecondition,
       );
+    if (adapter.profileDigest !== reference.profileDigest)
+      throw new ConnectError(
+        "Resource provider identity has changed",
+        Code.FailedPrecondition,
+      );
     let proposal = reservation.proposalJson
       ? z
           .strictObject({
@@ -108,6 +113,15 @@ export async function materializeResource(
         options,
       );
     }
+    const [version, access] = await Promise.all([
+      adapter.checkVersion(reference, options.signal ?? undefined),
+      adapter.checkAccess(reference, options.signal ?? undefined),
+    ]);
+    if (version.status !== "current" || access.status !== "allowed")
+      throw new ConnectError(
+        "Resource version or access no longer permits admission",
+        Code.FailedPrecondition,
+      );
     const observation = await kernel.runtime.recordObservation(
       create(ObservationInputSchema, {
         subjectId: request.subjectId,

@@ -237,18 +237,3 @@ max_items = 32
 max_text_bytes = 32768
 # 可选；展开可提供的文本。
 materialize = true
-# 可选 Resource profile 连接操作者配置的 RAGFlow API 与 dataset locator。
-# 普通本地材料通过 Material 与 Serving 处理；profile 默认 disabled。
-# key 放 SecretRoot/gateway.env 或环境变量，勿写入本文件。
-# Resource 的 provider_locator 是 dataset selector，例如 {"dataset_ids":["dataset-id"]}。
-# ── 可选外部知识库 ──
-[resource_profiles.ragflow]
-adapter_kind = "ragflow"
-# API 根；按你已有实例或反向代理修改。
-base_url = "http://127.0.0.1:9380/api/v1"
-credential_env = "RAGFLOW_API_KEY"
-enabled = false
-# 可选；1–300000 ms；支持调用方取消，示例值为 30 秒。
-timeout_ms = 30000
-# 可选；1–1048576 bytes/chunk。示例值为 256 KiB。
-max_material_bytes = 262144

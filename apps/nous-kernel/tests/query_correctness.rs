@@ -149,7 +149,7 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
     let resource = ResourceRef::new("resource:external").unwrap();
     let descriptor = nous_runtime::ResourceUpsert {
         resource_ref: resource.clone(),
-        adapter_kind: "ragflow".into(),
+        adapter_kind: "local-documents".into(),
         provider_profile: "external".into(),
         provider_locator: "dataset selector".into(),
         display_label: None,
@@ -201,7 +201,7 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
         let record = ExternalResourceRecord {
             resource_ref: resource.clone(),
             reference: StableExternalRef {
-                provider_kind: "ragflow".into(),
+                provider_kind: "local-documents".into(),
                 provider_profile: "external".into(),
                 profile_digest: "a".repeat(64),
                 resource_ref: resource.clone(),

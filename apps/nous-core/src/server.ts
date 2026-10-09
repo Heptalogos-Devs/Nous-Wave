@@ -107,7 +107,7 @@ export async function createCore(settings: CoreOptions) {
   );
   const contexts = new ContextCompiler(kernel.execution.context_track_limit);
   const modelRuntime = settings.models ?? new ModelRuntime();
-  const resourceRegistry = settings.resources ?? new ResourceRegistry({});
+  const resourceRegistry = settings.resources ?? new ResourceRegistry();
   const queries = new QueryOrchestrator(kernel, modelRuntime, resourceRegistry);
   app.addHook("onRequest", async (request, reply) => {
     const origin = request.headers.origin;
