@@ -25,6 +25,25 @@ it("keeps real retrieval participation visible without wire identities", async (
   });
 });
 
+it("preserves exact UUID/ref bodies and labels without requesting addresses", async () => {
+  const id = "33333333-3333-4333-8333-333333333333";
+  const bind = vi.fn();
+  const bodies = {
+    text: id,
+    title: `memory:${id}`,
+    synopsis: `entity:${id}`,
+    message: `source_region:${id}`,
+    nested: [{ text: `memory_revision:${id}`, contextText: id }],
+  };
+  expect(
+    await friendlyOutput(bodies, {
+      subjectId: "selected",
+      client: { identity: { bind } },
+    } as unknown as CliEnvironment),
+  ).toEqual(bodies);
+  expect(bind).not.toHaveBeenCalled();
+});
+
 it("keeps exact evidence locators actionable without altering source text or labels", async () => {
   const id = "33333333-3333-4333-8333-333333333333";
   const bind = vi.fn(async (request: { canonical: { kind: string } }) => ({

@@ -38,7 +38,12 @@ const receiptSchema = z
     name: z.string().max(128),
     subjectId: z.string().optional(),
     request: z.unknown(),
-    status: z.enum(["pending", "complete"]),
+    status: z.enum(["pending", "complete", "rejected"]),
+    result: z.unknown().optional(),
+    rejection: z
+      .object({ code: z.union([z.string(), z.number()]), message: z.string() })
+      .strict()
+      .optional(),
   })
   .strict();
 async function atomicJson(path: string, value: unknown) {
@@ -130,7 +135,7 @@ export function cliState(root?: string) {
           const old = receiptSchema.parse(
             await readJson(join(dirname(path), file)),
           );
-          if (old.status === "complete") {
+          if (old.status !== "pending") {
             await unlink(join(dirname(path), file));
             if (--remaining < 256) break;
           }

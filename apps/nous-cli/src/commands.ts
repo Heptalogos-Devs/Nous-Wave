@@ -106,13 +106,26 @@ export async function runCli(
           action ? ctx.args._[0] : ctx.args._[1],
           [family, ...(action ? [action] : []), ...ctx.args._],
         );
-        if (present && !values.raw && !values.json && !values.developer)
-          result = await present(result, env);
+        if (present && !values.raw && !values.json && !values.developer) {
+          try {
+            result = await present(result, env);
+          } catch {
+            env.notices.push({
+              code: "PRESENTATION_UNAVAILABLE",
+              message:
+                "Operation result is preserved with canonical references; address presentation is unavailable",
+            });
+          }
+        }
         if (!values.raw)
           result = semanticOutput(
             action ? `${family}.${action}` : family,
             result,
           );
+        if (env.notices.length)
+          result = values.raw
+            ? { data: result, notices: env.notices }
+            : { ...(result as object), notices: env.notices };
         completed = true;
       },
     });

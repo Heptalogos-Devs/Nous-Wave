@@ -111,7 +111,20 @@ export async function friendlyOutput(
       )
         return address("entity", value);
       const ref = /^([a-z_]+):([0-9a-f-]{36})$/i.exec(value);
-      if (ref && kinds.has(ref[1]!)) return address(ref[1]!, ref[2]!);
+      if (
+        ref &&
+        kinds.has(ref[1]!) &&
+        (idKinds[key] ||
+          [
+            "aboutness",
+            "actorEntityRef",
+            "entityAnchors",
+            "tags",
+            "tagAnchors",
+            "cognitionAnchors",
+          ].includes(key))
+      )
+        return address(ref[1]!, ref[2]!);
       if (uuid.test(value)) {
         let kind =
           key === "tags" || key === "tagAnchors" ? "tag" : idKinds[key];
@@ -143,10 +156,8 @@ export async function friendlyOutput(
                 ? parent.purpose
                 : "",
           );
-        return undefined;
+        return value;
       }
-      if (/digest|hash|signature/i.test(key) && /^[0-9a-f]{64}$/i.test(value))
-        return undefined;
       return value;
     }
     if (!value || typeof value !== "object" || value instanceof Uint8Array)

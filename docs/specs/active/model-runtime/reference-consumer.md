@@ -18,4 +18,8 @@ Consumer operations use public Client APIs for Subject and Session lifecycle, Ob
 
 The consumer uses citty 0.2.2 command families, Zod-validated semantic TOML inputs, default semantic text and opt-in versioned JSON. Raw Client DTO diagnostics require --raw --developer. Durable local state saves exact result:N references and operation receipts before RPC; retry replays frozen operation inputs and expected revisions. Context set/pin/unpin/clear/pause/resume/select/foreground use public WorkContext APIs. The consumer is built against the public Client surface. Provenance trace follows public Material and exact Memory/Schema/Episode/Journal revision reads from a revision through its producer and exact evidence references to the source Artifact.
 
+明确拒绝的 RPC 保存 `rejected` 回执，与成功 `complete` 一样可回收；只有结果未知的 `pending` 保留原 request/operation identity 供恢复。`retry` 读回成功回执中的结果而不重复业务调用，已拒绝回执返回 `OPERATION_REJECTED`。Subject 创建的恢复不要求预先选中该新 Subject；其他 Subject-bound 操作继续校验所属 Subject。
+
+正文、title、摘要和操作消息逐字保留，包括完整 UUID 或 `memory:<UUID>`。引用呈现按 typed reference 字段转换。业务已成功而地址呈现失败时，输出原 canonical result 并附 `PRESENTATION_UNAVAILABLE` notice；本地完成回执写入失败则附 `RECEIPT_UNSAVED`，保持真实已知结果。
+
 [返回当前产品合同](../../INDEX.md)

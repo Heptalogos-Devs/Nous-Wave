@@ -128,7 +128,48 @@ export async function createEnvironment(
       (sameSubject ? selected.workContextId : undefined),
   };
   const subjectId = state.subjectId ?? "";
+  const notices: { code: string; message: string; receipt?: string }[] = [];
   const replay: Record<string, (request: unknown) => Promise<unknown>> = {};
+  async function executeReceipt(
+    id: string,
+    receipt: Awaited<ReturnType<typeof local.receipt>>,
+    invoke: (request: unknown) => Promise<unknown>,
+  ) {
+    let result: unknown;
+    try {
+      result = await invoke(receipt.request);
+    } catch (error) {
+      if (
+        (error instanceof NousError &&
+          [3, 5, 6, 7, 8, 9, 10, 11, 12, 16].includes(error.code)) ||
+        error instanceof CliError
+      ) {
+        await local.writeReceipt(id, {
+          ...receipt,
+          status: "rejected",
+          rejection: { code: error.code, message: error.message },
+        });
+        throw error;
+      }
+      const failure = new CliError(
+        "OUTCOME_UNKNOWN",
+        `Response unavailable; retry ${id} to reuse the saved operation`,
+      );
+      Object.assign(failure, { receipt: id });
+      throw failure;
+    }
+    try {
+      await local.writeReceipt(id, { ...receipt, status: "complete", result });
+    } catch {
+      notices.push({
+        code: "RECEIPT_UNSAVED",
+        receipt: id,
+        message:
+          "Operation returned successfully; its result is shown, but the local completion receipt could not be saved",
+      });
+    }
+    return result;
+  }
   function mutation<I extends object, O>(
     name: string,
     fn: ((request: I) => Promise<O>) | undefined,
@@ -140,41 +181,18 @@ export async function createEnvironment(
     };
     return async (request: I) => {
       const id = crypto.randomUUID();
-      await local.writeReceipt(id, {
-        schemaVersion: 1,
+      const receipt = {
+        schemaVersion: 1 as const,
         name,
         subjectId:
           "subjectId" in request && typeof request.subjectId === "string"
             ? request.subjectId
             : undefined,
         request,
-        status: "pending",
-      });
-      try {
-        if (!fn)
-          throw new CliError("INVALID_ARGUMENT", "Client method unavailable");
-        const result = await fn(request);
-        await local.writeReceipt(id, {
-          schemaVersion: 1,
-          name,
-          subjectId,
-          request,
-          status: "complete",
-        });
-        return result;
-      } catch (error) {
-        if (
-          error instanceof NousError &&
-          [3, 5, 6, 7, 8, 9, 10, 11, 12, 16].includes(error.code)
-        )
-          throw error;
-        const failure = new CliError(
-          "OUTCOME_UNKNOWN",
-          `Response unavailable; retry ${id} to reuse the saved operation`,
-        );
-        Object.assign(failure, { receipt: id });
-        throw failure;
-      }
+        status: "pending" as const,
+      };
+      await local.writeReceipt(id, receipt);
+      return (await executeReceipt(id, receipt, replay[name]!)) as O;
     };
   }
   const client: NousClient & Pick<typeof original, "artifacts"> = {
@@ -331,6 +349,7 @@ export async function createEnvironment(
     values,
     state,
     subjectId,
+    notices,
     required,
     resolveReference,
     requestPayload,
@@ -338,10 +357,20 @@ export async function createEnvironment(
     save: local.save,
     async retry(id: string) {
       const receipt = await local.receipt(id);
-      if (receipt.subjectId && receipt.subjectId !== subjectId)
+      if (
+        receipt.name !== "subjects.create" &&
+        receipt.subjectId &&
+        receipt.subjectId !== subjectId
+      )
         throw new CliError(
           "RESULT_SUBJECT_MISMATCH",
           "Receipt belongs to another Subject",
+        );
+      if (receipt.status === "complete") return receipt.result;
+      if (receipt.status === "rejected")
+        throw new CliError(
+          "OPERATION_REJECTED",
+          receipt.rejection?.message ?? "Operation was definitively rejected",
         );
       const invoke = replay[receipt.name];
       if (!invoke)
@@ -349,9 +378,7 @@ export async function createEnvironment(
           "INVALID_ARGUMENT",
           "Receipt command is unavailable",
         );
-      const result = await invoke(receipt.request);
-      await local.writeReceipt(id, { ...receipt, status: "complete" });
-      return result;
+      return executeReceipt(id, receipt, invoke);
     },
     mediaType(this: void, path: string) {
       const types: Record<string, string> = {

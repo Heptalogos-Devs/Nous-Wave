@@ -1,5 +1,7 @@
 # Research
 
+[2026-10-09 全仓重整实际观察](deep-rebase-2026-10-09.md)保存 CLI 缺陷的真实复现、修复后读回及后续认知任务观察。
+
 [Full-System Dogfooding](full-system-dogfooding-2026-10-08.md)记录真实 Codex CLI/MCP 持续研发、consumer 隔离、来源读取、恢复和实际问题修正。
 
 [Cognitive Model & Evolution Research](cognitive-model-evolution-2026-10-08.md)记录更强模型的角色配置、自然 continuing correction、Schema／Journal、多 Session 与检索对照；[稳定 metadata](corpus/core-cognition/results-evolution-2026-10-08.json)保留实际身份、调用、费用与关键轨迹。
