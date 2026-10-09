@@ -81,7 +81,7 @@ impl ConfigurationService for KernelService {
                     .filter(|d| visible(d, limit, r.owner.as_deref(), r.category.as_deref()))
                     .map(descriptor)
                     .collect(),
-                catalog_digest: self.0.configuration.registry().digest().into(),
+                catalog_digest: self.0.configuration.registry().catalog_digest().into(),
             })
         })
         .await
@@ -151,7 +151,7 @@ impl ConfigurationService for KernelService {
                 })
                 .collect();
             Ok(p::ConfigurationSnapshot {
-                catalog_digest: snapshot.registry_digest.clone(),
+                catalog_digest: snapshot.catalog_digest.clone(),
                 configuration_revision: snapshot.revision,
                 subject_id: r.subject_id,
                 entries,

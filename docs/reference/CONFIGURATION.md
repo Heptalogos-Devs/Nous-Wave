@@ -52,6 +52,10 @@ Set 的值统一使用 JSON 语法：boolean、number、带引号 string、array
 
 ## Models 与 Prompts
 
+配置进入快照前由 owning type 规范化：Rust 使用注册类型的反序列化/校验/序列化，Core 使用 Zod owner，并向 Kernel 交付完整规范值。`config get`、执行消费者和 digest 使用同一值；省略结构默认字段与显式填写相同默认值具有同一执行身份。Core 的部署文件和公开 override 入口使用同一 normalizer，Kernel 继续唯一拥有覆盖顺序和 active/desired 状态。
+
+Catalog identity 包含展示文案和 exposure；执行 identity 排除这些展示元数据，并保留有效值及约束。subset digest 将相关 paths 作为排序、去重的集合；schema 注释只在配置 schema 位置排除，模型实际 Prompt/输出合同中的说明继续参与其模型身份。
+
 `gateway_profiles` 指定 endpoint、credential environment variable、enabled state 和 request timeout。Remote endpoint 使用 HTTPS；literal loopback 可使用 HTTP。凭据从 SecretRoot 的 dotenv 文件或进程环境读取，进程环境优先；凭据不进入公开输出。
 
 `model_profiles` 描述 gateway、标准 protocol、model identifier、能力和可选 revision。Embedding profile 同时声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics，组成 EmbeddingSpaceSignature。角色通过 `roles` 绑定 model profile、Prompt、generation parameters、timeout 与 `optional | required` requirement。

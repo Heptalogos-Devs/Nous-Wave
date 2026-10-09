@@ -258,9 +258,9 @@ impl ConfigurationService {
                 "configuration path is deployment-only: {key}"
             )));
         }
-        if let Some(value) = &value {
-            self.inner.registry.validate(key, value)?;
-        }
+        let value = value
+            .map(|value| self.inner.registry.normalize(key, &value))
+            .transpose()?;
         if subject.is_some() && descriptor.scope_policy != ConfigScopePolicy::SubjectOverrideAllowed
         {
             return Err(Error::Invalid(format!(

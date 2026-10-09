@@ -92,6 +92,26 @@ try {
     assert(item);
     return item;
   };
+  const defaults = (await entry("video")).value;
+  assert(defaults && typeof defaults === "object" && !Array.isArray(defaults));
+  const normalizedOperation = randomUUID();
+  const omitted = await client.configuration.setSystem({
+    operationId: normalizedOperation,
+    path: "video",
+    value: { max_frames: 4 },
+  });
+  const explicit = await client.configuration.setSystem({
+    operationId: normalizedOperation,
+    path: "video",
+    value: { ...defaults, max_frames: 4 },
+  });
+  assert.equal(omitted.desiredDigest, explicit.desiredDigest);
+  assert.equal(omitted.revision, explicit.revision);
+  assert.deepEqual((await entry("video", undefined, true)).value, {
+    ...defaults,
+    max_frames: 4,
+  });
+  assert.deepEqual((await entry("video")).value, defaults);
   assert.equal((await entry("maintenance.enabled")).source, "deployment_file");
   const operationId = randomUUID();
   const change = await client.configuration.setSystem({
@@ -147,6 +167,10 @@ try {
   current = await boot(locator);
   client = current.client;
   assert.equal((await entry("runtime.resident_limit")).value, 512);
+  assert.deepEqual((await entry("video")).value, {
+    ...defaults,
+    max_frames: 4,
+  });
   assert.equal(
     (await entry("runtime.resident_limit")).pendingEffect,
     undefined,
@@ -156,7 +180,7 @@ try {
     false,
   );
   console.log(
-    "CONFIGURATION_SMOKE catalog=true cli=true precedence=true replay=true restart=true",
+    "CONFIGURATION_SMOKE catalog=true cli=true precedence=true replay=true restart=true normalized_identity=true",
   );
 } finally {
   await stop(current);

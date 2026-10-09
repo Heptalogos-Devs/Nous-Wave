@@ -205,7 +205,7 @@ function coreDescriptors() {
     category: owner.owner,
     json_schema: z.toJSONSchema(owner.schema, {
       target: "draft-2020-12",
-      io: "input",
+      io: "output",
     }),
     reference_default: owner.default,
     exposure: owner.exposure,
@@ -223,9 +223,33 @@ function coreDescriptors() {
   }));
 }
 export function configurationBundle(deploymentDocument: unknown) {
+  const document = structuredClone(deploymentDocument) as Record<
+    string,
+    unknown
+  >;
+  for (const owner of owners) {
+    const parts = owner.path.split(".");
+    let group = document;
+    for (const part of parts.slice(0, -1)) {
+      const child = group[part];
+      if (!child || typeof child !== "object" || Array.isArray(child)) {
+        group = {};
+        break;
+      }
+      group = child as Record<string, unknown>;
+    }
+    const key = parts.at(-1)!;
+    if (Object.hasOwn(group, key)) group[key] = owner.schema.parse(group[key]);
+  }
   return {
     bundle_revision: 1,
     core_descriptors: coreDescriptors(),
-    deployment_document: deploymentDocument,
+    deployment_document: document,
   };
+}
+
+/** Core-owned configuration crosses into Kernel only after its Zod owner normalizes it. */
+export function normalizeCoreConfigurationValue(path: string, value: unknown) {
+  const owner = owners.find((candidate) => candidate.path === path);
+  return owner ? owner.schema.parse(value) : value;
 }

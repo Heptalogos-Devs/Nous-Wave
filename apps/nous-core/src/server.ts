@@ -53,6 +53,7 @@ import { ContextCompiler } from "./cognition/context.js";
 import { ModelRuntime } from "./model/runtime.js";
 import { ModelService } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import { modelOperations } from "./model/operations.js";
+import { configurationOperations } from "./configuration-service.js";
 
 export interface CoreOptions {
   kernel: KernelClient;
@@ -380,7 +381,9 @@ export async function createCore(settings: CoreOptions) {
       router.service(SystemService, system);
       router.service(
         ConfigurationService,
-        forward(ConfigurationService, kernel.configuration),
+        configurationOperations(
+          forward(ConfigurationService, kernel.configuration),
+        ),
       );
       router.service(RuntimeService, forward(RuntimeService, kernel.runtime));
       router.service(
