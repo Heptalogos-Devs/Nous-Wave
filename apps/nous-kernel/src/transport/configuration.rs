@@ -264,9 +264,6 @@ impl k::kernel_configuration_service_server::KernelConfigurationService for Kern
                     serde_json::from_value(object(Some(config)))
                         .map_err(|_| Error::Invalid("invalid host embedding binding".into()))?;
                 self.0.serving.initialize_embedding(config)?;
-                for subject in self.0.store.active_subjects().await? {
-                    self.0.serving.refresh(subject).await?;
-                }
             }
             Ok(())
         })

@@ -145,10 +145,7 @@ async fn cache_loss_rebuilds_at_the_same_watermark_and_retired_readers_are_prote
     assert!(!std::path::Path::new(&old.artifact_location).exists());
     let watermark = runtime.store.authority_seq(subject).await.unwrap();
     drop(runtime);
-    let cache = root.path().join("serving");
-    assert!(cache.starts_with(root.path()));
-    std::fs::remove_dir_all(cache).unwrap();
-    let reopened = open_runtime_with_serving(&url, &root, true, false, false).await;
+    let reopened = reopen_without_serving_cache(&url, &root).await;
     let rebuilt = reopened.query(request).await.unwrap();
     assert!(rebuilt.results.iter().any(|hit| hit.reference == first));
     assert!(
@@ -171,4 +168,20 @@ async fn cache_loss_rebuilds_at_the_same_watermark_and_retired_readers_are_prote
             .iter()
             .all(|record| std::path::Path::new(&record.artifact_location).exists())
     );
+}
+
+async fn reopen_without_serving_cache(
+    url: &str,
+    root: &tempfile::TempDir,
+) -> nous_kernel::NousRuntime {
+    std::fs::remove_dir_all(root.path().join("serving")).unwrap();
+    let reopened = open_runtime_with_serving(url, root, true, false, false).await;
+    assert!(
+        std::fs::read_dir(root.path().join("serving"))
+            .unwrap()
+            .next()
+            .is_none(),
+        "opening Authority must not reconstruct request-owned Serving assets"
+    );
+    reopened
 }

@@ -127,12 +127,6 @@ impl NousRuntime {
                 configuration.clone(),
             )
         });
-        for subject in store.active_subjects().await? {
-            let status = serving.refresh(subject).await?;
-            for degradation in status.degradation {
-                tracing::warn!(code=%degradation.code, detail=?degradation.detail, "serving projection degraded");
-            }
-        }
         Ok(Self {
             configuration,
             store,

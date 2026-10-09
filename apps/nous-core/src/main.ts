@@ -114,10 +114,19 @@ export async function runCore(
     stopMaintenance = await startMaintenanceLoop(kernel.client, models);
     console.log(JSON.stringify({ endpoint, discovery: instance.path }));
     await new Promise<void>((stopped) => {
-      process.once("SIGINT", stopped);
-      process.once("SIGTERM", stopped);
+      const stop = () => {
+        process.off("SIGINT", stop);
+        process.off("SIGTERM", stop);
+        if (values["stop-on-stdin-close"]) {
+          process.stdin.off("end", stop);
+          process.stdin.pause();
+        }
+        stopped();
+      };
+      process.once("SIGINT", stop);
+      process.once("SIGTERM", stop);
       if (values["stop-on-stdin-close"]) {
-        process.stdin.once("end", stopped);
+        process.stdin.once("end", stop);
         process.stdin.resume();
       }
     });

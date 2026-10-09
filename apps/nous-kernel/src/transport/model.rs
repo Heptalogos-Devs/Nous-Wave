@@ -150,7 +150,9 @@ impl KernelService {
             }
             let output = serde_json::from_str(&output)
                 .map_err(|_| Error::Invalid("invalid query concept output".into()))?;
-            bound.activation.apply_concept_model(output)?;
+            let policy =
+                nous_runtime::ConceptActivationPolicy::from_snapshot(&bound.config_snapshot)?;
+            bound.activation.apply_concept_model(output, &policy)?;
             bound.activation.model_calls = calls as usize;
         } else {
             bound.activation.model_calls = calls as usize;

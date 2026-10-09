@@ -1,5 +1,5 @@
 {
-  "path": ["apps", "packages"],
+  "path": ["apps", "packages", "crates", "scripts"],
   "minLines": 6,
   "minTokens": 50,
   "threshold": 5,

@@ -6,17 +6,6 @@ use nous_runtime::{
     ActivationSeed, ActivationSource, BoundQuery, ConceptEnrichment, LaneCandidate, LaneOutput,
     LaneStatus, QueryActivation, QueryPlan, QuerySemanticEmbedding, TagActivation,
 };
-#[derive(serde::Deserialize)]
-struct ActivationPolicy {
-    max_activated_tags: usize,
-    minimum_similarity: f64,
-}
-fn activation_policy() -> Result<ActivationPolicy> {
-    serde_json::from_str(include_str!(
-        "../../../config/reference/query-concept-activation.json"
-    ))
-    .map_err(|error| Error::Infrastructure(error.to_string()))
-}
 pub(crate) async fn activate(
     snapshot: &ServingSnapshot,
     bound: &BoundQuery,
@@ -38,14 +27,14 @@ pub(crate) async fn activate(
     if bound.concept_enrichment == ConceptEnrichment::Off {
         return Ok(activation);
     }
+    let policy = nous_runtime::ConceptActivationPolicy::from_snapshot(&bound.config_snapshot)?;
     if let Some(generation) = snapshot
         .concept
         .iter()
         .max_by_key(|generation| generation.authority_watermark)
     {
-        activation.concept_catalog = model_catalog(generation, &[]);
+        activation.concept_catalog = model_catalog(generation, &[], policy.model_catalog_limit);
     }
-    let policy = activation_policy()?;
     let generation = snapshot.concept.iter().find(|g| {
         g.space
             .as_ref()
@@ -99,8 +88,11 @@ pub(crate) async fn activate(
                                 origin: tag.origin.clone(),
                                 strength: tag.strength,
                             }));
-                        activation.concept_catalog =
-                            model_catalog(generation, &activation.inferred_tags);
+                        activation.concept_catalog = model_catalog(
+                            generation,
+                            &activation.inferred_tags,
+                            policy.model_catalog_limit,
+                        );
                         activation.concept_generation = Some(generation.generation_id);
                         activation.query_embedding_digest = Some(artifacts::digest(&embedding)?);
                         activation.embedding = Some(QuerySemanticEmbedding {
@@ -175,7 +167,7 @@ pub(crate) fn direct_lane(
 fn semantic_matches(
     generation: &ConceptGeneration,
     query: &[f32],
-    policy: &ActivationPolicy,
+    policy: &nous_runtime::ConceptActivationPolicy,
 ) -> Vec<(TagId, f64)> {
     generation
         .records
@@ -210,6 +202,7 @@ fn semantic_matches(
 fn model_catalog(
     generation: &ConceptGeneration,
     inferred: &[TagActivation],
+    limit: usize,
 ) -> Vec<nous_runtime::QueryConceptCandidate> {
     let mut candidates = generation
         .records
@@ -227,7 +220,7 @@ fn model_catalog(
     candidates.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.tag.0.cmp(&b.0.tag.0)));
     candidates
         .into_iter()
-        .take(32)
+        .take(limit)
         .enumerate()
         .map(
             |(i, (record, strength))| nous_runtime::QueryConceptCandidate {

@@ -21,7 +21,7 @@
     "lint:ts": "oxlint --config .config/oxlint.json --ignore-pattern \"**/generated/**\" --type-aware --deny-warnings --report-unused-disable-directives",
     "lint:knip": "knip --config .config/knip.json --strict",
     "lint:deps": "dependency-cruiser apps/nous-core/src packages --config .config/dependencies.cjs",
-    "lint:dupes": "jscpd --config .config/duplication.json .",
+    "lint:dupes": "jscpd --config .config/duplication.json",
     "lint:sherif": "sherif",
     "check": "pnpm check:fast && pnpm test",
     "research:gateway": "tsx scripts/research/serve-gateway.ts",

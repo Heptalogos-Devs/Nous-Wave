@@ -129,6 +129,8 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 ## Temporal、Concept activation 与 feedback
 
-`retrieval.query.concept_enrichment` 为 `off`（reference default）、`existing`、`model`，SubjectOverrideAllowed/Live/QueryPolicy。Existing 使用共享 Concept vectors；model 加入独立严格结构化 query role。变化只影响后续 preparation，不改写 durable Tags。QueryActivation 的最多八个 inferred Tags、cosine threshold 0.72 等算法参数位于 当前 reference profile，不扩成用户配置面。
+`retrieval.query.concept_enrichment` 为 `off`（reference default）、`existing`、`model`，SubjectOverrideAllowed/Live/QueryPolicy。Existing 使用共享 Concept vectors；model 加入独立严格结构化 query role。变化只影响后续 preparation，不改写 durable Tags。
+
+`retrieval.query.concept_activation` 下的独立叶字段由 Runtime 注册为 Advanced/SubjectOverrideAllowed/Live/QueryPolicy：`max_activated_tags` 默认 8，控制合并后保留的 inferred Tags；`minimum_similarity` 默认 0.72，范围为余弦的 -1–1；`model_catalog_limit` 默认 32，控制给 query model 的冻结 catalog。两个数量预算为正整数。默认值只由当前 reference profile 定义；Retrieval 和 model readout 读取同一 prepared operation 的配置快照，在途查询不受后续修改影响。Provider 的结构化输出合同仍独立限制一次模型响应的合法形状。
 
 `runtime.query_feedback_retention` 默认 604800 认知秒（七天）；bounded records 包含 query/activation digest、signals 与 returned exact refs，不保存正文。过期清理不删除已接受的 UseEvents。Historical artifact cache 复用 `serving.retired_grace_seconds` 与 read leases，不引入第二套 history DB/独立缓存政策。Semantic intervals 使用 captured Subject CognitiveClock，timeout/lease/retry 使用 infrastructure time。

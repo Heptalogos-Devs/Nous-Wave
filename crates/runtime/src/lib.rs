@@ -31,8 +31,8 @@ pub use maintenance_policy::*;
 pub use query::{
     ActivationSeed, ActivationSource, BoundQuery, COGNITIVE_PROFILE, CONCEPT_ENRICHMENT,
     CognitiveContributor, CognitiveContributors, CognitiveProfile, CognitiveProfileRequirements,
-    ConceptEnrichment, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput, LaneStatus,
-    NovelConceptHypothesis, QUERY_REPRESENTATION, QueryActivation, QueryActivationView,
+    ConceptActivationPolicy, ConceptEnrichment, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput,
+    LaneStatus, NovelConceptHypothesis, QUERY_REPRESENTATION, QueryActivation, QueryActivationView,
     QueryConceptCandidate, QueryConceptOutput, QueryConceptSelection, QueryContextSnapshot,
     QueryExecution, QueryLease, QueryPlan, QueryReadLease, QueryRepresentation,
     QueryRepresentationLimits, QueryReservation, QuerySemanticEmbedding, SharedLaneProvider,

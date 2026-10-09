@@ -174,3 +174,11 @@ Linux 从最新 `master@09d67d4` 核对后接续同一分支的 `d5ca936`；Wind
 剩余 owner 审查发现 Serving 仍保存手工实现计数，并在结构化 record 与 metadata 中复制同一身份。真实 PostgreSQL 回归将 record 的实现身份置为过期、保留原 metadata，原路径仍复用旧资产；修复后在相同 Authority watermark 上重建。实现身份改为投影代码、输入投影和锁定依赖的构建内容摘要，兼容判断只读取 owning record。当前与历史资产安装合并，Native Wave 的策略注册与图构建分开。独立目录中的实际构建脚本探针确认：投影源码变化改变身份、只改 Wave exposure 保持身份、LF/CRLF 与源码根移动保持身份。
 
 参考默认族直接使用当前 JSON 文件和 identity，删除 `-v1` 文件名及重复 revision 包装；当前所有读取方同步替换，没有旧格式解析。数值未改变，历史研究身份和 corpus 保持原样。Linux `check:fast`、35份 TypeScript 测试、Rust workspace/all-features 测试、Clippy 通过；长度门禁424份手写文件、15个警告、无拒绝。配置、历史 Authority、同水位重建和 reader 回收的真实数据库检查通过。干净 Linux 实例配置已通过离线 owner 校验，实际 Codex/模型任务、剩余配置与 owner 审查、成果提取和运行材料清理继续进行，整项重整尚未完成。
+
+干净 Linux 实例随后实际启动，公共 CLI 读回 Subject/Runtime/Memory READY 与11个配置角色 READY。新的 fresh Codex 仅通过 Nous MCP 完成一项认知任务：1125字节来源 `obs:govig-fumoh-rokad` 原文读回不变，实际 `doubao-seed-2.1-lite` / `memory_formation_text` 形成 `memrev:gizoz-zonas-hivin`，grounded/accepted/valid，trace 与源区域保留。Embedding committed3/requests2，自然查询 `01a120ec-d973-7b72-82b1-7ed92ea84d51` complete、该修订rank1；referenced use accepted1/duplicate0。Subject `sub:bizor-fusin-vakav`、WorkContext `ctx:supud-pasun-kopud` revision3/open 保存待续工作，Session 已关闭。首次 Use 错误传入 connection-owned consumer，被 MCP 明确拒绝；移除该参数并沿用同一 event identity/timestamp 后接受。34份实际命令输入/结果及 consumer 结论保存在 [Linux续接 corpus](corpus/deep-rebase/linux-continuation-2026-10-09.json)。
+
+Linux 续接审查将 concept activation 的最大保留数、最小 cosine 相似度与 model catalog 数交回 Runtime 的三项 Advanced/SubjectOverrideAllowed/Live/QueryPolicy 叶。Retrieval activation 与模型 readout 读取同一冻结 ConfigSnapshot，删除直接静态 JSON 解析和未读 strength mapping；真实数据库检查验证先绑定1/1、更新3/3后旧请求保持1/1，新请求读3/3，并按 similarity 过滤正交 Tag。provider 响应的结构边界仍由模型合同独立拥有。
+
+实际重启发现两处生命周期缺陷：Core 在收到 SIGTERM 后仍持有启动方 stdin，资源已关闭但进程不退出；移除该进程拥有的信号/end listeners 并暂停 stdin 后，开放 stdin 下直接 SIGTERM 正常退出且端口释放。Kernel 在 embedding 绑定前后各刷新全部 Serving，导致启动阶段不可用告警及无需求建资产；删除两处启动刷新，按请求准备及显式管理刷新保留。缓存丢失的真实 PostgreSQL 回归先复现启动即建资产，修复后启动目录为空、首次查询在相同 Authority watermark 重建并召回原两条修订。请求、当前及历史快照现在共用 owning asset install。
+
+重复代码扫描使用配置的 apps/packages/crates/scripts 范围，移除覆盖该范围的命令行点路径；研究 corpus 的真实重复输出不作为代码克隆。原生 workspace/all-features、Clippy 与完整35份/112项 TS 检查通过；并行负载下两项子进程检查超时，负载结束后原检查通过，未放宽 timeout。
