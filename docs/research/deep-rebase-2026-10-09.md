@@ -147,6 +147,8 @@ Windows GNULLVM release Kernel、两个 private DLL 与 source-less Portable 已
 
 此前8f28074的 Windows CI通过，Linux CI在 Resource continuation 发现 nullable `display_label` 被地址分配路径按必填 String读取。Resource owner改为先解码 typed descriptor，使用可空 label 发布地址；原失败场景及 Query correctness五项通过，workspace all-targets/all-features测试、Clippy、check:fast和格式／文档导航检查通过。
 
-Fresh Codex 经编译后的 Portable MCP，在同一 Subject/Context 完成第四次真实模型续接：545字节 `obs:lalof-sarus-muzis` 形成 `memrev:jazop-nakis-tipum`，实际 Doubao Pro/pro_minimal、wholeOccurrence trace；embedding committed12/requests2，指定自然语言 Query complete、该修订rank1，referenced use accepted1/duplicate0。Session关闭，Context revision9/open；38份原始命令结果保存在[Portable续接 corpus](corpus/deep-rebase/portable-continuation-2026-10-09.json)。随后正常停机、用同一 locator 和 bundled runtimes 重启，公开读回 instanceId 不变、Context9/open；三个原 Memory trace 的 JSON字节与重启前完全一致，摘要留在本地实例。另一 fresh Codex 正在验证重启后的实际 Query连续性。
+Fresh Codex 经编译后的 Portable MCP，在同一 Subject/Context 完成第四次真实模型续接：545字节 `obs:lalof-sarus-muzis` 形成 `memrev:jazop-nakis-tipum`，实际 Doubao Pro/pro_minimal、wholeOccurrence trace；embedding committed12/requests2，指定自然语言 Query complete、该修订rank1，referenced use accepted1/duplicate0。Session关闭，Context revision9/open。随后正常停机、用同一 locator 和 bundled runtimes 重启，公开读回 instanceId 不变、Context9/open；三个原 Memory trace 的 JSON字节与重启前完全一致，摘要留在本地实例。
+
+重启后的另一 fresh Codex恢复原Context与已关闭Session，未新增 formation、embedding preparation 或 use；同一自然查询 `01a12061-8db3-7ec0-968f-64a92d599a3d` complete，四个 Memory精确修订依次召回，新修订rank1，lexical/dense ready。新Session正常关闭，Context保存并独立读回 revision10/open。两次实际任务的原始命令结果保存在[Portable续接 corpus](corpus/deep-rebase/portable-continuation-2026-10-09.json)。初始 projection wildcard unavailable和上下文 truncation也保留，没有将其替换成全部READY的叙述。
 
 Windows只读盘点确认独立物理盘1的分区2为Linux filesystem GPT类型、无Windows盘符。只读 `ro,noload` WSL挂载及执行权限重试均返回 `WSL_E_ELEVATION_NEEDED_TO_MOUNT_DISK`；没有挂载或修改该盘。SAUC提取仍需管理员挂载或从Linux侧导出，相关旧材料继续保留。全仓其余原范围与最终CI／清理尚未完成。
