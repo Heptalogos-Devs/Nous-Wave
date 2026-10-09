@@ -257,6 +257,7 @@ async fn assert_consolidation_policy(
             subject,
             nous_memory::CONSOLIDATION_CONTEXT.path(),
             serde_json::to_value(policy).unwrap(),
+            None,
         )
         .await
         .unwrap();

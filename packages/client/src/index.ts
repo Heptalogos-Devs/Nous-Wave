@@ -136,9 +136,12 @@ function configurationDescriptor(d: ConfigDescriptor) {
       : null,
   };
 }
-export interface ConfigurationOverride {
+export interface ConfigurationMutation {
   operationId: string;
   path: string;
+  expectedRevision: bigint;
+}
+export interface ConfigurationOverride extends ConfigurationMutation {
   value: JsonValue;
 }
 
@@ -226,7 +229,9 @@ export function createNousClient(transport: Transport) {
           options,
         ),
       ),
-      clearSystem: call(configuration.clearSystemOverride),
+      clearSystem: call((input: ConfigurationMutation, options?: CallOptions) =>
+        configuration.clearSystemOverride(input, options),
+      ),
       setSubject: call(
         (
           input: ConfigurationOverride & { subjectId: string },
@@ -237,7 +242,12 @@ export function createNousClient(transport: Transport) {
             options,
           ),
       ),
-      clearSubject: call(configuration.clearSubjectOverride),
+      clearSubject: call(
+        (
+          input: ConfigurationMutation & { subjectId: string },
+          options?: CallOptions,
+        ) => configuration.clearSubjectOverride(input, options),
+      ),
     },
     identity: {
       bind: call(identity.bindIdentity),

@@ -92,6 +92,13 @@ try {
     assert(item);
     return item;
   };
+  const revision = async () =>
+    (
+      await client.configuration.get({
+        view: ConfigurationView.DESIRED,
+        paths: ["maintenance.enabled"],
+      })
+    ).configurationRevision;
   const defaults = (await entry("video")).value;
   const modelGraph = {
     gateway_profiles: {
@@ -112,10 +119,17 @@ try {
     roles: { memory_formation: { routes: ["primary"] } },
   };
   const graphOperation = randomUUID();
+  const graphRevision = (
+    await client.configuration.get({
+      view: ConfigurationView.DESIRED,
+      paths: ["models"],
+    })
+  ).configurationRevision;
   const sparseGraph = await client.configuration.setSystem({
     operationId: graphOperation,
     path: "models",
     value: modelGraph,
+    expectedRevision: graphRevision,
   });
   const frozenGraph = (await entry("models", undefined, true)).value;
   assert(
@@ -137,12 +151,24 @@ try {
     operationId: graphOperation,
     path: "models",
     value: frozenGraph,
+    expectedRevision: graphRevision,
   });
   assert.equal(explicitGraph.revision, sparseGraph.revision);
   assert.equal(explicitGraph.desiredDigest, sparseGraph.desiredDigest);
   await assert.rejects(
     client.configuration.setSystem({
       operationId: randomUUID(),
+      path: "models",
+      value: modelGraph,
+      expectedRevision: graphRevision,
+    }),
+    /revision.*changed|revision.*conflict/i,
+  );
+  assert.deepEqual((await entry("models", undefined, true)).value, frozenGraph);
+  await assert.rejects(
+    client.configuration.setSystem({
+      operationId: randomUUID(),
+      expectedRevision: await revision(),
       path: "models",
       value: {
         ...modelGraph,
@@ -153,13 +179,16 @@ try {
   );
   assert(defaults && typeof defaults === "object" && !Array.isArray(defaults));
   const normalizedOperation = randomUUID();
+  const videoRevision = await revision();
   const omitted = await client.configuration.setSystem({
     operationId: normalizedOperation,
+    expectedRevision: videoRevision,
     path: "video",
     value: { max_frames: 4 },
   });
   const explicit = await client.configuration.setSystem({
     operationId: normalizedOperation,
+    expectedRevision: videoRevision,
     path: "video",
     value: { ...defaults, max_frames: 4 },
   });
@@ -172,20 +201,51 @@ try {
   assert.deepEqual((await entry("video")).value, defaults);
   assert.equal((await entry("maintenance.enabled")).source, "deployment_file");
   const operationId = randomUUID();
+  const maintenanceRevision = await revision();
   const change = await client.configuration.setSystem({
     operationId,
+    expectedRevision: maintenanceRevision,
     path: "maintenance.enabled",
     value: configurationValue("true"),
   });
   const replay = await client.configuration.setSystem({
     operationId,
+    expectedRevision: maintenanceRevision,
     path: "maintenance.enabled",
     value: configurationValue("true"),
   });
   assert.equal(replay.revision, change.revision);
   assert.equal((await entry("maintenance.enabled")).value, true);
+  await assert.rejects(
+    cli("set", "maintenance.enabled", "false", "--json"),
+    /expected-revision/,
+  );
+  await assert.rejects(
+    cli(
+      "clear",
+      "maintenance.enabled",
+      "--expected-revision",
+      maintenanceRevision.toString(),
+      "--json",
+    ),
+    /revision.*changed/i,
+  );
+  const cliOperation = randomUUID();
+  const cliRevision = await revision();
+  const cliArgs = [
+    "set",
+    "maintenance.enabled",
+    "true",
+    "--operation-id",
+    cliOperation,
+    "--expected-revision",
+    cliRevision.toString(),
+    "--json",
+  ];
+  const cliChange = await cli(...cliArgs);
   await client.configuration.setSubject({
     operationId: randomUUID(),
+    expectedRevision: await revision(),
     subjectId: subject.subjectId,
     path: "maintenance.enabled",
     value: configurationValue("false"),
@@ -198,9 +258,11 @@ try {
     (await entry("maintenance.enabled", subject.subjectId)).value,
     false,
   );
+  assert.deepEqual(await cli(...cliArgs), cliChange);
   const initial = (await entry("runtime.resident_limit")).value;
   const restart = await client.configuration.setSystem({
     operationId: randomUUID(),
+    expectedRevision: await revision(),
     path: "runtime.resident_limit",
     value: configurationValue("512"),
   });
@@ -217,6 +279,7 @@ try {
   await assert.rejects(
     client.configuration.setSystem({
       operationId: randomUUID(),
+      expectedRevision: await revision(),
       path: "host.port",
       value: configurationValue("0"),
     }),
@@ -238,7 +301,7 @@ try {
     false,
   );
   console.log(
-    "CONFIGURATION_SMOKE catalog=true cli=true precedence=true replay=true restart=true normalized_identity=true",
+    "CONFIGURATION_SMOKE catalog=true cli=true precedence=true replay=true restart=true normalized_identity=true revision_cas=true",
   );
 } finally {
   await stop(current);

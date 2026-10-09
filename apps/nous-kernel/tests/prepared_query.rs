@@ -242,6 +242,7 @@ async fn preparation_captures_work_context_exact_sources_and_frozen_policy_witho
             OperationId::new(),
             nous_runtime::COGNITIVE_PROFILE.path(),
             serde_json::json!("baseline-rrf"),
+            None,
         )
         .await
         .unwrap();

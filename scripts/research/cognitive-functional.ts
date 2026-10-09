@@ -1,6 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { ConfigurationView } from "@nous-wave/client";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
@@ -335,6 +336,13 @@ export async function runCognitiveFunctional(
           {
             subjectId,
             operationId: randomUUID(),
+            expectedRevision: (
+              await client.configuration.get({
+                subjectId,
+                view: ConfigurationView.DESIRED,
+                paths: ["retrieval.cognitive.profile"],
+              })
+            ).configurationRevision,
             path: "retrieval.cognitive.profile",
             value: profile,
           },
@@ -629,6 +637,13 @@ export async function runSelectedTextCompatibility(
       await client.configuration.setSubject({
         subjectId,
         operationId: randomUUID(),
+        expectedRevision: (
+          await client.configuration.get({
+            subjectId,
+            view: ConfigurationView.DESIRED,
+            paths: ["retrieval.cognitive.profile"],
+          })
+        ).configurationRevision,
         path: "retrieval.cognitive.profile",
         value: profile,
       });

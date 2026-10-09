@@ -383,6 +383,7 @@ async fn assert_synopsis_policy(rt: &NousRuntime, subject: nous_core::SubjectId)
             subject,
             nous_memory::EPISODE_SYNOPSIS.path(),
             serde_json::to_value(budget).unwrap(),
+            None,
         )
         .await
         .unwrap();
@@ -411,6 +412,7 @@ async fn assert_synopsis_policy(rt: &NousRuntime, subject: nous_core::SubjectId)
             nous_core::OperationId::new(),
             subject,
             nous_memory::EPISODE_SYNOPSIS.path(),
+            None,
         )
         .await
         .unwrap();

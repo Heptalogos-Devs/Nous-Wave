@@ -30,18 +30,19 @@ Artifact 上传预算为 `object_store.max_upload_bytes`，归 Material owner；
 
 ## 管理 API、Client 与 CLI
 
-Canonical `ConfigurationService` 提供 list/describe/get 与 system/Subject set/clear。Schema 和配置值使用 protobuf JSON Value；结构化值保持结构。Mutation identity 由 operation ID 和规范输入决定，同 ID 不同输入 conflict。SystemService 提供系统状态与 projection 状态。
+Canonical `ConfigurationService` 提供 list/describe/get 与 system/Subject set/clear。Schema 和配置值使用 protobuf JSON Value；结构化值保持结构。所有公开写入携带 desired view 返回的 `configuration_revision` 作为 `expected_revision`；Kernel 在同一数据库事务内比较全局修订，过期写入或清除返回 conflict，不改变配置或修订。Mutation identity 包含 operation ID、expected revision 和规范输入；同 ID 不同输入 conflict。已完成请求先重放冻结回执，即使后续修改已推进修订。SystemService 提供系统状态与 projection 状态。
 
-Official Client 使用 `client.configuration.list / describe / get / setSystem / clearSystem / setSubject / clearSubject`。CLI 默认显示 Standard，`--advanced` 包含 Advanced，`--developer` 包含全部目录；`--subject <id>` 选择 Subject scope，`--desired` 读取 desired view。
+Official Client 使用 `client.configuration.list / describe / get / setSystem / clearSystem / setSubject / clearSubject`；写入参数要求 `expectedRevision: bigint`。CLI 默认显示 Standard，`--advanced` 包含 Advanced，`--developer` 包含全部目录；`--subject <id>` 选择 Subject scope，`--desired` 读取 desired view。`set/clear` 必须显式提供 `--expected-revision`，重试使用原 operation ID、原 expected revision 和原值。
 
 ```sh
 nous config list
 nous config list --developer
 nous config describe maintenance.enabled
 nous config get runtime.resident_limit --desired
-nous config set maintenance.enabled true
-nous config set maintenance.enabled false --subject <id>
-nous config clear maintenance.enabled --subject <id>
+nous config get maintenance.enabled --desired
+nous config set maintenance.enabled true --expected-revision <configurationRevision>
+nous config set maintenance.enabled false --subject <id> --expected-revision <configurationRevision>
+nous config clear maintenance.enabled --subject <id> --expected-revision <configurationRevision>
 nous config get models --desired
 nous config describe models
 nous config check --home <instance>
@@ -69,7 +70,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 `audio.input_mode` 为 `direct`（默认）或 `transcription`。Direct 将原始 Artifact bytes 作为 chat 的 `input_audio` 发送；transcription 需要 speech_transcription role。
 
-CLI Catalog descriptor 为整块 `video`：使用 `nous config describe video` 和 `nous config get video`；`input_mode` 是该对象中的字段，不是独立配置 path。通过 `config set video <完整 JSON 对象>` 修改时保留原有边界，system-only 修改需要按回执重启进程。
+CLI Catalog descriptor 为整块 `video`：使用 `nous config describe video` 和 `nous config get video`；`input_mode` 是该对象中的字段，不是独立配置 path。通过 `config set video <完整 JSON 对象> --expected-revision <configurationRevision>` 修改时保留原有边界，system-only 修改需要按回执重启进程。
 
 `video.input_mode` 为 `direct`（默认）或 `frames`。Direct 将原始 Artifact bytes 作为 chat 的 `video_url` 发送；frames 使用有界 FFmpeg 抽帧与可选音轨转写。FFmpeg 来自显式 executable 或当前 RuntimeRoot 已安装 pack。两种 mode 都受来源字节上限约束；frames 另受时长、帧数、单帧、音频与进程时限约束。没有隐式模式回退。frames 的实验观测见 [Research](../research/README.md)。
 

@@ -217,6 +217,7 @@ async fn direct_concept_recall_is_independent_and_vectors_are_shared_across_prof
             subject,
             CONCEPT_ENRICHMENT.path(),
             serde_json::json!("existing"),
+            None,
         )
         .await
         .unwrap();
@@ -292,6 +293,7 @@ async fn direct_concept_recall_is_independent_and_vectors_are_shared_across_prof
                 subject,
                 COGNITIVE_PROFILE.path(),
                 serde_json::json!(profile),
+                None,
             )
             .await
             .unwrap();
@@ -474,6 +476,7 @@ async fn check_model_catalog_activity(
             subject,
             CONCEPT_ENRICHMENT.path(),
             serde_json::json!("model"),
+            None,
         )
         .await
         .unwrap();
@@ -646,6 +649,7 @@ async fn check_historical_profiles(
             subject,
             CONCEPT_ENRICHMENT.path(),
             serde_json::json!("existing"),
+            None,
         )
         .await
         .unwrap();
@@ -660,6 +664,7 @@ async fn check_historical_profiles(
                 subject,
                 COGNITIVE_PROFILE.path(),
                 serde_json::json!(profile),
+                None,
             )
             .await
             .unwrap();

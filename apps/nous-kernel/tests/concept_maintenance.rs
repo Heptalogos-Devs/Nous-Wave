@@ -354,6 +354,7 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
             subject,
             ACCRETION.path(),
             serde_json::json!({"enabled":true,"generic_degree":32,"recurrence_review":1}),
+            None,
         )
         .await
         .unwrap();
@@ -372,6 +373,7 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
             subject,
             ACCRETION.path(),
             serde_json::json!({"enabled":true,"generic_degree":32,"recurrence_review":3}),
+            None,
         )
         .await
         .unwrap();
@@ -605,6 +607,7 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
             subject,
             ACCRETION.path(),
             serde_json::json!({"enabled":false,"generic_degree":32,"recurrence_review":1}),
+            None,
         )
         .await
         .unwrap();
@@ -628,6 +631,7 @@ async fn concepts_use_local_typed_catalogs_and_derived_accretion_without_batch_c
             subject,
             CONCEPT_MAINTENANCE.path(),
             serde_json::json!({"max_candidates":1,"max_suggestions":2}),
+            None,
         )
         .await
         .unwrap();

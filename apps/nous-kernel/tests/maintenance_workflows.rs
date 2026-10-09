@@ -441,6 +441,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "journal.max_episode_count",
             serde_json::json!(1),
+            None,
         )
         .await
         .unwrap();
@@ -494,6 +495,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "journal.max_episode_count",
             serde_json::json!(2),
+            None,
         )
         .await
         .unwrap();
@@ -518,6 +520,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "journal.max_span_seconds",
             serde_json::json!(60),
+            None,
         )
         .await
         .unwrap();
@@ -577,6 +580,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "episode.max_neighbor_span_seconds",
             serde_json::json!(60),
+            None,
         )
         .await
         .unwrap();
@@ -632,6 +636,7 @@ async fn oversized_repair_and_journal_scopes_block_until_real_triggers() {
             subject,
             "episode.max_neighbor_span_seconds",
             serde_json::json!(86400),
+            None,
         )
         .await
         .unwrap();

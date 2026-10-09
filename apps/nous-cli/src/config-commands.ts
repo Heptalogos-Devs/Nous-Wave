@@ -31,25 +31,47 @@ export async function configCommands(
         ? ConfigurationView.DESIRED
         : ConfigurationView.ACTIVE,
     });
+  if (action !== "set" && action !== "clear")
+    throw new Error("Use config list|describe|get|set|clear");
   const operationId = values["operation-id"] ?? crypto.randomUUID();
+  const suppliedRevision = required(
+    values["expected-revision"],
+    "--expected-revision from config get --desired",
+  );
+  if (!/^(0|[1-9][0-9]*)$/.test(suppliedRevision))
+    throw new Error("Expected revision must be a nonnegative integer");
+  const expectedRevision = BigInt(suppliedRevision);
+  if (expectedRevision > 9223372036854775807n)
+    throw new Error("Expected revision exceeds int64");
   if (action === "set") {
     const value = configurationValue(required(positionals[3], "JSON value"));
     return values.subject
       ? client.configuration.setSubject({
           operationId,
           path,
+          expectedRevision,
           value,
           subjectId: values.subject,
         })
-      : client.configuration.setSystem({ operationId, path, value });
+      : client.configuration.setSystem({
+          operationId,
+          path,
+          value,
+          expectedRevision,
+        });
   }
   if (action === "clear")
     return values.subject
       ? client.configuration.clearSubject({
           operationId,
           path,
+          expectedRevision,
           subjectId: values.subject,
         })
-      : client.configuration.clearSystem({ operationId, path });
+      : client.configuration.clearSystem({
+          operationId,
+          path,
+          expectedRevision,
+        });
   throw new Error("Use config list|describe|get|set|clear");
 }

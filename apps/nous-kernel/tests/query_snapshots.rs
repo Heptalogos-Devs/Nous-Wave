@@ -447,6 +447,7 @@ async fn subject_profiles_change_new_queries_and_preserve_inflight_preparation()
             subjects[0],
             COGNITIVE_PROFILE.path(),
             serde_json::json!("baseline-rrf"),
+            None,
         )
         .await
         .unwrap();
@@ -457,6 +458,7 @@ async fn subject_profiles_change_new_queries_and_preserve_inflight_preparation()
             subjects[1],
             COGNITIVE_PROFILE.path(),
             serde_json::json!("vcp-rivermemo-v3.1-adapter-v1"),
+            None,
         )
         .await
         .unwrap();
@@ -493,6 +495,7 @@ async fn subject_profiles_change_new_queries_and_preserve_inflight_preparation()
             subjects[0],
             COGNITIVE_PROFILE.path(),
             serde_json::json!("nous-node-potential-v1"),
+            None,
         )
         .await
         .unwrap();

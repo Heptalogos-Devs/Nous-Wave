@@ -172,6 +172,7 @@ impl ConfigurationService for KernelService {
                     OperationId(id(&r.operation_id)?),
                     &r.path,
                     json(required(r.value, "value")?),
+                    Some(required(r.expected_revision, "expected_revision")?),
                 )
                 .await
                 .map(change)
@@ -186,7 +187,11 @@ impl ConfigurationService for KernelService {
             let r = request.into_inner();
             self.0
                 .configuration
-                .clear_system_override(OperationId(id(&r.operation_id)?), &r.path)
+                .clear_system_override(
+                    OperationId(id(&r.operation_id)?),
+                    &r.path,
+                    Some(required(r.expected_revision, "expected_revision")?),
+                )
                 .await
                 .map(change)
         })
@@ -207,6 +212,7 @@ impl ConfigurationService for KernelService {
                     subject,
                     &r.path,
                     json(required(r.value, "value")?),
+                    Some(required(r.expected_revision, "expected_revision")?),
                 )
                 .await
                 .map(change)
@@ -223,7 +229,12 @@ impl ConfigurationService for KernelService {
             self.0.store.require_subject(subject).await?;
             self.0
                 .configuration
-                .clear_subject_override(OperationId(id(&r.operation_id)?), subject, &r.path)
+                .clear_subject_override(
+                    OperationId(id(&r.operation_id)?),
+                    subject,
+                    &r.path,
+                    Some(required(r.expected_revision, "expected_revision")?),
+                )
                 .await
                 .map(change)
         })

@@ -97,6 +97,8 @@ pub struct ConfigurationSnapshot {
     #[prost(string, tag="5")]
     pub effective_digest: ::prost::alloc::string::String,
 }
+/// expected_revision is required by all mutation RPCs. Presence distinguishes missing input from revision zero.
+/// It participates in receipt identity; completed requests replay before the current revision is compared.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetSystemOverrideRequest {
     #[prost(string, tag="1")]
@@ -105,6 +107,8 @@ pub struct SetSystemOverrideRequest {
     pub path: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub value: ::core::option::Option<::prost_types::Value>,
+    #[prost(int64, optional, tag="4")]
+    pub expected_revision: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ClearSystemOverrideRequest {
@@ -112,6 +116,8 @@ pub struct ClearSystemOverrideRequest {
     pub operation_id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub path: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag="3")]
+    pub expected_revision: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetSubjectOverrideRequest {
@@ -123,6 +129,8 @@ pub struct SetSubjectOverrideRequest {
     pub path: ::prost::alloc::string::String,
     #[prost(message, optional, tag="4")]
     pub value: ::core::option::Option<::prost_types::Value>,
+    #[prost(int64, optional, tag="5")]
+    pub expected_revision: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ClearSubjectOverrideRequest {
@@ -132,6 +140,8 @@ pub struct ClearSubjectOverrideRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
     pub path: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag="4")]
+    pub expected_revision: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConfigurationChange {

@@ -21,6 +21,7 @@ export const stringFlags = [
   "supersedes",
   "representation",
   "operation-id",
+  "expected-revision",
   "aboutness-mode",
   "query-file",
   "subject",

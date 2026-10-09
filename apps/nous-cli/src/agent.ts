@@ -220,6 +220,7 @@ export const commandInventory = {
         "[path] [JSON value]",
         "--subject <Subject lexical reference>",
         "--desired",
+        "--expected-revision <revision from desired view> (required for set/clear)",
         "--advanced|--developer",
       ],
     },
