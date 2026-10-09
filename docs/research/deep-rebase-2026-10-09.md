@@ -55,3 +55,20 @@ Material 时间场景曾一次未召回预期 region；诊断重跑和移除诊�
 当前源码 Core 的隔离 Model/Material/Resource smoke 已改为 LocalDocuments，实际通过公共 API 验证接纳、重复 operation 返回同 Observation、新接触保留独立 Observation、版本变化拒绝、权限撤销拒绝、已接纳来源在外部撤销后仍可读，以及 1 MiB 普通/控制字符材料与恢复。模型部分使用本地协议替身，不计作火山方舟真实模型质量或持续任务结果。
 
 恢复检查另用可控 Kernel 替身确认了旧路径的缺陷：已有 proposal 在来源变更或权限撤销后仍会提交。Core 现在在接纳前核验实际 provider identity、当前版本和权限，包括 saved proposal 的恢复；已完成 outcome 则继续复用已接纳快照。该检查保护恢复窗口，真实 Core smoke 保护公共 Resource/Material 行为。
+
+## 本轮真实 Codex 与模型续接
+
+使用本轮独立 PostgreSQL/Artifact/cache/config 主实例、当前 Kernel、源码 Core 和官方 consumer。真实 Codex CLI 通过 Nous stdio MCP 保存两项实际重整来源、Subject 与持续 WorkContext；后续 fresh Codex 进程恢复同一 Subject/WorkContext，打开独立 Session 并继续。
+
+首次非交互 CLI 因本机工具审批默认值与 `never` 冲突未执行认知操作；只为本轮三个已授权 Nous 工具配置官方 per-tool 模式后可调用。首轮观察的 `rebase://` locator 不符合 web source HTTP(S) 合同，改以原文观察保留内部 locator 映射。两次 formation 与 embedding 最初返回降级，query 明确拒绝：新实例复制的历史模型配置仍指向无 listener 的 `127.0.0.1:18002` 研究代理。当前 New API `/api/status` 与认证 `/v1/models` 均为 HTTP 200、所需模型存在；仅本轮实例 gateway 改为当前 `127.0.0.1:3000/v1` 并正常重启。旧实例、operator 原配置与 credentials 未修改，原失败操作身份和失败结果保留。
+
+fresh Codex 进程读回原来源后，使用新 UUID 执行已明确失败且无 Memory 的两项 formation；两项均成功，trace 标明实际 `doubao-seed-2.1-pro`、`pro_minimal` 与 whole-Observation grounding。模型生成正文、exact revision、trace、原始来源和实际检索结果保全在[本轮 consumer 续接结果](corpus/deep-rebase/consumer-continuation-2026-10-09.json)，没有把旧内部回执读入新 consumer 格式。
+
+| 原始 Observation | 形成的 exact Memory revision |
+| --- | --- |
+| `obs:lihih-titij-popad` | `memrev:sajot-zujup-muhug` |
+| `obs:dutob-dasad-pokol` | `memrev:raman-zajos-ruvuj` |
+
+原 Observation 在形成前后均完整读回、原文不变。Embedding preparation 实际提交 6 项、请求 2 次。普通自然语言 query 在 `baseline-rrf`、concept enrichment `off` 下完成，consumer revision 为 rank 1，报告 lexical/dense/language-rerank 参与；一个 referenced UseEvent 接受计数 1、重复计数 0。WorkContext `ctx:raraf-romup-hasal` revision 6 保存 Objective/Decisions/Current Work、exact refs 与失败 ledger，读回确认 open；fresh Session 关闭。当前 Subject `sub:tujap-vibuz-gozod` 保留供后续持续任务与 Portable 续接。
+
+旧实例 consumer 记录中找到的两个 pending（UseEvent 与 formation）已按原始字节复制并逐份 SHA-256 核对，manifest 保留原路径、receipt identity 与 Subject；原目录仍保留。其具体内容位于 ignored 本地研究成果区，不加入公共结果文件。Linux SAUC 独立硬盘提取、全仓剩余 owner 重整、媒体 route/deadline/lease 与 Windows source-less Portable 尚未完成。
