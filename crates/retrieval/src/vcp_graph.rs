@@ -143,8 +143,10 @@ mod tests {
 
     #[test]
     fn unordered_membership_and_independent_evidence_preserve_mass_and_roots() {
-        let fixture: serde_json::Value =
-            serde_json::from_str(include_str!("../tests/fixtures/vcp-graph.json")).unwrap();
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../docs/research/corpus/vcp/vcp-graph.json"
+        ))
+        .unwrap();
         let config: ReferenceGraphConfig =
             serde_json::from_value(fixture["input"]["config"].clone()).unwrap();
         let body = CognitiveRef::MemoryRevision(MemoryRevisionId::new());

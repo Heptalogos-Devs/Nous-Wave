@@ -3,6 +3,9 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+pub(crate) mod longitudinal;
+pub(crate) mod query;
+
 use chrono::Utc;
 use nous_core::{EpistemicClass, OperationId, TemporalExtent};
 use nous_kernel::{NousRuntime, RuntimeOptions};
