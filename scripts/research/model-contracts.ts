@@ -8,7 +8,6 @@ import {
   parseConfiguration,
   parseEffectiveConfiguration,
 } from "../../apps/nous-core/src/config.js";
-import { resolveExecutionProfile } from "../../apps/nous-core/src/model/profiles.js";
 import {
   roleNames,
   type ModelRole,
@@ -78,9 +77,7 @@ for (const role of values.role ? [values.role as ModelRole] : roleNames) {
   const gateway = profile
     ? configuration?.gateway_profiles[profile.gateway]
     : undefined;
-  const binding = execution
-    ? resolveExecutionProfile(execution, profile?.protocol ?? "")
-    : undefined;
+  const binding = execution ? execution : undefined;
   const basePrompt = await prompts.load(role, configured?.prompt);
   const prompt = values["prompt-path"]
     ? await prompts.load(role, values["prompt-path"])

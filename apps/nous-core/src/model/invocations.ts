@@ -20,17 +20,15 @@ import {
 } from "./schemas/contracts.js";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  resolveExecutionProfile,
-  type ModelProfile,
-  type ExecutionProfile,
-} from "./profiles.js";
+import { type ModelProfile, type ExecutionProfile } from "./profiles.js";
 import { roleNames, type ModelRole } from "./roles.js";
 import {
   modelRoleProblem,
   type ModelConfiguration,
   type RolePolicy,
   modelConfigurationSchema,
+  modelExecutionSchema,
+  modelRoleGraph,
 } from "./configuration.js";
 import { PromptRegistry, type PromptAsset } from "./prompts.js";
 import { modelRoleIdentity, invocationConfigDigest } from "./identity.js";
@@ -143,7 +141,7 @@ const snapshotSchema = z.strictObject({
     .string()
     .regex(/^[a-f0-9]{64}$/)
     .optional(),
-  configuration: modelConfigurationSchema,
+  configuration: modelExecutionSchema,
   role: z.enum(roleNames),
   prompt: z
     .strictObject({
@@ -179,7 +177,8 @@ export class ModelInvocations {
     overridePromptRoot?: string,
   ) {
     const runtime = new ModelInvocations();
-    runtime.configuration = modelConfigurationSchema.parse(config);
+    config = modelConfigurationSchema.parse(config);
+    runtime.configuration = config;
     for (const gateway of Object.values(config.gateway_profiles))
       if (gateway.enabled)
         runtime.credentialOrigins.add(
@@ -214,7 +213,7 @@ export class ModelInvocations {
           problem = "Execution/model profile is absent or unset";
           continue;
         }
-        const binding = resolveExecutionProfile(configured, profile.protocol);
+        const binding = configured;
         const mismatch = modelRoleProblem(name, binding, profile);
         if (mismatch) {
           problem = mismatch;
@@ -292,12 +291,12 @@ export class ModelInvocations {
       implementationDigest: modelImplementations.provider,
       outputSchemaDigest: providerContractForRole(name)?.digest,
       role: name,
-      configuration: this.configuration,
+      configuration: modelRoleGraph(this.configuration, name),
       prompt: role.prompt,
       profileDigest: role.profileDigest,
       configDigest: canonicalDigest({
         policy: role.policy,
-        configuration: this.configuration,
+        configuration: modelRoleGraph(this.configuration, name),
         prompt: role.prompt && {
           id: role.prompt.id,
           digest: role.prompt.digest,
@@ -343,7 +342,7 @@ export class ModelInvocations {
       profile && snapshot.configuration.gateway_profiles[profile.gateway];
     if (!configured || !profile || !gateway)
       throw new Error("Reserved execution resources unavailable");
-    const binding = resolveExecutionProfile(configured, profile.protocol);
+    const binding = configured;
     const problem = modelRoleProblem(snapshot.role, binding, profile);
     if (problem) throw new Error(problem);
     const credential = process.env[gateway.credential_env];

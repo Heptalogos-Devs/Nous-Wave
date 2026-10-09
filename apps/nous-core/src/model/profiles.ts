@@ -48,12 +48,15 @@ const modelBaseSchema = z.strictObject({
         "rerank",
       ]),
     )
-    .min(1),
+    .min(1)
+    .overwrite((values) => [...new Set(values)].sort()),
   model_revision: profileNameSchema.optional(),
   reasoning_levels: z
     .array(z.enum(reasoningLevels))
+    .min(1)
     .max(7)
-    .default(["provider-default"]),
+    .default(["provider-default"])
+    .overwrite((values) => [...new Set(values)].sort()),
 });
 // The protocol/embedding contract is native Zod, including the exported JSON Schema.
 export const modelSchema = z.discriminatedUnion("protocol", [
@@ -71,7 +74,7 @@ export const modelSchema = z.discriminatedUnion("protocol", [
     embedding: z.never().optional(),
   }),
 ]);
-const generationTokensSchema = z
+export const generationTokensSchema = z
   .number()
   .int()
   .min(1)
@@ -92,15 +95,5 @@ export const executionProfileSchema = z.strictObject({
     )
     .default({}),
 });
-/** Resolve execution defaults using declared resource protocol, independently from RolePolicy. */
-export function resolveExecutionProfile(
-  execution: ExecutionProfile,
-  protocol: string,
-): ExecutionProfile {
-  return ["openai-chat", "openai-responses"].includes(protocol)
-    ? { ...execution, max_output_tokens: execution.max_output_tokens ?? 4096 }
-    : execution;
-}
-
 export type ModelProfile = z.infer<typeof modelSchema>;
 export type ExecutionProfile = z.infer<typeof executionProfileSchema>;

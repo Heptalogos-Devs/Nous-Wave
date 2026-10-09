@@ -1,6 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -74,7 +75,7 @@ export async function checkConfiguration(
         await prompts.load(role, binding.prompt);
       } catch {
         issues.push({
-          path: `roles.${role}.prompt`,
+          path: `models.roles.${role}.prompt`,
           code: "invalid_reference",
           message:
             "Prompt must exist inside its declared root, contain UTF-8 text and fit within 128 KiB",
@@ -141,6 +142,14 @@ export async function checkConfiguration(
     }
   } catch (error) {
     if (error instanceof ConfigurationError) issues.push(...error.issues);
+    else if (error instanceof z.ZodError)
+      issues.push(
+        ...error.issues.map((issue) => ({
+          path: "models." + issue.path.join("."),
+          code: "invalid_configuration",
+          message: issue.message,
+        })),
+      );
     else
       issues.push({
         path: "nous.toml",

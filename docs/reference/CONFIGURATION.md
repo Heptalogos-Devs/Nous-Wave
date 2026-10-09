@@ -16,13 +16,13 @@ Overrideable 值按 reference default → deployment TOML → persisted system o
 | --- | --- |
 | Standard | gateway/model setup、material strategy、maintenance 开关与 host 启动设置 |
 | Advanced | role、media、Resource、consumer、Episode/Journal/consolidation 策略 |
-| Developer | retrieval/accessibility/topology 算法、worker/query lease、retry 和运行预算 |
+| Developer | retrieval/accessibility/topology 算法、worker opportunity、retry 和运行预算 |
 
 ## 启动与快照
 
 Core 先解析 `config_revision`、`host` 和 `database` bootstrap，通过私有 JSON bundle 交付 Core descriptors 与 deployment document。Kernel finalize Catalog 并加载持久覆盖后，Core 从 active snapshot 构造 model/resource/consumer runtime。凭据值只从 SecretRoot/environment 加载；Catalog 保存 credential reference。
 
-Live 修改作用于后续 operation；在途 operation 保留固定快照。RestartProcess 修改 desired snapshot 并返回 restart effect，active snapshot 在重启前不变。Core model/gateway/role/media/resource/consumer、`material.inputs` 与 `core_execution` 结构使用 RestartProcess。`core_execution` 拥有 Kernel RPC、maintenance RPC、workflow ack 的毫秒 timeout 、HTTP body byte budget 和 managed context track 上限（默认 256）、Query embedding cache entries（默认 128）及 rerank candidate 上限（默认 64）；host startup/shutdown timeout 和 runtime download timeout（默认 300000 ms）是 deployment-only bootstrap 参数。NewSubjectsOnly 更新供给默认，已有 Subject 保存已采用的 typed capability set。ServingRebuild 返回 owner rebuild effect；Serving 在下一次需要该 family 的 prepare 或显式 refresh 中构建并原子替换 generation。Projection status 按 family/space 返回 generation ID、Authority watermark、实际配置 digest 和当前所需 digest；Authority 或配置落后时为 STALE。
+Live 修改作用于后续 operation；在途 operation 保留固定快照。RestartProcess 修改 desired snapshot 并返回 restart effect，active snapshot 在重启前不变。Core model/gateway/role/media/resource/consumer、`material.inputs` 与 `core_execution` 结构使用 RestartProcess。`core_execution` 拥有 Kernel RPC、maintenance RPC、工作、cleanup、need acknowledgement 和回应等待的 typed opportunity policy 、HTTP body byte budget 和 managed context track 上限（默认 256）、Query embedding cache entries（默认 128）及 rerank candidate 上限（默认 64）；host startup/shutdown timeout 和 runtime download timeout（默认 300000 ms）是 deployment-only bootstrap 参数。NewSubjectsOnly 更新供给默认，已有 Subject 保存已采用的 typed capability set。ServingRebuild 返回 owner rebuild effect；Serving 在下一次需要该 family 的 prepare 或显式 refresh 中构建并原子替换 generation。Projection status 按 family/space 返回 generation ID、Authority watermark、实际配置 digest 和当前所需 digest；Authority 或配置落后时为 STALE。
 
 Query、Authority formation 和 Serving build 使用固定 snapshot；影响输出语义的 key subset digest 包含对应 schema 与 reference profile identity。retrieval ranking/budgets、Memory accessibility、topology wave、EPA basis 和 longitudinal 参数的参考族位于 `config/reference/` 的版本化 JSON，owner 从目录快照解析 typed policy。
 
@@ -42,7 +42,8 @@ nous config get runtime.resident_limit --desired
 nous config set maintenance.enabled true
 nous config set maintenance.enabled false --subject <id>
 nous config clear maintenance.enabled --subject <id>
-nous config set roles '{"memory_formation":{"model":"formation"}}'
+nous config get models --desired
+nous config describe models
 nous config check --home <instance>
 ```
 
@@ -56,9 +57,9 @@ Set 的值统一使用 JSON 语法：boolean、number、带引号 string、array
 
 Catalog identity 包含展示文案和 exposure；执行 identity 排除这些展示元数据，并保留有效值及约束。subset digest 将相关 paths 作为排序、去重的集合；schema 注释只在配置 schema 位置排除，模型实际 Prompt/输出合同中的说明继续参与其模型身份。
 
-`gateway_profiles` 指定 endpoint、credential environment variable、enabled state 和 request timeout。Remote endpoint 使用 HTTPS；literal loopback 可使用 HTTP。凭据从 SecretRoot 的 dotenv 文件或进程环境读取，进程环境优先；凭据不进入公开输出。
+`models` 是 gateway/model/execution/role 引用图的原子配置值；修改时提交完整候选图，owner 校验引用与协议关系、填入实际 execution 默认值后才进入 desired snapshot。`models.gateway_profiles` 指定 endpoint、credential environment variable、enabled state 和 request timeout。Remote endpoint 使用 HTTPS；literal loopback 可使用 HTTP。凭据从 SecretRoot 的 dotenv 文件或进程环境读取，进程环境优先；凭据不进入公开输出。
 
-`model_profiles` 描述 gateway、标准 protocol、model identifier、能力和可选 revision。Embedding profile 同时声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics，组成 EmbeddingSpaceSignature。角色通过 `roles` 绑定 model profile、Prompt、generation parameters、timeout 与 `optional | required` requirement。
+`models.model_profiles` 描述 gateway、标准 protocol、model identifier、能力和可选 revision。Embedding profile 同时声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics，组成 EmbeddingSpaceSignature。`models.execution_profiles` 拥有 model profile、reasoning、sampling、output token limit、timeout 和 provider options；`models.roles` 选择有序 execution routes、Prompt 和 `optional | required` requirement。不存在的显式引用和非法协议组合是配置错误；disabled gateway、缺少凭据和未填写模型 identifier 是运行时能力状态。
 
 当前 role 包括 projection steward、Memory formation、material description/structuring/direct structuring、query embedding/rerank、speech transcription、episode segmentation、Journal synthesis 和 Memory consolidation。Supported protocol 是 `openai-chat`、`openai-responses`、`openai-embeddings`、`openai-audio-transcription` 与 `rerank-v1`。
 

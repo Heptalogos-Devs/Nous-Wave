@@ -66,7 +66,7 @@ try {
     .descriptors!;
   assert(developerCli.some((d) => d.exposure === ConfigExposure.DEVELOPER));
   const standard = await client.configuration.list({});
-  assert(standard.descriptors.some((d) => d.path === "gateway_profiles"));
+  assert(standard.descriptors.some((d) => d.path === "models"));
   assert(standard.descriptors.some((d) => d.path === "maintenance.enabled"));
   assert(
     standard.descriptors.every((d) => d.exposure === ConfigExposure.STANDARD),
@@ -93,6 +93,64 @@ try {
     return item;
   };
   const defaults = (await entry("video")).value;
+  const modelGraph = {
+    gateway_profiles: {
+      local: {
+        base_url: "http://127.0.0.1:1/v1",
+        credential_env: "NOUS_CONFIGURATION_SMOKE",
+      },
+    },
+    model_profiles: {
+      chat: {
+        gateway: "local",
+        protocol: "openai-chat",
+        model: "declared",
+        capabilities: ["text", "structured_output"],
+      },
+    },
+    execution_profiles: { primary: { model: "chat" } },
+    roles: { memory_formation: { routes: ["primary"] } },
+  };
+  const graphOperation = randomUUID();
+  const sparseGraph = await client.configuration.setSystem({
+    operationId: graphOperation,
+    path: "models",
+    value: modelGraph,
+  });
+  const frozenGraph = (await entry("models", undefined, true)).value;
+  assert(
+    frozenGraph &&
+      typeof frozenGraph === "object" &&
+      !Array.isArray(frozenGraph),
+  );
+  assert.deepEqual(
+    (frozenGraph.execution_profiles as Record<string, unknown>).primary,
+    {
+      model: "chat",
+      reasoning: "provider-default",
+      provider_options: {},
+      max_output_tokens: 4096,
+      timeout_ms: 30000,
+    },
+  );
+  const explicitGraph = await client.configuration.setSystem({
+    operationId: graphOperation,
+    path: "models",
+    value: frozenGraph,
+  });
+  assert.equal(explicitGraph.revision, sparseGraph.revision);
+  assert.equal(explicitGraph.desiredDigest, sparseGraph.desiredDigest);
+  await assert.rejects(
+    client.configuration.setSystem({
+      operationId: randomUUID(),
+      path: "models",
+      value: {
+        ...modelGraph,
+        roles: { memory_formation: { routes: ["absent"] } },
+      },
+    }),
+    /models.roles.memory_formation.routes.0/,
+  );
   assert(defaults && typeof defaults === "object" && !Array.isArray(defaults));
   const normalizedOperation = randomUUID();
   const omitted = await client.configuration.setSystem({

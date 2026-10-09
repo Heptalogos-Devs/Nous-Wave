@@ -8,6 +8,8 @@ TypeScript Core owns external model invocation and client materialization. Rust 
 
 ## Profiles 与 roles
 
+Catalog 的 `models` 由同一模型 owner 持有完整 gateway/model/execution/role 图，作为一个原子 policy。部署 TOML 使用 `models.gateway_profiles`、`models.model_profiles`、`models.execution_profiles` 和 `models.roles` 分组；动态 profile 名称是图内键。owner 在冻结前校验显式引用、协议/能力、reasoning 和 controls，填入 protocol/gateway-dependent output tokens 与 timeout，旧的 downstream default resolver 已删除。
+
 GatewayProfile 描述 endpoint、credential environment variable、enabled state 与 request timeout。Remote endpoint 使用 HTTPS；literal loopback 可使用 HTTP。Endpoint 不包含 userinfo、query 或 fragment。Token 只从配置引用的环境变量读取，不进入 ProducerSignature 或公开输出。
 
 ModelProfile 描述 Gateway、standard protocol、model identifier、declared capabilities 和可选 model revision。Supported protocols:
@@ -26,7 +28,7 @@ Capabilities 包括 text、image_input、audio_input、video_input、structured_
 
 Embedding profile 显式声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics。Core 据此形成 EmbeddingSpaceSignature；Kernel 持久化 producer identity 并以 embedding-space identity 隔离 Serving generations。
 
-Model profiles 与 Prompt 在 Core 启动时解析；配置变更在 Core restart 后生效。SDK automatic retry 关闭；有序 execution fallback 处理基础设施、JSON/schema 和 generation input/output 合同错误，领域 Authority 的语义拒绝不触发另一轮生成。固定 snapshot 使用唯一 nous.model.execution format，并保存全路由、资源、controls、Prompt、provider implementation digest 与该角色 output schema digest；当前进程在 admission 前拒绝其他实现或输出合同的执行 snapshot。每个 outbound 调用计入 maintenance 预算。保存 proposal 后基础设施重试不得重新生成。
+Model profiles 与 Prompt 在 Core 启动时解析；配置变更在 Core restart 后生效。SDK automatic retry 关闭；有序 execution fallback 处理基础设施、JSON/schema 和 generation input/output 合同错误，领域 Authority 的语义拒绝不触发另一轮生成。固定 snapshot 使用唯一 nous.model.execution format，只保存该角色的有序 routes、依赖资源、规范 controls、Prompt、provider implementation digest 与 output schema digest；无关 profile 或 media policy 不改变该角色身份。当前进程在 admission 前拒绝其他实现或输出合同的执行 snapshot。每个 outbound 调用计入 maintenance 预算。保存 proposal 后基础设施重试不得重新生成。
 
 资源 schemas/types 由 profiles owner 提供；invocations 持有冻结 routes、admission 和 attempt 记录；protocols 负责 SDK/HTTP 调用且不依赖 ModelRole；Material interpretation owner 构造媒体输入并解释生成输出。每次调用先依据实际 physical input 过滤 route，再发送实际通道访问声明并校验输出。Source startup 与 Portable assembly 对 owning implementation 文件及实际依赖版本计算相同摘要，bundle 内嵌该值，不在 Portable 读取源码。Catalog 呈现身份与这些执行身份保持独立。
 

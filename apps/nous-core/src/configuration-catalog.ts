@@ -4,7 +4,10 @@
 import { z } from "zod";
 import { consumerStatePolicySchema } from "@nous-wave/client/consumer-policy";
 import { executionOpportunitySchema } from "@nous-wave/client/execution-policy";
-import { modelConfigurationShape } from "./model/configuration.js";
+import {
+  modelConfigurationShape,
+  modelExecutionSchema,
+} from "./model/configuration.js";
 
 export const CONFIG_REVISION = 2;
 const requirement = z.enum(["REQUIRED", "PREFERRED", "OPTIONAL", "FORBIDDEN"]);
@@ -23,6 +26,12 @@ export const consumersSchema = z
   )
   .min(1)
   .max(64)
+  .refine(
+    (consumers) =>
+      new Set(consumers.map((consumer) => consumer.consumer_id)).size ===
+      consumers.length,
+    "Duplicate consumer policy ID",
+  )
   .prefault([{ consumer_id: "default" }]);
 const executionTimeout = z.number().int().min(1).max(600000);
 const hostFields = {
@@ -118,32 +127,12 @@ const owners = [
     deployment: true,
   },
   {
-    path: "gateway_profiles",
-    schema: modelConfigurationShape.gateway_profiles,
-    default: {},
+    path: "models",
+    schema: modelExecutionSchema,
+    default: modelExecutionSchema.parse(undefined),
     owner: "core-model",
     exposure: "standard",
-  },
-  {
-    path: "model_profiles",
-    schema: modelConfigurationShape.model_profiles,
-    default: {},
-    owner: "core-model",
-    exposure: "standard",
-  },
-  {
-    path: "execution_profiles",
-    schema: modelConfigurationShape.execution_profiles,
-    default: {},
-    owner: "core-model",
-    exposure: "advanced",
-  },
-  {
-    path: "roles",
-    schema: modelConfigurationShape.roles,
-    default: {},
-    owner: "core-model",
-    exposure: "advanced",
+    effect: "authority_formation",
   },
   {
     path: "audio",
@@ -194,6 +183,7 @@ const owners = [
   owner: string;
   exposure: string;
   deployment?: boolean;
+  effect?: string;
 }[];
 
 /** Owner Zod schemas are the sole TypeScript type/JSON Schema source. */
@@ -213,9 +203,9 @@ function coreDescriptors() {
     scope_policy: "system_only",
     storage_policy: "deployment" in owner ? "deployment_only" : "overrideable",
     apply_mode: "restart_process",
-    semantic_effect: "operational",
+    semantic_effect: "effect" in owner ? owner.effect : "operational",
     unit: null,
-    sensitivity: ["gateway_profiles", "database"].includes(owner.path)
+    sensitivity: ["models", "database"].includes(owner.path)
       ? "credential_reference"
       : "normal",
     reference_profile: null,

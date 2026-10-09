@@ -113,22 +113,24 @@ try {
       stringify({
         ...base,
         maintenance: { enabled: false },
-        gateway_profiles: {
-          controlled: {
-            base_url: `http://127.0.0.1:${address.port}/v1`,
-            credential_env: "NOUS_MEDIA_SMOKE",
+        models: {
+          gateway_profiles: {
+            controlled: {
+              base_url: `http://127.0.0.1:${address.port}/v1`,
+              credential_env: "NOUS_MEDIA_SMOKE",
+            },
           },
-        },
-        model_profiles: {
-          preferred: profile("preferred", preferredAudio),
-          fallback: profile("fallback", !preferredAudio),
-        },
-        execution_profiles: {
-          preferred: { model: "preferred" },
-          fallback: { model: "fallback" },
-        },
-        roles: {
-          material_direct_structuring: { routes: ["preferred", "fallback"] },
+          model_profiles: {
+            preferred: profile("preferred", preferredAudio),
+            fallback: profile("fallback", !preferredAudio),
+          },
+          execution_profiles: {
+            preferred: { model: "preferred" },
+            fallback: { model: "fallback" },
+          },
+          roles: {
+            material_direct_structuring: { routes: ["preferred", "fallback"] },
+          },
         },
       }),
     );

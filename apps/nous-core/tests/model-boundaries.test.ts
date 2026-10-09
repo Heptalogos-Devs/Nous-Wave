@@ -21,7 +21,7 @@ afterEach(async () => {
   );
 });
 describe("model protocol and provenance boundaries", () => {
-  it("rejects unsafe destinations and reports misbound roles unavailable", async () => {
+  it("rejects unsafe destinations and structurally misbound roles", async () => {
     for (const base_url of [
       "http://gateway.example/v1",
       "https://user:secret@gateway.example/v1",
@@ -43,7 +43,7 @@ describe("model protocol and provenance boundaries", () => {
         },
       }).gateway_profiles.primary?.base_url,
     ).toBe("http://127.0.0.1:9000/v1");
-    const configuration = modelConfigurationSchema.parse({
+    const configuration = modelConfigurationSchema.safeParse({
       gateway_profiles: {
         local: {
           base_url: "https://example.com/v1",
@@ -61,11 +61,14 @@ describe("model protocol and provenance boundaries", () => {
       execution_profiles: { chat: { model: "chat" } },
       roles: { query_embedding: { routes: ["chat"] } },
     });
-    const runtime = await ModelInvocations.create(configuration);
-    expect(
-      runtime.capabilities.find((c) => c.name === "model.query_embedding")
-        ?.state,
-    ).toBe("UNAVAILABLE");
+    expect(configuration.success).toBe(false);
+    if (!configuration.success)
+      expect(configuration.error.issues[0]?.path).toEqual([
+        "roles",
+        "query_embedding",
+        "routes",
+        0,
+      ]);
   });
   it("bounds prompt decoding and canonical path while tracking changed content", async () => {
     const dir = await mkdtemp(join(tmpdir(), "nous-prompts-"));

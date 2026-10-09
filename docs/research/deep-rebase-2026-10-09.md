@@ -98,3 +98,9 @@ Fresh Codex 第三次在同一 Subject/WorkContext 完成真实续接。531 字�
 真实 PostgreSQL 检查以 2 秒执行 lease 复现：原 preparation 在 1.4 秒后取出、重新保留，超过原始期限仍能读取。旧 PendingQuery 在每次 retain 使用新 created/default duration，等同于激活延长机会。当前 Runtime QueryReservation 分开持有 BoundQuery 与一个 QueryLease，新的 preparation、execution ticket 和 final validation 继承相同 infrastructure deadline；删除独立 `runtime.query_lease_seconds` 默认值。Core 的编译、Query/model/resource/projection 阶段共用执行机会，Client 也从 active policy 派生等待。原机会截止、验证票据到期、配置/context 冻结、Authority lifecycle/epoch revalidation、Serving reader 回收与公共纵向检查通过。
 
 当前 Core/Kernel 正常重启后，真实 CLI 在同一 Subject/WorkContext 开 fresh Session 执行自然语言 Query。首个结果因 producer identity 重整后的 compatible embedding material 缺失而 degraded；显式 prepare committed 9/requests 2，随后相同 query complete、召回原 `memrev:bufor-rurov-pupik` 为 rank 1，dense/language_rerank 证据保留，Session 已关闭。首次失败和恢复的六份原始 public 输出保存在 [Query 续接 corpus](corpus/deep-rebase/query-continuation-2026-10-09.json)。这次续接不重写原 cognition/history，不替代剩余配置图、全仓 owner 收尾和 Windows Portable 验证。
+
+## 模型配置图与冻结
+
+三项 owning 检查先失败：generation/gateway 默认 tokens/timeout 尚未进入 normalized graph；显式缺失 route 仍被接受；无关 dormant model 和 video budget 改变 formation snapshot identity。当前 `models` 将紧密耦合的 gateway/model/execution/role 作为一个原子 policy 发布；真实输入与 defaults 在该 owner 完成规范化，再交给 Kernel Catalog 冻结。非法引用/协议/推理组合给出精确路径；缺凭据、disabled gateway 和 unset model identifier 保留 capability state。Role snapshot 与 embedding producer 使用同一依赖子图，只捕获相关角色、execution、model 与 gateway；删除调用处补4096的 resolver。
+
+当前 public configuration smoke 验证 sparse graph 与完整默认 graph 同 operation replay、desired normalized tokens/timeout、错误 route 的精确 public 路径及 restart 生效；Model/Material/Resource、相反媒体能力和期限后恢复 smoke 通过。34个TS文件112checks、typecheck/lint/Knip/dependencies通过。独立字段 leaf descriptors、修改 revision CAS、更多实际 effect/apply mode 和完整 Portable 仍须继续，不能从该模型图检查推导全配置已完成。

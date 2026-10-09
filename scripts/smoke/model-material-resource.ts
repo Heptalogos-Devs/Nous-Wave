@@ -172,7 +172,7 @@ if (!providerAddress || typeof providerAddress === "string")
 await mkdir(join(dataRoot, "config"));
 await writeFile(
   join(dataRoot, "config", "nous.toml"),
-  `config_revision = ${CONFIG_REVISION}\n[host]\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[gateway_profiles.smoke]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n[model_profiles.local]\ngateway = "smoke"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[execution_profiles.material_structuring]\nmodel = "local"\n[roles.material_structuring]\nroutes = ["material_structuring"]\n`,
+  `config_revision = ${CONFIG_REVISION}\n[host]\nkernel_executable = ${JSON.stringify(kernel)}\nport = 0\n[object_store]\nmax_upload_bytes = 1048576\n[[consumers]]\nconsumer_id = "default"\n[models.gateway_profiles.smoke]\nbase_url = "http://127.0.0.1:${providerAddress.port}/v1"\ncredential_env = "NOUS_SMOKE_GATEWAY"\n[models.model_profiles.local]\ngateway = "smoke"\nprotocol = "openai-chat"\nmodel = "local-contract"\ncapabilities = ["text", "structured_output"]\n[models.execution_profiles.material_structuring]\nmodel = "local"\n[models.roles.material_structuring]\nroutes = ["material_structuring"]\n`,
 );
 const runtimeRoot = process.env.NOUS_WAVE_POSTGRES_RUNTIME
   ? dirname(process.env.NOUS_WAVE_POSTGRES_RUNTIME)
@@ -633,12 +633,12 @@ try {
   await appendFile(
     join(dataRoot, "config/nous.toml"),
     `
-[model_profiles.embedding]
+[models.model_profiles.embedding]
 gateway = "smoke"
 protocol = "openai-embeddings"
 model = "local-embedding"
 capabilities = ["embedding"]
-[model_profiles.embedding.embedding]
+[models.model_profiles.embedding.embedding]
 dimension = 2
 max_batch_size = 1
 weights_revision = "fixture-1"
@@ -648,15 +648,15 @@ preprocessing_identity = "identity"
 preprocessing_revision = "1"
 normalization = "l2"
 output_semantics = "dense"
-[execution_profiles.query_embedding]
+[models.execution_profiles.query_embedding]
 model = "embedding"
-[roles.query_embedding]
+[models.roles.query_embedding]
 routes = ["query_embedding"]
 
-[execution_profiles.memory_formation]
+[models.execution_profiles.memory_formation]
 model = "local"
 
-[roles.memory_formation]
+[models.roles.memory_formation]
 routes = ["memory_formation"]
 `,
   );

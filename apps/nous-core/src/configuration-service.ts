@@ -6,6 +6,7 @@ import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import { Code, ConnectError, type ServiceImpl } from "@connectrpc/connect";
 import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import { normalizeCoreConfigurationValue } from "./configuration-catalog.js";
+import { z } from "zod";
 
 /** Kernel owns precedence and snapshots; Core only runs the owning TypeScript normalizer. */
 export function configurationOperations(
@@ -23,9 +24,16 @@ export function configurationOperations(
           value ? toJson(ValueSchema, value) : null,
         ) as JsonValue,
       );
-    } catch {
+    } catch (error) {
       throw new ConnectError(
-        `Invalid configuration ${path}`,
+        error instanceof z.ZodError
+          ? error.issues
+              .map(
+                (issue) =>
+                  `${[path, ...issue.path].join(".")}: ${issue.message}`,
+              )
+              .join("; ")
+          : `Invalid configuration ${path}`,
         Code.InvalidArgument,
       );
     }

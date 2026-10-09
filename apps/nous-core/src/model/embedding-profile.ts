@@ -1,8 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 import { blake3 } from "@noble/hashes/blake3.js";
-import { resolveExecutionProfile } from "./profiles.js";
-import { type ModelConfiguration } from "./configuration.js";
+import { modelRoleGraph, type ModelConfiguration } from "./configuration.js";
 import { canonicalDigest } from "../digest.js";
 import { modelRoleIdentity } from "./identity.js";
 import { modelImplementations } from "./implementation.js";
@@ -26,10 +25,13 @@ export function resolvedEmbeddingRoute(
     !gateway
   )
     return undefined;
-  const binding = resolveExecutionProfile(configured!, profile.protocol);
+  const binding = configured!;
   const identity = modelRoleIdentity(profile, gateway, binding);
   const policyDigest = canonicalDigest(policy);
-  const snapshot = canonicalDigest({ policy, configuration: config });
+  const snapshot = canonicalDigest({
+    policy,
+    configuration: modelRoleGraph(config, "query_embedding"),
+  });
   const configDigest = canonicalDigest({
     snapshot,
     execution: identity.configDigest,

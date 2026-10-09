@@ -1,11 +1,15 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { z } from "zod";
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parse } from "smol-toml";
 import { parseEnv } from "node:util";
-import { modelConfigurationSchema } from "./model/configuration.js";
+import {
+  modelConfigurationSchema,
+  modelExecutionSchema,
+} from "./model/configuration.js";
 import type { RuntimeLocations } from "./locations.js";
 import {
   CONFIG_REVISION,
@@ -77,28 +81,37 @@ export async function readConfiguration(
 
 /** Zod owners consume values resolved by Kernel; no override precedence exists in Core. */
 export function parseEffectiveConfiguration(values: Record<string, unknown>) {
-  const models = modelConfigurationSchema.parse({
-    gateway_profiles: values.gateway_profiles,
-    model_profiles: values.model_profiles,
-    execution_profiles: values.execution_profiles,
-    roles: values.roles,
+  const parseOwner = <T>(
+    path: string,
+    schema: z.ZodType<T>,
+    input: unknown,
+  ): T => {
+    const parsed = schema.safeParse(input);
+    if (!parsed.success)
+      throw new ConfigurationError(
+        parsed.error.issues.map((issue) => ({
+          path: [path, ...issue.path].filter(Boolean).join("."),
+          code: issue.code,
+          message: issue.message,
+        })),
+      );
+    return parsed.data;
+  };
+  const models = parseOwner("", modelConfigurationSchema, {
+    ...parseOwner("models", modelExecutionSchema, values.models),
     audio: values.audio,
     video: values.video,
     material_strategy: values["material.strategy"],
     material_inputs: values["material.inputs"],
   });
-  const consumers = consumersSchema.parse(values.consumers);
-  if (new Set(consumers.map((c) => c.consumer_id)).size !== consumers.length)
-    throw new ConfigurationError([
-      {
-        path: "consumers",
-        code: "duplicate_id",
-        message: "Duplicate consumer policy ID",
-      },
-    ]);
+  const consumers = parseOwner("consumers", consumersSchema, values.consumers);
   return {
     models,
-    execution: coreExecutionSchema.parse(values.core_execution),
+    execution: parseOwner(
+      "core_execution",
+      coreExecutionSchema,
+      values.core_execution,
+    ),
     consumers: consumers.map((c) => ({
       consumerId: c.consumer_id,
       revision: c.revision,
