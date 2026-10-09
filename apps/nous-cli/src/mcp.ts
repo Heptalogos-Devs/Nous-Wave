@@ -9,7 +9,7 @@ import { z } from "zod";
 type Execute = (args: string[]) => Promise<CallToolResult>;
 
 /** Honor an explicit opportunity through the process boundary; ordinary calls stay bounded. */
-export function cliCommandTimeoutMs(args: readonly string[]) {
+function cliCommandTimeoutMs(args: readonly string[]) {
   const command = args.indexOf("maintenance");
   if (command < 0 || args[command + 1] !== "grant") return 360000;
   const option = args.findIndex((arg) => /^--max-elapsed-ms(?:=|$)/.test(arg));

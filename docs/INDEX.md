@@ -24,6 +24,7 @@
 ## 研究与方向
 
 - [研究入口](research/README.md)
+- [全仓重整实际观察](research/deep-rebase-2026-10-09.md)
 - [Full-System Dogfooding](research/full-system-dogfooding-2026-10-08.md)
 - [Proquint reference replacement](research/proquint-reference-migration.md)
 - [研究语料与 oracle](research/corpus/README.md)

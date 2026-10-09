@@ -7,7 +7,7 @@
         "scripts/runtime/pack.ts!",
         "scripts/release/{assemble,archive,prepare-notices,verify-portable}.ts!",
         "scripts/smoke/{memory,runtime-episode,model-material-resource,longitudinal,configuration}.ts!",
-        "scripts/research/{cognitive-functional,core-cognition-semantic,media,serve-gateway,longitudinal,model-contracts,model-trace,dogfooding}.ts!",
+        "scripts/research/{cognitive-functional,media,serve-gateway,longitudinal,model-contracts,model-trace,dogfooding}.ts!",
         "scripts/research/*.test.ts"
       ]
     },

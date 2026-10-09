@@ -15,7 +15,7 @@
 
 [VCP source conformance](vcp-conformance.md) 记录 frozen production 数学合同、Nous 差异与 reference/adapter 的实际实现状态。
 
-研究 runner 位于 `scripts/research/`，通过 official Client 操作系统。原始来源内容、媒体、逐条输出和运行日志保存在 ignored 的 `data/research/`。
+当前模型合同/trace 检查与 gateway、媒体和纵向研究入口位于 `scripts/research/`。一次性 Core Cognition qualification runner 已退役；其方法、报告、cohort 和稳定结果继续保留。原始来源内容、媒体、逐条输出和运行日志保存在 ignored 的 `data/research/`，尚未完成独有信息提取前不清除。
 
 纵向认知模型研究使用 [`research:longitudinal`](../../scripts/README.md#longitudinal-model-research)，针对精确来源快照生成 Episode partition、Journal 或 consolidation proposal，供真实 trace 与来源事实的人工评估。[Functional cognition corpus](corpus/functional/README.md) 提供本轮人工编写的三场景功能集；自然形成、完整查询和质量验收仍在执行，尚无完整质量测量结果。
 
