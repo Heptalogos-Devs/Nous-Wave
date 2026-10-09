@@ -126,7 +126,6 @@ async fn run_smoke() {
     );
     let configuration: nous_configuration::ConfigurationBootstrapBundle =
         serde_json::from_slice(&bundle.stdout).unwrap();
-    configuration.validate_revision().unwrap();
     let mut server = Server::open(&url, root.path(), clock.clone(), &token, &configuration).await;
     let mut child = tokio::process::Command::new(
         std::env::var_os("NOUS_LONGITUDINAL_NODE").unwrap_or_else(|| "node".into()),

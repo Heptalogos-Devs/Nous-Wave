@@ -303,7 +303,6 @@ export function configurationBundle(deploymentDocument: unknown) {
     if (Object.hasOwn(group, key)) group[key] = owner.schema.parse(group[key]);
   }
   return {
-    bundle_revision: 1,
     core_descriptors: coreDescriptors(),
     deployment_document: document,
   };

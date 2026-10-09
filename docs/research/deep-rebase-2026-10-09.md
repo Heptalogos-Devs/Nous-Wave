@@ -136,3 +136,17 @@ Canonical Proto 标注实际引用字段；CLI renderer 删除 UUID/字段名推
 公开 CLI 首次创建检查先在旧 Kernel 下返回 UUID而失败；当前 Kernel 下返回稳定 `sub:` 地址并通过完整 configuration smoke，包含真实 provider-options JSON 同名键的 normalized graph/readback/replay。独立 receipt 检查验证 schema、BigInt、timestamp 和同名 JSON 键往返。35个TS文件112checks、check:fast、Knip/dependencies、workspace Clippy通过；16项 Native Authority/Material/Memory/Schema/Journal/Episode/Tag/preparation 场景与公开 Model/Material/Resource、相反媒体能力、期限后恢复及纵向 smoke通过。这轮受控 provider 不计作真实模型质量；当前持续实例升级与完整 Portable 等原目标仍待继续。
 
 持续实例已换用 SHA 核对的当前 Kernel 并正常重启，instanceId 保持不变，endpoint 为 `http://127.0.0.1:13751`。当前 public batch 读回原 Subject/WorkContext 的同一 lexical refs，Context revision7/open；普通文本 CLI 的 `context show` 实际返回 `ctx:raraf-romup-hasal`，结果原样保存供续接。Subject/Runtime/Memory 与11model roles READY，opportunity 四叶保持原值；没有新增付费 formation 或改写旧 cognition。
+
+## 初始数据库与 Portable 恢复
+
+现行数据库 schema 收敛到 `0001_foundation.sql`–`0004_indexes.sql`，直接声明 WorkContext text/anchors、Formation basis、ProducerSignature 字段与 workflow execution telemetry。删除三份旧增量 schema 及其递归 JSON 改名逻辑；Core/Kernel 同时删除没有独立语义的私有 bootstrap `bundle_revision`。认知 revision、epoch、来源身份与配置 revision 保留。首次检查发现 Schema evidence 的 `support` 判断被机械改名，恢复原语义后 configuration5、historical2、memory5、model_workflow1 场景通过。
+
+原持续实例先保存完整 PG archive，正常停机固定数据，再将 data-only 恢复到由四份当前 schema 初始化的新库。新库保留自己的 `_sqlx_migrations`，没有重写旧库迁移账本或加入旧 payload decoder。70张业务表、196行逐表 SHA-256、列合同与序列位置全部相同；原数据库、Blob、operator configuration、Secret 和两份完整备份仍保留。停机备份摘要为 `bbc34f0cbdd87e6db85b1dc630a7081ed76b14e84773e97305ccba1b8657c0f5`；本地 archive、数据摘要和恢复 manifest 位于 `data/research/results/deep-rebase-preservation/fresh-schema/`。新库公开读回同一 instanceId、Subject/Context revision7/open 与三个原 Memory trace。
+
+Windows GNULLVM release Kernel、两个 private DLL 与 source-less Portable 已重新构建。独立 home、colocated、独立 locator 后移动安装目录三种布局均通过 ZIP inventory SHA、SBOM/许可证、实际 boot/restart、固定数据库端口和缺失 PostgreSQL pack 拒绝检查。受控 wiring 结果不计作真实模型质量。该包的2333个文件摘要再次核对后，使用独立 locator 连接恢复库、原 instance identity 和 operator roots；只用 bundled Node/CLI/Client，Core 的 PATH 仅含 Windows System32。公开读取继续返回原三个精确 Memory trace、Context revision7/open、Subject/Runtime/Memory 与11个 model roles READY。
+
+此前8f28074的 Windows CI通过，Linux CI在 Resource continuation 发现 nullable `display_label` 被地址分配路径按必填 String读取。Resource owner改为先解码 typed descriptor，使用可空 label 发布地址；原失败场景及 Query correctness五项通过，workspace all-targets/all-features测试、Clippy、check:fast和格式／文档导航检查通过。
+
+Fresh Codex 经编译后的 Portable MCP，在同一 Subject/Context 完成第四次真实模型续接：545字节 `obs:lalof-sarus-muzis` 形成 `memrev:jazop-nakis-tipum`，实际 Doubao Pro/pro_minimal、wholeOccurrence trace；embedding committed12/requests2，指定自然语言 Query complete、该修订rank1，referenced use accepted1/duplicate0。Session关闭，Context revision9/open；38份原始命令结果保存在[Portable续接 corpus](corpus/deep-rebase/portable-continuation-2026-10-09.json)。随后正常停机、用同一 locator 和 bundled runtimes 重启，公开读回 instanceId 不变、Context9/open；三个原 Memory trace 的 JSON字节与重启前完全一致，摘要留在本地实例。另一 fresh Codex 正在验证重启后的实际 Query连续性。
+
+Windows只读盘点确认独立物理盘1的分区2为Linux filesystem GPT类型、无Windows盘符。只读 `ro,noload` WSL挂载及执行权限重试均返回 `WSL_E_ELEVATION_NEEDED_TO_MOUNT_DISK`；没有挂载或修改该盘。SAUC提取仍需管理员挂载或从Linux侧导出，相关旧材料继续保留。全仓其余原范围与最终CI／清理尚未完成。

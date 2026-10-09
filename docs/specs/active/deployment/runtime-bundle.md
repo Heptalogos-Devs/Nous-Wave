@@ -20,6 +20,8 @@ Configuration must declare the current `config_revision`. `nous init` and first 
 
 Managed-private database mode uses the installed PostgreSQL pack, a protected instance credential and the instance's fixed loopback port. External mode connects only to the configured endpoint. Cluster/version mismatch and port conflicts fail explicitly; startup does not upgrade, recreate or discard database state.
 
+The PRE_PRODUCTION database foundation is the current `0001_foundation.sql` through `0004_indexes.sql`. They declare the current owner shapes directly, including WorkContext text/anchors, Formation basis and model execution metadata. Superseded incremental schemas and payload decoders are removed. Existing cognition is preserved before a deliberate fresh-database restore; ordinary startup does not rewrite an older database's migration ledger.
+
 READY is published after database, Kernel, Core and discovery are available. Public startup output is redacted; bearer tokens are stored only in protected RunRoot. Graceful shutdown is available through stdin close, SIGINT and SIGTERM.
 
 Ordinary serve uses installed runtime packs and does not acquire them from the network. Runtime commands are:

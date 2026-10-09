@@ -3,6 +3,7 @@
 - [VCP 与 Native 冻结数值结果](vcp/README.md)：原输入、expected、容差与来源身份，算法检查直接读取这份研究数据。
 - [全仓重整 consumer 续接](deep-rebase/consumer-continuation-2026-10-09.json)与[执行重整后续接](deep-rebase/execution-continuation-2026-10-09.json)：真实 Codex/MCP 的来源、模型、trace、检索和使用结果原文，包括暴露的失败或身份遗漏；当前解释见[重整观察](../deep-rebase-2026-10-09.md)。
 - [Query 生命周期重整后续接](deep-rebase/query-continuation-2026-10-09.json)：producer 重整后的首次 dense degradation、显式 embedding preparation 和恢复查询原文。
+- [当前数据库与 Windows Portable 续接](deep-rebase/portable-continuation-2026-10-09.json)：四份初始 schema 新库的全表恢复摘要、真实 Codex/MCP／Doubao formation、trace、embedding、Query 和 use 原文；旧认知仍保留。
 
 tracked tree 保存 source manifest、少量 oracle metadata 和手工功能场景。下载正文、拆分文本、vectors、大型 source-output matrices 与 run outputs 保存于 ignored `data/research/`。
 

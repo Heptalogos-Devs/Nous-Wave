@@ -362,18 +362,6 @@ impl ConfigRegistryBuilder {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigurationBootstrapBundle {
-    pub bundle_revision: u32,
     pub core_descriptors: Vec<ConfigDescriptor>,
     pub deployment_document: Value,
-}
-
-impl ConfigurationBootstrapBundle {
-    pub fn validate_revision(&self) -> Result<()> {
-        if self.bundle_revision != 1 {
-            return Err(Error::Invalid(
-                "unsupported configuration bundle revision".into(),
-            ));
-        }
-        Ok(())
-    }
 }
