@@ -14,6 +14,7 @@ import {
 } from "./invocations.js";
 import { canonicalDigest } from "../digest.js";
 import { z } from "zod";
+import { modelProducer } from "./producer.js";
 
 const snapshotSchema = z.strictObject({
   cognitive_formed_at: z.string(),
@@ -275,26 +276,10 @@ export async function formObservation(
           epistemicClass: "derived",
           aboutness,
           tags: r.explicitTags,
-          producer: {
-            providerClass: result.producerMetadata.protocol,
-            operation: "memory_formation_text",
-            implementation: "ai-sdk@7.0.102/openai@4.0.67",
-            modelIdentity: result.producerMetadata.model,
-            modelRevision: result.producerMetadata.modelRevision,
-            modelRole: result.producerMetadata.modelRole,
-            modelProfile: result.producerMetadata.modelProfile,
-            executionProfile: result.producerMetadata.executionProfile,
-            inferenceControlsDigest:
-              result.producerMetadata.inferenceControlsDigest,
-            rolePolicyDigest: result.producerMetadata.rolePolicyDigest,
-            promptId: result.producerMetadata.promptId,
-            promptDigest: result.producerMetadata.promptDigest,
-
-            outputSchemaDigest: result.producerMetadata.outputSchemaDigest,
-            preprocessingIdentity: result.producerMetadata.promptId!,
-            preprocessingRevision: result.producerMetadata.promptDigest!,
-            configDigest: result.producerMetadata.configDigest,
-          },
+          producer: modelProducer(
+            result.producerMetadata,
+            "memory_formation_text",
+          ),
           basis: [
             {
               basis: {

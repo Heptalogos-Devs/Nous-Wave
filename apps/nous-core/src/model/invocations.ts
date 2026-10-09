@@ -139,6 +139,10 @@ type ReadyRole = {
 const snapshotSchema = z.strictObject({
   format: z.literal("nous.model.execution"),
   implementationDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  outputSchemaDigest: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
   configuration: modelConfigurationSchema,
   role: z.enum(roleNames),
   prompt: z
@@ -286,6 +290,7 @@ export class ModelInvocations {
     return snapshotSchema.parse({
       format: "nous.model.execution",
       implementationDigest: modelImplementations.provider,
+      outputSchemaDigest: providerContractForRole(name)?.digest,
       role: name,
       configuration: this.configuration,
       prompt: role.prompt,
@@ -323,6 +328,11 @@ export class ModelInvocations {
     const snapshot = snapshotSchema.parse(input);
     if (snapshot.implementationDigest !== modelImplementations.provider)
       throw new Error("Reserved model implementation unavailable");
+    if (
+      snapshot.outputSchemaDigest !==
+      providerContractForRole(snapshot.role)?.digest
+    )
+      throw new Error("Reserved model output contract unavailable");
     const policy = snapshot.configuration.roles[snapshot.role];
     if (!policy?.routes.includes(executionName))
       throw new Error("Reserved execution route is absent");

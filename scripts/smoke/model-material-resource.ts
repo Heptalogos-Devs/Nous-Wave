@@ -698,6 +698,11 @@ routes = ["memory_formation"]
   assert(
     recoveredFormation.memory && recoveredFormation.degradation.length === 0,
   );
+  const formationProducer = await restarted.material.producer({
+    subjectId,
+    id: recoveredFormation.memory.producerSignatureId!,
+  });
+  assert.match(formationProducer.implementation, /^ai-sdk:[a-f0-9]{64}$/);
   await cli("session", "show");
   console.log("Model/Material/Resource public smoke completed");
 } catch (error) {

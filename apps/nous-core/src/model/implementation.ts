@@ -42,6 +42,8 @@ export async function readModelImplementation(
       "identity.ts",
       "profiles.ts",
       "configuration.ts",
+      "producer.ts",
+      "schemas/provider.ts",
     ]),
     digest([
       "interpretation.ts",

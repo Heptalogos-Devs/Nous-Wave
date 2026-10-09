@@ -13,6 +13,7 @@ import {
   type ModelRoleSnapshot,
 } from "./invocations.js";
 import type { ModelRole } from "./roles.js";
+import { modelProducer } from "./producer.js";
 import { z } from "zod";
 import type { DerivedRepresentation } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { sampleVideo } from "./video.js";
@@ -153,29 +154,22 @@ export async function deriveMaterial(
         supersedes:
           representations.length === 0 ? request.supersedes : undefined,
         producer: {
-          providerClass: producerMetadata?.protocol ?? "deterministic",
-          operation:
-            kind === "image_description" || kind === "scene_description"
-              ? "image_interpretation"
-              : kind === "transcript"
-                ? "speech_transcription"
-                : kind === "extracted_text"
-                  ? "document_extraction"
-                  : "text_interpretation",
-          implementation: producerMetadata
-            ? producerMetadata.implementation
-            : "verified-utf8-decoding-v1",
-          modelIdentity: producerMetadata?.model,
-          modelRevision: producerMetadata?.modelRevision,
-          modelRole: producerMetadata?.modelRole,
-          modelProfile: producerMetadata?.modelProfile,
-          executionProfile: producerMetadata?.executionProfile,
-          inferenceControlsDigest: producerMetadata?.inferenceControlsDigest,
-          rolePolicyDigest: producerMetadata?.rolePolicyDigest,
-          promptId: producerMetadata?.promptId,
-          promptDigest: producerMetadata?.promptDigest,
-
-          outputSchemaDigest: producerMetadata?.outputSchemaDigest,
+          ...(producerMetadata
+            ? modelProducer(
+                producerMetadata,
+                kind === "image_description" || kind === "scene_description"
+                  ? "image_interpretation"
+                  : kind === "transcript"
+                    ? "speech_transcription"
+                    : kind === "extracted_text"
+                      ? "document_extraction"
+                      : "text_interpretation",
+              )
+            : {
+                providerClass: "deterministic",
+                operation: "document_extraction",
+                implementation: "verified-utf8-decoding-v1",
+              }),
           preprocessingIdentity: `${producerMetadata ? (producerMetadata.promptId ?? "standard-audio-transcription") : "verified-utf8"}/${strategy}`,
           preprocessingRevision: producerMetadata?.promptDigest ?? "1",
           configDigest:

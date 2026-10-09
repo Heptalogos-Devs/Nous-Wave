@@ -22,10 +22,7 @@ import {
   CommitJournalRequestSchema,
   type MaintenanceNeed,
 } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
-import {
-  ProducerSignatureSchema,
-  type ProducerSignature,
-} from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
+import { ProducerSignatureSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import {
   GenerationFailure,
   failedExecutionTelemetry,
@@ -34,7 +31,6 @@ import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "../model/runtime.js";
 import type {
   ModelRoleSnapshot,
-  ModelProducerMetadata,
   ExecutionTelemetry,
 } from "../model/invocations.js";
 import {
@@ -44,6 +40,7 @@ import {
   journalSynthesisSchema,
 } from "../model/schemas/longitudinal.js";
 import { canonicalDigest } from "../digest.js";
+import { modelProducer } from "../model/producer.js";
 
 const outcomeSchema = z.strictObject({
   status: z.enum([
@@ -93,31 +90,6 @@ const proposalSchema = z.discriminatedUnion("action", [
   }),
   z.strictObject({ action: z.literal("no_change") }),
 ]);
-
-function producer(
-  metadata: ModelProducerMetadata,
-  operation: string,
-): Omit<ProducerSignature, "$typeName"> {
-  return {
-    signatureHash: "",
-    providerClass: metadata.protocol,
-    operation,
-    implementation: metadata.implementation,
-    modelIdentity: metadata.model,
-    modelRevision: metadata.modelRevision,
-    modelRole: metadata.modelRole,
-    modelProfile: metadata.modelProfile,
-    executionProfile: metadata.executionProfile,
-    inferenceControlsDigest: metadata.inferenceControlsDigest,
-    rolePolicyDigest: metadata.rolePolicyDigest,
-    promptId: metadata.promptId,
-    promptDigest: metadata.promptDigest,
-    outputSchemaDigest: metadata.outputSchemaDigest,
-    preprocessingIdentity: metadata.promptId!,
-    preprocessingRevision: metadata.promptDigest!,
-    configDigest: metadata.configDigest,
-  };
-}
 
 export async function runModelMaintenance(
   kernel: KernelClient,
@@ -292,7 +264,10 @@ export async function runModelMaintenance(
             );
             request.producer = create(
               ProducerSignatureSchema,
-              producer(result.producerMetadata, "episode_segmentation_text"),
+              modelProducer(
+                result.producerMetadata,
+                "episode_segmentation_text",
+              ),
             );
             proposed.request = toJson(
               ApplyEpisodePartitionRequestSchema,
@@ -327,7 +302,10 @@ export async function runModelMaintenance(
               ProducerSignatureSchema,
               create(
                 ProducerSignatureSchema,
-                producer(result.producerMetadata, "concept_maintenance_text"),
+                modelProducer(
+                  result.producerMetadata,
+                  "concept_maintenance_text",
+                ),
               ),
             ),
             progress: [],
@@ -354,7 +332,10 @@ export async function runModelMaintenance(
               ProducerSignatureSchema,
               create(
                 ProducerSignatureSchema,
-                producer(result.producerMetadata, "memory_consolidation_text"),
+                modelProducer(
+                  result.producerMetadata,
+                  "memory_consolidation_text",
+                ),
               ),
             ),
             progress: [],
@@ -426,13 +407,10 @@ export async function runModelMaintenance(
                   text: point.text,
                   basis: point.basisKeys.map((key) => basis.get(key)!),
                 })),
-                producer: {
-                  $typeName: "nous.wave.v1alpha1.ProducerSignature",
-                  ...producer(
-                    result.producerMetadata,
-                    "journal_synthesis_text",
-                  ),
-                },
+                producer: modelProducer(
+                  result.producerMetadata,
+                  "journal_synthesis_text",
+                ),
               }),
             };
           }
