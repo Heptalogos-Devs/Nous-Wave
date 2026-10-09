@@ -24,7 +24,7 @@ Core 先解析 `config_revision`、`host` 和 `database` bootstrap，通过私�
 
 Live 修改作用于后续 operation；在途 operation 保留固定快照。RestartProcess 修改 desired snapshot 并返回 restart effect，active snapshot 在重启前不变。Core model/gateway/role/media/resource/consumer、`material.inputs` 与 `core_execution` 结构使用 RestartProcess。`core_execution` 拥有 Kernel RPC、maintenance RPC、工作、cleanup、need acknowledgement 和回应等待的 typed opportunity policy 、HTTP body byte budget 和 managed context track 上限（默认 256）、Query embedding cache entries（默认 128）及 rerank candidate 上限（默认 64）；host startup/shutdown timeout 和 runtime download timeout（默认 300000 ms）是 deployment-only bootstrap 参数。NewSubjectsOnly 更新供给默认，已有 Subject 保存已采用的 typed capability set。ServingRebuild 返回 owner rebuild effect；Serving 在下一次需要该 family 的 prepare 或显式 refresh 中构建并原子替换 generation。Projection status 按 family/space 返回 generation ID、Authority watermark、实际配置 digest 和当前所需 digest；Authority 或配置落后时为 STALE。
 
-Query、Authority formation 和 Serving build 使用固定 snapshot；影响输出语义的 key subset digest 包含对应 schema 与 reference profile identity。retrieval ranking/budgets、Memory accessibility、topology wave、EPA basis 和 longitudinal 参数的参考族位于 `config/reference/` 的版本化 JSON，owner 从目录快照解析 typed policy。
+Query、Authority formation 和 Serving build 使用固定 snapshot；影响输出语义的 key subset digest 包含对应 schema 与 reference profile identity。retrieval ranking/budgets、Memory accessibility、topology wave、EPA basis 和 longitudinal 参数的参考族位于 `config/reference/` 的当前 JSON，owner 从目录快照解析 typed policy。
 
 Artifact 上传预算为 `object_store.max_upload_bytes`，归 Material owner；Core multipart receiver 和 official Client 读取同一 active limit。Description segmentation 使用 `material.description_segment_bytes`，默认 2048 UTF-8 bytes，范围 4..65536；1 MiB input 与 512 region 是代码拥有的 hard safety ceilings。
 
@@ -102,7 +102,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `maintenance.max_model_calls_per_tick` | 4 | standalone tick 全局模型调用预算，范围 1..32 |
 | `maintenance.max_elapsed_ms_per_tick` | 60000 | standalone tick 全局 elapsed 毫秒预算，范围 1..900000 |
 | `episode.context_switch_count` | 2 | 形成边界所需变化的 context dimensions，范围 1..4 |
-| `episode.synopsis` | longitudinal-v1 | Developer：Episode member text synopsis 的 member/fragment/total byte 预算；同一 policy 用于 Query rendering 与 lexical/dense generation |
+| `episode.synopsis` | longitudinal | Developer：Episode member text synopsis 的 member/fragment/total byte 预算；同一 policy 用于 Query rendering 与 lexical/dense generation |
 | `episode.soft_idle_seconds` | 300 | 认知秒 |
 | `episode.hard_idle_seconds` | 1800 | 认知秒 |
 | `episode.settle_delay_seconds` | 300 | semantic review 的认知秒 |
@@ -112,7 +112,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `journal.max_span_seconds` | 86400 | Journal scope 的认知秒 |
 | `consolidation.settle_delay_seconds` | 300 | 整合前的认知秒 |
 | `consolidation.max_actions` | 8 | 一个 ordered model proposal 的 action 数；每项独立 owner mutation |
-| `consolidation.context` | longitudinal-v1 | Developer：query cue/candidate text 字符预算、candidate/support/provenance/entity 数上限；运行开始解析一次 |
+| `consolidation.context` | longitudinal | Developer：query cue/candidate text 字符预算、candidate/support/provenance/entity 数上限；运行开始解析一次 |
 
 `GrantMaintenance` 调用同时提供 operation/model-call/elapsed budgets；有效操作数还受当前 registry policy 限制。`maintenance.poll_interval_seconds`、`maintenance.worker_lease_seconds`、experience batch、member text、retention/retry/tick budget 设置均由 `cognitive-runtime` owner 注册，使用 Developer exposure、SystemOnly scope、Live apply mode 和 Operational semantic effect。其他以上设置允许 Subject override。retry 延迟为 `min(retry_max_seconds, retry_initial_seconds × 2^(连续失败次数−1))`。语义合同见 [纵向认知](../specs/active/cognitive-runtime/longitudinal-cognition.md)。
 
@@ -129,6 +129,6 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 ## Temporal、Concept activation 与 feedback
 
-`retrieval.query.concept_enrichment` 为 `off`（reference default）、`existing`、`model`，SubjectOverrideAllowed/Live/QueryPolicy。Existing 使用共享 Concept vectors；model 加入独立严格结构化 query role。变化只影响后续 preparation，不改写 durable Tags。QueryActivation 的最多八个 inferred Tags、cosine threshold 0.72 等算法参数位于 versioned reference profile，不扩成用户配置面。
+`retrieval.query.concept_enrichment` 为 `off`（reference default）、`existing`、`model`，SubjectOverrideAllowed/Live/QueryPolicy。Existing 使用共享 Concept vectors；model 加入独立严格结构化 query role。变化只影响后续 preparation，不改写 durable Tags。QueryActivation 的最多八个 inferred Tags、cosine threshold 0.72 等算法参数位于 当前 reference profile，不扩成用户配置面。
 
 `runtime.query_feedback_retention` 默认 604800 认知秒（七天）；bounded records 包含 query/activation digest、signals 与 returned exact refs，不保存正文。过期清理不删除已接受的 UseEvents。Historical artifact cache 复用 `serving.retired_grace_seconds` 与 read leases，不引入第二套 history DB/独立缓存政策。Semantic intervals 使用 captured Subject CognitiveClock，timeout/lease/retry 使用 infrastructure time。

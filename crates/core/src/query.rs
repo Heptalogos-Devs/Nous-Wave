@@ -264,7 +264,7 @@ fn default_result_limit() -> usize {
     // Explicit Rust callers may select the reference default; public requests
     // resolve omitted limits through the Runtime Configuration snapshot.
     let reference: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../config/reference/retrieval-ranking-v1.json"
+        "../../../config/reference/retrieval-ranking.json"
     ))
     .expect("retrieval reference profile");
     reference["values"]["retrieval.query.default_result_limit"]

@@ -46,9 +46,8 @@ pub fn register_maintenance_configuration(registry: &mut ConfigRegistryBuilder) 
             }
         },
     )?;
-    let reference = ReferenceProfile::parse(include_str!(
-        "../../../config/reference/longitudinal-v1.json"
-    ))?;
+    let reference =
+        ReferenceProfile::parse(include_str!("../../../config/reference/longitudinal.json"))?;
     registry.register(
         MAINTENANCE_ENABLED,
         "cognitive-runtime",

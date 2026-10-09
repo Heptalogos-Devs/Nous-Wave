@@ -1,6 +1,5 @@
 {
-  "identity": "longitudinal-v1",
-  "revision": 1,
+  "identity": "longitudinal",
   "values": {
     "episode.soft_idle_seconds": 300,
     "episode.hard_idle_seconds": 1800,

@@ -21,7 +21,7 @@ pub struct EpaPolicy {
     #[schemars(range(min = 0.0, max = 0.1))]
     pub representative_distance_epsilon: f64,
 }
-const REFERENCE: &str = include_str!("../../../config/reference/epa-v1.json");
+const REFERENCE: &str = include_str!("../../../config/reference/epa.json");
 pub const EPA_POLICY: ConfigKey<EpaPolicy> = ConfigKey::new("retrieval.epa");
 impl EpaPolicy {
     pub fn reference() -> Self {

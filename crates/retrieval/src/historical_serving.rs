@@ -1,7 +1,7 @@
 //! Historical generations share builders, durability and leases with current Serving.
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
-use crate::{lifecycle::OpenArtifact, query::ServingQuery, *};
+use crate::{query::ServingQuery, *};
 use nous_runtime::{BoundQuery, QueryPlan};
 impl ServingService {
     pub(crate) async fn prepare_historical_query(
@@ -78,39 +78,5 @@ impl ServingService {
             }
         }
         Ok((status, self.query_reader(bound, snapshot)?))
-    }
-}
-impl ServingSnapshot {
-    pub(crate) fn install(&mut self, id: ServingGenerationId, artifact: OpenArtifact) {
-        match artifact {
-            OpenArtifact::Lexical(index) => self.lexical = Some(index),
-            OpenArtifact::Dense(index, basis) => {
-                self.dense
-                    .retain(|old| old.space.space_hash != index.space.space_hash);
-                self.epa
-                    .retain(|old| old.basis.embedding_space != index.space.space_hash);
-                self.dense.push(index);
-                self.epa.extend(basis);
-            }
-            OpenArtifact::Topology(graph) => {
-                self.topology = Some(graph);
-                self.vcp = None;
-            }
-            OpenArtifact::Vcp(assets) => {
-                self.vcp = Some(assets);
-                self.topology = None;
-            }
-            OpenArtifact::Concept(generation) => {
-                self.concept.retain(|old| {
-                    old.space.as_ref().map(|s| &s.space_hash)
-                        != generation.space.as_ref().map(|s| &s.space_hash)
-                });
-                self.concept.push(generation);
-            }
-            OpenArtifact::Exact(postings) => {
-                self.postings = postings;
-                self.postings_generation = Some(id);
-            }
-        }
     }
 }

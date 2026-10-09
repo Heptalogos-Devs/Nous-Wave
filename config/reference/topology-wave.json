@@ -1,6 +1,5 @@
 {
-  "identity": "topology-wave-v1",
-  "revision": 1,
+  "identity": "topology-wave",
   "values": {
     "topology.wave.hub_beta": 0.35,
     "topology.wave.hub_penalty_min": 0.35,

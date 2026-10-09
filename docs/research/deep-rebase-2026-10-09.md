@@ -166,3 +166,11 @@ eadb42a的Windows CI通过；Linux未进入测试，显式runtime准备调用第
 Linux源码checkout为clean，HEAD`271976055fcbd75a7180d6ca8389ec8c80fa4437`，已经含SAUC/WebSocket实现。Windows恢复的Git HEAD与原盘一致，`HEAD:relay/channel/volcengine/asr.go`与工作文件归档逐字节一致，SHA`b62239f8c9bf27eccf36d55a1b9361734f91cc4f65c16a6f14ddfbab3752946e`。原补丁包含多段增量及Responses修正，直接对当前已修改源码再次单次apply-check不通过，未据此改写补丁。该仓库是partial clone，全refs bundle因缺promisor对象失败；完整本地Git目录和当前源码已按字节归档，没有下载未在原盘保存的上游history。补丁和当前已提交实现的可读保全已经验证，Windows New API运行服务未修改或部署。
 
 已有真实SAUC成功结论、Agent Plan channel、24kHz→16kHz规范化、Menon40秒WAV约7.2秒转写、MP3及production Transcript/formation/Query结果继续由[2026-10-04研究记录](observations.md#asr-与-responses)和原source manifest拥有，本轮不重新命名为当前运行结果。本地精确补丁、配置与archive/verification位于`data/research/results/deep-rebase-preservation/linux-sauc/`；密钥值没有进入Git或报告。
+
+## Linux 接续与 Serving 身份
+
+Linux 从最新 `master@09d67d4` 核对后接续同一分支的 `d5ca936`；Windows checkout 工作树干净，现有 Draft PR 仍为 #24。Windows 两个数据分区以只读方式挂载，保全区复制到 Linux 私有成果目录。独立 Linux SAUC 补丁与 Windows 提取副本的字节摘要相同，运行中的 New API 未修改。Windows 的现行 Portable、Subject、Context revision10/open 与实际模型输出继续保留；不把此前完整任务重跑为新的成功记录。
+
+剩余 owner 审查发现 Serving 仍保存手工实现计数，并在结构化 record 与 metadata 中复制同一身份。真实 PostgreSQL 回归将 record 的实现身份置为过期、保留原 metadata，原路径仍复用旧资产；修复后在相同 Authority watermark 上重建。实现身份改为投影代码、输入投影和锁定依赖的构建内容摘要，兼容判断只读取 owning record。当前与历史资产安装合并，Native Wave 的策略注册与图构建分开。独立目录中的实际构建脚本探针确认：投影源码变化改变身份、只改 Wave exposure 保持身份、LF/CRLF 与源码根移动保持身份。
+
+参考默认族直接使用当前 JSON 文件和 identity，删除 `-v1` 文件名及重复 revision 包装；当前所有读取方同步替换，没有旧格式解析。数值未改变，历史研究身份和 corpus 保持原样。Linux `check:fast`、35份 TypeScript 测试、Rust workspace/all-features 测试、Clippy 通过；长度门禁424份手写文件、15个警告、无拒绝。配置、历史 Authority、同水位重建和 reader 回收的真实数据库检查通过。干净 Linux 实例配置已通过离线 owner 校验，实际 Codex/模型任务、剩余配置与 owner 审查、成果提取和运行材料清理继续进行，整项重整尚未完成。

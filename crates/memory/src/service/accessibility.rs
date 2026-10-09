@@ -28,7 +28,7 @@ pub struct AccessibilityPolicy {
 impl Default for AccessibilityPolicy {
     fn default() -> Self {
         let reference = nous_configuration::ReferenceProfile::parse(include_str!(
-            "../../../../config/reference/memory-accessibility-v1.json"
+            "../../../../config/reference/memory-accessibility.json"
         ))
         .expect("accessibility reference profile");
         Self {
@@ -185,7 +185,7 @@ pub const DEEP_THRESHOLD: ConfigKey<f64> = ConfigKey::new("memory.accessibility.
 
 pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
     let reference = nous_configuration::ReferenceProfile::parse(include_str!(
-        "../../../../config/reference/memory-accessibility-v1.json"
+        "../../../../config/reference/memory-accessibility.json"
     ))?;
     let positive = |value: &f64| {
         if value.is_finite() && *value > 0.0 {

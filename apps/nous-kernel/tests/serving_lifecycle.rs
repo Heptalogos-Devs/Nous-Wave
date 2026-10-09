@@ -8,6 +8,54 @@ use test_support::query::{query, subject};
 use test_support::{database, form_input, observation, open_runtime_with_serving};
 
 #[tokio::test]
+async fn serving_reuse_reads_the_typed_implementation_identity() {
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime_with_serving(&url, &root, true, false, false).await;
+    let subject = subject(&runtime).await;
+    observation(&runtime, subject, "Retain this original material").await;
+    let need = ServingNeed {
+        lexical: true,
+        ..Default::default()
+    };
+    runtime.serving.prepare(subject, need).await.unwrap();
+    let original = runtime
+        .store
+        .serving_current(subject)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|record| record.family == "lexical")
+        .unwrap();
+    // The record is the owner of identity. A stale metadata copy must not authorize reuse.
+    sqlx::query(
+        "UPDATE serving_generations SET implementation_revision='outdated' WHERE generation_id=$1",
+    )
+    .bind(original.generation_id.0)
+    .execute(runtime.store.pool())
+    .await
+    .unwrap();
+    let status = runtime.serving.prepare(subject, need).await.unwrap();
+    assert!(status.rebuilt.contains(&"lexical".to_owned()));
+    let replacement = runtime
+        .store
+        .serving_current(subject)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|record| record.family == "lexical")
+        .unwrap();
+    assert_ne!(replacement.generation_id, original.generation_id);
+    assert_eq!(
+        replacement.authority_watermark,
+        original.authority_watermark
+    );
+    assert_eq!(replacement.implementation_revision.len(), 64);
+    for key in ["implementation", "implementation_revision", "config_digest"] {
+        assert!(replacement.metadata.get(key).is_none());
+    }
+}
+
+#[tokio::test]
 async fn cache_loss_rebuilds_at_the_same_watermark_and_retired_readers_are_protected() {
     let (root, url, _postgres) = database().await;
     let runtime = open_runtime_with_serving(&url, &root, true, false, false).await;

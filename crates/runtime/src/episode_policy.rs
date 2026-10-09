@@ -75,9 +75,8 @@ pub fn register_episode_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
     use nous_configuration::*;
-    let reference = ReferenceProfile::parse(include_str!(
-        "../../../config/reference/longitudinal-v1.json"
-    ))?;
+    let reference =
+        ReferenceProfile::parse(include_str!("../../../config/reference/longitudinal.json"))?;
     for (key, description) in [
         (
             SOFT_IDLE_KEY,

@@ -1,6 +1,5 @@
 {
-  "identity": "retrieval-ranking-v1",
-  "revision": 1,
+  "identity": "retrieval-ranking",
   "values": {
     "retrieval.rrf.k": 60.0,
     "retrieval.rrf.weights.exact": 4.0,

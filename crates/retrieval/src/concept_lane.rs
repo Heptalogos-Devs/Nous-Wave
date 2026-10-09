@@ -13,7 +13,7 @@ struct ActivationPolicy {
 }
 fn activation_policy() -> Result<ActivationPolicy> {
     serde_json::from_str(include_str!(
-        "../../../config/reference/query-concept-activation-v1.json"
+        "../../../config/reference/query-concept-activation.json"
     ))
     .map_err(|error| Error::Infrastructure(error.to_string()))
 }

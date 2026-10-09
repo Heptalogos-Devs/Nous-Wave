@@ -1,6 +1,5 @@
 {
-  "identity": "memory-accessibility-v1",
-  "revision": 1,
+  "identity": "memory-accessibility",
   "values": {
     "memory.accessibility.epsilon": 0.02,
     "memory.accessibility.tau_days": 30.0,

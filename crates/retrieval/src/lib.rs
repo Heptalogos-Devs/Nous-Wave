@@ -4,6 +4,8 @@
 
 mod epa_policy;
 pub use epa_policy::{EPA_POLICY, EpaPolicy};
+mod wave_policy;
+pub use wave_policy::*;
 mod mechanisms;
 pub use mechanisms::*;
 mod artifacts;

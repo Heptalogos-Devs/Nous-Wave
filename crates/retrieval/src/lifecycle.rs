@@ -3,12 +3,13 @@
 
 use crate::{
     artifacts::*,
-    build::{DenseManifest, implementation, implementation_revision},
+    build::{DenseManifest, implementation},
     *,
 };
 use sqlx::Row;
 use std::path::Path;
 
+#[derive(Clone)]
 pub(crate) enum OpenArtifact {
     Lexical(Arc<LexicalGeneration>),
     Dense(Arc<DenseGeneration>, Option<Arc<EpaBasisGeneration>>),
@@ -26,7 +27,7 @@ impl ServingService {
         snapshot: &nous_configuration::ConfigSnapshot,
     ) -> Result<String> {
         let capabilities = self.projection_capabilities(subject).await?;
-        let mut config = serde_json::json!({"schema":1,"memory_enabled":capabilities.memory});
+        let mut config = serde_json::json!({"memory_enabled":capabilities.memory});
         if family == "topology"
             && matches!(
                 snapshot.get(nous_runtime::COGNITIVE_PROFILE)?,
@@ -328,26 +329,15 @@ impl ServingService {
         record: &ServingRecord,
         snapshot: &nous_configuration::ConfigSnapshot,
     ) -> bool {
-        let identity = record
-            .metadata
-            .get("implementation")
-            .and_then(|v| v.as_str())
-            == Some(implementation(&record.family))
-            && record
-                .metadata
-                .get("implementation_revision")
-                .and_then(|v| v.as_u64())
-                == Some(implementation_revision(&record.family));
+        let identity = record.implementation_id == implementation(&record.family)
+            && record.implementation_revision == env!("NOUS_SERVING_IMPLEMENTATION_DIGEST");
         identity
             && self
                 .config_digest(record.subject, &record.family, snapshot)
                 .await
                 .ok()
                 .as_deref()
-                == record
-                    .metadata
-                    .get("config_digest")
-                    .and_then(|v| v.as_str())
+                == Some(record.config_digest.as_str())
     }
 
     fn loaded(&self, record: &ServingRecord) -> bool {
@@ -465,40 +455,8 @@ impl ServingService {
     }
 
     fn publish_snapshot(&self, record: &ServingRecord, artifact: OpenArtifact) {
-        self.publisher
-            .update_for(record.subject, |snapshot| match &artifact {
-                OpenArtifact::Lexical(index) => snapshot.lexical = Some(index.clone()),
-                OpenArtifact::Exact(postings) => {
-                    snapshot.postings = postings.clone();
-                    snapshot.postings_generation = Some(record.generation_id);
-                }
-                OpenArtifact::Topology(graph) => {
-                    snapshot.topology = Some(graph.clone());
-                    snapshot.vcp = None;
-                }
-                OpenArtifact::Vcp(assets) => {
-                    snapshot.vcp = Some(assets.clone());
-                    snapshot.topology = None;
-                }
-                OpenArtifact::Concept(generation) => {
-                    snapshot.concept.retain(|old| {
-                        old.space.as_ref().map(|s| &s.space_hash)
-                            != generation.space.as_ref().map(|s| &s.space_hash)
-                    });
-                    snapshot.concept.push(generation.clone());
-                }
-                OpenArtifact::Dense(index, basis) => {
-                    snapshot
-                        .dense
-                        .retain(|existing| existing.space.space_hash != index.space.space_hash);
-                    snapshot.dense.push(index.clone());
-                    snapshot.epa.retain(|existing| {
-                        existing.basis.embedding_space != index.space.space_hash
-                    });
-                    if let Some(basis) = basis {
-                        snapshot.epa.push(basis.clone());
-                    }
-                }
-            });
+        self.publisher.update_for(record.subject, |snapshot| {
+            snapshot.install(record.generation_id, artifact.clone());
+        });
     }
 }

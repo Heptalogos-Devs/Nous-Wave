@@ -86,7 +86,7 @@ impl ServingService {
         std::fs::rename(staging.path(), &target).map_err(io)?;
         let implementation_id = implementation(family).to_owned();
         let config_digest = self.config_digest(subject, family, snapshot).await?;
-        let implementation_revision = implementation_revision(family);
+        let implementation_revision = env!("NOUS_SERVING_IMPLEMENTATION_DIGEST");
         let cognitive_profile = (family == "topology")
             .then(|| topology_asset_profile(snapshot))
             .transpose()?;
@@ -109,7 +109,7 @@ impl ServingService {
             artifact_location: target.to_string_lossy().into_owned(),
             artifact_hash: hash,
             built_at: chrono::Utc::now(),
-            metadata: serde_json::json!({ "implementation": implementation_id, "implementation_revision": implementation_revision, "config_digest": config_digest, "checksums": sums, "cognitive_profile": cognitive_profile }),
+            metadata: serde_json::json!({ "checksums": sums, "cognitive_profile": cognitive_profile }),
         };
         let published = self.store.publish_generation(record).await?;
         if published.generation_id != id {
@@ -546,15 +546,6 @@ pub(crate) fn implementation(family: &str) -> &'static str {
 
 fn is_text(media: &str) -> bool {
     media.starts_with("text/") || media.contains("json") || media.contains("xml")
-}
-
-pub(crate) fn implementation_revision(family: &str) -> u64 {
-    match family {
-        "lexical" | "dense" | "exact" => 5,
-        "topology" => 12,
-        "concept" => 2,
-        _ => 1,
-    }
 }
 
 fn topology_asset_profile(

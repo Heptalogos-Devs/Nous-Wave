@@ -375,7 +375,7 @@ async fn rebuild_policy_and_provisioning_defaults_preserve_adopted_subject_state
     assert_eq!(stale.state, "STALE");
     assert_eq!(
         stale.config_digest.as_ref().unwrap(),
-        before.metadata["config_digest"].as_str().unwrap()
+        before.config_digest.as_str()
     );
     assert_ne!(
         stale.config_digest.as_deref(),
@@ -392,10 +392,7 @@ async fn rebuild_policy_and_provisioning_defaults_preserve_adopted_subject_state
         .find(|r| r.family == "topology")
         .unwrap();
     assert_ne!(before.generation_id, after.generation_id);
-    assert_ne!(
-        before.metadata["config_digest"],
-        after.metadata["config_digest"]
-    );
+    assert_ne!(before.config_digest, after.config_digest);
     let ready = nous_protocol::public::system_service_server::SystemService::get_projection_status(
         &service,
         status_request(),
