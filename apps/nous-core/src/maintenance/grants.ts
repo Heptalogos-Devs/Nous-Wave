@@ -79,7 +79,7 @@ export async function grantMaintenance(
     input.maxOperations > 32 ||
     input.maxModelCalls > 32 ||
     input.maxElapsedMs < 1 ||
-    input.maxElapsedMs > 300000
+    input.maxElapsedMs > 900000
   )
     throw new ConnectError(
       "Invalid maintenance opportunity envelope",

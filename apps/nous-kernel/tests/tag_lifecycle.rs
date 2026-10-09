@@ -417,3 +417,129 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
         .unwrap();
     assert_eq!(lineage, 4);
 }
+
+#[tokio::test]
+async fn lexical_allocation_retries_unique_conflicts_and_rolls_back_exhaustion() {
+    let (root, url, _postgres) = database().await;
+    let rt = open_runtime(&url, &root).await;
+    let subject = rt
+        .subjects
+        .create_subject(CreateSubject {
+            subject_id: None,
+            operation_id: OperationId::new(),
+            cognitive_seed: CognitiveSeedInput {
+                text: "schema_version = 1".into(),
+                format: nous_subject::COGNITIVE_SEED_FORMAT.into(),
+                provenance: serde_json::json!({}),
+            },
+            metadata: serde_json::json!({}),
+            capabilities: None,
+        })
+        .await
+        .unwrap()
+        .subject_id;
+    let reference = |value| CognitiveRef::Entity(EntityRef::new(value).unwrap());
+    let resident = rt
+        .store
+        .bind_identity(
+            subject,
+            reference("entity:proquint:resident"),
+            "Resident identity".into(),
+            vec!["Resident alias".into()],
+        )
+        .await
+        .unwrap();
+    // Exercise the real INSERT/ON CONFLICT path without changing production randomness.
+    // Sequences survive rollback, so exhaustion can be checked after the transaction fails.
+    sqlx::raw_sql(
+        r"CREATE SEQUENCE proquint_collision_attempts;
+        CREATE FUNCTION force_proquint_collision() RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE attempt bigint;
+        BEGIN
+            IF NEW.object_kind='entity' AND NEW.canonical_ref IN
+                ('entity:proquint:retry','entity:proquint:exhausted') THEN
+                attempt := nextval('proquint_collision_attempts');
+                IF (NEW.canonical_ref='entity:proquint:retry' AND attempt<=2)
+                    OR NEW.canonical_ref='entity:proquint:exhausted' THEN
+                    SELECT lexical_ref INTO NEW.lexical_ref FROM lexical_bindings
+                    WHERE object_kind='entity' AND canonical_ref='entity:proquint:resident';
+                END IF;
+            END IF;
+            RETURN NEW;
+        END $$;
+        CREATE TRIGGER proquint_collision BEFORE INSERT ON lexical_bindings
+            FOR EACH ROW EXECUTE FUNCTION force_proquint_collision();",
+    )
+    .execute(rt.store.pool())
+    .await
+    .unwrap();
+    let retried = rt
+        .store
+        .bind_identity(
+            subject,
+            reference("entity:proquint:retry"),
+            "Retried identity".into(),
+            vec!["Retried alias".into()],
+        )
+        .await
+        .unwrap();
+    assert_ne!(retried.lexical_ref, resident.lexical_ref);
+    assert_eq!(
+        nous_persistence::validate_lexical(&retried.lexical_ref).unwrap(),
+        "ent"
+    );
+    let replay = rt
+        .store
+        .ensure_identity_address(subject, reference("entity:proquint:retry"), String::new())
+        .await
+        .unwrap();
+    assert_eq!(replay.lexical_ref, retried.lexical_ref);
+    assert_eq!(replay.display_name, retried.display_name);
+    assert_eq!(replay.aliases, retried.aliases);
+    let attempts: i64 = sqlx::query_scalar("SELECT last_value FROM proquint_collision_attempts")
+        .fetch_one(rt.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(attempts, 3);
+    let error = rt
+        .store
+        .bind_identity(
+            subject,
+            reference("entity:proquint:exhausted"),
+            "Exhausted identity".into(),
+            vec!["Exhausted alias".into()],
+        )
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(error, Error::Infrastructure(message) if message == "LexicalRef collision retry bound exceeded")
+    );
+    let attempts: i64 = sqlx::query_scalar("SELECT last_value FROM proquint_collision_attempts")
+        .fetch_one(rt.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(attempts, 35);
+    let partial: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM lexical_bindings WHERE canonical_ref='entity:proquint:exhausted'",
+    )
+    .fetch_one(rt.store.pool())
+    .await
+    .unwrap();
+    assert_eq!(partial, 0);
+    let (status, unchanged) = rt
+        .store
+        .resolve_identity(subject, "entity", &resident.lexical_ref, true)
+        .await
+        .unwrap();
+    assert_eq!(status, "BOUND");
+    assert_eq!(unchanged.len(), 1);
+    assert_eq!(unchanged[0].canonical, resident.canonical);
+    assert_eq!(unchanged[0].display_name, resident.display_name);
+    assert_eq!(unchanged[0].aliases, resident.aliases);
+    let (status, _) = rt
+        .store
+        .resolve_identity(subject, "entity", "Exhausted alias", false)
+        .await
+        .unwrap();
+    assert_eq!(status, "UNKNOWN_REFERENCE");
+}

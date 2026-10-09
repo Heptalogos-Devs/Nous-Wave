@@ -50,4 +50,6 @@ Session state is isolated; WorkContexts belong to Subject and can continue acros
 
 Model-backed calls have a longer Client default deadline; explicit `timeoutMs` and cancellation take precedence. READY describes executable configured prerequisites, not successful provider calls or prepared Serving. `system.projections({ subjectId })` reports serving state; `model.prepareEmbeddings` builds bounded material using the configured provider batch size. Real query diagnostics and degradation decide whether a requested lane participated.
 
+Explicit maintenance grants accept 1..900000 elapsed milliseconds. Client deadline follows that exact opportunity plus 5 seconds for acknowledgment; it does not cap a longer opportunity at a single model route's timeout. CLI/MCP use the same grant. MCP's subprocess permits the explicit opportunity plus response slack; configure the host tool timeout to cover it (960 seconds for a 900000 ms grant). Per-model execution deadlines and model-call counts still apply to each route, including fallback.
+
 [Reference index](README.md) · [Documentation index](../INDEX.md)

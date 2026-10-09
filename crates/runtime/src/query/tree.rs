@@ -242,7 +242,9 @@ impl CognitiveRuntimeService {
                 &branch.topology_seed_refs,
             );
             let mut local = planned_lanes(&branch.source_query);
-            if bound.concept_enrichment != super::ConceptEnrichment::Off {
+            if !branch.source_query.is_exact_read()
+                && bound.concept_enrichment != super::ConceptEnrichment::Off
+            {
                 local.push(EvidenceFamily::TagDirect);
                 local.sort();
                 local.dedup();
@@ -278,6 +280,11 @@ impl CognitiveRuntimeService {
             branch_plan.resource_limit = allocation(plan.resource_limit, index, count);
             branch_plan.expand_topology =
                 branch.enabled_lanes.contains(&EvidenceFamily::TopologyWave);
+            if branch.source_query.is_exact_read() {
+                branch.concept_enrichment = super::ConceptEnrichment::Off;
+                branch_plan.concept_enrichment = super::ConceptEnrichment::Off;
+                branch_plan.sense_cues = false;
+            }
             let mut value = self
                 .query_atom_with_plan(
                     branch.clone(),

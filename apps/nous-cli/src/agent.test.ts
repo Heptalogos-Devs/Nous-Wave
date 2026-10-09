@@ -154,9 +154,22 @@ describe("Agent CLI protocol", () => {
     };
     const prepareQuery = vi.fn().mockResolvedValue(prepared);
     const query = vi.fn();
-    const client = { cognition: { prepareQuery, query } } as unknown as Awaited<
-      ReturnType<typeof connectNousInstance>
-    >;
+    const resolve = vi.fn(async ({ kind }: { kind: string }) => ({
+      status: "BOUND",
+      candidates: [
+        {
+          canonical: {
+            kind,
+            value:
+              kind === "subject" ? "s" : kind === "session" ? "sess" : "work",
+          },
+        },
+      ],
+    }));
+    const client = {
+      cognition: { prepareQuery, query },
+      identity: { resolve },
+    } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
     const connect = vi.fn().mockResolvedValue(client);
     const result = await runCli(
       [
@@ -168,11 +181,11 @@ describe("Agent CLI protocol", () => {
         "--run-root",
         "/tmp/nous",
         "--subject",
-        "s",
+        "sub:bahog-hijol-mokor",
         "--session",
-        "sess",
+        "session:babab-babab-babab",
         "--work-context",
-        "work",
+        "ctx:zuzuz-zuzuz-zuzuz",
       ],
       connect,
     );
@@ -300,14 +313,14 @@ it("formation passes explicit Tag identities without an inference model", async 
       "--subject",
       "s",
       "--tag",
-      "tag:amber-lotus-cello-river,tag:44444444-4444-4444-8444-444444444444",
+      "tag:kavaj-logiv-bufog,tag:44444444-4444-4444-8444-444444444444",
     ],
     vi.fn().mockResolvedValue(client),
   );
   expect(resolve).toHaveBeenCalledWith({
     subjectId: "s",
     kind: "tag",
-    locator: { case: "lexicalRef", value: "tag:amber-lotus-cello-river" },
+    locator: { case: "lexicalRef", value: "tag:kavaj-logiv-bufog" },
   });
   expect(formFromObservation).toHaveBeenCalledWith(
     expect.objectContaining({

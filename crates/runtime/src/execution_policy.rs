@@ -12,7 +12,11 @@ pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()
         registry.register(
             key,
             "cognitive-runtime",
-            "Execution lease duration.",
+            if key.path() == MODEL_WORKFLOW_LEASE.path() {
+                "General model workflow lease duration; maintenance-bound reservations also cover the valid parent opportunity."
+            } else {
+                "Execution lease duration."
+            },
             default,
             ConfigExposure::Developer,
             ConfigScopePolicy::SystemOnly,

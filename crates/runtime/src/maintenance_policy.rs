@@ -192,7 +192,7 @@ fn register_work_state_configuration(registry: &mut ConfigRegistryBuilder) -> Re
             MAX_ELAPSED,
             "Standalone tick elapsed budget in infrastructure milliseconds.",
             60000,
-            300000,
+            900000,
         ),
     ] {
         registry.register(

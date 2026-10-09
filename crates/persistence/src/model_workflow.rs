@@ -69,7 +69,7 @@ impl AuthorityStore {
         let maintenance_trigger = maintenance
             .and_then(|claim| claim.get("trigger_revision"))
             .and_then(Value::as_i64);
-        let maintenance_need_id = if let Some(claim) = maintenance {
+        let (maintenance_need_id, maintenance_lease_until) = if let Some(claim) = maintenance {
             let need: Uuid = claim
                 .get("need_id")
                 .and_then(Value::as_str)
@@ -82,16 +82,16 @@ impl AuthorityStore {
                 .ok_or_else(|| Error::Invalid("maintenance lease required".into()))?
                 .parse()
                 .map_err(|_| Error::Invalid("invalid maintenance lease".into()))?;
-            let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp() AND trigger_revision>=$4)")
-                .bind(subject.0).bind(need).bind(token).bind(maintenance_trigger.ok_or_else(|| Error::Invalid("maintenance trigger required".into()))?).fetch_one(&mut *tx).await.map_err(db)?;
-            if !valid {
+            let until: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar("SELECT lease_until FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp() AND trigger_revision>=$4")
+                .bind(subject.0).bind(need).bind(token).bind(maintenance_trigger.ok_or_else(|| Error::Invalid("maintenance trigger required".into()))?).fetch_optional(&mut *tx).await.map_err(db)?;
+            let Some(until) = until else {
                 return Err(Error::Conflict(
                     "maintenance lease expired or changed".into(),
                 ));
-            }
-            Some(need)
+            };
+            (Some(need), Some(until))
         } else {
-            None
+            (None, None)
         };
 
         sqlx::query("INSERT INTO model_workflow_operations(subject_id,owner,operation_key,semantic_digest,snapshot,maintenance_need_id,maintenance_trigger_revision) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING").bind(subject.0).bind(owner).bind(key).bind(digest).bind(snapshot).bind(maintenance_need_id).bind(maintenance_trigger).execute(&mut *tx).await.map_err(db)?;
@@ -115,7 +115,10 @@ impl AuthorityStore {
             None
         };
         if let Some(token) = token {
-            sqlx::query("UPDATE model_workflow_operations SET lease_token=$4,lease_until=clock_timestamp()+($5::double precision * interval '1 second'),updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(subject.0).bind(owner).bind(key).bind(token).bind(lease_seconds as f64).execute(&mut *tx).await.map_err(db)?;
+            // The enclosing, validated maintenance claim already authorizes
+            // this opportunity. A shorter general workflow default must not
+            // expire its model proposal before the parent can acknowledge it.
+            sqlx::query("UPDATE model_workflow_operations SET lease_token=$4,lease_until=GREATEST(clock_timestamp()+($5::double precision * interval '1 second'),$6::timestamptz),updated_at=now() WHERE subject_id=$1 AND owner=$2 AND operation_key=$3").bind(subject.0).bind(owner).bind(key).bind(token).bind(lease_seconds as f64).bind(maintenance_lease_until).execute(&mut *tx).await.map_err(db)?;
         }
         tx.commit().await.map_err(db)?;
         Ok(WorkflowReservation {

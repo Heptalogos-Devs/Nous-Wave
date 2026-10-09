@@ -2,9 +2,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from "vitest";
-import { createMcpServer } from "./mcp.js";
+import { createMcpServer, cliCommandTimeoutMs } from "./mcp.js";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/client";
+
+test("an explicitly longer maintenance opportunity survives the MCP subprocess boundary", () => {
+  expect(
+    cliCommandTimeoutMs(["maintenance", "grant", "--max-elapsed-ms", "900000"]),
+  ).toBe(915000);
+  expect(
+    cliCommandTimeoutMs([
+      "--subject",
+      "sub:known",
+      "maintenance",
+      "grant",
+      "--max-elapsed-ms=600000",
+    ]),
+  ).toBe(615000);
+  expect(
+    cliCommandTimeoutMs(["maintenance", "grant", "--max-elapsed-ms", "bad"]),
+  ).toBe(360000);
+  expect(
+    cliCommandTimeoutMs(["query", "maintenance grant --max-elapsed-ms=900000"]),
+  ).toBe(360000);
+});
 
 test("MCP forwards exact argv, serializes consumer state, and preserves CLI errors", async () => {
   const seen: string[][] = [];

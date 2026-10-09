@@ -75,7 +75,8 @@ impl QueryPlan {
                     retrieval_policy.validation_min,
                     retrieval_policy.validation_max,
                 ),
-            sense_cues: query.capabilities.residual_sensing == RequirementStrength::Required,
+            sense_cues: !query.is_exact_read()
+                && query.capabilities.residual_sensing == RequirementStrength::Required,
             expand_topology: enabled_lanes.contains(&EvidenceFamily::TopologyWave)
                 && retrieval_policy.cognitive_profile.requirements().topology,
             topology_rounds: retrieval_policy.topology_hops[index],
@@ -96,6 +97,9 @@ impl QueryPlan {
     }
 
     pub fn serving_need(&self, query: &CognitiveQuery) -> ServingNeed {
+        if query.is_exact_read() {
+            return ServingNeed::default();
+        }
         let has_text = query
             .scopes()
             .into_iter()
@@ -185,5 +189,37 @@ mod tests {
         let mut value = query(CognitiveEffort::Normal);
         value.result_need.limit = 12;
         assert_eq!(QueryPlan::for_query(&value).final_validation_budget, 48);
+    }
+
+    #[test]
+    fn exact_read_is_scoped_and_does_not_require_serving() {
+        let mut value = query(CognitiveEffort::Deep);
+        value.expression.targets.push(QueryTarget::Exact {
+            reference: CognitiveRef::Memory(MemoryId::new()),
+        });
+        value.session = Some(SessionId::new());
+        value.exploration = ExplorationIntent::BoundedAssociative;
+        value.capabilities.residual_sensing = RequirementStrength::Required;
+        let plan = QueryPlan::for_query(&value);
+        assert_eq!(plan.enabled_lanes, vec![EvidenceFamily::Exact]);
+        assert!(!plan.expand_topology);
+        assert!(!plan.sense_cues);
+        assert_eq!(plan.serving_need(&value), ServingNeed::default());
+        let atom = value.expression.clone();
+        value.expression.operation = QueryOperation::Any;
+        value.expression.cues.clear();
+        value.expression.children = vec![atom.clone(), atom.clone()];
+        // Empty child targets inherit the parent's exact target.
+        value.expression.children[0].targets.clear();
+        assert!(value.is_exact_read());
+        assert_eq!(
+            QueryPlan::for_query(&value).enabled_lanes,
+            vec![EvidenceFamily::Exact]
+        );
+        value.expression.targets.clear();
+        assert!(!value.is_exact_read());
+        let mixed = QueryPlan::for_query(&value);
+        assert!(mixed.enabled_lanes.contains(&EvidenceFamily::Exact));
+        assert!(mixed.enabled_lanes.contains(&EvidenceFamily::Lexical));
     }
 }

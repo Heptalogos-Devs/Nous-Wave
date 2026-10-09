@@ -10,6 +10,7 @@ Runtime (crates/runtime) owns Session, ResidentSet, UseEvent, accessibility eval
 - Session 的 foreground WorkContext binding、ResidentSet、runtime revision 和 activity 按 Session 隔离；WorkContext identity 属于 Subject，可以跨 Session 延续。
 - Runtime candidates 只来自指定 Session 的 exact resident revisions 与当前 Situation refs；Subject membership 不能替代 residency。
 - Session 属于同一 Subject 且未 closed 才能参与带 Session 的 runtime operation；closed/foreign session 返回 `FAILED_PRECONDITION`。
+- 同 Subject 的 `GetSession` 是 metadata read，可读取 closed Session，不选中、不重新打开或推进 activity/runtime revision。
 
 ## UseEvent
 

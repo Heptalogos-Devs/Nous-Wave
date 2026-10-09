@@ -417,7 +417,30 @@ pub struct CognitiveQuery {
 }
 
 impl CognitiveQuery {
+    /// Exact targets close the candidate set within their expression scope.
+    /// Child scopes inherit targets unless they supply their own, just as in
+    /// Runtime tree execution. A mixed tree still permits discovery elsewhere.
+    pub fn is_exact_read(&self) -> bool {
+        fn exact(node: &CognitiveQueryExpr, inherited: &[QueryTarget]) -> bool {
+            let targets = if node.targets.is_empty() {
+                inherited
+            } else {
+                &node.targets
+            };
+            if node.operation == QueryOperation::Atom {
+                targets
+                    .iter()
+                    .any(|target| matches!(target, QueryTarget::Exact { .. }))
+            } else {
+                !node.children.is_empty() && node.children.iter().all(|child| exact(child, targets))
+            }
+        }
+        exact(&self.expression, &[])
+    }
     pub fn requests_resources(&self) -> bool {
+        if self.is_exact_read() {
+            return false;
+        }
         self.projection.domains.contains(&ResultDomain::Resource)
             || self.resources.synopsis_only
             || self.exploration == ExplorationIntent::Global

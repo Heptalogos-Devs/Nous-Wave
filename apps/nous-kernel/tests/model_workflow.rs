@@ -135,6 +135,61 @@ async fn workflow_reservation_conflict_proposal_resume_and_outcome_replay() {
     assert!(completed.lease_token.is_none());
     assert_eq!(completed.snapshot, serde_json::json!({}));
     assert_owner_validation(&runtime.store, subject, &key).await;
+    assert_maintenance_workflow_keeps_parent_opportunity(&runtime, subject).await;
+}
+
+async fn assert_maintenance_workflow_keeps_parent_opportunity(
+    runtime: &nous_kernel::NousRuntime,
+    subject: nous_core::SubjectId,
+) {
+    let need_id = runtime
+        .cognition
+        .enqueue_maintenance(nous_runtime::MaintenanceRequest {
+            subject,
+            kind: "memory_consolidate".into(),
+            scope_kind: "subject".into(),
+            scope_ref: subject.0.to_string(),
+            trigger_authority_seq: 0,
+            due_at: chrono::Utc::now(),
+            priority: 1,
+        })
+        .await
+        .unwrap();
+    let needs = runtime
+        .cognition
+        .lease_maintenance(subject, &["memory_consolidate".into()], 1, 60, None)
+        .await
+        .unwrap();
+    let need = needs.iter().find(|need| need.need_id == need_id).unwrap();
+    let key = OperationId::new().0.to_string();
+    let snapshot = serde_json::json!({"maintenance_claim": {
+        "need_id": need_id,
+        "lease_token": need.lease_token,
+        "trigger_revision": need.trigger_revision,
+    }});
+    let reservation = runtime
+        .store
+        .reserve_model_workflow(subject, "memory", &key, "bounded maintenance", &snapshot, 1)
+        .await
+        .unwrap();
+    let workflow_until: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT lease_until FROM model_workflow_operations WHERE subject_id=$1 AND owner='memory' AND operation_key=$2").bind(subject.0).bind(&key).fetch_one(runtime.store.pool()).await.unwrap();
+    assert!(
+        workflow_until >= need.lease_until.unwrap(),
+        "a shorter workflow default must not cancel the already authorized maintenance opportunity"
+    );
+    runtime
+        .store
+        .save_model_workflow(
+            subject,
+            "memory",
+            &key,
+            reservation.lease_token.unwrap(),
+            Some(&serde_json::json!({"action":"no_change"})),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
 }
 
 async fn assert_owner_validation(

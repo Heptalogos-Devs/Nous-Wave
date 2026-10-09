@@ -8,8 +8,8 @@ const resolve = async (kind: string, locator: { value: string }) => ({
   canonical: { kind, value: `entity:${locator.value}` },
   lexicalRef:
     locator.value === "Alice"
-      ? "ent:amber-lotus-cello-river"
-      : "ent:quiet-piano-mint-cloud",
+      ? "ent:fasid-jizih-kudah"
+      : "ent:rofas-nagal-lifod",
 });
 it("accepts Unicode intent, pronouns and ordinary punctuation without closure heuristics", () => {
   for (const text of [
@@ -61,7 +61,7 @@ it("binds names exactly, sorts participants, keeps text and rejects duplicate id
     now,
   );
   expect(result.boundCanonical).toContain(
-    "@e(ent:amber-lotus-cello-river,ent:quiet-piano-mint-cloud)",
+    "@e(ent:fasid-jizih-kudah,ent:rofas-nagal-lifod)",
   );
   expect(result.expression.cues.map((c) => c.cue.case)).toEqual([
     "text",

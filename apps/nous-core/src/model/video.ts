@@ -37,7 +37,10 @@ export async function sampleVideo(
   const env: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(process.env))
     if (!secretSet.has(name.toUpperCase())) env[name] = value;
-  const run = (args: string[]) =>
+  const run = (
+    phase: "version" | "metadata" | "frame" | "audio",
+    args: string[],
+  ) =>
     new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
       execFile(
         executable,
@@ -53,7 +56,7 @@ export async function sampleVideo(
           if (error)
             reject(
               new Error(
-                "FFmpeg execution unavailable, failed or exceeded bounds",
+                `FFmpeg ${phase} execution unavailable, failed or exceeded bounds`,
               ),
             );
           else resolve({ stdout, stderr });
@@ -61,7 +64,8 @@ export async function sampleVideo(
       );
     });
   try {
-    const version = (await run(["-version"])).stdout.split(/\r?\n/)[0] ?? "";
+    const version =
+      (await run("version", ["-version"])).stdout.split(/\r?\n/)[0] ?? "";
     if (!version.startsWith("ffmpeg version "))
       throw new Error("Configured executable is not FFmpeg");
     const input = join(root, "source.media");
@@ -76,7 +80,7 @@ export async function sampleVideo(
       "-format_whitelist",
       "mov,matroska,ogg,avi,mpeg,mpegts",
     ];
-    const metadata = await run([
+    const metadata = await run("metadata", [
       ...inputArgs,
       "-i",
       input,
@@ -84,6 +88,9 @@ export async function sampleVideo(
       "0:v:0",
       "-t",
       "0",
+      // Probe stream metadata without depending on a null-output video encoder.
+      "-c:v",
+      "copy",
       "-f",
       "null",
       "-",
@@ -107,7 +114,7 @@ export async function sampleVideo(
             (policy.max_frames - 1);
       requested.push(at);
       const output = join(root, `frame-${ordinal}.jpg`);
-      const info = await run([
+      const info = await run("frame", [
         ...inputArgs,
         "-ss",
         String(at),
@@ -164,7 +171,7 @@ export async function sampleVideo(
     if (includeAudio && hasAudio) {
       try {
         const path = join(root, "audio.wav");
-        await run([
+        await run("audio", [
           ...inputArgs,
           "-i",
           input,

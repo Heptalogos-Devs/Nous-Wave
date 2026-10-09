@@ -177,7 +177,7 @@ export const commandInventory = {
       parameters: [
         "--max-operations 1..32",
         "--max-model-calls 0..32",
-        "--max-elapsed-ms 1..300000",
+        "--max-elapsed-ms 1..900000",
       ],
       description: "Host authorizes a bounded maintenance opportunity",
     },
@@ -216,7 +216,15 @@ export const commandInventory = {
       ],
     },
     { command: "subject create|list|use", parameters: ["[id]"] },
-    { command: "session open|show|close" },
+    {
+      command: "session open|close",
+      purpose: "Open a new Session or close the selected Session",
+    },
+    {
+      command: "session show [reference]",
+      purpose:
+        "Read a returned Session reference/name, including a closed Session, without selecting or reopening it; omit the reference to read local selection",
+    },
     {
       command: "observe text|file",
       parameters: [
@@ -236,7 +244,12 @@ export const commandInventory = {
     },
     {
       command: "derive",
-      parameters: ["<SourceRegion reference>", "--strategy <strategy>"],
+      parameters: [
+        "<SourceRegion reference>",
+        "--strategy description_only|direct_structured|describe_then_structure",
+      ],
+      description:
+        "Select the derived output pipeline. Video input_mode is direct|frames in the video configuration object; inspect it with config describe video / config get video. Frame sampling records source/timestamp coverage in the interpretation, without providing a separate frame Artifact export.",
     },
     { command: "embeddings prepare", parameters: ["--max-batches <n>"] },
     { command: "trace", parameters: ["<canonical-or-lexical-ref>"] },

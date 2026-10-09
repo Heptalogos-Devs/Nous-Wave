@@ -268,7 +268,7 @@ export function createNousClient(transport: Transport) {
       reportUse: call(runtime.reportUse),
       grantMaintenance: call(
         cognition.grantMaintenance,
-        (input) => Math.min(input.maxElapsedMs ?? 30000, 300000) + 5000,
+        (input) => (input.maxElapsedMs ?? 30000) + 5000,
       ),
       recall: async (
         subjectId: string,

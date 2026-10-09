@@ -17,7 +17,7 @@ context and exploration are optional ways to make its meaning more precise.
   and description. A Tag can express a topic, rule, experience pattern or a
   sentence-like idea. Its meaning can be embedded for semantic retrieval.
 - **LexicalRef**: a stable Agent-readable reference such as
-  `mem:amber-lotus-cello-river`. Names discover identities; a returned LexicalRef
+  `mem:zimug-tikub-lulid`. Names discover identities; a returned LexicalRef
   lets you continue using that exact identity. Never invent a LexicalRef.
 - **WorkContext**: a bounded current task or question, with a purpose and exact
   cognition references, context text and real Entity/Tag anchors. A Session can
@@ -75,11 +75,16 @@ recalls its direct attachments. Names must resolve uniquely; ambiguity never
 turns into a vector guess. Use the chosen candidate's LexicalRef on retry.
 
 ```nousql
-Inspect this cognition @ref(mem:amber-lotus-cello-river)
+Inspect this cognition @ref(mem:zimug-tikub-lulid)
 ```
 
 This example shows syntax only. Replace its illustrative reference with a real
 returned reference. `@ref` is an exact read; result projection still applies.
+It returns only the bound target, without similarity retrieval, current-context
+candidates, concept enrichment, or model reranking. A mutable object reference
+selects its head in the current or `$asof` view. `$history` permits eligible prior
+revisions but does not turn an exact object read into revision enumeration; use
+an immutable revision reference to inspect a particular older version.
 Other selectors are cues, not a promise to return that object itself.
 
 ## 4. Semantic text is different from a Tag

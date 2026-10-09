@@ -8,6 +8,21 @@ import { z } from "zod";
 
 type Execute = (args: string[]) => Promise<CallToolResult>;
 
+/** Honor an explicit opportunity through the process boundary; ordinary calls stay bounded. */
+export function cliCommandTimeoutMs(args: readonly string[]) {
+  const command = args.indexOf("maintenance");
+  if (command < 0 || args[command + 1] !== "grant") return 360000;
+  const option = args.findIndex((arg) => /^--max-elapsed-ms(?:=|$)/.test(arg));
+  if (option < 0) return 360000;
+  const text = args[option]!.includes("=")
+    ? args[option]!.slice(args[option]!.indexOf("=") + 1)
+    : args[option + 1];
+  const elapsed = text && /^\d+$/.test(text) ? Number(text) : NaN;
+  return Number.isSafeInteger(elapsed) && elapsed > 0 && elapsed <= 900000
+    ? Math.max(360000, elapsed + 15000)
+    : 360000;
+}
+
 /** One connection owns one CLI working set; concurrent tool requests cannot race it. */
 export function createMcpServer(execute: Execute) {
   const server = new McpServer({ name: "nous", version: "0.1.0" });
@@ -96,7 +111,11 @@ export function cliExecutor(options: {
           options.consumer,
           ...args,
         ],
-        { windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 360000 },
+        {
+          windowsHide: true,
+          maxBuffer: 8 * 1024 * 1024,
+          timeout: cliCommandTimeoutMs(args),
+        },
       );
       return {
         content: [

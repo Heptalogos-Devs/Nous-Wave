@@ -22,13 +22,15 @@ Agent [强烈建议显式化能够可靠识别的指称](../agent/NOUSQL.md#pref
 
 相对时间使用 query preparation 捕获的 Subject CognitiveClock。`$asof(timestamp)`/`$asof(ago=30d)` 选择 Authority 知识截点；`$history` 允许 eligible prior cognition revisions 作为独立 documents。二者可组合，与五轴过滤独立。默认 current view 只投影 effective heads。
 
+`@ref` 将该 scope 的候选集合闭合为绑定的 exact targets，不执行相似检索、Runtime resident recall、概念 enrichment 或模型 rerank。整个查询只有 exact scopes 时直接访问语义 owner，不依赖 Serving 或模型。对象引用绑定 current/`$asof` view 的 head；`$history` 不将该 exact 对象展开成所有历史版本，指定旧版应使用不可变 revision 引用。Projection、时间和生命周期 hard constraints 仍生效。
+
 Historical exact binding、名称/别名、Tag canonicalization、immutable descriptors、attachments、AssociationEvidence、Schema links、Entity bindings 和 Material interpretations 使用截点状态。当前权限撤销、purge 与物理缺失仍是硬约束。冻结 QueryContextSnapshot 中晚于截点的 cognition anchors 在 representation/activation 前剔除，当前问题和 purpose 保留。
 
 ## 直接召回、概念与扩散
 
 Tag 是稳定身份与可修订 label/description/kind_hint 组成的 embeddable semantic concept。共享 Concept generation 持有 canonical text/digest、可选 vector 与一跳 attachment postings；dense、Native、VCP 使用同一资产。无向量 postings 独立可用，不要求 embedding 才能 direct Tag recall。
 
-QueryActivation 统一 explicit Tags、exact/current cognition、Entity/Schema cues、可选 inferred Tags、novel hypotheses、provenance 和 query embedding。`retrieval.concept.enrichment` 为 off/existing/model，默认 off；existing 使用共享向量，model 使用独立严格结构化角色且只能选 catalog keys 或提供 ephemeral 文本，不创建 Authority Tag。
+QueryActivation 统一 explicit Tags、exact/current cognition、Entity/Schema cues、可选 inferred Tags、novel hypotheses、provenance 和 query embedding。`retrieval.query.concept_enrichment` 为 off/existing/model，默认 off；existing 使用共享向量，model 使用独立严格结构化角色且只能选 catalog keys 或提供 ephemeral 文本，不创建 Authority Tag。
 
 `$explore` 明确开启 bounded associative diffusion；没有它不启用 Native/VCP topology。Agent 不选择物理算法，profile 与数值政策由 Host Configuration 决定。缺少兼容资产时显式 unavailable/degraded，不用 future current assets 替代。
 

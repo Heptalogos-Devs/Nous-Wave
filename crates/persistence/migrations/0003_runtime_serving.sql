@@ -265,13 +265,12 @@ CREATE TABLE lexical_bindings (
     lexical_ref text PRIMARY KEY,
     object_kind text NOT NULL,
     canonical_ref text NOT NULL,
-    wordlist_version integer NOT NULL CHECK (wordlist_version = 1),
     tombstoned_at timestamptz NULL,
     created_at timestamptz NOT NULL DEFAULT authority_recording_time(),
     UNIQUE (object_kind, canonical_ref)
 );
 CREATE TABLE lexical_visibility (
-    lexical_ref text NOT NULL REFERENCES lexical_bindings(lexical_ref),
+    lexical_ref text NOT NULL REFERENCES lexical_bindings(lexical_ref) ON UPDATE CASCADE,
     subject_id uuid NOT NULL REFERENCES subjects(subject_id),
     display_name text NOT NULL,
     aliases text[] NOT NULL,

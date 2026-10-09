@@ -64,6 +64,8 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 `audio.input_mode` 为 `direct`（默认）或 `transcription`。Direct 将原始 Artifact bytes 作为 chat 的 `input_audio` 发送；transcription 需要 speech_transcription role。
 
+CLI Catalog descriptor 为整块 `video`：使用 `nous config describe video` 和 `nous config get video`；`input_mode` 是该对象中的字段，不是独立配置 path。通过 `config set video <完整 JSON 对象>` 修改时保留原有边界，system-only 修改需要按回执重启进程。
+
 `video.input_mode` 为 `direct`（默认）或 `frames`。Direct 将原始 Artifact bytes 作为 chat 的 `video_url` 发送；frames 使用有界 FFmpeg 抽帧与可选音轨转写。FFmpeg 来自显式 executable 或当前 RuntimeRoot 已安装 pack。两种 mode 都受来源字节上限约束；frames 另受时长、帧数、单帧、音频与进程时限约束。没有隐式模式回退。frames 的实验观测见 [Research](../research/README.md)。
 
 `resource_profiles.<name>` 当前支持 `adapter_kind = "ragflow"`，配置 endpoint、credential environment variable、enabled state、timeout 与单条 material byte 上限。Resource profile 连接操作者管理的 RAGFlow API；直接输入 Nous 的材料经原生 Material 与 Serving 处理。
@@ -90,7 +92,7 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 | `maintenance.retry_max_seconds` | 3600 | transient retry 延迟上限秒，范围 1..86400 |
 | `maintenance.retry_max_attempts` | 8 | 连续 transient failure 上限，范围 1..32；达到后 blocked |
 | `maintenance.max_model_calls_per_tick` | 4 | standalone tick 全局模型调用预算，范围 1..32 |
-| `maintenance.max_elapsed_ms_per_tick` | 60000 | standalone tick 全局 elapsed 毫秒预算，范围 1..300000 |
+| `maintenance.max_elapsed_ms_per_tick` | 60000 | standalone tick 全局 elapsed 毫秒预算，范围 1..900000 |
 | `episode.context_switch_count` | 2 | 形成边界所需变化的 context dimensions，范围 1..4 |
 | `episode.synopsis` | longitudinal-v1 | Developer：Episode member text synopsis 的 member/fragment/total byte 预算；同一 policy 用于 Query rendering 与 lexical/dense generation |
 | `episode.soft_idle_seconds` | 300 | 认知秒 |
@@ -119,6 +121,6 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 ## Temporal、Concept activation 与 feedback
 
-`retrieval.concept.enrichment` 为 `off`（reference default）、`existing`、`model`，SubjectOverrideAllowed/Live/QueryPolicy。Existing 使用共享 Concept vectors；model 加入独立严格结构化 query role。变化只影响后续 preparation，不改写 durable Tags。QueryActivation 的最多八个 inferred Tags、cosine threshold 0.72 等算法参数位于 versioned reference profile，不扩成用户配置面。
+`retrieval.query.concept_enrichment` 为 `off`（reference default）、`existing`、`model`，SubjectOverrideAllowed/Live/QueryPolicy。Existing 使用共享 Concept vectors；model 加入独立严格结构化 query role。变化只影响后续 preparation，不改写 durable Tags。QueryActivation 的最多八个 inferred Tags、cosine threshold 0.72 等算法参数位于 versioned reference profile，不扩成用户配置面。
 
 `runtime.query_feedback_retention` 默认 604800 认知秒（七天）；bounded records 包含 query/activation digest、signals 与 returned exact refs，不保存正文。过期清理不删除已接受的 UseEvents。Historical artifact cache 复用 `serving.retired_grace_seconds` 与 read leases，不引入第二套 history DB/独立缓存政策。Semantic intervals 使用 captured Subject CognitiveClock，timeout/lease/retry 使用 infrastructure time。

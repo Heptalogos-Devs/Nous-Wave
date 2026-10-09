@@ -1,7 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-import type { CallOptions } from "@connectrpc/connect";
+import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import type { DeriveMaterialRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
@@ -38,17 +38,23 @@ export async function deriveMaterial(
       "describe_then_structure",
     ].includes(strategy)
   )
-    throw new Error("Unknown material strategy");
+    throw new ConnectError(
+      "Unknown material strategy. Use description_only, direct_structured or describe_then_structure; video frame sampling uses input_mode in the video configuration object (config describe video).",
+      Code.InvalidArgument,
+    );
   if (
     request.target &&
     !["description", "structured", "automatic"].includes(request.target)
   )
-    throw new Error("Unknown derivation target");
+    throw new ConnectError("Unknown derivation target", Code.InvalidArgument);
   if (
     (request.target === "description" && strategy !== "description_only") ||
     (request.target === "structured" && strategy === "description_only")
   )
-    throw new Error("Derivation target conflicts with strategy");
+    throw new ConnectError(
+      "Derivation target conflicts with strategy",
+      Code.InvalidArgument,
+    );
   const region = await kernel.material.getSourceRegion(
     { subjectId: request.subjectId, id: request.sourceRegionId },
     options,

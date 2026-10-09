@@ -30,8 +30,8 @@ it("keeps exact evidence locators actionable without altering source text or lab
   const bind = vi.fn(async (request: { canonical: { kind: string } }) => ({
     lexicalRef:
       request.canonical.kind === "occurrence"
-        ? "obs:apple-banana-cherry-date"
-        : "src:apple-banana-cherry-date",
+        ? "obs:fakoh-todud-rovor"
+        : "src:vahol-gutij-nakur",
   }));
   const env = {
     subjectId: "selected",
@@ -62,8 +62,8 @@ it("keeps exact evidence locators actionable without altering source text or lab
       {
         basis: {
           value: {
-            occurrenceId: "obs:apple-banana-cherry-date",
-            locator: { value: "src:apple-banana-cherry-date" },
+            occurrenceId: "obs:fakoh-todud-rovor",
+            locator: { value: "src:vahol-gutij-nakur" },
           },
         },
       },
@@ -76,5 +76,5 @@ it("keeps exact evidence locators actionable without altering source text or lab
       ([request]) => "addressOnly" in request && request.addressOnly === true,
     ),
   ).toBe(true);
-  expect(renderText(result)).toContain("src:apple-banana-cherry-date");
+  expect(renderText(result)).toContain("src:vahol-gutij-nakur");
 });

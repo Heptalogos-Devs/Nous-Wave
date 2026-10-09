@@ -80,7 +80,10 @@ impl CognitiveRuntimeService {
                 "historical query requires its owner-projected Authority and Serving view".into(),
             ));
         }
-        if let Some(shared) = contributors.shared {
+        if let Some(shared) = contributors
+            .shared
+            .filter(|_| !bound.source_query.is_exact_read())
+        {
             bound.activation = shared.activate(&bound).await?;
         }
         if bound.concept_enrichment == super::ConceptEnrichment::Model
@@ -174,19 +177,20 @@ impl CognitiveRuntimeService {
             degradation: Vec::new(),
             diagnostics: None,
         };
+        let exact_read = query.is_exact_read();
         result
             .degradation
             .extend(bound.activation.degradation.clone());
         let mut lane_outputs = Vec::new();
-        if let Some(shared) = contributors.shared {
+        if let Some(shared) = contributors.shared.filter(|_| !exact_read) {
             lane_outputs.extend(shared.lanes(&bound, &plan).await?);
         }
-        if let Some(memory) = contributors.memory {
+        if let Some(memory) = contributors.memory.filter(|_| !exact_read) {
             lane_outputs.extend(memory.direct_lanes(&bound, &plan).await?);
-        } else if query.projection.has_cognition() {
+        } else if contributors.memory.is_none() && query.projection.has_cognition() {
             return Err(Error::Unavailable("Memory MicroSystem is disabled".into()));
         }
-        if let Some(material) = contributors.material {
+        if let Some(material) = contributors.material.filter(|_| !exact_read) {
             lane_outputs.extend(material.direct_lanes(&bound, &plan).await?);
         }
         let mut exact_output = LaneOutput::empty(EvidenceFamily::Exact, LaneStatus::Ready);

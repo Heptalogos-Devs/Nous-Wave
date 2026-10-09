@@ -2,17 +2,11 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::proquint::{decode_proquint, encode_proquint};
 use crate::*;
 use nous_core::{CognitiveRef, parse_reference, reference_parts};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
-use std::sync::LazyLock;
-
-static WORDS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
-    include_str!("../data/lexical-words-v1.txt")
-        .lines()
-        .collect()
-});
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityBinding {
@@ -79,10 +73,7 @@ pub fn validate_lexical(value: &str) -> Result<&str> {
     ) {
         return Err(Error::Invalid("INVALID_LEXICAL_REF".into()));
     }
-    let words: Vec<_> = body.split('-').collect();
-    if words.len() != 4 || words.iter().any(|w| WORDS.binary_search(w).is_err()) {
-        return Err(Error::Invalid("INVALID_LEXICAL_REF".into()));
-    }
+    decode_proquint(body)?;
     Ok(kind)
 }
 impl AuthorityStore {
@@ -214,18 +205,13 @@ impl AuthorityStore {
         } else {
             let mut inserted = None;
             for _ in 0..32 {
-                let mut bytes = [0; 8];
+                let mut bytes = [0; 6];
                 getrandom::fill(&mut bytes).map_err(|e| Error::Infrastructure(e.to_string()))?;
-                let bits = u64::from_le_bytes(bytes);
-                let candidate = format!(
-                    "{}:{}",
-                    prefix,
-                    (0..4)
-                        .map(|index| WORDS[((bits >> (index * 12)) & 4095) as usize])
-                        .collect::<Vec<_>>()
-                        .join("-")
-                );
-                if sqlx::query("INSERT INTO lexical_bindings(lexical_ref,object_kind,canonical_ref,wordlist_version) VALUES($1,$2,$3,1) ON CONFLICT DO NOTHING")
+                let bits = u64::from_be_bytes([
+                    0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
+                ]);
+                let candidate = format!("{prefix}:{}", encode_proquint(bits)?);
+                if sqlx::query("INSERT INTO lexical_bindings(lexical_ref,object_kind,canonical_ref) VALUES($1,$2,$3) ON CONFLICT DO NOTHING")
                     .bind(&candidate).bind(&kind).bind(&canonical).execute(&mut **tx).await.map_err(database_error)?.rows_affected()==1 {inserted=Some(candidate);break;}
             }
             inserted.ok_or_else(|| {
@@ -326,17 +312,10 @@ SELECT DISTINCT ON(object_kind,canonical_ref) * FROM matched ORDER BY object_kin
 mod tests {
     use super::*;
     #[test]
-    fn frozen_vocabulary_and_reference_validation() {
-        assert_eq!(WORDS.len(), 4096);
-        assert!(WORDS.windows(2).all(|w| w[0] < w[1]));
-        assert!(
-            WORDS
-                .iter()
-                .all(|w| w.bytes().all(|c| c.is_ascii_lowercase()))
-        );
-        let value = format!("mem:{}-{}-{}-{}", WORDS[0], WORDS[1], WORDS[2], WORDS[3]);
-        assert_eq!(validate_lexical(&value).unwrap(), "mem");
-        assert!(validate_lexical(&value.to_uppercase()).is_err());
-        assert!(validate_lexical("mem:unknown-words-not-valid").is_err());
+    fn standard_reference_validation() {
+        assert_eq!(validate_lexical("mem:bahog-hijol-mokor").unwrap(), "mem");
+        assert!(validate_lexical("Mem:bahog-hijol-mokor").is_err());
+        assert!(validate_lexical("unknown:bahog-hijol-mokor").is_err());
+        assert!(validate_lexical("mem:bahog-hijol").is_err());
     }
 }

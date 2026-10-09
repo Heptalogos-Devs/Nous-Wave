@@ -91,9 +91,12 @@ const Quoted = createToken({
   name: "Quoted",
   pattern: /"(?:[^"\\\r\n]|\\.)*"/,
 });
+const lexicalPattern =
+  /[a-z]+:(?:[bdfghjklmnprstvz][aiou][bdfghjklmnprstvz][aiou][bdfghjklmnprstvz]-){2}[bdfghjklmnprstvz][aiou][bdfghjklmnprstvz][aiou][bdfghjklmnprstvz]\b/;
+const lexicalReference = new RegExp(`^(?:${lexicalPattern.source})$`);
 const Lexical = createToken({
   name: "Lexical",
-  pattern: /[a-z]+:[a-z]+(?:-[a-z]+){3}\b/,
+  pattern: lexicalPattern,
 });
 const Duration = createToken({
   name: "Duration",
@@ -286,8 +289,7 @@ class StreamParser extends EmbeddedActionsParser {
                   invalid("Selectors require names or LexicalRefs");
                 return {
                   kind:
-                    selector !== "object" &&
-                    /^[a-z]+:[a-z]+(?:-[a-z]+){3}$/.test(value)
+                    selector !== "object" && lexicalReference.test(value)
                       ? ("lexical" as const)
                       : ("name" as const),
                   value,

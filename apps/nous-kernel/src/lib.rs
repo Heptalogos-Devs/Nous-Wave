@@ -218,6 +218,32 @@ impl NousRuntime {
         mut bound: nous_runtime::BoundQuery,
         pool_limit: Option<usize>,
     ) -> Result<nous_runtime::QueryExecution> {
+        if bound.source_query.is_exact_read() {
+            self.cognition.expire_query_leases()?;
+            let plan = nous_runtime::QueryPlan::for_bound_query(&bound);
+            let capabilities = self
+                .subjects
+                .subject(bound.source_query.subject)
+                .await?
+                .capabilities;
+            return self
+                .cognition
+                .execute_query_with_plan(
+                    bound,
+                    nous_runtime::CognitiveContributors {
+                        material: Some(&self.material),
+                        shared: None,
+                        memory: self
+                            .memory
+                            .as_ref()
+                            .filter(|_| capabilities.memory)
+                            .map(|memory| memory as &dyn nous_runtime::CognitiveContributor),
+                    },
+                    plan,
+                    pool_limit,
+                )
+                .await;
+        }
         if bound.selected_embedding_space.is_none() {
             bound.selected_embedding_space =
                 self.serving.embedding().map(|provider| provider.space());

@@ -34,6 +34,15 @@ vi.mock("node:child_process", async (original) => {
       const input = args[args.indexOf("-i") + 1]!;
       observed.roots.push(input);
       if (args.at(-1) === "-") {
+        // The shipped bounded codec set has no wrapped_avframe null-output encoder.
+        if (args[args.indexOf("-c:v") + 1] !== "copy") {
+          callback(
+            new Error("Encoder not found"),
+            "",
+            "Default null encoder unavailable",
+          );
+          return;
+        }
         callback(null, "", "Duration: 00:00:02.00\nStream #0:0 Video:");
         return;
       }
@@ -97,7 +106,7 @@ it("bounds samples and subprocess input, excludes gateway credentials and remove
     observed.failFrames = true;
     await expect(
       sampleVideo(new Uint8Array([1]), policy, tmpdir(), [], false),
-    ).rejects.toThrow("FFmpeg execution");
+    ).rejects.toThrow("FFmpeg frame execution");
     for (const input of observed.roots)
       await expect(stat(dirname(input))).rejects.toMatchObject({
         code: "ENOENT",
@@ -256,4 +265,25 @@ it("frames without a transcript cannot acquire audio evidence in either structur
   } finally {
     await rm(instance, { recursive: true, force: true });
   }
+});
+
+it("rejects invalid derivation choices before reading or interpreting source", async () => {
+  const kernel = {} as Parameters<typeof deriveMaterial>[0];
+  const models = { materialStrategy: "description_only" } as Parameters<
+    typeof deriveMaterial
+  >[1];
+  const request = { strategy: "frames" } as Parameters<
+    typeof deriveMaterial
+  >[2];
+  const invalid = deriveMaterial(kernel, models, request, {});
+  await expect(invalid).rejects.toMatchObject({ code: 3 });
+  await expect(invalid).rejects.toThrow("config describe video");
+  await expect(
+    deriveMaterial(
+      kernel,
+      models,
+      { ...request, strategy: "description_only", target: "structured" },
+      {},
+    ),
+  ).rejects.toMatchObject({ code: 3 });
 });

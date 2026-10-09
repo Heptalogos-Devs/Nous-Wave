@@ -19,7 +19,7 @@ corepack pnpm nous context pin --cognition result:1 --entity entity:alice --tag 
 corepack pnpm nous use result:1 --kind referenced
 ```
 
-默认输出语义文本，正常操作使用 `result:N`、稳定 LexicalRef 或能唯一解析的名称。Subject、Session、WorkContext、认知 revision 和 Material 来源都返回可再次输入的词汇引用，例如 `sub:colossal-attach-imperial-step`、`ctx:outer-zodiac-reps-delicate`。这些引用由 Authority 持久保存，跨进程与 consumer state root 有效；不是 UUID 的截断，也不随标题修改改变。相同名称有歧义时，使用明确的词汇引用。精确 revision 的词汇引用仍指向原 revision。
+默认输出语义文本，正常操作使用 `result:N`、稳定 LexicalRef 或能唯一解析的名称。Subject、Session、WorkContext、认知 revision 和 Material 来源都返回可再次输入的词汇引用，例如 `sub:titil-lamat-napor`、`ctx:guhur-muguz-pojij`。这些引用由 Authority 持久保存，跨进程与 consumer state root 有效；不是 UUID 的截断，也不随标题修改改变。相同名称有歧义时，使用明确的词汇引用。精确 revision 的词汇引用仍指向原 revision。
 
 `--subject`、`--session`、`--work-context` 与各命令引用参数接受返回的词汇引用。`identity bind --kind <kind> --canonical <词汇引用> --name <名称> --alias <别名>` 可显式设置可读名称；普通显示不会覆盖既有名称或别名。原始来源、Memory 内容与自由文本保持原文，因此历史资料中已有的 UUID 不被改写。
 
@@ -93,7 +93,16 @@ Codex 项目 `.codex/config.toml` 的源码配置示例，替换全部绝对路�
 command = "C:/path/to/node.exe"
 args = ["--import", "tsx", "C:/path/to/Nous-Wave/apps/nous-cli/src/mcp-main.ts", "--run-root", "C:/path/to/Core/run", "--state-root", "C:/path/to/Agent/state", "--consumer", "consumer:codex:research"]
 cwd = "C:/path/to/Nous-Wave"
-tool_timeout_sec = 360
+tool_timeout_sec = 960
 ```
 
 Portable 使用包内 Node 与 `program/cli/mcp-main.js`，去掉 `--import tsx`。其他支持 stdio 的 Host（包括 OpenCode）可复用同一 command/args。Agent 从 `nous_help` 和 `nous_help` 的 `topic="nousql"` 开始，然后通过 `nous_command` 选择 Subject、打开 Session、恢复 WorkContext。每个并行使用者在配置中绑定自己的 state root/consumer；同一 Agent 重启保留该目录与 Subject ID。
+
+
+视频输入配置与派生输出是两个选择。`derive <src:引用> --strategy description_only|direct_structured|describe_then_structure` 选择输出流程；`frames` 是 `video` 配置对象内的 `input_mode` 值。用 `nous config describe video` / `nous config get video` 查看 JSON Schema、完整值及应用方式；修改整块对象时保留其现有限制，并按回执重启 Core。帧采样作为有界模型预处理，解释会保存原视频来源及采样时刻/coverage；当前不提供独立 frame Artifact 的导出命令。
+
+`session show <reference-or-name>` reads Session metadata, including a closed
+Session, without opening or selecting it. With no argument it reads the selected
+Session. Closing a Session clears consumer selection; its returned stable address
+remains readable through the explicit form. `session open` and `session close`
+accept no reference argument.

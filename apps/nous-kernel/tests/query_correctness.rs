@@ -830,6 +830,10 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one exact-read cohort checks candidate closure, immutable history, as-of heads and mutation fencing against the same unrelated resident"
+)]
 async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     let (root, url, _postgres) = database().await;
     let runtime = open_runtime(&url, &root).await;
@@ -850,6 +854,61 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     request.expression.targets = vec![QueryTarget::Exact {
         reference: CognitiveRef::Memory(memory.object.memory_id),
     }];
+    let unrelated = runtime
+        .require_memory()
+        .unwrap()
+        .form_memory(form_input(
+            subject,
+            observation.occurrence.occurrence_id,
+            OperationId::new(),
+            "Recall relevant cognition: an unrelated resident",
+        ))
+        .await
+        .unwrap();
+    let session = runtime
+        .cognition
+        .open_session(subject, serde_json::json!({}))
+        .await
+        .unwrap();
+    runtime
+        .cognition
+        .use_feedback(UseFeedback {
+            subject,
+            session_id: Some(session.session_id),
+            consumer_ref: "consumer:test:exact".into(),
+            events: vec![UseFeedbackEvent {
+                query_id: None,
+                event_id: UseEventId::new(),
+                reference: CognitiveRef::MemoryRevision(unrelated.revision.memory_revision_id),
+                use_kind: UseKind::Referenced,
+                occurred_at: Utc::now(),
+                context: serde_json::json!({}),
+            }],
+        })
+        .await
+        .unwrap();
+    request.session = Some(session.session_id);
+    let exact = runtime.query(request.clone()).await.unwrap();
+    assert_eq!(
+        exact.results.len(),
+        1,
+        "exact read must not include residents or similarity hits"
+    );
+    assert_eq!(
+        exact.results[0].reference,
+        CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
+    );
+    assert_eq!(exact.status, nous_core::QueryStatus::Complete);
+    assert!(
+        exact.degradation.is_empty(),
+        "exact read must not depend on unavailable Serving: {:?}",
+        exact.degradation
+    );
+    assert!(exact.generation.lexical.is_none());
+    let mut asof_request = request.clone();
+    asof_request.temporal_frame.authority_view = nous_core::AuthorityView::AsOf(Utc::now());
+    let mut head_request = request.clone();
+    head_request.temporal_frame.revision_view = nous_core::RevisionView::History;
     let bound = runtime.cognition.bind_query(request).await.expect("bind");
     let plan = QueryPlan::for_bound_query(&bound);
     let revision = nous_memory::ReviseMemoryInput {
@@ -905,6 +964,22 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         Some(1),
         "query diagnostics: {:?}",
         result.diagnostics
+    );
+    let asof = runtime.query(asof_request).await.unwrap();
+    assert_eq!(asof.results.len(), 1);
+    assert_eq!(
+        asof.results[0].reference,
+        CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
+    );
+    let current_head = runtime.query(head_request).await.unwrap();
+    assert_eq!(
+        current_head.results.len(),
+        1,
+        "history permits old exact revisions but does not expand an exact object into revision enumeration"
+    );
+    assert_eq!(
+        current_head.results[0].reference,
+        CognitiveRef::MemoryRevision(_current.revision.memory_revision_id)
     );
     let historical = runtime
         .query(CognitiveQuery {
@@ -1549,9 +1624,7 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
     assert!(!forbidden.evidence_roots.contains_key(&memory_reference));
     check_vcp_projection_material(&runtime, subject, &memory_reference).await;
     let mut native_request = query(subject);
-    native_request.expression.targets = vec![QueryTarget::Exact {
-        reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
-    }];
+    native_request.situation.current_refs = vec![memory_reference.clone()];
     native_request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
     native_request.diagnostics = nous_core::DiagnosticsRequest::Summary;
     let result = runtime
@@ -1575,9 +1648,7 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
         |hit| hit.reference == CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
     ));
     let mut request = query(subject);
-    request.expression.targets = vec![QueryTarget::Exact {
-        reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
-    }];
+    request.situation.current_refs = vec![memory_reference.clone()];
     request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
     let frozen = runtime
         .cognition
@@ -1812,7 +1883,6 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
         vec![
             "concept".to_owned(),
             format!("concept:{}", graph.space.space_hash),
-            "exact".to_owned(),
             "topology".to_owned()
         ]
     );
@@ -2429,7 +2499,7 @@ fn check_vcp_readouts(
     observation: &nous_retrieval::VcpQueryObservation,
     bound: &nous_runtime::BoundQuery,
 ) {
-    let body = bound.exact_bindings[0].bound_ref.clone();
+    let body = bound.runtime_refs[0].clone();
     let candidate = nous_retrieval::VcpReadoutCandidate {
         reference: body.clone(),
         base_score: 0.9,
@@ -2511,7 +2581,7 @@ fn nonempty_vcp_lab_material(
     let b = nous_core::TagId::new();
     let tag_a = CognitiveRef::Tag(a);
     let tag_b = CognitiveRef::Tag(b);
-    let body = bound.exact_bindings[0].bound_ref.clone();
+    let body = bound.runtime_refs[0].clone();
     // Independent lab material exercises numerical adapter input. These Tag
     // identities are not persisted or used as public-query Authority evidence.
     let material = nous_retrieval::VcpProjectionMaterial {

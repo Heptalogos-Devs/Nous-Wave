@@ -23,7 +23,7 @@ export async function maintenanceCommands(env: CliEnvironment) {
     maxElapsedMs: boundedInteger(
       values["max-elapsed-ms"],
       1,
-      300000,
+      900000,
       "--max-elapsed-ms",
     ),
   });

@@ -6,7 +6,7 @@ import { canonical, parse } from "../src/nousql/parser.js";
 const now = new Date("2026-10-07T00:00:00Z");
 const resolve = async () => ({
   canonical: { kind: "tag", value: "tag-id" },
-  lexicalRef: "tag:amber-lotus-cello-river",
+  lexicalRef: "tag:kavaj-logiv-bufog",
 });
 it("separates root projection from query intent and rejects obsolete directives", async () => {
   const result = await compileNousQL(

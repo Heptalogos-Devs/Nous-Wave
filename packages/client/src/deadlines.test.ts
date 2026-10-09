@@ -25,4 +25,6 @@ test("maintenance honors its opportunity budget and caller deadline overrides", 
   expect(unary.mock.calls[0]?.[2]).toBe(125000);
   await client.cognition.grantMaintenance(request, { timeoutMs: 1000 });
   expect(unary.mock.calls[1]?.[2]).toBe(1000);
+  await client.cognition.grantMaintenance({ ...request, maxElapsedMs: 900000 });
+  expect(unary.mock.calls[2]?.[2]).toBe(905000);
 });

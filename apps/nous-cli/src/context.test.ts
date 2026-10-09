@@ -275,3 +275,78 @@ it("renders Evidence/Resource and mixed hits while preserving each owner continu
     await rm(root, { recursive: true, force: true });
   }
 });
+
+it("reads a returned closed Session reference without selecting or opening a Session", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nous-cli-closed-session-"));
+  const sessionId = "30000000-0000-4000-8000-000000000003";
+  const read = vi.fn().mockResolvedValue({
+    sessionId,
+    subjectId: "subject",
+    runtimeRevision: 2n,
+    closed: true,
+    residentRefs: [],
+  });
+  const open = vi.fn();
+  const close = vi.fn();
+  const client = {
+    cognition: { getSession: read, openSession: open, closeSession: close },
+    identity: {
+      resolve: vi
+        .fn()
+        .mockImplementation(
+          async (request: { locator: { value: string }; kind: string }) => ({
+            status: "BOUND",
+            candidates: [
+              {
+                lexicalRef: request.locator.value,
+                canonical: { kind: request.kind, value: sessionId },
+              },
+            ],
+          }),
+        ),
+    },
+  } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
+  const connect = vi.fn().mockResolvedValue(client);
+  const flags = [
+    "--run-root",
+    root,
+    "--instance-root",
+    root,
+    "--subject",
+    "subject",
+  ];
+  try {
+    const result = await runCli(
+      ["session", "show", "session:vanib-jalup-jifuj", ...flags],
+      connect,
+    );
+    expect(result).toMatchObject({
+      data: { closed: true, runtimeRevision: 2n },
+    });
+    expect(read).toHaveBeenCalledWith({ subjectId: "subject", id: sessionId });
+    expect(open).not.toHaveBeenCalled();
+    await expect(
+      runCli(["session", "show", ...flags], connect),
+    ).rejects.toThrow("Selected Session");
+    await expect(
+      runCli(["session", "show", `memory:${sessionId}`, ...flags], connect),
+    ).rejects.toMatchObject({ code: "REFERENCE_TYPE_MISMATCH" });
+    await expect(
+      runCli(
+        [
+          "session",
+          "close",
+          "session:vanib-jalup-jifuj",
+          ...flags,
+          "--session",
+          sessionId,
+        ],
+        connect,
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_ARGUMENT" });
+    expect(close).not.toHaveBeenCalled();
+    expect(read).toHaveBeenCalledTimes(1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

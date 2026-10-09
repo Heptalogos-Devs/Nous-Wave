@@ -83,7 +83,7 @@ export async function createEnvironment(
     ),
   });
   async function addressId(kind: string, text: string, subject: string) {
-    if (!/^[a-z]+:[a-z]+(?:-[a-z]+){3}$/.test(text)) return text;
+    if (!/^[a-z]+:/.test(text)) return text;
     return uniqueReference(
       await original.identity.resolve({
         subjectId: kind === "subject" ? "" : subject,
