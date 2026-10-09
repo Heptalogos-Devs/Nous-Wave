@@ -157,6 +157,12 @@ Windows只读盘点确认独立物理盘1的分区2为Linux filesystem GPT类型
 
 按任务包第03项核对 Vault Target/Decisions 与当前 longitudinal、Authority/provenance、Runtime/Use、Query/Serving、WorkContext Specs 后，退役 `cognitive-functional.ts`、`NOUS_FUNCTIONAL_SMOKE` 分支、专属文本匹配 provider、CLI 子进程脚手架、package/Knip/script入口及活动说明。手工三场景、22事件、15 intents、四 profile 和 selected raw-text source/oracle 保持原文件；五份语料及历史说明另按原字节/SHA保全到 `data/research/results/deep-rebase-preservation/functional/`，未清理旧 raw 数据。Spec 中的旧实验执行状态移出活动合同，其原事实继续留在研究语料说明。
 
-纵向 public smoke仍实际执行有界维护、模型 proposal、owner提交、重放和Core/Kernel重启。Concept局部catalog/Accretion、Tag lineage/历史/目录与 typed Core partial-commit/transport-resume 的独立检查保留：受影响Native5项、Core9项通过；check:fast、Knip、依赖边界、文档导航和diff检查通过。脚本从902行降至434行，删除一份687行旧runner；长度门禁422手写文件、16warnings、0reject。这轮没有削减 production功能或改动领域语义，仍需按完整目标完成其他实际操作与成果保全／清理。
+纵向 public smoke仍实际执行有界维护、模型 proposal、owner提交、重放和Core/Kernel重启。Concept局部catalog/Accretion、Tag lineage/历史/目录与 typed Core partial-commit/transport-resume 的独立检查保留：受影响Native5项、Core9项通过；check:fast、Knip、依赖边界、文档导航和diff检查通过。脚本从902行降至452行，删除一份687行旧runner；长度门禁422手写文件、16warnings、0reject。这轮没有削减 production功能或改动领域语义，仍需按完整目标完成其他实际操作与成果保全／清理。
 
 eadb42a的Windows CI通过；Linux未进入测试，显式runtime准备调用第三方GitHubrelease API返回403。已核对安装的 `postgresql_archive` 实现，其支持 `GITHUB_TOKEN` Authorization；CI仅给runtime准备步骤传递现有contents-read job token。没有跳过准备或降低验证；新head的实际CI结果另行确认。
+
+9187d7c的Linux/Windows CI均通过，Linux明确完成runtime准备及完整`just check`。随后通过Windows正常管理员确认，以核验过身份的独立物理盘1/分区2执行`ro,noload`挂载、保全并卸载，解决此前非管理员进程无法读取的问题。实际Linux来源为`/home/arsvine/Services/new-api/`，补丁是独立的`volcengine-asr-transcription.patch`；36,724字节，原文件和Windows提取文件SHA-256均为`e2867c0b7a8558bb6e1ed542bcf0c6580b84a5217174e6133f3db1a8b6ada426`。源码、Git目录、构建/部署文件和私有operator配置同存于 ignored 保全区，原盘未改动且已卸载。
+
+Linux源码checkout为clean，HEAD`271976055fcbd75a7180d6ca8389ec8c80fa4437`，已经含SAUC/WebSocket实现。Windows恢复的Git HEAD与原盘一致，`HEAD:relay/channel/volcengine/asr.go`与工作文件归档逐字节一致，SHA`b62239f8c9bf27eccf36d55a1b9361734f91cc4f65c16a6f14ddfbab3752946e`。原补丁包含多段增量及Responses修正，直接对当前已修改源码再次单次apply-check不通过，未据此改写补丁。该仓库是partial clone，全refs bundle因缺promisor对象失败；完整本地Git目录和当前源码已按字节归档，没有下载未在原盘保存的上游history。补丁和当前已提交实现的可读保全已经验证，Windows New API运行服务未修改或部署。
+
+已有真实SAUC成功结论、Agent Plan channel、24kHz→16kHz规范化、Menon40秒WAV约7.2秒转写、MP3及production Transcript/formation/Query结果继续由[2026-10-04研究记录](observations.md#asr-与-responses)和原source manifest拥有，本轮不重新命名为当前运行结果。本地精确补丁、配置与archive/verification位于`data/research/results/deep-rebase-preservation/linux-sauc/`；密钥值没有进入Git或报告。
