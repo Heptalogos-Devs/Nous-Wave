@@ -124,3 +124,5 @@ FFmpeg executable reference 使用 null 作为已安装 runtime pack 的明确�
 当前原 CLI friendly renderer 和 Core Query 呈现仍会调用逐项 Bind；检查同时确认多数地址在首次显示时才分配。新的 canonical `GetIdentityAddresses` / Official Client `identity.addresses` 提供单次目录 read，按 Subject visibility 隔离，保留目标顺序；缺失地址保持缺失，不分配、不改名、不增添 visibility。Tag 当前 lineage 从目录的 canonical Tag 规则解析，未知和 tombstoned 引用返回不同状态。
 
 实际 PostgreSQL 的地址分配/冲突检查扩充验证批量读前后 lexical bindings、visibility、Authority history 行数相同；不存在和跨 Subject 的引用不给地址，tombstone 不给可操作地址，合并 Tag 与 survivor 得到同一规范地址。现行 concept lineage/Query/Serving 场景和公开 Core/Kernel/Client smoke 通过，公开 read 后原 display name/aliases 不变。该入口只是 owner 能力；schema 明确的字段呈现、创建/显式地址服务的分配和原逐项 Bind 删除仍须完成，不把新增 read RPC 当成呈现已经迁移。
+
+本轮持续 Core 正常换用 SHA 核对的当前 Kernel 后重启，instanceId 不变，endpoint 为 `http://127.0.0.1:37081`。早期 discovery 尚未生成，原启动进程确认仍活跃后再次观察 READY，没有因此重新启动。新 public batch RPC 读回原 `sub:tujap-vibuz-gozod` 与 `ctx:raraf-romup-hasal` 的相同 lexical addresses；原 WorkContext revision7/open。Subject/Runtime/Memory 与11model roles READY，opportunity 四叶保持原值。该轮没有新增付费模型调用或改写认知历史。
