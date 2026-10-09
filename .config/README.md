@@ -8,4 +8,6 @@
 
 `scripts/` 保存仓库脚本的配置。`scripts/doc-navigation.toml` 配置文档导航检查的忽略目录及返回/覆盖豁免页面，调用方法见 [脚本 README](../scripts/README.md)。
 
+`scripts/code-length.toml` 是手写 TypeScript/Rust 物理行数门限及生成路径排除的唯一配置。`pnpm check:length` 检查 Git 管理与未忽略的新文件；TypeScript 达到 800 行、Rust 达到 600 行警告，分别达到 1200/1000 行拒绝。Linux/Windows 的 `check:fast` 共用此门禁。
+
 [返回目录](../INDEX.md)

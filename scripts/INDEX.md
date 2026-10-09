@@ -5,6 +5,7 @@
 | 开发启动                | [dev/start.ts](dev/start.ts)                                                           | `pnpm dev`                                                                |
 | 开发 runtime 准备       | [dev/prepare.ts](dev/prepare.ts)                                                       | `pnpm dev:prepare`                                                        |
 | 开发 CLI                | [dev/nous.ts](dev/nous.ts)                                                             | `pnpm nous`                                                               |
+| 手写源码长度检查        | [dev/check-code-length.ts](dev/check-code-length.ts)                                   | `pnpm check:length`；包含在 `check:fast`                                    |
 | Runtime 构建与打包      | [runtime/](runtime/)                                                                   | `pnpm runtime:pack`                                                       |
 | Windows shipping Kernel | [release/build-kernel.ps1](release/build-kernel.ps1)                                   | `just release-prepare`                                                    |
 | Notices                 | [release/prepare-notices.ts](release/prepare-notices.ts)                               | `pnpm release:notices`                                                    |
