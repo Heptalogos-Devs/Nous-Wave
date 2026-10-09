@@ -56,7 +56,10 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
     assert!(request.requests_resources());
     request.result_need.limit = 1;
     let explicit = runtime.execute_query(request.clone(), None).await.unwrap();
-    let (pool, ticket) = runtime.cognition.retain_query(explicit).unwrap();
+    let (pool, ticket) = runtime
+        .cognition
+        .retain_query(explicit, test_support::query_lease())
+        .unwrap();
     assert_eq!(pool.resource_actions.len(), 1);
     runtime
         .cognition
@@ -75,7 +78,10 @@ async fn resource_continuation_fences_identity_access_and_descriptor_drift() {
         "drift",
     ] {
         let execution = runtime.execute_query(request.clone(), None).await.unwrap();
-        let (pool, ticket) = runtime.cognition.retain_query(execution).unwrap();
+        let (pool, ticket) = runtime
+            .cognition
+            .retain_query(execution, test_support::query_lease())
+            .unwrap();
         let ticket = ticket.unwrap();
         assert_eq!(pool.resource_actions.len(), 1);
         let action = &pool.resource_actions[0];

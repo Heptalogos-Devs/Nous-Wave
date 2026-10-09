@@ -235,7 +235,10 @@ async fn linked_use_is_bounded_subject_local_final_and_expiring() {
     .await
     .unwrap();
     assert!(!exists);
-    let (_, ticket) = rt.cognition.retain_query(execution).unwrap();
+    let (_, ticket) = rt
+        .cognition
+        .retain_query(execution, test_support::query_lease())
+        .unwrap();
     let final_result = rt
         .cognition
         .finalize_query(

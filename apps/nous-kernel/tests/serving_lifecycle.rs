@@ -52,7 +52,10 @@ async fn cache_loss_rebuilds_at_the_same_watermark_and_retired_readers_are_prote
         .execute_query(request.clone(), Some(5))
         .await
         .unwrap();
-    let (_, ticket) = runtime.cognition.retain_query(held).unwrap();
+    let (_, ticket) = runtime
+        .cognition
+        .retain_query(held, test_support::query_lease())
+        .unwrap();
     let ticket = ticket.expect("held validation ticket");
     let next = runtime
         .require_memory()

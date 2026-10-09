@@ -352,3 +352,10 @@ impl nous_retrieval::TextEmbeddingProvider for LongitudinalEmbedding {
         })
     }
 }
+
+pub(crate) fn query_lease() -> nous_runtime::QueryLease {
+    nous_runtime::QueryLease::new(Duration::from_secs(30)).unwrap()
+}
+pub(crate) fn query_reservation(bound: nous_runtime::BoundQuery) -> nous_runtime::QueryReservation {
+    nous_runtime::QueryReservation::new(bound, query_lease()).unwrap()
+}

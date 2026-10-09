@@ -1,7 +1,8 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import { Code, ConnectError } from "@connectrpc/connect";
+import { executionOptions, type ExecutionOptions } from "../execution.js";
 import { create } from "@bufbuild/protobuf";
 import {
   QueryEmbeddingSchema,
@@ -25,11 +26,18 @@ export class QueryOrchestrator {
     private readonly models: ModelRuntime,
     private readonly resources: ResourceRegistry,
   ) {}
-  async execute(input: QueryRequest, options: CallOptions = {}) {
+  async execute(input: QueryRequest, options: ExecutionOptions = {}) {
+    const calls = executionOptions(this.kernel.execution.opportunity, options);
+    options = calls;
+    const { opportunity } = calls;
     const material: QueryEmbedding[] = [];
     let failure: string | undefined;
     const preparation = await this.kernel.queryWorkflow.prepareQuery(
-      { query: input, reserveExecution: true },
+      {
+        query: input,
+        reserveExecution: true,
+        leaseSeconds: opportunity.leaseSeconds,
+      },
       options,
     );
     if (!preparation.preparationToken)
@@ -283,10 +291,7 @@ export class QueryOrchestrator {
           await this.kernel.queryWorkflow
             .releaseQuery(
               { subjectId: input.subjectId, validationTicket: ticket },
-              {
-                timeoutMs:
-                  this.kernel.execution.opportunity.acknowledgement_timeout_ms,
-              },
+              opportunity.cleanup(),
             )
             .catch(() => {});
         }
@@ -308,10 +313,7 @@ export class QueryOrchestrator {
             subjectId: input.subjectId,
             validationTicket: executionToken,
           },
-          {
-            timeoutMs:
-              this.kernel.execution.opportunity.acknowledgement_timeout_ms,
-          },
+          opportunity.cleanup(),
         )
         .catch(() => {});
     }

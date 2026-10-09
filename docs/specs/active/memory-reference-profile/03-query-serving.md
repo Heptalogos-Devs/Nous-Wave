@@ -89,7 +89,9 @@ Representation 顺序固定：Intent、Temporal orientation、Entities、Concept
 
 `retrieval.query.representation` 是 typed Developer/SubjectOverrideAllowed/Live policy：配置只有 `total_chars=8192` 与 `max_context_items=16`；durable context_text 上限 64 KiB，total_chars 默认 8192、可配置到 32768；Current work 不再固定 1024 上限，必需 intent 超界拒绝而不截断。预算按 Intent → 显式时间/selector/semantic cue → WorkContext Entity/Tag → Current work purpose/questions/text → pinned cognition → ResidentSet/旁路背景分配，随后按固定 section 顺序渲染。同一 descriptor 取其最高输入优先级；截断同时报告 section 和受影响的输入来源类别。`sha256` 对实际 representation text 计算。
 
-Core 查询先取得一次冻结 BoundQuery 的 bounded preparation token，再为完整 representation 生成最多一份 embedding，Kernel 直接消费该 token，保持 ConfigSnapshot 与 context 一致。Preparation/validation tickets 共用 query slots/lease，single-use、Subject-bound，并在 failure/finalize/release/expiry 清理。Dense、EPA/VCP sensing 与 expression leaves 共享 request embedding（包括 provider failure），lexical leaf 仍使用该 leaf intent；All/Any 的集合语义保持不变。Rerank 接收同一完整 representation 和原 validated candidates。
+Core 查询先取得一次冻结 BoundQuery 的 bounded preparation token，再为完整 representation 生成最多一份 embedding，Kernel 直接消费该 token，保持 ConfigSnapshot 与 context 一致。Runtime 的 QueryReservation 将不可变 BoundQuery 与 infrastructure QueryLease 分开；Core 从同一执行机会传入剩余 lease，激活后的 preparation 和 execution/validation ticket 继承该原始截止时间，不重新开始计时，也不另读一个 Query lease 默认值。Tickets 共用 query slots，single-use、Subject-bound，并在 failure/finalize/release/expiry 清理；最终 validation 在使用和反馈发布前仍须有效。Dense、EPA/VCP sensing 与 expression leaves 共享 request embedding（包括 provider failure），lexical leaf 仍使用该 leaf intent；All/Any 的集合语义保持不变。Rerank 接收同一完整 representation 和原 validated candidates。
+
+Core 的意图编译、prepared Query、embedding/concept/rerank/Resource 调用与 projection 共用 `core_execution.opportunity` work clock；最后 release 使用其有界 cleanup。官方 Client 的 Query、recall、prepareQuery、projection 与 managedContext 从 active Configuration 派生响应等待，较短 caller deadline/signal 保留。单个 provider timeout 与候选/算法预算各自保持 owning contract，不能重置该外层机会。
 
 生产 `text_only_compatibility` flag 已删除。研究的 text-only 输入是普通无 context TextCue；轨迹输入显式携带 WorkContext/Session，按 v2 entry contract 分开报告。
 

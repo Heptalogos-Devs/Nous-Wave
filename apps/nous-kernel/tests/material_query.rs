@@ -126,7 +126,10 @@ async fn evidence_time_constraints_filter_occurrences_and_regions_through_finali
                         end: Some(now)
                     })))
     );
-    let (_, ticket) = runtime.cognition.retain_query(execution).unwrap();
+    let (_, ticket) = runtime
+        .cognition
+        .retain_query(execution, test_support::query_lease())
+        .unwrap();
     let result = runtime
         .cognition
         .finalize_query(

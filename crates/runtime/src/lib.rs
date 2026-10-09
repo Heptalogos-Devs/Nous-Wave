@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod execution_policy;
-pub use execution_policy::{QUERY_LEASE, QUERY_SLOTS};
+pub use execution_policy::QUERY_SLOTS;
 mod clock;
 mod episode_policy;
 mod experience;
@@ -34,9 +34,10 @@ pub use query::{
     ConceptEnrichment, DEFAULT_RESULT_LIMIT, LaneCandidate, LaneOutput, LaneStatus,
     NovelConceptHypothesis, QUERY_REPRESENTATION, QueryActivation, QueryActivationView,
     QueryConceptCandidate, QueryConceptOutput, QueryConceptSelection, QueryContextSnapshot,
-    QueryExecution, QueryPlan, QueryReadLease, QueryRepresentation, QueryRepresentationLimits,
-    QuerySemanticEmbedding, SharedLaneProvider, TagActivation, TopologyWorkSummary, WorkCycle,
-    build_query_representation, register_retrieval_configuration,
+    QueryExecution, QueryLease, QueryPlan, QueryReadLease, QueryRepresentation,
+    QueryRepresentationLimits, QueryReservation, QuerySemanticEmbedding, SharedLaneProvider,
+    TagActivation, TopologyWorkSummary, WorkCycle, build_query_representation,
+    register_retrieval_configuration,
 };
 pub use segmentation::{EpisodeDraft, SegmentationProgress};
 pub use work_contexts::*;

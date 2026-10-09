@@ -15,7 +15,7 @@ message EmbeddingConfig {
   repeated string producer_hashes = 5;
 }
 message QueryEmbedding { string text = 1; string space_hash = 2; string producer_hash = 3; repeated float vector = 4; }
-message PrepareQueryRequest { nous.wave.v1alpha1.QueryRequest query = 1; bool reserve_execution = 2; }
+message PrepareQueryRequest { nous.wave.v1alpha1.QueryRequest query = 1; bool reserve_execution = 2; uint32 lease_seconds = 3; }
 message KernelQueryRequest { reserved 1; repeated QueryEmbedding embeddings = 2; optional uint32 validated_candidate_limit = 3; string preparation_token = 4; string subject_id = 5; optional string concept_output = 6; optional string concept_failure = 7; uint32 concept_model_calls = 8; }
 message KernelQueryResponse { nous.wave.v1alpha1.QueryResponse response = 1; optional string validation_ticket = 2; }
 message RerankCandidate { nous.wave.v1alpha1.CognitiveRef reference = 1; double score = 2; }

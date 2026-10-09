@@ -455,6 +455,8 @@ pub struct PrepareQueryRequest {
     pub query: ::core::option::Option<super::super::v1alpha1::QueryRequest>,
     #[prost(bool, tag="2")]
     pub reserve_execution: bool,
+    #[prost(uint32, tag="3")]
+    pub lease_seconds: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct KernelQueryRequest {

@@ -505,7 +505,10 @@ async fn check_model_catalog_activity(
         .iter()
         .filter(|(query, _)| *query)
         .count();
-    let token = rt.cognition.retain_prepared_query(bound).unwrap();
+    let token = rt
+        .cognition
+        .retain_prepared_query(test_support::query_reservation(bound))
+        .unwrap();
     let activation = service
         .activate_query(tonic::Request::new(k::KernelQueryRequest {
             embeddings: materials,
@@ -594,7 +597,9 @@ async fn check_model_catalog_activity(
     assert_eq!(rt.store.authority_seq(subject).await.unwrap(), before);
     let token = rt
         .cognition
-        .retain_prepared_query(rt.cognition.bind_query(input.clone()).await.unwrap())
+        .retain_prepared_query(test_support::query_reservation(
+            rt.cognition.bind_query(input.clone()).await.unwrap(),
+        ))
         .unwrap();
     let activation = service
         .activate_query(tonic::Request::new(activate(token.to_string())))
@@ -611,7 +616,9 @@ async fn check_model_catalog_activity(
     input.capabilities.query_concept_enrichment = RequirementStrength::Forbidden;
     let token = rt
         .cognition
-        .retain_prepared_query(rt.cognition.bind_query(input.clone()).await.unwrap())
+        .retain_prepared_query(test_support::query_reservation(
+            rt.cognition.bind_query(input.clone()).await.unwrap(),
+        ))
         .unwrap();
     assert_eq!(
         service

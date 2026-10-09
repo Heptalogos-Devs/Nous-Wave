@@ -306,8 +306,12 @@ export function createNousClient(transport: Transport) {
       listSessions: call(runtime.listSessions),
       closeSession: call(runtime.closeSession),
       observe: call(runtime.recordObservation),
-      query: call(cognition.query, 300000),
-      prepareQuery: call(cognition.prepareQuery),
+      query: call(cognition.query, (_input, options) =>
+        executionTimeout(undefined, options),
+      ),
+      prepareQuery: call(cognition.prepareQuery, (_input, options) =>
+        executionTimeout(undefined, options),
+      ),
       reportUse: call(runtime.reportUse),
       grantMaintenance: call(cognition.grantMaintenance, (input, options) =>
         executionTimeout(input.maxElapsedMs, options),
@@ -317,7 +321,9 @@ export function createNousClient(transport: Transport) {
         nousql: string,
         options?: RequestOptions,
       ) => {
-        return call(cognition.query, 300000)({ subjectId, nousql }, options);
+        return call(cognition.query, (_input, callOptions) =>
+          executionTimeout(undefined, callOptions),
+        )({ subjectId, nousql }, options);
       },
       createWorkContext: call(runtime.createWorkContext),
       getWorkContext: call(runtime.getWorkContext),
@@ -327,8 +333,12 @@ export function createNousClient(transport: Transport) {
       resumeWorkContext: call(runtime.resumeWorkContext),
       endWorkContext: call(runtime.endWorkContext),
       setActiveWorkContext: call(runtime.setActiveWorkContext),
-      project: call(cognition.buildProjection),
-      managedContext: call(cognition.buildManagedContext),
+      project: call(cognition.buildProjection, (_input, options) =>
+        executionTimeout(undefined, options),
+      ),
+      managedContext: call(cognition.buildManagedContext, (_input, options) =>
+        executionTimeout(undefined, options),
+      ),
     },
     memory: {
       setAccessibility: call(memory.setAccessibility),

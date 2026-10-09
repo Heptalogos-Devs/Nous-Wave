@@ -39,10 +39,13 @@ test("a granted opportunity can finish cleanup and acknowledgement before the Cl
             reject(new ConnectError("Caller deadline", Code.DeadlineExceeded)),
           timeout,
         );
-        const completed = setTimeout(() => {
-          clearTimeout(deadline);
-          resolve({ message: create(method.output) });
-        }, 128000);
+        const completed = setTimeout(
+          () => {
+            clearTimeout(deadline);
+            resolve({ message: create(method.output) });
+          },
+          method.name === "Query" ? 308000 : 128000,
+        );
         signal?.addEventListener(
           "abort",
           () => {
@@ -68,6 +71,11 @@ test("a granted opportunity can finish cleanup and acknowledgement before the Cl
       .catch((error: unknown) => error);
     await vi.advanceTimersByTimeAsync(128000);
     expect(await result).not.toBeInstanceOf(Error);
+    const query = client.cognition
+      .query({ subjectId: "s", nousql: "one complete query opportunity" })
+      .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(308000);
+    expect(await query).not.toBeInstanceOf(Error);
     const shorter = client.cognition
       .grantMaintenance(request, { timeoutMs: 1000 })
       .catch((error: unknown) => error);

@@ -1,6 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { executionOptions } from "./execution.js";
 import { type CoreExecutionPolicy } from "./configuration-catalog.js";
 import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import Fastify from "fastify";
@@ -14,6 +15,7 @@ import {
   Code,
   ConnectError,
   type HandlerContext,
+  type CallOptions,
   type Client,
   type ServiceImpl,
 } from "@connectrpc/connect";
@@ -127,13 +129,13 @@ export async function createCore(settings: CoreOptions) {
   });
   async function project(
     input: Parameters<typeof kernel.projection.buildContributionBatch>[0],
-    context: HandlerContext,
+    calls: ReturnType<typeof executionOptions>,
   ) {
     const policy = planner.policy(input.consumerId ?? "");
     const request = create(ProjectionRequestSchema, input);
     const snapshot = await kernel.runtime.getSession(
       { subjectId: request.subjectId, id: request.sessionId },
-      { signal: context.signal },
+      calls,
     );
     if (
       request.activeWorkContextId &&
@@ -160,7 +162,7 @@ export async function createCore(settings: CoreOptions) {
           sessionId: request.sessionId,
           expression: request.query,
         }),
-        options(context),
+        calls,
       );
       request.situationRefs.push(
         ...query.hits.flatMap((h) => (h.reference ? [h.reference] : [])),
@@ -170,7 +172,7 @@ export async function createCore(settings: CoreOptions) {
     }
     const batch = await kernel.projection.buildContributionBatch(
       request,
-      options(context),
+      calls,
     );
     batch.degradation.push(...queryDegradation);
     const projection = await planner.build(
@@ -202,17 +204,17 @@ export async function createCore(settings: CoreOptions) {
         })),
       },
       request,
-      context.signal,
+      calls.signal,
     );
     const after = await kernel.runtime.getSession(
       { subjectId: request.subjectId, id: request.sessionId },
-      { signal: context.signal },
+      calls,
     );
     if (after.runtimeRevision !== snapshot.runtimeRevision)
       throw new ConnectError("Session changed during projection", Code.Aborted);
     return projection;
   }
-  async function bindQueryInput(r: QueryRequest, c: HandlerContext) {
+  async function bindQueryInput(r: QueryRequest, calls: CallOptions) {
     if (r.nousql !== undefined) {
       if (r.expression)
         throw new ConnectError(
@@ -221,7 +223,7 @@ export async function createCore(settings: CoreOptions) {
         );
       const cognitiveTime = await kernel.queryWorkflow.getCognitiveTime(
         { subjectId: r.subjectId },
-        options(c),
+        calls,
       );
       const compiled = await compileNousQL(
         r.nousql,
@@ -241,7 +243,7 @@ export async function createCore(settings: CoreOptions) {
                 value: locator.value,
               },
             },
-            options(c),
+            calls,
           );
           if (result.status !== "BOUND" || !result.candidates[0]?.canonical)
             throw new ConnectError(
@@ -265,14 +267,17 @@ export async function createCore(settings: CoreOptions) {
   const cognition: ServiceImpl<typeof CognitionService> = {
     grantMaintenance: (r, c) =>
       grantMaintenance(kernel, modelRuntime, r, options(c)),
-    prepareQuery: async (r, c) =>
-      kernel.queryWorkflow.prepareQuery(
-        { query: await bindQueryInput(r, c), reserveExecution: false },
-        options(c),
-      ),
+    prepareQuery: async (r, c) => {
+      const calls = executionOptions(kernel.execution.opportunity, options(c));
+      return kernel.queryWorkflow.prepareQuery(
+        { query: await bindQueryInput(r, calls), reserveExecution: false },
+        calls,
+      );
+    },
     query: async (r, c) => {
-      await bindQueryInput(r, c);
-      const result = await queries.execute(r, options(c));
+      const calls = executionOptions(kernel.execution.opportunity, options(c));
+      await bindQueryInput(r, calls);
+      const result = await queries.execute(r, calls);
       for (const hit of result.hits) {
         if (
           hit.reference &&
@@ -287,7 +292,7 @@ export async function createCore(settings: CoreOptions) {
         ) {
           const binding = await kernel.identity.bindIdentity(
             { subjectId: r.subjectId, canonical: hit.reference },
-            options(c),
+            calls,
           );
           hit.lexicalRef = binding.lexicalRef;
         }
@@ -295,17 +300,24 @@ export async function createCore(settings: CoreOptions) {
       return result;
     },
     buildProjection: async (r, c) =>
-      create(ProjectionSchema, await project(r, c)),
+      create(
+        ProjectionSchema,
+        await project(
+          r,
+          executionOptions(kernel.execution.opportunity, options(c)),
+        ),
+      ),
     buildManagedContext: async (r, c) => {
       if (!r.projection)
         throw new ConnectError(
           "Projection request required",
           Code.InvalidArgument,
         );
-      const projection = await project(r.projection, c);
+      const calls = executionOptions(kernel.execution.opportunity, options(c));
+      const projection = await project(r.projection, calls);
       const session = await kernel.runtime.getSession(
         { subjectId: r.projection.subjectId, id: r.projection.sessionId },
-        options(c),
+        calls,
       );
       if (session.runtimeRevision !== projection.sourceRuntimeRevision)
         throw new ConnectError(

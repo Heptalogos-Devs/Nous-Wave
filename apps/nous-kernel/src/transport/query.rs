@@ -8,15 +8,18 @@ impl KernelService {
     pub(super) async fn query(
         &self,
         bound: nous_runtime::BoundQuery,
+        lease: nous_runtime::QueryLease,
         pool_limit: Option<usize>,
     ) -> Result<k::KernelQueryResponse> {
+        lease.require_live()?;
         let execution = Box::pin(self.0.execute_bound_query(bound, pool_limit)).await?;
+        lease.require_live()?;
         let inspection = inspect_bound_query(&execution.bound)?;
         let feedback_bound = execution.bound.clone();
         let requires_finalization =
             pool_limit.is_some() || !execution.result.resource_actions.is_empty();
         let (result, ticket) = if requires_finalization {
-            let (result, ticket) = self.0.cognition.retain_query(execution)?;
+            let (result, ticket) = self.0.cognition.retain_query(execution, lease)?;
             (result, ticket.map(|value| value.to_string()))
         } else {
             (execution.result, None)

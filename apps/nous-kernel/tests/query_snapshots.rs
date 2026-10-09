@@ -55,7 +55,34 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
     ];
     let execution = runtime.execute_query(request, Some(64)).await.unwrap();
     assert_eq!(execution.result.results.len(), 3);
-    let (pool, ticket) = runtime.cognition.retain_query(execution).unwrap();
+    let expiring = nous_runtime::QueryLease::new(std::time::Duration::from_millis(200)).unwrap();
+    let (_, expired_ticket) = runtime
+        .cognition
+        .retain_query(execution.clone(), expiring)
+        .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    assert!(
+        runtime
+            .cognition
+            .finalize_query(
+                subject,
+                expired_ticket.unwrap(),
+                Vec::new(),
+                Vec::new(),
+                nous_runtime::CognitiveContributors {
+                    material: Some(&runtime.material),
+                    shared: None,
+                    memory: Some(runtime.require_memory().unwrap()),
+                }
+            )
+            .await
+            .is_err(),
+        "validation must retain the original opportunity deadline"
+    );
+    let (pool, ticket) = runtime
+        .cognition
+        .retain_query(execution, test_support::query_lease())
+        .unwrap();
     let ticket = ticket.expect("validated query snapshot should be retained");
     let first = &cohort[0];
     runtime

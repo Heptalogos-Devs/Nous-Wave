@@ -4,33 +4,8 @@
 
 use nous_configuration::*;
 use nous_core::{Error, Result};
-pub const QUERY_LEASE: ConfigKey<u64> = ConfigKey::new("runtime.query_lease_seconds");
 pub const QUERY_SLOTS: ConfigKey<usize> = ConfigKey::new("runtime.query_lease_slots");
 pub fn register_configuration(registry: &mut ConfigRegistryBuilder) -> Result<()> {
-    registry.register(
-        QUERY_LEASE,
-        "cognitive-runtime",
-        "Retained query execution lease duration.",
-        360,
-        ConfigExposure::Developer,
-        ConfigScopePolicy::SystemOnly,
-        ConfigApplyMode::Live,
-        ConfigSemanticEffect::Operational,
-        |value| {
-            if (1..=3600).contains(value) {
-                Ok(())
-            } else {
-                Err(Error::Invalid(
-                    "execution lease must be 1..3600 seconds".into(),
-                ))
-            }
-        },
-    )?;
-    registry.describe(QUERY_LEASE.path(), |d| {
-        d.unit = Some("seconds".into());
-        d.json_schema["minimum"] = serde_json::json!(1);
-        d.json_schema["maximum"] = serde_json::json!(3600);
-    })?;
     registry.register(
         QUERY_SLOTS,
         "cognitive-runtime",

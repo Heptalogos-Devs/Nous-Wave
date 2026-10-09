@@ -453,7 +453,6 @@ pub mod kernel_model_workflow_service_server {
     /// Generated trait containing gRPC methods that should be implemented for use with KernelModelWorkflowServiceServer.
     #[async_trait]
     pub trait KernelModelWorkflowService: std::marker::Send + std::marker::Sync + 'static {
-        ///
         async fn find_workflow(
             &self,
             request: tonic::Request<super::FindWorkflowRequest>,
