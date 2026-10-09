@@ -72,3 +72,13 @@ fresh Codex 进程读回原来源后，使用新 UUID 执行已明确失败且�
 原 Observation 在形成前后均完整读回、原文不变。Embedding preparation 实际提交 6 项、请求 2 次。普通自然语言 query 在 `baseline-rrf`、concept enrichment `off` 下完成，consumer revision 为 rank 1，报告 lexical/dense/language-rerank 参与；一个 referenced UseEvent 接受计数 1、重复计数 0。WorkContext `ctx:raraf-romup-hasal` revision 6 保存 Objective/Decisions/Current Work、exact refs 与失败 ledger，读回确认 open；fresh Session 关闭。当前 Subject `sub:tujap-vibuz-gozod` 保留供后续持续任务与 Portable 续接。
 
 旧实例 consumer 记录中找到的两个 pending（UseEvent 与 formation）已按原始字节复制并逐份 SHA-256 核对，manifest 保留原路径、receipt identity 与 Subject；原目录仍保留。其具体内容位于 ignored 本地研究成果区，不加入公共结果文件。Linux SAUC 独立硬盘提取、全仓剩余 owner 重整、媒体 route/deadline/lease 与 Windows source-less Portable 尚未完成。
+
+## 模型输入、fallback 与执行 owner
+
+两组不同音频能力的实际配置经受控 HTTP 复现了原条件：首选有 audio_input、fallback 没有时，首选返回 503，fallback 的音频观察错误通过并被提交；反向配置则误拒合法音频输出。另一 owning contract 检查复现原始帧与 Transcript 共用 original 标签时，转写内容被允许声明为直接听到。
+
+当前 Model input owner 每次 attempt 按实际媒体和冻结候选 profile 过滤输入、构造实际访问声明；Material interpretation owner 使用这份声明校验。visual/audio/source_text 各自保存 original/representation/unavailable，Transcript 不取得直接听到的身份；description 第二阶段读取实际持久 quality 而非首选模型能力。当前公共 Core/Kernel/PostgreSQL 的 smoke:media 验证两组配置、持久 quality.input_access/payload.evidence_access 一致，以及成功重放不增加 provider 请求。该 fixture 使用 opaque bytes 与受控输出，不声称火山媒体质量。首轮临时 PG setup 曾超时退出；同一检查重跑通过，未修改启动超时，失败未作为成功证据。
+
+实际 HTTP cancellation 检查另复现旧 telemetry 在 fallback 中断时整体丢失；当前保留首个 503 failed 与已传输的第二个 unknown/caller_cancelled attempt，未知 usage 保持未知。完整 SDK/raw-media 响应已知 usage 在输出校验失败时保留。独立 profiles、协议 adapter 与 Material interpretation 移出 invocations；没有依赖其私有状态的 part 类或转发兼容层。协议读取使用 get-stream 的字节上限替换两份 reader 循环。
+
+手工 material projection/validation version 常量已替换为同一个 owning code identity。Source/bundle 探针确认源码与 source-less ESM 程序的 provider/material 实现摘要相同，bundle 内实际含 get-stream、proper-lockfile、write-file-atomic 与 devalue，CLI JSON help 可解析。该证据只覆盖当前 bundle 与执行身份，完整 Windows Portable 连续任务、deadline/lease 统一与其余全仓 scope 仍待完成。

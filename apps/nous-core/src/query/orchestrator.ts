@@ -157,13 +157,12 @@ export class QueryOrchestrator {
             );
           const response = await this.models.invocations.generate(
             "query_concept_enrichment",
-            activation.modelInput,
-            options.signal ?? undefined,
-            undefined,
-            undefined,
-            undefined,
-            () => {
-              conceptModelCalls++;
+            { content: activation.modelInput },
+            {
+              signal: options.signal ?? undefined,
+              beforeAttempt: () => {
+                conceptModelCalls++;
+              },
             },
           );
           conceptOutput = JSON.stringify(response.value);

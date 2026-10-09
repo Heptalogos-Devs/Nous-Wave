@@ -26,7 +26,11 @@ Capabilities 包括 text、image_input、audio_input、video_input、structured_
 
 Embedding profile 显式声明 dimension、weights revision、task、input representation、preprocessing identity/revision、normalization 与 output semantics。Core 据此形成 EmbeddingSpaceSignature；Kernel 持久化 producer identity 并以 embedding-space identity 隔离 Serving generations。
 
-Model profiles 与 Prompt 在 Core 启动时解析；配置变更在 Core restart 后生效。SDK automatic retry 关闭；有序 execution fallback 仅处理基础设施或 JSON/schema 错误，不处理 owner 语义拒绝。固定 snapshot 含全路由、资源、controls 和 Prompt；每个 outbound 调用计入 maintenance 预算。保存 proposal 后基础设施重试不得重新生成。
+Model profiles 与 Prompt 在 Core 启动时解析；配置变更在 Core restart 后生效。SDK automatic retry 关闭；有序 execution fallback 处理基础设施、JSON/schema 和 generation input/output 合同错误，领域 Authority 的语义拒绝不触发另一轮生成。固定 snapshot 使用唯一 nous.model.execution format，并保存全路由、资源、controls、Prompt 与 provider implementation digest；当前进程拒绝其他实现的执行 snapshot。每个 outbound 调用计入 maintenance 预算。保存 proposal 后基础设施重试不得重新生成。
+
+资源 schemas/types 由 profiles owner 提供；invocations 持有冻结 routes、admission 和 attempt 记录；protocols 负责 SDK/HTTP 调用且不依赖 ModelRole；Material interpretation owner 构造媒体输入并解释生成输出。每次调用先依据实际 physical input 过滤 route，再发送实际通道访问声明并校验输出。Source startup 与 Portable assembly 对 owning implementation 文件及实际依赖版本计算相同摘要，bundle 内嵌该值，不在 Portable 读取源码。Catalog 呈现身份与这些执行身份保持独立。
+
+Attempt 区分 succeeded、failed、skipped 与 unknown；输入或资源不满足的 route 为 skipped，不发出请求。取消保留已经发生的请求与已知 usage；已传输而响应不可确认的请求记录 unknown，不记成成功或零成本。Provider response 与错误内容只在本地合同检查，公开失败分类不携带 credential 或原始 response body。
 
 ## Prompt registry
 

@@ -8,11 +8,11 @@ import {
   parseConfiguration,
   parseEffectiveConfiguration,
 } from "../../apps/nous-core/src/config.js";
+import { resolveExecutionProfile } from "../../apps/nous-core/src/model/profiles.js";
 import {
   roleNames,
-  resolveExecutionProfile,
   type ModelRole,
-} from "../../apps/nous-core/src/model/configuration.js";
+} from "../../apps/nous-core/src/model/roles.js";
 import { PromptRegistry } from "../../apps/nous-core/src/model/prompts.js";
 import { providerContractForRole } from "../../apps/nous-core/src/model/schemas/contracts.js";
 import {

@@ -16,7 +16,8 @@ import {
 } from "./config.js";
 import type { RuntimeLocations } from "./locations.js";
 import { PromptRegistry } from "./model/prompts.js";
-import { roleNames, modelRoleProblem } from "./model/configuration.js";
+import { roleNames } from "./model/roles.js";
+import { modelRoleProblem } from "./model/configuration.js";
 
 /** Offline inspection: no environment mutation, runtime startup or provider calls. */
 export async function checkConfiguration(

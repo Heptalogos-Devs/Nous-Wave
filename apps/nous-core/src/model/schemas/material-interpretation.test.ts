@@ -59,16 +59,35 @@ const output = () => ({
   ],
 });
 const source = {
-  evidenceAccess: "original" as const,
-  visual: true,
-  audio: false,
-  sourceText: false,
+  access: {
+    visual: "original",
+    audio: "unavailable",
+    source_text: "unavailable",
+  } as const,
   catalog: { S000: { kind: "source_region", value: "source-id" } },
   durationMs: 1000,
 };
 describe("Material interpretation contract", () => {
+  it("does not treat a Transcript as directly heard audio when original frames are also supplied", () => {
+    const heard = output();
+    heard.coverage.audio = "observed";
+    heard.observations[0]!.evidence_channel = "audio";
+    expect(() =>
+      structuredMaterialResult(heard, {
+        ...source,
+        access: {
+          visual: "original",
+          audio: "representation",
+          source_text: "unavailable",
+        },
+      }),
+    ).toThrow("representation");
+  });
   it("does not promote a committed media description into directly observed pixels", () => {
-    const context = { ...source, evidenceAccess: "representation" as const };
+    const context = {
+      ...source,
+      access: { ...source.access, visual: "representation" as const },
+    };
     expect(() => structuredMaterialResult(output(), context)).toThrow(
       "representation",
     );
@@ -76,8 +95,10 @@ describe("Material interpretation contract", () => {
     reported.coverage.visual = "reported";
     reported.observations[0]!.basis = "reported";
     const result = structuredMaterialResult(reported, context);
-    expect(result.structuredPayload.evidence_access).toBe("representation");
-    expect(result.text).toContain("Evidence access: representation");
+    expect(result.structuredPayload.evidence_access).toMatchObject({
+      visual: "representation",
+    });
+    expect(result.text).toContain("visual=representation");
     expect(result.text).toContain("[reported/uncertain/event");
     reported.observations[0]!.basis = "direct";
     expect(() => structuredMaterialResult(reported, context)).toThrow(
@@ -129,8 +150,7 @@ describe("Material interpretation contract", () => {
     expect(() =>
       structuredMaterialResult(output(), {
         ...source,
-        visual: false,
-        audio: true,
+        access: { ...source.access, visual: "unavailable", audio: "original" },
       }),
     ).toThrow("visual");
     const invented = output();
@@ -180,12 +200,22 @@ describe("Material interpretation contract", () => {
         },
       ],
     };
-    const context = { ...source, visual: false, sourceText: true };
+    const context = {
+      ...source,
+      access: {
+        ...source.access,
+        visual: "unavailable" as const,
+        source_text: "original" as const,
+      },
+    };
     expect(structuredMaterialResult(value, context).text).toContain(
       "Source text:\n- [verbatim] Original passage",
     );
     expect(() =>
-      structuredMaterialResult(value, { ...context, sourceText: false }),
+      structuredMaterialResult(value, {
+        ...context,
+        access: { ...context.access, source_text: "unavailable" },
+      }),
     ).toThrow("source text");
   });
   it("accepts narrated states independently of visual observation and rejects absent evidence channels", () => {
@@ -199,7 +229,14 @@ describe("Material interpretation contract", () => {
       content:
         "The narrator says Anil served as SpaceX's first flight surgeon.",
     };
-    const context = { ...source, visual: false, audio: true };
+    const context = {
+      ...source,
+      access: {
+        ...source.access,
+        visual: "unavailable" as const,
+        audio: "original" as const,
+      },
+    };
     expect(structuredMaterialResult(value, context).text).toContain(
       "state; evidence=audio",
     );

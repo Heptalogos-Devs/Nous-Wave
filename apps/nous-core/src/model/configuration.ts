@@ -2,121 +2,29 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from "zod";
-import { remoteEndpointSchema } from "../remote-endpoint.js";
+import {
+  gatewaySchema,
+  modelSchema,
+  executionProfileSchema,
+  profileNameSchema,
+  executionTimeoutSchema,
+  type ExecutionProfile,
+} from "./profiles.js";
 import { structuredContractForRole } from "./schemas/contracts.js";
 
 import { roleNames, type ModelRole } from "./roles.js";
-export { roleNames, type ModelRole } from "./roles.js";
-const nonempty = z.string().min(1).max(512);
-const boundedTimeout = z.number().int().min(1).max(300_000);
-const gatewaySchema = z.strictObject({
-  base_url: remoteEndpointSchema,
-  credential_env: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
-  enabled: z.boolean().default(true),
-  request_timeout_ms: boundedTimeout.default(30_000),
-});
-const embeddingSchema = z.strictObject({
-  dimension: z.number().int().min(1).max(8192),
-  max_batch_size: z.number().int().min(1).max(64).default(64),
-  weights_revision: nonempty,
-  task: nonempty,
-  input_representation: nonempty,
-  preprocessing_identity: nonempty,
-  preprocessing_revision: nonempty,
-  normalization: nonempty,
-  output_semantics: nonempty,
-});
-const reasoningLevels = [
-  "provider-default",
-  "none",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-] as const;
-const modelBaseSchema = z.strictObject({
-  gateway: nonempty,
-  model: z.string().max(512).default(""),
-  capabilities: z
-    .array(
-      z.enum([
-        "text",
-        "image_input",
-        "audio_input",
-        "video_input",
-        "structured_output",
-        "embedding",
-        "speech_transcription",
-        "rerank",
-      ]),
-    )
-    .min(1),
-  model_revision: nonempty.optional(),
-  reasoning_levels: z
-    .array(z.enum(reasoningLevels))
-    .max(7)
-    .default(["provider-default"]),
-});
-// The protocol/embedding contract is native Zod, including the exported JSON Schema.
-const modelSchema = z.discriminatedUnion("protocol", [
-  modelBaseSchema.extend({
-    protocol: z.literal("openai-embeddings"),
-    embedding: embeddingSchema,
-  }),
-  modelBaseSchema.extend({
-    protocol: z.enum([
-      "openai-chat",
-      "openai-responses",
-      "openai-audio-transcription",
-      "rerank-v1",
-    ]),
-    embedding: z.never().optional(),
-  }),
-]);
-const generationTokensSchema = z
-  .number()
-  .int()
-  .min(1)
-  .max(65_536)
-  .default(4096);
-const executionProfileSchema = z.strictObject({
-  model: nonempty,
-  reasoning: z.enum(reasoningLevels).default("provider-default"),
-  temperature: z.number().min(0).max(2).optional(),
-  top_p: z.number().min(0).max(1).optional(),
-  max_output_tokens: generationTokensSchema.unwrap().optional(),
-  timeout_ms: boundedTimeout.optional(),
-  provider_options: z
-    .record(z.string().max(64), z.record(z.string().max(128), z.json()))
-    .refine(
-      (value) => Buffer.byteLength(JSON.stringify(value)) <= 16384,
-      "Provider options exceed 16 KiB",
-    )
-    .default({}),
-});
 const rolePolicySchema = z.strictObject({
   routes: z
-    .array(nonempty)
+    .array(profileNameSchema)
     .min(1)
     .max(4)
     .refine(
       (routes) => new Set(routes).size === routes.length,
       "Duplicate execution route",
     ),
-  prompt: nonempty.optional(),
+  prompt: profileNameSchema.optional(),
   requirement: z.enum(["optional", "required"]).default("optional"),
 });
-/** Resolve execution defaults using declared resource protocol, independently from RolePolicy. */
-export function resolveExecutionProfile(
-  execution: ExecutionProfile,
-  protocol: string,
-): ExecutionProfile {
-  return ["openai-chat", "openai-responses"].includes(protocol)
-    ? { ...execution, max_output_tokens: execution.max_output_tokens ?? 4096 }
-    : execution;
-}
-
 export const modelConfigurationShape = {
   material_inputs: z
     .strictObject({
@@ -149,7 +57,7 @@ export const modelConfigurationShape = {
       frame_end_margin_seconds: z.number().min(0).max(1).default(0.1),
       max_frame_bytes: z.number().int().min(1024).max(1048576).default(262144),
       max_audio_bytes: z.number().int().min(44).max(16777216).default(4194304),
-      process_timeout_ms: boundedTimeout.default(30000),
+      process_timeout_ms: executionTimeoutSchema.default(30000),
       prompt: z.string().min(1).default("material/video-description.md"),
     })
     .prefault({}),
@@ -210,10 +118,13 @@ export function modelRoleProblem(
     return "Role requires structured_output";
   if (
     role === "material_direct_structuring" &&
-    (!model.capabilities.includes("image_input") ||
-      !model.capabilities.includes("structured_output"))
+    !["image_input", "audio_input", "video_input"].some((inputCapability) =>
+      model.capabilities.includes(
+        inputCapability as "image_input" | "audio_input" | "video_input",
+      ),
+    )
   )
-    return "Direct structuring requires image_input and structured_output";
+    return "Direct structuring requires a declared media input capability";
   if (!model.reasoning_levels.includes(binding.reasoning))
     return "Unsupported reasoning level";
   if (
@@ -226,6 +137,4 @@ export function modelRoleProblem(
     return "Role does not consume generation parameters";
 }
 export type ModelConfiguration = z.infer<typeof modelConfigurationSchema>;
-export type ModelProfile = z.infer<typeof modelSchema>;
-export type ExecutionProfile = z.infer<typeof executionProfileSchema>;
 export type RolePolicy = z.infer<typeof rolePolicySchema>;

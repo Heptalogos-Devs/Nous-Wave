@@ -179,6 +179,7 @@ describe("model protocol and provenance boundaries", () => {
             model: "chat-id",
             capabilities: [
               "text",
+              "image_input",
               "structured_output",
               "audio_input",
               "video_input",
@@ -229,7 +230,9 @@ describe("model protocol and provenance boundaries", () => {
           )
           .every((c) => c.state === "READY"),
       ).toBe(true);
-      const formation = await runtime.generate("memory_formation", "evidence");
+      const formation = await runtime.generate("memory_formation", {
+        content: "evidence",
+      });
       expect(formation.value).toEqual({
         text: "faithful",
         semanticRole: "reported_fact",
@@ -259,9 +262,15 @@ describe("model protocol and provenance boundaries", () => {
         "/v1/embeddings",
         "/v1/rerank",
       ]);
-      await runtime.generate("memory_formation", [
-        { type: "file", data: Uint8Array.of(1, 2, 3), mediaType: "image/png" },
-      ]);
+      await runtime.generate("memory_formation", {
+        content: [
+          {
+            type: "file",
+            data: Uint8Array.of(1, 2, 3),
+            mediaType: "image/png",
+          },
+        ],
+      });
       const imageMessages = requests.at(-1)!.body.messages as {
         content: unknown[];
       }[];
@@ -269,14 +278,10 @@ describe("model protocol and provenance boundaries", () => {
         { type: "image_url", image_url: { url: "data:image/png;base64,AQID" } },
       ]);
       for (const mediaType of ["audio/mpeg", "video/mp4"]) {
-        const result = await runtime.generate(
-          "memory_formation",
-          "evidence",
-          undefined,
-          undefined,
-          undefined,
-          { bytes: Uint8Array.of(1, 2, 3), mediaType },
-        );
+        const result = await runtime.generate("memory_formation", {
+          content: "evidence",
+          media: { bytes: Uint8Array.of(1, 2, 3), mediaType },
+        });
         expect(result.value).toEqual({
           text: "faithful",
           semanticRole: "reported_fact",
@@ -314,14 +319,10 @@ describe("model protocol and provenance boundaries", () => {
       noAudio.model_profiles.chat!.capabilities = ["text", "structured_output"];
       const admittedRequests = requests.length;
       await expect(
-        (await ModelInvocations.create(noAudio)).generate(
-          "memory_formation",
-          "evidence",
-          undefined,
-          undefined,
-          undefined,
-          { bytes: Uint8Array.of(1, 2, 3), mediaType: "audio/mpeg" },
-        ),
+        (await ModelInvocations.create(noAudio)).generate("memory_formation", {
+          content: "evidence",
+          media: { bytes: Uint8Array.of(1, 2, 3), mediaType: "audio/mpeg" },
+        }),
       ).rejects.toThrow("audio_input_unavailable");
       expect(requests).toHaveLength(admittedRequests);
       for (const model of [
@@ -345,21 +346,17 @@ describe("model protocol and provenance boundaries", () => {
       config.model_profiles.chat!.model = "incomplete-chat";
       const incomplete = await ModelInvocations.create(config);
       await expect(
-        incomplete.generate("memory_formation", "evidence"),
+        incomplete.generate("memory_formation", { content: "evidence" }),
       ).rejects.toThrow("output_incomplete_length");
       expect(
         incomplete.capabilities.find((c) => c.name === "model.memory_formation")
           ?.state,
       ).toBe("READY");
       await expect(
-        incomplete.generate(
-          "memory_formation",
-          "evidence",
-          undefined,
-          undefined,
-          undefined,
-          { bytes: Uint8Array.of(1), mediaType: "audio/mpeg" },
-        ),
+        incomplete.generate("memory_formation", {
+          content: "evidence",
+          media: { bytes: Uint8Array.of(1), mediaType: "audio/mpeg" },
+        }),
       ).rejects.toThrow("response_validation");
       config.model_profiles.backup = {
         ...config.model_profiles.chat!,
@@ -383,13 +380,12 @@ describe("model protocol and provenance boundaries", () => {
       const start = requests.length;
       const fallback = await routed.generate(
         "memory_formation",
-        "evidence",
-        undefined,
-        undefined,
-        frozen,
-        undefined,
-        () => {
-          admitted++;
+        { content: "evidence" },
+        {
+          snapshot: frozen,
+          beforeAttempt: () => {
+            admitted++;
+          },
         },
       );
       expect(admitted).toBe(2);
@@ -411,15 +407,13 @@ describe("model protocol and provenance boundaries", () => {
       let semanticChecks = 0;
       const semanticFallback = await routed.generate(
         "memory_formation",
-        "evidence",
-        undefined,
-        undefined,
-        semanticSnapshot,
-        undefined,
-        undefined,
-        () => {
-          if (++semanticChecks === 1)
-            throw new Error("source semantics invalid");
+        { content: "evidence" },
+        {
+          snapshot: semanticSnapshot,
+          validateOutput: () => {
+            if (++semanticChecks === 1)
+              throw new Error("source semantics invalid");
+          },
         },
       );
       expect(semanticChecks).toBe(2);
@@ -435,14 +429,13 @@ describe("model protocol and provenance boundaries", () => {
       try {
         await routed.generate(
           "memory_formation",
-          "evidence",
-          undefined,
-          undefined,
-          frozen,
-          undefined,
-          () => {
-            if (++admission > 1)
-              throw new Error("caller model budget exhausted");
+          { content: "evidence" },
+          {
+            snapshot: frozen,
+            beforeAttempt: () => {
+              if (++admission > 1)
+                throw new Error("caller model budget exhausted");
+            },
           },
         );
       } catch (error) {

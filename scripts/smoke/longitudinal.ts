@@ -47,6 +47,8 @@ function proposalModels() {
   });
   const calls = { episode: 0, journal: 0, consolidation: 0 };
   models.invocations.snapshot = (role) => ({
+    format: "nous.model.execution",
+    implementationDigest: "0".repeat(64),
     role,
     configuration: modelConfigurationSchema.parse({}),
     profileDigest: "a".repeat(64),

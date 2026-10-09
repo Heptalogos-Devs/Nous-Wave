@@ -188,7 +188,8 @@ it("frames without a transcript cannot acquire audio evidence in either structur
       role,
       configDigest: "fixture-config",
     }),
-    generate: async (role: string, input: unknown) => {
+    generate: async (role: string, request: { content: unknown }) => {
+      const input = request.content;
       modelInputs.push(input);
       return {
         value:
@@ -219,6 +220,7 @@ it("frames without a transcript cannot acquire audio evidence in either structur
           protocol: "openai-chat",
           implementation: "fixture",
         },
+        input: { visual: Array.isArray(input), audio: false, text: true },
       };
     },
   } as unknown as ModelInvocations;

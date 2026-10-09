@@ -11,18 +11,22 @@ import {
   type ModelProducerMetadata,
   type ModelRoleSnapshot,
 } from "./invocations.js";
-import type { ModelRole } from "./configuration.js";
+import type { ModelRole } from "./roles.js";
 import { z } from "zod";
 import type { DerivedRepresentation } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { sampleVideo } from "./video.js";
 import { canonicalDigest } from "../digest.js";
 import {
   materialInterpretationSchemaDigest,
-  materialProjectionIdentity,
-  materialValidationIdentity,
+  materialInterpretationIdentity,
   type StructuredMaterialContext,
 } from "./schemas/material-interpretation.js";
 import type { JsonObject } from "@bufbuild/protobuf";
+import {
+  channelAccessSchema,
+  representedAccess,
+  type ChannelAccess,
+} from "./input.js";
 
 export async function deriveMaterial(
   kernel: KernelClient,
@@ -175,11 +179,8 @@ export async function deriveMaterial(
               ? canonicalDigest({
                   role: producerMetadata?.configDigest,
                   preprocessing: preprocessingDigest,
-                  projection: structuredPayload
-                    ? materialProjectionIdentity
-                    : undefined,
-                  validation: structuredPayload
-                    ? materialValidationIdentity
+                  interpretation: structuredPayload
+                    ? materialInterpretationIdentity
                     : undefined,
                 })
               : (producerMetadata?.configDigest ?? "utf8-fatal-v1"),
@@ -198,6 +199,7 @@ export async function deriveMaterial(
       text: string;
       producerMetadata: ModelProducerMetadata;
       execution: ExecutionTelemetry;
+      inputAccess: ChannelAccess;
       structuredPayload?: JsonObject;
     }>,
     quality: Record<string, unknown> = {},
@@ -222,14 +224,7 @@ export async function deriveMaterial(
         kind === "structured_interpretation"
           ? materialInterpretationSchemaDigest
           : undefined,
-      projection:
-        kind === "structured_interpretation"
-          ? materialProjectionIdentity
-          : undefined,
-      validation:
-        kind === "structured_interpretation"
-          ? materialValidationIdentity
-          : undefined,
+      interpretation: materialInterpretationIdentity,
     });
     const identity = {
       subjectId: request.subjectId,
@@ -266,6 +261,7 @@ export async function deriveMaterial(
             text: string;
             producerMetadata: ModelProducerMetadata;
             execution: ExecutionTelemetry;
+            inputAccess: ChannelAccess;
             structuredPayload?: JsonObject;
           })
         : undefined;
@@ -287,7 +283,10 @@ export async function deriveMaterial(
         kind,
         graph,
         proposal.producerMetadata,
-        quality,
+        {
+          ...quality,
+          input_access: channelAccessSchema.parse(proposal.inputAccess),
+        },
         preprocessingDigest,
         proposal.structuredPayload,
       );
@@ -331,28 +330,19 @@ export async function deriveMaterial(
   const mime = source.mediaType.split(";")[0]?.trim().toLowerCase() ?? "";
   const textual = mime.startsWith("text/") || mime === "application/json";
   const directContext: StructuredMaterialContext = {
-    evidenceAccess: "original",
-    visual: mime.startsWith("image/") || mime.startsWith("video/"),
-    audio:
-      mime.startsWith("audio/") ||
-      (mime.startsWith("video/") &&
-        Boolean(
-          models.invocations
-            .profile(
-              strategy === "direct_structured"
-                ? "material_direct_structuring"
-                : "material_description",
-            )
-            ?.capabilities.includes("audio_input"),
-        )),
-    sourceText: textual,
+    access: {
+      visual:
+        mime.startsWith("image/") || mime.startsWith("video/")
+          ? "original"
+          : "unavailable",
+      audio: mime.startsWith("audio/") ? "original" : "unavailable",
+      source_text: textual ? "original" : "unavailable",
+    },
     catalog: { S000: { kind: "source_region", value: request.sourceRegionId } },
   };
   const signal = options.signal ?? undefined;
-  const structureDescription = async (
-    description: DerivedRepresentation,
-    available: StructuredMaterialContext = directContext,
-  ) => {
+  const structureDescription = async (description: DerivedRepresentation) => {
+    const access = channelAccessSchema.parse(description.quality?.input_access);
     const { segments } = await kernel.materialWorkflow.segmentDescription(
       { subjectId: request.subjectId, id: description.representationId },
       options,
@@ -380,20 +370,19 @@ export async function deriveMaterial(
       ],
       "material_structuring",
       (snapshot) =>
-        models.structure(
+        models.material.structure(
           segments.map((item) => `[${item.key}] ${item.text}`).join("\n"),
           signal,
           snapshot,
           {
-            ...available,
-            evidenceAccess: textual ? "original" : "representation",
+            access: textual ? access : representedAccess(access),
             catalog,
           },
         ),
       {},
       canonicalDigest({
         segmentation: "description-utf8-lines-v1",
-        projection: materialProjectionIdentity,
+        interpretation: materialInterpretationIdentity,
       }),
     );
   };
@@ -442,7 +431,7 @@ export async function deriveMaterial(
           ? "material_direct_structuring"
           : "material_description",
         (snapshot) =>
-          models.describeMedia(
+          models.material.describeMedia(
             source.content,
             mime,
             strategy === "direct_structured",
@@ -454,7 +443,6 @@ export async function deriveMaterial(
           input_mode: "direct",
           source_bytes: source.content.length,
           modality: mime.startsWith("video/") ? "video" : "audio",
-          audio_scope: "model_input",
         },
         canonicalDigest({ input_mode: "direct", media_type: mime }),
         mime.startsWith("video/") && strategy !== "direct_structured"
@@ -501,6 +489,11 @@ export async function deriveMaterial(
                 text: result.value,
                 producerMetadata: result.producerMetadata,
                 execution: result.execution,
+                inputAccess: {
+                  visual: "unavailable",
+                  audio: "original",
+                  source_text: "unavailable",
+                },
               };
             },
             samples.quality,
@@ -533,7 +526,10 @@ export async function deriveMaterial(
         });
       const sceneContext: StructuredMaterialContext = {
         ...directContext,
-        audio: Boolean(transcript),
+        access: {
+          ...directContext.access,
+          audio: transcript ? "representation" : "unavailable",
+        },
         catalog: {
           ...directContext.catalog,
           ...(transcriptReference ? { T001: transcriptReference } : {}),
@@ -548,7 +544,7 @@ export async function deriveMaterial(
           ? "material_direct_structuring"
           : "material_description",
         (snapshot) =>
-          models.describeScene(
+          models.material.describeScene(
             samples.frames,
             transcript,
             strategy === "direct_structured",
@@ -562,7 +558,7 @@ export async function deriveMaterial(
       );
       if (strategy === "describe_then_structure") {
         try {
-          await structureDescription(selected, sceneContext);
+          await structureDescription(selected);
         } catch {
           if (signal?.aborted) throw signal.reason;
           degradation.push({
@@ -583,7 +579,7 @@ export async function deriveMaterial(
         inputs,
         textual ? "material_structuring" : "material_direct_structuring",
         (snapshot) =>
-          models.structure(
+          models.material.structure(
             textual
               ? new TextDecoder("utf-8", { fatal: true }).decode(source.content)
               : { bytes: source.content, mediaType: mime },
@@ -603,6 +599,8 @@ export async function deriveMaterial(
           new TextDecoder("utf-8", { fatal: true }).decode(source.content),
           "extracted_text",
           inputs,
+          undefined,
+          { input_access: directContext.access },
         )
       : mime.startsWith("audio/")
         ? await paid(
@@ -619,6 +617,11 @@ export async function deriveMaterial(
                 text: result.value,
                 producerMetadata: result.producerMetadata,
                 execution: result.execution,
+                inputAccess: {
+                  visual: "unavailable",
+                  audio: "original",
+                  source_text: "unavailable",
+                },
               };
             },
           )
@@ -627,7 +630,7 @@ export async function deriveMaterial(
             inputs,
             "material_description",
             (snapshot) =>
-              models.interpret(source.content, mime, signal, snapshot),
+              models.material.interpret(source.content, mime, signal, snapshot),
           );
     if (strategy === "describe_then_structure") {
       await structureDescription(description);

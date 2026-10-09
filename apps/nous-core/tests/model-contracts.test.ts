@@ -3,7 +3,7 @@
 
 import { expect, it } from "vitest";
 import { canonicalDigest } from "../src/digest.js";
-import { roleNames } from "../src/model/configuration.js";
+import { roleNames } from "../src/model/roles.js";
 import {
   providerContractForRole,
   structuredContractForRole,

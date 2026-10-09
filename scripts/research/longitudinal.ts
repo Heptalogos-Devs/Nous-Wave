@@ -134,10 +134,8 @@ async function run() {
   if (captured) {
     result = await models.invocations.generate(
       role!,
-      input,
-      signal.signal,
-      undefined,
-      snapshot,
+      { content: input },
+      { signal: signal.signal, snapshot: snapshot },
     );
   } else if (role === "episode_segmentation") {
     result = await models.segmentEpisode(input, signal.signal, snapshot);
