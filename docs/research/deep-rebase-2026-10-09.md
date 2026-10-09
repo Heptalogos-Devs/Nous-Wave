@@ -10,6 +10,8 @@
 
 修复后独立 consumer 的同一真实路径连续 257 次均返回 Core code 3；256 个保留回执均为可回收的 `rejected`，新操作可以继续。完整 UUID 正文保真。焦点检查同时区分 UUID/ref title 与正文、exact evidence locator、未知结果原请求恢复、恢复后的明确拒绝，以及成功结果在呈现失败时仍可读回。成功回执读回不重发业务调用。
 
+后续共享状态检查又复现了一条结果分类缺陷：Authority 明确拒绝后，拒绝消息使终态回执超过配置文件预算，本地 `RESOURCE_EXHAUSTED` 会覆盖原 Authority 拒绝。当前保留原错误，并带原 receipt 与 `RECEIPT_UNSAVED` notice；焦点检查用实际文件预算与可控 Authority 错误保护这一已知结果。
+
 本次验证运行的是修改后的 consumer 与已有 Core；没有将其记作全新数据库、当前 Kernel 或 Portable 验证。
 
 ## Query 与纵向检查精简

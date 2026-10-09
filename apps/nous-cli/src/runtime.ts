@@ -163,11 +163,24 @@ export async function createEnvironment(
           [3, 5, 6, 7, 8, 9, 10, 11, 12, 16].includes(error.code)) ||
         error instanceof CliError
       ) {
-        await local.writeReceipt(id, {
-          ...receipt,
-          status: "rejected",
-          rejection: { code: error.code, message: error.message },
-        });
+        try {
+          await local.writeReceipt(id, {
+            ...receipt,
+            status: "rejected",
+            rejection: { code: error.code, message: error.message },
+          });
+        } catch {
+          Object.assign(error, {
+            receipt: id,
+            notices: [
+              {
+                code: "RECEIPT_UNSAVED",
+                message:
+                  "Authority definitively refused this operation; the local terminal receipt could not be saved",
+              },
+            ],
+          });
+        }
         throw error;
       }
       const failure = new CliError(

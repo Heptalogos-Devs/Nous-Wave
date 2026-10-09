@@ -14,6 +14,7 @@ import {
   policy,
 } from "./__mocks__/client.js";
 import { cliState } from "./state.js";
+import { cliErrorPayload } from "./agent.js";
 
 it("reclaims definite rejections and finalizes a recovered unknown request rejected by Authority", async () => {
   const root = await mkdtemp(
@@ -117,6 +118,43 @@ it("returns a successful operation when presentation fails and reads complete re
     );
     expect(await env.retry(file!.slice(0, -5))).toEqual(result);
     expect(calls).toBe(1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it("preserves a known Authority refusal when its terminal receipt exceeds the state budget", async () => {
+  const root = await mkdtemp(join(workspacePaths.temporary, "refusal-save-"));
+  const refusal = new NousError({
+    rawMessage: "Invalid request: " + "x".repeat(policy.file_max_bytes),
+    code: 3,
+    details: [],
+    findDetails: () => [],
+  } as unknown as ConstructorParameters<typeof NousError>[0]);
+  try {
+    const env = await createEnvironment(
+      { "run-root": root, "instance-root": root },
+      async () =>
+        ({
+          subjects: {
+            create: async () => {
+              throw refusal;
+            },
+          },
+        }) as unknown as Awaited<ReturnType<typeof connectNousInstance>>,
+    );
+    const returned: unknown = await env.client.subjects
+      .create({ operationId: crypto.randomUUID() })
+      .catch((error: unknown) => error);
+    expect(returned === refusal).toBe(true);
+    expect(typeof (refusal as unknown as { receipt?: unknown }).receipt).toBe(
+      "string",
+    );
+    expect(refusal).toHaveProperty("notices.0.code", "RECEIPT_UNSAVED");
+    expect(cliErrorPayload(returned)).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      notices: [{ code: "RECEIPT_UNSAVED" }],
+    });
   } finally {
     await rm(root, { recursive: true, force: true });
   }

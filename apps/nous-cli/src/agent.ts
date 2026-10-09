@@ -42,11 +42,18 @@ export function boundedInteger(
 }
 
 export function cliErrorPayload(error: unknown) {
+  const recovery =
+    error && typeof error === "object"
+      ? {
+          ...("receipt" in error ? { receipt: error.receipt } : {}),
+          ...("notices" in error ? { notices: error.notices } : {}),
+        }
+      : {};
   if (error instanceof CliError)
     return {
       code: error.code,
       message: error.message,
-      ...("receipt" in error ? { receipt: error.receipt } : {}),
+      ...recovery,
       details: error.details,
       candidates: error.candidates,
     };
@@ -64,7 +71,7 @@ export function cliErrorPayload(error: unknown) {
     "code" in parsed &&
     typeof parsed.code === "string"
   )
-    return { message, details: [], candidates: [], ...parsed };
+    return { message, details: [], candidates: [], ...parsed, ...recovery };
   const domainCode =
     /\b(?:UNKNOWN_REFERENCE|AMBIGUOUS_REFERENCE|REFERENCE_TYPE_MISMATCH|REFERENCE_TOMBSTONED|STALE_CONTEXT|UNAVAILABLE)\b/.exec(
       message,
@@ -87,6 +94,7 @@ export function cliErrorPayload(error: unknown) {
     message,
     details: error instanceof NousError ? error.details : [],
     candidates: error instanceof NousError ? error.candidates : [],
+    ...recovery,
   };
 }
 
