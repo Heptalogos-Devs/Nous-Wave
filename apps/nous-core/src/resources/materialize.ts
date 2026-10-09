@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import { Code, ConnectError } from "@connectrpc/connect";
+import { executionOptions, type ExecutionOptions } from "../execution.js";
 import { z } from "zod";
 import {
   type MaterializeResourceRequest,
@@ -21,8 +22,11 @@ export async function materializeResource(
   kernel: KernelClient,
   registry: ResourceRegistry,
   request: MaterializeResourceRequest,
-  options: CallOptions,
+  options: ExecutionOptions,
 ) {
+  const calls = executionOptions(kernel.execution.opportunity, options);
+  options = calls;
+  const { opportunity } = calls;
   if (
     !request.reference ||
     !request.observedAt ||
@@ -50,7 +54,11 @@ export async function materializeResource(
     }),
   };
   const reservation = await kernel.modelWorkflow.reserveWorkflow(
-    { ...identity, snapshotJson: JSON.stringify({ reference }) },
+    {
+      ...identity,
+      snapshotJson: JSON.stringify({ reference }),
+      leaseSeconds: opportunity.leaseSeconds,
+    },
     options,
   );
   if (reservation.outcomeJson)
@@ -165,9 +173,7 @@ export async function materializeResource(
     throw error;
   } finally {
     await kernel.modelWorkflow
-      .releaseWorkflow(lease, {
-        timeoutMs: kernel.execution.workflow_ack_timeout_ms,
-      })
+      .releaseWorkflow(lease, opportunity.cleanup())
       .catch(() => {});
   }
 }

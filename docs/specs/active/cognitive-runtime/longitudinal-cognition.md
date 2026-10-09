@@ -34,9 +34,9 @@ MaintenanceNeed 在 active scope 内合并 trigger，due time 使用 CognitiveCl
 
 Grant response 的 disposition 明确区分 `disabled_by_policy`、`no_eligible_work`、`processed` 与 `opportunity_exhausted`。Host 机会耗尽或取消时，尚未完成的 need 返回 pending/deferred，保存已提交 proposal 与进度，不把机会预算当成 owner invariant failure 或 provider retry exhaustion；下一次明确 grant 继续 durable work。Provider 自身超时仍按 infrastructure retry 处理。官方 Client 默认 deadline 覆盖请求机会及回应余量，显式 caller deadline 优先。
 
-显式机会elapsed上限为900000ms，允许深度模型任务和固定routes中的fallback完成；standalone tick可配置同一上限，默认仍60000ms。每条model route继续使用自己的timeout和调用计数。官方Client按实际机会加5秒回应余量，MCP subprocess按显式机会保留回应余量，外部Host tool timeout应覆盖该机会。机会预算不能被Client/MCP按单条模型timeout截断。
+显式机会 elapsed 上限为 900000ms，standalone tick 可配置同一上限，默认仍 60000ms。`core_execution.opportunity` 将普通 model/resource 工作期限、取消后的 cleanup、need acknowledgement 和 response margin 分开命名；Core 与官方 Client 使用同一 typed policy。Client 从 active Configuration 读取实际 policy，按显式 grant 的 work budget 加 cleanup/ack/margin 派生响应等待；普通 formation、derivation、embedding preparation 和 selected resource materialization 使用 policy 的 work budget。显式较短 caller deadline 或 signal 仍优先。MCP 在进程内复用 Client，没有独立等待秒数；外部 Host tool timeout 应覆盖该机会。每条 model route 继续使用自己的 timeout 和调用计数，输入不适配的 route 在调用计数前跳过。
 
-Maintenance claim 的 infrastructure lease 覆盖该机会和清理/ack余量；绑定它的 ModelWorkflow reservation 至少保持到该有效父 lease 的期限。普通 model_workflow.lease_seconds 默认360秒不能在多 route执行中先取消已授权机会。Reservation由真实claim/token验证后继承期限，不延长父授权；owner mutations继续执行维护claim及内容/epoch fences。
+Maintenance claim 的 infrastructure lease 从相同 work、cleanup 和 acknowledgement 预算派生，并至少覆盖 Runtime worker lease。Core 向 private ModelWorkflow reservation 显式传入该 lease；普通 workflow 也使用其实际执行机会，删除另一处 `model_workflow.lease_seconds` 默认值。Persistence 验证真实父 claim/token 后使 child reservation 覆盖实际父期限，不延长父授权；owner mutations 继续执行维护 claim 及内容/epoch fences。取消或 work budget 到期后，保存 attempt telemetry 和 release 共用有界 cleanup 截止时间，随后 finishMaintenance 使用独立 acknowledgement 预算；原 work signal 不会提前取消这两阶段。
 
 维护种类为 `episode_segment`、`episode_resegment`、`journal_review`、`journal_revalidate`、`memory_consolidate`。Core 根据当前可执行角色构造 claim 的 allowed kinds：resegment 需要 `episode_segmentation`，Journal review/revalidate 需要 `journal_synthesis`，consolidation 需要 `memory_consolidation`；初始 segmentation 无需模型。未就绪角色的 needs 保持 durable、无 worker lease、attempt count 不增长。角色配置按当前 Core model runtime 的 restart 生效合同处理。
 

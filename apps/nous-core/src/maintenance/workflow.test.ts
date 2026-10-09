@@ -14,7 +14,10 @@ import {
 import type { KernelClient } from "../kernel-client.js";
 import { consolidationSchema } from "../model/schemas/consolidation.js";
 import { ModelRuntime } from "../model/runtime.js";
-import type { ModelRoleSnapshot } from "../model/invocations.js";
+import {
+  GenerationFailure,
+  type ModelRoleSnapshot,
+} from "../model/invocations.js";
 import { grantMaintenance, SubjectMaintenanceScheduler } from "./grants.js";
 import { runModelMaintenance } from "./workflow.js";
 import { maintenanceOperationId } from "./identity.js";
@@ -114,7 +117,11 @@ function fixture() {
   let snapshotJson: string | undefined;
   let proposalJson: string | undefined;
   let outcomeJson: string | undefined;
-  const commit = vi.fn(async () => ({}));
+  const commit = vi.fn(
+    async (
+      _input: Parameters<KernelClient["maintenance"]["commitJournal"]>[0],
+    ) => ({}),
+  );
   const refresh = vi.fn(async () => ({}));
   const getPlan = vi.fn(async () => plan);
   const kernel = {
@@ -175,7 +182,7 @@ describe("maintenance fixed workflow retry", () => {
       reserveCall,
     );
     expect(result.status).toBe("committed");
-    expect(state.commit.mock.calls[1]).toEqual(first);
+    expect(state.commit.mock.calls[1]?.[0]).toEqual(first?.[0]);
     expect(state.synthesize).toHaveBeenCalledTimes(1);
     expect(reserveCall).toHaveBeenCalledTimes(1);
     expect(state.getPlan).toHaveBeenCalledTimes(1);
@@ -311,7 +318,7 @@ describe("maintenance fixed workflow retry", () => {
         maxElapsedMs: 120000,
       });
       expect(claim).toHaveBeenCalledWith(
-        expect.objectContaining({ leaseSeconds: 131 }),
+        expect.objectContaining({ leaseSeconds: 136 }),
         expect.anything(),
       );
       expect(finish).toHaveBeenCalledWith(
@@ -325,6 +332,13 @@ describe("maintenance fixed workflow retry", () => {
   });
   it("defers unfinished work when the granted opportunity actually expires", async () => {
     const state = fixture();
+    const originalSave = state.kernel.modelWorkflow.saveWorkflow;
+    const save = vi.fn(async (...args: Parameters<typeof originalSave>) => {
+      expect(args[1]?.signal?.aborted).toBe(false);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return originalSave(...args);
+    });
+    state.kernel.modelWorkflow.saveWorkflow = save;
     const finish = vi.fn(
       async (_input: { nextDue?: { seconds: bigint } }) => ({}),
     );
@@ -344,9 +358,26 @@ describe("maintenance fixed workflow retry", () => {
         beforeAttempt?.();
         if (!signal) throw new Error("missing opportunity signal");
         return new Promise<never>((_done, reject) =>
-          signal.addEventListener("abort", () => reject(signal.reason), {
-            once: true,
-          }),
+          signal.addEventListener(
+            "abort",
+            () =>
+              reject(
+                new GenerationFailure("journal_synthesis", "caller_cancelled", {
+                  attempts: [
+                    {
+                      executionProfile: "stub",
+                      modelProfile: "stub",
+                      status: "unknown",
+                      latencyMs: 30,
+                      failureClass: "caller_cancelled",
+                    },
+                  ],
+                }),
+              ),
+            {
+              once: true,
+            },
+          ),
         );
       },
     );
@@ -371,6 +402,11 @@ describe("maintenance fixed workflow retry", () => {
         expect.anything(),
       );
       expect(typeof finish.mock.calls[0]?.[0].nextDue?.seconds).toBe("bigint");
+      const saved = save.mock.calls[0];
+      expect(
+        JSON.parse(saved![0].executionTelemetryJson!) as unknown,
+      ).toMatchObject({ attempts: [{ status: "unknown" }] });
+      expect(saved?.[1]?.signal).toBeInstanceOf(AbortSignal);
     } finally {
       log.mockRestore();
     }
@@ -725,7 +761,7 @@ it("replays a committed consolidation action after a lost response without anoth
     "actions" in outcome && outcome.actions?.map((action) => action.status),
   ).toEqual(["committed", "rejected_invalid"]);
   expect(receipts.size).toBe(1);
-  expect(form.mock.calls[0]).toEqual(form.mock.calls[1]);
+  expect(form.mock.calls[0]?.[0]).toEqual(form.mock.calls[1]?.[0]);
   expect(model).toHaveBeenCalledTimes(1);
   expect(reserve).toHaveBeenCalledTimes(1);
   expect((await run()).status).toBe("partial");

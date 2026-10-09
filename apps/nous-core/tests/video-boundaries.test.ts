@@ -1,6 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { coreExecutionSchema } from "../src/configuration-catalog.js";
 import { expect, it, vi } from "vitest";
 import { dirname, join } from "node:path";
 import { mkdtemp, rm, stat } from "node:fs/promises";
@@ -139,7 +140,7 @@ it("frames without a transcript cannot acquire audio evidence in either structur
   const committed: { kind: string }[] = [];
   const modelInputs: unknown[] = [];
   const kernel = {
-    execution: { workflow_ack_timeout_ms: 1000 },
+    execution: coreExecutionSchema.parse(undefined),
     material: {
       getSourceRegion: async () => ({
         artifactId: "artifact",

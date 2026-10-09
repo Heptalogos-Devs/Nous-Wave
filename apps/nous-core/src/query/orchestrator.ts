@@ -283,7 +283,10 @@ export class QueryOrchestrator {
           await this.kernel.queryWorkflow
             .releaseQuery(
               { subjectId: input.subjectId, validationTicket: ticket },
-              { timeoutMs: this.kernel.execution.workflow_ack_timeout_ms },
+              {
+                timeoutMs:
+                  this.kernel.execution.opportunity.acknowledgement_timeout_ms,
+              },
             )
             .catch(() => {});
         }
@@ -305,7 +308,10 @@ export class QueryOrchestrator {
             subjectId: input.subjectId,
             validationTicket: executionToken,
           },
-          { timeoutMs: this.kernel.execution.workflow_ack_timeout_ms },
+          {
+            timeoutMs:
+              this.kernel.execution.opportunity.acknowledgement_timeout_ms,
+          },
         )
         .catch(() => {});
     }

@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./node": "./src/node.ts",
-    "./consumer-policy": "./src/consumer-policy.ts"
+    "./consumer-policy": "./src/consumer-policy.ts",
+    "./execution-policy": "./src/execution-policy.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.15.0",

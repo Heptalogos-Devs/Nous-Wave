@@ -3,12 +3,18 @@
 
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import {
+  executionOpportunitySchema,
+  executionEnvelope,
+} from "./execution-policy.js";
 export {
   ConfigExposure,
   ConfigurationView,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import {
   ConfigurationService,
+  ConfigurationView,
+  ConfigExposure,
   type ConfigDescriptor,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import {
@@ -99,14 +105,15 @@ function plain<T>(value: T): Data<T> {
 }
 function call<I, O>(
   method: (input: I, options?: CallOptions) => Promise<O>,
-  defaultTimeout?: number | ((input: I) => number),
+  defaultTimeout?:
+    number | ((input: I, options?: RequestOptions) => number | Promise<number>),
 ) {
   return async (input: I, options?: RequestOptions): Promise<Data<O>> => {
     try {
       const timeoutMs =
         options?.timeoutMs ??
         (typeof defaultTimeout === "function"
-          ? defaultTimeout(input)
+          ? await defaultTimeout(input, options)
           : defaultTimeout);
       return plain(
         await method(
@@ -148,6 +155,34 @@ export function createNousClient(transport: Transport) {
   const system = createClient(SystemService, transport);
   const model = createClient(ModelService, transport);
   const configuration = createClient(ConfigurationService, transport);
+  const executionTimeout = async (
+    workMs?: number,
+    options?: RequestOptions,
+  ) => {
+    const snapshot = await configuration.getConfiguration(
+      {
+        paths: ["core_execution"],
+        view: ConfigurationView.ACTIVE,
+        exposureCeiling: ConfigExposure.DEVELOPER,
+      },
+      options,
+    );
+    const entry = snapshot.entries.find(
+      (value) => value.path === "core_execution",
+    );
+    const value = entry?.value && toJson(ValueSchema, entry.value);
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      !("opportunity" in value)
+    )
+      throw new Error("Active Core execution policy unavailable");
+    return executionEnvelope(
+      executionOpportunitySchema.parse(value.opportunity),
+      workMs,
+    ).responseTimeoutMs;
+  };
   return {
     configuration: {
       list: call(
@@ -210,12 +245,20 @@ export function createNousClient(transport: Transport) {
       rebindEntity: call(identity.rebindEntity),
     },
     model: {
-      formFromObservation: call(model.formFromObservation, 300000),
-      deriveMaterial: call(model.deriveMaterial, 300000),
-      prepareEmbeddings: call(model.prepareEmbeddings, 300000),
+      formFromObservation: call(model.formFromObservation, (_input, options) =>
+        executionTimeout(undefined, options),
+      ),
+      deriveMaterial: call(model.deriveMaterial, (_input, options) =>
+        executionTimeout(undefined, options),
+      ),
+      prepareEmbeddings: call(model.prepareEmbeddings, (_input, options) =>
+        executionTimeout(undefined, options),
+      ),
     },
     resources: {
-      materialize: call(resources.materializeResource),
+      materialize: call(resources.materializeResource, (_input, options) =>
+        executionTimeout(undefined, options),
+      ),
       put: call(registry.putResource),
       get: call(registry.getResource),
       list: call(registry.listResources),
@@ -266,9 +309,8 @@ export function createNousClient(transport: Transport) {
       query: call(cognition.query, 300000),
       prepareQuery: call(cognition.prepareQuery),
       reportUse: call(runtime.reportUse),
-      grantMaintenance: call(
-        cognition.grantMaintenance,
-        (input) => (input.maxElapsedMs ?? 30000) + 5000,
+      grantMaintenance: call(cognition.grantMaintenance, (input, options) =>
+        executionTimeout(input.maxElapsedMs, options),
       ),
       recall: async (
         subjectId: string,

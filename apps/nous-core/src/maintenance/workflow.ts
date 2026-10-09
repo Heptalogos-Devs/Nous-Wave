@@ -12,7 +12,8 @@ import {
 } from "./consolidation.js";
 import { consolidationSchema } from "../model/schemas/consolidation.js";
 import { maintenanceOperationId } from "./identity.js";
-import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import { Code, ConnectError } from "@connectrpc/connect";
+import { executionOptions, type ExecutionOptions } from "../execution.js";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { z } from "zod";
 import {
@@ -122,9 +123,12 @@ export async function runModelMaintenance(
   kernel: KernelClient,
   models: ModelRuntime,
   need: MaintenanceNeed,
-  options: CallOptions,
+  options: ExecutionOptions,
   reserveModelCall: () => void,
 ) {
+  const calls = executionOptions(kernel.execution.opportunity, options);
+  options = calls;
+  const { opportunity } = calls;
   const operationId = maintenanceOperationId(need);
   const identity = {
     subjectId: need.subjectId,
@@ -176,6 +180,7 @@ export async function runModelMaintenance(
     {
       ...identity,
       snapshotJson,
+      leaseSeconds: opportunity.leaseSeconds,
       maintenanceNeedId: need.needId,
       maintenanceLeaseToken: need.leaseToken,
       maintenanceTriggerAuthoritySeq: need.triggerAuthoritySeq,
@@ -228,7 +233,7 @@ export async function runModelMaintenance(
               ...lease,
               executionTelemetryJson: JSON.stringify(executionTelemetry),
             },
-            { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+            opportunity.cleanup(),
           );
           let segments;
           try {
@@ -312,7 +317,7 @@ export async function runModelMaintenance(
               ...lease,
               executionTelemetryJson: JSON.stringify(executionTelemetry),
             },
-            { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+            opportunity.cleanup(),
           );
           const proposal = conceptMaintenanceSchema.parse(result.value);
           proposed = {
@@ -340,7 +345,7 @@ export async function runModelMaintenance(
               ...lease,
               executionTelemetryJson: JSON.stringify(executionTelemetry),
             },
-            { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+            opportunity.cleanup(),
           );
           proposed = {
             action: "consolidation",
@@ -367,7 +372,7 @@ export async function runModelMaintenance(
               ...lease,
               executionTelemetryJson: JSON.stringify(executionTelemetry),
             },
-            { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+            opportunity.cleanup(),
           );
           const proposal = journalSynthesisSchema.parse(result.value);
           try {
@@ -535,7 +540,7 @@ export async function runModelMaintenance(
             failedExecutionTelemetry(error),
           ),
         },
-        options,
+        opportunity.cleanup(),
       );
     if (
       (error instanceof ConnectError &&
@@ -550,7 +555,7 @@ export async function runModelMaintenance(
       };
       await kernel.modelWorkflow.saveWorkflow(
         { ...lease, outcomeJson: JSON.stringify(outcome) },
-        options,
+        opportunity.cleanup(),
       );
       return outcome;
     }
@@ -561,15 +566,13 @@ export async function runModelMaintenance(
       const outcome = { status: "obsolete" as const };
       await kernel.modelWorkflow.saveWorkflow(
         { ...lease, outcomeJson: JSON.stringify(outcome) },
-        options,
+        opportunity.cleanup(),
       );
       await kernel.maintenance.refreshMaintenance({ claimed: need }, options);
       return outcome;
     }
     throw error;
   } finally {
-    await kernel.modelWorkflow.releaseWorkflow(lease, {
-      timeoutMs: kernel.execution.workflow_ack_timeout_ms,
-    });
+    await kernel.modelWorkflow.releaseWorkflow(lease, opportunity.cleanup());
   }
 }

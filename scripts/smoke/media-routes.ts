@@ -13,6 +13,7 @@ import { resolveLocations } from "../../apps/nous-core/src/locations.js";
 
 // Controlled HTTP outputs test route admission and persisted access, not media quality.
 const calls: string[] = [];
+let holdFallback = false;
 const provider = createServer((request, response) => {
   void (async () => {
     const chunks: Uint8Array[] = [];
@@ -28,6 +29,7 @@ const provider = createServer((request, response) => {
       response.writeHead(503).end('{"error":"controlled route refusal"}');
       return;
     }
+    if (holdFallback) return; // The work clock must interrupt this transmitted attempt.
     response.end(
       JSON.stringify({
         choices: [
@@ -193,8 +195,62 @@ try {
       assert.equal(calls.length, beforeReplay);
     }
   }
+  await stop(current);
+  current = undefined;
+  const deadlineConfiguration = parse(await readFile(configPath, "utf8"));
+  deadlineConfiguration.core_execution = {
+    opportunity: {
+      work_timeout_ms: 1000,
+      cleanup_timeout_ms: 1000,
+      acknowledgement_timeout_ms: 1000,
+      response_margin_ms: 1000,
+    },
+  };
+  await writeFile(configPath, stringify(deadlineConfiguration));
+  current = await boot(locator);
+  await writeFile(videoPath, Uint8Array.of(4, 5, 6, 7));
+  const timedArtifact = await current.client.artifacts.uploadFile(
+    subjectId,
+    videoPath,
+    { mediaType: "video/mp4" },
+  );
+  const timedSource = await current.client.cognition.observe({
+    subjectId,
+    requestId: randomUUID(),
+    sourceClass: "file",
+    admit: true,
+    material: { case: "artifactId", value: timedArtifact.artifactId },
+  });
+  const timedInput = {
+    subjectId,
+    sourceRegionId: timedSource.sourceRegionId!,
+    strategy: "direct_structured",
+  };
+  const beforeCancel = calls.length;
+  holdFallback = true;
+  await assert.rejects(
+    current.client.model.deriveMaterial(timedInput),
+    (error: unknown) =>
+      Boolean(
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === 4,
+      ),
+  );
+  assert.deepEqual(calls.slice(beforeCancel), ["preferred", "fallback"]);
+  holdFallback = false;
+  const resumed = await current.client.model.deriveMaterial(timedInput);
+  assert.equal(resumed.degradation.length, 0);
+  assert(resumed.selectedRepresentationId);
+  assert.deepEqual(calls.slice(beforeCancel), [
+    "preferred",
+    "fallback",
+    "preferred",
+    "fallback",
+  ]);
   console.log(
-    "MEDIA_ROUTES public_core=true persisted_access=true opposite_capabilities=true successful_replay_no_provider=true",
+    "MEDIA_ROUTES public_core=true persisted_access=true opposite_capabilities=true successful_replay_no_provider=true work_deadline_cleanup_resume=true",
   );
   verified = true;
 } finally {

@@ -607,6 +607,8 @@ pub struct ReserveWorkflowRequest {
     pub maintenance_trigger_authority_seq: i64,
     #[prost(uint64, tag="9")]
     pub maintenance_trigger_revision: u64,
+    #[prost(uint32, tag="10")]
+    pub lease_seconds: u32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct WorkflowReservation {

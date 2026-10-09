@@ -1,7 +1,8 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import { Code, ConnectError } from "@connectrpc/connect";
+import { executionOptions, type ExecutionOptions } from "../execution.js";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { FormMemoryRequestSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import { type FormationRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
@@ -43,8 +44,11 @@ export async function formObservation(
   kernel: KernelClient,
   models: ModelRuntime,
   r: FormationRequest,
-  options: CallOptions,
+  options: ExecutionOptions,
 ) {
+  const calls = executionOptions(kernel.execution.opportunity, options);
+  options = calls;
+  const { opportunity } = calls;
   if (
     !z.string().uuid().safeParse(r.operationId).success ||
     r.operationId === "00000000-0000-0000-0000-000000000000"
@@ -165,7 +169,11 @@ export async function formObservation(
     });
   }
   const reservation = await kernel.modelWorkflow.reserveWorkflow(
-    { ...identity, snapshotJson: snapshotText },
+    {
+      ...identity,
+      snapshotJson: snapshotText,
+      leaseSeconds: opportunity.leaseSeconds,
+    },
     options,
   );
   if (reservation.outcomeJson) return replay(reservation.outcomeJson);
@@ -226,7 +234,7 @@ export async function formObservation(
       );
       await kernel.modelWorkflow.saveWorkflow(
         { ...lease, executionTelemetryJson: JSON.stringify(result.execution) },
-        { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+        opportunity.cleanup(),
       );
       if (
         new Set(result.selectedEntityKeys).size !==
@@ -341,14 +349,12 @@ export async function formObservation(
             failedExecutionTelemetry(error),
           ),
         },
-        { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+        opportunity.cleanup(),
       );
     throw error;
   } finally {
     await kernel.modelWorkflow
-      .releaseWorkflow(lease, {
-        timeoutMs: kernel.execution.workflow_ack_timeout_ms,
-      })
+      .releaseWorkflow(lease, opportunity.cleanup())
       .catch(() => {});
   }
 }

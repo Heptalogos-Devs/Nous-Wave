@@ -13,6 +13,7 @@ import { canonicalDigest } from "../digest.js";
 import { GenerationFailure } from "../model/invocations.js";
 import { runModelMaintenance } from "./workflow.js";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
+import { executionOptions } from "../execution.js";
 
 const roles = {
   episode_resegment: "episode_segmentation",
@@ -86,10 +87,12 @@ export async function grantMaintenance(
       Code.InvalidArgument,
     );
   const started = performance.now();
-  const signal = options.signal
-    ? AbortSignal.any([options.signal, AbortSignal.timeout(input.maxElapsedMs)])
-    : AbortSignal.timeout(input.maxElapsedMs);
-  const calls = { ...options, signal };
+  const calls = executionOptions(
+    kernel.execution.opportunity,
+    options,
+    input.maxElapsedMs,
+  );
+  const { signal, opportunity } = calls;
   const policy = await kernel.maintenance.getMaintenancePolicy(
     { subjectId: input.subjectId },
     calls,
@@ -126,16 +129,9 @@ export async function grantMaintenance(
           ),
         ),
         limit: 1,
-        // The lease must outlive the opportunity, including timeout cleanup and
-        // workflow release and the independent acknowledgement RPC. Otherwise a timed-out model call
-        // cannot record retry disposition under its still-owned lease.
         leaseSeconds: Math.max(
           policy.workerLeaseSeconds,
-          Math.ceil(
-            (input.maxElapsedMs +
-              2 * kernel.execution.workflow_ack_timeout_ms) /
-              1000,
-          ) + 1,
+          opportunity.leaseSeconds,
         ),
       },
       calls,
@@ -244,7 +240,7 @@ export async function grantMaintenance(
           retryDelaySeconds:
             status === "retry" ? retryDelay(policy, need.retryCount + 1) : 0,
         },
-        { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+        opportunity.acknowledge(),
       );
     } catch (error) {
       reportFailure(

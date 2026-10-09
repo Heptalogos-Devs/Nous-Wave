@@ -78,7 +78,7 @@ impl k::kernel_model_workflow_service_server::KernelModelWorkflowService for Ker
                     &input.owner,
                     &input.operation_key,
                     &input.semantic_digest,
-                    &snapshot, self.0.configuration.snapshot_for_subject(subject)?.get(nous_runtime::MODEL_WORKFLOW_LEASE)?)
+                    &snapshot, u64::from(input.lease_seconds))
                 .await?;
             Ok(k::WorkflowReservation {
                 snapshot_json: reserved.snapshot.to_string(),

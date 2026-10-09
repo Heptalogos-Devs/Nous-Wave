@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod execution_policy;
-pub use execution_policy::{MODEL_WORKFLOW_LEASE, QUERY_LEASE, QUERY_SLOTS};
+pub use execution_policy::{QUERY_LEASE, QUERY_SLOTS};
 mod clock;
 mod episode_policy;
 mod experience;

@@ -54,6 +54,8 @@ ProducerSignature 标识实际 adapter/protocol、operation、model identifier/r
 
 模型输出形成派生表示或带来源的候选提案；Material 与认知领域 owner 验证并提交，由领域 Authority 持有认知身份与修订。
 
+Core 的 formation、derivation 与 embedding preparation 共用 `core_execution.opportunity` 的 work budget；各 route timeout 限制单次 provider attempt，不能重置外层工作机会。ModelWorkflow private reservation 的 lease 由同一执行机会传入；取消后的 telemetry/save/release 使用剩余 cleanup budget。官方 Client 从 active Configuration 派生响应等待，较短 caller deadline 保留。维护机会与父 claim 语义见 [纵向认知](../cognitive-runtime/longitudinal-cognition.md)。
+
 音频、视频和结构化 Material 的输入模式与提交语义见 [Material Derivation](material-derivation.md)；rerank 的候选、预算与 Authority revalidation 见 [Query/Rerank](../retrieval/rerank.md)。
 
 ## Query concept role 与历史 embedding

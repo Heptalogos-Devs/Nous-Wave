@@ -1,7 +1,8 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import { Code, ConnectError } from "@connectrpc/connect";
+import { executionOptions, type ExecutionOptions } from "../execution.js";
 import type { DeriveMaterialRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
@@ -32,7 +33,7 @@ export async function deriveMaterial(
   kernel: KernelClient,
   models: ModelRuntime,
   request: DeriveMaterialRequest,
-  options: CallOptions,
+  options: ExecutionOptions,
 ) {
   const strategy = request.strategy ?? models.materialStrategy;
   if (
@@ -59,6 +60,9 @@ export async function deriveMaterial(
       "Derivation target conflicts with strategy",
       Code.InvalidArgument,
     );
+  const calls = executionOptions(kernel.execution.opportunity, options);
+  options = calls;
+  const { opportunity } = calls;
   const region = await kernel.material.getSourceRegion(
     { subjectId: request.subjectId, id: request.sourceRegionId },
     options,
@@ -233,7 +237,11 @@ export async function deriveMaterial(
       semanticDigest: key,
     };
     const reservation = await kernel.modelWorkflow.reserveWorkflow(
-      { ...identity, snapshotJson: JSON.stringify(model) },
+      {
+        ...identity,
+        snapshotJson: JSON.stringify(model),
+        leaseSeconds: opportunity.leaseSeconds,
+      },
       options,
     );
     if (reservation.outcomeJson) {
@@ -309,14 +317,12 @@ export async function deriveMaterial(
               failedExecutionTelemetry(error),
             ),
           },
-          { timeoutMs: kernel.execution.workflow_ack_timeout_ms },
+          opportunity.cleanup(),
         );
       throw error;
     } finally {
       await kernel.modelWorkflow
-        .releaseWorkflow(lease, {
-          timeoutMs: kernel.execution.workflow_ack_timeout_ms,
-        })
+        .releaseWorkflow(lease, opportunity.cleanup())
         .catch(() => {});
     }
   };

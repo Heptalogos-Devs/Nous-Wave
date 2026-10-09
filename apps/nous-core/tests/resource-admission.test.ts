@@ -1,6 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { coreExecutionSchema } from "../src/configuration-catalog.js";
 import { create } from "@bufbuild/protobuf";
 import { MaterializeResourceRequestSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { expect, test } from "vitest";
@@ -61,7 +62,7 @@ test("a saved external proposal is revalidated before admission while an accepte
         return {};
       },
     },
-    execution: { workflow_ack_timeout_ms: 100 },
+    execution: coreExecutionSchema.parse(undefined),
   } as unknown as KernelClient;
   const request = create(MaterializeResourceRequestSchema, {
     subjectId: crypto.randomUUID(),

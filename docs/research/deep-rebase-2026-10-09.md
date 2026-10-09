@@ -82,3 +82,11 @@ fresh Codex 进程读回原来源后，使用新 UUID 执行已明确失败且�
 实际 HTTP cancellation 检查另复现旧 telemetry 在 fallback 中断时整体丢失；当前保留首个 503 failed 与已传输的第二个 unknown/caller_cancelled attempt，未知 usage 保持未知。完整 SDK/raw-media 响应已知 usage 在输出校验失败时保留。独立 profiles、协议 adapter 与 Material interpretation 移出 invocations；没有依赖其私有状态的 part 类或转发兼容层。协议读取使用 get-stream 的字节上限替换两份 reader 循环。
 
 手工 material projection/validation version 常量已替换为同一个 owning code identity。Source/bundle 探针确认源码与 source-less ESM 程序的 provider/material 实现摘要相同，bundle 内实际含 get-stream、proper-lockfile、write-file-atomic 与 devalue，CLI JSON help 可解析。该证据只覆盖当前 bundle 与执行身份，完整 Windows Portable 连续任务、deadline/lease 统一与其余全仓 scope 仍待完成。
+
+## 执行机会与确认期限
+
+受控 Client transport 时钟复现：120 秒授权工作后仍需要 8 秒确认，旧 `maxElapsedMs + 5000` 在第 125 秒返回 deadline。当前 Core 与 Client 共用 `core_execution.opportunity` typed policy，工作、cleanup、need acknowledgement 和 response margin 分开命名。Client 从 active Configuration 计算实际等待；显式更短 caller deadline 保留。每条 provider route 的 timeout 继续限制单次调用，不能重置工作机会。
+
+Core 的 ordinary formation/derivation/embedding/resource 工作使用同一 work clock，private ModelWorkflow reservation 显式携带该机会的剩余 lease，删除另一个 `model_workflow.lease_seconds` 默认值。maintenance 父 claim 至少覆盖 worker policy 与相同 work/cleanup/ack，child 仍验证实际父 token 并覆盖父期限。取消后 telemetry/save/release 共用有界 cleanup，finish 使用独立 acknowledgement。现行 PG workflow/maintenance 四项场景通过，包括 proposal/terminal replay、父期限覆盖与 runtime rows 回收；30ms 机会到期检查确认 unknown attempt 以有效 cleanup signal 保存，need 返回 pending/deferred。
+
+公共 Core/Kernel/PG smoke 额外以 1 秒 work budget 中断已传输且保持 pending 的 fallback。响应是 Code 4 DeadlineExceeded，cleanup 后相同输入立刻恢复成功，没有遗留 busy lease。该过程使用受控 provider，仍不声称真实媒体质量。持续实例正常重启后 active policy 读回为 work 300000ms、cleanup 10000ms、ack 5000ms、response margin 1000ms，Subject/Runtime/Memory 与当前 model roles READY。TypeScript 33 files/109 checks、check:fast、Knip、依赖边界、docs navigation、Rust workspace check/Clippy 与当前 source-less bundle 探针通过。Query retained execution lease ownership及其公共等待、完整配置 graph/CAS/leaf、Windows Portable 连续任务和成果保全后的清理仍属于原目标未完成部分。

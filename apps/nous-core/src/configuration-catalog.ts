@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { consumerStatePolicySchema } from "@nous-wave/client/consumer-policy";
+import { executionOpportunitySchema } from "@nous-wave/client/execution-policy";
 import { modelConfigurationShape } from "./model/configuration.js";
 
 export const CONFIG_REVISION = 2;
@@ -37,7 +38,7 @@ export const coreExecutionSchema = z
   .strictObject({
     kernel_rpc_timeout_ms: executionTimeout.default(30000),
     maintenance_rpc_timeout_ms: executionTimeout.default(10000),
-    workflow_ack_timeout_ms: executionTimeout.default(5000),
+    opportunity: executionOpportunitySchema,
     context_track_limit: z.number().int().min(1).max(65536).default(256),
     query_embedding_cache_entries: z
       .number()
