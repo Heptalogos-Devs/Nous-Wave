@@ -10,7 +10,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { repositoryRoot, workspacePaths } from "../../../scripts/workspace.js";
 
-test("MCP forwards exact argv, serializes consumer state, and preserves CLI errors", async () => {
+test("MCP forwards exact argv without serializing long commands and preserves CLI errors", async () => {
   const seen: string[][] = [];
   let active = 0;
   let peak = 0;
@@ -44,7 +44,7 @@ test("MCP forwards exact argv, serializes consumer state, and preserves CLI erro
     ]);
     expect(seen).toContainEqual(["query", query]);
     expect(seen).toContainEqual(["context", "set", "--text", "a & b"]);
-    expect(peak).toBe(1);
+    expect(peak).toBe(2);
     expect(
       (
         await client.callTool({

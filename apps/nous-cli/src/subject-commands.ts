@@ -20,7 +20,10 @@ export async function subjectCommands(
         format: "application/vnd.nous-wave.cognitive-seed+toml;version=1",
       },
     });
-    await save({ schemaVersion: 1, subjectId: subject.subjectId });
+    await save({
+      format: "nous.consumer.selection",
+      subjectId: subject.subjectId,
+    });
     return subject;
   }
   if (action === "use") {
@@ -32,7 +35,10 @@ export async function subjectCommands(
         )
       ).value,
     });
-    await save({ schemaVersion: 1, subjectId: subject.subjectId });
+    await save({
+      format: "nous.consumer.selection",
+      subjectId: subject.subjectId,
+    });
     return subject;
   }
 

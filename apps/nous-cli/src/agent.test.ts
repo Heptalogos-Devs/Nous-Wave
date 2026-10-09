@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { connectNousInstance } from "@nous-wave/client/node";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { runCli } from "./commands.js";
+import { runCli } from "./__mocks__/client.js";
 import { cliErrorPayload } from "./agent.js";
 import { workspaceTemp } from "../../../scripts/workspace.js";
 
@@ -23,6 +23,18 @@ it("invalidates result indices when the next query fails", async () => {
             value: "33333333-3333-4333-8333-333333333333",
           },
           text: "old result",
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      queryId: "second",
+      hits: [
+        {
+          reference: {
+            kind: "memory_revision",
+            value: "33333333-3333-4333-8333-333333333333",
+          },
+          text: "new result",
         },
       ],
     })
@@ -56,6 +68,14 @@ it("invalidates result indices when the next query fails", async () => {
   expect(reportUse).toHaveBeenCalledWith(
     expect.objectContaining({
       events: [expect.objectContaining({ queryId: "first" })],
+    }),
+  );
+  const second = await runCli(["query", "second", ...globals], connect);
+  expect(second).not.toHaveProperty("notices");
+  await runCli(["use", "result:1", ...globals], connect);
+  expect(reportUse).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      events: [expect.objectContaining({ queryId: "second" })],
     }),
   );
   await expect(

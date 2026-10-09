@@ -7,9 +7,13 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { workspacePaths } from "../../../scripts/workspace.js";
-import { createEnvironment } from "./runtime.js";
+import {
+  createEnvironment,
+  runCli,
+  identity,
+  policy,
+} from "./__mocks__/client.js";
 import { cliState } from "./state.js";
-import { runCli } from "./commands.js";
 
 it("reclaims definite rejections and finalizes a recovered unknown request rejected by Authority", async () => {
   const root = await mkdtemp(
@@ -38,16 +42,18 @@ it("reclaims definite rejections and finalizes a recovered unknown request rejec
       { "run-root": root, "instance-root": root },
       async () => original,
     );
-    for (let i = 0; i < 257; i++)
+    for (let i = 0; i < policy.receipt_limit + 1; i++)
       await expect(
         env.client.subjects.create({ subjectId: "invalid" }),
       ).rejects.toBe(refusal);
-    const path = join(root, "consumers/nous-cli/operations");
+    const [namespace] = await readdir(join(root, "consumers"));
+    const path = join(root, "consumers", namespace!, "operations");
     const files = await readdir(path);
-    expect(files).toHaveLength(256);
-    expect((await cliState(root).receipt(files[0]!.slice(0, -5))).status).toBe(
-      "rejected",
-    );
+    expect(files).toHaveLength(policy.receipt_limit);
+    expect(
+      (await cliState(root, identity, policy).receipt(files[0]!.slice(0, -5)))
+        .status,
+    ).toBe("rejected");
     unknown = true;
     let receipt = "";
     try {
@@ -56,9 +62,13 @@ it("reclaims definite rejections and finalizes a recovered unknown request rejec
       receipt = (error as { receipt: string }).receipt;
     }
     expect(receipt).toBeTruthy();
-    expect((await cliState(root).receipt(receipt)).status).toBe("pending");
+    expect(
+      (await cliState(root, identity, policy).receipt(receipt)).status,
+    ).toBe("pending");
     await expect(env.retry(receipt)).rejects.toBe(refusal);
-    expect((await cliState(root).receipt(receipt)).status).toBe("rejected");
+    expect(
+      (await cliState(root, identity, policy).receipt(receipt)).status,
+    ).toBe("rejected");
     await expect(env.retry(receipt)).rejects.toMatchObject({
       code: "OPERATION_REJECTED",
     });
@@ -97,7 +107,10 @@ it("returns a successful operation when presentation fails and reads complete re
       data: result,
       notices: [{ code: "PRESENTATION_UNAVAILABLE" }],
     });
-    const [file] = await readdir(join(root, "consumers/nous-cli/operations"));
+    const [namespace] = await readdir(join(root, "consumers"));
+    const [file] = await readdir(
+      join(root, "consumers", namespace!, "operations"),
+    );
     const env = await createEnvironment(
       { "run-root": root, "instance-root": root },
       connect,

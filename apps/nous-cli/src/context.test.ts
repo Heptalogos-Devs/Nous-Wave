@@ -4,7 +4,7 @@ import { it, expect, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runCli } from "./commands.js";
+import { runCli } from "./__mocks__/client.js";
 import type { connectNousInstance } from "@nous-wave/client/node";
 
 it("recovers an unknown context mutation using the exact saved identity and expected revision", async () => {

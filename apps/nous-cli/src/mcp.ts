@@ -9,10 +9,9 @@ import { formatError, formatResult } from "./format.js";
 
 type Execute = (args: string[]) => Promise<CallToolResult>;
 
-/** One connection owns one CLI working set; concurrent tool requests cannot race it. */
+/** Each command freezes its selection; shared state owns short transactions. */
 export function createMcpServer(execute: Execute) {
   const server = new McpServer({ name: "nous", version: "0.1.0" });
-  let pending: Promise<unknown> = Promise.resolve();
   const invoke = (args: string[]) => {
     if (
       args[0] === "mcp" ||
@@ -29,9 +28,7 @@ export function createMcpServer(execute: Execute) {
         ],
         isError: true,
       });
-    const result = pending.then(() => execute(args));
-    pending = result.catch(() => undefined);
-    return result;
+    return execute(args);
   };
   server.registerTool(
     "nous_help",

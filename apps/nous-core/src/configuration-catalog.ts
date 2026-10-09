@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from "zod";
+import { consumerStatePolicySchema } from "@nous-wave/client/consumer-policy";
 import { modelConfigurationShape } from "./model/configuration.js";
 
 export const CONFIG_REVISION = 2;
@@ -176,6 +177,13 @@ const owners = [
     schema: consumersSchema,
     default: consumersSchema.parse(undefined),
     owner: "core-consumer",
+    exposure: "advanced",
+  },
+  {
+    path: "consumer_state",
+    schema: consumerStatePolicySchema,
+    default: consumerStatePolicySchema.parse(undefined),
+    owner: "official-consumer",
     exposure: "advanced",
   },
 ] satisfies {

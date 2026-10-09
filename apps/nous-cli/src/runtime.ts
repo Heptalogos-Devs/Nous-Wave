@@ -7,6 +7,7 @@ import { extname, resolve } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { CliError, uniqueReference } from "./agent.js";
 import { cliState, type Selection } from "./state.js";
+import { consumerStatePolicySchema } from "@nous-wave/client/consumer-policy";
 export const stringFlags = [
   "run-root",
   "instance-root",
@@ -74,15 +75,32 @@ export async function createEnvironment(
 ) {
   if (values.raw && !values.developer)
     throw new CliError("INVALID_ARGUMENT", "--raw requires --developer");
-  const local = cliState(
-    values["instance-root"] && resolve(values["instance-root"]),
-  );
-  const selected = await local.selection();
   const original = await connect({
     runRoot: resolve(
       required(values["run-root"], "--run-root or nous launcher"),
     ),
   });
+  const policy = await original.configuration.get({
+    paths: ["consumer_state"],
+  });
+  const policyValue = policy.entries.find(
+    (entry) => entry.path === "consumer_state",
+  )?.value;
+  if (policyValue === undefined)
+    throw new CliError(
+      "CONFIGURATION_UNAVAILABLE",
+      "Core did not return the active consumer state policy",
+    );
+  const local = cliState(
+    values["instance-root"] && resolve(values["instance-root"]),
+    {
+      instanceId: original.instanceId,
+      consumer: values.consumer ?? "consumer:nous-cli:default",
+    },
+    consumerStatePolicySchema.parse(policyValue),
+  );
+  const selected = await local.selection();
+  let savedBaseline = selected;
   async function addressId(kind: string, text: string, subject: string) {
     if (!/^[a-z]+:/.test(text)) return text;
     return uniqueReference(
@@ -120,7 +138,7 @@ export async function createEnvironment(
   };
   const sameSubject = !values.subject || values.subject === selected.subjectId;
   const state: Selection = {
-    schemaVersion: 1,
+    format: "nous.consumer.selection",
     ...(sameSubject ? selected : { lastQuery: selected.lastQuery }),
     subjectId: values.subject ?? selected.subjectId,
     sessionId: values.session ?? (sameSubject ? selected.sessionId : undefined),
@@ -183,7 +201,7 @@ export async function createEnvironment(
     return async (request: I) => {
       const id = crypto.randomUUID();
       const receipt = {
-        schemaVersion: 1 as const,
+        format: "nous.consumer.operation" as const,
         name,
         subjectId:
           "subjectId" in request && typeof request.subjectId === "string"
@@ -360,7 +378,20 @@ export async function createEnvironment(
     resolveReference,
     requestPayload,
     readText,
-    save: local.save,
+    async save(this: void, value: Selection) {
+      try {
+        await local.save(value, savedBaseline);
+        savedBaseline = value;
+      } catch (error) {
+        notices.push({
+          code: "STATE_UNSAVED",
+          message:
+            error instanceof CliError && error.code === "STATE_CONFLICT"
+              ? error.message
+              : "Operation result is preserved; local consumer state could not be saved",
+        });
+      }
+    },
     async retry(id: string) {
       const receipt = await local.receipt(id);
       if (
