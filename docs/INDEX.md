@@ -28,6 +28,7 @@
 - [Full-System Dogfooding](research/full-system-dogfooding-2026-10-08.md)
 - [Proquint reference replacement](research/proquint-reference-migration.md)
 - [研究语料与 oracle](research/corpus/README.md)
+- [VCP 与 Native 冻结数值结果](research/corpus/vcp/README.md)
 - [手工认知功能语料](research/corpus/functional/README.md)
 - [Core Cognition Semantic Qualification](research/core-cognition-semantic.md)
 - [Core Cognition 2026-10-07 实际结果](research/core-cognition-2026-10-07.md)

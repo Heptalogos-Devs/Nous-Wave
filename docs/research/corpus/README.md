@@ -1,5 +1,7 @@
 # 研究语料
 
+- [VCP 与 Native 冻结数值结果](vcp/README.md)：原输入、expected、容差与来源身份，算法检查直接读取这份研究数据。
+
 tracked tree 保存 source manifest、少量 oracle metadata 和手工功能场景。下载正文、拆分文本、vectors、大型 source-output matrices 与 run outputs 保存于 ignored `data/research/`。
 
 - [手工功能语料](functional/README.md)：Tide deployment rule、Aya journal preference、snapshot/build-cache analogy 三个场景与 15 个 prepared intents。

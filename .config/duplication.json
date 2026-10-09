@@ -15,7 +15,6 @@
     "**/.nx/**",
     "**/generated/**",
     "**/*.generated.*",
-    "data/**",
-    "crates/retrieval/tests/fixtures/vcp-*.json"
+    "data/**"
   ]
 }

@@ -25,8 +25,10 @@ fn field(actual: &[(i64, f64)], expected: &Value) {
 }
 #[test]
 fn native_epa_and_dual_field_intermediate_values_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-epa-dual-fields.json"))
-        .expect("numeric fixture");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-epa-dual-fields.json"
+    ))
+    .expect("numeric fixture");
     let input: FixtureInput =
         serde_json::from_value(fixture["input"].clone()).expect("neutral DTO");
     let expected = &fixture["expected"];
@@ -116,8 +118,10 @@ fn compare_numeric_subset(actual: &Value, expected: &Value, path: &str) {
 
 #[test]
 fn frozen_sense_merge_and_empty_goldens_match_intermediate_contracts() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-sense.json")).expect("frozen Sense matrix");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-sense.json"
+    ))
+    .expect("frozen Sense matrix");
     for case in fixture["cases"].as_array().expect("cases") {
         let graph: ReferenceSenseGraph =
             serde_json::from_value(case["graph"].clone()).expect("neutral graph");
@@ -150,8 +154,10 @@ fn frozen_sense_merge_and_empty_goldens_match_intermediate_contracts() {
 
 #[test]
 fn native_ordered_graph_transport_and_provenance_match() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-graph.json")).expect("native graph");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-graph.json"
+    ))
+    .expect("native graph");
     let input: ReferenceGraphInput =
         serde_json::from_value(fixture["input"].clone()).expect("neutral graph DTO");
     let graph = reference_graph(&input).expect("reference graph build");
@@ -173,8 +179,10 @@ fn native_ordered_graph_transport_and_provenance_match() {
 
 #[test]
 fn native_residual_pyramid_projection_handshake_and_features_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-pyramid.json"))
-        .expect("native pyramid matrix");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-pyramid.json"
+    ))
+    .expect("native pyramid matrix");
     for case in fixture["cases"].as_array().unwrap() {
         let query: Vec<f32> = serde_json::from_value(case["query"].clone()).unwrap();
         let config: ReferencePyramidConfig =
@@ -199,8 +207,10 @@ fn native_residual_pyramid_projection_handshake_and_features_match() {
 
 #[test]
 fn native_query_morphology_and_all_omega_components_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-query-shape.json"))
-        .expect("query shape matrix");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-query-shape.json"
+    ))
+    .expect("query shape matrix");
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceRiverShapeInput =
             serde_json::from_value(case["input"].clone()).unwrap();
@@ -218,8 +228,10 @@ fn native_query_morphology_and_all_omega_components_match() {
 
 #[test]
 fn native_direct_anchor_pool_contacts_and_fallback_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-anchors.json"))
-        .expect("native anchor matrix");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-anchors.json"
+    ))
+    .expect("native anchor matrix");
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceAnchorInput = serde_json::from_value(case["input"].clone()).unwrap();
         let anchors = reference_anchors(&input);
@@ -233,8 +245,10 @@ fn native_direct_anchor_pool_contacts_and_fallback_match() {
 
 #[test]
 fn native_dual_field_path_geometry_components_match() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-path.json")).expect("native path matrix");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-path.json"
+    ))
+    .expect("native path matrix");
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferencePathInput = serde_json::from_value(case["input"].clone()).unwrap();
         compare_numeric_subset(
@@ -247,8 +261,10 @@ fn native_dual_field_path_geometry_components_match() {
 
 #[test]
 fn native_relative_topology_alignment_distance_and_source_independence_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-relative-topology.json"))
-        .expect("native relative topology");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-relative-topology.json"
+    ))
+    .expect("native relative topology");
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceTopologyInput = serde_json::from_value(case["input"].clone()).unwrap();
         compare_numeric_subset(
@@ -261,8 +277,10 @@ fn native_relative_topology_alignment_distance_and_source_independence_match() {
 
 #[test]
 fn native_conditional_peer_statistics_role_caps_and_anchor_activation_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-scoring.json"))
-        .expect("native scoring matrix");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-scoring.json"
+    ))
+    .expect("native scoring matrix");
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceScoreInput = serde_json::from_value(case["input"].clone()).unwrap();
         compare_numeric_subset(
@@ -275,8 +293,10 @@ fn native_conditional_peer_statistics_role_caps_and_anchor_activation_match() {
 
 #[test]
 fn native_candidate_observables_and_pure_score_match_persisted_vectors() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-observables-pure.json"))
-        .expect("native persisted curve matrix");
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-observables-pure.json"
+    ))
+    .expect("native persisted curve matrix");
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceObservableInput =
             serde_json::from_value(case["input"].clone()).unwrap();
@@ -323,8 +343,10 @@ fn native_candidate_observables_and_pure_score_match_persisted_vectors() {
 
 #[test]
 fn native_candidate_superset_sources_scores_quotas_and_order_match() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-candidate-pool.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-candidate-pool.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let signals: Vec<ReferencePoolSignals> =
             serde_json::from_value(case["input"]["signals"].clone()).unwrap();
@@ -340,8 +362,10 @@ fn native_candidate_superset_sources_scores_quotas_and_order_match() {
 
 #[test]
 fn native_v3_readout_composes_one_observation_through_candidate_pool_and_final_ranking() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-v3-readout.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-v3-readout.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceReadoutInput = serde_json::from_value(case["input"].clone()).unwrap();
         let output = reference_v3_readout(&input).unwrap();
@@ -385,8 +409,10 @@ fn native_v3_readout_composes_one_observation_through_candidate_pool_and_final_r
 
 #[test]
 fn native_dtsc_field_trust_retention_exact_contacts_and_sampling_match() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-dtsc-field.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-dtsc-field.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceDtscFieldInput = serde_json::from_value(case["input"].clone()).unwrap();
         compare_numeric_subset(
@@ -399,7 +425,10 @@ fn native_dtsc_field_trust_retention_exact_contacts_and_sampling_match() {
 
 #[test]
 fn native_dtsc_curve_metrics_rewards_guards_and_full_order_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-dtsc.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-dtsc.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceDtscInput = serde_json::from_value(case["input"].clone()).unwrap();
         if case.get("error").is_some() {
@@ -419,7 +448,10 @@ fn native_dtsc_curve_metrics_rewards_guards_and_full_order_match() {
 
 #[test]
 fn native_intrinsic_residual_ratios_fixed_anchor_gains_and_statuses_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-intrinsic.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-intrinsic.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceIntrinsicInput = serde_json::from_value(case["input"].clone()).unwrap();
         let tolerance = if input.config.method.trim() == "svd" {
@@ -464,8 +496,10 @@ fn native_intrinsic_residual_ratios_fixed_anchor_gains_and_statuses_match() {
 
 #[test]
 fn native_field_vector_projection_matches_available_index_vectors() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-field-projection.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-field-projection.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceFieldProjectionInput =
             serde_json::from_value(case["input"].clone()).unwrap();
@@ -484,7 +518,10 @@ fn native_field_vector_projection_matches_available_index_vectors() {
 
 #[test]
 fn native_query_tag_gating_language_core_and_layer_weights_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-gating.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-gating.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceGateInput = serde_json::from_value(case["input"].clone()).unwrap();
         compare_numeric_subset(
@@ -497,7 +534,10 @@ fn native_query_tag_gating_language_core_and_layer_weights_match() {
 
 #[test]
 fn native_query_fusion_seed_max_supplements_ghosts_and_dedup_match() {
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/vcp-fusion.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-fusion.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceFusionInput = serde_json::from_value(case["input"].clone()).unwrap();
         compare_numeric_subset(
@@ -510,8 +550,10 @@ fn native_query_fusion_seed_max_supplements_ghosts_and_dedup_match() {
 
 #[test]
 fn native_epa_density_sampling_weighted_basis_and_publication_values_match() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-epa-training.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-epa-training.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceEpaTrainingInput =
             serde_json::from_value(case["input"].clone()).unwrap();
@@ -590,15 +632,19 @@ fn native_epa_density_sampling_weighted_basis_and_publication_values_match() {
 
 #[test]
 fn native_query_pipeline_composes_one_query_through_sense_fusion_and_dual_fields() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-query-pipeline.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-query-pipeline.json"
+    ))
+    .unwrap();
     verify_pipeline_fixture(&fixture);
 }
 
 #[test]
 fn native_query_pipeline_state_budget_golden_matches() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-pipeline-state-budget.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-pipeline-state-budget.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         verify_pipeline_fixture(case);
     }
@@ -689,8 +735,10 @@ fn verify_pipeline_fixture(fixture: &Value) {
 
 #[test]
 fn native_epa_and_dual_field_boundary_goldens_match() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-epa-field-boundaries.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-epa-field-boundaries.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: FixtureInput = serde_json::from_value(case["input"].clone()).unwrap();
         let expected = &case["expected"];
@@ -725,8 +773,10 @@ fn native_epa_and_dual_field_boundary_goldens_match() {
 
 #[test]
 fn native_graph_builder_boundary_and_merge_goldens_match() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/vcp-graph-boundaries.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../docs/research/corpus/vcp/vcp-graph-boundaries.json"
+    ))
+    .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let input: ReferenceGraphInput = serde_json::from_value(case["input"].clone()).unwrap();
         let actual = serde_json::to_value(reference_graph(&input).unwrap()).unwrap();
