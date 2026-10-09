@@ -182,3 +182,21 @@ Linux 续接审查将 concept activation 的最大保留数、最小 cosine 相�
 实际重启发现两处生命周期缺陷：Core 在收到 SIGTERM 后仍持有启动方 stdin，资源已关闭但进程不退出；移除该进程拥有的信号/end listeners 并暂停 stdin 后，开放 stdin 下直接 SIGTERM 正常退出且端口释放。Kernel 在 embedding 绑定前后各刷新全部 Serving，导致启动阶段不可用告警及无需求建资产；删除两处启动刷新，按请求准备及显式管理刷新保留。缓存丢失的真实 PostgreSQL 回归先复现启动即建资产，修复后启动目录为空、首次查询在相同 Authority watermark 重建并召回原两条修订。请求、当前及历史快照现在共用 owning asset install。
 
 重复代码扫描使用配置的 apps/packages/crates/scripts 范围，移除覆盖该范围的命令行点路径；研究 corpus 的真实重复输出不作为代码克隆。原生 workspace/all-features、Clippy 与完整35份/112项 TS 检查通过；并行负载下两项子进程检查超时，负载结束后原检查通过，未放宽 timeout。
+
+## Linux 重启、实际维护与成果退役
+
+同一实例在 `de9ca74` 正常重启后，新的 fresh Codex/MCP 读回原 WorkContext revision3/open、原 `memrev:gizoz-zonas-hivin` 与精确来源、producer 不变；只接纳新增1273字节审查文本并形成 `memrev:lobod-rimil-nojit`，仍由实际 `doubao-seed-2.1-lite` / `memory_formation_text` 生成，accepted/valid、grounded。Embedding3/2、Unicode Query complete（原修订rank1、新修订rank2）、exact只返回原修订；as-of `2026-10-09T13:49:30Z` 的 history只返回原修订，明确报告 `future_context_ref_excluded`。新 Use accepted1，原、新 Memory 与 Tag 保留在同一 Context，revision5/open。无选择的 session show 被明确拒绝，属于调用方错误。完整结果在[重启续接](corpus/deep-rebase/linux-restart-continuation-2026-10-09.json)。
+
+第一项维护 grant 如实返回 `disabled_by_policy`。公开 CLI 以读到的 configurationRevision1，仅对该 Subject 设置 `maintenance.enabled=true`；系统开关仍关闭，不产生后台付费循环。随后 fresh Codex 在一个新 Session 只授予一次2operations/2model calls/120000ms机会。实际2次调用、120024ms、`opportunity_exhausted`：episode_segment deferred，concept_maintenance deferred/`opportunity_budget_exhausted`，没有宣称提交完成。exact原修订与新修订保持 revision1/epoch1、来源与producer；查询召回新/原修订rank1/2但提示缺少 compatible embedding material。显式 preparation committed2/requests2 后，公开 Query `01a12126-3228-7f03-9922-2f4acbed44f4` complete、degradation空，仍返回同两条 exact revisions。对象级 show/trace、need UUID的 generic show 被明确拒绝，exact修订可读；原错误均保留。Context revision6/open、Session关闭，[有界维护](corpus/deep-rebase/linux-maintenance-continuation-2026-10-09.json)及[材料恢复](corpus/deep-rebase/linux-maintenance-recovery-2026-10-09.json)保存实际结果。
+
+在删除前，将 Linux 8091份、Windows3798份独有结果分别整理为 UTF-8 JSONL/gzip；保持原模型正文、非法/失败响应、query/result与数值、来源日期/ref、Prompt/合同、usage和条件。只去重逐字节相同文件、删除 credential/媒体编码与可再生 embedding 数组；日志使用明确标注的相关末尾片段，失败模型响应另保全完整正文。所有记录逐项解压、解析及摘要核对；两份成果在两端硬盘均复制并重新核验。原 operator TOML、退役consumer请求和资格结果片段分别保留，现行密钥仍由 SecretRoot 拥有。成果路径为两端 `data/research/results/linux-preservation-2026-10-09/`、`windows-preservation-2026-10-09/`，SAUC与原24份独有 VCP数值继续保留；没有模型重新摘要或修正历史事实。
+
+清理45个明确退役根：旧实例/实验 PostgreSQL、迁移和qualification材料、原始run/trace、下载正文和媒体、可再生Serving/embedding缓存、测试cluster、旧Portable ZIP/重复payload、runtime staging和重复工具下载。Linux保留 `deep-rebase-linux` 当前实例；Windows保留 `deep-rebase-foundation` 连续状态及 `continuing-20261009` source-less Portable。两端 operator/Secret和现行运行依赖不删除。保留Portable的2333个文件重新核对SHA全部相同；其真实三布局/重启/模型任务属于先前Windows执行，本段不声称在Linux重新运行Windows二进制。独立New API源码、SAUC补丁和正在运行的服务未变。
+
+Linux公开Core/Kernel/PostgreSQL的Memory历史/清除、Runtime跨Session、LocalDocuments版本/权限、相反媒体输入、deadline cleanup/resume、纵向和配置CAS/replay/restart/readonly batch场景通过。longitudinal首次被本机缺少libstdc++链接别名阻止；使用本轮已核验的本地linker目录后原检查通过，未修改生产代码或跳过。Linux/Windows `1e6e8dc` CI通过；最终文档/保全提交另按 exact head 校验。
+
+保全复核发现通用缓存筛选误将历史VCP输入的 `vector` 数组省略。清理前 manifest 已记录原文件完整SHA-256；本地Git对象仍保存全部原bytes，按摘要找到并恢复43份历史完整矩阵。原JSON逐份核对，JSONL内相应输入/expected/来源/容差恢复完整，再重新解析验证8091份结果及两端副本；没有重新生成数值或更改历史结果。完整原bytes位于 `linux-preservation-2026-10-09/numerical-originals/`。
+
+## 2026-10-10 Windows 交接点
+
+按用户最新要求提交上传并交接，停止本轮Linux执行，不解除Draft、不Squash Merge。主实例正常SIGTERM停机，管理实例已停机，两者数据库/Blob/Context保留；维护预算退出后的只读DB检查确认五类pending needs均无live lease，Memory workflow无live lease。`1e6e8dc`两平台CI已通过，随后仅增加当前文档与三份真实续接/恢复corpus；该交接提交CI另查。Windows checkout在同一分支，继续前应读取最新commit message与工作区handoff。保留的Windows Portable是此前实际验证的payload，尚未包含本轮Linux的Serving内容摘要、三叶concept policy与lazy startup更新；最新head的Windows native rebuild、Portable资格/实际续接、剩余重复内部api_version决策、最后build清理/审查与Squash Merge仍未完成。本轮没有再次启动Windows二进制。

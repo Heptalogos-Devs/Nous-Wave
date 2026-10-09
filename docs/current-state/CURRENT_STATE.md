@@ -17,7 +17,7 @@
 
 ## Experimental
 
-Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential ranking。VCP DTSC/RiverMemo reference/adapters 保留；tracked 数值 fixtures 已压缩为区分性 goldens，完整 source outputs 在 ignored research data。Prepared Query、稳定 LexicalRef、Identity ambiguity/candidate continuation、WorkContext/Situation Representation 和共享 query embedding 已实现。Material 与 Memory 各自负责所属对象的 final materialization 和五轴时间验证；generic Persistence reference_times 已删除。
+Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential ranking。VCP DTSC/RiverMemo reference/adapters 保留；tracked 数值 fixtures 已压缩为区分性 goldens，完整 source outputs 在 ignored Research results。Prepared Query、稳定 LexicalRef、Identity ambiguity/candidate continuation、WorkContext/Situation Representation 和共享 query embedding 已实现。Material 与 Memory 各自负责所属对象的 final materialization 和五轴时间验证；generic Persistence reference_times 已删除。
 
 `concept_maintenance` 只围绕 exact focus，提供局部来源、aboutness 相关 Memory、Tag 名称/别名与缓存相似候选及一跳关系。Core 保存 proposal，逐项执行 Tag/Association owner mutation，保留 partial 成功、stable action ids、typed results 与可恢复 progress；consolidation 同样使用 canonical Memory/Schema API，旧 topology/longitudinal batch RPC 和 public consolidation envelope 已删除。Tag merge/split 自身保持原子，支持一份明确 exact source；owner 不递归证明整个 relation graph。Accretion 按 center 按需派生，配置收敛为 enabled/generic_degree/recurrence_review，不形成 Authority truth。
 
@@ -29,7 +29,7 @@ Topology 是默认关闭的显式 lane，包含 weighted PCA/EPA、residual deco
 
 ## Known Issues
 
-- `cargo dupes` 的 group 阈值在原始 PR HEAD 与本轮均超限；保留独立 enum/typed lifecycle 方法等必要相似形状，未放宽阈值或新增替代 gate。Memory row decoding、五轴 lane 收集、RPC forwarding 和 VCP scalar policy 的明确重复实现已合并。jscpd 仅排除独立 numerical golden 常量，当前比例由 audit 命令报告。
+- `cargo dupes` 的 group 阈值在原始 PR HEAD 与本轮均超限；保留独立 enum/typed lifecycle 方法等必要相似形状，未放宽阈值或新增替代 gate。Memory row decoding、五轴 lane 收集、RPC forwarding 和 VCP scalar policy 的明确重复实现已合并。jscpd 按 apps/packages/crates/scripts 扫描手写代码，排除生成代码；Research 结果相同原文不作为代码克隆。
 
 - 真实模型可提出非法 selector 或无支持的 modality；owner 验证拒绝提交，两阶段保留已提交描述。当前代表性 case 的已发现问题已修复并重跑；NASA 低信号音频仅作为 research negative controls，不能泛化成产品语义缺陷。
 

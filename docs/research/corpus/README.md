@@ -5,7 +5,9 @@
 - [Query 生命周期重整后续接](deep-rebase/query-continuation-2026-10-09.json)：producer 重整后的首次 dense degradation、显式 embedding preparation 和恢复查询原文。
 - [当前数据库与 Windows Portable 续接](deep-rebase/portable-continuation-2026-10-09.json)：四份初始 schema 新库的全表恢复摘要、真实 Codex/MCP／Doubao formation、trace、embedding、Query 和 use 原文；旧认知仍保留。
 
-tracked tree 保存 source manifest、少量 oracle metadata 和手工功能场景。下载正文、拆分文本、vectors、大型 source-output matrices 与 run outputs 保存于 ignored `data/research/`。
+- [Linux 干净实例](deep-rebase/linux-continuation-2026-10-09.json)、[重启续接](deep-rebase/linux-restart-continuation-2026-10-09.json)、[有界维护](deep-rebase/linux-maintenance-continuation-2026-10-09.json)与[显式材料恢复](deep-rebase/linux-maintenance-recovery-2026-10-09.json)：保存实际 Doubao Lite formation、原文、Unicode/exact/history、真实预算耗尽与后续 complete Query。
+
+tracked tree 保存 source manifest、少量 oracle metadata 和手工功能场景。持久模型正文、query/result 与数值矩阵保存在 ignored `data/research/results/` 的紧凑成果中；完成提取后已清理旧数据库、下载正文、媒体、vectors 与原始运行目录。
 
 - [手工功能语料](functional/README.md)：Tide deployment rule、Aya journal preference、snapshot/build-cache analogy 三个场景与 15 个 prepared intents。
 - [六项 text-only 选择](text-compatibility-selection.json)：2 LongMemEval、2 LoCoMo、2 Python official docs，原始 query 不注入 Entity/Tag/WorkContext oracle。
