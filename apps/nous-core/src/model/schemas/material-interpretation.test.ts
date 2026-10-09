@@ -59,6 +59,7 @@ const output = () => ({
   ],
 });
 const source = {
+  evidenceAccess: "original" as const,
   visual: true,
   audio: false,
   sourceText: false,
@@ -66,6 +67,23 @@ const source = {
   durationMs: 1000,
 };
 describe("Material interpretation contract", () => {
+  it("does not promote a committed media description into directly observed pixels", () => {
+    const context = { ...source, evidenceAccess: "representation" as const };
+    expect(() => structuredMaterialResult(output(), context)).toThrow(
+      "representation",
+    );
+    const reported = output();
+    reported.coverage.visual = "reported";
+    reported.observations[0]!.basis = "reported";
+    const result = structuredMaterialResult(reported, context);
+    expect(result.structuredPayload.evidence_access).toBe("representation");
+    expect(result.text).toContain("Evidence access: representation");
+    expect(result.text).toContain("[reported/uncertain/event");
+    reported.observations[0]!.basis = "direct";
+    expect(() => structuredMaterialResult(reported, context)).toThrow(
+      "representation",
+    );
+  });
   it("exports one strict provider schema with required nullable scalars and a shape-sensitive digest", () => {
     expect(materialInterpretationJsonSchema.additionalProperties).toBe(false);
     expect(materialInterpretationJsonSchema.required).toContain(
@@ -118,6 +136,12 @@ describe("Material interpretation contract", () => {
     const invented = output();
     invented.coverage.audio = "observed";
     expect(() => structuredMaterialResult(invented, source)).toThrow("audio");
+    const unavailable = output();
+    unavailable.coverage.visual = "not_available";
+    unavailable.observations[0]!.content = "No visual input was provided";
+    expect(() => structuredMaterialResult(unavailable, source)).toThrow(
+      "unavailable visual evidence",
+    );
   });
   it("projects repeatably without promoting uncertainty or tentative interpretations", () => {
     const { text, structuredPayload } = structuredMaterialResult(

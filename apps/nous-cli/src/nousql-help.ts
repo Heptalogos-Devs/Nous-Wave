@@ -27,7 +27,7 @@ export const nousqlHelp = {
     schema: '@schema("rule") supplies a schema cue.',
     resource: '@r("resource") supplies a resource cue.',
     exact:
-      "@ref(mem:amber-lotus-cello-river) reads an exact identity; use returned LexicalRefs, never invent them.",
+      "@ref(mem:zimug-tikub-lulid) reads only the bound identity, without similarity retrieval or model rerank. Objects select current/as-of heads; immutable revision refs inspect specific history. Use returned LexicalRefs, never invent them.",
     object: '@object("host-ref") supplies an opaque Host object cue.',
     composition:
       "Mandatory unquoted Unicode intent plus optional $/@/# syntax islands; $prefer and $avoid express preferences; escape literal markers with backslash.",
@@ -93,7 +93,7 @@ export const nousqlHelp = {
     "migration $return(memory,schema) $limit(10) $diagnostics(full)",
   ],
   workflow: [
-    "nous subject use <actual-subject-id>",
+    "nous subject use <returned-subject-reference>",
     "nous session open",
     'nous context create --purpose "Investigate CPython free-threading" --text "Compare PEP 703, Python 3.13 and Python 3.14 extension compatibility."',
     "nous context foreground",

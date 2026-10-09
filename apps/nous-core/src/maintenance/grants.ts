@@ -12,6 +12,7 @@ import type { ModelRuntime } from "../model/runtime.js";
 import { canonicalDigest } from "../digest.js";
 import { GenerationFailure } from "../model/invocations.js";
 import { runModelMaintenance } from "./workflow.js";
+import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 
 const roles = {
   episode_resegment: "episode_segmentation",
@@ -78,7 +79,7 @@ export async function grantMaintenance(
     input.maxOperations > 32 ||
     input.maxModelCalls > 32 ||
     input.maxElapsedMs < 1 ||
-    input.maxElapsedMs > 300000
+    input.maxElapsedMs > 900000
   )
     throw new ConnectError(
       "Invalid maintenance opportunity envelope",
@@ -97,6 +98,7 @@ export async function grantMaintenance(
   let modelCalls = 0;
   if (!policy.enabled)
     return {
+      disposition: "disabled_by_policy",
       results,
       modelCalls,
       elapsedMs: Math.round(performance.now() - started),
@@ -180,7 +182,14 @@ export async function grantMaintenance(
         nextDue = "nextDue" in outcome ? outcome.nextDue : undefined;
       }
     } catch (error) {
-      if (
+      if (signal.aborted) {
+        // Host opportunity exhaustion leaves the durable need available to the next grant.
+        status = "deferred";
+        nextDue = timestampFromDate(new Date());
+        problemCode = options.signal?.aborted
+          ? "opportunity_canceled"
+          : "opportunity_budget_exhausted";
+      } else if (
         error instanceof ConnectError &&
         error.code === Code.InvalidArgument
       ) {
@@ -251,6 +260,11 @@ export async function grantMaintenance(
     if (status === "internal_failure") break;
   }
   return {
+    disposition: signal.aborted
+      ? "opportunity_exhausted"
+      : results.length
+        ? "processed"
+        : "no_eligible_work",
     results,
     modelCalls,
     elapsedMs: Math.round(performance.now() - started),

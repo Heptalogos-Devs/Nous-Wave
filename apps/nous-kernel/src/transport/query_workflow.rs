@@ -51,7 +51,11 @@ impl k::kernel_query_service_server::KernelQueryService for KernelService {
             let inspection = super::query::inspect_bound_query(&bound)?;
             let text_embedding_requirement =
                 enum_name(bound.source_query.capabilities.text_embedding);
-            let rerank_requirement = enum_name(bound.source_query.capabilities.rerank);
+            let rerank_requirement = enum_name(if bound.source_query.is_exact_read() {
+                RequirementStrength::Forbidden
+            } else {
+                bound.source_query.capabilities.rerank
+            });
             let concept_enrichment_mode = enum_name(bound.concept_enrichment);
             let concept_enrichment_requirement =
                 enum_name(bound.source_query.capabilities.query_concept_enrichment);

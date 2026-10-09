@@ -9,6 +9,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { CliError } from "./agent.js";
 const reference = z
@@ -49,7 +50,27 @@ async function atomicJson(path: string, value: unknown) {
   if (Buffer.byteLength(encoded) > 1048576)
     throw new CliError("RESOURCE_EXHAUSTED", "CLI state exceeds 1 MiB");
   await writeFile(temporary, encoded, { mode: 0o600 });
-  await rename(temporary, path);
+  try {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await rename(temporary, path);
+        break;
+      } catch (error) {
+        // Windows scanners can briefly hold the destination; retain the old atomic state.
+        if (
+          process.platform !== "win32" ||
+          attempt >= 5 ||
+          !["EPERM", "EACCES"].includes(
+            (error as NodeJS.ErrnoException).code ?? "",
+          )
+        )
+          throw error;
+        await delay(20 * (attempt + 1));
+      }
+    }
+  } finally {
+    await unlink(temporary).catch(() => {});
+  }
 }
 async function readJson(path: string): Promise<unknown> {
   const text = await readFile(path, "utf8");

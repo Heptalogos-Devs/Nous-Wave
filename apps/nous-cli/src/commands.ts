@@ -34,7 +34,7 @@ import { associationCommands } from "./association-commands.js";
 import { useCommands } from "./use-commands.js";
 import { traceCommands } from "./trace-commands.js";
 import { contextCommands } from "./context-commands.js";
-import { queryCommands, showCommands } from "./query-commands.js";
+import { queryCommands, showCommands, readCommands } from "./query-commands.js";
 const argsDef: ArgsDef = Object.fromEntries<ArgDef>([
   ...stringFlags.map((name) => [name, { type: "string" }] as const),
   ...listFlags.map((name) => [name, { type: "string" }] as const),
@@ -75,7 +75,11 @@ function valuesOf(ctx: CommandContext): CliValues {
   }
   return values;
 }
-export async function runCli(rawArgs: string[], connect = connectNousInstance) {
+export async function runCli(
+  rawArgs: string[],
+  connect = connectNousInstance,
+  present?: (value: unknown, env: CliEnvironment) => Promise<unknown>,
+) {
   let globals: CliValues = defaults;
   let result: unknown;
   let completed = false;
@@ -102,6 +106,8 @@ export async function runCli(rawArgs: string[], connect = connectNousInstance) {
           action ? ctx.args._[0] : ctx.args._[1],
           [family, ...(action ? [action] : []), ...ctx.args._],
         );
+        if (present && !values.raw && !values.json && !values.developer)
+          result = await present(result, env);
         if (!values.raw)
           result = semanticOutput(
             action ? `${family}.${action}` : family,
@@ -211,6 +217,7 @@ export async function runCli(rawArgs: string[], connect = connectNousInstance) {
       use: leaf("use", useCommands),
       trace: leaf("trace", traceCommands),
       show: leaf("show", (env, ref) => showCommands(env, ref)),
+      read: leaf("read", (env, ref) => readCommands(env, ref)),
       context: family("context", contextCommands, [
         "create",
         "list",

@@ -310,6 +310,20 @@ describe("model protocol and provenance boundaries", () => {
               },
         ]);
       }
+      const noAudio = structuredClone(config);
+      noAudio.model_profiles.chat!.capabilities = ["text", "structured_output"];
+      const admittedRequests = requests.length;
+      await expect(
+        (await ModelInvocations.create(noAudio)).generate(
+          "memory_formation",
+          "evidence",
+          undefined,
+          undefined,
+          undefined,
+          { bytes: Uint8Array.of(1, 2, 3), mediaType: "audio/mpeg" },
+        ),
+      ).rejects.toThrow("audio_input_unavailable");
+      expect(requests).toHaveLength(admittedRequests);
       for (const model of [
         "bad-rerank",
         "duplicate-rerank",
@@ -392,6 +406,29 @@ describe("model protocol and provenance boundaries", () => {
         executionProfile: "backup",
         modelRole: "memory_formation",
       });
+      const semanticSnapshot = structuredClone(frozen);
+      semanticSnapshot.configuration.model_profiles.chat!.model = "chat-id";
+      let semanticChecks = 0;
+      const semanticFallback = await routed.generate(
+        "memory_formation",
+        "evidence",
+        undefined,
+        undefined,
+        semanticSnapshot,
+        undefined,
+        undefined,
+        () => {
+          if (++semanticChecks === 1)
+            throw new Error("source semantics invalid");
+        },
+      );
+      expect(semanticChecks).toBe(2);
+      expect(
+        semanticFallback.execution.attempts.map(
+          (attempt) => attempt.failureClass,
+        ),
+      ).toEqual(["output_semantics_invalid", undefined]);
+      expect(semanticFallback.producerMetadata.executionProfile).toBe("backup");
       const beforeBudget = requests.length;
       let admission = 0;
       let admissionFailure: unknown;

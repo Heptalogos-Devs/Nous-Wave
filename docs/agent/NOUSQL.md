@@ -17,7 +17,7 @@ context and exploration are optional ways to make its meaning more precise.
   and description. A Tag can express a topic, rule, experience pattern or a
   sentence-like idea. Its meaning can be embedded for semantic retrieval.
 - **LexicalRef**: a stable Agent-readable reference such as
-  `mem:amber-lotus-cello-river`. Names discover identities; a returned LexicalRef
+  `mem:zimug-tikub-lulid`. Names discover identities; a returned LexicalRef
   lets you continue using that exact identity. Never invent a LexicalRef.
 - **WorkContext**: a bounded current task or question, with a purpose and exact
   cognition references, context text and real Entity/Tag anchors. A Session can
@@ -75,11 +75,16 @@ recalls its direct attachments. Names must resolve uniquely; ambiguity never
 turns into a vector guess. Use the chosen candidate's LexicalRef on retry.
 
 ```nousql
-Inspect this cognition @ref(mem:amber-lotus-cello-river)
+Inspect this cognition @ref(mem:zimug-tikub-lulid)
 ```
 
 This example shows syntax only. Replace its illustrative reference with a real
 returned reference. `@ref` is an exact read; result projection still applies.
+It returns only the bound target, without similarity retrieval, current-context
+candidates, concept enrichment, or model reranking. A mutable object reference
+selects its head in the current or `$asof` view. `$history` permits eligible prior
+revisions but does not turn an exact object read into revision enumeration; use
+an immutable revision reference to inspect a particular older version.
 Other selectors are cues, not a promise to return that object itself.
 
 ## 4. Semantic text is different from a Tag
@@ -118,13 +123,13 @@ A recent preference needs an explicit time axis. Use `$prefer(recent,recorded)` 
 
 ## 6. Choose the right time axis
 
-| Axis | Meaning |
-| --- | --- |
-| `occurred` | When the source event happened. |
-| `observed` | When the Subject received the source evidence. |
-| `valid` | When the claim applies. |
-| `formed` | When cognition or a derived representation was formed. |
-| `recorded` | When the canonical revision was recorded. |
+| Axis       | Meaning                                                |
+| ---------- | ------------------------------------------------------ |
+| `occurred` | When the source event happened.                        |
+| `observed` | When the Subject received the source evidence.         |
+| `valid`    | When the claim applies.                                |
+| `formed`   | When cognition or a derived representation was formed. |
+| `recorded` | When the canonical revision was recorded.              |
 
 ```nousql
 deployment incidents $time(occurred,within=30d)
@@ -257,7 +262,7 @@ CLI examples (the launcher supplies local instance discovery):
 
 ```sh
 nous help nousql
-nous subject use <actual-subject-id>
+nous subject use <returned-Subject-lexical-reference>
 nous session open
 nous context create --purpose "Investigate CPython free-threading" --text "Compare PEP 703, Python 3.13 experimental support, Python 3.14 support and extension compatibility."
 nous context foreground
@@ -279,7 +284,7 @@ means exposure only; `referenced`, `acted_on` and `result_supported` are meaning
 `result_refuted` is negative feedback, not supporting evidence. Use feedback can
 request review; it cannot grant a model or commit a Tag maintenance proposal.
 
-Explicit formation Tags use `nous form <occurrence-id> --tag <tag-ref>`. Tag/Association
+Explicit formation Tags use `nous form <Occurrence-reference> --tag <tag-ref>`. Tag/Association
 mutation commands and maintenance grants are listed by `nous help`; use
 `--request-file` for CLI-owned semantic TOML revisions and merge/split.
 
@@ -295,19 +300,25 @@ when the task changes. `CPython`, `PEP 703` and `free-threading` are useful text
 keywords; `@tag(...)` activates a real durable concept and `#concept` is an
 ephemeral cue. Mutations save a receipt before RPC; `retry <receipt>` reuses
 the exact operation identity, inputs and expected revision after an unknown outcome.
-Default output is semantic text; `--json` selects the versioned CLI envelope.
-`--raw --developer` explicitly requests transport diagnostics.
+Default semantic text uses persistent lexical references for actionable identities,
+including Subject, Session, WorkContext and exact Material evidence locators.
+Copy returned references into subsequent commands, or use `result:N` within the
+consumer's saved query. Unambiguous names and explicit aliases are also supported
+within the selected Subject. Names can change or be ambiguous; lexical references
+remain stable across restarts and consumers. Source text is preserved verbatim.
+`--json` selects the machine envelope with canonical IDs; `--developer` exposes
+internal query diagnostics, and `--raw --developer` requests transport DTOs.
 
 ## 13. Recover from errors
 
-| Code | Next action |
-| --- | --- |
-| `UNKNOWN_REFERENCE` | Resolve a known name or use a returned LexicalRef. |
-| `AMBIGUOUS_REFERENCE` | Select one returned candidate; do not guess. |
-| `REFERENCE_TOMBSTONED` | Rediscover the current active identity. |
+| Code                             | Next action                                                  |
+| -------------------------------- | ------------------------------------------------------------ |
+| `UNKNOWN_REFERENCE`              | Resolve a known name or use a returned LexicalRef.           |
+| `AMBIGUOUS_REFERENCE`            | Select one returned candidate; do not guess.                 |
+| `REFERENCE_TOMBSTONED`           | Rediscover the current active identity.                      |
 | `UNRESOLVED_MACHINE_PLACEHOLDER` | Replace an unresolved machine placeholder with actual input. |
-| `STALE_CONTEXT` | Refresh current WorkContext/session references. |
-| `UNAVAILABLE` | Inspect capability and lane diagnostics before retrying. |
+| `STALE_CONTEXT`                  | Refresh current WorkContext/session references.              |
+| `UNAVAILABLE`                    | Inspect capability and lane diagnostics before retrying.     |
 
 A Tag that did not exist at an as-of cut cannot be used as a past identity.
 Future cognition references in current WorkContext are excluded from historical

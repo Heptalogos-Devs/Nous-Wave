@@ -967,6 +967,10 @@ pub struct Memory {
     pub relations_truncated: bool,
     #[prost(string, optional, tag="27")]
     pub revision_intent: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="29")]
+    pub epistemic_class: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="30")]
+    pub grounding_occurrence_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TemporalEvidence {
@@ -1594,6 +1598,8 @@ pub struct BindIdentityRequest {
     pub display_name: ::prost::alloc::string::String,
     #[prost(string, repeated, tag="4")]
     pub aliases: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(bool, tag="5")]
+    pub address_only: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ResolveIdentityRequest {
@@ -1774,6 +1780,8 @@ pub struct MaintenanceGrantResponse {
     pub model_calls: u32,
     #[prost(uint32, tag="3")]
     pub elapsed_ms: u32,
+    #[prost(string, tag="4")]
+    pub disposition: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResourceDescriptor {
@@ -2100,6 +2108,17 @@ pub struct GetCognitiveSchemaRequest {
     pub schema_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CognitiveSchemaMutationRequest {
+    #[prost(string, tag="1")]
+    pub operation_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub schema_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="4")]
+    pub expected_object_epoch: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AddSchemaEvidenceRequest {
     #[prost(string, tag="1")]
     pub operation_id: ::prost::alloc::string::String,
@@ -2182,6 +2201,22 @@ pub struct Occurrence {
     pub actor_entity_ref: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag="10")]
     pub context: ::core::option::Option<::prost_types::Struct>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct OccurrenceListRequest {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub artifact_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub limit: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OccurrenceListResponse {
+    #[prost(message, repeated, tag="1")]
+    pub items: ::prost::alloc::vec::Vec<Occurrence>,
+    #[prost(bool, tag="2")]
+    pub truncated: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SourceRegion {

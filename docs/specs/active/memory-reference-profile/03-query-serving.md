@@ -58,7 +58,9 @@ Episode/Journal 使用 current lifecycle 与适用的 hard constraints，不参�
 
 每类 projection 使用 immutable generation，绑定 authority watermark、producer/build identity、configuration digest、artifact checksum 和 vector-space identity。Authority 提交只使 generation 失效；重建生成新的 generation id，但语义结果必须仍指向同一 Authority identity/revision。watermark race 不得发布过期快照为 current。
 
-Episode/Journal 的文本 projection 支持 exact、lexical、dense；它们不进入 topology。
+复用包含artifact可读性/checksum验证。Serving owner拒绝缺失或损坏generation后，Persistence在同一family/space publication锁下标记该精确generation failed、仅删除仍指向它的current指针。相同watermark/config的重建不能再次复用失效current并删除新artifact。并发已发布的另一个current不被清除；Authority认知不随cache失效改写。failed artifact同样受read lease/grace保护并进入回收。
+
+Episode/Journal 的文本 projection 支持 exact、lexical、dense；显式 topology projection 使用其真实 cognition members、sources 和 exact supports，具体边合同见下文。
 
 Episode canonical text 包含 title、boundary explanation、experience time，以及前 16 个成员中 occurrence 的有界文本片段。文本 Artifact 读取至多 2 KiB 的完整 UTF-8 前缀；媒体 occurrence 选择同 Artifact 的 ready coverage 派生文本，按 created time 与精确 representation ID 确定顺序，每段同样限制为 2 KiB。Serving 和查询正文共用该成员输入；描述更新使文本 projection 失效，不修改 Episode Authority。查询 evidence 保留所用派生描述的 exact ref 与 interpretation role，独立根仍由来源 lineage 决定。
 
@@ -74,6 +76,8 @@ Kernel 固定 request-scoped immutable Serving view；并发 profile 切换不�
 Query 进入 Serving prepare 前检查 retired collection。`serving.retired_grace_seconds` 为 Developer/SystemOnly/Live，默认 300 秒，范围 0..604800。当前 generation、active query readers/tickets 和显式 research pins 不回收；collection 只跳过被 active reader/ticket 引用的 generation；无关 retired generation 仍可回收，避免持续流量阻塞全部 collection。过 grace 的 unpinned retired artifact 删除物理目录并压缩 metadata 为 checksum/reclaimed audit summary。该 pass 同时清理 owner root 下超过 grace 的未引用 UUID generation 和 orphan staging。配置/watermark 不兼容时不复用；重复并发 publication 复用已发布的相同内容身份并删除多余目录。
 
 ## Prepared Query 与 Query Representation
+
+Exact target 是 scope 的候选集合边界，不能和 Runtime/lexical/dense/Tag/Schema/topology discovery 混合扩展。Runtime 仍按冻结绑定、projection、hard constraints 和 owner 最终验证读取；整个 expression 的有效 leaf scopes 都是 exact 时，Kernel 直接调用语义 owner，不准备 Serving generation、query embedding、concept enrichment 或 model rerank。对象 target 在 current/as-of view 绑定一个 head；history view 允许旧 immutable revision，不改变对象 exact read 为历史枚举。混合 typed tree 的非 exact scopes 保留各自 discovery 语义。
 
 公开 `CognitionService.PrepareQuery` 与官方 Client `cognition.prepareQuery` 编译 NousQL 或 typed expression、解析 exact selectors、同一 repeatable-read transaction 捕获 Session/foreground WorkContext，并返回既有 `bound_query` 字段语义的 JSON inspection；不执行 retrieval、Serving build 或 provider。Inspection 包含 resolved CognitiveQuery、representation/version/SHA256/source refs/truncation flags、current refs、topology seeds、exact bindings、profile 与 ConfigSnapshot digest。
 

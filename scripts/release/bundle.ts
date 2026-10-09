@@ -63,6 +63,7 @@ export async function bundleApplication(repo: string) {
     ["apps/nous-core/src/main.ts", "core/main.js"],
     ["apps/nous-core/src/launcher.ts", "core/launcher.js"],
     ["apps/nous-cli/src/main.ts", "cli/main.js"],
+    ["apps/nous-cli/src/mcp-main.ts", "cli/mcp-main.js"],
     ["packages/client/src/index.ts", "client/index.js"],
     ["packages/client/src/node.ts", "client/node.js"],
   ] as const;

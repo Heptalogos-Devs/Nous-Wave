@@ -18,6 +18,7 @@ message BindIdentityRequest {
   CognitiveRef canonical = 2;
   string display_name = 3;
   repeated string aliases = 4;
+  bool address_only = 5;
 }
 message ResolveIdentityRequest {
   string subject_id = 1;

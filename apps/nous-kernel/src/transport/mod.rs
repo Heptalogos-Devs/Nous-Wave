@@ -58,6 +58,10 @@ impl KernelService {
         self.0.require_memory()
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "projection coordination keeps reference origin, current owner validation and bounded materialization in one boundary"
+    )]
     pub async fn build_contribution_batch(
         &self,
         input: p::ProjectionRequest,
@@ -103,15 +107,52 @@ impl KernelService {
         );
         let mut remaining = input.max_text_bytes as usize;
         let mut degradation = Vec::new();
-        for segment in &mut segments {
+        let mut eligible_segments = Vec::new();
+        for mut segment in segments {
             let Some(reference) = segment.source_refs.first() else {
                 continue;
             };
             let reference = from_ref(reference.clone())?;
+            match self.0.store.validate_reference(subject, &reference).await {
+                Ok(()) => {}
+                Err(Error::Invalid(_) | Error::NotFound(_)) => {
+                    degradation.push(p::Degradation {
+                        code: "projection_source_unavailable".into(),
+                        detail: reference.to_string(),
+                    });
+                    continue;
+                }
+                Err(error) => return Err(error),
+            }
+            if matches!(
+                reference,
+                nous_core::CognitiveRef::Memory(_)
+                    | nous_core::CognitiveRef::MemoryRevision(_)
+                    | nous_core::CognitiveRef::CognitiveSchema(_)
+                    | nous_core::CognitiveRef::CognitiveSchemaRevision(_)
+                    | nous_core::CognitiveRef::Episode(_)
+                    | nous_core::CognitiveRef::EpisodeRevision(_)
+                    | nous_core::CognitiveRef::Journal(_)
+                    | nous_core::CognitiveRef::JournalRevision(_)
+            ) {
+                if !self
+                    .require_memory()?
+                    .contextual_cognition_eligible(subject, &reference)
+                    .await?
+                {
+                    degradation.push(p::Degradation {
+                        code: "projection_source_unavailable".into(),
+                        detail: reference.to_string(),
+                    });
+                    continue;
+                }
+                segment.authority = "subject_cognition".into();
+            }
             if !matches!(
                 reference,
                 nous_core::CognitiveRef::Memory(_) | nous_core::CognitiveRef::MemoryRevision(_)
             ) {
+                eligible_segments.push(segment);
                 continue;
             }
             match nous_runtime::ContextResolver::context_source(
@@ -138,17 +179,21 @@ impl KernelService {
                         .map(|revision| revision.0.to_string());
                     segment.authority = "subject_cognition".into();
                 }
-                Err(_) => degradation.push(p::Degradation {
-                    code: "projection_source_unavailable".into(),
-                    detail: reference.to_string(),
-                }),
+                Err(_) => {
+                    degradation.push(p::Degradation {
+                        code: "projection_source_unavailable".into(),
+                        detail: reference.to_string(),
+                    });
+                    continue;
+                }
             }
+            eligible_segments.push(segment);
         }
         Ok(p::Projection {
             projection_id: uuid::Uuid::now_v7().to_string(),
             consumer_id: input.consumer_id,
             source_runtime_revision: runtime.runtime_revision,
-            segments,
+            segments: eligible_segments,
             degradation,
         })
     }

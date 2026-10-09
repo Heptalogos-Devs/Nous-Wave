@@ -6,9 +6,12 @@
 
 - [Package manifest](package.json)
 - [Current API reference](../../docs/reference/NOUSQL.md)
+- [Administrative operations and required vocabulary](../../docs/reference/CLIENT.md)
 - [Protobuf source](../../proto/README.md)
 
 Node consumers use `connectNousInstance({ runRoot })` from `@nous-wave/client/node` for authenticated local discovery. The returned client includes `artifacts.uploadFile(subjectId, path, { mediaType })` and `artifacts.uploadBytes(subjectId, bytes, { mediaType })`. File upload streams with backpressure and an exact multipart length; credentials stay inside the transport. Request options support cancellation and an upload timeout (default 300 seconds).
+
+Model-backed query, formation, derivation and embedding preparation default to a 300-second RPC deadline. Maintenance defaults to its requested `maxElapsedMs` plus five seconds for response/acknowledgement; ordinary Node reads retain the 30-second transport default. An explicit caller `timeoutMs` takes precedence, and cancellation still reaches Core and providers. A maintenance grant is a bounded opportunity over durable work, so callers resume unfinished needs with another opportunity rather than replaying an imaginary batch receipt.
 
 `client.cognition.prepareQuery({ subjectId, nousql, sessionId?, workContextId?, situation? })` 只准备/inspect，返回 `boundQuery` JSON（resolved query、complete representation、source refs、SHA256、profile、ConfigSnapshot digest），不调用 provider 或构建 Serving。`cognition.query` 共用该 preparation，内部固定 token 后生成一份 query embedding。非空 Unicode 意图接受代词与短 follow-up；显式 Identity/Tag selectors 使用现有 Directory resolver。冻结的 QueryContextSnapshot 包含自由文本、精确 cognition/Entity/Tag anchors、Session/ResidentSet 与 history exclusions。
 

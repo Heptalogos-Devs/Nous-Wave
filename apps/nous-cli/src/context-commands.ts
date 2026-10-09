@@ -45,11 +45,15 @@ export async function contextCommands(
       expectedRuntimeRevision: session.runtimeRevision,
       workContextId: values.clear
         ? undefined
-        : required(argument ?? state.workContextId, "WorkContext"),
+        : argument
+          ? (await resolveReference(argument, "work_context")).value
+          : required(state.workContextId, "WorkContext"),
       operationId,
     });
   }
-  const id = required(argument ?? state.workContextId, "WorkContext");
+  const id = argument
+    ? (await resolveReference(argument, "work_context")).value
+    : required(state.workContextId, "WorkContext");
   const result = await client.cognition.getWorkContext({
     subjectId,
     workContextId: id,

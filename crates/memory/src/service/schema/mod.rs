@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
+mod lifecycle;
 mod mutation;
 mod read;
+
+pub use lifecycle::SchemaLifecycleAction;
 
 use nous_persistence::database_error as db;
 

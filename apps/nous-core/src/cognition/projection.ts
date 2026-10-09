@@ -1,15 +1,25 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-import { createHash } from "node:crypto";
 import { Code, ConnectError } from "@connectrpc/connect";
 import type { ConsumerPolicy, Projection, Segment } from "../domain.js";
 import { refKey } from "../domain.js";
 import { ModelRuntime } from "../model/runtime.js";
+import { canonicalDigest } from "../digest.js";
 
 function family(segment: Segment): "memory" | "runtime" | "resource" {
   const kind = segment.sourceRefs[0]?.kind;
-  return kind === "memory" || kind === "memory_revision"
+  return kind &&
+    [
+      "memory",
+      "memory_revision",
+      "cognitive_schema",
+      "cognitive_schema_revision",
+      "episode",
+      "episode_revision",
+      "journal",
+      "journal_revision",
+    ].includes(kind)
     ? "memory"
     : kind === "resource"
       ? "resource"
@@ -65,15 +75,18 @@ export class ProjectionPlanner {
       items,
       bytes,
       policy.materialize,
-    );
+    ).map((segment) => {
+      // Contribution IDs identify one source read; projected IDs identify the
+      // actual selected content, evidence and revision delivered to a consumer.
+      const { segmentId: _contributionId, ...content } = segment;
+      return { ...content, segmentId: canonicalDigest([1, content]) };
+    });
     const degradation = [...batch.degradation, ...refined.degradation];
     for (const f of ["memory", "runtime", "resource"] as const) {
       if (policy[f] === "REQUIRED" && !segments.some((s) => family(s) === f))
         degradation.push({ code: "required_contribution_missing", detail: f });
     }
-    const projectionId = createHash("sha256")
-      .update(JSON.stringify([policy.revision, segments]))
-      .digest("hex");
+    const projectionId = canonicalDigest([policy.revision, segments]);
     return { ...batch, projectionId, segments, degradation };
   }
 }

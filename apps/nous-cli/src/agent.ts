@@ -76,6 +76,7 @@ export function cliErrorPayload(error: unknown) {
     9: "FAILED_PRECONDITION",
     10: "STALE_CONTEXT",
     14: "UNAVAILABLE",
+    4: "DEADLINE_EXCEEDED",
   };
   return {
     code:
@@ -93,9 +94,9 @@ export const commandInventory = {
   nousql:
     "nous help nousql [--json]; standalone Agent guide without connecting to a daemon",
   contextFlags: {
-    subject: "Subject ID overrides local selection",
-    session: "Session ID overrides local selection",
-    "work-context": "WorkContext ID overrides local selection",
+    subject: "Subject lexical reference overrides local selection",
+    session: "Session lexical reference overrides local selection",
+    "work-context": "WorkContext lexical reference overrides local selection",
   },
   output: {
     success:
@@ -104,6 +105,16 @@ export const commandInventory = {
       "stderr semantic error; --json provides code/message/details/candidates/receipt; nonzero exit",
   },
   commands: [
+    {
+      command: "read",
+      parameters: [
+        "<obs:|art:|src:|repr:|region: lexical reference> | result:N",
+        "--max-bytes 1..1048576 (default 65536)",
+        "--output <new-file> saves complete exact bytes for native media inspection",
+      ],
+      description:
+        "Read admitted source/derived content through Material Authority; show returns object metadata. Partial output is explicit. --output exports exact complete bytes without overwriting an existing file.",
+    },
     { command: "status", description: "Instance status and capabilities" },
     {
       command: "identity resolve",
@@ -114,7 +125,7 @@ export const commandInventory = {
       command: "identity bind",
       parameters: [
         "--kind <kind>",
-        "--canonical <id>",
+        "--canonical <reference>",
         "--name <name>",
         "--alias <alias> (comma-separated)",
       ],
@@ -141,12 +152,12 @@ export const commandInventory = {
         "--max-nodes 1..256",
         "--max-depth 1..4",
       ],
-      example: "nous association neighborhood memory:<id>",
+      example: "nous association neighborhood <Memory lexical reference>",
     },
     {
       command: "association create",
       parameters: [
-        "--operation-id <uuid>",
+        "--operation-id <stable operation identity> (optional; generated)",
         "--association-file <semantic TOML>",
       ],
       description:
@@ -154,7 +165,10 @@ export const commandInventory = {
     },
     {
       command: "association revoke",
-      parameters: ["<association-id>", "--operation-id <uuid>"],
+      parameters: [
+        "<association reference>",
+        "--operation-id <stable operation identity> (optional; generated)",
+      ],
       description:
         "Revoke one exact AssociationEvidence, including a Tag attachment",
     },
@@ -163,7 +177,7 @@ export const commandInventory = {
       parameters: [
         "--max-operations 1..32",
         "--max-model-calls 0..32",
-        "--max-elapsed-ms 1..300000",
+        "--max-elapsed-ms 1..900000",
       ],
       description: "Host authorizes a bounded maintenance opportunity",
     },
@@ -172,10 +186,10 @@ export const commandInventory = {
       parameters: [
         "<exact cognition revision>",
         "--kind presented|referenced|acted_on|result_supported|result_refuted|corrected|pinned",
-        "--event-id <uuid>",
+        "--event-id <stable event identity> (optional; generated)",
         "--consumer <ref>",
         "--occurred-at <ISO timestamp>",
-        "--query-id <UUID>",
+        "--query-id query:last (optional; result:N links automatically)",
       ],
       description:
         "Typed meaningful use; stable retry reuses event ID and occurrence timestamp",
@@ -196,13 +210,21 @@ export const commandInventory = {
       command: "config list|describe|get|set|clear",
       parameters: [
         "[path] [JSON value]",
-        "--subject <id>",
+        "--subject <Subject lexical reference>",
         "--desired",
         "--advanced|--developer",
       ],
     },
     { command: "subject create|list|use", parameters: ["[id]"] },
-    { command: "session open|show|close" },
+    {
+      command: "session open|close",
+      purpose: "Open a new Session or close the selected Session",
+    },
+    {
+      command: "session show [reference]",
+      purpose:
+        "Read a returned Session reference/name, including a closed Session, without selecting or reopening it; omit the reference to read local selection",
+    },
     {
       command: "observe text|file",
       parameters: [
@@ -213,23 +235,41 @@ export const commandInventory = {
     {
       command: "form",
       parameters: [
-        "<occurrence-id>",
-        "--operation-id <uuid>",
+        "<Occurrence reference>",
+        "--operation-id <stable operation identity> (optional; generated)",
         "--aboutness <ref> (comma-separated)",
+        "--aboutness-mode explicit|select_from_resolved_mentions|none (defaults to explicit with --aboutness)",
         "--tag <Tag ID/ref/LexicalRef> (comma-separated)",
       ],
     },
     {
       command: "derive",
-      parameters: ["<source-region-id>", "--strategy <strategy>"],
+      parameters: [
+        "<SourceRegion reference>",
+        "--strategy description_only|direct_structured|describe_then_structure",
+      ],
+      description:
+        "Select the derived output pipeline. Video input_mode is direct|frames in the video configuration object; inspect it with config describe video / config get video. Frame sampling records source/timestamp coverage in the interpretation, without providing a separate frame Artifact export.",
     },
     { command: "embeddings prepare", parameters: ["--max-batches <n>"] },
     { command: "trace", parameters: ["<canonical-or-lexical-ref>"] },
     {
+      command: "show",
+      parameters: ["<exact-reference|LexicalRef|result:N>"],
+      description:
+        "Read exact cognition content or Material object metadata; read retrieves source text.",
+    },
+    {
+      command: "retry",
+      parameters: ["<saved-receipt-id>"],
+      description:
+        "Replay original frozen operation inputs; preserve the consumer state root.",
+    },
+    {
       command:
         "context create|set|pin|unpin|clear|select|foreground|show|pause|resume|list|end",
       parameters: [
-        "[id]",
+        "[WorkContext lexical reference]",
         "--purpose <purpose>",
         "--text <task context> | --file <path|->",
         "--cognition <exact-ref|result:N> --entity <real-ref> --tag <real-ref>",

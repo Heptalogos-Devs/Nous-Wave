@@ -544,6 +544,7 @@ export class ModelInvocations {
     fixed?: ModelRoleSnapshot,
     media?: { bytes: Uint8Array; mediaType: string },
     beforeAttempt?: () => void,
+    validateOutput?: (value: ModelGenerationOutput<R>) => void,
   ) {
     let snapshot = fixed ?? this.snapshot(name);
     if (promptRole) {
@@ -564,7 +565,27 @@ export class ModelInvocations {
     }
     return this.withRoutes(
       name,
-      (role) => this.generateOnce(name, content, signal, role, media),
+      async (role) => {
+        const result = await this.generateOnce(
+          name,
+          content,
+          signal,
+          role,
+          media,
+        );
+        try {
+          validateOutput?.(result.value);
+        } catch {
+          // Owner validation errors may contain source content; keep the public classification bounded.
+          throw new GenerationFailure(
+            name,
+            "output_semantics_invalid",
+            undefined,
+            result.usage,
+          );
+        }
+        return result;
+      },
       signal,
       snapshot,
       beforeAttempt,
@@ -598,15 +619,15 @@ export class ModelInvocations {
           "audio/aac": "aac",
           "audio/mp4": "m4a",
         };
+        const capability = audio ? "audio_input" : "video_input";
+        if (!role.profile.capabilities.includes(capability))
+          throw new MediaProtocolError(`${capability}_unavailable`);
         if (
           role.profile.protocol !== "openai-chat" ||
-          !role.profile.capabilities.includes(
-            audio ? "audio_input" : "video_input",
-          ) ||
           (!audio && !media.mediaType.startsWith("video/")) ||
           (audio && !formats[media.mediaType])
         )
-          throw new Error(
+          throw new MediaProtocolError(
             "Direct media protocol/capability or format unavailable",
           );
         if (
@@ -840,12 +861,10 @@ export class ModelInvocations {
         "statusCode" in error &&
         typeof error.statusCode === "number" &&
         Number.isInteger(error.statusCode)
-          ? ` (HTTP ${error.statusCode})`
-          : "";
-      // oxlint-disable-next-line preserve-caught-error -- Provider causes can expose credentials or corpus text; only numeric status is public.
-      throw new Error(
-        `Embedding batch invocation failed validation or transport${status}`,
-      );
+          ? `gateway_http_${error.statusCode}`
+          : "embedding_validation_or_transport";
+      // Provider causes can expose credentials or corpus text; only numeric status is public.
+      throw new ModelOutputError(status);
     }
   }
   async transcription(

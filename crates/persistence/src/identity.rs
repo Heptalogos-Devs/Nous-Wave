@@ -2,17 +2,11 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::proquint::{decode_proquint, encode_proquint};
 use crate::*;
 use nous_core::{CognitiveRef, parse_reference, reference_parts};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Row, Transaction};
-use std::sync::LazyLock;
-
-static WORDS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
-    include_str!("../data/lexical-words-v1.txt")
-        .lines()
-        .collect()
-});
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityBinding {
@@ -37,6 +31,14 @@ pub fn lexical_prefix(kind: &str) -> Result<&'static str> {
         "derived_representation" => "repr",
         "derived_region" => "region",
         "session" => "session",
+        "subject" => "sub",
+        "work_context" => "ctx",
+        "association" => "assoc",
+        "episode" => "ep",
+        "episode_revision" => "eprev",
+        "journal" => "journal",
+        "journal_revision" => "journalrev",
+        "cognitive_seed_version" => "seed",
         "resource" => "res",
         _ => return Err(Error::Invalid("object kind has no lexical address".into())),
     })
@@ -59,17 +61,36 @@ pub fn validate_lexical(value: &str) -> Result<&str> {
             | "repr"
             | "region"
             | "session"
+            | "sub"
+            | "ctx"
+            | "assoc"
+            | "ep"
+            | "eprev"
+            | "journal"
+            | "journalrev"
+            | "seed"
             | "res"
     ) {
         return Err(Error::Invalid("INVALID_LEXICAL_REF".into()));
     }
-    let words: Vec<_> = body.split('-').collect();
-    if words.len() != 4 || words.iter().any(|w| WORDS.binary_search(w).is_err()) {
-        return Err(Error::Invalid("INVALID_LEXICAL_REF".into()));
-    }
+    decode_proquint(body)?;
     Ok(kind)
 }
 impl AuthorityStore {
+    /// Locate the Subject address before a consumer has selected a Subject.
+    pub async fn subject_for_lexical(&self, lexical: &str) -> Result<SubjectId> {
+        if validate_lexical(lexical)? != "sub" {
+            return Err(Error::Invalid("REFERENCE_TYPE_MISMATCH".into()));
+        }
+        let canonical: String = sqlx::query_scalar("SELECT b.canonical_ref FROM lexical_bindings b JOIN lexical_visibility v USING(lexical_ref) WHERE b.object_kind='subject' AND b.lexical_ref=$1 AND b.tombstoned_at IS NULL AND v.subject_id::text=b.canonical_ref")
+            .bind(lexical).fetch_optional(self.pool()).await.map_err(database_error)?
+            .ok_or_else(|| Error::NotFound("UNKNOWN_REFERENCE".into()))?;
+        canonical
+            .parse()
+            .map(SubjectId)
+            .map_err(|_| Error::Infrastructure("invalid Subject address".into()))
+    }
+
     pub async fn bind_identity(
         &self,
         subject: SubjectId,
@@ -77,10 +98,37 @@ impl AuthorityStore {
         display_name: String,
         aliases: Vec<String>,
     ) -> Result<IdentityBinding> {
+        self.bind_identity_mode(subject, reference, display_name, aliases, false)
+            .await
+    }
+    pub async fn ensure_identity_address(
+        &self,
+        subject: SubjectId,
+        reference: CognitiveRef,
+        display_name: String,
+    ) -> Result<IdentityBinding> {
+        self.bind_identity_mode(subject, reference, display_name, vec![], true)
+            .await
+    }
+    async fn bind_identity_mode(
+        &self,
+        subject: SubjectId,
+        reference: CognitiveRef,
+        display_name: String,
+        aliases: Vec<String>,
+        address_only: bool,
+    ) -> Result<IdentityBinding> {
         self.require_subject(subject).await?;
         let mut tx = self.begin().await?;
         let binding = self
-            .bind_identity_in(&mut tx, subject, reference, display_name, aliases)
+            .bind_identity_in_mode(
+                &mut tx,
+                subject,
+                reference,
+                display_name,
+                aliases,
+                address_only,
+            )
             .await?;
         tx.commit().await.map_err(database_error)?;
         let kind = reference_parts(&binding.canonical).0;
@@ -100,9 +148,21 @@ impl AuthorityStore {
         &self,
         tx: &mut Transaction<'_, Postgres>,
         subject: SubjectId,
+        reference: CognitiveRef,
+        display_name: String,
+        aliases: Vec<String>,
+    ) -> Result<IdentityBinding> {
+        self.bind_identity_in_mode(tx, subject, reference, display_name, aliases, false)
+            .await
+    }
+    async fn bind_identity_in_mode(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        subject: SubjectId,
         mut reference: CognitiveRef,
         display_name: String,
         mut aliases: Vec<String>,
+        address_only: bool,
     ) -> Result<IdentityBinding> {
         if let CognitiveRef::Tag(tag) = reference {
             reference = crate::tags::canonical_topology_ref_in(tx, subject, CognitiveRef::Tag(tag))
@@ -145,26 +205,21 @@ impl AuthorityStore {
         } else {
             let mut inserted = None;
             for _ in 0..32 {
-                let mut bytes = [0; 8];
+                let mut bytes = [0; 6];
                 getrandom::fill(&mut bytes).map_err(|e| Error::Infrastructure(e.to_string()))?;
-                let bits = u64::from_le_bytes(bytes);
-                let candidate = format!(
-                    "{}:{}",
-                    prefix,
-                    (0..4)
-                        .map(|index| WORDS[((bits >> (index * 12)) & 4095) as usize])
-                        .collect::<Vec<_>>()
-                        .join("-")
-                );
-                if sqlx::query("INSERT INTO lexical_bindings(lexical_ref,object_kind,canonical_ref,wordlist_version) VALUES($1,$2,$3,1) ON CONFLICT DO NOTHING")
+                let bits = u64::from_be_bytes([
+                    0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
+                ]);
+                let candidate = format!("{prefix}:{}", encode_proquint(bits)?);
+                if sqlx::query("INSERT INTO lexical_bindings(lexical_ref,object_kind,canonical_ref) VALUES($1,$2,$3) ON CONFLICT DO NOTHING")
                     .bind(&candidate).bind(&kind).bind(&canonical).execute(&mut **tx).await.map_err(database_error)?.rows_affected()==1 {inserted=Some(candidate);break;}
             }
             inserted.ok_or_else(|| {
                 Error::Infrastructure("LexicalRef collision retry bound exceeded".into())
             })?
         };
-        sqlx::query("INSERT INTO lexical_visibility(subject_id,lexical_ref,display_name,aliases) VALUES($1,$2,$3,$4) ON CONFLICT(subject_id,lexical_ref) DO UPDATE SET display_name=CASE WHEN excluded.display_name='' THEN lexical_visibility.display_name ELSE excluded.display_name END,aliases=CASE WHEN cardinality(excluded.aliases)=0 THEN lexical_visibility.aliases ELSE excluded.aliases END")
-            .bind(subject.0).bind(&lexical).bind(&display_name).bind(&aliases).execute(&mut **tx).await.map_err(database_error)?;
+        sqlx::query("INSERT INTO lexical_visibility(subject_id,lexical_ref,display_name,aliases) VALUES($1,$2,$3,$4) ON CONFLICT(subject_id,lexical_ref) DO UPDATE SET display_name=CASE WHEN excluded.display_name='' THEN lexical_visibility.display_name ELSE excluded.display_name END,aliases=CASE WHEN cardinality(excluded.aliases)=0 THEN lexical_visibility.aliases ELSE excluded.aliases END WHERE NOT $5")
+            .bind(subject.0).bind(&lexical).bind(&display_name).bind(&aliases).bind(address_only).execute(&mut **tx).await.map_err(database_error)?;
         Ok(IdentityBinding {
             lexical_ref: lexical,
             canonical: reference,
@@ -257,17 +312,10 @@ SELECT DISTINCT ON(object_kind,canonical_ref) * FROM matched ORDER BY object_kin
 mod tests {
     use super::*;
     #[test]
-    fn frozen_vocabulary_and_reference_validation() {
-        assert_eq!(WORDS.len(), 4096);
-        assert!(WORDS.windows(2).all(|w| w[0] < w[1]));
-        assert!(
-            WORDS
-                .iter()
-                .all(|w| w.bytes().all(|c| c.is_ascii_lowercase()))
-        );
-        let value = format!("mem:{}-{}-{}-{}", WORDS[0], WORDS[1], WORDS[2], WORDS[3]);
-        assert_eq!(validate_lexical(&value).unwrap(), "mem");
-        assert!(validate_lexical(&value.to_uppercase()).is_err());
-        assert!(validate_lexical("mem:unknown-words-not-valid").is_err());
+    fn standard_reference_validation() {
+        assert_eq!(validate_lexical("mem:bahog-hijol-mokor").unwrap(), "mem");
+        assert!(validate_lexical("Mem:bahog-hijol-mokor").is_err());
+        assert!(validate_lexical("unknown:bahog-hijol-mokor").is_err());
+        assert!(validate_lexical("mem:bahog-hijol").is_err());
     }
 }

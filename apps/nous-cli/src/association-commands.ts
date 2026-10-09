@@ -18,12 +18,21 @@ export async function associationCommands(
     resolveReference,
     requestPayload,
   } = env;
-  if (action === "revoke")
-    return client.concepts.revokeAssociation({
+  if (action === "revoke") {
+    const operationId = values["operation-id"] ?? crypto.randomUUID();
+    const associationId = (
+      await resolveReference(
+        required(argument, "Association reference"),
+        "association",
+      )
+    ).value;
+    await client.concepts.revokeAssociation({
       subjectId,
-      operationId: values["operation-id"] ?? crypto.randomUUID(),
-      associationId: required(argument, "Association ID"),
+      operationId,
+      associationId,
     });
+    return { operationId, associationId, status: "revoked" };
+  }
   if (action === "neighborhood") {
     const text = required(argument, "Reference");
     const kind = values.kind ?? "";

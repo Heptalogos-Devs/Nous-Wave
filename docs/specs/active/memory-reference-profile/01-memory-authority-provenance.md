@@ -19,6 +19,7 @@ Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/Associati
 ## Memory object/revision
 
 - Memory object 有稳定 identity；revision 内容 immutable；head、object epoch、lifecycle 和主体 authority sequence 分离。
+- Public Memory current/exact/history 输出保留 revision 的 epistemic_class 与可选 grounding_occurrence_id，使完整来源支持修订无需猜测或丢失认识类别。类别为 observed/reported/derived/inferred/narrative/simulated，独立于 cognitive role 与 formation mode。
 - Cognitive role 与 formation mode 正交。当前 role 至少包括 `experiential`、`declarative`、`procedural_experience`；formation mode 至少包括 `grounded`、`synthesized`。
 - 同一 referent、claim family、scope 和 world-valid interval 的纠正、澄清、收窄或重新解释创建新 revision；后续新 world state、独立事件或不同有效时间形成新 object/successor。
 - Revision 提交必须检查 expected head/epoch、权限、source/provenance、lifecycle 和幂等 operation identity。head 变化不得静默覆盖。
@@ -43,6 +44,8 @@ Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/Associati
 
 普通 cognition 读取只接受 accepted/valid/normal/not-purging。Suppression、restore、revalidation 和 purge 是独立 lifecycle 操作，不创建虚假 content revision。
 
+CognitiveSchema 的 suppress/restore/withdraw/reaccept/purge 由 Memory owner 执行，公开为 ConceptService 的五个 lifecycle RPC。expected object epoch 与 operation digest 固定输入；生命周期变化沿当前 exact dependency 传播，恢复来源不自动恢复 dependent validity。Schema purge 在同一事务删除全部 revisions、清除 resident/WorkContext/Association 引用、撤回其他 Schema 的来源 links、清理可恢复正文的 owner workflow，并为原 UseEvents 保存不含正文的 purge receipts；共享 admitted Material 保留。
+
 来源对象的 revision、lifecycle、support set 或 purge 变化在同一 Authority 事务中沿当前 exact dependency 传播到 Memory、CognitiveSchema、Episode、Journal。当前 dependent 标记为 `revalidation_required`；同一失效传播中，多个路径到达同一对象只增加一次 epoch。Journal 排入 `journal_revalidate`，来源恢复或重建不会将 dependent 自动改回 valid。重新提交支持经过验证的新 revision 后，该对象恢复 valid。
 
 传播记录保留精确 dependent/source revision 和当前失效原因；immutable 正文及支持引用保持原样。Memory 进入 purging 时就标记下游完整性；完成清除后，指向被清 Memory 的 Schema evidence link 撤回。Serving 的相关 family watermark 共用该事务已分配的 authority sequence，传播到 Memory/Schema 时覆盖其 projection family。
@@ -51,11 +54,15 @@ Memory、CognitiveSchema、Episode 和 Journal 的 mutation 使用 Persistence `
 
 同一 operation/event identity 携带相同 canonical digest 时返回相同语义结果；相同 identity 携带不同 digest 时返回 conflict。Purge 后保留不含认知正文的幂等 receipt，不能用 receipt 恢复被清内容。
 
+Mutation replay 的 immutable result revision 保持原身份，当前 lifecycle/epoch 作为管理读取的可变 overlay 返回；不会重做后来已恢复的 lifecycle change。管理 get/revision 可读取带状态的 suppressed/withdrawn 内容以供修正；普通 query（包括 exact target）执行 suppression/withdrawal fences，purge 不能由管理或历史视图绕过。
+
 Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime serving 均可重建，不拥有 cognition truth。Memory owner 不持有 concrete Retrieval/Serving；topology candidate generation 属于 Retrieval shared contributor。
 
 [返回文档目录](../../INDEX.md)
 
 ## Semantic Concept 与显式 Tag
+
+CLI/MCP 的默认操作地址由同一个 Authority Directory 提供。Subject、Session、WorkContext、Association 与既有 cognition/Material kinds 都可获得持久 LexicalRef；Subject 词汇引用可在尚未选择 Subject 时解析，其余引用继续校验所选 Subject ownership。显示地址分配只建立缺失的 binding，不覆盖已有 display name/alias，不创建新的 cognition 或 content revision。普通交互使用词汇引用、唯一名称与 consumer-local result:N/query:last；canonical UUID 保留在内部协议、机器 DTO 和显式诊断中。Exact revision 的词汇地址仍绑定原 revision，不重绑 head。
 
 Tag 是共享 embeddable semantic concept，稳定 identity 与 immutable semantic revisions 分离。Current reads 使用 current canonical Tag；as-of reads 使用截点状态，未来 revise/merge/split 不改写历史意义。normalized label/description/kind_hint 产生 versioned canonical text/digest，别名不进入 semantic representation。
 

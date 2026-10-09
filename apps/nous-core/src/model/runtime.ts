@@ -187,6 +187,7 @@ export class ModelRuntime {
             evidence_kind: context.sourceText
               ? "original_text"
               : "committed_representation",
+            evidence_access: context.evidenceAccess,
             basis_catalog: Object.keys(context.catalog),
             modalities: {
               visual: context.visual,
@@ -212,6 +213,11 @@ export class ModelRuntime {
       signal,
       undefined,
       fixed,
+      undefined,
+      undefined,
+      (value) => {
+        structuredMaterialResult(value, context);
+      },
     );
     return {
       ...structuredMaterialResult(result.value, context),
@@ -238,6 +244,12 @@ export class ModelRuntime {
       undefined,
       fixed,
       { bytes, mediaType },
+      undefined,
+      structured
+        ? (value) => {
+            structuredMaterialResult(value, context!);
+          }
+        : undefined,
     );
     return {
       ...(structured
@@ -302,6 +314,13 @@ export class ModelRuntime {
           ? undefined
           : { role: "material_description", path: this.video.prompt },
       fixed,
+      undefined,
+      undefined,
+      structured
+        ? (value) => {
+            structuredMaterialResult(value, context!);
+          }
+        : undefined,
     );
     return {
       ...(structured

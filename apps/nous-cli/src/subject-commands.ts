@@ -25,7 +25,12 @@ export async function subjectCommands(
   }
   if (action === "use") {
     const subject = await client.subjects.get({
-      subjectId: required(argument, "Subject ID"),
+      subjectId: (
+        await env.resolveReference(
+          required(argument, "Subject reference"),
+          "subject",
+        )
+      ).value,
     });
     await save({ schemaVersion: 1, subjectId: subject.subjectId });
     return subject;

@@ -482,7 +482,15 @@ async fn check_historical_binding(
         .unwrap();
     assert!(composed.historical_authority.is_some());
     assert_eq!(composed.exact_bindings[0].bound_ref, old);
-    check_historical_serving(rt, &composed, &old, &future, tag).await;
+    // Binding/reading the exact object uses Authority. Exercise historical
+    // Serving with the separate discovery intent and the same as-of context.
+    let mut discovery = query.clone();
+    discovery.expression.targets.clear();
+    let discovery = rt
+        .bind_query_with_snapshot(discovery, config.clone())
+        .await
+        .unwrap();
+    check_historical_serving(rt, &discovery, &old, &future, tag).await;
     check_historical_execution(rt, query.clone(), &old, &future).await;
     let mut future_query = query;
     future_query
@@ -504,6 +512,10 @@ async fn check_historical_execution(
     future: &CognitiveRef,
 ) {
     let execution = rt.execute_query(query, None).await.unwrap();
+    assert!(
+        execution.read_lease.is_none(),
+        "exact historical reads do not acquire Serving generations"
+    );
     assert!(
         execution
             .result

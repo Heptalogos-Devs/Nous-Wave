@@ -278,6 +278,9 @@ impl AuthorityStore {
                 .await
                 .map_err(db)?
             }
+            CognitiveRef::Subject(id) => id == &subject,
+            CognitiveRef::WorkContext(id) => sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM work_contexts WHERE subject_id=$1 AND work_context_id=$2)").bind(subject.0).bind(id.0).fetch_one(executor).await.map_err(db)?,
+            CognitiveRef::Association(id) => sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM association_evidence WHERE subject_id=$1 AND association_evidence_id=$2)").bind(subject.0).bind(id.0).fetch_one(executor).await.map_err(db)?,
             CognitiveRef::Session(id) => sqlx::query_scalar(
                 "SELECT EXISTS(SELECT 1 FROM cognitive_sessions WHERE subject_id=$1 AND session_id=$2)",
             )

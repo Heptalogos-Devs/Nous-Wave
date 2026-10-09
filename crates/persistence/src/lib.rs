@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod identity;
+mod proquint;
+pub use proquint::{decode_proquint, encode_proquint};
 mod mutations;
 pub use mutations::{
     MutationEnvelope, MutationReceipt, MutationStart, OwnerLock, check_receipt, commit_receipt,

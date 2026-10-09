@@ -97,10 +97,23 @@ function plain<T>(value: T): Data<T> {
     ) as Data<T>;
   return value as Data<T>;
 }
-function call<I, O>(method: (input: I, options?: CallOptions) => Promise<O>) {
+function call<I, O>(
+  method: (input: I, options?: CallOptions) => Promise<O>,
+  defaultTimeout?: number | ((input: I) => number),
+) {
   return async (input: I, options?: RequestOptions): Promise<Data<O>> => {
     try {
-      return plain(await method(input, options));
+      const timeoutMs =
+        options?.timeoutMs ??
+        (typeof defaultTimeout === "function"
+          ? defaultTimeout(input)
+          : defaultTimeout);
+      return plain(
+        await method(
+          input,
+          timeoutMs === undefined ? options : { ...options, timeoutMs },
+        ),
+      );
     } catch (error) {
       if (error instanceof ConnectError) throw new NousError(error);
       throw error;
@@ -197,9 +210,9 @@ export function createNousClient(transport: Transport) {
       rebindEntity: call(identity.rebindEntity),
     },
     model: {
-      formFromObservation: call(model.formFromObservation),
-      deriveMaterial: call(model.deriveMaterial),
-      prepareEmbeddings: call(model.prepareEmbeddings),
+      formFromObservation: call(model.formFromObservation, 300000),
+      deriveMaterial: call(model.deriveMaterial, 300000),
+      prepareEmbeddings: call(model.prepareEmbeddings, 300000),
     },
     resources: {
       materialize: call(resources.materializeResource),
@@ -226,6 +239,11 @@ export function createNousClient(transport: Transport) {
       reviseSchema: call(concepts.reviseCognitiveSchema),
       splitSchema: call(concepts.splitCognitiveSchema),
       mergeSchemas: call(concepts.mergeCognitiveSchemas),
+      suppressSchema: call(concepts.suppressCognitiveSchema),
+      restoreSchema: call(concepts.restoreCognitiveSchema),
+      withdrawSchema: call(concepts.withdrawCognitiveSchema),
+      reacceptSchema: call(concepts.reacceptCognitiveSchema),
+      purgeSchema: call(concepts.purgeCognitiveSchema),
     },
     system: {
       status: call(system.getStatus),
@@ -245,16 +263,19 @@ export function createNousClient(transport: Transport) {
       listSessions: call(runtime.listSessions),
       closeSession: call(runtime.closeSession),
       observe: call(runtime.recordObservation),
-      query: call(cognition.query),
+      query: call(cognition.query, 300000),
       prepareQuery: call(cognition.prepareQuery),
       reportUse: call(runtime.reportUse),
-      grantMaintenance: call(cognition.grantMaintenance),
+      grantMaintenance: call(
+        cognition.grantMaintenance,
+        (input) => (input.maxElapsedMs ?? 30000) + 5000,
+      ),
       recall: async (
         subjectId: string,
         nousql: string,
         options?: RequestOptions,
       ) => {
-        return call(cognition.query)({ subjectId, nousql }, options);
+        return call(cognition.query, 300000)({ subjectId, nousql }, options);
       },
       createWorkContext: call(runtime.createWorkContext),
       getWorkContext: call(runtime.getWorkContext),
@@ -304,6 +325,7 @@ export function createNousClient(transport: Transport) {
       purgeJournal: call(memory.purgeJournal),
     },
     material: {
+      occurrences: call(material.listOccurrences),
       derivedRegion: call(material.getDerivedRegion),
       producer: call(material.getProducer),
       representations: call(material.listDerivedRepresentations),

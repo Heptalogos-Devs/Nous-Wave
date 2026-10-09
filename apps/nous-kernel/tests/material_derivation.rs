@@ -37,6 +37,43 @@ async fn ordered_derivation_graph_preserves_roots_and_reuses_success() {
         .unwrap()
         .subject_id;
     let observed = test_support::observation(&runtime, subject, "source facts").await;
+    let repeated = test_support::observation(&runtime, subject, "source facts").await;
+    let artifact = observed.artifact.as_ref().unwrap().artifact_id;
+    assert_eq!(repeated.artifact.as_ref().unwrap().artifact_id, artifact);
+    assert_ne!(
+        observed.occurrence.occurrence_id,
+        repeated.occurrence.occurrence_id
+    );
+    let (origins, truncated) = runtime
+        .material
+        .occurrence_ids_for_artifact(subject, artifact, 1)
+        .await
+        .unwrap();
+    assert_eq!(origins.len(), 1);
+    assert!(truncated);
+    let (origins, truncated) = runtime
+        .material
+        .occurrence_ids_for_artifact(subject, artifact, 20)
+        .await
+        .unwrap();
+    assert_eq!(origins.len(), 2);
+    assert!(origins.contains(&observed.occurrence.occurrence_id));
+    assert!(origins.contains(&repeated.occurrence.occurrence_id));
+    assert!(!truncated);
+    assert!(
+        runtime
+            .material
+            .occurrence_ids_for_artifact(nous_core::SubjectId::new(), artifact, 20)
+            .await
+            .is_err()
+    );
+    assert!(
+        runtime
+            .material
+            .occurrence_ids_for_artifact(subject, artifact, 0)
+            .await
+            .is_err()
+    );
     let source = observed.source_region.unwrap().source_region_id;
     let make = |input: CognitiveRef, kind| {
         DerivedRepresentation {

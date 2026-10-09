@@ -14,6 +14,7 @@
 ## 使用参考
 
 - [接口参考入口](reference/README.md)
+- [Official Client operations](reference/CLIENT.md)
 - [NousQL](reference/NOUSQL.md)
 - [Configuration](reference/CONFIGURATION.md)
 - [Model Runtime](reference/MODEL_RUNTIME.md)
@@ -23,6 +24,8 @@
 ## 研究与方向
 
 - [研究入口](research/README.md)
+- [Full-System Dogfooding](research/full-system-dogfooding-2026-10-08.md)
+- [Proquint reference replacement](research/proquint-reference-migration.md)
 - [研究语料与 oracle](research/corpus/README.md)
 - [手工认知功能语料](research/corpus/functional/README.md)
 - [Core Cognition Semantic Qualification](research/core-cognition-semantic.md)

@@ -15,6 +15,49 @@ pub struct ProvenanceSummary {
 }
 
 impl MemoryService {
+    /// Context projection is an ordinary current read, including explicit refs.
+    /// A missing or hidden owned cognition must never become external authority.
+    pub async fn contextual_cognition_eligible(
+        &self,
+        subject: SubjectId,
+        reference: &CognitiveRef,
+    ) -> Result<bool> {
+        let exact = match self.store.bind_exact_reference(subject, reference).await {
+            Ok((exact, _, _)) => exact,
+            Err(Error::NotFound(_)) => return Ok(false),
+            Err(error) => return Err(error),
+        };
+        let (query, id) = match exact {
+            CognitiveRef::MemoryRevision(id) => (
+                "SELECT EXISTS(SELECT 1 FROM memory_objects o JOIN memory_revisions r USING(memory_id) WHERE o.subject_id=$1 AND r.memory_revision_id=$2 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal')",
+                id.0,
+            ),
+            CognitiveRef::CognitiveSchemaRevision(id) => (
+                "SELECT EXISTS(SELECT 1 FROM cognitive_schemas o JOIN cognitive_schema_revisions r USING(schema_id) WHERE o.subject_id=$1 AND r.schema_revision_id=$2 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal')",
+                id.0,
+            ),
+            CognitiveRef::EpisodeRevision(id) => (
+                "SELECT EXISTS(SELECT 1 FROM episode_objects o JOIN episode_revisions r USING(episode_id) WHERE o.subject_id=$1 AND r.episode_revision_id=$2 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal')",
+                id.0,
+            ),
+            CognitiveRef::JournalRevision(id) => (
+                "SELECT EXISTS(SELECT 1 FROM journal_objects o JOIN journal_revisions r USING(journal_id) WHERE o.subject_id=$1 AND r.journal_revision_id=$2 AND o.acceptance_state='accepted' AND o.integrity_state='valid' AND o.suppression_state='normal' AND o.purge_state='normal')",
+                id.0,
+            ),
+            _ => {
+                return Err(Error::Invalid(
+                    "contextual cognition requires an owned cognition reference".into(),
+                ));
+            }
+        };
+        sqlx::query_scalar(query)
+            .bind(subject.0)
+            .bind(id)
+            .fetch_one(self.store.pool())
+            .await
+            .map_err(db)
+    }
+
     pub async fn references_producer(&self, subject: SubjectId, producer: Uuid) -> Result<bool> {
         sqlx::query_scalar(
             "SELECT EXISTS (

@@ -67,6 +67,34 @@ fn decode(row: sqlx::postgres::PgRow) -> Result<ServingRecord> {
 }
 
 impl AuthorityStore {
+    /// The Serving owner has rejected this artifact. Remove only that exact current pointer.
+    pub async fn fail_serving_generation(&self, record: &ServingRecord) -> Result<()> {
+        let mut tx = self.begin().await?;
+        let key = format!(
+            "serving:{}:{}:{}",
+            record.subject.0, record.family, record.space
+        );
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+            .bind(key)
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        sqlx::query(
+            "UPDATE serving_generations SET state='failed',published_at=$2 WHERE generation_id=$1",
+        )
+        .bind(record.generation_id.0)
+        .bind(Utc::now())
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        sqlx::query("DELETE FROM serving_current WHERE generation_id=$1")
+            .bind(record.generation_id.0)
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        tx.commit().await.map_err(db)
+    }
+
     pub async fn serving_current(&self, subject: SubjectId) -> Result<Vec<ServingRecord>> {
         sqlx::query("SELECT g.* FROM serving_current c JOIN serving_generations g USING(generation_id) WHERE c.subject_id=$1 AND g.state='ready' ORDER BY c.family,c.space_signature")
             .bind(subject.0).fetch_all(self.pool()).await.map_err(db)?.into_iter().map(decode).collect()

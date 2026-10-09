@@ -24,6 +24,10 @@ DerivedRepresentation 保存 ordered exact inputs、strategy、representation ki
 
 description segmentation 以 UTF-8 byte coordinates 建立稳定 DerivedRegion。structured model 只返回 invocation-local basis keys；Core 映射成 exact DerivedRegion，Material/Kernel 验证归属和输入图。第二阶段失败时保留已提交的 description，并返回该表示及显式 degradation。
 
+结构化解释由 Core 固定 evidence_access：原始媒体或严格解码文本为 original；仅提供模型描述或转写为 representation。后者的 coverage 不得为 observed，observation basis 使用 reported 或 inferred，不得为 direct；来源未提供或未分析某个通道不是该通道的观察，也不证明静音。Owner 拒绝违反这一边界的输出，不将它静默改成成功。文本投影和 typed payload 均保存此访问方式；已有不可变表示保持原始生产条件，可通过新的派生显式修正。
+
+Video MIME本身不授予音频证据能力；direct mode按实际配置的audio_input能力约束结构化输入，frames mode按实际Transcript约束。JSON Schema之外的语义校验策略身份参与workflow reuse与ProducerSignature，更新该策略不能沿用旧成功表示绕过检查。结构化owner校验在固定执行routes内完成，语义无效也能按明确fallback继续；所有route失败仍保留成功前序description和degradation。
+
 description segments 使用 `material.description_segment_bytes` 的稳定 UTF-8 范围，默认 2,048 bytes，并优先在换行处分段。region coordinates 保存 segmentation policy digest。Text segmentation 输入上限为 1 MiB，最多 512 个 DerivedRegion。Video frames mode 使用 FFmpeg 作有界抽帧；实验观测归 [Research](../../../research/README.md)。
 
 ## Memory formation

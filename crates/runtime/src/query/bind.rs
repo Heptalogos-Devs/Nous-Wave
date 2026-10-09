@@ -9,6 +9,9 @@ use std::collections::{BTreeMap, HashSet};
 use uuid::Uuid;
 
 pub fn planned_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
+    if query.is_exact_read() {
+        return vec![EvidenceFamily::Exact];
+    }
     let mut result = Vec::new();
     for node in query.scopes() {
         let mut scoped = query.clone();
@@ -40,7 +43,7 @@ fn local_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
         .iter()
         .any(|target| matches!(target, QueryTarget::Exact { .. }))
     {
-        lanes.push(EvidenceFamily::Exact);
+        return vec![EvidenceFamily::Exact];
     }
     if query.session.is_some() || !query.situation.current_refs.is_empty() {
         lanes.push(EvidenceFamily::Runtime);
@@ -130,6 +133,24 @@ fn local_lanes(query: &CognitiveQuery) -> Vec<EvidenceFamily> {
     lanes.sort();
     lanes.dedup();
     lanes
+}
+
+fn include_concept_lane(
+    query: &CognitiveQuery,
+    enrichment: super::ConceptEnrichment,
+    runtime_refs: &[CognitiveRef],
+    lanes: &mut Vec<EvidenceFamily>,
+) {
+    if !query.is_exact_read()
+        && (enrichment != super::ConceptEnrichment::Off
+            || runtime_refs
+                .iter()
+                .any(|reference| matches!(reference, CognitiveRef::Tag(_))))
+    {
+        lanes.push(EvidenceFamily::TagDirect);
+        lanes.sort();
+        lanes.dedup();
+    }
 }
 
 pub fn explicit_topology(query: &CognitiveQuery) -> bool {
@@ -347,6 +368,10 @@ impl CognitiveRuntimeService {
         self.bind_query_with_authority_view(query, config_snapshot, None)
             .await
     }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "binding closes one Authority/config/context snapshot before planning exact reads or discovery"
+    )]
     pub async fn bind_query_with_authority_view(
         &self,
         mut query: CognitiveQuery,
@@ -399,17 +424,18 @@ impl CognitiveRuntimeService {
                 allowed_revision_refs,
             }
         };
-        let concept_enrichment = config_snapshot.get(super::CONCEPT_ENRICHMENT)?;
+        let concept_enrichment = if query.is_exact_read() {
+            super::ConceptEnrichment::Off
+        } else {
+            config_snapshot.get(super::CONCEPT_ENRICHMENT)?
+        };
         let mut enabled_lanes = planned_profile_lanes(&query, retrieval_policy.cognitive_profile);
-        if concept_enrichment != super::ConceptEnrichment::Off
-            || runtime_refs
-                .iter()
-                .any(|reference| matches!(reference, CognitiveRef::Tag(_)))
-        {
-            enabled_lanes.push(EvidenceFamily::TagDirect);
-            enabled_lanes.sort();
-            enabled_lanes.dedup();
-        }
+        include_concept_lane(
+            &query,
+            concept_enrichment,
+            &runtime_refs,
+            &mut enabled_lanes,
+        );
         if enabled_lanes.is_empty() && !query.requests_resources() {
             return Err(Error::Invalid("query has no enabled retrieval lane".into()));
         }
@@ -467,7 +493,8 @@ impl CognitiveRuntimeService {
                 exact_target_bypasses_auto_level,
             },
             selected_embedding_space: None,
-            topology_required: explicit_topology(&query)
+            topology_required: !query.is_exact_read()
+                && explicit_topology(&query)
                 && retrieval_policy.cognitive_profile.requirements().topology,
             fusion_version: "rrf-v1".into(),
             config_snapshot,
@@ -485,23 +512,20 @@ impl BoundQuery {
             .query_override(super::COGNITIVE_PROFILE, profile)?;
         bound.retrieval_policy = resolve_retrieval_policy(&bound.config_snapshot)?;
         bound.enabled_lanes = planned_profile_lanes(&bound.source_query, profile);
-        if bound.concept_enrichment != super::ConceptEnrichment::Off
-            || bound
-                .runtime_refs
-                .iter()
-                .any(|reference| matches!(reference, CognitiveRef::Tag(_)))
-        {
-            bound.enabled_lanes.push(EvidenceFamily::TagDirect);
-            bound.enabled_lanes.sort();
-            bound.enabled_lanes.dedup();
-        }
+        include_concept_lane(
+            &bound.source_query,
+            bound.concept_enrichment,
+            &bound.runtime_refs,
+            &mut bound.enabled_lanes,
+        );
         bound.lane_budgets = budget_values(
             &bound.source_query,
             &bound.enabled_lanes,
             &bound.retrieval_policy,
         );
-        bound.topology_required =
-            explicit_topology(&bound.source_query) && profile.requirements().topology;
+        bound.topology_required = !bound.source_query.is_exact_read()
+            && explicit_topology(&bound.source_query)
+            && profile.requirements().topology;
         Ok(bound)
     }
 }

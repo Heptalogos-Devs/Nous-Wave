@@ -343,3 +343,34 @@ async fn concurrent_leaf_requests_share_one_embedding_provider_invocation() {
     assert_eq!(a.unwrap().vector, b.unwrap().vector);
     assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
 }
+
+#[tokio::test]
+async fn host_embedding_recovers_reader_after_preparation_without_material() {
+    let provider = Arc::new(EmbeddingProbe {
+        calls: AtomicUsize::new(0),
+        fail: true,
+    });
+    let shared = crate::provider::RequestEmbedding::new(provider.clone(), "query".into());
+    let request = TextEmbeddingRequest {
+        subject: SubjectId::new(),
+        text: "query".into(),
+        query: true,
+    };
+    assert!(shared.embed(request.clone()).await.is_err());
+    let supplied = TextEmbeddingOutput {
+        vector: vec![1.0, 0.0],
+        space: provider.space(),
+        producer: provider.producer(),
+    };
+    let result = crate::material::with_query_material(
+        vec![crate::material::QueryEmbedding {
+            text: "query".into(),
+            output: supplied.clone(),
+        }],
+        shared.embed(request),
+    )
+    .await
+    .expect("execution receives Host material after preparation");
+    assert_eq!(result.vector, supplied.vector);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+}

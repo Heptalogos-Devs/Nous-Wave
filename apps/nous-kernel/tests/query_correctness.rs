@@ -830,6 +830,10 @@ async fn runtime_lane_is_session_resident_and_use_retry_has_zero_side_effect() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one exact-read cohort checks candidate closure, immutable history, as-of heads and mutation fencing against the same unrelated resident"
+)]
 async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     let (root, url, _postgres) = database().await;
     let runtime = open_runtime(&url, &root).await;
@@ -850,6 +854,61 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     request.expression.targets = vec![QueryTarget::Exact {
         reference: CognitiveRef::Memory(memory.object.memory_id),
     }];
+    let unrelated = runtime
+        .require_memory()
+        .unwrap()
+        .form_memory(form_input(
+            subject,
+            observation.occurrence.occurrence_id,
+            OperationId::new(),
+            "Recall relevant cognition: an unrelated resident",
+        ))
+        .await
+        .unwrap();
+    let session = runtime
+        .cognition
+        .open_session(subject, serde_json::json!({}))
+        .await
+        .unwrap();
+    runtime
+        .cognition
+        .use_feedback(UseFeedback {
+            subject,
+            session_id: Some(session.session_id),
+            consumer_ref: "consumer:test:exact".into(),
+            events: vec![UseFeedbackEvent {
+                query_id: None,
+                event_id: UseEventId::new(),
+                reference: CognitiveRef::MemoryRevision(unrelated.revision.memory_revision_id),
+                use_kind: UseKind::Referenced,
+                occurred_at: Utc::now(),
+                context: serde_json::json!({}),
+            }],
+        })
+        .await
+        .unwrap();
+    request.session = Some(session.session_id);
+    let exact = runtime.query(request.clone()).await.unwrap();
+    assert_eq!(
+        exact.results.len(),
+        1,
+        "exact read must not include residents or similarity hits"
+    );
+    assert_eq!(
+        exact.results[0].reference,
+        CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
+    );
+    assert_eq!(exact.status, nous_core::QueryStatus::Complete);
+    assert!(
+        exact.degradation.is_empty(),
+        "exact read must not depend on unavailable Serving: {:?}",
+        exact.degradation
+    );
+    assert!(exact.generation.lexical.is_none());
+    let mut asof_request = request.clone();
+    asof_request.temporal_frame.authority_view = nous_core::AuthorityView::AsOf(Utc::now());
+    let mut head_request = request.clone();
+    head_request.temporal_frame.revision_view = nous_core::RevisionView::History;
     let bound = runtime.cognition.bind_query(request).await.expect("bind");
     let plan = QueryPlan::for_bound_query(&bound);
     let revision = nous_memory::ReviseMemoryInput {
@@ -906,6 +965,22 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
         "query diagnostics: {:?}",
         result.diagnostics
     );
+    let asof = runtime.query(asof_request).await.unwrap();
+    assert_eq!(asof.results.len(), 1);
+    assert_eq!(
+        asof.results[0].reference,
+        CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
+    );
+    let current_head = runtime.query(head_request).await.unwrap();
+    assert_eq!(
+        current_head.results.len(),
+        1,
+        "history permits old exact revisions but does not expand an exact object into revision enumeration"
+    );
+    assert_eq!(
+        current_head.results[0].reference,
+        CognitiveRef::MemoryRevision(_current.revision.memory_revision_id)
+    );
     let historical = runtime
         .query(CognitiveQuery {
             projection: Default::default(),
@@ -943,6 +1018,152 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
     assert_eq!(
         historical.results[0].reference,
         CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
+    );
+}
+
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one temporary Schema cohort checks visibility and replay across lifecycle changes and irreversible purge without redundant database setup"
+)]
+async fn schema_lifecycle_fences_queries_and_purge_cannot_replay_content() {
+    use nous_memory::schema::SchemaLifecycleAction as Action;
+    let (root, url, _postgres) = database().await;
+    let runtime = open_runtime(&url, &root).await;
+    let subject = subject(&runtime).await;
+    let source = observation(
+        &runtime,
+        subject,
+        "Temporary operating rule: open tasks can be continued; ended tasks cannot.",
+    )
+    .await;
+    let owner = runtime.require_memory().unwrap();
+    let schema = owner
+        .create_schema(CreateSchemaInput {
+            producer: None,
+            operation_id: OperationId::new(),
+            subject,
+            title: Some("Temporary operating rule".into()),
+            structural_claim:
+                "Continue an open task after explicitly selecting its durable context".into(),
+            applicability_scope: SchemaScope {
+                description: "Open development tasks".into(),
+                aboutness: vec![],
+                tags: vec![],
+                valid_time: Default::default(),
+            },
+            boundary_definition: "Does not authorize resuming an ended task".into(),
+            formation_kind: SchemaFormationKind::ExplicitImport,
+            evidence_links: vec![SchemaEvidenceLinkInput {
+                role: SchemaEvidenceRole::Support,
+                basis: RevisionBasis::Evidence(EvidenceRef {
+                    epistemic_relation: None,
+                    occurrence_id: source.occurrence.occurrence_id,
+                    locator: EvidenceLocator::WholeOccurrence,
+                    basis_role: BasisRole::Direct,
+                }),
+            }],
+        })
+        .await
+        .unwrap();
+    let schema_id = schema.schema.schema_id;
+    let revision_id = schema.revision.schema_revision_id;
+    let exact = || {
+        let mut request = query(subject);
+        request.projection.domains = vec![nous_core::ResultDomain::Schema];
+        request.expression.targets = vec![QueryTarget::Exact {
+            reference: CognitiveRef::CognitiveSchemaRevision(revision_id),
+        }];
+        request
+    };
+    assert_eq!(runtime.query(exact()).await.unwrap().results.len(), 1);
+    let use_input = UseFeedback {
+        subject,
+        session_id: None,
+        consumer_ref: "consumer:test:schema-cleanup".into(),
+        events: vec![UseFeedbackEvent {
+            query_id: None,
+            event_id: UseEventId::new(),
+            reference: CognitiveRef::CognitiveSchemaRevision(revision_id),
+            use_kind: UseKind::Referenced,
+            occurred_at: Utc::now(),
+            context: serde_json::json!({}),
+        }],
+    };
+    assert_eq!(
+        runtime
+            .cognition
+            .use_feedback(use_input.clone())
+            .await
+            .unwrap()
+            .0,
+        1
+    );
+    let suppress_operation = OperationId::new();
+    let suppressed = owner
+        .mutate_schema_lifecycle(subject, schema_id, suppress_operation, 1, Action::Suppress)
+        .await
+        .unwrap();
+    assert_eq!(suppressed.schema.object_epoch, 2);
+    assert_eq!(suppressed.revision.schema_revision_id, revision_id);
+    assert!(runtime.query(exact()).await.unwrap().results.is_empty());
+    assert!(matches!(
+        owner
+            .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 1, Action::Restore)
+            .await,
+        Err(nous_core::Error::Conflict(_))
+    ));
+    owner
+        .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 2, Action::Restore)
+        .await
+        .unwrap();
+    let replay = owner
+        .mutate_schema_lifecycle(subject, schema_id, suppress_operation, 1, Action::Suppress)
+        .await
+        .unwrap();
+    assert_eq!(replay.schema.object_epoch, 3);
+    assert_eq!(
+        replay.schema.suppression_state,
+        nous_core::SuppressionState::Normal
+    );
+    assert_eq!(runtime.query(exact()).await.unwrap().results.len(), 1);
+    owner
+        .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 3, Action::Withdraw)
+        .await
+        .unwrap();
+    assert!(runtime.query(exact()).await.unwrap().results.is_empty());
+    owner
+        .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 4, Action::Reaccept)
+        .await
+        .unwrap();
+    assert_eq!(runtime.query(exact()).await.unwrap().results.len(), 1);
+    let purge_operation = OperationId::new();
+    owner
+        .purge_schema(subject, schema_id, purge_operation, 5)
+        .await
+        .unwrap();
+    let duplicate = runtime.cognition.use_feedback(use_input).await.unwrap();
+    assert_eq!((duplicate.0, duplicate.1), (0, 1));
+    owner
+        .purge_schema(subject, schema_id, purge_operation, 5)
+        .await
+        .unwrap();
+    assert!(matches!(
+        owner.schema_revision(subject, revision_id).await,
+        Err(nous_core::Error::NotFound(_))
+    ));
+    assert!(matches!(
+        owner
+            .mutate_schema_lifecycle(subject, schema_id, suppress_operation, 1, Action::Suppress)
+            .await,
+        Err(nous_core::Error::NotFound(_))
+    ));
+    assert!(
+        runtime
+            .material
+            .artifact(subject, source.artifact.as_ref().unwrap().artifact_id)
+            .await
+            .is_ok()
     );
 }
 
@@ -1403,9 +1624,7 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
     assert!(!forbidden.evidence_roots.contains_key(&memory_reference));
     check_vcp_projection_material(&runtime, subject, &memory_reference).await;
     let mut native_request = query(subject);
-    native_request.expression.targets = vec![QueryTarget::Exact {
-        reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
-    }];
+    native_request.situation.current_refs = vec![memory_reference.clone()];
     native_request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
     native_request.diagnostics = nous_core::DiagnosticsRequest::Summary;
     let result = runtime
@@ -1429,9 +1648,7 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
         |hit| hit.reference == CognitiveRef::MemoryRevision(memory.revision.memory_revision_id)
     ));
     let mut request = query(subject);
-    request.expression.targets = vec![QueryTarget::Exact {
-        reference: CognitiveRef::MemoryRevision(memory.revision.memory_revision_id),
-    }];
+    request.situation.current_refs = vec![memory_reference.clone()];
     request.exploration = nous_core::ExplorationIntent::BoundedAssociative;
     let frozen = runtime
         .cognition
@@ -1666,7 +1883,6 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
         vec![
             "concept".to_owned(),
             format!("concept:{}", graph.space.space_hash),
-            "exact".to_owned(),
             "topology".to_owned()
         ]
     );
@@ -2283,7 +2499,7 @@ fn check_vcp_readouts(
     observation: &nous_retrieval::VcpQueryObservation,
     bound: &nous_runtime::BoundQuery,
 ) {
-    let body = bound.exact_bindings[0].bound_ref.clone();
+    let body = bound.runtime_refs[0].clone();
     let candidate = nous_retrieval::VcpReadoutCandidate {
         reference: body.clone(),
         base_score: 0.9,
@@ -2365,7 +2581,7 @@ fn nonempty_vcp_lab_material(
     let b = nous_core::TagId::new();
     let tag_a = CognitiveRef::Tag(a);
     let tag_b = CognitiveRef::Tag(b);
-    let body = bound.exact_bindings[0].bound_ref.clone();
+    let body = bound.runtime_refs[0].clone();
     // Independent lab material exercises numerical adapter input. These Tag
     // identities are not persisted or used as public-query Authority evidence.
     let material = nous_retrieval::VcpProjectionMaterial {

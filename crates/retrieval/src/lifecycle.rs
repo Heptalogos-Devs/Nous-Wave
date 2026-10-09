@@ -186,20 +186,18 @@ impl ServingService {
                         result.reopened.push(key.clone());
                         Ok(record.clone())
                     }
-                    Err(_) => self
-                        .build_and_open(subject, family, &space, snapshot)
-                        .await
-                        .inspect(|_| {
-                            result.rebuilt.push(key.clone());
-                        }),
+                    Err(_) => {
+                        // Publication must not deduplicate a replacement against missing/corrupt current bytes.
+                        self.store.fail_serving_generation(record).await?;
+                        self.build_and_open(subject, family, &space, snapshot).await
+                    }
                 }
             } else {
-                self.build_and_open(subject, family, &space, snapshot)
-                    .await
-                    .inspect(|_| {
-                        result.rebuilt.push(key.clone());
-                    })
+                self.build_and_open(subject, family, &space, snapshot).await
             };
+            if outcome.is_ok() && !result.reopened.contains(&key) {
+                result.rebuilt.push(key.clone());
+            }
             match outcome {
                 Ok(record) => {
                     result.generations.insert(key, record.generation_id);
@@ -280,8 +278,12 @@ impl ServingService {
             {
                 continue;
             }
-            let Ok(artifact) = self.open_record(record) else {
-                continue;
+            let artifact = match self.open_record(record) {
+                Ok(artifact) => artifact,
+                Err(_) => {
+                    self.store.fail_serving_generation(record).await?;
+                    continue;
+                }
             };
             if !self.store.promote_generation(record.generation_id).await? {
                 continue;

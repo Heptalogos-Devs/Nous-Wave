@@ -45,12 +45,14 @@ fn requested_basis(payload: &serde_json::Value) -> Result<HashSet<CognitiveRef>>
             .and_then(serde_json::Value::as_array)
             .ok_or_else(|| Error::Invalid("structured field lacks stable basis_refs".into()))?;
         if basis_refs.len() > 16
-            || ((item.get("basis").and_then(serde_json::Value::as_str) == Some("direct")
-                || (std::ptr::eq(item, summary)
-                    && summary
-                        .get("content")
-                        .and_then(serde_json::Value::as_str)
-                        .is_some_and(|text| !text.trim().is_empty())))
+            || ((matches!(
+                item.get("basis").and_then(serde_json::Value::as_str),
+                Some("direct" | "reported")
+            ) || (std::ptr::eq(item, summary)
+                && summary
+                    .get("content")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|text| !text.trim().is_empty())))
                 && basis_refs.is_empty())
         {
             return Err(Error::Invalid(

@@ -14,6 +14,25 @@ rpc_service! {
             materialize_evidence(p::MaterializeRequest) -> p::MaterializedEvidence;
         }
         custom {
+            async fn list_occurrences(
+                &self,
+                request: Request<p::OccurrenceListRequest>,
+            ) -> std::result::Result<Response<p::OccurrenceListResponse>, Status> {
+                let input = request.into_inner();
+                let result: nous_core::Result<_> = async {
+                    let (ids, truncated) = self.0.material.occurrence_ids_for_artifact(
+                        SubjectId(id(&input.subject_id)?), nous_core::ArtifactId(id(&input.artifact_id)?), input.limit,
+                    ).await?;
+                    let mut items = Vec::with_capacity(ids.len());
+                    for occurrence in ids {
+                        items.push(self.get_occurrence(p::ObjectRequest {
+                            subject_id: input.subject_id.clone(), id: occurrence.0.to_string(),
+                        }).await?);
+                    }
+                    Ok(p::OccurrenceListResponse { items, truncated })
+                }.await;
+                result.map(Response::new).map_err(status)
+            }
             async fn get_derived_region(
                 &self,
                 request: Request<p::ObjectRequest>,

@@ -19,6 +19,29 @@ fn temporal_columns(
 }
 
 impl MaterialService {
+    /// An Artifact may have multiple independent observations; never choose one implicitly.
+    pub async fn occurrence_ids_for_artifact(
+        &self,
+        subject: SubjectId,
+        artifact: ArtifactId,
+        limit: u32,
+    ) -> Result<(Vec<OccurrenceId>, bool)> {
+        if !(1..=200).contains(&limit) {
+            return Err(Error::Invalid("occurrence limit must be 1..200".into()));
+        }
+        self.store
+            .validate_reference(subject, &CognitiveRef::Artifact(artifact))
+            .await?;
+        let mut ids: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT occurrence_id FROM observation_occurrences WHERE subject_id=$1 AND artifact_id=$2 ORDER BY observed_at DESC,occurrence_id DESC LIMIT $3",
+        )
+        .bind(subject.0).bind(artifact.0).bind(i64::from(limit)+1)
+        .fetch_all(self.store.pool()).await.map_err(db)?;
+        let truncated = ids.len() > limit as usize;
+        ids.truncate(limit as usize);
+        Ok((ids.into_iter().map(OccurrenceId).collect(), truncated))
+    }
+
     pub async fn record_observation(&self, input: ObservationInput) -> Result<AcceptedObservation> {
         self.record_observation_once(input, None).await
     }

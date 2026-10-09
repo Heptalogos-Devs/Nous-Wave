@@ -65,6 +65,8 @@ corepack pnpm assemble:portable
 
 `release:notices` 准备应用 bundle 和依赖/运行时 license notices，需要网络。`assemble:portable` 消费这些缓存、release Kernel 和 packs，离线生成 `data/releases/windows-x64/current/` 与 `current.zip`，替换当前输出。包不包含开发配置或文档示例。`just release-prepare` 与 `just release` 分别封装准备和组装阶段。
 
+`release:notices --runtime-root <packs/catalog 根目录>` 与 `assemble:portable --runtime-root <同一目录>` 可显式选择独立的 shipping packs；该目录包含 `manifest/runtimes.json` 与 `packs/`。默认仍为 `data/runtime/`。开发与 shipping runtime 内容不同时，应使用独立 catalog，避免更换正在运行实例所依赖的 manifest identity；组装只将选中的 catalog 与 runtime 放进发布包。
+
 ```text
 corepack pnpm release:verify --bundle data/releases/windows-x64/current.zip
 corepack pnpm release:verify --bundle data/releases/windows-x64/current.zip --layout colocated

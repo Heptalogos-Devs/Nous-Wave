@@ -7,8 +7,144 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { runCli } from "./commands.js";
 import { cliErrorPayload } from "./agent.js";
+import { workspaceTemp } from "../../../scripts/workspace.js";
 
 const exec = promisify(execFile);
+it("invalidates result indices when the next query fails", async () => {
+  const root = await workspaceTemp("tests", "cli-failed-query-");
+  const query = vi
+    .fn()
+    .mockResolvedValueOnce({
+      queryId: "first",
+      hits: [
+        {
+          reference: {
+            kind: "memory_revision",
+            value: "33333333-3333-4333-8333-333333333333",
+          },
+          text: "old result",
+        },
+      ],
+    })
+    .mockRejectedValueOnce(new Error("query rejected"));
+  const revision = vi.fn();
+  const reportUse = vi.fn().mockResolvedValue({ acceptedCount: 1 });
+  const client = {
+    cognition: { query, reportUse },
+    memory: { revision },
+  } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
+  const connect = vi.fn().mockResolvedValue(client);
+  const globals = [
+    "--run-root",
+    "/tmp/nous",
+    "--instance-root",
+    root,
+    "--subject",
+    "s",
+  ];
+  await runCli(["query", "first", ...globals], connect);
+  await runCli(
+    [
+      "use",
+      "memory_revision:33333333-3333-4333-8333-333333333333",
+      "--query-id",
+      "query:last",
+      ...globals,
+    ],
+    connect,
+  );
+  expect(reportUse).toHaveBeenCalledWith(
+    expect.objectContaining({
+      events: [expect.objectContaining({ queryId: "first" })],
+    }),
+  );
+  await expect(
+    runCli(["query", "invalid", ...globals], connect),
+  ).rejects.toThrow("query rejected");
+  await expect(
+    runCli(["show", "result:1", ...globals], connect),
+  ).rejects.toMatchObject({ code: "RESULT_SUBJECT_MISMATCH" });
+  expect(revision).not.toHaveBeenCalled();
+  await expect(
+    runCli(
+      [
+        "use",
+        "memory_revision:33333333-3333-4333-8333-333333333333",
+        "--query-id",
+        "query:last",
+        ...globals,
+      ],
+      connect,
+    ),
+  ).rejects.toMatchObject({ code: "RESULT_SUBJECT_MISMATCH" });
+});
+it("reads source text through its Material owner with explicit byte bounds", async () => {
+  const id = "33333333-3333-4333-8333-333333333333";
+  const materialize = vi.fn().mockResolvedValue({
+    reference: { kind: "source_region", value: id },
+    mediaType: "text/markdown",
+    content: new TextEncoder().encode("真实来源原文"),
+    totalBytes: 18n,
+    rangeStart: 0n,
+    rangeEnd: 18n,
+    partial: false,
+    evidence: [],
+    degradation: [],
+  });
+  const client = { material: { materialize } } as unknown as Awaited<
+    ReturnType<typeof connectNousInstance>
+  >;
+  const result = await runCli(
+    [
+      "read",
+      `source_region:${id}`,
+      "--run-root",
+      "/tmp/nous",
+      "--subject",
+      "s",
+    ],
+    vi.fn().mockResolvedValue(client),
+  );
+  expect(result).toHaveProperty("data.text", "真实来源原文");
+  expect(materialize).toHaveBeenCalledWith({
+    subjectId: "s",
+    reference: { kind: "source_region", value: id },
+    maxBytes: 65536n,
+  });
+});
+it("continues canonical Material references returned by observe and trace", async () => {
+  const id = "33333333-3333-4333-8333-333333333333";
+  const sourceRegion = vi
+    .fn()
+    .mockResolvedValue({ sourceRegionId: id, artifactId: "a" });
+  const occurrences = vi
+    .fn()
+    .mockResolvedValue({ items: [], truncated: false });
+  const resolve = vi.fn();
+  const client = {
+    material: { sourceRegion, occurrences },
+    identity: { resolve },
+  } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
+  const result = await runCli(
+    [
+      "show",
+      `source_region:${id}`,
+      "--run-root",
+      "/tmp/nous",
+      "--subject",
+      "s",
+    ],
+    vi.fn().mockResolvedValue(client),
+  );
+  expect(result).toHaveProperty("data.sourceRegionId", id);
+  expect(sourceRegion).toHaveBeenCalledWith({ subjectId: "s", id });
+  expect(occurrences).toHaveBeenCalledWith({
+    subjectId: "s",
+    artifactId: "a",
+    limit: 20,
+  });
+  expect(resolve).not.toHaveBeenCalled();
+});
 describe("Agent CLI protocol", () => {
   it("prepares with explicit context and summarizes the frozen inspection", async () => {
     const prepared = {
@@ -18,9 +154,22 @@ describe("Agent CLI protocol", () => {
     };
     const prepareQuery = vi.fn().mockResolvedValue(prepared);
     const query = vi.fn();
-    const client = { cognition: { prepareQuery, query } } as unknown as Awaited<
-      ReturnType<typeof connectNousInstance>
-    >;
+    const resolve = vi.fn(async ({ kind }: { kind: string }) => ({
+      status: "BOUND",
+      candidates: [
+        {
+          canonical: {
+            kind,
+            value:
+              kind === "subject" ? "s" : kind === "session" ? "sess" : "work",
+          },
+        },
+      ],
+    }));
+    const client = {
+      cognition: { prepareQuery, query },
+      identity: { resolve },
+    } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
     const connect = vi.fn().mockResolvedValue(client);
     const result = await runCli(
       [
@@ -32,11 +181,11 @@ describe("Agent CLI protocol", () => {
         "--run-root",
         "/tmp/nous",
         "--subject",
-        "s",
+        "sub:bahog-hijol-mokor",
         "--session",
-        "sess",
+        "session:babab-babab-babab",
         "--work-context",
-        "work",
+        "ctx:zuzuz-zuzuz-zuzuz",
       ],
       connect,
     );
@@ -164,14 +313,14 @@ it("formation passes explicit Tag identities without an inference model", async 
       "--subject",
       "s",
       "--tag",
-      "tag:amber-lotus-cello-river,tag:44444444-4444-4444-8444-444444444444",
+      "tag:kavaj-logiv-bufog,tag:44444444-4444-4444-8444-444444444444",
     ],
     vi.fn().mockResolvedValue(client),
   );
   expect(resolve).toHaveBeenCalledWith({
     subjectId: "s",
     kind: "tag",
-    locator: { case: "lexicalRef", value: "tag:amber-lotus-cello-river" },
+    locator: { case: "lexicalRef", value: "tag:kavaj-logiv-bufog" },
   });
   expect(formFromObservation).toHaveBeenCalledWith(
     expect.objectContaining({

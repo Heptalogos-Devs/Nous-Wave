@@ -167,6 +167,8 @@ message Memory {
   repeated RevisionRelation relations = 25;
   bool relations_truncated = 26;
   optional string revision_intent = 27;
+  string epistemic_class = 29;
+  optional string grounding_occurrence_id = 30;
 }
 message TemporalEvidence { repeated TemporalExtent occurred = 1; optional google.protobuf.Timestamp observed_at = 2; }
 message RevisionRelation { string from_revision_id = 1; string to_revision_id = 2; string relation = 3; }

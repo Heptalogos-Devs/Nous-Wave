@@ -6,7 +6,7 @@ import type { CliEnvironment } from "./runtime.js";
 
 export async function maintenanceCommands(env: CliEnvironment) {
   const { client, values, subjectId } = env;
-  return client.cognition.grantMaintenance({
+  const result = await client.cognition.grantMaintenance({
     subjectId,
     maxOperations: boundedInteger(
       values["max-operations"],
@@ -23,8 +23,14 @@ export async function maintenanceCommands(env: CliEnvironment) {
     maxElapsedMs: boundedInteger(
       values["max-elapsed-ms"],
       1,
-      300000,
+      900000,
       "--max-elapsed-ms",
     ),
   });
+  return {
+    ...result,
+    ...(result.disposition === "disabled_by_policy"
+      ? { next: `config set maintenance.enabled true --subject ${subjectId}` }
+      : {}),
+  };
 }
