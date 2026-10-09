@@ -8,7 +8,7 @@
 
 The consumer connects through Core discovery in RunRoot. It stores the selected Subject, Session and WorkContext under InstanceRoot; these selections are local consumer state, not Nous Wave Authority.
 
-Parallel Agents share Core RunRoot and use independent consumer InstanceRoots. The stdio MCP entry belongs to this same consumer and requires an explicit private state root and stable consumer identity. It exposes help, argv command execution and NousQL query through the official MCP SDK; all cognition operations still run through the native CLI/public Client. Calls sharing one MCP connection are serialized so selection, result indices and receipts remain coherent.
+Parallel Agents share Core RunRoot and use independent consumer InstanceRoots. The stdio MCP entry belongs to this same consumer and requires an explicit private state root and stable consumer identity. It exposes help, argv command execution and NousQL query through the official MCP SDK. Terminal and MCP call the same in-process command core and public Client; Terminal alone writes human stdout/stderr and supplies stdin content. MCP stdin remains protocol-only; file `-` input is rejected there. Calls sharing one MCP connection are serialized so selection, result indices and receipts remain coherent.
 
 Material references returned by observation/query/trace are accepted as exact canonical references. `show` reads metadata; `read` materializes bounded source/derived text through Material Authority, preserving actual range, total bytes, partial output and evidence. Binary sources direct the caller to derivation instead of rendering raw bytes as text.
 

@@ -5,6 +5,10 @@ import { expect, test } from "vitest";
 import { createMcpServer } from "./mcp.js";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { repositoryRoot, workspacePaths } from "../../../scripts/workspace.js";
 
 test("MCP forwards exact argv, serializes consumer state, and preserves CLI errors", async () => {
   const seen: string[][] = [];
@@ -63,3 +67,53 @@ test("MCP forwards exact argv, serializes consumer state, and preserves CLI erro
     await server.close();
   }
 });
+
+test("real stdio carries command help and errors as pure MCP messages", async () => {
+  const state = await mkdtemp(join(workspacePaths.temporary, "mcp-stdio-"));
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [
+      join(repositoryRoot, "node_modules/tsx/dist/cli.mjs"),
+      join(repositoryRoot, "apps/nous-cli/src/mcp-main.ts"),
+      "--run-root",
+      state,
+      "--state-root",
+      state,
+      "--consumer",
+      "consumer:stdio:regression",
+    ],
+    cwd: repositoryRoot,
+    stderr: "pipe",
+  });
+  let errors = "";
+  transport.stderr?.on("data", (data: Buffer) => {
+    errors += data.toString();
+  });
+  const client = new Client({ name: "stdio-regression", version: "1" });
+  try {
+    await client.connect(transport);
+    const help = await client.callTool({
+      name: "nous_help",
+      arguments: { topic: "nousql" },
+    });
+    expect(help.isError).not.toBe(true);
+    expect(JSON.stringify(help)).toContain("NousQL");
+    const json = await client.callTool({
+      name: "nous_command",
+      arguments: { args: ["help", "--json"] },
+    });
+    const content = json.content as { text: string }[];
+    expect(JSON.parse(content[0]!.text)).toMatchObject({ kind: "help" });
+    const failure = await client.callTool({
+      name: "nous_command",
+      arguments: { args: ["missing-command"] },
+    });
+    expect(failure.isError).toBe(true);
+    expect(JSON.stringify(failure)).toContain("Unknown command");
+    expect(errors).toBe("");
+  } finally {
+    await client.close();
+    await transport.close();
+    await rm(state, { recursive: true, force: true });
+  }
+}, 10000);

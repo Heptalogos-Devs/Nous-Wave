@@ -79,6 +79,7 @@ export async function runCli(
   rawArgs: string[],
   connect = connectNousInstance,
   present?: (value: unknown, env: CliEnvironment) => Promise<unknown>,
+  input?: AsyncIterable<string | Uint8Array>,
 ) {
   let globals: CliValues = defaults;
   let result: unknown;
@@ -94,7 +95,7 @@ export async function runCli(
       args: argsDef,
       async run(ctx) {
         const values = { ...globals, ...valuesOf(ctx) };
-        const env = await createEnvironment(values, connect);
+        const env = await createEnvironment(values, connect, input);
         if (!["config", "status", "subject", "retry"].includes(family))
           env.required(
             env.subjectId,

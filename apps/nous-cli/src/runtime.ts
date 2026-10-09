@@ -70,6 +70,7 @@ function required(value: string | undefined, name: string): string {
 export async function createEnvironment(
   values: CliValues,
   connect = connectNousInstance,
+  input?: AsyncIterable<string | Uint8Array>,
 ) {
   if (values.raw && !values.developer)
     throw new CliError("INVALID_ARGUMENT", "--raw requires --developer");
@@ -328,7 +329,12 @@ export async function createEnvironment(
   async function readText(path: string, maximum = 65536) {
     let text = "";
     if (path === "-") {
-      for await (const chunk of process.stdin) {
+      if (!input)
+        throw new CliError(
+          "INVALID_ARGUMENT",
+          "This host reserves stdin for its protocol; provide a file or --text",
+        );
+      for await (const chunk of input) {
         text += String(chunk);
         if (Buffer.byteLength(text) > maximum)
           throw new CliError("INVALID_ARGUMENT", "Input exceeds bound");
