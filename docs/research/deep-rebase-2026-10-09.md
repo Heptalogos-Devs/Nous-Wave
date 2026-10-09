@@ -118,3 +118,9 @@ Catalog 检查先确认 `video.max_frames` 等真实叶路径不存在。当前 
 FFmpeg executable reference 使用 null 作为已安装 runtime pack 的明确选择；string 是显式引用，空 string 非法。公共配置检查实际验证 max_frames 的独立范围、另一个 input_mode 保留默认、旧 parent 不可 describe、单字段 override 重启生效，以及清除该 override 后 desired 回落到部署值而 active 保留原值。公共模型/材料/资源、两种媒体能力、work deadline cleanup/resume 与纵向 Query/维护检查通过，TS34文件112checks、check:fast、Knip 与依赖检查通过。
 
 只对本轮持续 Core 正常停机并换用 SHA-256 核对的当前 Kernel 副本后重启；实例 ID 保持 `ffe03b02-8997-476e-b8d1-370e88aac1a2`，新 endpoint 为 `http://127.0.0.1:38930`。active opportunity 四个叶值读回 300000/10000/5000/1000ms，Subject/Runtime/Memory 和11个 model roles READY；atomic models 仍为6个 model/11个 execution profile。真实 CLI 指定原 Subject/WorkContext 后读回 revision7/open。首次未指定 Subject 的默认 consumer 查询被明确拒绝，没有修改选择或认知状态。旧实例和 Linux 硬盘未清理；完整 Portable、只读批量地址呈现、其余 owner/fresh SQL 重整与原目标仍待完成。
+
+## 地址目录的只读批量入口
+
+当前原 CLI friendly renderer 和 Core Query 呈现仍会调用逐项 Bind；检查同时确认多数地址在首次显示时才分配。新的 canonical `GetIdentityAddresses` / Official Client `identity.addresses` 提供单次目录 read，按 Subject visibility 隔离，保留目标顺序；缺失地址保持缺失，不分配、不改名、不增添 visibility。Tag 当前 lineage 从目录的 canonical Tag 规则解析，未知和 tombstoned 引用返回不同状态。
+
+实际 PostgreSQL 的地址分配/冲突检查扩充验证批量读前后 lexical bindings、visibility、Authority history 行数相同；不存在和跨 Subject 的引用不给地址，tombstone 不给可操作地址，合并 Tag 与 survivor 得到同一规范地址。现行 concept lineage/Query/Serving 场景和公开 Core/Kernel/Client smoke 通过，公开 read 后原 display name/aliases 不变。该入口只是 owner 能力；schema 明确的字段呈现、创建/显式地址服务的分配和原逐项 Bind 删除仍须完成，不把新增 read RPC 当成呈现已经迁移。

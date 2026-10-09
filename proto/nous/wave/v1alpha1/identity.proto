@@ -27,9 +27,15 @@ message ResolveIdentityRequest {
   oneof locator { string name = 3; string lexical_ref = 4; }
 }
 message ResolveIdentityResponse { repeated IdentityBinding candidates = 1; string status = 2; }
+// Read existing directory addresses without allocating bindings or changing labels/visibility.
+message IdentityAddressTarget { string subject_id = 1; CognitiveRef canonical = 2; }
+message IdentityAddress { IdentityAddressTarget target = 1; optional string lexical_ref = 2; string status = 3; }
+message GetIdentityAddressesRequest { repeated IdentityAddressTarget targets = 1; }
+message GetIdentityAddressesResponse { repeated IdentityAddress addresses = 1; }
 message RebindEntityRequest { string subject_id = 1; string mention_id = 2; optional string entity_ref = 3; string binding_state = 4; optional string host_resolution_ref = 5; optional string reason = 6; }
 service IdentityService {
   rpc RebindEntity(RebindEntityRequest) returns (google.protobuf.Empty);
   rpc BindIdentity(BindIdentityRequest) returns (IdentityBinding);
   rpc ResolveIdentity(ResolveIdentityRequest) returns (ResolveIdentityResponse);
+  rpc GetIdentityAddresses(GetIdentityAddressesRequest) returns (GetIdentityAddressesResponse);
 }

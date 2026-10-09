@@ -83,6 +83,46 @@ try {
       format: "application/vnd.nous-wave.cognitive-seed+toml;version=1",
     },
   });
+  const subjectAddress = await client.identity.bind({
+    subjectId: subject.subjectId,
+    canonical: { kind: "subject", value: subject.subjectId },
+    displayName: "Configuration smoke",
+    aliases: ["Original label"],
+  });
+  const addresses = await client.identity.addresses({
+    targets: [
+      {
+        subjectId: subject.subjectId,
+        canonical: { kind: "subject", value: subject.subjectId },
+      },
+      {
+        subjectId: subject.subjectId,
+        canonical: { kind: "entity", value: "entity:unallocated" },
+      },
+      {
+        subjectId: randomUUID(),
+        canonical: { kind: "subject", value: subject.subjectId },
+      },
+    ],
+  });
+  assert.deepEqual(
+    addresses.addresses.map((address) => ({
+      status: address.status,
+      lexicalRef: address.lexicalRef,
+    })),
+    [
+      { status: "BOUND", lexicalRef: subjectAddress.lexicalRef },
+      { status: "UNKNOWN_REFERENCE", lexicalRef: undefined },
+      { status: "UNKNOWN_REFERENCE", lexicalRef: undefined },
+    ],
+  );
+  const labels = await client.identity.resolve({
+    subjectId: subject.subjectId,
+    kind: "subject",
+    locator: { case: "lexicalRef", value: subjectAddress.lexicalRef },
+  });
+  assert.equal(labels.candidates[0]?.displayName, "Configuration smoke");
+  assert.deepEqual(labels.candidates[0]?.aliases, ["Original label"]);
   const entry = async (path: string, subjectId?: string, desired = false) => {
     const result = await client.configuration.get({
       paths: [path],
@@ -327,7 +367,7 @@ try {
     false,
   );
   console.log(
-    "CONFIGURATION_SMOKE catalog=true cli=true precedence=true replay=true restart=true normalized_identity=true revision_cas=true",
+    "CONFIGURATION_SMOKE catalog=true cli=true precedence=true replay=true restart=true normalized_identity=true revision_cas=true readonly_address_batch=true",
   );
 } finally {
   await stop(current);

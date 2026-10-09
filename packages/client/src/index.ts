@@ -249,6 +249,7 @@ export function createNousClient(transport: Transport) {
       ),
     },
     identity: {
+      addresses: call(identity.getIdentityAddresses),
       bind: call(identity.bindIdentity),
       resolve: call(identity.resolveIdentity),
       rebindEntity: call(identity.rebindEntity),

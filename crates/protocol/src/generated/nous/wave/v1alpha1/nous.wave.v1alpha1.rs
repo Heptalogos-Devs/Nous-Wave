@@ -1639,6 +1639,33 @@ pub struct ResolveIdentityResponse {
     #[prost(string, tag="2")]
     pub status: ::prost::alloc::string::String,
 }
+/// Read existing directory addresses without allocating bindings or changing labels/visibility.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct IdentityAddressTarget {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub canonical: ::core::option::Option<CognitiveRef>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct IdentityAddress {
+    #[prost(message, optional, tag="1")]
+    pub target: ::core::option::Option<IdentityAddressTarget>,
+    #[prost(string, optional, tag="2")]
+    pub lexical_ref: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="3")]
+    pub status: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetIdentityAddressesRequest {
+    #[prost(message, repeated, tag="1")]
+    pub targets: ::prost::alloc::vec::Vec<IdentityAddressTarget>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetIdentityAddressesResponse {
+    #[prost(message, repeated, tag="1")]
+    pub addresses: ::prost::alloc::vec::Vec<IdentityAddress>,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RebindEntityRequest {
     #[prost(string, tag="1")]

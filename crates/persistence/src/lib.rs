@@ -25,7 +25,9 @@ pub use concept_input::{ConceptProjectionInput, ConceptProjectionTag};
 mod projections;
 mod query_descriptors;
 mod references;
-pub use identity::{IdentityBinding, lexical_prefix, validate_lexical};
+pub use identity::{
+    IdentityAddress, IdentityAddressTarget, IdentityBinding, lexical_prefix, validate_lexical,
+};
 pub use query_descriptors::QueryDescriptor;
 mod longitudinal_topology;
 mod semantic_catalog;

@@ -42,6 +42,8 @@ Session state is isolated; WorkContexts belong to Subject and can continue acros
 
 `identity.bind/resolve` discover real canonical identities and returned LexicalRefs. Same display names may produce ambiguity; use the chosen returned candidate, never guess a vector identity. `identity.rebindEntity` changes the interpretation of a source mention without rewriting its original surface.
 
+`identity.addresses({ targets: [{ subjectId, canonical: { kind, value } }] })` reads existing directory addresses in one batch, preserving target order. It never allocates an address, adds Subject visibility or changes display names/aliases. Up to 2048 targets are accepted; each result reports `BOUND`, `UNKNOWN_REFERENCE` or `REFERENCE_TOMBSTONED` with a LexicalRef only when visible and live. Merged Tag lookup uses its current canonical address. Explicit `identity.bind` remains the operation for assigning a name or alias.
+
 `cognition.project/managedContext` require a `consumerId` with an operator-configured policy. A valid Subject or Session does not grant access to an unknown consumer. `config` can list/get/describe/set current policy/configuration within its advertised scope; model and resource profile changes require Core restart. Managed-context cursor reuse must preserve consumer identity, policy, source revisions and lifecycle.
 
 ## Maintenance and model execution
@@ -50,6 +52,6 @@ Session state is isolated; WorkContexts belong to Subject and can continue acros
 
 Model-backed calls have a longer Client default deadline; explicit `timeoutMs` and cancellation take precedence. READY describes executable configured prerequisites, not successful provider calls or prepared Serving. `system.projections({ subjectId })` reports serving state; `model.prepareEmbeddings` builds bounded material using the configured provider batch size. Real query diagnostics and degradation decide whether a requested lane participated.
 
-Explicit maintenance grants accept 1..900000 elapsed milliseconds. Client deadline follows that exact opportunity plus 5 seconds for acknowledgment; it does not cap a longer opportunity at a single model route's timeout. CLI/MCP use the same grant. MCP's subprocess permits the explicit opportunity plus response slack; configure the host tool timeout to cover it (960 seconds for a 900000 ms grant). Per-model execution deadlines and model-call counts still apply to each route, including fallback.
+Explicit maintenance grants accept 1..900000 elapsed milliseconds. Client deadline follows that exact work opportunity plus the active `core_execution.opportunity` cleanup, acknowledgement and response-margin leaf values. CLI/MCP share this Client and the same in-process command core; configure the host tool timeout to cover the returned execution envelope. Per-model execution deadlines and model-call counts still apply to each route, including fallback.
 
 [Reference index](README.md) · [Documentation index](../INDEX.md)
