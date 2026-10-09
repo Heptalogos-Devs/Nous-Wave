@@ -189,7 +189,7 @@ export const modelConfigurationShape = {
   video: z
     .strictObject({
       input_mode: z.enum(["direct", "frames"]).default("direct"),
-      ffmpeg_executable: z.string().min(1).optional(),
+      ffmpeg_executable: z.string().min(1).nullable().default(null),
       max_source_bytes: z
         .number()
         .int()

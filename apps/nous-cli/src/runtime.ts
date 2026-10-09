@@ -7,7 +7,10 @@ import { extname, resolve } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { CliError, uniqueReference } from "./agent.js";
 import { cliState, type Selection } from "./state.js";
-import { consumerStatePolicySchema } from "@nous-wave/client/consumer-policy";
+import {
+  consumerStatePolicySchema,
+  consumerStatePaths,
+} from "@nous-wave/client/consumer-policy";
 export const stringFlags = [
   "run-root",
   "instance-root",
@@ -82,16 +85,19 @@ export async function createEnvironment(
     ),
   });
   const policy = await original.configuration.get({
-    paths: ["consumer_state"],
+    paths: consumerStatePaths,
   });
-  const policyValue = policy.entries.find(
-    (entry) => entry.path === "consumer_state",
-  )?.value;
-  if (policyValue === undefined)
-    throw new CliError(
-      "CONFIGURATION_UNAVAILABLE",
-      "Core did not return the active consumer state policy",
-    );
+  const policyValue = Object.fromEntries(
+    consumerStatePaths.map((path) => {
+      const entry = policy.entries.find((candidate) => candidate.path === path);
+      if (entry?.value === undefined)
+        throw new CliError(
+          "CONFIGURATION_UNAVAILABLE",
+          `Core did not return the active consumer state policy: ${path}`,
+        );
+      return [path.slice("consumer_state.".length), entry.value];
+    }),
+  );
   const local = cliState(
     values["instance-root"] && resolve(values["instance-root"]),
     {

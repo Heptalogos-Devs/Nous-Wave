@@ -258,7 +258,7 @@ export const commandInventory = {
         "--strategy description_only|direct_structured|describe_then_structure",
       ],
       description:
-        "Select the derived output pipeline. Video input_mode is direct|frames in the video configuration object; inspect it with config describe video / config get video. Frame sampling records source/timestamp coverage in the interpretation, without providing a separate frame Artifact export.",
+        "Select the derived output pipeline. Inspect video.input_mode (direct|frames) with config describe video.input_mode / config get video.input_mode. Frame sampling records source/timestamp coverage in the interpretation, without providing a separate frame Artifact export.",
     },
     { command: "embeddings prepare", parameters: ["--max-batches <n>"] },
     { command: "trace", parameters: ["<canonical-or-lexical-ref>"] },

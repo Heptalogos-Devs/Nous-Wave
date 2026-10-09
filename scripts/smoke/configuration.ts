@@ -27,7 +27,8 @@ try {
   const configPath = join(locations.config, "nous.toml");
   await writeFile(
     configPath,
-    (await readFile(configPath, "utf8")) + "\n[maintenance]\nenabled = false\n",
+    (await readFile(configPath, "utf8")) +
+      "\n[maintenance]\nenabled = false\n[video]\nmax_frames = 6\n",
   );
   current = await boot(locator);
   let client = current.client;
@@ -99,7 +100,7 @@ try {
         paths: ["maintenance.enabled"],
       })
     ).configurationRevision;
-  const defaults = (await entry("video")).value;
+  const defaults = (await entry("video.max_frames")).value;
   const modelGraph = {
     gateway_profiles: {
       local: {
@@ -177,28 +178,44 @@ try {
     }),
     /models.roles.memory_formation.routes.0/,
   );
-  assert(defaults && typeof defaults === "object" && !Array.isArray(defaults));
+  assert.equal(defaults, 6);
   const normalizedOperation = randomUUID();
   const videoRevision = await revision();
   const omitted = await client.configuration.setSystem({
     operationId: normalizedOperation,
     expectedRevision: videoRevision,
-    path: "video",
-    value: { max_frames: 4 },
+    path: "video.max_frames",
+    value: 4,
   });
   const explicit = await client.configuration.setSystem({
     operationId: normalizedOperation,
     expectedRevision: videoRevision,
-    path: "video",
-    value: { ...defaults, max_frames: 4 },
+    path: "video.max_frames",
+    value: 4,
   });
   assert.equal(omitted.desiredDigest, explicit.desiredDigest);
   assert.equal(omitted.revision, explicit.revision);
-  assert.deepEqual((await entry("video", undefined, true)).value, {
-    ...defaults,
-    max_frames: 4,
-  });
-  assert.deepEqual((await entry("video")).value, defaults);
+  assert.equal((await entry("video.max_frames", undefined, true)).value, 4);
+  assert.equal((await entry("video.max_frames")).value, defaults);
+  assert.equal(
+    (await entry("video.input_mode", undefined, true)).value,
+    "direct",
+  );
+  assert.equal((await entry("video.ffmpeg_executable")).value, null);
+  assert.equal(
+    (await client.configuration.describe("video.max_frames")).semanticEffect,
+    "authority_formation",
+  );
+  await assert.rejects(client.configuration.describe("video"));
+  await assert.rejects(
+    client.configuration.setSystem({
+      operationId: randomUUID(),
+      expectedRevision: await revision(),
+      path: "video.max_frames",
+      value: 17,
+    }),
+    /maximum|16/,
+  );
   assert.equal((await entry("maintenance.enabled")).source, "deployment_file");
   const operationId = randomUUID();
   const maintenanceRevision = await revision();
@@ -288,10 +305,19 @@ try {
   current = await boot(locator);
   client = current.client;
   assert.equal((await entry("runtime.resident_limit")).value, 512);
-  assert.deepEqual((await entry("video")).value, {
-    ...defaults,
-    max_frames: 4,
+  assert.equal((await entry("video.max_frames")).value, 4);
+  assert.equal((await entry("video.max_frames")).source, "persisted_system");
+  await client.configuration.clearSystem({
+    operationId: randomUUID(),
+    path: "video.max_frames",
+    expectedRevision: await revision(),
   });
+  assert.equal((await entry("video.max_frames", undefined, true)).value, 6);
+  assert.equal(
+    (await entry("video.max_frames", undefined, true)).source,
+    "deployment_file",
+  );
+  assert.equal((await entry("video.max_frames")).value, 4);
   assert.equal(
     (await entry("runtime.resident_limit")).pendingEffect,
     undefined,

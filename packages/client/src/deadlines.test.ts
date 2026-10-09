@@ -18,19 +18,15 @@ test("a granted opportunity can finish cleanup and acknowledgement before the Cl
       if (method.name === "GetConfiguration")
         return {
           message: create(method.output, {
-            entries: [
-              {
-                path: "core_execution",
-                value: fromJson(ValueSchema, {
-                  opportunity: {
-                    work_timeout_ms: 300000,
-                    cleanup_timeout_ms: 10000,
-                    acknowledgement_timeout_ms: 5000,
-                    response_margin_ms: 1000,
-                  },
-                }),
-              },
-            ],
+            entries: Object.entries({
+              work_timeout_ms: 300000,
+              cleanup_timeout_ms: 10000,
+              acknowledgement_timeout_ms: 5000,
+              response_margin_ms: 1000,
+            }).map(([name, value]) => ({
+              path: `core_execution.opportunity.${name}`,
+              value: fromJson(ValueSchema, value),
+            })),
           }),
         };
       return new Promise((resolve, reject) => {

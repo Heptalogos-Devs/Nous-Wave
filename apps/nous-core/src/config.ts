@@ -17,6 +17,7 @@ import {
   consumersSchema,
   configurationBundle,
   coreExecutionSchema,
+  coreConfigurationGroup,
 } from "./configuration-catalog.js";
 export { CONFIG_REVISION } from "./configuration-catalog.js";
 
@@ -99,10 +100,10 @@ export function parseEffectiveConfiguration(values: Record<string, unknown>) {
   };
   const models = parseOwner("", modelConfigurationSchema, {
     ...parseOwner("models", modelExecutionSchema, values.models),
-    audio: values.audio,
-    video: values.video,
+    audio: coreConfigurationGroup(values, "audio"),
+    video: coreConfigurationGroup(values, "video"),
     material_strategy: values["material.strategy"],
-    material_inputs: values["material.inputs"],
+    material_inputs: coreConfigurationGroup(values, "material.inputs"),
   });
   const consumers = parseOwner("consumers", consumersSchema, values.consumers);
   return {
@@ -110,7 +111,7 @@ export function parseEffectiveConfiguration(values: Record<string, unknown>) {
     execution: parseOwner(
       "core_execution",
       coreExecutionSchema,
-      values.core_execution,
+      coreConfigurationGroup(values, "core_execution"),
     ),
     consumers: consumers.map((c) => ({
       consumerId: c.consumer_id,

@@ -111,13 +111,18 @@ const owners = [
       name === "port" || name === "dotenv_file" ? "standard" : "developer",
     deployment: true,
   })),
-  {
-    path: "core_execution",
-    schema: coreExecutionSchema,
-    default: coreExecutionSchema.parse(undefined),
-    owner: "core-execution",
-    exposure: "developer",
-  },
+  ...fields(
+    "core_execution",
+    coreExecutionSchema.unwrap().shape,
+    "core-execution",
+    "developer",
+  ),
+  ...fields(
+    "core_execution.opportunity",
+    executionOpportunitySchema.unwrap().shape,
+    "core-execution",
+    "developer",
+  ),
   {
     path: "database",
     schema: databaseSchema,
@@ -134,48 +139,49 @@ const owners = [
     exposure: "standard",
     effect: "authority_formation",
   },
-  {
-    path: "audio",
-    schema: modelConfigurationShape.audio,
-    default: modelConfigurationShape.audio.parse(undefined),
-    owner: "core-model",
-    exposure: "advanced",
-  },
-  {
-    path: "video",
-    schema: modelConfigurationShape.video,
-    default: modelConfigurationShape.video.parse(undefined),
-    owner: "core-model",
-    exposure: "advanced",
-  },
+  ...fields(
+    "audio",
+    modelConfigurationShape.audio.unwrap().shape,
+    "core-material",
+    "advanced",
+    "authority_formation",
+  ),
+  ...fields(
+    "video",
+    modelConfigurationShape.video.unwrap().shape,
+    "core-material",
+    "advanced",
+    "authority_formation",
+  ),
   {
     path: "material.strategy",
     schema: modelConfigurationShape.material_strategy,
     default: "description_only",
     owner: "core-material",
     exposure: "standard",
+    effect: "authority_formation",
   },
-  {
-    path: "material.inputs",
-    schema: modelConfigurationShape.material_inputs,
-    default: modelConfigurationShape.material_inputs.parse(undefined),
-    owner: "core-material",
-    exposure: "developer",
-  },
+  ...fields(
+    "material.inputs",
+    modelConfigurationShape.material_inputs.unwrap().shape,
+    "core-material",
+    "developer",
+    "authority_formation",
+  ),
   {
     path: "consumers",
     schema: consumersSchema,
     default: consumersSchema.parse(undefined),
     owner: "core-consumer",
     exposure: "advanced",
+    effect: "query_policy",
   },
-  {
-    path: "consumer_state",
-    schema: consumerStatePolicySchema,
-    default: consumerStatePolicySchema.parse(undefined),
-    owner: "official-consumer",
-    exposure: "advanced",
-  },
+  ...fields(
+    "consumer_state",
+    consumerStatePolicySchema.unwrap().shape,
+    "official-consumer",
+    "advanced",
+  ),
 ] satisfies {
   path: string;
   schema: z.ZodType;
@@ -184,7 +190,73 @@ const owners = [
   exposure: string;
   deployment?: boolean;
   effect?: string;
+  unit?: string;
 }[];
+
+/** Publish independent fields from their actual owner types; the model graph stays atomic. */
+function fields(
+  prefix: string,
+  shape: Record<string, z.ZodType>,
+  owner: string,
+  exposure: string,
+  effect = "operational",
+) {
+  return Object.entries(shape)
+    .filter(
+      ([name]) => !(prefix === "core_execution" && name === "opportunity"),
+    )
+    .map(([name, schema]) => ({
+      path: `${prefix}.${name}`,
+      schema,
+      default: schema.parse(undefined),
+      owner,
+      exposure,
+      effect:
+        prefix === "core_execution" &&
+        ["query_rerank_candidate_limit"].includes(name)
+          ? "query_policy"
+          : effect,
+      unit: name.endsWith("_ms")
+        ? "milliseconds"
+        : name.endsWith("_seconds")
+          ? "seconds"
+          : name.endsWith("_bytes")
+            ? "bytes"
+            : undefined,
+    }));
+}
+
+/** Read deployment values through the same registered paths for offline owner inspection. */
+export function coreConfigurationValues(document: Record<string, unknown>) {
+  return Object.fromEntries(
+    owners.map((owner) => {
+      let value: unknown = document;
+      for (const part of owner.path.split("."))
+        value =
+          value && typeof value === "object" && !Array.isArray(value)
+            ? (value as Record<string, unknown>)[part]
+            : undefined;
+      return [owner.path, owner.schema.parse(value)];
+    }),
+  );
+}
+
+/** Reassemble one typed group from Kernel-resolved leaf values. */
+export function coreConfigurationGroup(
+  values: Record<string, unknown>,
+  prefix: string,
+) {
+  const group: Record<string, unknown> = {};
+  for (const owner of owners) {
+    if (!owner.path.startsWith(`${prefix}.`)) continue;
+    const parts = owner.path.slice(prefix.length + 1).split(".");
+    let target = group;
+    for (const part of parts.slice(0, -1))
+      target = (target[part] ??= {}) as Record<string, unknown>;
+    target[parts.at(-1)!] = values[owner.path];
+  }
+  return group;
+}
 
 /** Owner Zod schemas are the sole TypeScript type/JSON Schema source. */
 function coreDescriptors() {
@@ -204,7 +276,7 @@ function coreDescriptors() {
     storage_policy: "deployment" in owner ? "deployment_only" : "overrideable",
     apply_mode: "restart_process",
     semantic_effect: "effect" in owner ? owner.effect : "operational",
-    unit: null,
+    unit: "unit" in owner ? (owner.unit ?? null) : null,
     sensitivity: ["models", "database"].includes(owner.path)
       ? "credential_reference"
       : "normal",

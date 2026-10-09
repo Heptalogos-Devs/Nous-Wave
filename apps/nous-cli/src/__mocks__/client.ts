@@ -19,20 +19,18 @@ function consumerClient(value: Connection): Connection {
     configuration: {
       ...value.configuration,
       get: async (input, options) =>
-        input.paths?.includes("consumer_state")
+        input.paths?.includes("consumer_state.receipt_limit")
           ? {
               catalogDigest: "test",
               configurationRevision: 1n,
               effectiveDigest: "test",
-              entries: [
-                {
-                  path: "consumer_state",
-                  value: policy,
-                  source: "reference_default",
-                  owner: "official-consumer",
-                  applyMode: "restart_process",
-                },
-              ],
+              entries: Object.entries(policy).map(([name, fieldValue]) => ({
+                path: `consumer_state.${name}`,
+                value: fieldValue,
+                source: "reference_default",
+                owner: "official-consumer",
+                applyMode: "restart_process",
+              })),
             }
           : value.configuration.get(input, options),
     },

@@ -6,6 +6,7 @@ import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import {
   executionOpportunitySchema,
   executionEnvelope,
+  executionOpportunityPaths,
 } from "./execution-policy.js";
 export {
   ConfigExposure,
@@ -164,25 +165,23 @@ export function createNousClient(transport: Transport) {
   ) => {
     const snapshot = await configuration.getConfiguration(
       {
-        paths: ["core_execution"],
+        paths: executionOpportunityPaths,
         view: ConfigurationView.ACTIVE,
         exposureCeiling: ConfigExposure.DEVELOPER,
       },
       options,
     );
-    const entry = snapshot.entries.find(
-      (value) => value.path === "core_execution",
-    );
-    const value = entry?.value && toJson(ValueSchema, entry.value);
-    if (
-      !value ||
-      typeof value !== "object" ||
-      Array.isArray(value) ||
-      !("opportunity" in value)
-    )
-      throw new Error("Active Core execution policy unavailable");
+    const values = executionOpportunityPaths.map((path) => {
+      const entry = snapshot.entries.find((value) => value.path === path);
+      if (!entry?.value)
+        throw new Error(`Active Core execution policy unavailable: ${path}`);
+      return [
+        path.slice("core_execution.opportunity.".length),
+        toJson(ValueSchema, entry.value),
+      ];
+    });
     return executionEnvelope(
-      executionOpportunitySchema.parse(value.opportunity),
+      executionOpportunitySchema.parse(Object.fromEntries(values)),
       workMs,
     ).responseTimeoutMs;
   };

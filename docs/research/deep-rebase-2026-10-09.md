@@ -110,3 +110,11 @@ Fresh Codex 第三次在同一 Subject/WorkContext 完成真实续接。531 字�
 公开配置 smoke 先复现旧 Kernel 接受过期 expected revision、覆盖整块模型图的缺陷。当前 canonical Proto、Official Client、CLI 和研究调用方共同携带 expected revision；公开 mutation 缺字段返回输入错误，CLI 写入要求先读取 desired revision 并显式提交，避免重试时重新读取修订而改变请求身份。Kernel 在配置事务内比较并递增全局 revision；冲突不写 override、不推进 revision，已完成原请求先读取冻结回执。
 
 实际 PostgreSQL 集成检查验证同一 revision 的两项并发写入只有一项成功、过期 clear 不删除获胜值，后续修改后仍重放原 operation 的 outcome；该 owner 检查同时保留独立字段无条件内部写入的串行完整快照合同。公共 Core/Kernel/PG 与 CLI smoke 验证过期模型图拒绝且 desired 不变、CLI 缺 revision 拒绝、过期 clear 拒绝、Subject 修改后原 CLI operation 可重放，并完成 restart readback。configuration 五项集成检查、TS34文件112checks、check:fast 和 Rust workspace all-targets/all-features check 通过。独立 leaf、effect/apply 与完整 Portable 等原目标仍未完成。
+
+## 独立配置字段与实际消费者
+
+Catalog 检查先确认 `video.max_frames` 等真实叶路径不存在。当前 audio/video、Material inputs、Core execution/opportunity 和 official consumer state 的独立字段直接使用原 Zod owner 发布 descriptor，不再注册重叠 parent；模型引用图保持一个完整原子 policy。Core 从 Kernel 已解析叶值重组 typed group，Client deadline 与 CLI consumer state 读取同一 active 叶值；离线检查和研究合同 inspection 共用 registered owner 路径提取部署值，删除重复 material 字段拼装。单位随字段发布，媒体/Material 标注 authority formation、consumer composition/rerank candidate budget 标注 query policy，实际仍需要重启的参数继续返回 RestartProcess。
+
+FFmpeg executable reference 使用 null 作为已安装 runtime pack 的明确选择；string 是显式引用，空 string 非法。公共配置检查实际验证 max_frames 的独立范围、另一个 input_mode 保留默认、旧 parent 不可 describe、单字段 override 重启生效，以及清除该 override 后 desired 回落到部署值而 active 保留原值。公共模型/材料/资源、两种媒体能力、work deadline cleanup/resume 与纵向 Query/维护检查通过，TS34文件112checks、check:fast、Knip 与依赖检查通过。
+
+只对本轮持续 Core 正常停机并换用 SHA-256 核对的当前 Kernel 副本后重启；实例 ID 保持 `ffe03b02-8997-476e-b8d1-370e88aac1a2`，新 endpoint 为 `http://127.0.0.1:38930`。active opportunity 四个叶值读回 300000/10000/5000/1000ms，Subject/Runtime/Memory 和11个 model roles READY；atomic models 仍为6个 model/11个 execution profile。真实 CLI 指定原 Subject/WorkContext 后读回 revision7/open。首次未指定 Subject 的默认 consumer 查询被明确拒绝，没有修改选择或认知状态。旧实例和 Linux 硬盘未清理；完整 Portable、只读批量地址呈现、其余 owner/fresh SQL 重整与原目标仍待完成。

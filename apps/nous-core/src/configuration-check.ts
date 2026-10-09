@@ -5,7 +5,10 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { configurationBundle } from "./configuration-catalog.js";
+import {
+  configurationBundle,
+  coreConfigurationValues,
+} from "./configuration-catalog.js";
 import { join, resolve } from "node:path";
 import { stat, mkdir, writeFile, rm } from "node:fs/promises";
 import {
@@ -33,15 +36,9 @@ export async function checkConfiguration(
       locations,
       development,
     );
-    const { models } = parseEffectiveConfiguration({
-      ...document,
-      "material.inputs": (
-        document.material as Record<string, unknown> | undefined
-      )?.inputs,
-      "material.strategy": (
-        document.material as Record<string, unknown> | undefined
-      )?.strategy,
-    });
+    const { models } = parseEffectiveConfiguration(
+      coreConfigurationValues(document),
+    );
     const prompts = new PromptRegistry(
       join(locations.program, "prompts"),
       join(locations.config, "prompts"),

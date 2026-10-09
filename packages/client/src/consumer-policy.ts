@@ -12,3 +12,6 @@ export const consumerStatePolicySchema = z
   })
   .prefault({});
 export type ConsumerStatePolicy = z.infer<typeof consumerStatePolicySchema>;
+export const consumerStatePaths = Object.keys(
+  consumerStatePolicySchema.unwrap().shape,
+).map((name) => `consumer_state.${name}`);

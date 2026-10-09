@@ -70,7 +70,9 @@ Prompt 默认来自 ProgramRoot/prompts；配置可使用 `config-prompts/` 前�
 
 `audio.input_mode` 为 `direct`（默认）或 `transcription`。Direct 将原始 Artifact bytes 作为 chat 的 `input_audio` 发送；transcription 需要 speech_transcription role。
 
-CLI Catalog descriptor 为整块 `video`：使用 `nous config describe video` 和 `nous config get video`；`input_mode` 是该对象中的字段，不是独立配置 path。通过 `config set video <完整 JSON 对象> --expected-revision <configurationRevision>` 修改时保留原有边界，system-only 修改需要按回执重启进程。
+独立字段具有真实叶路径，例如 `video.input_mode`、`video.max_frames`、`audio.max_source_bytes`、`material.inputs.formation_source_max_bytes`、`core_execution.opportunity.work_timeout_ms` 与 `consumer_state.receipt_limit`。`config describe video.max_frames` 直接返回该字段的范围与默认值；`config set video.max_frames 4 --expected-revision <configurationRevision>` 只覆盖该字段，其他字段保留各自来源。Catalog 不同时注册这些字段的 parent。媒体、Material 输入和策略影响 Authority formation；consumer composition 和 rerank candidate budget 标注 Query policy，其余基础设施预算标注 operational。当前这些 Core 参数仍实际使用 RestartProcess，按回执重启后生效。
+
+`video.ffmpeg_executable` 默认显式 null，表示使用 RuntimeRoot 已安装 FFmpeg pack；string 表示 ConfigurationRoot 下的显式 executable。清除 override 回落到部署值或 reference default，显式 null 覆盖部署的 executable，空 string 非法。模型图中的空 profile map 是明确空集合，省略字段则由 owning graph 填入默认值。
 
 `video.input_mode` 为 `direct`（默认）或 `frames`。Direct 将原始 Artifact bytes 作为 chat 的 `video_url` 发送；frames 使用有界 FFmpeg 抽帧与可选音轨转写。FFmpeg 来自显式 executable 或当前 RuntimeRoot 已安装 pack。两种 mode 都受来源字节上限约束；frames 另受时长、帧数、单帧、音频与进程时限约束。没有隐式模式回退。frames 的实验观测见 [Research](../research/README.md)。
 

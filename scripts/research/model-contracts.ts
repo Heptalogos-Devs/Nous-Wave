@@ -4,6 +4,7 @@
 import { parseArgs } from "node:util";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
+import { coreConfigurationValues } from "../../apps/nous-core/src/configuration-catalog.js";
 import {
   parseConfiguration,
   parseEffectiveConfiguration,
@@ -43,12 +44,9 @@ if (values.config) {
     await readFile(resolve(values.config), "utf8"),
     true,
   );
-  configuration = parseEffectiveConfiguration({
-    ...document,
-    "material.strategy": (
-      document.material as Record<string, unknown> | undefined
-    )?.strategy,
-  }).models;
+  configuration = parseEffectiveConfiguration(
+    coreConfigurationValues(document),
+  ).models;
 }
 const prompts = new PromptRegistry(
   resolve(values["prompt-root"]!),

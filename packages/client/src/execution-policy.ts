@@ -16,6 +16,9 @@ export const executionOpportunitySchema = z
 export type ExecutionOpportunityPolicy = z.infer<
   typeof executionOpportunitySchema
 >;
+export const executionOpportunityPaths = Object.keys(
+  executionOpportunitySchema.unwrap().shape,
+).map((name) => `core_execution.opportunity.${name}`);
 
 export function executionLeaseSeconds(
   policy: ExecutionOpportunityPolicy,

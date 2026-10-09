@@ -6,6 +6,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { MaintenancePlanSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
+import { coreConfigurationValues } from "../../apps/nous-core/src/configuration-catalog.js";
 import {
   parseConfiguration,
   parseEffectiveConfiguration,
@@ -111,12 +112,9 @@ async function run() {
     await readFile(resolve(values.config), "utf8"),
     true,
   );
-  const { models: configuration } = parseEffectiveConfiguration({
-    ...document,
-    "material.strategy": (
-      document.material as Record<string, unknown> | undefined
-    )?.strategy,
-  });
+  const { models: configuration } = parseEffectiveConfiguration(
+    coreConfigurationValues(document),
+  );
   const models = await ModelRuntime.fromConfig(
     configuration,
     resolve(values["prompt-root"]!),
