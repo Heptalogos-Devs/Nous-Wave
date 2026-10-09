@@ -4,6 +4,9 @@ import { CliError, boundedInteger } from "./agent.js";
 import type { CliEnvironment } from "./runtime.js";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { restoreProtocolData, clientDataSchemas } from "@nous-wave/client/data";
+const { CognitiveRefSchema, WorkContextSchema, SessionSchema } =
+  clientDataSchemas;
 const cognitionKinds = new Set([
   "memory_revision",
   "cognitive_schema_revision",
@@ -51,7 +54,7 @@ export async function queryCommands(
           work_context_id: string;
           revision: number;
           purpose: string;
-          cognition_anchors: unknown[];
+          cognition_anchors: { kind: string; id: string }[];
           entity_anchors: string[];
           tag_anchors: string[];
         };
@@ -80,20 +83,47 @@ export async function queryCommands(
       },
       context: {
         digest: bound.context_snapshot?.digest,
-        purpose: bound.context_snapshot?.work_context?.purpose,
-        workContextId: bound.context_snapshot?.work_context?.work_context_id,
-        workContextRevision: bound.context_snapshot?.work_context?.revision,
-        cognitionAnchors:
-          bound.context_snapshot?.work_context?.cognition_anchors,
-        entities: bound.context_snapshot?.work_context?.entity_anchors,
-        tags: bound.context_snapshot?.work_context?.tag_anchors,
-        sessionId: bound.context_snapshot?.session?.session_id,
-        residentCount: bound.context_snapshot?.session?.resident.length,
+        workContext:
+          bound.context_snapshot?.work_context &&
+          restoreProtocolData(
+            {
+              workContextId:
+                bound.context_snapshot.work_context.work_context_id,
+              revision: bound.context_snapshot.work_context.revision,
+              purpose: bound.context_snapshot.work_context.purpose,
+              cognitionAnchors:
+                bound.context_snapshot.work_context.cognition_anchors.map(
+                  (reference) =>
+                    restoreProtocolData(
+                      { kind: reference.kind, value: reference.id },
+                      CognitiveRefSchema,
+                    ),
+                ),
+              entityAnchors: bound.context_snapshot.work_context.entity_anchors,
+              tagAnchors: bound.context_snapshot.work_context.tag_anchors,
+            },
+            WorkContextSchema,
+          ),
+        session:
+          bound.context_snapshot?.session &&
+          restoreProtocolData(
+            {
+              sessionId: bound.context_snapshot.session.session_id,
+              runtimeRevision: bound.context_snapshot.session.runtime_revision,
+              residentCount: bound.context_snapshot.session.resident.length,
+            },
+            SessionSchema,
+          ),
         historyExclusions: bound.context_snapshot?.history_exclusions,
       },
       activation: {
-        queryAndContextTags: bound.query_activation?.explicit_tags,
-        inferredTags: bound.query_activation?.inferred_tags,
+        queryAndContextTags: bound.query_activation?.explicit_tags?.map(
+          (value) =>
+            restoreProtocolData({ kind: "tag", value }, CognitiveRefSchema),
+        ),
+        inferredTags: bound.query_activation?.inferred_tags?.map((value) =>
+          restoreProtocolData({ kind: "tag", value }, CognitiveRefSchema),
+        ),
         modelCalls: bound.query_activation?.model_calls,
       },
       projection: bound.result_projection,
@@ -133,7 +163,7 @@ export async function queryCommands(
     results: response.hits.map((hit, index) => ({
       lexicalRef: hit.lexicalRef,
       result: `result:${index + 1}`,
-      ref: `${refs[index]!.kind}:${refs[index]!.value}`,
+      ref: refs[index],
       text: hit.text,
       authority: hit.authority,
       cognitiveRole: hit.cognitiveRole,
@@ -156,12 +186,21 @@ export async function queryCommands(
     })),
     resourceRecords: response.resourceRecords,
     resourceActions: response.resourceActions,
-    diagnostics: response.diagnostics && {
-      ...response.diagnostics,
-      ...(response.diagnostics.trace
-        ? { trace: JSON.parse(response.diagnostics.trace) as unknown }
-        : {}),
-    },
+    diagnostics:
+      response.diagnostics &&
+      (values.developer
+        ? {
+            ...response.diagnostics,
+            ...(response.diagnostics.trace
+              ? { trace: JSON.parse(response.diagnostics.trace) as unknown }
+              : {}),
+          }
+        : {
+            candidateCounts: response.diagnostics.candidateCounts,
+            laneStatus: response.diagnostics.laneStatus,
+            topologyComplete: response.diagnostics.topologyComplete,
+            topologyDiscardedMass: response.diagnostics.topologyDiscardedMass,
+          }),
     degradation: response.degradation,
   };
 }

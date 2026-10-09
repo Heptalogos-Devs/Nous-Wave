@@ -511,6 +511,17 @@ impl MemoryService {
                 .await?;
             sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)").bind(child_id.0).bind(subject.0).bind(child_revision.0).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
             sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(child_revision.0).bind(child_id.0).bind(&child.title).bind(&child.structural_claim).bind(&child.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&child.boundary_definition).bind(child.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(now).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
+            self.store
+                .ensure_identity_addresses_in(
+                    mutation.tx(),
+                    subject,
+                    &[
+                        CognitiveRef::CognitiveSchema(child_id),
+                        CognitiveRef::CognitiveSchemaRevision(child_revision),
+                    ],
+                    child.title.as_deref().unwrap_or(""),
+                )
+                .await?;
             for link in child.evidence_links {
                 self.insert_schema_link(mutation.tx(), subject, child_revision, link)
                     .await?;
@@ -669,6 +680,17 @@ impl MemoryService {
             .collect::<Vec<_>>();
         sqlx::query("INSERT INTO cognitive_schemas(schema_id,subject_id,current_revision_id,object_epoch,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,1,'accepted','valid','normal','normal',$4)").bind(new_id.0).bind(subject.0).bind(new_revision.0).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
         sqlx::query("INSERT INTO cognitive_schema_revisions(schema_revision_id,schema_id,revision_no,title,structural_claim,applicability_description,aboutness,tags,boundary_definition,formation_kind,valid_time_kind,valid_time_start,valid_time_end,formed_at,recorded_at) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)").bind(new_revision.0).bind(new_id.0).bind(&merged.title).bind(&merged.structural_claim).bind(&merged.applicability_scope.description).bind(&aboutness).bind(&tags).bind(&merged.boundary_definition).bind(merged.formation_kind.as_str()).bind(kind).bind(start).bind(end).bind(now).bind(now).execute(&mut **mutation.tx()).await.map_err(db)?;
+        self.store
+            .ensure_identity_addresses_in(
+                mutation.tx(),
+                subject,
+                &[
+                    CognitiveRef::CognitiveSchema(new_id),
+                    CognitiveRef::CognitiveSchemaRevision(new_revision),
+                ],
+                merged.title.as_deref().unwrap_or(""),
+            )
+            .await?;
         for link in merged_links.into_values() {
             self.insert_schema_link(mutation.tx(), subject, new_revision, link)
                 .await?;

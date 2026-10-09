@@ -5,6 +5,17 @@ use super::*;
 use sqlx::{Postgres, Transaction};
 use std::collections::BTreeSet;
 
+struct JournalRevisionWrite {
+    journal: JournalId,
+    revision: JournalRevisionId,
+    parent: Option<JournalRevisionId>,
+    revision_no: i32,
+    source_extent: TemporalExtent,
+    formed: DateTime<Utc>,
+    recorded: DateTime<Utc>,
+    producer: Option<Uuid>,
+}
+
 impl MemoryService {
     pub async fn commit_journal(&self, input: JournalInput) -> Result<JournalView> {
         validate_journal(&input)?;
@@ -69,20 +80,21 @@ impl MemoryService {
             None
         };
         let revision = JournalRevisionId::new();
-        if parent.is_none() {
-            sqlx::query("INSERT INTO journal_objects(journal_id,subject_id,current_revision_id,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,'accepted','valid','normal','normal',$4)")
-                .bind(journal.0).bind(input.subject.0).bind(revision.0).bind(recorded).execute(&mut **mutation.tx()).await.map_err(db)?;
-        }
-        let (kind, start, end) = temporal_columns(&source_extent);
-        sqlx::query("INSERT INTO journal_revisions(journal_revision_id,journal_id,subject_id,revision_no,parent_revision_id,revision_intent,title,temporal_scope_kind,temporal_scope_start,temporal_scope_end,narrative,formed_at,recorded_at,producer_signature_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)")
-            .bind(revision.0).bind(journal.0).bind(input.subject.0).bind(revision_no).bind(parent.map(|id|id.0)).bind(input.target.as_ref().map(|target|&target.intent)).bind(&input.title).bind(kind).bind(start).bind(end).bind(&input.narrative).bind(formed).bind(recorded).bind(producer).execute(&mut **mutation.tx()).await.map_err(db)?;
-        insert_journal_points(mutation.tx(), revision, &input.points).await?;
-        for source in &input.sources {
-            sqlx::query("INSERT INTO journal_revision_sources(journal_revision_id,ref_kind,ref_value,source_epoch) VALUES($1,'episode_revision',$2,$3)")
-                .bind(revision.0).bind(source.revision.0.to_string()).bind(source.expected_epoch).execute(&mut **mutation.tx()).await.map_err(db)?;
-        }
-        sqlx::query("UPDATE journal_objects SET current_revision_id=$2,object_epoch=object_epoch+CASE WHEN $3 THEN 1 ELSE 0 END,integrity_state='valid' WHERE journal_id=$1")
-            .bind(journal.0).bind(revision.0).bind(parent.is_some()).execute(&mut **mutation.tx()).await.map_err(db)?;
+        self.write_journal_revision_in(
+            mutation.tx(),
+            &input,
+            JournalRevisionWrite {
+                journal,
+                revision,
+                parent,
+                revision_no,
+                source_extent,
+                formed,
+                recorded,
+                producer,
+            },
+        )
+        .await?;
         let sequence = mutation.invalidate(ProjectionInvalidation::text()).await?;
         self.enqueue_concept_in(
             mutation.tx(),
@@ -122,6 +134,49 @@ impl MemoryService {
             )
             .await?;
         self.journal(input.subject, journal, Some(revision)).await
+    }
+    async fn write_journal_revision_in(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        input: &JournalInput,
+        write: JournalRevisionWrite,
+    ) -> Result<()> {
+        let JournalRevisionWrite {
+            journal,
+            revision,
+            parent,
+            revision_no,
+            source_extent,
+            formed,
+            recorded,
+            producer,
+        } = write;
+        if parent.is_none() {
+            sqlx::query("INSERT INTO journal_objects(journal_id,subject_id,current_revision_id,acceptance_state,integrity_state,suppression_state,purge_state,created_at) VALUES($1,$2,$3,'accepted','valid','normal','normal',$4)")
+                .bind(journal.0).bind(input.subject.0).bind(revision.0).bind(recorded).execute(&mut **tx).await.map_err(db)?;
+        }
+        let (kind, start, end) = temporal_columns(&source_extent);
+        sqlx::query("INSERT INTO journal_revisions(journal_revision_id,journal_id,subject_id,revision_no,parent_revision_id,revision_intent,title,temporal_scope_kind,temporal_scope_start,temporal_scope_end,narrative,formed_at,recorded_at,producer_signature_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)")
+            .bind(revision.0).bind(journal.0).bind(input.subject.0).bind(revision_no).bind(parent.map(|id|id.0)).bind(input.target.as_ref().map(|target|&target.intent)).bind(&input.title).bind(kind).bind(start).bind(end).bind(&input.narrative).bind(formed).bind(recorded).bind(producer).execute(&mut **tx).await.map_err(db)?;
+        insert_journal_points(tx, revision, &input.points).await?;
+        self.store
+            .ensure_identity_addresses_in(
+                tx,
+                input.subject,
+                &[
+                    CognitiveRef::Journal(journal),
+                    CognitiveRef::JournalRevision(revision),
+                ],
+                input.title.as_deref().unwrap_or(""),
+            )
+            .await?;
+        for source in &input.sources {
+            sqlx::query("INSERT INTO journal_revision_sources(journal_revision_id,ref_kind,ref_value,source_epoch) VALUES($1,'episode_revision',$2,$3)")
+                .bind(revision.0).bind(source.revision.0.to_string()).bind(source.expected_epoch).execute(&mut **tx).await.map_err(db)?;
+        }
+        sqlx::query("UPDATE journal_objects SET current_revision_id=$2,object_epoch=object_epoch+CASE WHEN $3 THEN 1 ELSE 0 END,integrity_state='valid' WHERE journal_id=$1")
+            .bind(journal.0).bind(revision.0).bind(parent.is_some()).execute(&mut **tx).await.map_err(db)?;
+        Ok(())
     }
     async fn schedule_journal_consolidation_in(
         &self,

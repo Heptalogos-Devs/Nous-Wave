@@ -183,6 +183,9 @@ impl MemoryService {
                 .await
                 .map_err(db)?;
         }
+        self.store
+            .ensure_identity_addresses_in(tx, subject, &[CognitiveRef::Association(id)], "")
+            .await?;
         Ok(id)
     }
     /// Bounded undirected read of active, supported AssociationEvidence.

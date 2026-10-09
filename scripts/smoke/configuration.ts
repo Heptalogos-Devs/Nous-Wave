@@ -32,6 +32,23 @@ try {
   );
   current = await boot(locator);
   let client = current.client;
+  const firstSubject = await promisify(execFile)(
+    process.execPath,
+    [
+      join(locations.program, "node_modules/tsx/dist/cli.mjs"),
+      join(locations.program, "apps/nous-core/src/launcher.ts"),
+      "--development",
+      "--locator",
+      locator,
+      "subject",
+      "create",
+    ],
+    { maxBuffer: 2 * 1024 * 1024, windowsHide: true },
+  );
+  assert.match(
+    firstSubject.stdout,
+    /subjectId: sub:[bdfghjklmnprstvz][aiou][bdfghjklmnprstvz][aiou][bdfghjklmnprstvz]-/,
+  );
   const cli = async (...args: string[]) => {
     const result = await promisify(execFile)(
       process.execPath,
@@ -156,7 +173,18 @@ try {
         capabilities: ["text", "structured_output"],
       },
     },
-    execution_profiles: { primary: { model: "chat" } },
+    execution_profiles: {
+      primary: {
+        model: "chat",
+        provider_options: {
+          test: {
+            $typeName: "original JSON",
+            $unknown: ["memory:33333333-3333-4333-8333-333333333333"],
+            subjectId: "33333333-3333-4333-8333-333333333333",
+          },
+        },
+      },
+    },
     roles: { memory_formation: { routes: ["primary"] } },
   };
   const graphOperation = randomUUID();
@@ -183,7 +211,7 @@ try {
     {
       model: "chat",
       reasoning: "provider-default",
-      provider_options: {},
+      provider_options: modelGraph.execution_profiles.primary.provider_options,
       max_output_tokens: 4096,
       timeout_ms: 30000,
     },

@@ -211,6 +211,17 @@ impl MemoryService {
             self.insert_schema_link(tx, input.subject, write.revision_id, link.clone())
                 .await?;
         }
+        self.store
+            .ensure_identity_addresses_in(
+                tx,
+                input.subject,
+                &[
+                    CognitiveRef::CognitiveSchema(write.schema_id),
+                    CognitiveRef::CognitiveSchemaRevision(write.revision_id),
+                ],
+                input.title.as_deref().unwrap_or(""),
+            )
+            .await?;
         Ok(())
     }
 }

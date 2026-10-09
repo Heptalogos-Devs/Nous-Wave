@@ -172,6 +172,16 @@ impl CognitiveRuntimeService {
         .map_err(db)?;
         insert_refs(&mut tx, work_context_id, &input.cognition_anchors).await?;
         insert_typed_anchors(&mut tx, work_context_id, &typed).await?;
+        self.store
+            .ensure_identity_addresses_in(
+                &mut tx,
+                input.subject,
+                &[CognitiveRef::WorkContext(nous_core::WorkContextId(
+                    work_context_id,
+                ))],
+                &input.purpose,
+            )
+            .await?;
         commit_receipt(
             &mut tx,
             input.subject,

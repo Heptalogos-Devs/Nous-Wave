@@ -11,6 +11,9 @@ import { cliState } from "./state.js";
 import { identity, policy } from "./__mocks__/client.js";
 import { repositoryRoot } from "../../../scripts/workspace.js";
 import { pathToFileURL } from "node:url";
+import { create } from "@bufbuild/protobuf";
+import { SubjectSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
+import { protocolData, protocolSchema } from "@nous-wave/client/data";
 
 test("frozen request codecs preserve BigInt separately from arbitrary JSON keys", async () => {
   const root = await mkdtemp(join(workspacePaths.temporary, "consumer-codec-"));
@@ -24,6 +27,37 @@ test("frozen request codecs preserve BigInt separately from arbitrary JSON keys"
       status: "pending",
     });
     expect((await state.receipt("operation")).request).toEqual(request);
+    const body = {
+      $typeName: "google.protobuf.Struct",
+      $unknown: "original JSON",
+      subjectId: "33333333-3333-4333-8333-333333333333",
+    };
+    const result = protocolData(
+      create(SubjectSchema, {
+        subjectId: body.subjectId,
+        metadata: body,
+        createdAt: { seconds: 123n, nanos: 0 },
+      }),
+    );
+    expect(result.metadata).toEqual(body);
+    await state.writeReceipt("operation", {
+      format: "nous.consumer.operation",
+      name: "context.update",
+      request,
+      status: "complete",
+      result,
+    });
+    const receipt = await state.receipt("operation");
+    expect(receipt.status).toBe("complete");
+    if (receipt.status !== "complete")
+      throw new Error("Completion receipt missing");
+    expect(protocolSchema(receipt.result)?.typeName).toBe(
+      "nous.wave.v1alpha1.Subject",
+    );
+    expect(receipt.result).toEqual(result);
+    expect(
+      protocolSchema((receipt.result as { metadata: unknown }).metadata),
+    ).toBeUndefined();
   } finally {
     await rm(root, { recursive: true, force: true });
   }

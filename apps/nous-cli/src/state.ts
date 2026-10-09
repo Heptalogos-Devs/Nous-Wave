@@ -11,6 +11,11 @@ import writeAtomic from "write-file-atomic";
 import { z } from "zod";
 import type { ConsumerStatePolicy } from "@nous-wave/client/consumer-policy";
 import { CliError } from "./agent.js";
+import {
+  protocolSchema,
+  protocolSchemaByName,
+  restoreProtocolData,
+} from "@nous-wave/client/data";
 
 const reference = z.strictObject({
   kind: z.string().max(64),
@@ -94,10 +99,27 @@ export function cliState(
         "INVALID_ARGUMENT",
         "Consumer state exceeds its configured byte budget",
       );
-    return parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    return parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes), {
+      ProtocolData: ([name, value]: [string, unknown]) => {
+        const schema = protocolSchemaByName(name);
+        if (!schema)
+          throw new CliError(
+            "INVALID_ARGUMENT",
+            "Stored protocol data type is unavailable",
+          );
+        return restoreProtocolData(value, schema);
+      },
+    });
   };
   const write = async (path: string, value: unknown) => {
-    const text = stringify(value);
+    const text = stringify(value, {
+      ProtocolData: (member) => {
+        const schema = protocolSchema(member);
+        return schema
+          ? [schema.typeName, { ...(member as object) }]
+          : undefined;
+      },
+    });
     if (Buffer.byteLength(text) > policy.file_max_bytes)
       throw new CliError(
         "RESOURCE_EXHAUSTED",

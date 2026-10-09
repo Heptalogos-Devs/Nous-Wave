@@ -3,6 +3,7 @@
 
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
+import { protocolData as plain, type Data } from "./data.js";
 import {
   executionOpportunitySchema,
   executionEnvelope,
@@ -16,7 +17,6 @@ import {
   ConfigurationService,
   ConfigurationView,
   ConfigExposure,
-  type ConfigDescriptor,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import {
   createClient,
@@ -60,14 +60,6 @@ import {
 } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { ModelService } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 
-// Transport metadata is removed at the official Client boundary.
-type Data<T> = T extends Uint8Array
-  ? Uint8Array
-  : T extends readonly (infer I)[]
-    ? Data<I>[]
-    : T extends object
-      ? { [K in keyof T as K extends `$${string}` ? never : K]: Data<T[K]> }
-      : T;
 export interface RequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -81,28 +73,13 @@ export class NousError extends Error {
     this.name = "NousError";
     this.code = error.code;
     const identity = error.findDetails(ResolveIdentityResponseSchema);
-    this.details = identity.length ? identity.map(plain) : error.details;
+    this.details = identity.length
+      ? identity.map((value) => plain(value))
+      : error.details;
     this.candidates = identity.flatMap((detail) =>
-      detail.candidates.map(plain),
+      detail.candidates.map((value) => plain(value)),
     );
   }
-}
-function plain<T>(value: T): Data<T> {
-  if (value instanceof Uint8Array) return value as Data<T>;
-  if (Array.isArray(value)) return value.map(plain) as Data<T>;
-  if (value !== null && typeof value === "object")
-    return Object.fromEntries(
-      Object.entries(value)
-        .filter(
-          ([key]) =>
-            !(
-              "$typeName" in value &&
-              (key === "$typeName" || key === "$unknown")
-            ),
-        )
-        .map(([key, val]) => [key, plain(val)]),
-    ) as Data<T>;
-  return value as Data<T>;
 }
 function call<I, O>(
   method: (input: I, options?: CallOptions) => Promise<O>,
@@ -126,15 +103,6 @@ function call<I, O>(
       if (error instanceof ConnectError) throw new NousError(error);
       throw error;
     }
-  };
-}
-function configurationDescriptor(d: ConfigDescriptor) {
-  return {
-    ...d,
-    jsonSchema: d.jsonSchema ? toJson(ValueSchema, d.jsonSchema) : null,
-    referenceDefault: d.referenceDefault
-      ? toJson(ValueSchema, d.referenceDefault)
-      : null,
   };
 }
 export interface ConfigurationMutation {
@@ -187,41 +155,11 @@ export function createNousClient(transport: Transport) {
   };
   return {
     configuration: {
-      list: call(
-        async (
-          input: Parameters<typeof configuration.listConfigDescriptors>[0],
-          options?: CallOptions,
-        ) => {
-          const result = await configuration.listConfigDescriptors(
-            input,
-            options,
-          );
-          return {
-            ...result,
-            descriptors: result.descriptors.map(configurationDescriptor),
-          };
-        },
-      ),
+      list: call(configuration.listConfigDescriptors),
       describe: call(async (path: string, options?: CallOptions) =>
-        configurationDescriptor(
-          await configuration.getConfigDescriptor({ path }, options),
-        ),
+        configuration.getConfigDescriptor({ path }, options),
       ),
-      get: call(
-        async (
-          input: Parameters<typeof configuration.getConfiguration>[0],
-          options?: CallOptions,
-        ) => {
-          const result = await configuration.getConfiguration(input, options);
-          return {
-            ...result,
-            entries: result.entries.map((entry) => ({
-              ...entry,
-              value: entry.value ? toJson(ValueSchema, entry.value) : null,
-            })),
-          };
-        },
-      ),
+      get: call(configuration.getConfiguration),
       setSystem: call((input: ConfigurationOverride, options?: CallOptions) =>
         configuration.setSystemOverride(
           { ...input, value: fromJson(ValueSchema, input.value) },

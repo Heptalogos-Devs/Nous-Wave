@@ -191,6 +191,7 @@ impl MemoryService {
                     .bind(episode.0).bind(input.subject.0).bind(&track).bind(revision.0).bind(recorded_at).execute(&mut **tx).await.map_err(db)?;
             }
             insert_episode_revision_with_intent(
+                &self.store,
                 tx,
                 &payload,
                 episode,

@@ -248,7 +248,7 @@ it("renders Evidence/Resource and mixed hits while preserving each owner continu
         data: {
           results: selection.map((ref, index) => ({
             result: `result:${index + 1}`,
-            ref: `${ref.kind}:${ref.value}`,
+            ref,
           })),
           resourceRecords: [{ reference: { entryId: "external-source" } }],
         },

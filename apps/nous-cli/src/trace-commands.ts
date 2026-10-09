@@ -4,6 +4,8 @@
 import { CliError } from "./agent.js";
 import type { NousClient } from "@nous-wave/client";
 import type { CliEnvironment } from "./runtime.js";
+import { restoreProtocolData, clientDataSchemas } from "@nous-wave/client/data";
+const { CognitiveRefSchema } = clientDataSchemas;
 
 export async function traceCommands(
   env: CliEnvironment,
@@ -70,7 +72,10 @@ export async function traceCommands(
         subjectId,
         id: materialRef.value,
       });
-      derivations.push({ reference: materialRef, representation });
+      derivations.push({
+        reference: restoreProtocolData({ ...materialRef }, CognitiveRefSchema),
+        representation,
+      });
       for (const ancestor of representation.inputs)
         if (ancestor.reference) await traceMaterial(ancestor.reference);
     } else if (materialRef.kind === "derived_region") {
@@ -78,7 +83,10 @@ export async function traceCommands(
         subjectId,
         id: materialRef.value,
       });
-      derivations.push({ reference: materialRef, region });
+      derivations.push({
+        reference: restoreProtocolData({ ...materialRef }, CognitiveRefSchema),
+        region,
+      });
       await traceMaterial({
         kind: "derived_representation",
         value: region.representationId,
@@ -92,7 +100,11 @@ export async function traceCommands(
         subjectId,
         id: region.artifactId,
       });
-      derivations.push({ reference: materialRef, region, artifact });
+      derivations.push({
+        reference: restoreProtocolData({ ...materialRef }, CognitiveRefSchema),
+        region,
+        artifact,
+      });
     }
   };
   for (const basis of bases) {
@@ -138,5 +150,11 @@ export async function traceCommands(
         id: producerSignatureId,
       })
     : undefined;
-  return { reference, cognition, producer, sources, derivations };
+  return {
+    reference: restoreProtocolData({ ...reference }, CognitiveRefSchema),
+    cognition,
+    producer,
+    sources,
+    derivations,
+  };
 }

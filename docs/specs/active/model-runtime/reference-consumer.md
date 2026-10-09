@@ -26,4 +26,6 @@ The consumer uses citty 0.2.2 command families, Zod-validated semantic TOML inpu
 
 正文、title、摘要和操作消息逐字保留，包括完整 UUID 或 `memory:<UUID>`。引用呈现按 typed reference 字段转换。业务已成功而地址呈现失败时，输出原 canonical result 并附 `PRESENTATION_UNAVAILABLE` notice；本地完成回执写入失败则附 `RECEIPT_UNSAVED`，保持真实已知结果。Authority 已明确拒绝而本地拒绝终态写入失败时，也保留原错误 code/message 并附 receipt 与 `RECEIPT_UNSAVED`，不把已知拒绝改成保存错误或未知业务结果。
 
+引用字段由 canonical Proto 的 `reference_kind` 标注，Official Client 保留对应 schema，renderer 只读取 Identity 的去重批量地址结果。各创建 owner 在 Authority 事务内分配对象/revision 地址；普通显示不分配、不改名、不增加 visibility。Protobuf JSON Value/Struct 的内容保持不透明，合法 `$typeName`、`$unknown` 和引用同名字段均保留。现行 consumer codec 将实际协议 schema 作为 devalue 类型记录保存，完成回执重放恢复 schema；用户 JSON 不通过字符串或字段名猜测获得引用类型。
+
 [返回当前产品合同](../../INDEX.md)

@@ -16,9 +16,14 @@ impl CognitiveRuntimeService {
         self.require_subject(subject).await?;
         let session = SessionId::new();
         let now = self.now(subject);
+        let mut tx = self.store.begin().await?;
         sqlx::query("INSERT INTO cognitive_sessions(session_id,subject_id,opened_at,last_activity_at,metadata) VALUES($1,$2,$3,$3,$4)")
             .bind(session.0).bind(subject.0).bind(now).bind(metadata)
-            .execute(self.store.pool()).await.map_err(db)?;
+            .execute(&mut *tx).await.map_err(db)?;
+        self.store
+            .ensure_identity_addresses_in(&mut tx, subject, &[CognitiveRef::Session(session)], "")
+            .await?;
+        tx.commit().await.map_err(db)?;
         self.session(subject, session).await
     }
 

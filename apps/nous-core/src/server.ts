@@ -46,6 +46,7 @@ import {
   ProjectionSchema,
   ManagedContextResponseSchema,
   QueryRequestSchema,
+  DegradationSchema,
   type QueryRequest,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "./kernel-client.js";
@@ -278,24 +279,51 @@ export async function createCore(settings: CoreOptions) {
       const calls = executionOptions(kernel.execution.opportunity, options(c));
       await bindQueryInput(r, calls);
       const result = await queries.execute(r, calls);
-      for (const hit of result.hits) {
-        if (
-          hit.reference &&
-          [
-            "memory",
-            "memory_revision",
-            "cognitive_schema",
-            "cognitive_schema_revision",
-            "tag",
-            "resource",
-          ].includes(hit.reference.kind)
-        ) {
-          const binding = await kernel.identity.bindIdentity(
-            { subjectId: r.subjectId, canonical: hit.reference },
-            calls,
-          );
-          hit.lexicalRef = binding.lexicalRef;
-        }
+      const references = result.hits.map(
+        (hit) => hit.revision ?? hit.reference,
+      );
+      const targets = new Map(
+        references
+          .filter((reference) => reference !== undefined)
+          .map((canonical) => [
+            `${canonical!.kind}:${canonical!.value}`,
+            { subjectId: r.subjectId, canonical: canonical! },
+          ]),
+      );
+      if (!targets.size) return result;
+      try {
+        const addresses = await kernel.identity.getIdentityAddresses(
+          { targets: [...targets.values()] },
+          calls,
+        );
+        const lexical = new Map(
+          addresses.addresses
+            .filter(
+              (address) =>
+                address.status === "BOUND" &&
+                address.target?.canonical &&
+                address.lexicalRef,
+            )
+            .map((address) => [
+              `${address.target!.canonical!.kind}:${address.target!.canonical!.value}`,
+              address.lexicalRef!,
+            ]),
+        );
+        result.hits.forEach((hit, index) => {
+          const reference = references[index];
+          if (reference)
+            hit.lexicalRef = lexical.get(
+              `${reference.kind}:${reference.value}`,
+            );
+        });
+      } catch {
+        result.degradation.push(
+          create(DegradationSchema, {
+            code: "address_directory_unavailable",
+            detail:
+              "Query result retains canonical references; directory addresses are unavailable",
+          }),
+        );
       }
       return result;
     },

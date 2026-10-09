@@ -126,3 +126,11 @@ FFmpeg executable reference 使用 null 作为已安装 runtime pack 的明确�
 实际 PostgreSQL 的地址分配/冲突检查扩充验证批量读前后 lexical bindings、visibility、Authority history 行数相同；不存在和跨 Subject 的引用不给地址，tombstone 不给可操作地址，合并 Tag 与 survivor 得到同一规范地址。现行 concept lineage/Query/Serving 场景和公开 Core/Kernel/Client smoke 通过，公开 read 后原 display name/aliases 不变。该入口只是 owner 能力；schema 明确的字段呈现、创建/显式地址服务的分配和原逐项 Bind 删除仍须完成，不把新增 read RPC 当成呈现已经迁移。
 
 本轮持续 Core 正常换用 SHA 核对的当前 Kernel 后重启，instanceId 不变，endpoint 为 `http://127.0.0.1:37081`。早期 discovery 尚未生成，原启动进程确认仍活跃后再次观察 READY，没有因此重新启动。新 public batch RPC 读回原 `sub:tujap-vibuz-gozod` 与 `ctx:raraf-romup-hasal` 的相同 lexical addresses；原 WorkContext revision7/open。Subject/Runtime/Memory 与11model roles READY，opportunity 四叶保持原值。该轮没有新增付费模型调用或改写认知历史。
+
+## 协议引用呈现与创建事务
+
+Client JSON 保真检查先复现 `$typeName`/`$unknown` 及嵌套内容被当作协议字段删除。当前 data codec 按真实 protobuf descriptor 处理 Value/Struct、oneof、list/map，保留 JSON opaque leaves；schema 使用 WeakMap，consumer 的 devalue 类型记录保存并恢复实际 schema，包括 timestamp dependencies。任意 JSON 键不获得协议身份。配置值与 schema/default 的三套单独转换收敛到同一 owner，CLI 继续只依赖 Official Client。
+
+Canonical Proto 标注实际引用字段；CLI renderer 删除 UUID/字段名推断和逐项 Bind，按声明的引用去重只读查询。Source locator、正文、title 和 JSON 数据保持原值。Query diagnostics 使用 owning command 的明确投影，developer trace 保留。创建 owner 在同一 Authority 事务内发布对象、immutable revision 与 Material 地址，保留已存在的名称/aliases；Core Query 同样只读取得 exact preferred revision 地址，地址服务故障不抹掉已取得的 Query 结果。Subject seed adoption 与 Journal revision write 使用各自领域 payload，不以 receipt kind 推断分配，也不添加通用 CRUD 状态机。
+
+公开 CLI 首次创建检查先在旧 Kernel 下返回 UUID而失败；当前 Kernel 下返回稳定 `sub:` 地址并通过完整 configuration smoke，包含真实 provider-options JSON 同名键的 normalized graph/readback/replay。独立 receipt 检查验证 schema、BigInt、timestamp 和同名 JSON 键往返。35个TS文件112checks、check:fast、Knip/dependencies、workspace Clippy通过；16项 Native Authority/Material/Memory/Schema/Journal/Episode/Tag/preparation 场景与公开 Model/Material/Resource、相反媒体能力、期限后恢复及纵向 smoke通过。这轮受控 provider 不计作真实模型质量；当前持续实例升级与完整 Portable 等原目标仍待继续。

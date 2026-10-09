@@ -170,6 +170,17 @@ impl MemoryService {
             .await
             .map_err(db)?;
         }
+        self.store
+            .ensure_identity_addresses_in(
+                tx,
+                input.subject,
+                &[
+                    CognitiveRef::Memory(memory_id),
+                    CognitiveRef::MemoryRevision(revision_id),
+                ],
+                input.title.as_deref().unwrap_or(""),
+            )
+            .await?;
         Ok(())
     }
 

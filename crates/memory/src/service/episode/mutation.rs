@@ -80,6 +80,7 @@ impl MemoryService {
             .bind(episode_id.0).bind(input.subject.0).bind(&input.track_key).bind(revision_id.0).bind(now)
             .execute(&mut **mutation.tx()).await.map_err(db)?;
         insert_episode_revision(
+            &self.store,
             mutation.tx(),
             &input,
             episode_id,
@@ -304,6 +305,7 @@ impl MemoryService {
             basis: input.basis,
         };
         insert_episode_revision_with_intent(
+            &self.store,
             mutation.tx(),
             &create,
             input.episode_id,

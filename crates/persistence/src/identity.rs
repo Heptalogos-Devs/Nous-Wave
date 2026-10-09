@@ -90,6 +90,39 @@ pub fn validate_lexical(value: &str) -> Result<&str> {
     Ok(kind)
 }
 impl AuthorityStore {
+    /// Creation owners publish addresses within their own Authority transaction.
+    pub async fn ensure_identity_addresses_in(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        subject: SubjectId,
+        references: &[CognitiveRef],
+        label: &str,
+    ) -> Result<()> {
+        let mut display_name = String::new();
+        for character in label.chars() {
+            if display_name.len() + character.len_utf8() > 256 {
+                break;
+            }
+            display_name.push(character);
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for reference in references {
+            if !seen.insert(reference_parts(reference)) {
+                continue;
+            }
+            self.bind_identity_in_mode(
+                tx,
+                subject,
+                reference.clone(),
+                display_name.clone(),
+                vec![],
+                true,
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
     /// One directory read. Missing addresses remain missing; presentation never grants visibility.
     pub async fn identity_addresses(
         &self,
