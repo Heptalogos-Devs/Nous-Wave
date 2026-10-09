@@ -156,21 +156,8 @@ Runner 通过真实配置角色和 canonical Structured Output 生成一次 prop
 
 
 
-## 小型认知功能验证
+## 研究结果与持续使用
 
-### Core Cognition Semantic Qualification
+一次性 Core Cognition qualification 和 cognitive-functional synthetic runner 已退役，专属 deterministic provider、场景/多 profile 回放和可选 smoke 分支一并删除。[方法](../docs/research/core-cognition-semantic.md)、[v1 报告](../docs/research/core-cognition-2026-10-07.md)、[v2 报告](../docs/research/core-cognition-2026-10-08.md)、[功能语料](../docs/research/corpus/functional/README.md)和[六项 text-only 选择](../docs/research/corpus/text-compatibility-selection.json)继续保留原输入、oracle、参数和历史观察。
 
-一次性 qualification runner 与专属脚手架测试已退役；[方法](../docs/research/core-cognition-semantic.md)、[v1 报告](../docs/research/core-cognition-2026-10-07.md)、[v2 报告](../docs/research/core-cognition-2026-10-08.md)及 cohort/稳定结果继续保留。当前持续任务通过 [Agent 指南](../docs/agent/README.md)中的 CLI/MCP 操作执行，不重新运行旧 qualification 框架。模型身份检查与 trace 查看使用上面的现行入口。
-
-[手工功能语料](../docs/research/corpus/functional/README.md)和[六项 text-only 选择](../docs/research/corpus/text-compatibility-selection.json)定义本轮范围。功能 runner 通过 public Client 连接已经运行的 Core，不负责数据库、Kernel、clock、embedding cache 或 Serving lifecycle。结果写入 ignored `data/research/`。全量外部 benchmark、付费 rerank/provider 比较与 RAGFlow 不在本轮执行。
-
-
-### 小型认知功能验证
-
-`corepack pnpm research:cognitive-functional --run-root <现有 Core 的 RunRoot> --profiles baseline-rrf,nous-node-potential-v1,vcp-dtsc-v9.2.1-adapter-v1,vcp-rivermemo-v3.1-adapter-v1` 使用 official Client，不启动 PostgreSQL、Kernel 或 Core。它先提交三个手工场景，明确 grant maintenance，检查实际 Tag/Association/identity 形成结果，再 prepare/query；每个 profile 的 semantic representation 必须一致。JSON 输出在 ignored `data/research/cognitive-functional/`。`--max-model-calls`（默认 128）限制 formation/maintenance 模型调用，`--max-elapsed-ms`（默认 60000）取消超时 public requests；`--compat-input` 可指定 ignored raw-text cache，执行六项选择的四 profile smoke。
-
-`--compat-input <本地 raw source JSON>` 可附加六项 selected text-only smoke。该输入仅含 manifest 指定的 source pools，源码 text 必须通过对应 SHA256；query 只有原问题、Memory domain 和 `textOnlyCompatibility=true`，不注入 Entity/Tag/WorkContext。完整来源不进入 tracked corpus。
-
-本地 automatic smoke 使用现有 `longitudinal_smoke` Core/Kernel fixture，`NOUS_FUNCTIONAL_SMOKE=1 cargo test -p nous-kernel --test longitudinal_smoke -- --nocapture` 开启 deterministic model 与 embedding provider，外部 provider/rerank calls 为零。fake vectors 用于验证线路与资产复用，不能说明语义排名质量或算法优胜。一般 public runner 会使用所连接实例的模型配置；自动验收连接 deterministic fixture。
-
-CLI Agent smoke 在同一现有 Core fixture 中执行实际 CLI 子进程，验证 JSON help、`AMBIGUOUS_REFERENCE` 候选、选定 LexicalRef、public prepare/query。OpenCode v2.0.23 已安装，但当前 `opencode models` 返回空列表，本轮未运行外部 OpenCode 模型，也未配置付费 provider。
+当前真实任务通过 [Agent 指南](../docs/agent/README.md)中的 CLI/MCP 操作执行，实际 formation、trace、Query、use 与 Portable 重启结果见[重整观察](../docs/research/deep-rebase-2026-10-09.md)。模型合同导出、单次 wire trace、媒体与纵向 proposal 研究入口仍供当前操作使用。确定性 longitudinal public smoke 保留有界维护、owner 提交、重放与重启检查；它不回放旧 synthetic corpus，也不代表真实模型质量。

@@ -43,8 +43,7 @@
     "dev:portable": "tsx scripts/dev/portable.ts",
     "smoke:configuration": "tsx scripts/smoke/configuration.ts",
     "inspect:model-contracts": "tsx scripts/research/model-contracts.ts",
-    "inspect:model-trace": "tsx scripts/research/model-trace.ts",
-    "research:cognitive-functional": "tsx scripts/research/cognitive-functional.ts"
+    "inspect:model-trace": "tsx scripts/research/model-trace.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "1.73.0",

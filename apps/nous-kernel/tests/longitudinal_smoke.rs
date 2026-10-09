@@ -30,7 +30,6 @@ impl Server {
         token: &str,
         configuration: &nous_configuration::ConfigurationBootstrapBundle,
     ) -> Self {
-        let functional = std::env::var("NOUS_FUNCTIONAL_SMOKE").is_ok();
         let runtime = NousRuntime::open_with_clock(
             RuntimeOptions {
                 postgres_url: url.into(),
@@ -40,14 +39,11 @@ impl Server {
                 serving_options: ServingOptions {
                     root: root.join("serving"),
                     lexical: true,
-                    dense: functional,
-                    topology: functional,
+                    dense: false,
+                    topology: false,
                     memory_enabled: true,
                 },
-                embedding: functional.then(|| {
-                    Arc::new(test_support::LongitudinalEmbedding)
-                        as Arc<dyn nous_retrieval::TextEmbeddingProvider>
-                }),
+                embedding: None,
                 stored_embedding: None,
                 core_descriptors: configuration.core_descriptors.clone(),
                 deployment_document: configuration.deployment_document.clone(),
@@ -114,7 +110,7 @@ async fn run_smoke() {
         std::env::var_os("NOUS_LONGITUDINAL_NODE").unwrap_or_else(|| "node".into()),
     )
     .args(["--import", "tsx", "--input-type=module", "--eval",
-        "import {configurationBundle} from './apps/nous-core/src/configuration-catalog.ts'; const functional=!!process.env.NOUS_FUNCTIONAL_SMOKE; console.log(JSON.stringify(configurationBundle({serving:{lexical:{enabled:true},dense:{enabled:functional},topology:{enabled:functional}}})));",
+        "import {configurationBundle} from './apps/nous-core/src/configuration-catalog.ts'; console.log(JSON.stringify(configurationBundle({serving:{lexical:{enabled:true},dense:{enabled:false},topology:{enabled:false}}})));",
     ])
     .current_dir(&repo)
     .kill_on_drop(true)

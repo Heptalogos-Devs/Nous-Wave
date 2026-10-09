@@ -82,8 +82,6 @@ Tag merge/split 保留 exact supports 和 lineage，一个明确来源可以支�
 
 Accretion 是按 center 按需计算的派生信号：distinct roots、current members、Episode recurrence、observed span、association degree/diversity、meaningful use、counterevidence、可选 cached coherence 和 genericity。没有持久化 Subject-wide cache、global confidence 或 usefulness truth。`maintenance.accretion` 只暴露 enabled、generic_degree、recurrence_review；关闭后基础 concept maintenance 仍工作。review priority 与 merge/split hints 在 planner 即时计算；member overlap/coherence 阈值为实现常量。普通 presented 不增加支持，meaningful use 不改变 epistemic class 或独立根。
 
-定向测试覆盖局部 catalog、typed owner提交、partial outcome、dependency skip、transport resume、stable IDs、Tag lineage、owner exact receipt、Accretion ablation/recurrence 配置和 Tag-only Prepared Serving。三场景形成检查和 15 intents × 4 profiles 已通过 deterministic public Core/Kernel 执行；六项 selected raw-text 的相关首项均为 rank 1。Fake vectors 只验证线路，不声明 ranking quality 或 profile winner。CLI 的 help JSON → ambiguity/candidate → LexicalRef → prepare → query 已通过真实 public Core；repo-native 完整验收继续在本 PR 完成。
-
 Consolidation 的候选查找使用独立 text-only lookup：输入是引用的 source 原文，不作为待闭合的用户意图。实体目录提供 source 文本中出现的 display name/alias 的有界候选，加上已有候选的 aboutness；目录匹配本身不写入 aboutness，仍由模型选择、owner 校验。形成阶段需要 lexical Serving 为 continuing claim 提供当前候选，dense/topology 与付费 embedding 在检索验证前保持关闭。
 
 Directory 的当前有效 Entity binding 是 Subject 内可引用身份，即使尚未被 Memory aboutness 或 observation actor 使用。通用 reference 校验承认该 binding；不把它自动转换成 aboutness。跨 Subject 和 tombstoned binding 仍不能仅凭目录获得可引用资格。

@@ -152,3 +152,11 @@ Fresh Codex 经编译后的 Portable MCP，在同一 Subject/Context 完成第�
 重启后的另一 fresh Codex恢复原Context与已关闭Session，未新增 formation、embedding preparation 或 use；同一自然查询 `01a12061-8db3-7ec0-968f-64a92d599a3d` complete，四个 Memory精确修订依次召回，新修订rank1，lexical/dense ready。新Session正常关闭，Context保存并独立读回 revision10/open。两次实际任务的原始命令结果保存在[Portable续接 corpus](corpus/deep-rebase/portable-continuation-2026-10-09.json)。初始 projection wildcard unavailable和上下文 truncation也保留，没有将其替换成全部READY的叙述。
 
 Windows只读盘点确认独立物理盘1的分区2为Linux filesystem GPT类型、无Windows盘符。只读 `ro,noload` WSL挂载及执行权限重试均返回 `WSL_E_ELEVATION_NEEDED_TO_MOUNT_DISK`；没有挂载或修改该盘。SAUC提取仍需管理员挂载或从Linux侧导出，相关旧材料继续保留。全仓其余原范围与最终CI／清理尚未完成。
+
+## 旧 synthetic 功能执行器退役
+
+按任务包第03项核对 Vault Target/Decisions 与当前 longitudinal、Authority/provenance、Runtime/Use、Query/Serving、WorkContext Specs 后，退役 `cognitive-functional.ts`、`NOUS_FUNCTIONAL_SMOKE` 分支、专属文本匹配 provider、CLI 子进程脚手架、package/Knip/script入口及活动说明。手工三场景、22事件、15 intents、四 profile 和 selected raw-text source/oracle 保持原文件；五份语料及历史说明另按原字节/SHA保全到 `data/research/results/deep-rebase-preservation/functional/`，未清理旧 raw 数据。Spec 中的旧实验执行状态移出活动合同，其原事实继续留在研究语料说明。
+
+纵向 public smoke仍实际执行有界维护、模型 proposal、owner提交、重放和Core/Kernel重启。Concept局部catalog/Accretion、Tag lineage/历史/目录与 typed Core partial-commit/transport-resume 的独立检查保留：受影响Native5项、Core9项通过；check:fast、Knip、依赖边界、文档导航和diff检查通过。脚本从902行降至434行，删除一份687行旧runner；长度门禁422手写文件、16warnings、0reject。这轮没有削减 production功能或改动领域语义，仍需按完整目标完成其他实际操作与成果保全／清理。
+
+eadb42a的Windows CI通过；Linux未进入测试，显式runtime准备调用第三方GitHubrelease API返回403。已核对安装的 `postgresql_archive` 实现，其支持 `GITHUB_TOKEN` Authorization；CI仅给runtime准备步骤传递现有contents-read job token。没有跳过准备或降低验证；新head的实际CI结果另行确认。
