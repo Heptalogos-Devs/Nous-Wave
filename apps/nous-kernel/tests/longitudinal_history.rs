@@ -323,9 +323,22 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
         )
         .await
         .unwrap();
-    assert!(
-        matches!(&fragments[&episode.revision.episode_revision_id.0][0], nous_persistence::TextProjectionFragment::Text { reference:CognitiveRef::DerivedRepresentation(id),text } if *id==first && text.len()==2047)
+    assert_eq!(
+        fragments[&episode.revision.episode_revision_id.0][0].reference,
+        CognitiveRef::DerivedRepresentation(first)
     );
+    let selected = rt
+        .material
+        .text_excerpt(
+            subject,
+            &CognitiveRef::DerivedRepresentation(first),
+            2048,
+            None,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(selected.text.len(), 2047);
     assert_synopsis_policy(&rt, subject).await;
     let historical_cut = rt.cognition.now(subject);
     clock.advance_by(subject, Duration::seconds(10)).unwrap();

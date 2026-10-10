@@ -122,9 +122,10 @@ pub(super) async fn check_historical_embedding(
 ) {
     let needs = rt
         .serving
-        .embedding_needs_in_view(subject, 256, Some(view))
+        .embedding_needs_page(subject, 256, None, Some(view))
         .await
-        .unwrap();
+        .unwrap()
+        .needs;
     assert!(
         needs
             .iter()

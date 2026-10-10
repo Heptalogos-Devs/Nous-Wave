@@ -4,6 +4,7 @@
 
 pub(crate) mod concept;
 pub(crate) mod longitudinal;
+pub(crate) mod lookup;
 pub(crate) mod text;
 pub(crate) mod topology;
 

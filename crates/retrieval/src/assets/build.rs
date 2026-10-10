@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{assets::files::*, *};
-use nous_persistence::{TextProjectionFragment, TextProjectionSource};
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DenseManifest {
@@ -142,7 +141,7 @@ impl ServingService {
                     .await?
             }
         };
-        let documents = self.documents(input.sources, budget).await?;
+        let documents = self.documents(subject, input.sources, budget, view).await?;
         let directory = dir.to_path_buf();
         tokio::task::spawn_blocking(move || {
             let mut lexical = LexicalGeneration::create(directory)?;
@@ -177,67 +176,6 @@ impl ServingService {
             }
         }
     }
-    pub(crate) async fn documents(
-        &self,
-        sources: Vec<TextProjectionSource>,
-        budget: nous_persistence::EpisodeTextBudget,
-    ) -> Result<Vec<LexicalDocument>> {
-        let mut documents = Vec::new();
-        for source in sources {
-            let mut text = if let Some(text) = source.text {
-                text
-            } else if is_text(&source.media_type)
-                && let Some(hash) = &source.content_hash
-            {
-                String::from_utf8(self.objects.get(hash).await?)
-                    .map_err(|e| Error::Invalid(format!("text source encoding: {e}")))?
-            } else {
-                continue;
-            };
-            let mut member_bytes = 0;
-            for fragment in source.member_fragments {
-                let member = match fragment {
-                    TextProjectionFragment::Text { text, .. } => Some(text),
-                    TextProjectionFragment::Artifact {
-                        content_hash,
-                        byte_length,
-                        ..
-                    } => {
-                        self.objects
-                            .read_text_prefix(
-                                &content_hash,
-                                byte_length,
-                                budget.fragment_max_bytes as u64,
-                            )
-                            .await?
-                    }
-                };
-                let Some(mut member) = member else {
-                    continue;
-                };
-                let remaining = budget.total_max_bytes.saturating_sub(member_bytes + 1);
-                if remaining == 0 {
-                    break;
-                }
-                member.truncate(member.floor_char_boundary(remaining.min(member.len())));
-                member_bytes += member.len() + 1;
-                text.push('\n');
-                text.push_str(&member);
-            }
-            documents.push(LexicalDocument {
-                serving_doc_id: documents.len() as u64,
-                reference: source.reference,
-                representation_text: text,
-                title: source.title,
-                entity_refs: source.entity_refs,
-                tag_ids: source.tag_ids,
-                schema_ids: source.schema_ids,
-                source_class: source.source_class,
-            });
-        }
-        Ok(documents)
-    }
-
     async fn build_topology(
         &self,
         subject: SubjectId,
@@ -269,33 +207,17 @@ impl ServingService {
             .map_err(|e| Error::Infrastructure(e.to_string()))??;
             return Ok(watermark);
         }
-        let input = match view {
-            Some(view) => {
-                self.store
-                    .historical_projection_input(view, snapshot.get(crate::EPISODE_SYNOPSIS)?)
-                    .await?
-                    .topology
-            }
-            None => {
-                self.store
-                    .topology_projection_input(subject, capabilities.memory)
-                    .await?
-            }
-        };
-        let edges: Vec<_> = input
-            .edges
-            .into_iter()
-            .map(|edge| WaveEdgeEvidence {
-                from: edge.from,
-                to: edge.to,
-                basis_class: edge.basis_class,
-                association_kind: edge.association_kind,
-                polarity: edge.polarity,
-                support_mass: edge.support_mass,
-                provenance_root: edge.provenance_root,
-            })
-            .collect();
+        let input = self
+            .projection_input(
+                subject,
+                capabilities.memory,
+                snapshot.get(crate::EPISODE_SYNOPSIS)?,
+                view,
+            )
+            .await?;
+        let edges = input.topology.edges;
         let nodes = input
+            .topology
             .nodes
             .into_iter()
             .enumerate()
@@ -330,7 +252,7 @@ impl ServingService {
         })
         .await
         .map_err(|e| Error::Infrastructure(e.to_string()))??;
-        Ok(input.watermark)
+        Ok(input.authority_watermark)
     }
 
     pub(crate) async fn embed_document(
@@ -419,7 +341,7 @@ impl ServingService {
             .iter()
             .map(|source| (source.reference.clone(), source.source_region))
             .collect();
-        let documents = self.documents(input.sources, budget).await?;
+        let documents = self.documents(subject, input.sources, budget, view).await?;
         let concepts = serving.concept.iter().find(|generation| {
             generation
                 .space
@@ -505,10 +427,6 @@ impl ServingService {
 pub(crate) fn implementation(family: &str) -> &'static str {
     super::family::AssetFamily::parse(family)
         .map_or("unknown", super::family::AssetFamily::implementation)
-}
-
-fn is_text(media: &str) -> bool {
-    media.starts_with("text/") || media.contains("json") || media.contains("xml")
 }
 
 fn topology_asset_profile(

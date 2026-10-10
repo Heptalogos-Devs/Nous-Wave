@@ -25,6 +25,7 @@ mod query_support;
 pub mod schema;
 mod schema_lane;
 mod source_classes;
+mod source_facts;
 mod state;
 mod tag;
 mod topology;
@@ -66,6 +67,7 @@ pub struct MemoryService {
     pub configuration: nous_configuration::ConfigurationService,
     pub store: AuthorityStore,
     pub objects: ObjectStore,
+    pub material: nous_material::MaterialService,
     pub cognition: nous_runtime::CognitiveRuntimeService,
     capabilities: Arc<Vec<CapabilityDescriptor>>,
 }
@@ -234,16 +236,15 @@ impl MemoryService {
     }
 
     pub fn new(
-        store: AuthorityStore,
-        objects: ObjectStore,
-        cognition: nous_runtime::CognitiveRuntimeService,
+        material: nous_material::MaterialService,
         configuration: nous_configuration::ConfigurationService,
     ) -> Self {
         Self {
             configuration,
-            store,
-            objects,
-            cognition,
+            store: material.store.clone(),
+            objects: material.objects.clone(),
+            cognition: material.cognition.clone(),
+            material,
             capabilities: Arc::new(Vec::new()),
         }
     }

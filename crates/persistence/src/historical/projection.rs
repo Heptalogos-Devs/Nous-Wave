@@ -8,7 +8,6 @@ use std::collections::{HashMap, HashSet};
 
 pub struct HistoricalProjectionInput {
     pub sources: Vec<TextProjectionSource>,
-    pub evidence_roots: HashMap<CognitiveRef, HashSet<String>>,
     pub concepts: ConceptProjectionInput,
     pub topology: TopologyProjectionInput,
 }
@@ -34,141 +33,13 @@ impl AuthorityStore {
                 .fetch_one(&mut *tx)
                 .await
                 .map_err(database_error)?;
-        // Selection is frozen at the owner level. Current purge is a hard fence,
-        // while current head, suppression and canonical Tag never select this corpus.
-        let selected: Vec<_> = view
-            .cognition
-            .iter()
-            .filter(|_| memory_allowed)
-            .filter(|state| {
-                state.state["acceptance_state"] == "accepted"
-                    && state.state["integrity_state"] == "valid"
-                    && state.state["suppression_state"] == "normal"
-                    && state.state["purge_state"] == "normal"
-            })
-            .flat_map(|state| state.revisions.iter().cloned())
-            .collect();
-        let (kinds, values): (Vec<_>, Vec<_>) = selected
-            .iter()
-            .chain(view.material_documents.iter())
-            .map(reference_parts)
-            .unzip();
-        let rows = sqlx::query(r#"
-WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), catalog AS (
- SELECT s.kind,s.value,r.title,r.representation_text text,NULL::text hash,'text/plain'::text media,NULL::text source_class FROM selected s JOIN memory_revisions r ON s.kind='memory_revision' AND r.memory_revision_id::text=s.value JOIN memory_objects o USING(memory_id) WHERE r.subject_id=$1 AND o.purge_state='normal'
- UNION ALL SELECT s.kind,s.value,r.title,r.structural_claim,NULL,'text/plain',NULL FROM selected s JOIN cognitive_schema_revisions r ON s.kind='cognitive_schema_revision' AND r.schema_revision_id::text=s.value JOIN cognitive_schemas o USING(schema_id) WHERE o.subject_id=$1 AND o.purge_state='normal'
- UNION ALL SELECT s.kind,s.value,r.title,COALESCE(r.title,'')||E'\n'||r.boundary_explanation||E'\nExperience '||r.experience_time_kind||' '||COALESCE(r.experience_time_start::text,'')||' '||COALESCE(r.experience_time_end::text,''),NULL,'text/plain',NULL FROM selected s JOIN episode_revisions r ON s.kind='episode_revision' AND r.episode_revision_id::text=s.value JOIN episode_objects o USING(episode_id) WHERE r.subject_id=$1 AND o.purge_state='normal'
- UNION ALL SELECT s.kind,s.value,r.title,COALESCE(r.title,'')||E'\n'||r.narrative||E'\n'||COALESCE((SELECT string_agg(text,E'\n' ORDER BY ordinal) FROM journal_revision_points WHERE journal_revision_id=r.journal_revision_id),''),NULL,'text/plain',NULL FROM selected s JOIN journal_revisions r ON s.kind='journal_revision' AND r.journal_revision_id::text=s.value JOIN journal_objects o USING(journal_id) WHERE r.subject_id=$1 AND o.purge_state='normal'
- UNION ALL SELECT s.kind,s.value,NULL,NULL,a.content_hash,a.media_type,o.source_class FROM selected s JOIN observation_occurrences o ON s.kind='occurrence' AND o.occurrence_id::text=s.value JOIN artifacts a USING(artifact_id) WHERE o.subject_id=$1
- UNION ALL SELECT s.kind,s.value,NULL,NULL,a.content_hash,a.media_type,NULL FROM selected s JOIN source_regions r ON s.kind='source_region' AND r.source_region_id::text=s.value JOIN artifacts a USING(artifact_id) WHERE r.subject_id=$1
- UNION ALL SELECT s.kind,s.value,d.representation_kind,d.payload_text,a.content_hash,CASE WHEN d.payload_text IS NOT NULL THEN 'text/plain' ELSE COALESCE(a.media_type,'application/octet-stream') END,'derived' FROM selected s JOIN derived_representations d ON s.kind='derived_representation' AND d.derived_representation_id::text=s.value LEFT JOIN artifacts a ON a.artifact_id=d.payload_artifact_id WHERE d.subject_id=$1
- UNION ALL SELECT s.kind,s.value,d.representation_kind,d.payload_text,a.content_hash,CASE WHEN d.payload_text IS NOT NULL THEN 'text/plain' ELSE COALESCE(a.media_type,'application/octet-stream') END,'derived' FROM selected s JOIN derived_regions r ON s.kind='derived_region' AND r.derived_region_id::text=s.value JOIN derived_representations d USING(derived_representation_id) LEFT JOIN artifacts a ON a.artifact_id=d.payload_artifact_id WHERE r.subject_id=$1
-) SELECT * FROM catalog ORDER BY kind,value
-"#).bind(view.subject.0).bind(kinds).bind(values).fetch_all(&mut *tx).await.map_err(database_error)?;
-        let mut sources = Vec::new();
-        for row in rows {
-            let reference = parse_reference(
-                &row.get::<String, _>("kind"),
-                &row.get::<String, _>("value"),
-            )?;
-            sources.push(TextProjectionSource {
-                revision: selected.contains(&reference).then(|| reference.clone()),
-                reference: reference.clone(),
-                text: row.get("text"),
-                content_hash: row.get("hash"),
-                title: row.get("title"),
-                media_type: row.get("media"),
-                source_class: row.get("source_class"),
-                member_fragments: vec![],
-                source_region: match reference {
-                    CognitiveRef::SourceRegion(id) => Some(id),
-                    _ => None,
-                },
-                entity_refs: vec![],
-                tag_ids: vec![],
-                schema_ids: vec![],
-            });
-        }
-        let mut tags: Vec<_> = view
-            .tags
-            .iter()
-            .filter(|tag| memory_allowed && tag.status == "active")
-            .map(|tag| ConceptProjectionTag {
-                tag: tag.tag,
-                revision: tag.revision_id,
-                semantic: tag.semantic.clone(),
-                attachments: vec![],
-            })
-            .collect();
-        for tag in &tags {
-            sources.push(TextProjectionSource {
-                reference: CognitiveRef::Tag(tag.tag),
-                revision: None,
-                text: Some(tag.semantic.text.clone()),
-                content_hash: None,
-                member_fragments: vec![],
-                title: None,
-                media_type: "text/plain".into(),
-                source_class: None,
-                source_region: None,
-                entity_refs: vec![],
-                tag_ids: vec![],
-                schema_ids: vec![],
-            });
-        }
+        let (mut sources, mut tags) =
+            super::text::historical_sources_in(&mut tx, view, budget, memory_allowed, None).await?;
         let indices: HashMap<_, _> = sources
             .iter()
             .enumerate()
             .map(|(i, s)| (s.reference.clone(), i))
             .collect();
-        let memory_ids: Vec<_> = sources
-            .iter()
-            .filter_map(|s| match s.reference {
-                CognitiveRef::MemoryRevision(id) => Some(id.0),
-                _ => None,
-            })
-            .collect();
-        let schema_ids: Vec<_> = sources
-            .iter()
-            .filter_map(|s| match s.reference {
-                CognitiveRef::CognitiveSchemaRevision(id) => Some(id.0),
-                _ => None,
-            })
-            .collect();
-        let rows = sqlx::query(r#"
- SELECT 'memory_revision' kind,t.memory_revision_id::text value,t.tag_id FROM memory_revision_tags t WHERE t.memory_revision_id=ANY($1::uuid[])
- UNION ALL SELECT 'cognitive_schema_revision',r.schema_revision_id::text,unnest(r.tags) FROM cognitive_schema_revisions r WHERE r.schema_revision_id=ANY($2::uuid[])
-"#).bind(&memory_ids).bind(schema_ids).fetch_all(&mut *tx).await.map_err(database_error)?;
-        for row in rows {
-            let reference = parse_reference(
-                &row.get::<String, _>("kind"),
-                &row.get::<String, _>("value"),
-            )?;
-            if let Some(tag) = view.canonical_tag(TagId(row.get("tag_id")))
-                && let Some(&index) = indices.get(&reference)
-            {
-                sources[index].tag_ids.push(tag.0.to_string());
-            }
-        }
-        let rows = sqlx::query("SELECT memory_revision_id,entity_ref FROM memory_revision_aboutness WHERE memory_revision_id=ANY($1::uuid[]) ORDER BY memory_revision_id,entity_ref")
-            .bind(memory_ids).fetch_all(&mut *tx).await.map_err(database_error)?;
-        for row in rows {
-            if let Some(&index) = indices.get(&CognitiveRef::MemoryRevision(MemoryRevisionId(
-                row.get("memory_revision_id"),
-            ))) {
-                sources[index].entity_refs.push(row.get("entity_ref"));
-            }
-        }
-        let bindings: Vec<_> = view.entity_bindings.to_vec();
-        let rows = sqlx::query("SELECT m.occurrence_id,b.entity_ref FROM entity_binding_revisions b JOIN entity_mentions m USING(mention_id) WHERE b.binding_revision_id=ANY($1::uuid[]) AND b.binding_state='bound' AND b.entity_ref IS NOT NULL ORDER BY m.occurrence_id,b.entity_ref")
-            .bind(bindings).fetch_all(&mut *tx).await.map_err(database_error)?;
-        for row in rows {
-            if let Some(&index) = indices.get(&CognitiveRef::Occurrence(OccurrenceId(
-                row.get("occurrence_id"),
-            ))) {
-                sources[index].entity_refs.push(row.get("entity_ref"));
-            }
-        }
         let mut nodes: HashSet<_> = sources.iter().map(|s| s.reference.clone()).collect();
         let mut edges = Vec::new();
         for source in &sources {
@@ -184,7 +55,10 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                     "tag_attachment",
                     "derived_structure",
                     "positive",
-                    format!("structure:tag:{}:{tag}", source.reference),
+                    ProjectionEdgeProvenance::Structure(format!(
+                        "structure:tag:{}:{tag}",
+                        source.reference
+                    )),
                 );
             }
             for entity in &source.entity_refs {
@@ -197,7 +71,10 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                     "aboutness",
                     "derived_structure",
                     "positive",
-                    format!("structure:aboutness:{}:{entity}", source.reference),
+                    ProjectionEdgeProvenance::Structure(format!(
+                        "structure:aboutness:{}:{entity}",
+                        source.reference
+                    )),
                 );
             }
         }
@@ -242,10 +119,9 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                 &relation,
                 &row.get::<String, _>("basis_class"),
                 &polarity,
-                format!(
-                    "association:{}",
-                    row.get::<uuid::Uuid, _>("association_evidence_id")
-                ),
+                ProjectionEdgeProvenance::AuthorityBasis(CognitiveRef::Association(
+                    AssociationEvidenceId(row.get("association_evidence_id")),
+                )),
             );
         }
         let links: Vec<_> = if memory_allowed {
@@ -264,13 +140,6 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                 &row.get::<String, _>("basis_ref"),
             )?;
             if nodes.contains(&from) && nodes.contains(&to) {
-                if let Some(&index) = indices.get(&to)
-                    && let Some(state) = view.cognition_for(&from)
-                {
-                    sources[index]
-                        .schema_ids
-                        .push(reference_parts(&state.object).1);
-                }
                 historical_pair(
                     &mut edges,
                     from.clone(),
@@ -278,7 +147,7 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                     "schema_support",
                     "derived_structure",
                     "positive",
-                    format!("structure:schema:{from}:{to}"),
+                    ProjectionEdgeProvenance::Structure(format!("structure:schema:{from}:{to}")),
                 );
             }
         }
@@ -311,7 +180,9 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), li
                     "cognition_basis",
                     "derived_structure",
                     "positive",
-                    format!("structure:cognition-basis:{from}:{to}"),
+                    ProjectionEdgeProvenance::Structure(format!(
+                        "structure:cognition-basis:{from}:{to}"
+                    )),
                 );
             }
         }
@@ -329,47 +200,9 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), li
             tag.attachments.dedup();
         }
         sources.sort_by_key(|source| source.reference.to_string());
-        // Episode fragment selection is likewise bounded by the same effective Material set.
-        let episode_ids = sources
-            .iter()
-            .filter_map(|s| match s.reference {
-                CognitiveRef::EpisodeRevision(id) => Some(id.0),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        let mut fragments = crate::episode_text::episode_member_text_input_in_view(
-            &mut tx,
-            view.subject,
-            &episode_ids,
-            budget,
-            Some(view),
-        )
-        .await?;
-        for source in &mut sources {
-            if let CognitiveRef::EpisodeRevision(id) = source.reference {
-                source.member_fragments = fragments.remove(&id.0).unwrap_or_default();
-            }
-        }
-        let mut evidence_roots = HashMap::new();
-        for source in &sources {
-            let (kind, value) = reference_parts(&source.reference);
-            evidence_roots.insert(
-                source.reference.clone(),
-                crate::projection::topology::revision_roots_in_view(
-                    &mut tx,
-                    view.subject,
-                    &kind,
-                    &value,
-                    &mut HashSet::new(),
-                    Some(view),
-                )
-                .await?,
-            );
-        }
         tx.commit().await.map_err(database_error)?;
         Ok(HistoricalProjectionInput {
             sources,
-            evidence_roots,
             concepts: ConceptProjectionInput { watermark: 0, tags },
             topology: TopologyProjectionInput {
                 watermark: 0,
@@ -405,9 +238,22 @@ fn historical_pair(
     kind: &str,
     class: &str,
     polarity: &str,
-    root: String,
+    provenance: ProjectionEdgeProvenance,
 ) {
-    for (from, to) in [(from.clone(), to.clone()), (to, from)] {
+    let symmetric = match &provenance {
+        ProjectionEdgeProvenance::Structure(_) => true,
+        ProjectionEdgeProvenance::AuthorityBasis(_) => {
+            serde_json::from_value::<TopologyRelation>(serde_json::Value::String(kind.into()))
+                .is_ok_and(|relation| relation.is_symmetric())
+        }
+    };
+    for (index, (from, to)) in [(from.clone(), to.clone()), (to, from)]
+        .into_iter()
+        .enumerate()
+    {
+        if index > 0 && !symmetric {
+            continue;
+        }
         edges.push(TopologyEdgeSource {
             from,
             to,
@@ -415,7 +261,7 @@ fn historical_pair(
             association_kind: kind.into(),
             polarity: polarity.into(),
             support_mass: 1.0,
-            provenance_root: Some(root.clone()),
+            provenance: provenance.clone(),
         });
     }
 }

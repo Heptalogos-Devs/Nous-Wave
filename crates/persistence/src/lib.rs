@@ -32,7 +32,7 @@ mod serving;
 mod tags;
 pub use projection::text::{TextProjectionFragment, TextProjectionInput, TextProjectionSource};
 pub use projection::topology::{
-    CognitiveProjectionInput, TopologyEdgeSource, TopologyProjectionInput,
+    CognitiveProjectionRows, ProjectionEdgeProvenance, TopologyEdgeSource, TopologyProjectionInput,
 };
 pub use projection::{DenseInvalidation, ProjectionInvalidation};
 pub use serving::{ServingRecord, ServingView};

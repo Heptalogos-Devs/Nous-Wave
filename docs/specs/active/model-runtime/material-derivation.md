@@ -14,6 +14,16 @@ DerivedRepresentation 保存 ordered exact inputs、strategy、representation ki
 
 成功 derivation identity 由 Subject、ordered input digest、representation kind、producer signature、strategy 和 supersedes 组成。同一请求重试复用成功表示；改变 lineage 或 inputs 会得到新的 identity。
 
+## Selected text 与 Serving
+
+Material 对 Occurrence、Artifact、SourceRegion、DerivedRepresentation 和 DerivedRegion 提供有界文本视图。视图包含 exact reference、实际读取的 UTF-8 byte selection、总 byte 数、所选文本的 BLAKE3 content identity，以及历史 Authority snapshot digest。显式坐标必须位于合法 UTF-8 边界；读取预算截断只保留完整字符。精确读取、Serving 文档与 embedding preparation 共用这一读取实现，Region 的索引正文只包含所选片段。
+
+普通 Serving 使用有效 representation；superseded representation 仍可精确回读，并按 captured historical view 决定过去的有效文档。Material 拥有 Artifact／外部来源 lineage 与多来源派生根，Memory 组合 cognition basis；Serving 消费相同的 current/as-of provenance contribution。Meaningful Use 可以支持关联，但不会凭空成为独立事实来源。
+
+Embedding discovery 先选择至多 256 个 candidate refs，再通过共同文档合同读取正文，并批量判定兼容缓存缺口。返回的 continuation 绑定 Subject、当前内容 watermark 或历史 view digest；空 needs page 仍可能有 continuation。提交仅回读指定 exact reference，核对文本 content identity 和 view，并在 Authority fence 内发布缓存。Serving build、discovery 和 commit 使用相同正文格式。模型 batch admission 与文档候选 page 是不同预算；宿主遵守调用者的总提交上限。
+
+材料与 Resource 的其他读取边界见 [Cognitive IO](cognitive-io-and-resources.md)。
+
 ## Supported derivation
 
 - Text-like source 经严格 UTF-8 解码形成 ExtractedText，不调用模型重写原文。

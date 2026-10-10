@@ -105,9 +105,12 @@ impl NousRuntime {
         serving_options.lexical = system_snapshot.get(nous_retrieval::LEXICAL_ENABLED_KEY)?;
         serving_options.dense = system_snapshot.get(nous_retrieval::DENSE_ENABLED_KEY)?;
         serving_options.topology = system_snapshot.get(nous_retrieval::TOPOLOGY_ENABLED_KEY)?;
+        let memory = process_capabilities
+            .memory
+            .then(|| MemoryService::new(material.clone(), configuration.clone()));
         let serving = ServingService::new(
-            store.clone(),
-            objects.clone(),
+            material.clone(),
+            memory.clone(),
             serving_options,
             match options.stored_embedding {
                 Some(config) => Some(Arc::new(nous_retrieval::StoredEmbeddingProvider::new(
@@ -118,14 +121,6 @@ impl NousRuntime {
             },
             configuration.clone(),
         )?;
-        let memory = process_capabilities.memory.then(|| {
-            MemoryService::new(
-                store.clone(),
-                objects.clone(),
-                cognition.clone(),
-                configuration.clone(),
-            )
-        });
         Ok(Self {
             configuration,
             store,

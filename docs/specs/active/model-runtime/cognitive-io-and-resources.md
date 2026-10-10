@@ -4,7 +4,7 @@
 
 ## Owner
 
-Core owns model and Resource host calls; Material owns Artifact/Observation/DerivedRepresentation identity; Memory and Runtime own their respective query and lifecycle semantics.
+Core owns model and Resource host calls; Material owns Artifact/Observation/DerivedRepresentation identity, selected text and source lineage; Memory and Runtime own their respective query and lifecycle semantics. Material 的精确文本／Serving／embedding 共同合同见 [Material Derivation](material-derivation.md#selected-text-与-serving)。
 
 ## Schema 与来源
 

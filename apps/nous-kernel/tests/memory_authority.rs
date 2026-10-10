@@ -443,12 +443,22 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
         .expect("meaningful-use association");
     assert_eq!(association.basis.len(), 1);
     let topology = runtime
-        .store
-        .topology_projection_input(subject, true)
+        .serving
+        .projection_input(
+            subject,
+            true,
+            runtime
+                .configuration
+                .snapshot_for_subject(subject)
+                .unwrap()
+                .get(nous_memory::EPISODE_SYNOPSIS)
+                .unwrap(),
+            None,
+        )
         .await
         .expect("topology input");
-    assert!(topology.edges.iter().any(|edge| {
-        edge.association_kind == "assoc.related" && edge.provenance_root.is_some()
+    assert!(topology.topology.edges.iter().any(|edge| {
+        edge.association_kind == "assoc.related" && edge.provenance_root.is_none()
     }));
     let projection_budget = nous_persistence::EpisodeTextBudget {
         max_members: 32,
@@ -456,12 +466,12 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
         total_max_bytes: 16384,
     };
     let cognitive = runtime
-        .store
-        .cognitive_projection_input(subject, true, projection_budget)
+        .serving
+        .projection_input(subject, true, projection_budget, None)
         .await
         .expect("coherent cognitive projection");
-    assert_eq!(cognitive.topology.watermark, topology.watermark);
-    assert_eq!(cognitive.topology.nodes, topology.nodes);
+    assert_eq!(cognitive.authority_watermark, topology.authority_watermark);
+    assert_eq!(cognitive.topology.nodes, topology.topology.nodes);
     let memory_reference = CognitiveRef::MemoryRevision(memory.revision.memory_revision_id);
     assert!(
         cognitive
@@ -474,11 +484,11 @@ async fn association_requires_exact_cognition_and_valid_basis_class() {
             .topology
             .edges
             .iter()
-            .any(|e| e.association_kind == "assoc.related" && e.provenance_root.is_some())
+            .any(|e| e.association_kind == "assoc.related" && e.provenance_root.is_none())
     );
     let forbidden = runtime
-        .store
-        .cognitive_projection_input(subject, false, projection_budget)
+        .serving
+        .projection_input(subject, false, projection_budget, None)
         .await
         .expect("cognitive projection without memory capability");
     assert!(

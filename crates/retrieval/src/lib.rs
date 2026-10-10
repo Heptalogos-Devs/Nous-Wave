@@ -11,7 +11,11 @@ mod assets;
 mod concept;
 pub use assets::reclamation::ReclamationReport;
 pub use concept::generation::{ConceptGeneration, ConceptRecord};
+mod embedding;
 mod material;
+pub use embedding::{EmbeddingCursor, EmbeddingNeed, EmbeddingPage};
+mod projection;
+pub use projection::{CognitiveProjectionInput, OwnedTopologyProjection};
 mod observation;
 mod provider;
 pub mod reference;
@@ -151,6 +155,8 @@ pub(crate) struct ProjectionCapabilities {
 pub struct ServingService {
     pub store: AuthorityStore,
     pub objects: ObjectStore,
+    pub material: nous_material::MaterialService,
+    pub memory: Option<nous_memory::MemoryService>,
     pub configuration: nous_configuration::ConfigurationService,
     pub publisher: ServingPublisher,
     pub options: ServingOptions,
@@ -181,16 +187,18 @@ impl ServingService {
     }
 
     pub fn new(
-        store: AuthorityStore,
-        objects: ObjectStore,
+        material: nous_material::MaterialService,
+        memory: Option<nous_memory::MemoryService>,
         options: ServingOptions,
         embedding: Option<Arc<dyn TextEmbeddingProvider>>,
         configuration: nous_configuration::ConfigurationService,
     ) -> Result<Self> {
         std::fs::create_dir_all(&options.root).map_err(assets::files::io)?;
         Ok(Self {
-            store,
-            objects,
+            store: material.store.clone(),
+            objects: material.objects.clone(),
+            material,
+            memory,
             configuration,
             options,
             embedding: {

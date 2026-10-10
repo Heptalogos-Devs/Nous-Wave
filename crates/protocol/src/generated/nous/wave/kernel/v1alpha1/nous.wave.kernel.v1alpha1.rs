@@ -519,6 +519,17 @@ pub struct ReleaseQueryRequest {
     pub validation_ticket: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EmbeddingCursor {
+    #[prost(string, tag="1")]
+    pub subject_id: ::prost::alloc::string::String,
+    #[prost(int64, tag="2")]
+    pub content_revision: i64,
+    #[prost(string, tag="3")]
+    pub view_digest: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="4")]
+    pub after: ::core::option::Option<super::super::v1alpha1::CognitiveRef>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingNeedsRequest {
     #[prost(string, tag="1")]
     pub subject_id: ::prost::alloc::string::String,
@@ -526,6 +537,8 @@ pub struct EmbeddingNeedsRequest {
     pub limit: u32,
     #[prost(string, optional, tag="3")]
     pub preparation_token: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="4")]
+    pub cursor: ::core::option::Option<EmbeddingCursor>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EmbeddingNeed {
@@ -542,6 +555,8 @@ pub struct EmbeddingNeedsResponse {
     pub config: ::core::option::Option<EmbeddingConfig>,
     #[prost(message, repeated, tag="2")]
     pub needs: ::prost::alloc::vec::Vec<EmbeddingNeed>,
+    #[prost(message, optional, tag="3")]
+    pub next_cursor: ::core::option::Option<EmbeddingCursor>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CommitEmbeddingRequest {

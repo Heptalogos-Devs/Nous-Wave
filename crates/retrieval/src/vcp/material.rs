@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::*;
-use nous_persistence::TopologyEdgeSource;
 
 pub struct VcpProjectionMaterial {
     pub authority_watermark: i64,
     pub space: EmbeddingSpaceSignature,
     pub producer: ProducerSignature,
     pub identities: VcpIdentityMap,
-    pub edges: Vec<TopologyEdgeSource>,
+    pub edges: Vec<WaveEdgeEvidence>,
     pub documents: Vec<VcpProjectedDocument>,
 }
 pub struct VcpProjectedDocument {
@@ -51,22 +50,9 @@ impl ServingService {
         let producer = provider.producer();
         let budget = snapshot.get(crate::EPISODE_SYNOPSIS)?;
         let capabilities = self.projection_capabilities(subject).await?;
-        let input = match view {
-            Some(view) => {
-                let input = self.store.historical_projection_input(view, budget).await?;
-                nous_persistence::CognitiveProjectionInput {
-                    authority_watermark: 0,
-                    topology: input.topology,
-                    evidence_roots: input.evidence_roots,
-                    sources: input.sources,
-                }
-            }
-            None => {
-                self.store
-                    .cognitive_projection_input(subject, capabilities.memory, budget)
-                    .await?
-            }
-        };
+        let input = self
+            .projection_input(subject, capabilities.memory, budget, view)
+            .await?;
         let concepts = serving.concept.iter().find(|generation| {
             generation
                 .space
@@ -78,7 +64,7 @@ impl ServingService {
                     .is_some_and(|p| p.signature_hash == producer.signature_hash)
         });
         let mut documents = Vec::new();
-        for document in self.documents(input.sources, budget).await? {
+        for document in self.documents(subject, input.sources, budget, view).await? {
             let concept_refs = document
                 .tag_ids
                 .iter()

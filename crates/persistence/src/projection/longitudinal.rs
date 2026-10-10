@@ -72,7 +72,7 @@ UNION ALL SELECT 'cognitive_schema_revision',s.schema_revision_id::text,s.basis_
                 association_kind: "cognition_basis".into(),
                 polarity: "positive".into(),
                 support_mass: 1.0,
-                provenance_root: Some(root.clone()),
+                provenance: ProjectionEdgeProvenance::Structure(root.clone()),
             });
         }
     }

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pub(crate) mod binding;
 pub(crate) mod projection;
+pub(crate) mod text;
 
 use crate::{AuthorityStore, database_error as db};
 use nous_core::*;
