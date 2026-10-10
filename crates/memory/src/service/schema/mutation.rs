@@ -178,11 +178,7 @@ impl MemoryService {
         };
         let row=sqlx::query("SELECT current_revision_id,object_epoch FROM cognitive_schemas WHERE subject_id=$1 AND schema_id=$2 FOR UPDATE").bind(subject.0).bind(schema_id.0).fetch_optional(&mut **mutation.tx()).await.map_err(db)?.ok_or_else(||Error::NotFound("CognitiveSchema not found".into()))?;
         let epoch: i64 = row.try_get("object_epoch").map_err(db)?;
-        if epoch != expected_object_epoch {
-            return Err(Error::Conflict(
-                "expected schema object epoch is stale".into(),
-            ));
-        }
+        crate::service::state::fence_epoch(epoch, expected_object_epoch)?;
         self.validate_basis_in_tx(mutation.tx(), subject, std::slice::from_ref(&link.basis))
             .await?;
         self.insert_schema_link(
@@ -276,11 +272,7 @@ impl MemoryService {
         .map_err(db)?
         .ok_or_else(|| Error::NotFound("CognitiveSchema not found".into()))?;
         let epoch: i64 = row.try_get("object_epoch").map_err(db)?;
-        if epoch != input.expected_object_epoch {
-            return Err(Error::Conflict(
-                "expected schema object epoch is stale".into(),
-            ));
-        }
+        crate::service::state::fence_epoch(epoch, input.expected_object_epoch)?;
         let parent = CognitiveSchemaRevisionId(row.try_get("current_revision_id").map_err(db)?);
         let revision_no: i32 = sqlx::query_scalar(
             "SELECT revision_no+1 FROM cognitive_schema_revisions WHERE schema_revision_id=$1",

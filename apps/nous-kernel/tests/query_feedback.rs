@@ -202,7 +202,7 @@ async fn linked_use_is_bounded_subject_local_final_and_expiring() {
     conflict.events[0].query_id = Some(uuid::Uuid::new_v4());
     assert!(matches!(
         rt.cognition.use_feedback(conflict).await,
-        Err(Error::Conflict(_))
+        Err(Error::Domain(error)) if error.code == nous_core::DomainErrorCode::OperationIdConflict
     ));
     assert!(matches!(
         rt.cognition

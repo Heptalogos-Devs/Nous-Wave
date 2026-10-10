@@ -217,6 +217,124 @@ impl ConfigurationView {
         }
     }
 }
+/// Carried as a typed Connect detail / google.rpc.Status Any.
+/// context contains owner-selected IDs/revisions, never opaque user content.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ErrorDetail {
+    #[prost(enumeration="DomainErrorCode", tag="1")]
+    pub code: i32,
+    #[prost(enumeration="ErrorRecovery", tag="2")]
+    pub recovery: i32,
+    #[prost(map="string, string", tag="3")]
+    pub context: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+}
+/// Business semantics are independent of the generic Connect/gRPC status code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DomainErrorCode {
+    Unspecified = 0,
+    UnknownReference = 1,
+    AmbiguousReference = 2,
+    ReferenceTypeMismatch = 3,
+    ReferenceTombstoned = 4,
+    UnresolvedMachinePlaceholder = 5,
+    StaleContext = 6,
+    StaleRevision = 7,
+    OperationIdConflict = 8,
+    OperationInProgress = 9,
+    LeaseLost = 10,
+    CapabilityUnavailable = 11,
+}
+impl DomainErrorCode {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DOMAIN_ERROR_CODE_UNSPECIFIED",
+            Self::UnknownReference => "DOMAIN_ERROR_CODE_UNKNOWN_REFERENCE",
+            Self::AmbiguousReference => "DOMAIN_ERROR_CODE_AMBIGUOUS_REFERENCE",
+            Self::ReferenceTypeMismatch => "DOMAIN_ERROR_CODE_REFERENCE_TYPE_MISMATCH",
+            Self::ReferenceTombstoned => "DOMAIN_ERROR_CODE_REFERENCE_TOMBSTONED",
+            Self::UnresolvedMachinePlaceholder => "DOMAIN_ERROR_CODE_UNRESOLVED_MACHINE_PLACEHOLDER",
+            Self::StaleContext => "DOMAIN_ERROR_CODE_STALE_CONTEXT",
+            Self::StaleRevision => "DOMAIN_ERROR_CODE_STALE_REVISION",
+            Self::OperationIdConflict => "DOMAIN_ERROR_CODE_OPERATION_ID_CONFLICT",
+            Self::OperationInProgress => "DOMAIN_ERROR_CODE_OPERATION_IN_PROGRESS",
+            Self::LeaseLost => "DOMAIN_ERROR_CODE_LEASE_LOST",
+            Self::CapabilityUnavailable => "DOMAIN_ERROR_CODE_CAPABILITY_UNAVAILABLE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DOMAIN_ERROR_CODE_UNSPECIFIED" => Some(Self::Unspecified),
+            "DOMAIN_ERROR_CODE_UNKNOWN_REFERENCE" => Some(Self::UnknownReference),
+            "DOMAIN_ERROR_CODE_AMBIGUOUS_REFERENCE" => Some(Self::AmbiguousReference),
+            "DOMAIN_ERROR_CODE_REFERENCE_TYPE_MISMATCH" => Some(Self::ReferenceTypeMismatch),
+            "DOMAIN_ERROR_CODE_REFERENCE_TOMBSTONED" => Some(Self::ReferenceTombstoned),
+            "DOMAIN_ERROR_CODE_UNRESOLVED_MACHINE_PLACEHOLDER" => Some(Self::UnresolvedMachinePlaceholder),
+            "DOMAIN_ERROR_CODE_STALE_CONTEXT" => Some(Self::StaleContext),
+            "DOMAIN_ERROR_CODE_STALE_REVISION" => Some(Self::StaleRevision),
+            "DOMAIN_ERROR_CODE_OPERATION_ID_CONFLICT" => Some(Self::OperationIdConflict),
+            "DOMAIN_ERROR_CODE_OPERATION_IN_PROGRESS" => Some(Self::OperationInProgress),
+            "DOMAIN_ERROR_CODE_LEASE_LOST" => Some(Self::LeaseLost),
+            "DOMAIN_ERROR_CODE_CAPABILITY_UNAVAILABLE" => Some(Self::CapabilityUnavailable),
+            _ => None,
+        }
+    }
+}
+/// Guidance, never an instruction to perform an automatic retry or mutation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ErrorRecovery {
+    Unspecified = 0,
+    ResolveReference = 1,
+    SelectCandidate = 2,
+    CorrectRequest = 3,
+    RediscoverReference = 4,
+    RefreshState = 5,
+    /// Resume the original frozen operation identity after obtaining a new lease.
+    RetryOperation = 6,
+    /// Different semantic inputs require a different operation identity.
+    NewOperation = 7,
+    CheckConfiguration = 8,
+}
+impl ErrorRecovery {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ERROR_RECOVERY_UNSPECIFIED",
+            Self::ResolveReference => "ERROR_RECOVERY_RESOLVE_REFERENCE",
+            Self::SelectCandidate => "ERROR_RECOVERY_SELECT_CANDIDATE",
+            Self::CorrectRequest => "ERROR_RECOVERY_CORRECT_REQUEST",
+            Self::RediscoverReference => "ERROR_RECOVERY_REDISCOVER_REFERENCE",
+            Self::RefreshState => "ERROR_RECOVERY_REFRESH_STATE",
+            Self::RetryOperation => "ERROR_RECOVERY_RETRY_OPERATION",
+            Self::NewOperation => "ERROR_RECOVERY_NEW_OPERATION",
+            Self::CheckConfiguration => "ERROR_RECOVERY_CHECK_CONFIGURATION",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ERROR_RECOVERY_UNSPECIFIED" => Some(Self::Unspecified),
+            "ERROR_RECOVERY_RESOLVE_REFERENCE" => Some(Self::ResolveReference),
+            "ERROR_RECOVERY_SELECT_CANDIDATE" => Some(Self::SelectCandidate),
+            "ERROR_RECOVERY_CORRECT_REQUEST" => Some(Self::CorrectRequest),
+            "ERROR_RECOVERY_REDISCOVER_REFERENCE" => Some(Self::RediscoverReference),
+            "ERROR_RECOVERY_REFRESH_STATE" => Some(Self::RefreshState),
+            "ERROR_RECOVERY_RETRY_OPERATION" => Some(Self::RetryOperation),
+            "ERROR_RECOVERY_NEW_OPERATION" => Some(Self::NewOperation),
+            "ERROR_RECOVERY_CHECK_CONFIGURATION" => Some(Self::CheckConfiguration),
+            _ => None,
+        }
+    }
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CognitiveRef {
     #[prost(string, tag="1")]

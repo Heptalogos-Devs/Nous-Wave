@@ -13,6 +13,8 @@ Node consumers use `connectNousInstance({ runRoot })` from `@nous-wave/client/no
 
 Model-backed operations derive their response deadline from active `core_execution.opportunity`: work time plus cleanup, acknowledgement and response margin. A maintenance grant uses its requested `maxElapsedMs` as the work budget with the same configured confirmation envelope. Ordinary Node reads retain the 30-second transport default. A shorter caller `timeoutMs` or cancellation bounds the operation; cancellation reaches Core and providers. Callers resume unfinished maintenance needs with another bounded opportunity rather than replaying an imaginary batch receipt.
 
+RPC failures expose `NousError.code` as the generic transport category and `domainCode/recovery/context` from canonical typed error details. Display messages do not carry machine semantics. `details` and identity `candidates` remain available, including unrecognized future details. See the [error and recovery contract](../../docs/specs/active/model-runtime/reference-consumer.md#机器错误与恢复); in particular, `Aborted` alone does not imply stale context.
+
 `client.cognition.prepareQuery({ subjectId, nousql, sessionId?, workContextId?, situation? })` 只准备/inspect，返回 `boundQuery` JSON（resolved query、complete representation、source refs、SHA256、profile、ConfigSnapshot digest），不调用 provider 或构建 Serving。`cognition.query` 共用该 preparation，内部固定 token 后生成一份 query embedding。非空 Unicode 意图接受代词与短 follow-up；显式 Identity/Tag selectors 使用现有 Directory resolver。冻结的 QueryContextSnapshot 包含自由文本、精确 cognition/Entity/Tag anchors、Session/ResidentSet 与 history exclusions。
 
 Text-only 研究使用普通无 context TextCue；生产兼容开关已删除。Memory/Schema/Episode/Journal 的 exact revision API 支持精确续接。

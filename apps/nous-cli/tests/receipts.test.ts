@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { NousError } from "@nous-wave/client";
+import {
+  domainError,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
 import type { connectNousInstance } from "@nous-wave/client/node";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -15,6 +20,66 @@ import {
 } from "./support/client.js";
 import { cliState } from "../src/state.js";
 import { cliErrorPayload } from "../src/agent.js";
+
+it("preserves an owner rejection and recovery when reading a terminal receipt", async () => {
+  const root = await mkdtemp(
+    join(workspacePaths.temporary, "typed-rejection-"),
+  );
+  const operationId = crypto.randomUUID();
+  const refusal = new NousError(
+    domainError("Different input reused an operation identity", 10, {
+      code: DomainErrorCode.OPERATION_ID_CONFLICT,
+      recovery: ErrorRecovery.NEW_OPERATION,
+      context: { operation_id: operationId },
+    }),
+  );
+  let calls = 0;
+  const original = {
+    subjects: {
+      create: async () => {
+        calls++;
+        throw refusal;
+      },
+    },
+  } as unknown as Awaited<ReturnType<typeof connectNousInstance>>;
+  try {
+    const env = await createEnvironment(
+      { "run-root": root, "instance-root": root },
+      async () => original,
+    );
+    await expect(env.client.subjects.create({ operationId })).rejects.toBe(
+      refusal,
+    );
+    const [namespace] = await readdir(join(root, "consumers"));
+    const [file] = await readdir(
+      join(root, "consumers", namespace!, "operations"),
+    );
+    const receiptId = file!.slice(0, -5);
+    expect(
+      await cliState(root, identity, policy).receipt(receiptId),
+    ).toMatchObject({
+      status: "rejected",
+      rejection: {
+        code: 10,
+        domainCode: "OPERATION_ID_CONFLICT",
+        recovery: "NEW_OPERATION",
+        context: { operation_id: operationId },
+      },
+    });
+    const recovered: unknown = await env
+      .retry(receiptId)
+      .catch((error: unknown) => error);
+    expect(cliErrorPayload(recovered)).toMatchObject({
+      code: "OPERATION_ID_CONFLICT",
+      recovery: "NEW_OPERATION",
+      context: { operation_id: operationId },
+      details: refusal.details,
+    });
+    expect(calls).toBe(1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 it("reclaims definite rejections and finalizes a recovered unknown request rejected by Authority", async () => {
   const root = await mkdtemp(

@@ -166,7 +166,14 @@ impl CognitiveRuntimeService {
             return Err(Error::FailedPrecondition("WorkContext is ended".into()));
         }
         if revision != input.expected_revision {
-            return Err(Error::Conflict("WorkContext revision is stale".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "WorkContext revision is stale",
+            )
+            .with_context("work_context_id", input.work_context_id)
+            .with_context("expected_revision", input.expected_revision)
+            .with_context("actual_revision", revision)
+            .into());
         }
         validate_refs_in_tx(
             &self.store,

@@ -45,7 +45,7 @@ pub(super) fn snapshot(value: k::WorkflowSnapshot) -> Result<nous_core::Workflow
         cognitive_formed_at: time(value.cognitive_formed_at)?,
         maintenance_claim: value
             .maintenance_claim
-            .map(|claim| {
+            .map(|claim| -> Result<nous_core::MaintenanceClaim> {
                 Ok(nous_core::MaintenanceClaim {
                     need_id: id(&claim.need_id)?,
                     lease_token: id(&claim.lease_token)?,
@@ -96,7 +96,7 @@ pub(super) fn telemetry(value: k::ExecutionTelemetry) -> Result<nous_core::Execu
                     latency_ms: attempt.latency_ms,
                     usage: attempt
                         .usage
-                        .map(|usage| {
+                        .map(|usage| -> Result<nous_core::ExecutionUsage> {
                             Ok(nous_core::ExecutionUsage {
                                 input_tokens: count(usage.input_tokens)?,
                                 output_tokens: count(usage.output_tokens)?,

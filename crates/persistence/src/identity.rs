@@ -177,11 +177,18 @@ ORDER BY r.ordinal
     /// Locate the Subject address before a consumer has selected a Subject.
     pub async fn subject_for_lexical(&self, lexical: &str) -> Result<SubjectId> {
         if validate_lexical(lexical)? != "sub" {
-            return Err(Error::Invalid("REFERENCE_TYPE_MISMATCH".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::ReferenceTypeMismatch,
+                "Expected a Subject lexical reference",
+            )
+            .with_context("reference", lexical)
+            .with_context("expected_kind", "subject")
+            .into());
         }
         let canonical: String = sqlx::query_scalar("SELECT b.canonical_ref FROM lexical_bindings b JOIN lexical_visibility v USING(lexical_ref) WHERE b.object_kind='subject' AND b.lexical_ref=$1 AND b.tombstoned_at IS NULL AND v.subject_id::text=b.canonical_ref")
             .bind(lexical).fetch_optional(self.pool()).await.map_err(database_error)?
-            .ok_or_else(|| Error::NotFound("UNKNOWN_REFERENCE".into()))?;
+            .ok_or_else(|| nous_core::DomainError::new(nous_core::DomainErrorCode::UnknownReference, "Subject reference is unknown or unavailable")
+                .with_context("reference", lexical))?;
         canonical
             .parse()
             .map(SubjectId)
@@ -295,7 +302,12 @@ ORDER BY r.ordinal
                 .try_get::<bool, _>("tombstoned")
                 .map_err(database_error)?
             {
-                return Err(Error::Conflict("REFERENCE_TOMBSTONED".into()));
+                return Err(nous_core::DomainError::new(
+                    nous_core::DomainErrorCode::ReferenceTombstoned,
+                    "The identity has been tombstoned",
+                )
+                .with_context("reference", format!("{kind}:{canonical}"))
+                .into());
             }
             row.try_get::<String, _>("lexical_ref")
                 .map_err(database_error)?

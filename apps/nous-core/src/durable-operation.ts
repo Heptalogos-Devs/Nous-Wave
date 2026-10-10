@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { create, type MessageInitShape } from "@bufbuild/protobuf";
-import { Code, ConnectError } from "@connectrpc/connect";
+import { Code } from "@connectrpc/connect";
+import {
+  domainError,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
 import {
   WorkflowPayloadSchema,
   ExecutionTelemetrySchema,
@@ -107,9 +112,13 @@ class DurableOperation {
   }
   async run<T>(work: () => Promise<T>): Promise<T> {
     if (this.record.busy || !this.record.lease)
-      throw new ConnectError(
+      throw domainError(
         "Workflow is busy; retry the same operation",
         Code.Aborted,
+        {
+          code: DomainErrorCode.OPERATION_IN_PROGRESS,
+          recovery: ErrorRecovery.RETRY_OPERATION,
+        },
       );
     try {
       return await work();

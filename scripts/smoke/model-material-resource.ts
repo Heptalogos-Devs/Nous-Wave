@@ -3,6 +3,7 @@
 
 import { CONFIG_REVISION } from "../../apps/nous-core/src/configuration/schema.js";
 import { connectNousInstance } from "@nous-wave/client/node";
+import { NousError } from "@nous-wave/client";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { writeFile, appendFile, rm, mkdir } from "node:fs/promises";
@@ -296,7 +297,7 @@ try {
   await cli("status");
   const subject = await cli("subject", "create");
   const subjectId = String(subject.subjectId);
-  await cli("session", "open");
+  const session = await cli("session", "open");
   // Synthetic local wiring wiring; it is never real corpus or live-model evidence.
   const observation = await cli(
     "observe",
@@ -704,6 +705,43 @@ routes = ["memory_formation"]
   });
   assert.match(formationProducer.implementation, /^ai-sdk:[a-f0-9]{64}$/);
   await cli("session", "show");
+  await assert.rejects(
+    restarted.model.formFromObservation({
+      ...formationRequest,
+      occurrenceId: selected.observation.occurrenceId,
+    }),
+    (error: unknown) =>
+      error instanceof NousError &&
+      error.code === 10 &&
+      error.domainCode === "OPERATION_ID_CONFLICT" &&
+      error.recovery === "NEW_OPERATION" &&
+      error.context.operation_key === formationRequest.operationId,
+  );
+  await assert.rejects(
+    restarted.cognition.recall(
+      subjectId,
+      'binding check @e("absent-smoke-identity")',
+    ),
+    (error: unknown) =>
+      error instanceof NousError &&
+      error.domainCode === "UNKNOWN_REFERENCE" &&
+      error.recovery === "RESOLVE_REFERENCE" &&
+      error.context.reference === "absent-smoke-identity",
+  );
+  const sessionId = String(session.sessionId);
+  await restarted.cognition.closeSession({ subjectId, id: sessionId });
+  await assert.rejects(
+    restarted.cognition.query({
+      subjectId,
+      sessionId,
+      nousql: "closed session context",
+    }),
+    (error: unknown) =>
+      error instanceof NousError &&
+      error.domainCode === "STALE_CONTEXT" &&
+      error.recovery === "REFRESH_STATE" &&
+      error.context.session_id === sessionId,
+  );
   console.log("Model/Material/Resource public smoke completed");
 } catch (error) {
   console.error(

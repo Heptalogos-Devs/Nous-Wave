@@ -1,6 +1,11 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+  domainError,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
 import { ExpectedCognitionSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import { describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
@@ -67,7 +72,10 @@ describe("maintenance fixed workflow retry", () => {
   it("records a stale outcome and refreshes the need; invented basis are terminal", async () => {
     const state = fixture();
     state.commit.mockRejectedValueOnce(
-      new ConnectError("Source changed", Code.Aborted),
+      domainError("Source changed", Code.Aborted, {
+        code: DomainErrorCode.STALE_REVISION,
+        recovery: ErrorRecovery.REFRESH_STATE,
+      }),
     );
     expect(
       (
@@ -111,6 +119,39 @@ describe("maintenance fixed workflow retry", () => {
       ).status,
     ).toBe("rejected_invalid");
     expect(invalid.commit).not.toHaveBeenCalled();
+    for (const code of [
+      DomainErrorCode.OPERATION_ID_CONFLICT,
+      DomainErrorCode.LEASE_LOST,
+    ]) {
+      const conflict = fixture();
+      const error = domainError(
+        "Different owner failure with the same transport category",
+        Code.Aborted,
+        {
+          code,
+          recovery:
+            code === DomainErrorCode.LEASE_LOST
+              ? ErrorRecovery.RETRY_OPERATION
+              : ErrorRecovery.NEW_OPERATION,
+        },
+      );
+      conflict.commit.mockRejectedValueOnce(error);
+      await expect(
+        runModelMaintenance(
+          conflict.kernel,
+          conflict.models,
+          need,
+          {},
+          () => {},
+        ),
+      ).rejects.toBe(error);
+      expect(conflict.refresh).not.toHaveBeenCalled();
+      expect(
+        vi
+          .mocked(conflict.kernel.modelWorkflow.saveWorkflow)
+          .mock.calls.some(([input]) => input.outcome !== undefined),
+      ).toBe(false);
+    }
   });
 
   it("executes consolidation through the typed owner and replays a no-change outcome", async () => {

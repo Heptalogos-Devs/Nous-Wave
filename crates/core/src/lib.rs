@@ -470,25 +470,8 @@ pub struct SituationDescriptor {
     pub current_objects: Vec<ObjectRef>,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("{0}")]
-    Invalid(String),
-    #[error("{0}")]
-    NotFound(String),
-    #[error("{0}")]
-    Conflict(String),
-    #[error("{0}")]
-    FailedPrecondition(String),
-    #[error("{0}")]
-    Unavailable(String),
-    #[error("{0}")]
-    Infrastructure(String),
-    #[error("{0}")]
-    Internal(String),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
+mod error;
+pub use error::{DomainError, DomainErrorCode, Error, Result};
 
 impl fmt::Display for CognitiveRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

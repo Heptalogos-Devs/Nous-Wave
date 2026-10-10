@@ -5,6 +5,7 @@ import type { MutationExecutor } from "../durable-operation.js";
 import { create } from "@bufbuild/protobuf";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import { authorityRejection } from "./rejection.js";
 import { z } from "zod";
 import type { MaintenancePlan } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import { CognitiveSchemaContentSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
@@ -307,16 +308,9 @@ export async function executeConsolidation(
         }
       }
     } catch (error) {
-      if (!(error instanceof ConnectError)) throw error;
-      if (error.code === Code.InvalidArgument)
-        result.status = "rejected_invalid";
-      else if (
-        [Code.Aborted, Code.NotFound, Code.FailedPrecondition].includes(
-          error.code,
-        )
-      )
-        result.status = "stale";
-      else throw error;
+      const rejection = authorityRejection(error);
+      if (!rejection) throw error;
+      result.status = rejection;
     }
     results.push(result);
     await saveProgress(results);

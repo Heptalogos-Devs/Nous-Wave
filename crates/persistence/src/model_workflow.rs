@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{AuthorityStore, database_error as db};
-use nous_core::{Error, Result, SubjectId};
+use nous_core::{DomainError, DomainErrorCode, Error, Result, SubjectId};
 use nous_core::{ExecutionTelemetry, WorkflowPayload, WorkflowSnapshot};
 use sqlx::Row;
 use sqlx::{Postgres, Transaction, types::Json};
@@ -86,9 +86,13 @@ impl AuthorityStore {
             .bind(subject.0).bind(owner).bind(key).fetch_optional(self.pool()).await.map_err(db)?;
         let Some(row) = row else { return Ok(None) };
         if row.try_get::<String, _>("semantic_digest").map_err(db)? != digest {
-            return Err(Error::Conflict(
-                "model operation identity has different semantic input".into(),
-            ));
+            return Err(DomainError::new(
+                DomainErrorCode::OperationIdConflict,
+                "Model operation identity has different semantic input",
+            )
+            .with_context("owner", owner)
+            .with_context("operation_key", key)
+            .into());
         }
         Ok(Some(WorkflowReservation {
             snapshot: row
@@ -158,9 +162,12 @@ impl AuthorityStore {
             let until: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar("SELECT lease_until FROM maintenance_needs WHERE subject_id=$1 AND need_id=$2 AND state='leased' AND lease_token=$3 AND lease_until>clock_timestamp() AND trigger_revision>=$4")
                 .bind(subject.0).bind(claim.need_id).bind(claim.lease_token).bind(maintenance_trigger).fetch_optional(&mut *tx).await.map_err(db)?;
             let Some(until) = until else {
-                return Err(Error::Conflict(
-                    "maintenance lease expired or changed".into(),
-                ));
+                return Err(DomainError::new(
+                    DomainErrorCode::LeaseLost,
+                    "Maintenance lease expired or changed",
+                )
+                .with_context("need_id", claim.need_id)
+                .into());
             };
             (Some(claim.need_id), Some(until))
         } else {
@@ -170,9 +177,13 @@ impl AuthorityStore {
         sqlx::query("INSERT INTO model_workflow_operations(subject_id,owner,operation_key,semantic_digest,snapshot,maintenance_need_id,maintenance_trigger_revision,dependencies) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING").bind(subject.0).bind(owner).bind(key).bind(digest).bind(Json(snapshot)).bind(maintenance_need_id).bind(maintenance_trigger).bind(Json(&snapshot.content.dependencies)).execute(&mut *tx).await.map_err(db)?;
         let row=sqlx::query("SELECT snapshot,proposal,outcome,execution_telemetry,semantic_digest,lease_until>now() AS live FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 FOR UPDATE").bind(subject.0).bind(owner).bind(key).fetch_one(&mut *tx).await.map_err(db)?;
         if row.try_get::<String, _>("semantic_digest").map_err(db)? != digest {
-            return Err(Error::Conflict(
-                "model operation identity has different semantic input".into(),
-            ));
+            return Err(DomainError::new(
+                DomainErrorCode::OperationIdConflict,
+                "Model operation identity has different semantic input",
+            )
+            .with_context("owner", owner)
+            .with_context("operation_key", key)
+            .into());
         }
         let snapshot = row
             .try_get::<Json<WorkflowSnapshot>, _>("snapshot")
@@ -251,7 +262,8 @@ impl AuthorityStore {
         let mut tx = self.begin().await?;
         let row = sqlx::query("SELECT dependencies,mutation_operations,execution_telemetry FROM model_workflow_operations WHERE subject_id=$1 AND owner=$2 AND operation_key=$3 AND lease_token=$4 AND lease_until>clock_timestamp() AND outcome IS NULL FOR UPDATE")
             .bind(subject.0).bind(owner).bind(key).bind(*token).fetch_optional(&mut *tx).await.map_err(db)?
-            .ok_or_else(|| Error::Conflict("model workflow lease expired or changed".into()))?;
+            .ok_or_else(|| DomainError::new(DomainErrorCode::LeaseLost, "Model workflow lease expired or changed")
+                .with_context("owner", owner).with_context("operation_key", key))?;
         let mut operations: Vec<Uuid> = row.try_get("mutation_operations").map_err(db)?;
         for operation in mutation_operations {
             if !operations.contains(&operation.0) {
@@ -291,9 +303,13 @@ impl AuthorityStore {
             .bind(telemetry.as_ref().map(Json)).bind(Json(&dependencies)).bind(Json(WorkflowSnapshot::default())).bind(operations)
             .execute(&mut *tx).await.map_err(db)?;
         if updated.rows_affected() != 1 {
-            return Err(Error::Conflict(
-                "model workflow lease expired or changed".into(),
-            ));
+            return Err(DomainError::new(
+                DomainErrorCode::LeaseLost,
+                "Model workflow lease expired or changed",
+            )
+            .with_context("owner", owner)
+            .with_context("operation_key", key)
+            .into());
         }
         tx.commit().await.map_err(db)?;
         Ok(())

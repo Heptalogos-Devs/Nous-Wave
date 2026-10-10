@@ -499,8 +499,13 @@ impl CognitiveRuntimeService {
         } else {
             None
         };
-        if session.as_ref().is_some_and(|s| s.closed_at.is_some()) {
-            return Err(Error::FailedPrecondition("STALE_CONTEXT".into()));
+        if let Some(closed) = session.as_ref().filter(|s| s.closed_at.is_some()) {
+            return Err(DomainError::new(
+                DomainErrorCode::StaleContext,
+                "The query Session is closed",
+            )
+            .with_context("session_id", closed.session_id.0)
+            .into());
         }
         let context_id = query.work_context.or_else(|| {
             session
@@ -510,7 +515,12 @@ impl CognitiveRuntimeService {
         let context = if let Some(id) = context_id {
             let context = self.work_context_in(query.subject, id, &mut tx).await?;
             if context.state != WorkContextState::Open {
-                return Err(Error::FailedPrecondition("STALE_CONTEXT".into()));
+                return Err(DomainError::new(
+                    DomainErrorCode::StaleContext,
+                    "The query WorkContext is no longer open",
+                )
+                .with_context("work_context_id", id)
+                .into());
             }
             sources.extend(
                 context

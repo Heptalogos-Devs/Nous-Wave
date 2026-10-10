@@ -40,15 +40,7 @@ impl MemoryService {
             MutationStart::Active(mutation) => mutation,
         };
         let source_extent = validate_sources_in(mutation.tx(), &input).await?;
-        let watermark: i64 =
-            sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1 FOR UPDATE")
-                .bind(input.subject.0)
-                .fetch_one(&mut **mutation.tx())
-                .await
-                .map_err(db)?;
-        if watermark != input.expected_authority_seq {
-            return Err(Error::Conflict("Journal input snapshot is stale".into()));
-        }
+        fence_source_snapshot_in(mutation.tx(), &input).await?;
         let (journal, parent, revision_no) = journal_target_in(mutation.tx(), &input).await?;
         let basis: Vec<_> = input
             .points
@@ -242,6 +234,28 @@ fn validate_journal(input: &JournalInput) -> Result<()> {
     Ok(())
 }
 
+async fn fence_source_snapshot_in(
+    tx: &mut Transaction<'_, Postgres>,
+    input: &JournalInput,
+) -> Result<()> {
+    let watermark: i64 =
+        sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1 FOR UPDATE")
+            .bind(input.subject.0)
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(db)?;
+    if watermark != input.expected_authority_seq {
+        return Err(nous_core::DomainError::new(
+            nous_core::DomainErrorCode::StaleRevision,
+            "Journal input snapshot is stale",
+        )
+        .with_context("expected_authority_seq", input.expected_authority_seq)
+        .with_context("actual_authority_seq", watermark)
+        .into());
+    }
+    Ok(())
+}
+
 async fn journal_target_in(
     tx: &mut Transaction<'_, Postgres>,
     input: &JournalInput,
@@ -251,14 +265,16 @@ async fn journal_target_in(
     };
     let row = sqlx::query("SELECT o.current_revision_id,o.object_epoch,o.purge_state,r.revision_no FROM journal_objects o JOIN journal_revisions r ON r.journal_revision_id=o.current_revision_id WHERE o.subject_id=$1 AND o.journal_id=$2 FOR UPDATE OF o")
         .bind(input.subject.0).bind(target.journal_id.0).fetch_optional(&mut **tx).await.map_err(db)?
-        .ok_or_else(|| Error::Conflict("Journal target disappeared".into()))?;
+        .ok_or_else(|| nous_core::DomainError::new(nous_core::DomainErrorCode::StaleRevision, "Journal target disappeared"))?;
     if row.get::<Uuid, _>("current_revision_id") != target.expected_revision.0
         || row.get::<i64, _>("object_epoch") != target.expected_epoch
         || row.get::<String, _>("purge_state") != "normal"
     {
-        return Err(Error::Conflict(
-            "Journal target revision or lifecycle is stale".into(),
-        ));
+        return Err(nous_core::DomainError::new(
+            nous_core::DomainErrorCode::StaleRevision,
+            "Journal target revision or lifecycle is stale",
+        )
+        .into());
     }
     validate_journal_scope_in(tx, input, target).await?;
     Ok((
@@ -300,7 +316,11 @@ async fn validate_sources_in(
     let rows = sqlx::query("SELECT o.current_revision_id,o.object_epoch,o.acceptance_state,o.integrity_state,o.suppression_state,o.purge_state,r.episode_revision_id,r.experience_time_kind,r.experience_time_start,r.experience_time_end FROM episode_objects o JOIN episode_revisions r ON r.episode_id=o.episode_id WHERE o.subject_id=$1 AND r.episode_revision_id=ANY($2::uuid[]) ORDER BY o.episode_id FOR SHARE OF o")
         .bind(input.subject.0).bind(&ids).fetch_all(&mut **tx).await.map_err(db)?;
     if rows.len() != ids.len() {
-        return Err(Error::Conflict("Journal source disappeared".into()));
+        return Err(nous_core::DomainError::new(
+            nous_core::DomainErrorCode::StaleRevision,
+            "Journal source disappeared",
+        )
+        .into());
     }
     validate_source_catalog_in(tx, input, &ids).await?;
     let mut extents = Vec::with_capacity(rows.len());
@@ -318,7 +338,11 @@ async fn validate_sources_in(
             || row.get::<String, _>("suppression_state") != "normal"
             || row.get::<String, _>("purge_state") != "normal"
         {
-            return Err(Error::Conflict("Journal source state is stale".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "Journal source state is stale",
+            )
+            .into());
         }
         extents.push(temporal_from_columns(
             row.try_get("experience_time_kind").map_err(db)?,

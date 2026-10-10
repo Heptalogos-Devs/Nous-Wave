@@ -61,11 +61,7 @@ impl MemoryService {
             ));
         }
         let epoch: i64 = source.try_get("object_epoch").map_err(db)?;
-        if epoch != expected_object_epoch {
-            return Err(Error::Conflict(
-                "expected schema object epoch is stale".into(),
-            ));
-        }
+        crate::service::state::fence_epoch(epoch, expected_object_epoch)?;
         let source_revision: Uuid = source.try_get("current_revision_id").map_err(db)?;
         let mut ids = Vec::new();
         let mut revisions = Vec::new();

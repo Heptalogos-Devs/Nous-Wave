@@ -16,7 +16,9 @@ mod configuration;
 mod consolidation_plan;
 mod convert;
 mod episode;
+mod errors;
 mod evidence;
+pub use errors::status;
 mod hosting;
 mod identity;
 mod maintenance_workflow;
@@ -197,23 +199,5 @@ impl KernelService {
             segments: eligible_segments,
             degradation,
         })
-    }
-}
-
-pub fn status(error: Error) -> Status {
-    match error {
-        Error::Invalid(message) => Status::invalid_argument(message),
-        Error::NotFound(message) => Status::not_found(message),
-        Error::Conflict(message) => Status::aborted(message),
-        Error::FailedPrecondition(message) => Status::failed_precondition(message),
-        Error::Unavailable(message) => Status::unavailable(message),
-        Error::Internal(message) => {
-            tracing::error!(%message, "kernel internal operation failed");
-            Status::internal("Kernel operation failed")
-        }
-        Error::Infrastructure(message) => {
-            tracing::error!(%message, "kernel operation failed");
-            Status::internal("Kernel operation failed")
-        }
     }
 }

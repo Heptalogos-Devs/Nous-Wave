@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Code, ConnectError } from "@connectrpc/connect";
+import {
+  domainError,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
 import { executionOptions, type ExecutionOptions } from "../execution.js";
 import { create } from "@bufbuild/protobuf";
 import {
@@ -52,9 +57,14 @@ export class QueryOrchestrator {
       if (texts.size) {
         try {
           if (!this.models.embeddingModel)
-            throw new ConnectError(
+            throw domainError(
               "Query embedding role unavailable",
               Code.FailedPrecondition,
+              {
+                code: DomainErrorCode.CAPABILITY_UNAVAILABLE,
+                recovery: ErrorRecovery.CHECK_CONFIGURATION,
+                context: { capability: "model.query_embedding" },
+              },
             );
           if (preparation.historicalView) {
             const prepared = await new ModelMaterialPipeline(
@@ -159,9 +169,14 @@ export class QueryOrchestrator {
           );
         try {
           if (!this.models.invocations.profile("query_concept_enrichment"))
-            throw new ConnectError(
+            throw domainError(
               "Query concept model role unavailable",
               Code.FailedPrecondition,
+              {
+                code: DomainErrorCode.CAPABILITY_UNAVAILABLE,
+                recovery: ErrorRecovery.CHECK_CONFIGURATION,
+                context: { capability: "model.query_concept_enrichment" },
+              },
             );
           const response = await this.models.invocations.generate(
             "query_concept_enrichment",
@@ -201,9 +216,14 @@ export class QueryOrchestrator {
         ? this.models.invocations.profile("query_rerank")
         : undefined;
       if (intent && !profile && rerankRequired)
-        throw new ConnectError(
+        throw domainError(
           "Required query rerank role unavailable",
           Code.FailedPrecondition,
+          {
+            code: DomainErrorCode.CAPABILITY_UNAVAILABLE,
+            recovery: ErrorRecovery.CHECK_CONFIGURATION,
+            context: { capability: "model.query_rerank" },
+          },
         );
       const prepared = await this.kernel.queryWorkflow.query(
         {

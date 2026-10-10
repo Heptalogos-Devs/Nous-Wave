@@ -236,7 +236,7 @@ async fn configuration_receipts_freeze_subject_scope_and_replay_outcomes() {
         service
             .set_subject_override(first_id, subject, EPSILON.path(), json!(0.1), None)
             .await,
-        Err(nous_core::Error::Conflict(_))
+        Err(nous_core::Error::Domain(error)) if error.code == nous_core::DomainErrorCode::OperationIdConflict
     ));
 }
 
@@ -271,8 +271,16 @@ async fn concurrent_configuration_mutations_publish_one_complete_snapshot() {
         service.set_system_override(second_id, EPSILON.path(), json!(0.13), Some(revision))
     );
     let (winner_id, winner_value, winner) = match (first, second) {
-        (Ok(outcome), Err(nous_core::Error::Conflict(_))) => (first_id, 0.12, outcome),
-        (Err(nous_core::Error::Conflict(_)), Ok(outcome)) => (second_id, 0.13, outcome),
+        (Ok(outcome), Err(nous_core::Error::Domain(error)))
+            if error.code == nous_core::DomainErrorCode::StaleRevision =>
+        {
+            (first_id, 0.12, outcome)
+        }
+        (Err(nous_core::Error::Domain(error)), Ok(outcome))
+            if error.code == nous_core::DomainErrorCode::StaleRevision =>
+        {
+            (second_id, 0.13, outcome)
+        }
         outcomes => panic!("one revision must admit exactly one writer: {outcomes:?}"),
     };
     assert_eq!(winner.revision, revision + 1);
@@ -288,7 +296,7 @@ async fn concurrent_configuration_mutations_publish_one_complete_snapshot() {
         service
             .clear_system_override(OperationId::new(), EPSILON.path(), Some(revision))
             .await,
-        Err(nous_core::Error::Conflict(_))
+        Err(nous_core::Error::Domain(error)) if error.code == nous_core::DomainErrorCode::StaleRevision
     ));
     let later = service
         .set_system_override(

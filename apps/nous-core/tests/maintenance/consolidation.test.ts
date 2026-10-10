@@ -1,6 +1,11 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+  domainError,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
 import { expect, it, vi } from "vitest";
 import { create } from "@bufbuild/protobuf";
 import { Code, ConnectError } from "@connectrpc/connect";
@@ -219,7 +224,12 @@ it("resumes saved progress on transport failure with stable operation identities
 });
 it("makes a stale target terminal while independent creation still commits", async () => {
   const f = fixture();
-  f.revise.mockRejectedValueOnce(new ConnectError("stale epoch", Code.Aborted));
+  f.revise.mockRejectedValueOnce(
+    domainError("stale epoch", Code.Aborted, {
+      code: DomainErrorCode.STALE_REVISION,
+      recovery: ErrorRecovery.REFRESH_STATE,
+    }),
+  );
   const proposal = consolidationSchema.parse({
     actions: [
       {

@@ -1,6 +1,11 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+  domainError,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
 import { create } from "@bufbuild/protobuf";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { expect, it, vi } from "vitest";
@@ -246,7 +251,10 @@ it("maps split children and later revisions to actual returned identities", asyn
 it("continues after a stale item and exposes owner invariant failure", async () => {
   const f = fixture();
   f.association.mockRejectedValueOnce(
-    new ConnectError("Stale endpoint", Code.Aborted),
+    domainError("Stale endpoint", Code.Aborted, {
+      code: DomainErrorCode.STALE_REVISION,
+      recovery: ErrorRecovery.REFRESH_STATE,
+    }),
   );
   const result = await f.run([{ ...attach, tagKey: "t0" }, createTag]);
   expect(result.status).toBe("partial");

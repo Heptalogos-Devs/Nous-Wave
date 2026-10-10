@@ -5,6 +5,11 @@ import { create } from "@bufbuild/protobuf";
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
 import { ResolveIdentityResponseSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
 import {
+  domainError,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
+import {
   DegradationSchema,
   ManagedContextResponseSchema,
   ProjectionRequestSchema,
@@ -114,9 +119,17 @@ export class CoreCognition {
       request.activeWorkContextId &&
       request.activeWorkContextId !== snapshot.activeWorkContextId
     )
-      throw new ConnectError(
+      throw domainError(
         "Projection WorkContext is not active",
         Code.FailedPrecondition,
+        {
+          code: DomainErrorCode.STALE_CONTEXT,
+          recovery: ErrorRecovery.REFRESH_STATE,
+          context: {
+            session_id: request.sessionId,
+            work_context_id: request.activeWorkContextId,
+          },
+        },
       );
     request.activeWorkContextId ??= snapshot.activeWorkContextId;
     request.maxItems = Math.min(
@@ -154,7 +167,15 @@ export class CoreCognition {
       calls,
     );
     if (after.runtimeRevision !== snapshot.runtimeRevision)
-      throw new ConnectError("Session changed during projection", Code.Aborted);
+      throw domainError("Session changed during projection", Code.Aborted, {
+        code: DomainErrorCode.STALE_CONTEXT,
+        recovery: ErrorRecovery.REFRESH_STATE,
+        context: {
+          session_id: request.sessionId,
+          expected_revision: snapshot.runtimeRevision.toString(),
+          actual_revision: after.runtimeRevision.toString(),
+        },
+      });
     return projection;
   }
 
@@ -171,9 +192,18 @@ export class CoreCognition {
       calls,
     );
     if (session.runtimeRevision !== projection.sourceRuntimeRevision)
-      throw new ConnectError(
+      throw domainError(
         "Session changed before context synchronization",
         Code.Aborted,
+        {
+          code: DomainErrorCode.STALE_CONTEXT,
+          recovery: ErrorRecovery.REFRESH_STATE,
+          context: {
+            session_id: input.sessionId,
+            expected_revision: projection.sourceRuntimeRevision.toString(),
+            actual_revision: session.runtimeRevision.toString(),
+          },
+        },
       );
     const policy = this.planner.policy(input.consumerId);
     return create(
@@ -219,13 +249,41 @@ export class CoreCognition {
             },
             calls,
           );
-          if (result.status !== "BOUND" || !result.candidates[0]?.canonical)
-            throw new ConnectError(
-              result.status,
+          if (result.status !== "BOUND" || !result.candidates[0]?.canonical) {
+            const code = {
+              UNKNOWN_REFERENCE: DomainErrorCode.UNKNOWN_REFERENCE,
+              AMBIGUOUS_REFERENCE: DomainErrorCode.AMBIGUOUS_REFERENCE,
+              REFERENCE_TYPE_MISMATCH: DomainErrorCode.REFERENCE_TYPE_MISMATCH,
+              REFERENCE_TOMBSTONED: DomainErrorCode.REFERENCE_TOMBSTONED,
+            }[result.status];
+            if (!code)
+              throw new ConnectError(
+                "Invalid identity resolution result",
+                Code.Internal,
+              );
+            const recovery =
+              code === DomainErrorCode.AMBIGUOUS_REFERENCE
+                ? ErrorRecovery.SELECT_CANDIDATE
+                : code === DomainErrorCode.REFERENCE_TOMBSTONED
+                  ? ErrorRecovery.REDISCOVER_REFERENCE
+                  : code === DomainErrorCode.REFERENCE_TYPE_MISMATCH
+                    ? ErrorRecovery.CORRECT_REQUEST
+                    : ErrorRecovery.RESOLVE_REFERENCE;
+            const error = domainError(
+              "Query reference could not be bound",
               Code.InvalidArgument,
-              undefined,
-              [{ desc: ResolveIdentityResponseSchema, value: result }],
+              {
+                code,
+                recovery,
+                context: { reference: locator.value, expected_kind: kind },
+              },
             );
+            error.details.push({
+              desc: ResolveIdentityResponseSchema,
+              value: result,
+            });
+            throw error;
+          }
           return {
             canonical: result.candidates[0].canonical,
             lexicalRef: result.candidates[0].lexicalRef,

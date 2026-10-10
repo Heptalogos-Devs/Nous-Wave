@@ -9,6 +9,8 @@ export class CliError extends Error {
     message: string,
     readonly details: unknown[] = [],
     readonly candidates: unknown[] = [],
+    readonly recovery?: string,
+    readonly context: Readonly<Record<string, string>> = {},
   ) {
     super(message);
   }
@@ -56,44 +58,31 @@ export function cliErrorPayload(error: unknown) {
       ...recovery,
       details: error.details,
       candidates: error.candidates,
+      recovery: error.recovery,
+      context: error.context,
     };
   const message =
     error instanceof Error ? error.message : "CLI operation failed";
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(message);
-  } catch {
-    /* Plain transport/local message. */
-  }
-  if (
-    parsed &&
-    typeof parsed === "object" &&
-    "code" in parsed &&
-    typeof parsed.code === "string"
-  )
-    return { message, details: [], candidates: [], ...parsed, ...recovery };
-  const domainCode =
-    /\b(?:UNKNOWN_REFERENCE|AMBIGUOUS_REFERENCE|REFERENCE_TYPE_MISMATCH|REFERENCE_TOMBSTONED|STALE_CONTEXT|UNAVAILABLE)\b/.exec(
-      message,
-    )?.[0];
   const transportCodes: Record<number, string> = {
     3: "INVALID_ARGUMENT",
     5: "NOT_FOUND",
     8: "RESOURCE_EXHAUSTED",
     9: "FAILED_PRECONDITION",
-    10: "STALE_CONTEXT",
+    10: "ABORTED",
     14: "UNAVAILABLE",
     4: "DEADLINE_EXCEEDED",
   };
   return {
     code:
-      domainCode ??
-      (error instanceof NousError
-        ? (transportCodes[error.code] ?? "RPC_ERROR")
-        : "INVALID_ARGUMENT"),
+      error instanceof NousError
+        ? (error.domainCode ?? transportCodes[error.code] ?? "RPC_ERROR")
+        : "INVALID_ARGUMENT",
     message,
     details: error instanceof NousError ? error.details : [],
     candidates: error instanceof NousError ? error.candidates : [],
+    ...(error instanceof NousError
+      ? { recovery: error.recovery, context: error.context }
+      : {}),
     ...recovery,
   };
 }

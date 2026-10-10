@@ -134,9 +134,14 @@ impl NousRuntime {
     }
 
     pub fn require_memory(&self) -> Result<&MemoryService> {
-        self.memory
-            .as_ref()
-            .ok_or_else(|| Error::Unavailable("Memory MicroSystem is disabled".into()))
+        self.memory.as_ref().ok_or_else(|| {
+            DomainError::new(
+                DomainErrorCode::CapabilityUnavailable,
+                "Memory MicroSystem is disabled",
+            )
+            .with_context("capability", "memory")
+            .into()
+        })
     }
 
     pub async fn query(&self, query: CognitiveQuery) -> Result<CognitiveQueryResult> {

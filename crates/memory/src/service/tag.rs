@@ -307,9 +307,13 @@ impl MemoryService {
         if row.try_get::<Uuid, _>("current_revision_id").map_err(db)? != target.expected_revision_id
             || row.try_get::<String, _>("status").map_err(db)? != "active"
         {
-            return Err(Error::Conflict(
-                "STALE_CONTEXT: Tag head or status changed".into(),
-            ));
+            return Err(DomainError::new(
+                DomainErrorCode::StaleRevision,
+                "Tag head or status changed",
+            )
+            .with_context("tag_id", target.tag_id.0)
+            .with_context("expected_revision_id", target.expected_revision_id)
+            .into());
         }
         Ok(())
     }

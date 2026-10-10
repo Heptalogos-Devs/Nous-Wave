@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import { authorityRejection } from "./rejection.js";
 import type { MaintenancePlan } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import type { ProducerSignature } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "../kernel-client.js";
@@ -335,19 +336,11 @@ export async function executeConceptMaintenance(
     } catch (error) {
       if (error instanceof MissingConceptDependency)
         result.status = "skipped_dependency";
-      else if (
-        error instanceof ConnectError &&
-        error.code === Code.InvalidArgument
-      )
-        result.status = "rejected_invalid";
-      else if (
-        error instanceof ConnectError &&
-        [Code.Aborted, Code.NotFound, Code.FailedPrecondition].includes(
-          error.code,
-        )
-      )
-        result.status = "stale";
-      else throw error;
+      else {
+        const rejection = authorityRejection(error);
+        if (!rejection) throw error;
+        result.status = rejection;
+      }
       result.resultRef = null;
       result.tagResults = [];
     }

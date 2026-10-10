@@ -99,7 +99,14 @@ impl CognitiveRuntimeService {
         let state: String = row.try_get("state").map_err(db)?;
         let revision: i64 = row.try_get("revision").map_err(db)?;
         if revision != expected_revision {
-            return Err(Error::Conflict("WorkContext revision is stale".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "WorkContext revision is stale",
+            )
+            .with_context("work_context_id", work_context_id)
+            .with_context("expected_revision", expected_revision)
+            .with_context("actual_revision", revision)
+            .into());
         }
         let next = match transition {
             WorkContextTransition::Pause if state == "open" => "paused",
@@ -223,17 +230,22 @@ impl CognitiveRuntimeService {
         .fetch_optional(&mut *tx)
         .await
         .map_err(db)?
-        .ok_or_else(|| Error::FailedPrecondition("session is closed or not found".into()))?;
+        .ok_or_else(|| crate::sessions::stale_session(session))?;
         let owner: Uuid = row.try_get("subject_id").map_err(db)?;
         let closed: Option<DateTime<Utc>> = row.try_get("closed_at").map_err(db)?;
         let current: i64 = row.try_get("runtime_revision").map_err(db)?;
         if owner != subject.0 || closed.is_some() {
-            return Err(Error::FailedPrecondition(
-                "session is closed or not owned by Subject".into(),
-            ));
+            return Err(crate::sessions::stale_session(session));
         }
         if current != expected_runtime_revision {
-            return Err(Error::Conflict("expected runtime revision is stale".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "Expected runtime revision is stale",
+            )
+            .with_context("session_id", session.0)
+            .with_context("expected_revision", expected_runtime_revision)
+            .with_context("actual_revision", current)
+            .into());
         }
         if let Some(work_context_id) = work_context_id {
             let context = sqlx::query(

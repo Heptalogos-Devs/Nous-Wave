@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it, vi } from "vitest";
+import { NousError } from "@nous-wave/client";
+import {
+  domainError,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
 import type { connectNousInstance } from "@nous-wave/client/node";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -265,9 +271,32 @@ describe("Agent CLI protocol", () => {
         ),
       ),
     ).toMatchObject({
-      code: "UNRESOLVED_QUERY_REFERENCE",
-      details: [{ start: 0 }],
+      code: "INVALID_ARGUMENT",
+      details: [],
     });
+    expect(
+      cliErrorPayload(
+        new NousError(domainError("STALE_CONTEXT is display text", 10, {})),
+      ),
+    ).toMatchObject({ code: "ABORTED" });
+    for (const code of [
+      DomainErrorCode.OPERATION_ID_CONFLICT,
+      DomainErrorCode.OPERATION_IN_PROGRESS,
+    ]) {
+      expect(
+        cliErrorPayload(
+          new NousError(
+            domainError("Same display, distinct recovery", 10, {
+              code,
+              recovery:
+                code === DomainErrorCode.OPERATION_ID_CONFLICT
+                  ? ErrorRecovery.NEW_OPERATION
+                  : ErrorRecovery.RETRY_OPERATION,
+            }),
+          ),
+        ),
+      ).toMatchObject({ code: DomainErrorCode[code] });
+    }
   });
 
   it("supports discovery without an instance and emits parse errors only on stderr", async () => {

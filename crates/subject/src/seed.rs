@@ -233,7 +233,8 @@ pub(super) async fn insert_seed(
     {
         let existing: String = row.try_get("request_digest").map_err(db)?;
         if existing != digest {
-            return Err(Error::Conflict("Cognitive Seed operation_id was used with a different request".into()));
+            return Err(nous_core::DomainError::new(nous_core::DomainErrorCode::OperationIdConflict, "Cognitive Seed operation_id was used with a different request")
+                .with_context("operation_id", operation_id.0).into());
         }
         return row.try_get("adoption_id").map_err(db);
     }

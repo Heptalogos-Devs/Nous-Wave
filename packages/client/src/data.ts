@@ -27,6 +27,7 @@ import {
 import { reference_kind } from "@nous-wave/protocol/nous/wave/v1alpha1/presentation_pb.js";
 import { file_nous_wave_v1alpha1_journal } from "@nous-wave/protocol/nous/wave/v1alpha1/journal_pb.js";
 import { file_nous_wave_v1alpha1_identity } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
+import { file_nous_wave_v1alpha1_errors } from "@nous-wave/protocol/nous/wave/v1alpha1/errors_pb.js";
 import { file_nous_wave_v1alpha1_configuration } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import { file_nous_wave_v1alpha1_management } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { file_nous_wave_v1alpha1_model } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
@@ -54,6 +55,7 @@ const roots = [
   file_nous_wave_v1alpha1_types,
   file_nous_wave_v1alpha1_journal,
   file_nous_wave_v1alpha1_identity,
+  file_nous_wave_v1alpha1_errors,
   file_nous_wave_v1alpha1_configuration,
   file_nous_wave_v1alpha1_management,
   file_nous_wave_v1alpha1_model,

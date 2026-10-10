@@ -54,7 +54,11 @@ impl ServingService {
                 || cursor.content_revision != content_revision
                 || cursor.view_digest != view_digest
         }) {
-            return Err(Error::Conflict("embedding discovery corpus changed".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "embedding discovery corpus changed",
+            )
+            .into());
         }
         let mut references = self
             .store
@@ -80,7 +84,11 @@ impl ServingService {
         };
         let documents = self.documents_lookup(subject, &references, view).await?;
         if self.document_revision(subject, view).await? != content_revision {
-            return Err(Error::Conflict("embedding discovery corpus changed".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "embedding discovery corpus changed",
+            )
+            .into());
         }
         let mut seen = HashSet::new();
         let candidates: Vec<_> = documents
@@ -172,7 +180,11 @@ SELECT digest FROM unnest($2::text[]) input(digest)
             document.reference != reference
                 || nous_material::text_content_identity(&document.representation_text) != digest
         }) {
-            return Err(Error::Conflict("embedding source changed".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "embedding source changed",
+            )
+            .into());
         }
         let mut tx = self.store.begin().await?;
         // Authority writers advance this row in their transaction. Hold it through cache publication.
@@ -183,9 +195,13 @@ SELECT digest FROM unnest($2::text[]) input(digest)
                 .await
                 .map_err(db)?;
         if current != revision {
-            return Err(Error::Conflict(
-                "Authority changed during embedding validation".into(),
-            ));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "Authority changed during embedding validation",
+            )
+            .with_context("expected_authority_seq", revision)
+            .with_context("actual_authority_seq", current)
+            .into());
         }
         let inserted = sqlx::query("INSERT INTO embedding_materials(subject_id,content_digest,space_hash,producer_hash,vector) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING")
             .bind(subject.0).bind(digest).bind(space).bind(producer).bind(vector).execute(&mut *tx).await.map_err(db)?;

@@ -6,7 +6,7 @@ import { executeConceptMaintenance } from "./concept-maintenance.js";
 import { executeConsolidation } from "./consolidation.js";
 import { consolidationSchema } from "../model/schemas/consolidation.js";
 import { maintenanceOperationId } from "./identity.js";
-import { Code, ConnectError } from "@connectrpc/connect";
+import { authorityRejection } from "./rejection.js";
 import { executionOptions, type ExecutionOptions } from "../execution.js";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { z } from "zod";
@@ -237,10 +237,7 @@ export async function runModelMaintenance(
       return outcome;
     } catch (error) {
       if (
-        (error instanceof ConnectError &&
-          [Code.InvalidArgument, Code.FailedPrecondition].includes(
-            error.code,
-          )) ||
+        authorityRejection(error) === "rejected_invalid" ||
         error instanceof z.ZodError ||
         (error instanceof GenerationFailure &&
           ["output_schema_invalid", "output_json_invalid"].includes(
@@ -256,10 +253,7 @@ export async function runModelMaintenance(
         await operation.complete(outcome);
         return outcome;
       }
-      if (
-        error instanceof ConnectError &&
-        [Code.Aborted, Code.NotFound].includes(error.code)
-      ) {
+      if (authorityRejection(error) === "stale") {
         const outcome = { status: "obsolete" as const };
         const execution = failedExecutionTelemetry(error);
         if (execution) await operation.recordExecution(execution);

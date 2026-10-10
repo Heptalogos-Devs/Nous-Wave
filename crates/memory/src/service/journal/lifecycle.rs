@@ -130,7 +130,11 @@ impl MemoryService {
         let epoch:Option<i64>=sqlx::query_scalar("SELECT object_epoch FROM journal_objects WHERE subject_id=$1 AND journal_id=$2 FOR UPDATE")
             .bind(subject.0).bind(journal.0).fetch_optional(&mut **mutation.tx()).await.map_err(db)?;
         if epoch != Some(expected_epoch) {
-            return Err(Error::Conflict("Journal purge epoch is stale".into()));
+            return Err(nous_core::DomainError::new(
+                nous_core::DomainErrorCode::StaleRevision,
+                "Journal purge epoch is stale",
+            )
+            .into());
         }
         let sequence = mutation.invalidate(ProjectionInvalidation::text()).await?;
         self.wake_journal_revalidation_in(mutation.tx(), subject, journal, sequence)

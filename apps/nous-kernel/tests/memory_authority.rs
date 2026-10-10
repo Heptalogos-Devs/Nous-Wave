@@ -170,7 +170,7 @@ async fn schema_lifecycle_fences_queries_and_purge_cannot_replay_content() {
         owner
             .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 1, Action::Restore)
             .await,
-        Err(nous_core::Error::Conflict(_))
+        Err(nous_core::Error::Domain(error)) if error.code == nous_core::DomainErrorCode::StaleRevision
     ));
     owner
         .mutate_schema_lifecycle(subject, schema_id, OperationId::new(), 2, Action::Restore)

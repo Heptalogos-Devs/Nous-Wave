@@ -68,7 +68,7 @@ impl k::kernel_material_workflow_service_server::KernelMaterialWorkflowService f
                 self.embedding_prepared_view(subject, input.preparation_token.as_deref())?;
             let cursor = input
                 .cursor
-                .map(|cursor| {
+                .map(|cursor| -> Result<nous_retrieval::EmbeddingCursor> {
                     Ok(nous_retrieval::EmbeddingCursor {
                         subject: SubjectId(id(&cursor.subject_id)?),
                         content_revision: cursor.content_revision,

@@ -257,7 +257,11 @@ impl k::kernel_configuration_service_server::KernelConfigurationService for Kern
                 .effective_digest
                 != r.configuration_digest
             {
-                return Err(Error::Conflict("startup configuration changed".into()));
+                return Err(nous_core::DomainError::new(
+                    nous_core::DomainErrorCode::StaleRevision,
+                    "startup configuration changed",
+                )
+                .into());
             }
             if let Some(config) = r.resolved_embedding {
                 let config: nous_retrieval::StoredEmbeddingConfig =

@@ -85,9 +85,12 @@ impl CognitiveRuntimeService {
                 seen.insert((input.consumer_ref.clone(), event.event_id), digest.clone())
             {
                 if existing != digest {
-                    return Err(Error::Conflict(
-                        "duplicate event in ReportUse has different content".into(),
-                    ));
+                    return Err(DomainError::new(
+                        DomainErrorCode::OperationIdConflict,
+                        "Duplicate event in ReportUse has different content",
+                    )
+                    .with_context("event_id", event.event_id.0)
+                    .into());
                 }
                 prepared.push(Prepared {
                     event,
@@ -115,9 +118,12 @@ impl CognitiveRuntimeService {
             if let Some(stored) = stored_digest.as_ref()
                 && stored != &digest
             {
-                return Err(Error::Conflict(
-                    "UseEvent idempotency key has a different request digest".into(),
-                ));
+                return Err(DomainError::new(
+                    DomainErrorCode::OperationIdConflict,
+                    "UseEvent idempotency key has a different request digest",
+                )
+                .with_context("event_id", event.event_id.0)
+                .into());
             }
             if stored_digest.is_none() {
                 validate_use_target_in(&mut tx, input.subject, &event.reference).await?;

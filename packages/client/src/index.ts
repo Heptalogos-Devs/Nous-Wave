@@ -4,6 +4,8 @@
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import { protocolData as plain, type Data } from "./data.js";
+import { NousError } from "./errors.js";
+export { NousError, DomainErrorCode, ErrorRecovery } from "./errors.js";
 import {
   executionOpportunitySchema,
   executionEnvelope,
@@ -31,10 +33,7 @@ import {
   MemoryService,
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
-import {
-  IdentityService,
-  ResolveIdentityResponseSchema,
-} from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
+import { IdentityService } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
 
 /** A consumer-owned web identity, with the original public locator preserved. */
 export function webSource(value: string) {
@@ -63,23 +62,6 @@ import { ModelService } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js
 export interface RequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
-}
-export class NousError extends Error {
-  readonly code: number;
-  readonly details: readonly unknown[];
-  readonly candidates: readonly unknown[];
-  constructor(error: ConnectError) {
-    super(error.rawMessage, { cause: error });
-    this.name = "NousError";
-    this.code = error.code;
-    const identity = error.findDetails(ResolveIdentityResponseSchema);
-    this.details = identity.length
-      ? identity.map((value) => plain(value))
-      : error.details;
-    this.candidates = identity.flatMap((detail) =>
-      detail.candidates.map((value) => plain(value)),
-    );
-  }
 }
 function call<I, O>(
   method: (input: I, options?: CallOptions) => Promise<O>,

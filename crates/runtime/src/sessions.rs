@@ -95,9 +95,7 @@ impl CognitiveRuntimeService {
         if exists {
             Ok(())
         } else {
-            Err(Error::FailedPrecondition(
-                "session is closed or not found".into(),
-            ))
+            Err(stale_session(session))
         }
     }
 
@@ -117,13 +115,11 @@ impl CognitiveRuntimeService {
         .fetch_optional(&mut *tx)
         .await
         .map_err(db)?
-        .ok_or_else(|| Error::FailedPrecondition("session is closed or not found".into()))?;
+        .ok_or_else(|| stale_session(session))?;
         let owner: Uuid = session_row.try_get("subject_id").map_err(db)?;
         let closed_at: Option<DateTime<Utc>> = session_row.try_get("closed_at").map_err(db)?;
         if owner != subject.0 || closed_at.is_some() {
-            return Err(Error::FailedPrecondition(
-                "session is closed or not owned by Subject".into(),
-            ));
+            return Err(stale_session(session));
         }
         let current_revision: i64 = session_row.try_get("runtime_revision").map_err(db)?;
         for admission in &merged {
@@ -281,4 +277,13 @@ fn later_hold(
         (Some(current), None) => Some(current),
         (None, requested) => requested,
     }
+}
+
+pub(super) fn stale_session(session: SessionId) -> Error {
+    DomainError::new(
+        DomainErrorCode::StaleContext,
+        "Session is closed or unavailable to the Subject",
+    )
+    .with_context("session_id", session.0)
+    .into()
 }

@@ -2013,6 +2013,7 @@ dependencies = [
  "nous-runtime",
  "nous-subject",
  "postgresql_embedded",
+ "prost",
  "prost-types",
  "serde",
  "serde_json",

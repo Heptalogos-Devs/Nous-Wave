@@ -54,6 +54,11 @@ const receiptSchema = z.discriminatedUnion("status", [
     rejection: z.strictObject({
       code: z.union([z.string(), z.number()]),
       message: z.string(),
+      domainCode: z.string().optional(),
+      recovery: z.string().optional(),
+      context: z.record(z.string(), z.string()).optional(),
+      details: z.array(z.unknown()).optional(),
+      candidates: z.array(z.unknown()).optional(),
     }),
   }),
 ]);

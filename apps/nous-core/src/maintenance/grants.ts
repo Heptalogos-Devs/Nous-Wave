@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Code, ConnectError, type CallOptions } from "@connectrpc/connect";
+import {
+  domainErrorDetail,
+  DomainErrorCode,
+  ErrorRecovery,
+} from "@nous-wave/client/errors";
 import type {
   MaintenanceGrantRequest,
   MaintenanceOperationResult,
@@ -36,6 +41,9 @@ function allowedKinds(models: ModelRuntime, modelBudget: number) {
   ];
 }
 function problemClass(error: unknown) {
+  const detail = domainErrorDetail(error);
+  if (detail?.code && DomainErrorCode[detail.code])
+    return DomainErrorCode[detail.code]!.toLowerCase();
   return error instanceof ConnectError
     ? `transport_${Code[error.code]?.toLowerCase() ?? "unknown"}`
     : "runtime_failure";
@@ -193,6 +201,8 @@ export async function grantMaintenance(
         problemCode = "proposal_invalid";
       } else {
         const retryable =
+          domainErrorDetail(error)?.recovery ===
+            ErrorRecovery.RETRY_OPERATION ||
           error instanceof GenerationFailure ||
           (error instanceof ConnectError &&
             [

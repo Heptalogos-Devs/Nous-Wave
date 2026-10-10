@@ -285,3 +285,11 @@ CLI 操作实现进入 `commands/`；Core configuration 进入 `configuration/`�
 随后通过实际 Portable CLI，对现有内容显式执行一次两批有界 preparation：committed17/requests2，无 degradation；没有重复 formation 或开启 maintenance。相同自然问题 Query `01a1248a-a992-7961-a99f-4bbabcc29932` complete7，lexical4/dense7/ready、全部 language_rerank，degradation空。这是 CLI 恢复结果，先前 MCP 降级没有改记为成功。父进程以 fresh CAS 将完整 Context 15→16/open，追加本轮结构、验证结果和用户最新约束，保留此前完整44022字节与全部 anchors；历史待办不覆写。同一 Context 的后续交付状态继续由正常 CAS 追加。
 
 实际输入、输出与三布局结果见[当前结构续接 corpus](corpus/deep-rebase/windows-structure-continuation-2026-10-10.json)。完整 raw events、正文、回执、构建/check日志与SHA manifest独立保存在 `data/research/results/deep-rebase-preservation/windows-structure-2026-10-10/`；原42份 Windows成果再次全部核对SHA一致，Linux8091/Windows3798份archive、43份原始完整矩阵与SAUC补丁再次核验。上述现行代码与程序资格完成本轮非退役目录清理目标。用户手动负责剩余目录清理，Linux约54GB target继续保留；PR24保持 OPEN/Draft，不合并、不解除Draft、不删除分支。
+
+## 2026-10-10 Linux 机器错误语义续作
+
+公共 Proto 增加 ErrorDetail，携带稳定领域 code、恢复指示与 owner 选定上下文。Rust domain failure 保留独立于 transport 的语义，Kernel 使用标准 google.rpc.Status/Any 编码，Core 产生同一 typed detail，Official Client 解码并保留未知 detail。CLI 删除 message JSON/正则推断，通用 Aborted 保持 ABORTED；维护 action 消费 owner 的恢复指示，租约失效保留原冻结操作重试，操作身份冲突暴露失败。GenerationFailure.reason 沿用上一轮已完成的直接消费。
+
+操作 receipt、workflow lease、状态/revision fence、Identity 与 Session admission 的生产者迁移到 typed failure。Memory 的重复 epoch 判断改为同一 owner 私有 fence；Journal source snapshot 的 Authority 锁与比较留在同一事务的私有职责函数。拒绝终态 consumer 回执增补可选 typed 元数据，恢复时读回原语义；既有只保存 transport code/message 的回执仍保留其已知信息，不猜旧文案，也不重发已知拒绝。
+
+实际 Rust→Core→Official Client smoke 确认 operation identity conflict、未知 query selector 与关闭 Session context 的 code/recovery/context 完整传递；首次关闭 Session 检查揭示更早的 admission 出口，随后在 Session owner 补齐。全部 TS 场景、Kernel all-targets Clippy、fast checks、Knip/dependency boundary，以及 configuration CAS/receipt、Memory/Schema lifecycle、workflow 恢复、Use feedback、Runtime residency、Episode/Journal owner 场景通过。验证使用独立临时 PostgreSQL 与本地 controlled provider。完整十四项目标仍未完成，下一组是实例 lifetime lock 与 Core/Kernel supervisor，之后继续 ReleaseInputs、CLI 声明与剩余治理项；PR24继续 OPEN/Draft。

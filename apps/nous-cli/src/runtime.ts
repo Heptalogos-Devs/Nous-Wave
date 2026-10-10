@@ -174,7 +174,16 @@ export async function createEnvironment(
           await local.writeReceipt(id, {
             ...receipt,
             status: "rejected",
-            rejection: { code: error.code, message: error.message },
+            rejection: {
+              code: error.code,
+              message: error.message,
+              domainCode:
+                error instanceof NousError ? error.domainCode : error.code,
+              recovery: error.recovery,
+              context: error.context,
+              details: [...error.details],
+              candidates: [...error.candidates],
+            },
           });
         } catch {
           Object.assign(error, {
@@ -426,8 +435,12 @@ export async function createEnvironment(
       if (receipt.status === "complete") return receipt.result;
       if (receipt.status === "rejected")
         throw new CliError(
-          "OPERATION_REJECTED",
+          receipt.rejection?.domainCode ?? "OPERATION_REJECTED",
           receipt.rejection?.message ?? "Operation was definitively rejected",
+          receipt.rejection?.details ?? [],
+          receipt.rejection?.candidates ?? [],
+          receipt.rejection?.recovery,
+          receipt.rejection?.context,
         );
       const invoke = replay[receipt.name];
       if (!invoke)

@@ -6,7 +6,7 @@ use crate::{
     ConfigStoragePolicy,
 };
 use chrono::Utc;
-use nous_core::{Error, OperationId, Result, SubjectId};
+use nous_core::{DomainError, DomainErrorCode, Error, OperationId, Result, SubjectId};
 use nous_persistence::{AuthorityStore, database_error as db};
 use serde_json::Value;
 use sqlx::Row;
@@ -318,9 +318,13 @@ impl ConfigurationService {
         if let Some(row) = existing {
             let existing_digest: String = row.try_get("request_digest").map_err(db)?;
             if existing_digest != digest {
-                return Err(Error::Conflict(
-                    "configuration operation_id was used with a different request".into(),
-                ));
+                return Err(DomainError::new(
+                    DomainErrorCode::OperationIdConflict,
+                    "Configuration operation_id was used with a different request",
+                )
+                .with_context("operation_id", operation_id.0)
+                .with_context("path", key)
+                .into());
             }
             let outcome = ConfigChangeOutcome {
                 revision: row.try_get("revision").map_err(db)?,
@@ -339,7 +343,8 @@ impl ConfigurationService {
         .fetch_optional(&mut *tx)
         .await
         .map_err(db)?
-        .ok_or_else(|| Error::Conflict("configuration revision changed; read the current desired policy before replacing it".into()))?;
+        .ok_or_else(|| DomainError::new(DomainErrorCode::StaleRevision, "Configuration revision changed; read the current desired policy before replacing it")
+            .with_context("path", key))?;
         match (subject, value.as_ref()) {
             (Some(subject), Some(value)) => {
                 sqlx::query("INSERT INTO subject_configuration_overrides(subject_id,key,value,revision,updated_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(subject_id,key) DO UPDATE SET value=excluded.value,revision=excluded.revision,updated_at=excluded.updated_at")

@@ -78,7 +78,8 @@ impl MaterialService {
                 .bind(request_id).fetch_optional(&mut *tx).await.map_err(db)? {
                 if row.try_get::<Uuid,_>("subject_id").map_err(db)? != input.subject.0
                     || row.try_get::<String,_>("request_digest").map_err(db)? != request_digest {
-                    return Err(Error::Conflict("Observation request_id already binds different input".into()));
+                    return Err(nous_core::DomainError::new(nous_core::DomainErrorCode::OperationIdConflict, "Observation request_id already binds different input")
+                        .with_context("request_id", request_id).into());
                 }
                 let accepted: AcceptedObservation = serde_json::from_value(row.try_get("accepted").map_err(db)?)
                     .map_err(|error| Error::Infrastructure(error.to_string()))?;
