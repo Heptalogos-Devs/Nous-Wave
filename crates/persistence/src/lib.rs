@@ -20,6 +20,8 @@ mod producer;
 mod projection;
 pub use projection::concept::{ConceptProjectionInput, ConceptProjectionTag};
 mod query_descriptors;
+mod query_time;
+pub use query_time::{TimeColumns, push_time_predicate};
 mod references;
 pub use identity::{
     IdentityAddress, IdentityAddressTarget, IdentityBinding, lexical_prefix, validate_lexical,

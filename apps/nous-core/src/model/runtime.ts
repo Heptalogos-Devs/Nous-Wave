@@ -3,7 +3,13 @@
 
 import { MaterialInterpretation } from "./interpretation.js";
 import { createHash } from "node:crypto";
-import type { Degradation, Segment } from "../domain.js";
+import { create } from "@bufbuild/protobuf";
+import {
+  ContextSegmentSchema,
+  DegradationSchema,
+  type Degradation,
+  type ContextSegment as Segment,
+} from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import { ModelInvocations } from "./invocations.js";
 import {
   type ModelRoleSnapshot,
@@ -134,10 +140,10 @@ export class ModelRuntime {
       return {
         segments,
         degradation: [
-          {
+          create(DegradationSchema, {
             code: "steward_not_configured",
             detail: "Deterministic projection",
-          },
+          }),
         ],
       };
     try {
@@ -180,7 +186,7 @@ export class ModelRuntime {
           .digest("hex");
         return {
           segments: [
-            {
+            create(ContextSegmentSchema, {
               segmentId: `steward:${revision}`,
               text: output.summary,
               semanticRole: "steward_synthesis",
@@ -189,7 +195,7 @@ export class ModelRuntime {
               authority: "interpretation",
               stability: "EPOCH_STABLE",
               sourceRevision: revision,
-            },
+            }),
           ],
           degradation: [],
         };
@@ -200,10 +206,10 @@ export class ModelRuntime {
       return {
         segments,
         degradation: [
-          {
+          create(DegradationSchema, {
             code: "steward_rejected",
             detail: error instanceof Error ? error.message : "Invalid proposal",
-          },
+          }),
         ],
       };
     }

@@ -30,7 +30,7 @@ Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/Associati
 
 ## CognitiveSchema、Tag 与 AssociationEvidence
 
-- CognitiveSchema 属于 Memory owner，具有独立 object/revision、applicability、support、counterexample/boundary evidence 和 lifecycle。create/revise/split/merge 使用 `CognitiveSchemaContent` 输入；formed/recorded time 由 owner 的 CognitiveClock 分配。canonical create/revise 可以携带经过规范化的 consolidation ProducerSignature；revision 接受新的 exact evidence links 与明确 copy links，保持 formation kind 和 aboutness continuity。Receipt replay 返回原 exact SchemaRevision，不因为后续 head 变化重绑。
+- CognitiveSchema 属于 Memory owner，具有独立 object/revision、applicability、support、counterexample/boundary evidence 和 lifecycle。create/revise/split/merge 使用 `CognitiveSchemaContent` 输入；formed/recorded time 由 owner 的 CognitiveClock 分配。同一 content 的 evidence_links 是唯一 evidence 输入位置，create 请求根层不重复定义它。create/revise/split/merge 共用内容与 formation 校验、revision writer，并保存规范化的 consolidation ProducerSignature；split/merge 自己持有 source locks、lineage、epoch fences 与单次原子提交。revision 接受新的 exact evidence links 与明确 copy links，保持 formation kind 和 aboutness continuity。Receipt replay 返回原 exact SchemaRevision，不因为后续 head 变化重绑。
 - `explicit_import` 至少有一条有效 evidence；`synthesized` 需要至少两个 normalized inputs、至少两个 known independent provenance roots 和无 cycle；UnknownDependency 不增加独立 root。
 - synthesized Memory 与 CognitiveSchema 共用同一 provenance root traversal；同一 Artifact 的派生表示、同源重述、部分共享根和未知依赖均不能凑成两个独立根。
 - 增补/撤回 Schema evidence 改变 object epoch 和 projection invalidation，不伪造 content revision。

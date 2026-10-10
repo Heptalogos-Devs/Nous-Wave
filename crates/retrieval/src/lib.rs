@@ -36,11 +36,7 @@ use nous_object_store::ObjectStore;
 use nous_persistence::{AuthorityStore, ServingRecord};
 pub use provider::*;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, HashMap},
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
 
 const EPISODE_SYNOPSIS: nous_configuration::ConfigKey<nous_persistence::EpisodeTextBudget> =
     nous_configuration::ConfigKey::new("episode.synopsis");

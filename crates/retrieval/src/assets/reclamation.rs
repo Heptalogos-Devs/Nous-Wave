@@ -37,6 +37,17 @@ impl ServingService {
             - chrono::Duration::from_std(grace)
                 .map_err(|error| Error::Invalid(error.to_string()))?;
         let mut tx = self.store.begin().await?;
+        // Superseded physical families leave the active catalog once. Their
+        // artifacts retain the same reader, research pin and grace protection.
+        let supported = super::family::AssetFamily::ALL.map(super::family::AssetFamily::as_str);
+        sqlx::query("UPDATE serving_generations SET state='retired',published_at=$3 WHERE subject_id=$1 AND family<>ALL($2::text[]) AND state='ready'")
+            .bind(subject.0).bind(supported).bind(chrono::Utc::now()).execute(&mut *tx).await.map_err(nous_persistence::database_error)?;
+        sqlx::query("DELETE FROM serving_current WHERE subject_id=$1 AND family<>ALL($2::text[])")
+            .bind(subject.0)
+            .bind(supported)
+            .execute(&mut *tx)
+            .await
+            .map_err(nous_persistence::database_error)?;
         let rows = sqlx::query("SELECT generation_id,artifact_location FROM serving_generations g WHERE subject_id=$1 AND state IN ('retired','failed') AND artifact_location<>'' AND published_at<$2 AND COALESCE(metadata->>'research_pinned','false')<>'true' AND NOT EXISTS (SELECT 1 FROM serving_current c WHERE c.generation_id=g.generation_id) FOR UPDATE")
             .bind(subject.0).bind(cutoff).fetch_all(&mut *tx).await.map_err(nous_persistence::database_error)?;
         let mut report = ReclamationReport {

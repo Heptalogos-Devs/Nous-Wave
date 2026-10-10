@@ -366,7 +366,6 @@ impl MemoryService {
         sqlx::query("UPDATE memory_objects SET accessibility_mode=$3,object_epoch=object_epoch+1 WHERE subject_id=$1 AND memory_id=$2").bind(subject.0).bind(memory.0).bind(format!("{mode:?}").to_lowercase()).execute(&mut **mutation.tx()).await.map_err(db)?;
         mutation
             .invalidate(ProjectionInvalidation {
-                exact: true,
                 ..Default::default()
             })
             .await?;

@@ -31,7 +31,7 @@ async fn historical_schema_episode_journal_use_past_heads_and_history_documents(
     memory_input.representation_text = "archival past memory".into();
     let memory = owner.form_memory(memory_input).await.unwrap();
     let mut schema_input = consolidation_schema(&episode);
-    schema_input.structural_claim = "archival past schema".into();
+    schema_input.content.structural_claim = "archival past schema".into();
     let schema = owner.create_schema(schema_input.clone()).await.unwrap();
     let mut journal_input = nous_memory::JournalInput {
         operation_id: OperationId::new(),
@@ -73,14 +73,16 @@ async fn historical_schema_episode_journal_use_past_heads_and_history_documents(
             schema_id: schema.schema.schema_id,
             expected_object_epoch: schema.schema.object_epoch,
             intent: nous_memory::RevisionIntent::Rephrase,
-            title: None,
-            structural_claim: "archival future schema".into(),
-            applicability_scope: schema.revision.applicability_scope.clone(),
-            boundary_definition: schema.revision.boundary_definition.clone(),
-            formation_kind: schema.revision.formation_kind,
-            producer: Some(consolidation_producer()),
-            evidence_links: schema_input.evidence_links,
             copy_link_ids: vec![],
+            content: nous_memory::SchemaContent {
+                title: None,
+                structural_claim: "archival future schema".into(),
+                applicability_scope: schema.revision.applicability_scope.clone(),
+                boundary_definition: schema.revision.boundary_definition.clone(),
+                formation_kind: schema.revision.formation_kind,
+                producer: Some(consolidation_producer()),
+                evidence_links: schema_input.content.evidence_links,
+            },
         })
         .await
         .unwrap();
@@ -203,7 +205,7 @@ async fn assert_historical_domains(
         );
     }
     query.temporal_frame.revision_view = RevisionView::History;
-    query.expression.constraints.recorded = Some(TimeInterval {
+    query.expression.constraints.recorded = Some(TimePredicate::Range {
         start: None,
         end: Some(cut + Duration::seconds(1)),
     });

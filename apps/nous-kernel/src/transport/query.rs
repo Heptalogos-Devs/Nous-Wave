@@ -401,13 +401,20 @@ fn append_cue(query: &mut CognitiveQueryExpr, cue: p::Cue) -> Result<()> {
     Ok(())
 }
 
-fn interval(value: Option<p::TimeInterval>) -> Result<Option<TimeInterval>> {
+fn predicate(value: Option<p::TimePredicate>) -> Result<Option<TimePredicate>> {
     value
         .map(|value| {
-            Ok(TimeInterval {
-                start: time(value.start)?,
-                end: time(value.end)?,
-            })
+            let predicate = match required(value.predicate, "time predicate")? {
+                p::time_predicate::Predicate::Point(at) => TimePredicate::Point {
+                    at: required(time(Some(at))?, "time point")?,
+                },
+                p::time_predicate::Predicate::Range(range) => TimePredicate::Range {
+                    start: time(range.start)?,
+                    end: time(range.end)?,
+                },
+            };
+            predicate.validate()?;
+            Ok(predicate)
         })
         .transpose()
 }
@@ -432,11 +439,11 @@ fn constraints_from_proto(value: p::QueryConstraints) -> Result<QueryConstraints
             .into_iter()
             .map(EntityRef::new)
             .collect::<Result<_>>()?,
-        occurred: interval(value.occurred)?,
-        observed: interval(value.observed)?,
-        valid: interval(value.valid)?,
-        formed: interval(value.formed)?,
-        recorded: interval(value.recorded)?,
+        occurred: predicate(value.occurred)?,
+        observed: predicate(value.observed)?,
+        valid: predicate(value.valid)?,
+        formed: predicate(value.formed)?,
+        recorded: predicate(value.recorded)?,
         include_suppressed: value.include_suppressed,
         authority: value.authority.map(|v| enum_value(&v)).transpose()?,
         modalities: value

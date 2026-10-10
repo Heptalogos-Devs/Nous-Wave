@@ -5,7 +5,7 @@ use crate::{assets::lifecycle::OpenArtifact, *};
 use arc_swap::ArcSwap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ServingSnapshot {
     pub generation: u64,
     pub view_digest: Option<String>,
@@ -15,25 +15,6 @@ pub struct ServingSnapshot {
     pub topology: Option<Arc<WaveGraphGeneration>>,
     pub vcp: Option<Arc<VcpServingGeneration>>,
     pub epa: Vec<Arc<EpaBasisGeneration>>,
-    pub postings: Arc<ExactPostings>,
-    pub postings_generation: Option<ServingGenerationId>,
-}
-
-impl Default for ServingSnapshot {
-    fn default() -> Self {
-        Self {
-            generation: 0,
-            view_digest: None,
-            lexical: None,
-            dense: Vec::new(),
-            concept: Vec::new(),
-            topology: None,
-            vcp: None,
-            epa: Vec::new(),
-            postings: Arc::new(ExactPostings::default()),
-            postings_generation: None,
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -111,7 +92,6 @@ impl ServingSnapshot {
                 .map(|g| g.generation_id)
                 .or_else(|| self.vcp.as_ref().map(|g| g.generation_id)),
             epa_basis: self.epa.first().map(|g| g.generation_id),
-            postings: self.postings_generation,
         }
     }
     pub(crate) fn retain_generations(
@@ -136,13 +116,6 @@ impl ServingSnapshot {
             .vcp
             .take()
             .filter(|value| ids.contains(&value.generation_id));
-        if self
-            .postings_generation
-            .is_some_and(|id| !ids.contains(&id))
-        {
-            self.postings_generation = None;
-            self.postings = Arc::new(ExactPostings::default());
-        }
     }
     pub(crate) fn contains_generation(&self, id: nous_core::ServingGenerationId) -> bool {
         self.lexical
@@ -158,12 +131,11 @@ impl ServingSnapshot {
                 .vcp
                 .as_ref()
                 .is_some_and(|value| value.generation_id == id)
-            || self.postings_generation == Some(id)
     }
 }
 
 impl ServingSnapshot {
-    pub(crate) fn install(&mut self, id: ServingGenerationId, artifact: OpenArtifact) {
+    pub(crate) fn install(&mut self, artifact: OpenArtifact) {
         match artifact {
             OpenArtifact::Lexical(index) => self.lexical = Some(index),
             OpenArtifact::Dense(index, basis) => {
@@ -188,10 +160,6 @@ impl ServingSnapshot {
                         != generation.space.as_ref().map(|s| &s.space_hash)
                 });
                 self.concept.push(generation);
-            }
-            OpenArtifact::Exact(postings) => {
-                self.postings = postings;
-                self.postings_generation = Some(id);
             }
         }
     }

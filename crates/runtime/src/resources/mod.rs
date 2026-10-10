@@ -64,7 +64,6 @@ impl CognitiveRuntimeService {
             &mut tx,
             subject,
             ProjectionInvalidation {
-                exact: true,
                 topology: true,
                 ..ProjectionInvalidation::default()
             },
@@ -92,7 +91,6 @@ impl CognitiveRuntimeService {
             &mut tx,
             subject,
             ProjectionInvalidation {
-                exact: true,
                 topology: true,
                 ..ProjectionInvalidation::default()
             },

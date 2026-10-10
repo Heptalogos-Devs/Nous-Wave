@@ -35,7 +35,7 @@ async fn typed_cognition_actions_preserve_prior_commits_and_exact_schema_replay(
     let schema_input = consolidation_schema(&episode);
     let schema = owner.create_schema(schema_input.clone()).await.unwrap();
     let mut invalid = consolidation_schema(&episode);
-    invalid.boundary_definition.clear();
+    invalid.content.boundary_definition.clear();
     assert!(owner.create_schema(invalid).await.is_err());
     assert_eq!(
         owner
@@ -70,19 +70,21 @@ async fn typed_cognition_actions_preserve_prior_commits_and_exact_schema_replay(
     clock.advance_by(subject, Duration::days(1)).unwrap();
     assert_consolidation_context(&rt, subject, &results).await;
     let revised_input = nous_memory::ReviseSchemaInput {
-        formation_kind: schema.revision.formation_kind,
-        producer: Some(consolidation_producer()),
-        evidence_links: schema_input.evidence_links.clone(),
         operation_id: OperationId::new(),
         subject,
         schema_id: schema.schema.schema_id,
         expected_object_epoch: schema.schema.object_epoch,
         intent: nous_memory::RevisionIntent::Rephrase,
-        title: schema.revision.title.clone(),
-        structural_claim: "A clarified recurring pattern.".into(),
-        applicability_scope: schema.revision.applicability_scope.clone(),
-        boundary_definition: schema.revision.boundary_definition.clone(),
         copy_link_ids: Vec::new(),
+        content: nous_memory::SchemaContent {
+            formation_kind: schema.revision.formation_kind,
+            producer: Some(consolidation_producer()),
+            evidence_links: schema_input.content.evidence_links.clone(),
+            title: schema.revision.title.clone(),
+            structural_claim: "A clarified recurring pattern.".into(),
+            applicability_scope: schema.revision.applicability_scope.clone(),
+            boundary_definition: schema.revision.boundary_definition.clone(),
+        },
     };
     let revised = owner.revise_schema(revised_input.clone()).await.unwrap();
     assert!(revised.revision.producer_signature_id.is_some());

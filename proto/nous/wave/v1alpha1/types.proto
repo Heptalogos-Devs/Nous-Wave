@@ -33,6 +33,12 @@ message TemporalExtent {
   }
 }
 message TimeInterval { optional google.protobuf.Timestamp start = 1; optional google.protobuf.Timestamp end = 2; }
+message TimePredicate {
+  oneof predicate {
+    google.protobuf.Timestamp point = 1;
+    TimeInterval range = 2;
+  }
+}
 message ObservationInput {
   string subject_id = 1 [(reference_kind) = "subject"];
   optional string session_id = 2 [(reference_kind) = "session"];
@@ -57,11 +63,11 @@ message QueryConstraints {
   repeated string cognitive_roles = 3;
   repeated string formation_modes = 4;
   repeated string entity_requirements = 5;
-  TimeInterval occurred = 6;
-  TimeInterval observed = 7;
-  TimeInterval valid = 8;
-  TimeInterval formed = 9;
-  TimeInterval recorded = 10;
+  TimePredicate occurred = 6;
+  TimePredicate observed = 7;
+  TimePredicate valid = 8;
+  TimePredicate formed = 9;
+  TimePredicate recorded = 10;
   bool include_suppressed = 11;
   optional string authority = 12;
   repeated string modalities = 13;

@@ -149,27 +149,29 @@ pub(crate) fn consolidation_memory(episode: &EpisodeView) -> nous_memory::Explic
 
 pub(crate) fn consolidation_schema(episode: &EpisodeView) -> nous_memory::CreateSchemaInput {
     nous_memory::CreateSchemaInput {
-        producer: Some(consolidation_producer()),
         operation_id: nous_core::OperationId::new(),
         subject: episode.object.subject_id,
-        title: Some("Recurring pattern".into()),
-        structural_claim: "Two independent sources describe a recurring pattern.".into(),
-        applicability_scope: nous_memory::SchemaScope {
-            description: "The observed contexts".into(),
-            aboutness: vec![],
-            tags: vec![],
-            valid_time: TemporalExtent::Unknown,
+        content: nous_memory::SchemaContent {
+            producer: Some(consolidation_producer()),
+            title: Some("Recurring pattern".into()),
+            structural_claim: "Two independent sources describe a recurring pattern.".into(),
+            applicability_scope: nous_memory::SchemaScope {
+                description: "The observed contexts".into(),
+                aboutness: vec![],
+                tags: vec![],
+                valid_time: TemporalExtent::Unknown,
+            },
+            boundary_definition: "Applies to these observed contexts.".into(),
+            formation_kind: nous_memory::SchemaFormationKind::Synthesized,
+            evidence_links: episode
+                .basis
+                .iter()
+                .cloned()
+                .map(|basis| nous_memory::SchemaEvidenceLinkInput {
+                    role: nous_memory::SchemaEvidenceRole::Support,
+                    basis,
+                })
+                .collect(),
         },
-        boundary_definition: "Applies to these observed contexts.".into(),
-        formation_kind: nous_memory::SchemaFormationKind::Synthesized,
-        evidence_links: episode
-            .basis
-            .iter()
-            .cloned()
-            .map(|basis| nous_memory::SchemaEvidenceLinkInput {
-                role: nous_memory::SchemaEvidenceRole::Support,
-                basis,
-            })
-            .collect(),
     }
 }

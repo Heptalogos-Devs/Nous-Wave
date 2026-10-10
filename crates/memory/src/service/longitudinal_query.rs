@@ -226,44 +226,28 @@ fn longitudinal_filter(
     metadata: &LongitudinalMetadata,
 ) -> bool {
     let constraints = &query.expression.constraints;
-    constraints
-        .authority
-        .is_none_or(|authority| authority == AuthorityClass::SubjectCognition)
-        && constraints.cognitive_roles_include.is_empty()
-        && constraints.formation_modes_include.is_empty()
-        && constraints
-            .entity_requirements
-            .iter()
-            .all(|entity| metadata.entities.contains(entity))
-        && constraints.valid.is_none()
+    constraints.matches_common(QueryFacts {
+        authority: AuthorityClass::SubjectCognition,
+        entities: &metadata.entities,
+        source_classes: &metadata.source_classes,
+        modality: Modality::Text,
+        cognitive_role: None,
+        formation_mode: None,
+        epistemic_class: Some(if kind == "journal" {
+            EpistemicClass::Narrative
+        } else {
+            EpistemicClass::Derived
+        }),
+    }) && constraints.valid.is_none()
         && constraints.occurred.is_none_or(|interval| {
             metadata
                 .occurred
                 .iter()
-                .any(|extent| extent.overlaps_interval(&interval))
+                .any(|extent| interval.matches_extent(extent))
         })
-        && (constraints.source_classes_include.is_empty()
-            || constraints
-                .source_classes_include
-                .iter()
-                .any(|class| metadata.source_classes.contains(class)))
-        && !constraints
-            .source_classes_exclude
-            .iter()
-            .any(|class| metadata.source_classes.contains(class))
-        && (constraints.modalities.is_empty() || constraints.modalities.contains(&Modality::Text))
-        && (constraints.evidence_classes.is_empty()
-            || constraints.evidence_classes.iter().any(|class| {
-                class
-                    == if kind == "journal" {
-                        "narrative"
-                    } else {
-                        "derived"
-                    }
-            }))
         && constraints
             .observed
-            .is_none_or(|interval| time.overlaps_interval(&interval))
+            .is_none_or(|interval| interval.matches_extent(time))
         && constraints
             .formed
             .is_none_or(|interval| interval.contains(row.get("formed_at")))
@@ -427,7 +411,7 @@ fn append_rendering(output: &mut String, text: &str, maximum: usize) {
 #[derive(Default)]
 pub(super) struct LongitudinalMetadata {
     entities: Vec<EntityRef>,
-    source_classes: Vec<SourceClass>,
+    pub(super) source_classes: Vec<SourceClass>,
     pub(super) occurred: Vec<TemporalExtent>,
     pub(super) observed_at: Option<chrono::DateTime<Utc>>,
 }

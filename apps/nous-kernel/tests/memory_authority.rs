@@ -97,29 +97,31 @@ async fn schema_lifecycle_fences_queries_and_purge_cannot_replay_content() {
     let owner = runtime.require_memory().unwrap();
     let schema = owner
         .create_schema(CreateSchemaInput {
-            producer: None,
             operation_id: OperationId::new(),
             subject,
-            title: Some("Temporary operating rule".into()),
-            structural_claim:
-                "Continue an open task after explicitly selecting its durable context".into(),
-            applicability_scope: SchemaScope {
-                description: "Open development tasks".into(),
-                aboutness: vec![],
-                tags: vec![],
-                valid_time: Default::default(),
+            content: nous_memory::SchemaContent {
+                producer: None,
+                title: Some("Temporary operating rule".into()),
+                structural_claim:
+                    "Continue an open task after explicitly selecting its durable context".into(),
+                applicability_scope: SchemaScope {
+                    description: "Open development tasks".into(),
+                    aboutness: vec![],
+                    tags: vec![],
+                    valid_time: Default::default(),
+                },
+                boundary_definition: "Does not authorize resuming an ended task".into(),
+                formation_kind: SchemaFormationKind::ExplicitImport,
+                evidence_links: vec![SchemaEvidenceLinkInput {
+                    role: SchemaEvidenceRole::Support,
+                    basis: RevisionBasis::Evidence(EvidenceRef {
+                        epistemic_relation: None,
+                        occurrence_id: source.occurrence.occurrence_id,
+                        locator: EvidenceLocator::WholeOccurrence,
+                        basis_role: BasisRole::Direct,
+                    }),
+                }],
             },
-            boundary_definition: "Does not authorize resuming an ended task".into(),
-            formation_kind: SchemaFormationKind::ExplicitImport,
-            evidence_links: vec![SchemaEvidenceLinkInput {
-                role: SchemaEvidenceRole::Support,
-                basis: RevisionBasis::Evidence(EvidenceRef {
-                    epistemic_relation: None,
-                    occurrence_id: source.occurrence.occurrence_id,
-                    locator: EvidenceLocator::WholeOccurrence,
-                    basis_role: BasisRole::Direct,
-                }),
-            }],
         })
         .await
         .unwrap();
@@ -250,19 +252,20 @@ async fn synthesized_schema_requires_independent_known_roots() {
         .require_memory()
         .unwrap()
         .create_schema(CreateSchemaInput {
-            producer: None,
             operation_id: OperationId::new(),
             subject,
-            title: None,
-            structural_claim: "same root must reject".into(),
-            applicability_scope: base(),
-            boundary_definition: "none".into(),
-
-            formation_kind: SchemaFormationKind::Synthesized,
-            evidence_links: vec![
-                link(first.occurrence.occurrence_id),
-                link(first.occurrence.occurrence_id),
-            ],
+            content: nous_memory::SchemaContent {
+                producer: None,
+                title: None,
+                structural_claim: "same root must reject".into(),
+                applicability_scope: base(),
+                boundary_definition: "none".into(),
+                formation_kind: SchemaFormationKind::Synthesized,
+                evidence_links: vec![
+                    link(first.occurrence.occurrence_id),
+                    link(first.occurrence.occurrence_id),
+                ],
+            },
         })
         .await;
     assert!(matches!(same_root, Err(nous_core::Error::Invalid(_))));
@@ -270,19 +273,20 @@ async fn synthesized_schema_requires_independent_known_roots() {
         .require_memory()
         .unwrap()
         .create_schema(CreateSchemaInput {
-            producer: None,
             operation_id: OperationId::new(),
             subject,
-            title: None,
-            structural_claim: "independent roots accept".into(),
-            applicability_scope: base(),
-            boundary_definition: "none".into(),
-
-            formation_kind: SchemaFormationKind::Synthesized,
-            evidence_links: vec![
-                link(first.occurrence.occurrence_id),
-                link(second.occurrence.occurrence_id),
-            ],
+            content: nous_memory::SchemaContent {
+                producer: None,
+                title: None,
+                structural_claim: "independent roots accept".into(),
+                applicability_scope: base(),
+                boundary_definition: "none".into(),
+                formation_kind: SchemaFormationKind::Synthesized,
+                evidence_links: vec![
+                    link(first.occurrence.occurrence_id),
+                    link(second.occurrence.occurrence_id),
+                ],
+            },
         })
         .await;
     assert!(independent.is_ok());

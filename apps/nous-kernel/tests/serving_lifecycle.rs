@@ -53,6 +53,51 @@ async fn serving_reuse_reads_the_typed_implementation_identity() {
     for key in ["implementation", "implementation_revision", "config_digest"] {
         assert!(replacement.metadata.get(key).is_none());
     }
+    // An existing superseded cache must leave current without losing a research pin.
+    let mut obsolete = replacement.clone();
+    obsolete.generation_id = nous_core::ServingGenerationId::new();
+    obsolete.family = "exact".into();
+    obsolete.artifact_location = root
+        .path()
+        .join("serving")
+        .join(obsolete.generation_id.0.to_string())
+        .to_string_lossy()
+        .into_owned();
+    obsolete.metadata = serde_json::json!({"research_pinned":true});
+    std::fs::create_dir_all(&obsolete.artifact_location).unwrap();
+    std::fs::write(
+        std::path::Path::new(&obsolete.artifact_location).join("postings.json"),
+        b"{}",
+    )
+    .unwrap();
+    let obsolete = runtime.store.publish_generation(obsolete).await.unwrap();
+    let report = runtime
+        .serving
+        .reclaim_retired(subject, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(!report.reclaimed.contains(&obsolete.generation_id));
+    assert!(std::path::Path::new(&obsolete.artifact_location).exists());
+    assert!(
+        runtime
+            .store
+            .serving_current(subject)
+            .await
+            .unwrap()
+            .iter()
+            .all(|record| record.family != "exact")
+    );
+    runtime
+        .serving
+        .pin_research_generation(obsolete.generation_id, false)
+        .await
+        .unwrap();
+    let report = runtime
+        .serving
+        .reclaim_retired(subject, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert!(report.reclaimed.contains(&obsolete.generation_id));
 }
 
 #[tokio::test]

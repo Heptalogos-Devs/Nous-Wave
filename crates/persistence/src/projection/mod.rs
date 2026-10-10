@@ -22,7 +22,6 @@ pub enum DenseInvalidation {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProjectionInvalidation {
-    pub exact: bool,
     pub lexical: bool,
     pub dense: DenseInvalidation,
     pub topology: bool,
@@ -32,7 +31,6 @@ pub struct ProjectionInvalidation {
 impl ProjectionInvalidation {
     pub fn text() -> Self {
         Self {
-            exact: true,
             lexical: true,
             dense: DenseInvalidation::All,
             ..Self::default()
@@ -48,7 +46,6 @@ impl ProjectionInvalidation {
 
     pub fn identity() -> Self {
         Self {
-            exact: true,
             topology: true,
             ..Self::default()
         }
@@ -56,7 +53,6 @@ impl ProjectionInvalidation {
 
     pub fn all() -> Self {
         Self {
-            exact: true,
             lexical: true,
             dense: DenseInvalidation::All,
             topology: true,
@@ -65,7 +61,6 @@ impl ProjectionInvalidation {
     }
 
     pub(crate) fn merge(&mut self, other: Self) {
-        self.exact |= other.exact;
         self.lexical |= other.lexical;
         self.topology |= other.topology;
         self.synopsis |= other.synopsis;
@@ -85,7 +80,6 @@ impl ProjectionInvalidation {
     fn families(&self) -> Vec<(&'static str, String)> {
         let mut result = Vec::new();
         for (family, changed) in [
-            ("exact", self.exact),
             ("lexical", self.lexical),
             ("topology", self.topology),
             ("synopsis", self.synopsis),

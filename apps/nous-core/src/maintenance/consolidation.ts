@@ -227,7 +227,6 @@ export async function executeConsolidation(
               operationId: id,
               subjectId: plan.subjectId,
               schema: content,
-              evidenceLinks: content.evidenceLinks,
             },
             options,
           );

@@ -15,7 +15,7 @@
 | [portable.ts](portable.ts) | 用实际 Portable 程序连接独立开发 locator |
 | [check-code-length.ts](check-code-length.ts) | 对 Git 管理和未忽略的新手写文件检查物理行数 |
 
-`pnpm check:length` 读取唯一配置 [.config/scripts/code-length.toml](../../.config/scripts/code-length.toml)，检查生产源码、测试文件、测试 helper、开发/研究/构建脚本；Rust 内联测试也计入所属源码。生成 bindings 只按配置中的两个路径排除，测试目录没有豁免。当前达到 TypeScript 600 / Rust 500 行警告，达到 900 / 800 行拒绝；warning 不升级成 error。该门禁位于 `check:fast` 的编译前，也由两平台 CI 使用。
+`pnpm check:length` 读取唯一配置 [.config/scripts/code-length.toml](../../.config/scripts/code-length.toml)，检查生产源码、测试文件、测试 helper、开发/研究/构建脚本；Rust 内联测试也计入所属源码。生成 bindings 只按配置中的两个路径排除，测试目录没有豁免。当前达到 TypeScript 600 / Rust 500 行警告，达到 800 / 700 行拒绝；warning 不升级成 error。该门禁位于 `check:fast` 的编译前，也由两平台 CI 使用。
 
 ## 开发实例
 

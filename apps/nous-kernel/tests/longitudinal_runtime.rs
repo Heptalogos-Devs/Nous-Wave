@@ -367,28 +367,30 @@ async fn assert_schema_clock(
     occurrence: nous_core::OccurrenceId,
 ) {
     let schema_input = nous_memory::CreateSchemaInput {
-        producer: None,
         operation_id: nous_core::OperationId::new(),
         subject,
-        title: None,
-        structural_claim: "Owner-assigned cognitive formation time".into(),
-        applicability_scope: nous_memory::SchemaScope {
-            description: "Timestamp owner contract".into(),
-            aboutness: vec![],
-            tags: vec![],
-            valid_time: TemporalExtent::Unknown,
+        content: nous_memory::SchemaContent {
+            producer: None,
+            title: None,
+            structural_claim: "Owner-assigned cognitive formation time".into(),
+            applicability_scope: nous_memory::SchemaScope {
+                description: "Timestamp owner contract".into(),
+                aboutness: vec![],
+                tags: vec![],
+                valid_time: TemporalExtent::Unknown,
+            },
+            boundary_definition: "Evidence-backed imported schema".into(),
+            formation_kind: nous_memory::SchemaFormationKind::ExplicitImport,
+            evidence_links: vec![nous_memory::SchemaEvidenceLinkInput {
+                role: nous_memory::SchemaEvidenceRole::Support,
+                basis: nous_core::RevisionBasis::Evidence(nous_core::EvidenceRef {
+                    epistemic_relation: None,
+                    occurrence_id: occurrence,
+                    locator: nous_core::EvidenceLocator::WholeOccurrence,
+                    basis_role: nous_core::BasisRole::Direct,
+                }),
+            }],
         },
-        boundary_definition: "Evidence-backed imported schema".into(),
-        formation_kind: nous_memory::SchemaFormationKind::ExplicitImport,
-        evidence_links: vec![nous_memory::SchemaEvidenceLinkInput {
-            role: nous_memory::SchemaEvidenceRole::Support,
-            basis: nous_core::RevisionBasis::Evidence(nous_core::EvidenceRef {
-                epistemic_relation: None,
-                occurrence_id: occurrence,
-                locator: nous_core::EvidenceLocator::WholeOccurrence,
-                basis_role: nous_core::BasisRole::Direct,
-            }),
-        }],
     };
     let schema = rt
         .require_memory()
@@ -411,23 +413,25 @@ async fn assert_schema_clock(
         .require_memory()
         .unwrap()
         .revise_schema(nous_memory::ReviseSchemaInput {
-            formation_kind: schema.revision.formation_kind,
-            producer: None,
-            evidence_links: Vec::new(),
             operation_id: nous_core::OperationId::new(),
             subject,
             schema_id: schema.schema.schema_id,
             expected_object_epoch: schema.schema.object_epoch,
             intent: nous_memory::RevisionIntent::Correct,
-            title: Some("Revised at cognition time".into()),
-            structural_claim: schema_input.structural_claim,
-            applicability_scope: schema_input.applicability_scope,
-            boundary_definition: schema_input.boundary_definition,
             copy_link_ids: schema
                 .evidence_links
                 .iter()
                 .map(|link| link.link_id)
                 .collect(),
+            content: nous_memory::SchemaContent {
+                formation_kind: schema.revision.formation_kind,
+                producer: None,
+                evidence_links: Vec::new(),
+                title: Some("Revised at cognition time".into()),
+                structural_claim: schema_input.content.structural_claim,
+                applicability_scope: schema_input.content.applicability_scope,
+                boundary_definition: schema_input.content.boundary_definition,
+            },
         })
         .await
         .unwrap();

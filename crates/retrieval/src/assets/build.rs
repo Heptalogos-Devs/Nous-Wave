@@ -44,8 +44,8 @@ impl ServingService {
             .map_err(io)?;
         let id = ServingGenerationId::new();
         let capabilities = self.projection_capabilities(subject).await?;
-        let watermark = match family {
-            "topology" => {
+        let watermark = match super::family::AssetFamily::parse(family)? {
+            super::family::AssetFamily::Topology => {
                 self.build_topology(
                     subject,
                     id,
@@ -57,15 +57,15 @@ impl ServingService {
                 )
                 .await?
             }
-            "concept" => {
+            super::family::AssetFamily::Concept => {
                 self.build_concept(subject, id, space, staging.path(), view)
                     .await?
             }
-            "dense" => {
+            super::family::AssetFamily::Dense => {
                 self.build_dense(subject, id, space, staging.path(), snapshot, view, serving)
                     .await?
             }
-            "lexical" | "exact" => {
+            super::family::AssetFamily::Lexical => {
                 self.build_text(
                     subject,
                     family,
@@ -76,7 +76,6 @@ impl ServingService {
                 )
                 .await?
             }
-            _ => return Err(Error::Invalid("unknown serving family".into())),
         };
         // Reopen the staged native artifact before publishing any durable pointer.
         self.readback(staging.path(), family, id)?;
@@ -143,44 +142,14 @@ impl ServingService {
                     .await?
             }
         };
-        if family == "exact" {
-            let mut postings = ExactPostings::default();
-            for (index, source) in input.sources.iter().enumerate() {
-                let id = u32::try_from(index)
-                    .map_err(|_| Error::Invalid("exact projection exceeds address space".into()))?;
-                postings.insert_reference(
-                    source.reference.to_string(),
-                    id,
-                    source.reference.clone(),
-                );
-                if let Some(revision) = &source.revision {
-                    postings.insert_reference(revision.to_string(), id, source.reference.clone());
-                }
-                for entity in &source.entity_refs {
-                    postings.insert_reference(entity.clone(), id, source.reference.clone());
-                }
-                for tag in &source.tag_ids {
-                    postings.insert_reference(format!("tag:{tag}"), id, source.reference.clone());
-                }
-                for schema in &source.schema_ids {
-                    postings.insert_reference(
-                        format!("cognitive_schema:{schema}"),
-                        id,
-                        source.reference.clone(),
-                    );
-                }
-            }
-            write_json(&dir.join("postings.json"), &postings)?;
-        } else {
-            let documents = self.documents(input.sources, budget).await?;
-            let directory = dir.to_path_buf();
-            tokio::task::spawn_blocking(move || {
-                let mut lexical = LexicalGeneration::create(directory)?;
-                lexical.add_documents(&documents, writer_bytes)
-            })
-            .await
-            .map_err(|e| Error::Infrastructure(e.to_string()))??;
-        }
+        let documents = self.documents(input.sources, budget).await?;
+        let directory = dir.to_path_buf();
+        tokio::task::spawn_blocking(move || {
+            let mut lexical = LexicalGeneration::create(directory)?;
+            lexical.add_documents(&documents, writer_bytes)
+        })
+        .await
+        .map_err(|e| Error::Infrastructure(e.to_string()))??;
         Ok(input.watermark)
     }
 
@@ -534,14 +503,8 @@ impl ServingService {
 }
 
 pub(crate) fn implementation(family: &str) -> &'static str {
-    match family {
-        "lexical" => "tantivy",
-        "dense" => "usearch",
-        "topology" => "cognitive-profile-assets",
-        "exact" => "roaring-postings",
-        "concept" => "shared-semantic-concepts",
-        _ => "unknown",
-    }
+    super::family::AssetFamily::parse(family)
+        .map_or("unknown", super::family::AssetFamily::implementation)
 }
 
 fn is_text(media: &str) -> bool {

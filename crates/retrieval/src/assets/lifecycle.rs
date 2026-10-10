@@ -15,7 +15,6 @@ pub(crate) enum OpenArtifact {
     Dense(Arc<DenseGeneration>, Option<Arc<EpaBasisGeneration>>),
     Topology(Arc<WaveGraphGeneration>),
     Vcp(Arc<VcpServingGeneration>),
-    Exact(Arc<ExactPostings>),
     Concept(Arc<ConceptGeneration>),
 }
 
@@ -239,9 +238,6 @@ impl ServingService {
                 requested.push(("concept", space));
             }
         }
-        if need.exact {
-            requested.push(("exact", String::new()));
-        }
         if need.lexical && self.options.lexical {
             requested.push(("lexical", String::new()));
         }
@@ -300,7 +296,6 @@ impl ServingService {
         self.prepare(
             subject,
             ServingNeed {
-                exact: true,
                 lexical: self.options.lexical,
                 dense: self.options.dense,
                 topology: self.options.topology,
@@ -342,12 +337,15 @@ impl ServingService {
 
     fn loaded(&self, record: &ServingRecord) -> bool {
         let snapshot = self.publisher.snapshot_for(record.subject);
-        match record.family.as_str() {
-            "lexical" => snapshot
+        let Ok(family) = super::family::AssetFamily::parse(&record.family) else {
+            return false;
+        };
+        match family {
+            super::family::AssetFamily::Lexical => snapshot
                 .lexical
                 .as_ref()
                 .is_some_and(|index| index.generation_id == record.generation_id),
-            "topology" => {
+            super::family::AssetFamily::Topology => {
                 snapshot
                     .topology
                     .as_ref()
@@ -357,16 +355,14 @@ impl ServingService {
                         .as_ref()
                         .is_some_and(|assets| assets.generation_id == record.generation_id)
             }
-            "dense" => snapshot
+            super::family::AssetFamily::Dense => snapshot
                 .dense
                 .iter()
                 .any(|index| index.generation_id == record.generation_id),
-            "concept" => snapshot
+            super::family::AssetFamily::Concept => snapshot
                 .concept
                 .iter()
                 .any(|generation| generation.generation_id == record.generation_id),
-            "exact" => snapshot.postings_generation == Some(record.generation_id),
-            _ => false,
         }
     }
 
@@ -387,13 +383,13 @@ impl ServingService {
         family: &str,
         id: ServingGenerationId,
     ) -> Result<OpenArtifact> {
-        match family {
-            "lexical" => {
+        match super::family::AssetFamily::parse(family)? {
+            super::family::AssetFamily::Lexical => {
                 let mut index = LexicalGeneration::open(path)?;
                 index.generation_id = id;
                 Ok(OpenArtifact::Lexical(Arc::new(index)))
             }
-            "concept" => {
+            super::family::AssetFamily::Concept => {
                 let generation: ConceptGeneration = read_json(&path.join("concept.json"))?;
                 generation.validate()?;
                 if generation.generation_id != id {
@@ -403,10 +399,7 @@ impl ServingService {
                 }
                 Ok(OpenArtifact::Concept(Arc::new(generation)))
             }
-            "exact" => Ok(OpenArtifact::Exact(Arc::new(read_json(
-                &path.join("postings.json"),
-            )?))),
-            "topology" => {
+            super::family::AssetFamily::Topology => {
                 if path.join("vcp.json").exists() {
                     let assets: VcpGeneration = read_json(&path.join("vcp.json"))?;
                     if assets.generation_id != id {
@@ -429,7 +422,7 @@ impl ServingService {
                     WaveGraphGeneration::from_artifact(artifact)?,
                 )))
             }
-            "dense" => {
+            super::family::AssetFamily::Dense => {
                 let manifest: DenseManifest = read_json(&path.join("records.json"))?;
                 if let Some(basis) = &manifest.basis
                     && (basis.generation_id != id
@@ -450,13 +443,12 @@ impl ServingService {
                     manifest.basis.map(Arc::new),
                 ))
             }
-            _ => Err(Error::Invalid("unknown serving family".into())),
         }
     }
 
     fn publish_snapshot(&self, record: &ServingRecord, artifact: OpenArtifact) {
         self.publisher.update_for(record.subject, |snapshot| {
-            snapshot.install(record.generation_id, artifact.clone());
+            snapshot.install(artifact.clone());
         });
     }
 }

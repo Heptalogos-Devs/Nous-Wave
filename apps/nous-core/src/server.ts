@@ -7,7 +7,7 @@ import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/con
 import Fastify from "fastify";
 import { grantMaintenance } from "./maintenance/grants.js";
 import { ResourceRegistry } from "./resources/registry.js";
-import { QueryOrchestrator } from "./query/orchestrator.js";
+import { CoreCognition } from "./cognition/service.js";
 import { materializeResource } from "./resources/materialize.js";
 import multipart from "@fastify/multipart";
 import { fastifyConnectPlugin } from "@connectrpc/connect-fastify";
@@ -15,12 +15,10 @@ import {
   Code,
   ConnectError,
   type HandlerContext,
-  type CallOptions,
   type Client,
   type ServiceImpl,
 } from "@connectrpc/connect";
-import { create, type DescService } from "@bufbuild/protobuf";
-import { timestampDate } from "@bufbuild/protobuf/wkt";
+import { type DescService } from "@bufbuild/protobuf";
 import { timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 import {
@@ -30,29 +28,15 @@ import {
   MemoryService,
   MaterialService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/services_pb.js";
-import {
-  IdentityService,
-  ResolveIdentityResponseSchema,
-} from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
+import { IdentityService } from "@nous-wave/protocol/nous/wave/v1alpha1/identity_pb.js";
 import {
   ResourceService,
   ResourceRegistryService,
   ConceptService,
   SystemService,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
-import { compileNousQL } from "./nousql/compiler.js";
-import {
-  ProjectionRequestSchema,
-  ProjectionSchema,
-  ManagedContextResponseSchema,
-  QueryRequestSchema,
-  DegradationSchema,
-  type QueryRequest,
-} from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
 import type { KernelClient } from "./kernel-client.js";
 import type { ConsumerPolicy } from "./domain.js";
-import { ProjectionPlanner } from "./cognition/projection.js";
-import { ContextCompiler } from "./cognition/context.js";
 import { ModelRuntime } from "./model/runtime.js";
 import { ModelService } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import { modelOperations } from "./model/operations.js";
@@ -104,14 +88,14 @@ export async function createCore(settings: CoreOptions) {
     throw new Error(
       "Kernel upload limit cannot be represented by the HTTP host",
     );
-  const planner = new ProjectionPlanner(
-    new Map(settings.consumers.map((p) => [p.consumerId, p])),
-    settings.models,
-  );
-  const contexts = new ContextCompiler(kernel.execution.context_track_limit);
   const modelRuntime = settings.models ?? new ModelRuntime();
   const resourceRegistry = settings.resources ?? new ResourceRegistry();
-  const queries = new QueryOrchestrator(kernel, modelRuntime, resourceRegistry);
+  const composition = new CoreCognition(
+    kernel,
+    modelRuntime,
+    resourceRegistry,
+    settings.consumers,
+  );
   app.addHook("onRequest", async (request, reply) => {
     const origin = request.headers.origin;
     if (origin && origin !== `http://${request.headers.host}`)
@@ -128,247 +112,29 @@ export async function createCore(settings: CoreOptions) {
         .code(401)
         .send({ code: "unauthenticated", message: "Core credential required" });
   });
-  async function project(
-    input: Parameters<typeof kernel.projection.buildContributionBatch>[0],
-    calls: ReturnType<typeof executionOptions>,
-  ) {
-    const policy = planner.policy(input.consumerId ?? "");
-    const request = create(ProjectionRequestSchema, input);
-    const snapshot = await kernel.runtime.getSession(
-      { subjectId: request.subjectId, id: request.sessionId },
-      calls,
-    );
-    if (
-      request.activeWorkContextId &&
-      request.activeWorkContextId !== snapshot.activeWorkContextId
-    )
-      throw new ConnectError(
-        "Projection WorkContext is not active",
-        Code.FailedPrecondition,
-      );
-    request.activeWorkContextId ??= snapshot.activeWorkContextId;
-    request.maxItems = Math.min(
-      request.maxItems || policy.maxItems,
-      policy.maxItems,
-    );
-    request.maxTextBytes = Math.min(
-      request.maxTextBytes || policy.maxTextBytes,
-      policy.maxTextBytes,
-    );
-    const queryDegradation = [];
-    if (request.query) {
-      const query = await queries.execute(
-        create(QueryRequestSchema, {
-          subjectId: request.subjectId,
-          sessionId: request.sessionId,
-          expression: request.query,
-        }),
-        calls,
-      );
-      request.situationRefs.push(
-        ...query.hits.flatMap((h) => (h.reference ? [h.reference] : [])),
-      );
-      queryDegradation.push(...query.degradation);
-      request.query = undefined;
-    }
-    const batch = await kernel.projection.buildContributionBatch(
-      request,
-      calls,
-    );
-    batch.degradation.push(...queryDegradation);
-    const projection = await planner.build(
-      {
-        projectionId: batch.projectionId,
-        consumerId: batch.consumerId,
-        sourceRuntimeRevision: batch.sourceRuntimeRevision,
-        degradation: batch.degradation.map((d) => ({
-          code: d.code,
-          detail: d.detail,
-        })),
-        segments: batch.segments.map((s) => ({
-          segmentId: s.segmentId,
-          text: s.text,
-          semanticRole: s.semanticRole,
-          authority: s.authority,
-          stability: s.stability,
-          sourceRevision: s.sourceRevision,
-          sourceRefs: s.sourceRefs.map((r) => ({
-            kind: r.kind,
-            value: r.value,
-          })),
-          evidence: s.evidence.map((e) => ({
-            basisRole: e.basisRole,
-            reference: e.reference
-              ? { kind: e.reference.kind, value: e.reference.value }
-              : undefined,
-          })),
-        })),
-      },
-      request,
-      calls.signal,
-    );
-    const after = await kernel.runtime.getSession(
-      { subjectId: request.subjectId, id: request.sessionId },
-      calls,
-    );
-    if (after.runtimeRevision !== snapshot.runtimeRevision)
-      throw new ConnectError("Session changed during projection", Code.Aborted);
-    return projection;
-  }
-  async function bindQueryInput(r: QueryRequest, calls: CallOptions) {
-    if (r.nousql !== undefined) {
-      if (r.expression)
-        throw new ConnectError(
-          "Supply either NousQL or typed expression",
-          Code.InvalidArgument,
-        );
-      const cognitiveTime = await kernel.queryWorkflow.getCognitiveTime(
-        { subjectId: r.subjectId },
-        calls,
-      );
-      const compiled = await compileNousQL(
-        r.nousql,
-        async (kind, locator, asOf) => {
-          const result = await kernel.identity.resolveIdentity(
-            {
-              subjectId: r.subjectId,
-              kind,
-              asOf: asOf
-                ? {
-                    seconds: BigInt(Math.floor(asOf.getTime() / 1000)),
-                    nanos: (((asOf.getTime() % 1000) + 1000) % 1000) * 1000000,
-                  }
-                : undefined,
-              locator: {
-                case: locator.kind === "name" ? "name" : "lexicalRef",
-                value: locator.value,
-              },
-            },
-            calls,
-          );
-          if (result.status !== "BOUND" || !result.candidates[0]?.canonical)
-            throw new ConnectError(
-              result.status,
-              Code.InvalidArgument,
-              undefined,
-              [{ desc: ResolveIdentityResponseSchema, value: result }],
-            );
-          return {
-            canonical: result.candidates[0].canonical,
-            lexicalRef: result.candidates[0].lexicalRef,
-          };
-        },
-        timestampDate(cognitiveTime),
-      );
-      r.expression = compiled.expression;
-      r.nousql = undefined;
-    }
-    return r;
-  }
   const cognition: ServiceImpl<typeof CognitionService> = {
     grantMaintenance: (r, c) =>
       grantMaintenance(kernel, modelRuntime, r, options(c)),
-    prepareQuery: async (r, c) => {
-      const calls = executionOptions(kernel.execution.opportunity, options(c));
-      return kernel.queryWorkflow.prepareQuery(
-        { query: await bindQueryInput(r, calls), reserveExecution: false },
-        calls,
-      );
-    },
-    query: async (r, c) => {
-      const calls = executionOptions(kernel.execution.opportunity, options(c));
-      await bindQueryInput(r, calls);
-      const result = await queries.execute(r, calls);
-      const references = result.hits.map(
-        (hit) => hit.revision ?? hit.reference,
-      );
-      const targets = new Map(
-        references
-          .filter((reference) => reference !== undefined)
-          .map((canonical) => [
-            `${canonical!.kind}:${canonical!.value}`,
-            { subjectId: r.subjectId, canonical: canonical! },
-          ]),
-      );
-      if (!targets.size) return result;
-      try {
-        const addresses = await kernel.identity.getIdentityAddresses(
-          { targets: [...targets.values()] },
-          calls,
-        );
-        const lexical = new Map(
-          addresses.addresses
-            .filter(
-              (address) =>
-                address.status === "BOUND" &&
-                address.target?.canonical &&
-                address.lexicalRef,
-            )
-            .map((address) => [
-              `${address.target!.canonical!.kind}:${address.target!.canonical!.value}`,
-              address.lexicalRef!,
-            ]),
-        );
-        result.hits.forEach((hit, index) => {
-          const reference = references[index];
-          if (reference)
-            hit.lexicalRef = lexical.get(
-              `${reference.kind}:${reference.value}`,
-            );
-        });
-      } catch {
-        result.degradation.push(
-          create(DegradationSchema, {
-            code: "address_directory_unavailable",
-            detail:
-              "Query result retains canonical references; directory addresses are unavailable",
-          }),
-        );
-      }
-      return result;
-    },
-    buildProjection: async (r, c) =>
-      create(
-        ProjectionSchema,
-        await project(
-          r,
-          executionOptions(kernel.execution.opportunity, options(c)),
-        ),
+    prepareQuery: (r, c) =>
+      composition.prepareQuery(
+        r,
+        executionOptions(kernel.execution.opportunity, options(c)),
       ),
-    buildManagedContext: async (r, c) => {
-      if (!r.projection)
-        throw new ConnectError(
-          "Projection request required",
-          Code.InvalidArgument,
-        );
-      const calls = executionOptions(kernel.execution.opportunity, options(c));
-      const projection = await project(r.projection, calls);
-      const session = await kernel.runtime.getSession(
-        { subjectId: r.projection.subjectId, id: r.projection.sessionId },
-        calls,
-      );
-      if (session.runtimeRevision !== projection.sourceRuntimeRevision)
-        throw new ConnectError(
-          "Session changed before context synchronization",
-          Code.Aborted,
-        );
-      const policy = planner.policy(r.projection.consumerId);
-      return create(
-        ManagedContextResponseSchema,
-        contexts.compile(
-          {
-            subjectId: r.projection.subjectId,
-            sessionId: r.projection.sessionId,
-            consumerId: r.projection.consumerId,
-            workContextId:
-              r.projection.activeWorkContextId ?? session.activeWorkContextId,
-          },
-          `${policy.revision}:${r.projection.maxItems}:${r.projection.maxTextBytes}`,
-          projection,
-          r.knownCursor,
-        ),
-      );
-    },
+    query: (r, c) =>
+      composition.query(
+        r,
+        executionOptions(kernel.execution.opportunity, options(c)),
+      ),
+    buildProjection: (r, c) =>
+      composition.buildProjection(
+        r,
+        executionOptions(kernel.execution.opportunity, options(c)),
+      ),
+    buildManagedContext: (r, c) =>
+      composition.buildManagedContext(
+        r,
+        executionOptions(kernel.execution.opportunity, options(c)),
+      ),
   };
   const resources: ServiceImpl<typeof ResourceService> = {
     materializeResource: (r, c) =>

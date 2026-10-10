@@ -266,7 +266,7 @@ async fn create_journal_dependents(
         ));
     }
     let mut schema = consolidation_schema(episode);
-    schema.evidence_links = refs
+    schema.content.evidence_links = refs
         .iter()
         .cloned()
         .map(|target_revision| nous_memory::SchemaEvidenceLinkInput {

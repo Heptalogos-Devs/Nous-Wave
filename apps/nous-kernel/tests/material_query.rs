@@ -5,7 +5,7 @@ mod test_support;
 
 use chrono::Duration;
 use chrono::Utc;
-use nous_core::{CognitiveRef, Cue, QueryTarget, TemporalExtent, TextCue, TimeInterval};
+use nous_core::{CognitiveRef, Cue, QueryTarget, TemporalExtent, TextCue, TimePredicate};
 use test_support::query::{query, subject};
 use test_support::{database, open_runtime, open_runtime_with_serving};
 
@@ -21,7 +21,7 @@ async fn evidence_time_constraints_filter_occurrences_and_regions_through_finali
     let (root, url, _postgres) = database().await;
     let runtime = open_runtime_with_serving(&url, &root, true, false, false).await;
     let subject = subject(&runtime).await;
-    let now = Utc::now();
+    let now = chrono::SubsecRound::trunc_subsecs(Utc::now(), 6);
     let mut observations = Vec::new();
     for (time, text) in [
         (now - Duration::days(2), "chronicle historical approval"),
@@ -58,13 +58,37 @@ async fn evidence_time_constraints_filter_occurrences_and_regions_through_finali
     input.expression.cues.push(Cue::Text(TextCue {
         text: "chronicle approval".into(),
     }));
-    input.expression.constraints.occurred = Some(TimeInterval {
+    input.expression.constraints.occurred = Some(TimePredicate::Range {
         start: None,
         end: Some(now),
     });
-    let execution = runtime.execute_query(input, Some(32)).await.unwrap();
+    let execution = runtime
+        .execute_query(input.clone(), Some(32))
+        .await
+        .unwrap();
     let past = CognitiveRef::Occurrence(observations[0].occurrence.occurrence_id);
     let future = CognitiveRef::Occurrence(observations[1].occurrence.occurrence_id);
+    input.expression.constraints.occurred = Some(TimePredicate::Point {
+        at: now - Duration::days(2),
+    });
+    let point = runtime.query(input).await.unwrap();
+    assert!(point.results.iter().any(|hit| {
+        hit.reference == past
+            && hit
+                .match_evidence
+                .families
+                .contains(&nous_core::EvidenceFamily::Temporal)
+    }));
+    assert!(!point.results.iter().any(|hit| hit.reference == future));
+    let mut fine_range = query(subject);
+    fine_range.projection.domains = vec![nous_core::ResultDomain::Evidence];
+    let at = now - Duration::days(2);
+    fine_range.expression.constraints.occurred = Some(TimePredicate::Range {
+        start: Some(at - Duration::nanoseconds(1)),
+        end: Some(at + Duration::nanoseconds(1)),
+    });
+    let result = runtime.query(fine_range).await.unwrap();
+    assert!(result.results.iter().any(|hit| hit.reference == past));
     let past_region = CognitiveRef::SourceRegion(
         observations[0]
             .source_region
@@ -121,10 +145,11 @@ async fn evidence_time_constraints_filter_occurrences_and_regions_through_finali
                     .freshness
                     .occurred
                     .iter()
-                    .all(|time| time.overlaps_interval(&TimeInterval {
+                    .all(|time| TimePredicate::Range {
                         start: None,
                         end: Some(now)
-                    })))
+                    }
+                    .matches_extent(time)))
     );
     let (_, ticket) = runtime
         .cognition
@@ -263,11 +288,11 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
         input.expression.targets = vec![QueryTarget::Exact {
             reference: reference.clone(),
         }];
-        input.expression.constraints.occurred = Some(TimeInterval {
+        input.expression.constraints.occurred = Some(TimePredicate::Range {
             start: None,
             end: Some(cutoff),
         });
-        input.expression.constraints.observed = Some(TimeInterval {
+        input.expression.constraints.observed = Some(TimePredicate::Range {
             start: None,
             end: Some(cutoff),
         });
@@ -276,7 +301,7 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
             result.result.results.is_empty(),
             "different observations cannot supply separate requested axes"
         );
-        input.expression.constraints.observed = Some(TimeInterval {
+        input.expression.constraints.observed = Some(TimePredicate::Range {
             start: Some(cutoff),
             end: Some(now),
         });
@@ -285,11 +310,11 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
     }
     let mut temporal = query(subject);
     temporal.projection.domains = vec![nous_core::ResultDomain::Evidence];
-    temporal.expression.constraints.occurred = Some(TimeInterval {
+    temporal.expression.constraints.occurred = Some(TimePredicate::Range {
         start: None,
         end: Some(cutoff),
     });
-    temporal.expression.constraints.observed = Some(TimeInterval {
+    temporal.expression.constraints.observed = Some(TimePredicate::Range {
         start: Some(cutoff),
         end: Some(now),
     });
@@ -309,7 +334,7 @@ async fn material_query_keeps_joint_observation_axes_and_derived_formation_time(
     assert!(freshness.formed_at.unwrap() >= now);
     assert!(freshness.observed_at.unwrap() < now);
     assert!(matches!(freshness.valid_time, TemporalExtent::Unknown));
-    input.expression.constraints.formed = Some(TimeInterval {
+    input.expression.constraints.formed = Some(TimePredicate::Range {
         start: None,
         end: Some(now),
     });

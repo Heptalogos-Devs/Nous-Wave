@@ -32,6 +32,7 @@ Tag 的 canonical normalized semantic representation/digest 与可选 embedding 
 当前 baseline lanes 为 exact、entity、lexical、dense、temporal、runtime，以及适用时的 SchemaDirect、TagDirect。每个 lane 返回 exact revision candidate、deterministic rank、generation/watermark 和 diagnostics；lane provider 不能产生 global score。
 
 - Entity/Temporal/Runtime 必须从 Authority/Runtime typed structure 生成 bounded candidates，不得 application-side arbitrary first-N。Temporal lane 只接受 occurred、observed、valid、formed、recorded typed axes；unknown 不匹配已知时间约束，多轴是 hard intersection。
+- Core `TimePredicate` 与 canonical Proto 区分 Point 和 Range。`at` 对 instant 要求精确相等，对 interval 要求点位于左闭右开范围内；`from/to/within` 与 instant 作包含判定，与 interval 作非空重叠判定。Range 必须满足 start < end，省略端点表示无界。冻结 CognitiveClock、绝对时间和相对时间保留 Timestamp 完整精度；点不转换成微小区间。Persistence 的 SQL 编码在 PostgreSQL 微秒存储格上保持这些比较的含义，owner 最终验证使用原始 predicate。
 - Lexical relevance 只来自 Lexical Serving hit；不得以 DB substring admission 或 fallback rank 补造 hit。
 - Dense 绑定单一 `EmbeddingSpaceSignature`，不同 space 不混合分数。
 - Hard constraint 未定义时在 binding 阶段明确拒绝；不得 silent ignore。
@@ -43,11 +44,13 @@ Runtime 持有 QueryPlan、lane/result contracts、budget 和固定 fusion seman
 
 Retrieval 在同一 bound leaf 内先准备 `PreparedQuerySignals`：query text、一次 query embedding 与只读 lexical/dense base hits。Dense 的兼容 generation 共用这份 embedding，不各自调用 provider；`text_embedding = FORBIDDEN` 时不准备 embedding。缺失 generation/provider 和调用失败保留原 lane 状态，由 Runtime 的 RequirementStrength 决定 Partial/Degraded。
 
-`retrieval.cognitive.profile` 是 Developer/SystemOnly 的 typed fixed registry，使用 Live / QueryPolicy。四个 ID 为 `baseline-rrf`、`nous-node-potential-v1`、`vcp-dtsc-v9.2.1-adapter-v1`、`vcp-rivermemo-v3.1-adapter-v1`。Profile 在 BoundQuery/QueryPlan 中冻结；baseline 不产生 topology lane。当前 native topology readout 默认绑定 `nous-node-potential-v1`，机制为已冻结的 `experimental-node-potential-v1`。`QueryObservation` 以 query ID、bound time、topology generation、profile/config subset digest、source seeds 与五轴时间约束标识本次观测，只持有一份 QueryRiver。候选排名由 readout 计算，不写回 observation；普通 diagnostics 只报告 profile、seed/node/edge 数、实际最大 hop、完整性和 discarded mass。
+`retrieval.cognitive.profile` 是 Developer/SubjectOverrideAllowed 的 typed fixed registry，使用 Live / QueryPolicy。四个 ID 为 `baseline-rrf`、`nous-node-potential-v1`、`vcp-dtsc-v9.2.1-adapter-v1`、`vcp-rivermemo-v3.1-adapter-v1`。Profile 在 BoundQuery/QueryPlan 中冻结；baseline 不产生 topology lane。当前 native topology readout 默认绑定 `nous-node-potential-v1`，机制为已冻结的 `experimental-node-potential-v1`。`QueryObservation` 以 query ID、bound time、topology generation、profile/config subset digest、source seeds 与五轴时间约束标识本次观测，只持有一份 QueryRiver。候选排名由 readout 计算，不写回 observation；普通 diagnostics 只报告 profile、seed/node/edge 数、实际最大 hop、完整性和 discarded mass。
 
 Wave 的普通边必须支付 `normal_edge_cost`，预算不足时停止；合流状态合并能量和全部 origin，provenance 输出有稳定顺序。这些约束由实际传播执行，不依赖诊断层推断。当前默认数值行为由 frozen golden 保护。Profile 在 query 开始时冻结。DTSC 与 RiverMemo 共用同一 VCP immutable asset，asset digest 绑定 Authority watermark、embedding space/producer、asset policy 与 implementation revision；readout profile 不进入该 digest。Native graph 使用独立 asset contract。prepare 搜索 current 与 retired compatible artifacts，切回相同内容可重新 promote。VCP profile 的 embedding requirement 与 Dense 共用一次 preparation；FORBIDDEN 保持无调用。两个 VCP reference kernel/adapters 已接入 Authority-fenced query lane。
 
 ## Final authority
+
+Core `QueryConstraints.matches_common` 根据 owner 提供的 typed `QueryFacts` 判定 authority、entity、来源 include/exclude、cognitive role、formation mode、modality 与 epistemic class；缺失事实不能满足显式条件。各 owner 继续决定权限、生命周期、时间轴与可访问性，不重述公共筛选规则。
 
 Final validator 按绑定 view 批量读取 selected head、epoch、lifecycle、role/mode、aboutness、temporal、provenance/source class、authority/modality/epistemic 和 accessibility。Serving/lane prefilter 是优化，不是 Authority；不得产生每 candidate 一次 SQL 的 N+1 路径。
 
@@ -56,6 +59,8 @@ Final validator 按绑定 view 批量读取 selected head、epoch、lifecycle、
 Episode/Journal 使用 current lifecycle 与适用的 hard constraints，不参与 Memory/Schema 的年龄衰减。结果保留 exact revision、object epoch、有界正文和精确支持引用。
 
 ## Serving
+
+物理 Serving family 只有 lexical、dense、topology 与 concept；Exact lane 直接使用 frozen exact bindings / owner SQL，不建立 postings 资产。旧的非当前 family generation 由 Serving 回收流程退出 current，保留原有 reader、research pin 与 grace 保护。
 
 每类 projection 使用 immutable generation，绑定 authority watermark、producer/build identity、configuration digest、artifact checksum 和 vector-space identity。Authority 提交只使 generation 失效；重建生成新的 generation id，但语义结果必须仍指向同一 Authority identity/revision。watermark race 不得发布过期快照为 current。
 

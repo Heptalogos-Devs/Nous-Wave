@@ -4,6 +4,20 @@
 
 本报告保存本轮实际复现与结果，后续追加同一任务的新观察。任务范围包括 owner 结构、配置身份、执行、consumer、Serving、Portable 与成果保全；当前观察不证明整项重整已经完成。
 
+## 2026-10-10 全仓语义合同审查续作
+
+本阶段按完整十四项审查继续，之前的 Portable/consumer 资格是历史阶段结果，整项目标仍未完成。当前主实例和已保存的认知、回执、研究、原始矩阵与 SAUC 材料继续保留；未启动新的付费模型资格运行。
+
+- Projection 直接使用生成合同，CoreCognition 接管宿主中的 query/projection/context 编排。既有实际编排与 Protobuf 场景保留 supports/contradicts，关系变化产生 RESET。
+- Schema 的 evidence 只有 content 内一个位置。create/revise/split/merge 共用内容、formation 校验与 revision writer；split/merge 自己保持锁、epoch、lineage 和原子性。公共场景实际创建嵌套 evidence，真实数据库场景验证 producer、lineage 与失败回滚。旧 create/revise exact receipt replay 与后续修订均通过；原有 split/merge committed replay 缺口留在持久操作收口项中继续修复。
+- Core Point/Range 贯通 canonical Proto、NousQL、TS/Rust 和 SQL。Point 匹配精确 instant 或包含它的 interval，Range 左闭右开且非空；unknown 不匹配。冻结时钟、relative/as-of 和 absolute 时间保留完整 Timestamp 精度。SQL 在 PostgreSQL 微秒存储格上按比较方向编码边界，保留原 predicate，不将点扩成 epsilon。
+- 各语义 owner 提供 QueryFacts，共用 authority、entity、source include/exclude、role/mode、modality 和 epistemic 规则。公共 Schema exact 场景真实拒绝不匹配条件；各 owner 保留生命周期、权限和时间解释。
+- 删除闲置 ExactPostings 的 need/build/load/invalidation/snapshot/trace 路径。物理资产由一个 AssetFamily catalog 描述；旧资产退出 current 后仍受 reader、research pin 和 grace 保护。实际回收/pin/reopen 场景通过，语义 Exact 与 owner SQL 保留。
+
+本阶段没有增加 TS 用例，仍为36份/107项；既有场景增加针对上述真实裂缝的断言。仅新增一条此前无覆盖的 Schema split/merge 原子轨迹。Rust 私有 tests 保持父模块可见性迁往 tests；Core query 按 vocabulary/request/result 分类，Schema content mutation 与 lineage 分开。VCP23个原数值场景按机制归类，原 corpus 不改；Kernel query 和 concept 轨迹分职责、共用原临时数据库。当前用户长度配置为 TS600/800、Rust500/700，适用于测试和 helper，没有目录豁免；三个拒绝文件完成职责拆分后为0reject。Owner unit/golden、公共 Schema/时间、Material/Query、Serving/lease、replay、组织后的 Kernel 场景、TS、Clippy 与 fast checks 均有实际通过结果。
+
+余项继续围绕 owner selection/provenance、bounded embedding/history、typed workflow/errors、OS lifetime mutex/supervisor、ReleaseInputs 和 command declarations 展开；Runtime 清理职责、embedding-space、deriveMaterial、其余 Rust tests 和现行文档/section anchors 尚待收口。PR24保持 OPEN/Draft，不合并。
+
 ## CLI 正文与明确拒绝
 
 基线 `09d67d4452eead78346877980f804ac513675d8d`，Windows 上使用当前源码 CLI environment 连接已有 Dogfooding 实例的 authenticated public Core。每个探针使用独立 consumer state root，既有 Subject 与 WorkContext 不改动。调用无效 `CreateSubject(subjectId="invalid-uuid")`；该请求没有创建有效 Subject 或调用模型。

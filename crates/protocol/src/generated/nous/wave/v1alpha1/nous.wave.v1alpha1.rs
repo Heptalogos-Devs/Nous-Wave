@@ -402,6 +402,21 @@ pub struct TimeInterval {
     #[prost(message, optional, tag="2")]
     pub end: ::core::option::Option<::prost_types::Timestamp>,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TimePredicate {
+    #[prost(oneof="time_predicate::Predicate", tags="1, 2")]
+    pub predicate: ::core::option::Option<time_predicate::Predicate>,
+}
+/// Nested message and enum types in `TimePredicate`.
+pub mod time_predicate {
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Predicate {
+        #[prost(message, tag="1")]
+        Point(::prost_types::Timestamp),
+        #[prost(message, tag="2")]
+        Range(super::TimeInterval),
+    }
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ObservationInput {
     #[prost(string, tag="1")]
@@ -475,15 +490,15 @@ pub struct QueryConstraints {
     #[prost(string, repeated, tag="5")]
     pub entity_requirements: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, optional, tag="6")]
-    pub occurred: ::core::option::Option<TimeInterval>,
+    pub occurred: ::core::option::Option<TimePredicate>,
     #[prost(message, optional, tag="7")]
-    pub observed: ::core::option::Option<TimeInterval>,
+    pub observed: ::core::option::Option<TimePredicate>,
     #[prost(message, optional, tag="8")]
-    pub valid: ::core::option::Option<TimeInterval>,
+    pub valid: ::core::option::Option<TimePredicate>,
     #[prost(message, optional, tag="9")]
-    pub formed: ::core::option::Option<TimeInterval>,
+    pub formed: ::core::option::Option<TimePredicate>,
     #[prost(message, optional, tag="10")]
-    pub recorded: ::core::option::Option<TimeInterval>,
+    pub recorded: ::core::option::Option<TimePredicate>,
     #[prost(bool, tag="11")]
     pub include_suppressed: bool,
     #[prost(string, optional, tag="12")]
@@ -2134,8 +2149,6 @@ pub struct CreateCognitiveSchemaRequest {
     pub subject_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub schema: ::core::option::Option<CognitiveSchemaContent>,
-    #[prost(message, repeated, tag="4")]
-    pub evidence_links: ::prost::alloc::vec::Vec<SchemaEvidenceLink>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetCognitiveSchemaRequest {

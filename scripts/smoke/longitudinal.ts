@@ -5,8 +5,8 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
-import { timestampFromDate } from "@bufbuild/protobuf/wkt";
-import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import { timestampFromDate, TimestampSchema } from "@bufbuild/protobuf/wkt";
+import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { connectNous } from "@nous-wave/client/node";
 import { MaintenancePlanSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
 import { KernelClient } from "../../apps/nous-core/src/kernel-client.js";
@@ -234,12 +234,13 @@ async function scenario(endpoint: string, token: string) {
       },
     });
     const session = await client.cognition.openSession({ subjectId });
+    const observationIds: string[] = [];
     for (const text of [
       "Calibration plan confirmed.",
       "Calibration measurements collected.",
       "Calibration review completed.",
     ]) {
-      await client.cognition.observe({
+      const observed = await client.cognition.observe({
         subjectId,
         sessionId: session.sessionId,
         sourceClass: "message",
@@ -249,6 +250,7 @@ async function scenario(endpoint: string, token: string) {
         },
         context: {},
       });
+      observationIds.push(observed.occurrenceId);
       await advance(2);
     }
     assert.deepEqual(calls, { episode: 0, journal: 0, consolidation: 0 });
@@ -406,6 +408,135 @@ async function scenario(endpoint: string, token: string) {
     const before = { ...calls };
     await maintain();
     assert.deepEqual(calls, before);
+    const schema = await client.concepts.createSchema({
+      operationId: randomUUID(),
+      subjectId,
+      schema: {
+        title: "Calibration source pattern",
+        structuralClaim: "Calibration decisions retain their actual source",
+        applicabilityScope: {
+          description: "This calibration sequence",
+          validTime: {
+            value: {
+              case: "interval",
+              value: {
+                start: fromJson(TimestampSchema, "2026-10-03T00:00:00Z"),
+                end: fromJson(TimestampSchema, "2026-10-04T00:00:00Z"),
+              },
+            },
+          },
+        },
+        boundaryDefinition: "No claim outside the source sequence",
+        formationKind: "explicit_import",
+        evidenceLinks: [
+          {
+            role: "support",
+            basis: {
+              basis: {
+                case: "evidence",
+                value: {
+                  occurrenceId: observationIds[0],
+                  locator: { case: "wholeOccurrence", value: true },
+                  basisRole: "direct",
+                  epistemicRelation: "supports",
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+    assert.equal(schema.evidenceLinks.length, 1);
+    assert.equal(schema.evidenceLinks[0]?.basis?.basis.case, "evidence");
+    if (schema.evidenceLinks[0]?.basis?.basis.case === "evidence")
+      assert.equal(
+        schema.evidenceLinks[0].basis.basis.value.occurrenceId,
+        observationIds[0],
+      );
+    assert(schema.formedAt);
+    const exactSchema = {
+      subjectId,
+      expression: {
+        operation: "atom",
+        cues: [
+          {
+            cue: { case: "text" as const, value: "Calibration source pattern" },
+          },
+          {
+            cue: {
+              case: "reference" as const,
+              value: {
+                kind: "cognitive_schema_revision",
+                value: schema.currentRevisionId,
+              },
+            },
+          },
+        ],
+        modifiers: { projection: { domains: ["schema"] } },
+      },
+    };
+    for (const constraints of [
+      {
+        formed: {
+          predicate: { case: "point" as const, value: schema.formedAt },
+        },
+      },
+      {
+        valid: {
+          predicate: {
+            case: "point" as const,
+            value: fromJson(TimestampSchema, "2026-10-03T00:00:00Z"),
+          },
+        },
+      },
+      { sourceClassesInclude: ["message"], authority: "subject_cognition" },
+    ]) {
+      const result = await client.cognition.query({
+        ...exactSchema,
+        expression: {
+          ...exactSchema.expression,
+          modifiers: { ...exactSchema.expression.modifiers, constraints },
+        },
+      });
+      assert.equal(
+        result.hits.length,
+        1,
+        JSON.stringify(constraints, (_key: string, value: unknown) =>
+          typeof value === "bigint" ? String(value) : value,
+        ),
+      );
+    }
+    for (const constraints of [
+      { authority: "evidence" },
+      { sourceClassesInclude: ["web"] },
+      { sourceClassesExclude: ["message"] },
+      { cognitiveRoles: ["declarative"] },
+      { formationModes: ["grounded"] },
+      { modalities: ["image"] },
+      { evidenceClasses: ["observed"] },
+      {
+        valid: {
+          predicate: {
+            case: "point" as const,
+            value: fromJson(TimestampSchema, "2026-10-04T00:00:00Z"),
+          },
+        },
+      },
+    ]) {
+      const result = await client.cognition.query({
+        ...exactSchema,
+        expression: {
+          ...exactSchema.expression,
+          modifiers: { ...exactSchema.expression.modifiers, constraints },
+        },
+      });
+      assert.equal(result.hits.length, 0);
+    }
+    const nousqlPoint = await client.cognition.query({
+      subjectId,
+      nousql: `Calibration $return(schema) $time(formed,at="${toJson(TimestampSchema, create(TimestampSchema, schema.formedAt))}")`,
+    });
+    assert.equal(nousqlPoint.hits.length, 1);
     console.error("Longitudinal smoke passed");
   } finally {
     await app.close();

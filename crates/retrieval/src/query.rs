@@ -425,7 +425,7 @@ impl ServingService {
             if current.contains_generation(record.generation_id) {
                 continue;
             }
-            snapshot.install(record.generation_id, self.open_record(record)?);
+            snapshot.install(self.open_record(record)?);
         }
         snapshot.retain_generations(status.generations.values().copied());
         let reader = self.query_reader(bound, snapshot)?;

@@ -1,9 +1,11 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 import { expect, it } from "vitest";
+import { fromJson, toJson } from "@bufbuild/protobuf";
+import { TimestampSchema, type Timestamp } from "@bufbuild/protobuf/wkt";
 import { canonical, parse } from "../../src/nousql/parser.js";
 import { compileNousQL } from "../../src/nousql/compiler.js";
-const now = new Date("2026-09-17T00:00:00Z");
+const now = fromJson(TimestampSchema, "2026-09-17T00:00:00Z");
 const resolve = async (kind: string, locator: { value: string }) => ({
   canonical: { kind, value: `entity:${locator.value}` },
   lexicalRef:
@@ -79,8 +81,11 @@ it("keeps independent time axes and explicit soft time preferences", async () =>
     resolve,
     now,
   );
-  expect(result.expression.modifiers?.constraints?.observed?.end?.seconds).toBe(
-    BigInt(now.getTime() / 1000),
+  const observed =
+    result.expression.modifiers?.constraints?.observed?.predicate;
+  expect(observed?.case).toBe("range");
+  expect(observed?.case === "range" && observed.value.end?.seconds).toBe(
+    now.seconds,
   );
   expect(result.expression.modifiers?.constraints?.occurred).toBeUndefined();
   expect(result.expression.modifiers?.preferences.map((p) => p.key)).toEqual([
@@ -96,9 +101,9 @@ it("keeps omitted limits configurable and freezes historical name resolution", a
   const resolver = async (
     kind: string,
     locator: { value: string },
-    cut?: Date,
+    cut?: Timestamp,
   ) => {
-    cuts.push(cut?.toISOString());
+    cuts.push(cut ? toJson(TimestampSchema, cut) : undefined);
     return resolve(kind, locator);
   };
   const result = await compileNousQL(
@@ -106,6 +111,6 @@ it("keeps omitted limits configurable and freezes historical name resolution", a
     resolver,
     now,
   );
-  expect(cuts).toEqual(["2026-09-16T00:00:00.000Z"]);
+  expect(cuts).toEqual(["2026-09-16T00:00:00Z"]);
   expect(result.expression.modifiers?.limit).toBeUndefined();
 });

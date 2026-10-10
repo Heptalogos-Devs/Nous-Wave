@@ -32,7 +32,7 @@ fn main() {
         "crates/retrieval/src/assets/build.rs",
         "crates/retrieval/src/concept/generation.rs",
         "crates/retrieval/src/mechanisms/dense.rs",
-        "crates/retrieval/src/mechanisms/exact.rs",
+        "crates/retrieval/src/assets/family.rs",
         "crates/retrieval/src/mechanisms/graph.rs",
         "crates/retrieval/src/mechanisms/lexical.rs",
         "crates/retrieval/src/material.rs",

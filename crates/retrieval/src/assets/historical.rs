@@ -68,7 +68,7 @@ impl ServingService {
             match outcome {
                 Ok(record) => {
                     let artifact = self.open_record(&record)?;
-                    snapshot.install(record.generation_id, artifact);
+                    snapshot.install(artifact);
                     status.generations.insert(key, record.generation_id);
                 }
                 Err(error) => status.degradation.push(Degradation {
