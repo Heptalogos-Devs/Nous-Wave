@@ -9,9 +9,11 @@ import type { ModelRuntime } from "./runtime.js";
 import {
   failedExecutionTelemetry,
   type ExecutionTelemetry,
+} from "./execution/routes.js";
+import {
   type ModelProducerMetadata,
   type ModelRoleSnapshot,
-} from "./invocations.js";
+} from "./execution/snapshot.js";
 import type { ModelRole } from "./roles.js";
 import { modelProducer } from "./producer.js";
 import { z } from "zod";

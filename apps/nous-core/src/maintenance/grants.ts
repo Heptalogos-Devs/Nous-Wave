@@ -10,7 +10,7 @@ import type { MaintenancePolicy } from "@nous-wave/protocol/nous/wave/kernel/v1a
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "../model/runtime.js";
 import { canonicalDigest } from "../digest.js";
-import { GenerationFailure } from "../model/invocations.js";
+import { GenerationFailure } from "../model/execution/routes.js";
 import { runModelMaintenance } from "./workflow.js";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { executionOptions } from "../execution.js";

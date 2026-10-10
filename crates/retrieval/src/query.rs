@@ -247,7 +247,7 @@ async fn prepare_signals(
 #[async_trait::async_trait]
 impl SharedLaneProvider for ServingService {
     async fn activate(&self, bound: &BoundQuery) -> Result<nous_runtime::QueryActivation> {
-        concept_lane::activate(
+        crate::concept::lane::activate(
             &self.publisher.snapshot_for(bound.source_query.subject),
             bound,
             self.embedding().map(|p| p.as_ref()),
@@ -314,7 +314,7 @@ impl ServingService {
         let mut outputs = signals.into_lanes();
         outputs.extend(topology);
         if bound.lane_enabled(EvidenceFamily::TagDirect) {
-            outputs.push(concept_lane::direct_lane(snapshot, bound, plan));
+            outputs.push(crate::concept::lane::direct_lane(snapshot, bound, plan));
         }
         Ok(outputs)
     }
@@ -338,7 +338,7 @@ fn domain_dense_matches(
 }
 
 #[cfg(test)]
-#[path = "query_signals_tests.rs"]
+#[path = "../tests/unit/query_signals.rs"]
 mod tests;
 
 /// Request-scoped immutable Serving view, retained through final validation.
@@ -367,7 +367,7 @@ impl nous_runtime::QueryActivationView for ServingQuery {
 #[async_trait::async_trait]
 impl SharedLaneProvider for ServingQuery {
     async fn activate(&self, bound: &BoundQuery) -> Result<nous_runtime::QueryActivation> {
-        concept_lane::activate(
+        crate::concept::lane::activate(
             &self.snapshot,
             bound,
             self.embedding

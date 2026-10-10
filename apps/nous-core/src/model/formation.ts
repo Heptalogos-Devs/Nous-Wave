@@ -8,10 +8,8 @@ import { FormMemoryRequestSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/
 import { type FormationRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
-import {
-  failedExecutionTelemetry,
-  type ModelRoleSnapshot,
-} from "./invocations.js";
+import { failedExecutionTelemetry } from "./execution/routes.js";
+import { type ModelRoleSnapshot } from "./execution/snapshot.js";
 import { canonicalDigest } from "../digest.js";
 import { z } from "zod";
 import { modelProducer } from "./producer.js";

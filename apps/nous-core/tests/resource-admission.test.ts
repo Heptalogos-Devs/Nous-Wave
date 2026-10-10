@@ -1,7 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-import { coreExecutionSchema } from "../src/configuration-catalog.js";
+import { coreExecutionSchema } from "../src/configuration/catalog.js";
 import { create } from "@bufbuild/protobuf";
 import { MaterializeResourceRequestSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
 import { expect, test } from "vitest";

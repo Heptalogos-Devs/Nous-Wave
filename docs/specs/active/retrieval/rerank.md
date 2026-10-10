@@ -1,5 +1,7 @@
 # QueryExpr 与 Rerank
 
+[返回当前产品合同](../../INDEX.md)
+
 ## Owners
 
 Runtime (crates/runtime) owns QueryExpr binding, QueryPlan, lane budgets and fusion. Retrieval (crates/retrieval) supplies exact candidates. Core owns query embedding, model rerank and External Resource host actions. Memory performs final Authority validation.
@@ -31,5 +33,3 @@ Normalized RRF baseline 位于 [0,1]。每个满足的 soft cue 增加 signed 0.
 Lexical relevance 只来自 Lexical Serving hit。Query embedding 使用 preparation 固定的完整 Query Representation，包含 normalized temporal orientation 与当前 context；无 context TextCue 仍使用相同 representation preparation；按 exact text/space/producer digest 最多缓存 128 vectors。Required embedding 失败拒绝 operation；optional 的 lexical fallback 返回显式 degradation。
 
 Topology 默认关闭，只能显式请求实验 lane，标识为 `experimental-node-potential-v1`。当前实现使用 weighted PCA/EPA、residual decomposition、bounded propagation 与 node-potential；完整 VCP topology 尚未实现。
-
-[返回当前产品合同](../../INDEX.md)

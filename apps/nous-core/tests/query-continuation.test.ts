@@ -1,7 +1,7 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-import { coreExecutionSchema } from "../src/configuration-catalog.js";
+import { coreExecutionSchema } from "../src/configuration/catalog.js";
 import { expect, it, vi } from "vitest";
 import { create } from "@bufbuild/protobuf";
 import {

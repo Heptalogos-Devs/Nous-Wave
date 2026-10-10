@@ -8,7 +8,7 @@ import { ModelRuntime } from "./runtime.js";
 import { ModelMaterialPipeline } from "./material.js";
 import { deriveMaterial } from "./derivation.js";
 import { formObservation } from "./formation.js";
-import { GenerationFailure } from "./invocations.js";
+import { GenerationFailure } from "./execution/routes.js";
 import { executionOptions } from "../execution.js";
 
 function failure(code: string, error: unknown) {

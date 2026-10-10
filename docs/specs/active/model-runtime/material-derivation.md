@@ -1,5 +1,7 @@
 # Material Derivation
 
+[返回当前产品合同](../../INDEX.md)
+
 ## Owners
 
 TypeScript Core orchestrates external model calls and operation snapshots. The Material owner validates and persists exact input graphs, representations, regions and provenance.
@@ -41,5 +43,3 @@ description segments 使用 `material.description_segment_bytes` 的稳定 UTF-8
 Aboutness 支持 explicit、select_from_resolved_mentions 与 none。select 模式使用 Kernel 已解析的 mention candidate keys，由 Model 选择子集；显式引用由 owner 验证。Actor identity 单独保存在 Observation。
 
 形成结果引用实际使用的 occurrence 与 DerivedRepresentation。Material read/materialize 可按 SourceRegion、DerivedRegion 或 representation 精确回读来源链。普通 recall 不重新解释媒体。
-
-[返回当前产品合同](../../INDEX.md)

@@ -40,7 +40,7 @@ impl QueryObservation {
         source_seeds: Vec<SourceSeed>,
     ) -> Result<Self> {
         let constraints = &bound.source_query.expression.constraints;
-        let config_subset_digest = crate::artifacts::digest(&serde_json::json!({
+        let config_subset_digest = crate::assets::files::digest(&serde_json::json!({
             "wave": graph.config,
             "max_hops": plan.topology_rounds,
             "max_states": plan.topology_nodes,

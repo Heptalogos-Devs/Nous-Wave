@@ -6,11 +6,11 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
 import { MaintenancePlanSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
-import { coreConfigurationValues } from "../../apps/nous-core/src/configuration-catalog.js";
+import { coreConfigurationValues } from "../../apps/nous-core/src/configuration/catalog.js";
 import {
   parseConfiguration,
   parseEffectiveConfiguration,
-} from "../../apps/nous-core/src/config.js";
+} from "../../apps/nous-core/src/configuration/schema.js";
 import { ModelRuntime } from "../../apps/nous-core/src/model/runtime.js";
 import { structuredContractForRole } from "../../apps/nous-core/src/model/schemas/contracts.js";
 import type { ModelRole } from "../../apps/nous-core/src/model/roles.js";

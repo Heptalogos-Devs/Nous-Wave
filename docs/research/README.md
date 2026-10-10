@@ -1,5 +1,7 @@
 # Research
 
+[返回文档目录](../INDEX.md)
+
 [2026-10-09 全仓重整实际观察](deep-rebase-2026-10-09.md)保存 CLI 缺陷的真实复现、修复后读回及后续认知任务观察。
 
 [Full-System Dogfooding](full-system-dogfooding-2026-10-08.md)记录真实 Codex CLI/MCP 持续研发、consumer 隔离、来源读取、恢复和实际问题修正。
@@ -20,5 +22,3 @@
 纵向认知模型研究使用 [`research:longitudinal`](../../scripts/README.md#longitudinal-model-research)，针对精确来源快照生成 Episode partition、Journal 或 consolidation proposal，供真实 trace 与来源事实的人工评估。[Functional cognition corpus](corpus/functional/README.md)保留旧三场景输入、oracle 与历史读数；专属 synthetic runner 已退役。当前真实 CLI/MCP／Portable 持续任务与失败、恢复结果保存在[重整观察](deep-rebase-2026-10-09.md)，不从旧 fake-provider 读数推导模型质量。
 
 [独立文本兼容性选择](corpus/text-compatibility-selection.json)保留六个原始问题与 source locator/checksum；第三方原文及历史结果在 ignored data。此次重构用 public Client 的小型功能路径复验，不运行旧全量 importer、第二套 research Runtime 或新的 provider benchmark。
-
-[返回文档目录](../INDEX.md)

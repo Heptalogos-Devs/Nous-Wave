@@ -1,5 +1,7 @@
 # Runtime Bundle 与运行目录
 
+[返回当前产品合同](../../INDEX.md)
+
 ## Owner
 
 TypeScript Core owns path resolution, instance discovery, process lifecycle and explicit runtime installation. Rust Kernel owns Authority/Serving and the private PostgreSQL cluster lifecycle.
@@ -41,5 +43,3 @@ FFmpeg resolves from an explicitly configured executable or the installed FFmpeg
 The current release pipeline builds the shipping Kernel for `x86_64-pc-windows-gnullvm` with LLVM-MinGW UCRT and includes its private `libc++.dll` and `libunwind.dll` dependencies. The source-less portable ZIP contains compiled Core/CLI/Client, Kernel, Node, PostgreSQL, FFmpeg, Prompts, migrations, manifests, SPDX SBOM and license/source notices.
 
 Assembly writes `data/releases/windows-x64/current/` and `current.zip` through sibling staging paths. A normal assembly replaces current; `release:archive` explicitly saves an immutable release artifact. Build and operation commands are documented in [scripts/README.md](../../../../scripts/README.md).
-
-[返回当前产品合同](../../INDEX.md)

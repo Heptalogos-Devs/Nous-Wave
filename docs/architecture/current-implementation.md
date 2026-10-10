@@ -38,7 +38,7 @@ Persistence 的 `MutationEnvelope` 持有 Subject/operation identity、可选 ow
 
 Memory、Episode、CognitiveSchema 和 Journal 保留独立模型、typed tables、provenance、head/epoch fence 与 lifecycle SQL。Memory crate 的内部 read、mutation、lifecycle、partition 和 provenance 按领域责任组织；共享纯 epoch/transition 检查不决定领域操作。
 
-Serving 的实现身份由构建时的投影实现、输入投影与锁定依赖内容摘要产生，随可执行程序交付；不使用手工递增计数。结构化 Serving record 唯一保存实现与配置身份，metadata 只保存制品校验和与实际 profile。当前与历史代次共用资产安装、替换与互斥规则。Native Wave 的配置声明与解析由 `wave_policy.rs` 拥有，图构建由 `graph.rs` 拥有；调整配置展示等级不会改变投影实现摘要。
+Serving 的实现身份由构建时的投影实现、输入投影与锁定依赖内容摘要产生，随可执行程序交付；不使用手工递增计数。结构化 Serving record 唯一保存实现与配置身份，metadata 只保存制品校验和与实际 profile。当前与历史代次共用 `retrieval/assets/` 中的构建、安装、替换与互斥规则。Native Wave 的配置声明与解析由 `retrieval/policy/wave.rs` 拥有，图构建由 `retrieval/mechanisms/graph.rs` 拥有；调整配置展示等级不会改变投影实现摘要。
 
 ## 数据流
 

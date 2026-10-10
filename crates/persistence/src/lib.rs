@@ -13,31 +13,27 @@ mod model_workflow;
 pub use model_workflow::{WORKFLOW_VALUE_MAX_BYTES, WorkflowOwner, WorkflowReservation};
 mod episode_text;
 pub use episode_text::EpisodeTextBudget;
-mod concept_input;
 mod historical;
-mod historical_binding;
-mod historical_projection;
+pub use historical::projection::HistoricalProjectionInput;
 pub use historical::*;
-pub use historical_projection::HistoricalProjectionInput;
 mod producer;
-mod projection_input;
-pub use concept_input::{ConceptProjectionInput, ConceptProjectionTag};
-mod projections;
+mod projection;
+pub use projection::concept::{ConceptProjectionInput, ConceptProjectionTag};
 mod query_descriptors;
 mod references;
 pub use identity::{
     IdentityAddress, IdentityAddressTarget, IdentityBinding, lexical_prefix, validate_lexical,
 };
 pub use query_descriptors::QueryDescriptor;
-mod longitudinal_topology;
 mod semantic_catalog;
 mod serving;
 mod tags;
-mod topology_input;
-pub use projection_input::{TextProjectionFragment, TextProjectionInput, TextProjectionSource};
-pub use projections::{DenseInvalidation, ProjectionInvalidation};
+pub use projection::text::{TextProjectionFragment, TextProjectionInput, TextProjectionSource};
+pub use projection::topology::{
+    CognitiveProjectionInput, TopologyEdgeSource, TopologyProjectionInput,
+};
+pub use projection::{DenseInvalidation, ProjectionInvalidation};
 pub use serving::{ServingRecord, ServingView};
-pub use topology_input::{CognitiveProjectionInput, TopologyEdgeSource, TopologyProjectionInput};
 
 use nous_core::{Error, OperationId, Result, SubjectId};
 use sqlx::{PgPool, Postgres, Transaction, postgres::PgPoolOptions};

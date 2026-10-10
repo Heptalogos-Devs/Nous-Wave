@@ -1,5 +1,7 @@
 # Structured Material 与 External Resource
 
+[返回文档目录](../../INDEX.md)
+
 ## Owner
 
 Core owns model and Resource host calls; Material owns Artifact/Observation/DerivedRepresentation identity; Memory and Runtime own their respective query and lifecycle semantics.
@@ -33,5 +35,3 @@ Public QueryResponse 将 resource_records 与 cognitive hits 分开；resource_a
 Kernel 将单条 record 限制为 1 MiB、每次 query 的总序列化 record 限制为 2 MiB。Authority policies 为 none/prefer/required；query results 保留各 record 的版本与访问判断。
 
 Resource query returns candidates as records. Selecting a record runs bounded materialize → Artifact/SourceRegion → distinct ObservationOccurrence; `external_object_ref` preserves stable external identity, and each observation retains its occurrence identity. Memory formation then uses that Observation. 接纳前核验实际 adapter/profile identity、当前版本与访问，包括恢复已保存但尚未接纳的 proposal。已成功接纳的 operation 回放复用原快照；外部版本变化或权限撤销不清除该已接纳材料，其清除仍由 Material 管理操作决定。
-
-[返回文档目录](../../INDEX.md)

@@ -1,6 +1,6 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
-import { runCli } from "./commands.js";
+import { runCli } from "./commands/index.js";
 import { formatError, formatResult } from "./format.js";
 import { friendlyOutput } from "./friendly.js";
 const args = process.argv.slice(2);

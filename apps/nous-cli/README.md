@@ -1,5 +1,9 @@
 # Nous CLI
 
+[仓库地图](../../INDEX.md) · [Applications](../README.md) · [Agent 使用](../../docs/agent/README.md)
+
+命令实现按操作类别放在 [commands](src/commands/index.ts)；Terminal 与 MCP 调用同一个命令核心。`runtime.ts` 固定本次选择和输入，`state.ts` 管理 consumer 事务，`friendly.ts` 只处理呈现。测试和测试用 Client 在 `tests/`，不随 CLI/MCP 打包。
+
 第一方 reference consumer，通过 `@nous-wave/client` 调用 Core；命令使用 citty 0.2.2，复杂输入使用 smol-toml 与 Zod。CLI 的选择、查询结果索引和操作 receipt 保存在 InstanceRoot，属于 consumer 本地状态。
 
 共享状态按 Core discovery 中的稳定 instanceId 与 `--consumer` 共同隔离，目录为 `InstanceRoot/consumers/<身份摘要>/`。Core 重启保留实例身份；同一 state root 中不同实例或 consumer 使用不同选择和回执。每条命令固定开始时的 Subject、Session、WorkContext 与输入，后续 RPC 不重读另一条命令的选择。原子写与跨进程锁仅用于本地短事务，不覆盖 RPC 或模型等待。独立字段更新合并；同字段、Subject 或 query context 冲突保留业务结果并返回 `STATE_UNSAVED` notice，后续操作使用返回的 exact references。

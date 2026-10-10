@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { UserContent } from "ai";
-import { ModelInvocations, type ModelRoleSnapshot } from "./invocations.js";
+import { ModelInvocations } from "./invocations.js";
+import { type ModelRoleSnapshot } from "./execution/snapshot.js";
 import {
   structuredMaterialResult,
   type StructuredMaterialContext,

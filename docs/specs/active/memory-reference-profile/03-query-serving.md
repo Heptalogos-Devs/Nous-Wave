@@ -1,8 +1,9 @@
 # Query & Serving
 
+[返回文档目录](../../INDEX.md)
+
 长期寻址、Query preparation、概念维护和 owner materialization 语义依据 [Architecture-Vault `5b96c63`](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/5b96c63da34b0a4c697b6961ae10ba6aa4de3ee1/docs/Nous-Wave/TARGET_DESIGN.md)。
 
-[返回文档目录](../../INDEX.md)
 
 ## Owner
 

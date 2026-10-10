@@ -6,14 +6,14 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
 import { resolveLocations } from "../src/locations.js";
-import { initializeConfiguration } from "../src/configuration-file.js";
+import { initializeConfiguration } from "../src/configuration/file.js";
 import {
   CONFIG_REVISION,
   parseConfiguration,
   parseEffectiveConfiguration,
   loadConfig,
-} from "../src/config.js";
-import { checkConfiguration } from "../src/configuration-check.js";
+} from "../src/configuration/schema.js";
+import { checkConfiguration } from "../src/configuration/check.js";
 
 it("resolves split roots relative to the locator while installation and instance remain independent", async () => {
   const root = await mkdtemp(join(tmpdir(), "nous-locations-"));

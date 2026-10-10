@@ -110,7 +110,7 @@ async fn run_smoke() {
         std::env::var_os("NOUS_LONGITUDINAL_NODE").unwrap_or_else(|| "node".into()),
     )
     .args(["--import", "tsx", "--input-type=module", "--eval",
-        "import {configurationBundle} from './apps/nous-core/src/configuration-catalog.ts'; console.log(JSON.stringify(configurationBundle({serving:{lexical:{enabled:true},dense:{enabled:false},topology:{enabled:false}}})));",
+        "import {configurationBundle} from './apps/nous-core/src/configuration/catalog.ts'; console.log(JSON.stringify(configurationBundle({serving:{lexical:{enabled:true},dense:{enabled:false},topology:{enabled:false}}})));",
     ])
     .current_dir(&repo)
     .kill_on_drop(true)

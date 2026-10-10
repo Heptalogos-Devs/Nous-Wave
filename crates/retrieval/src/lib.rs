@@ -2,49 +2,34 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
-mod epa_policy;
-pub use epa_policy::{EPA_POLICY, EpaPolicy};
-mod wave_policy;
-pub use wave_policy::*;
+mod policy;
+pub use policy::epa::{EPA_POLICY, EpaPolicy};
+pub use policy::wave::*;
 mod mechanisms;
 pub use mechanisms::*;
-mod artifacts;
-mod build;
-mod concept_generation;
-mod concept_lane;
-pub use concept_generation::{ConceptGeneration, ConceptRecord};
-mod lifecycle;
-mod reclamation;
-pub use reclamation::ReclamationReport;
+mod assets;
+mod concept;
+pub use assets::reclamation::ReclamationReport;
+pub use concept::generation::{ConceptGeneration, ConceptRecord};
 mod material;
 mod observation;
 mod provider;
 pub mod reference;
 pub use observation::{QueryObservation, QueryTemporalContext};
-mod historical_serving;
 mod query;
 pub use query::PreparedQuerySignals;
 mod activated_routes;
 mod topology_lane;
-mod vcp_adapter;
-mod vcp_routes;
+mod vcp;
 pub use material::*;
-pub use vcp_adapter::*;
-mod vcp_policy;
-pub use vcp_policy::*;
-mod vcp_lane;
-mod vcp_readout;
-pub use vcp_readout::*;
-mod vcp_observation;
-pub use vcp_observation::*;
-mod vcp_index;
-pub use vcp_index::*;
-mod vcp_generation;
-pub use vcp_generation::*;
-mod vcp_graph;
-pub use vcp_graph::*;
-mod vcp_material;
-pub use vcp_material::*;
+pub use policy::vcp::*;
+pub use vcp::adapter::*;
+pub use vcp::generation::*;
+pub use vcp::graph::*;
+pub use vcp::index::*;
+pub use vcp::material::*;
+pub use vcp::observation::*;
+pub use vcp::readout::*;
 
 use nous_core::*;
 use nous_object_store::ObjectStore;
@@ -78,8 +63,8 @@ pub const ABSOLUTE_LEXICAL_WRITER_BYTES: usize = 512 * 1024 * 1024;
 pub fn register_configuration(
     registry: &mut nous_configuration::ConfigRegistryBuilder,
 ) -> Result<()> {
-    epa_policy::register_configuration(registry)?;
-    vcp_policy::register_configuration(registry)?;
+    policy::epa::register_configuration(registry)?;
+    policy::vcp::register_configuration(registry)?;
     for (key, description, default) in [
         (
             LEXICAL_ENABLED_KEY,
@@ -206,7 +191,7 @@ impl ServingService {
         embedding: Option<Arc<dyn TextEmbeddingProvider>>,
         configuration: nous_configuration::ConfigurationService,
     ) -> Result<Self> {
-        std::fs::create_dir_all(&options.root).map_err(artifacts::io)?;
+        std::fs::create_dir_all(&options.root).map_err(assets::files::io)?;
         Ok(Self {
             store,
             objects,

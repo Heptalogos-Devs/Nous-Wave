@@ -1,17 +1,22 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+  resolveRole,
+  snapshotSchema,
+  type ReadyRole,
+  type ModelRoleSnapshot,
+  type ModelProducerMetadata,
+} from "./execution/snapshot.js";
+import { executeRoutes, GenerationFailure } from "./execution/routes.js";
 import type { UserContent } from "ai";
 import {
   generateProvider,
   embedProvider,
   transcribeProvider,
   rerankProvider,
-  safeProviderFailure,
-  usageCounts,
-  ProviderFailure,
 } from "./protocols.js";
-import { z } from "zod";
+
 import { resolvedEmbeddingRoute } from "./embedding-profile.js";
 import { canonicalDigest } from "../digest.js";
 import {
@@ -20,22 +25,19 @@ import {
 } from "./schemas/contracts.js";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type ModelProfile, type ExecutionProfile } from "./profiles.js";
+
 import { roleNames, type ModelRole } from "./roles.js";
 import {
-  modelRoleProblem,
   type ModelConfiguration,
   type RolePolicy,
   modelConfigurationSchema,
-  modelExecutionSchema,
   modelRoleGraph,
 } from "./configuration.js";
 import { PromptRegistry, type PromptAsset } from "./prompts.js";
-import { modelRoleIdentity, invocationConfigDigest } from "./identity.js";
+import { invocationConfigDigest } from "./identity.js";
 import { modelImplementations } from "./implementation.js";
 import {
   generationInput,
-  InputUnavailable,
   type InputModalities,
   type DirectMedia,
 } from "./input.js";
@@ -56,104 +58,6 @@ type GenerationOptions<R extends ModelRole> = {
   ) => void;
 };
 
-export class GenerationFailure extends Error {
-  constructor(
-    role: ModelRole,
-    readonly reason: string,
-    readonly execution?: ExecutionTelemetry,
-    readonly usage?: unknown,
-  ) {
-    super(`Model role ${role} invocation failed: ${reason}`);
-  }
-}
-
-const interruptedExecutions = new WeakMap<object, ExecutionTelemetry>();
-export function failedExecutionTelemetry(
-  error: unknown,
-): ExecutionTelemetry | undefined {
-  return error instanceof GenerationFailure
-    ? (error.execution ?? interruptedExecutions.get(error))
-    : error && typeof error === "object"
-      ? interruptedExecutions.get(error)
-      : undefined;
-}
-function interrupt(
-  role: ModelRole,
-  reason: unknown,
-  attempts: ExecutionAttempt[],
-): never {
-  const error =
-    reason && typeof reason === "object"
-      ? reason
-      : new GenerationFailure(role, "caller_cancelled", {
-          attempts: [...attempts],
-        });
-  interruptedExecutions.set(error, { attempts: [...attempts] });
-  throw error;
-}
-export type ModelProducerMetadata = {
-  implementation: string;
-  protocol: string;
-  model: string;
-  modelRevision?: string;
-  profileDigest: string;
-  promptId?: string;
-  promptDigest?: string;
-  outputSchemaDigest?: string;
-  configDigest: string;
-  modelRole: ModelRole;
-  modelProfile: string;
-  executionProfile: string;
-  inferenceControlsDigest: string;
-  rolePolicyDigest: string;
-};
-type ExecutionAttempt = {
-  executionProfile: string;
-  modelProfile: string;
-  status: "succeeded" | "failed" | "skipped" | "unknown";
-  failureClass?: string;
-  latencyMs: number;
-  usage?: unknown;
-};
-export type ExecutionTelemetry = {
-  attempts: ExecutionAttempt[];
-  successfulExecutionProfile?: string;
-};
-type ReadyRole = {
-  name: ModelRole;
-  profile: ModelProfile;
-  binding: ExecutionProfile;
-  executionName: string;
-  policy: RolePolicy;
-  policyDigest: string;
-  prompt?: PromptAsset;
-  baseURL: string;
-  credential: string;
-  credentialEnv: string;
-  timeout: number;
-  profileDigest: string;
-  configDigest: string;
-};
-const snapshotSchema = z.strictObject({
-  format: z.literal("nous.model.execution"),
-  implementationDigest: z.string().regex(/^[a-f0-9]{64}$/),
-  outputSchemaDigest: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/)
-    .optional(),
-  configuration: modelExecutionSchema,
-  role: z.enum(roleNames),
-  prompt: z
-    .strictObject({
-      id: z.string().max(1024),
-      digest: z.string().regex(/^[a-f0-9]{64}$/),
-      text: z.string().max(131072),
-    })
-    .optional(),
-  profileDigest: z.string().regex(/^[a-f0-9]{64}$/),
-  configDigest: z.string().regex(/^[a-f0-9]{64}$/),
-});
-export type ModelRoleSnapshot = z.infer<typeof snapshotSchema>;
 export class ModelInvocations {
   private prompts?: PromptRegistry;
   private promptPaths: Partial<Record<ModelRole, string>> = {};
@@ -205,50 +109,15 @@ export class ModelInvocations {
       } catch {
         problem = "Prompt asset unavailable or invalid";
       }
-      const policyDigest = canonicalDigest(policy);
       for (const executionName of policy.routes) {
-        const configured = config.execution_profiles[executionName];
-        const profile = configured && config.model_profiles[configured.model];
-        if (!configured || !profile || !profile.model.trim()) {
-          problem = "Execution/model profile is absent or unset";
-          continue;
+        try {
+          routes.push(resolveRole(config, name, executionName, prompt));
+        } catch (error) {
+          problem =
+            error instanceof Error
+              ? error.message
+              : "Execution route unavailable";
         }
-        const binding = configured;
-        const mismatch = modelRoleProblem(name, binding, profile);
-        if (mismatch) {
-          problem = mismatch;
-          continue;
-        }
-        const gateway = config.gateway_profiles[profile.gateway];
-        const credential = gateway && process.env[gateway.credential_env];
-        if (!gateway?.enabled || !credential) {
-          problem = "Gateway disabled or credential unavailable";
-          continue;
-        }
-        if (!prompt && providerContractForRole(name)) {
-          problem = "Prompt asset unavailable or invalid";
-          continue;
-        }
-        const identity = modelRoleIdentity(profile, gateway, binding, prompt);
-        routes.push({
-          name,
-          profile,
-          binding,
-          executionName,
-          policy,
-          policyDigest,
-          prompt,
-          credential,
-          credentialEnv: gateway.credential_env,
-          baseURL: gateway.base_url,
-          timeout: binding.timeout_ms ?? gateway.request_timeout_ms,
-          profileDigest: identity.profileDigest,
-          configDigest: canonicalDigest({
-            execution: identity.configDigest,
-            policyDigest,
-            executionName,
-          }),
-        });
       }
       if (name === "query_embedding" && routes.length > 1) {
         const signature = (route: ReadyRole) =>
@@ -323,67 +192,6 @@ export class ModelInvocations {
     );
     return snapshot;
   }
-  private hydrate(input: ModelRoleSnapshot, executionName: string): ReadyRole {
-    const snapshot = snapshotSchema.parse(input);
-    if (snapshot.implementationDigest !== modelImplementations.provider)
-      throw new Error("Reserved model implementation unavailable");
-    if (
-      snapshot.outputSchemaDigest !==
-      providerContractForRole(snapshot.role)?.digest
-    )
-      throw new Error("Reserved model output contract unavailable");
-    const policy = snapshot.configuration.roles[snapshot.role];
-    if (!policy?.routes.includes(executionName))
-      throw new Error("Reserved execution route is absent");
-    const configured = snapshot.configuration.execution_profiles[executionName];
-    const profile =
-      configured && snapshot.configuration.model_profiles[configured.model];
-    const gateway =
-      profile && snapshot.configuration.gateway_profiles[profile.gateway];
-    if (!configured || !profile || !gateway)
-      throw new Error("Reserved execution resources unavailable");
-    const binding = configured;
-    const problem = modelRoleProblem(snapshot.role, binding, profile);
-    if (problem) throw new Error(problem);
-    const credential = process.env[gateway.credential_env];
-    if (
-      !this.credentialOrigins.has(
-        `${gateway.credential_env}@${new URL(gateway.base_url).origin}`,
-      )
-    )
-      throw new Error(
-        "Reserved gateway credential destination is no longer authorized by current configuration",
-      );
-    if (!gateway.enabled || !credential)
-      throw new Error("Reserved model credential reference unavailable");
-    const identity = modelRoleIdentity(
-      profile,
-      gateway,
-      binding,
-      snapshot.prompt,
-    );
-    const policyDigest = canonicalDigest(policy);
-    return {
-      name: snapshot.role,
-      profile,
-      binding,
-      executionName,
-      policy,
-      policyDigest,
-      prompt: snapshot.prompt,
-      baseURL: gateway.base_url,
-      credential,
-      credentialEnv: gateway.credential_env,
-      timeout: binding.timeout_ms ?? gateway.request_timeout_ms,
-      profileDigest: identity.profileDigest,
-      configDigest: canonicalDigest({
-        snapshot: snapshot.configDigest,
-        execution: identity.configDigest,
-        policyDigest,
-        executionName,
-      }),
-    };
-  }
   private async withRoutes<
     T extends {
       value: unknown;
@@ -399,90 +207,14 @@ export class ModelInvocations {
     beforeAttempt?: () => void,
     prepare?: (role: ReadyRole) => Input,
   ) {
-    const snapshot = fixed ?? this.snapshot(name);
-    if (snapshot.role !== name) throw new Error("Reserved model role mismatch");
-    const policy = snapshot.configuration.roles[name];
-    const attempts: ExecutionAttempt[] = [];
-    for (const executionName of policy?.routes ?? []) {
-      if (signal?.aborted) interrupt(name, signal.reason, attempts);
-      let role: ReadyRole;
-      let prepared: Input;
-      try {
-        role = this.hydrate(snapshot, executionName);
-        prepared = prepare ? prepare(role) : (undefined as Input);
-      } catch (error) {
-        attempts.push({
-          executionProfile: executionName,
-          modelProfile:
-            snapshot.configuration.execution_profiles[executionName]?.model ??
-            "",
-          status: "skipped",
-          failureClass:
-            error instanceof InputUnavailable
-              ? error.message
-              : "route_unavailable",
-          latencyMs: 0,
-        });
-        continue;
-      }
-      // Budget admission is outside fallback handling. Exhaustion never tries another route.
-      try {
-        beforeAttempt?.();
-      } catch (error) {
-        interrupt(name, error, attempts);
-      }
-      const started = performance.now();
-      try {
-        const result = await invoke(role, prepared);
-        attempts.push({
-          executionProfile: executionName,
-          modelProfile: role.binding.model,
-          status: "succeeded",
-          latencyMs: Math.round(performance.now() - started),
-          usage: "usage" in result ? usageCounts(result.usage) : undefined,
-        });
-        const { usage: _usage, ...record } = result;
-        return {
-          ...record,
-          execution: {
-            attempts,
-            successfulExecutionProfile: executionName,
-          } satisfies ExecutionTelemetry,
-        };
-      } catch (error) {
-        const failureClass = signal?.aborted
-          ? "caller_cancelled"
-          : error instanceof GenerationFailure
-            ? error.reason
-            : safeProviderFailure(error);
-        attempts.push({
-          executionProfile: executionName,
-          modelProfile: role.binding.model,
-          status:
-            signal?.aborted ||
-            (error instanceof ProviderFailure && error.outcome === "unknown") ||
-            [
-              "validation_or_transport",
-              "timeout_or_cancellation",
-              "embedding_validation_or_transport",
-            ].includes(failureClass)
-              ? "unknown"
-              : "failed",
-          failureClass,
-          usage:
-            error instanceof GenerationFailure ||
-            error instanceof ProviderFailure
-              ? usageCounts(error.usage)
-              : undefined,
-          latencyMs: Math.round(performance.now() - started),
-        });
-        if (signal?.aborted) interrupt(name, signal.reason, attempts);
-      }
-    }
-    throw new GenerationFailure(
+    return executeRoutes(
       name,
-      `all_execution_routes_failed:${attempts.at(-1)?.failureClass ?? "route_unavailable"}`,
-      { attempts },
+      fixed ?? this.snapshot(name),
+      this.credentialOrigins,
+      invoke,
+      signal,
+      beforeAttempt,
+      prepare,
     );
   }
   identity(role: ModelRole) {

@@ -1,5 +1,7 @@
 # 纵向认知
 
+[返回当前产品合同](../../INDEX.md)
+
 ## Owner 与路径
 
 Session-bound Observation → Runtime ExperienceItem → automatic Episode → Memory-owned Journal → host-granted Maintenance → Memory/CognitiveSchema consolidation。
@@ -68,7 +70,6 @@ proposal action 为 skip、create/revise Memory、create/revise CognitiveSchema�
 
 Query/Serving、WorkContext、UseEvent 和下游失效合同分别见 [Query](../memory-reference-profile/03-query-serving.md)、[WorkContext](work-context.md)、[Use](../memory-reference-profile/02-runtime-use.md) 和 [Authority](../memory-reference-profile/01-memory-authority-provenance.md)。
 
-[返回当前产品合同](../../INDEX.md)
 
 ## 独立 concept maintenance
 

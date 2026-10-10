@@ -3,7 +3,7 @@
 
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { runCli } from "./commands.js";
+import { runCli } from "./commands/index.js";
 import { friendlyOutput } from "./friendly.js";
 import { formatError, formatResult } from "./format.js";
 

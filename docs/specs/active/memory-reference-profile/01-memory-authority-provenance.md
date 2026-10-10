@@ -1,5 +1,7 @@
 # Memory Authority & Provenance
 
+[返回文档目录](../../INDEX.md)
+
 ## Owner
 
 Memory (crates/memory) owns Memory/CognitiveSchema/Episode/Journal/Tag/AssociationEvidence Authority, provenance and lifecycle. Subject and Material provide the referenced identities and source records.
@@ -58,7 +60,6 @@ Mutation replay 的 immutable result revision 保持原身份，当前 lifecycle
 
 Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime serving 均可重建，不拥有 cognition truth。Memory owner 不持有 concrete Retrieval/Serving；topology candidate generation 属于 Retrieval shared contributor。
 
-[返回文档目录](../../INDEX.md)
 
 ## Semantic Concept 与显式 Tag
 

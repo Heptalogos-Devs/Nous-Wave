@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { executionOptions } from "./execution.js";
-import { type CoreExecutionPolicy } from "./configuration-catalog.js";
+import { type CoreExecutionPolicy } from "./configuration/catalog.js";
 import { ConfigurationService } from "@nous-wave/protocol/nous/wave/v1alpha1/configuration_pb.js";
 import Fastify from "fastify";
 import { grantMaintenance } from "./maintenance/grants.js";
@@ -56,7 +56,7 @@ import { ContextCompiler } from "./cognition/context.js";
 import { ModelRuntime } from "./model/runtime.js";
 import { ModelService } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import { modelOperations } from "./model/operations.js";
-import { configurationOperations } from "./configuration-service.js";
+import { configurationOperations } from "./configuration/service.js";
 
 export interface CoreOptions {
   kernel: KernelClient;

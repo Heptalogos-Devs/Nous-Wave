@@ -203,7 +203,7 @@ impl CognitiveRuntimeService {
             let threshold = self
                 .configuration
                 .snapshot_for_subject(input.subject)?
-                .get(crate::maintenance_policy::CONCEPT_USE_REVIEW_INTERVAL)?;
+                .get(crate::policy::maintenance::CONCEPT_USE_REVIEW_INTERVAL)?;
             let sequence: i64 =
                 sqlx::query_scalar("SELECT authority_seq FROM subjects WHERE subject_id=$1")
                     .bind(input.subject.0)

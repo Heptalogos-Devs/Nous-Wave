@@ -4,12 +4,12 @@
 import { MaterialInterpretation } from "./interpretation.js";
 import { createHash } from "node:crypto";
 import type { Degradation, Segment } from "../domain.js";
+import { ModelInvocations } from "./invocations.js";
 import {
-  ModelInvocations,
   type ModelRoleSnapshot,
   type ModelProducerMetadata,
-  type ExecutionTelemetry,
-} from "./invocations.js";
+} from "./execution/snapshot.js";
+import { type ExecutionTelemetry } from "./execution/routes.js";
 import type { ModelGenerationOutput } from "./schemas/contracts.js";
 import { type ModelRole } from "./roles.js";
 import {

@@ -8,7 +8,7 @@ import {
   executionOpportunitySchema,
   executionEnvelope,
   executionOpportunityPaths,
-} from "./execution-policy.js";
+} from "./policy/execution.js";
 export {
   ConfigExposure,
   ConfigurationView,

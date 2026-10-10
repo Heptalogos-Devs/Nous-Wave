@@ -1,5 +1,7 @@
 # Nous Wave 文档目录
 
+[返回仓库地图](../INDEX.md)
+
 ## 当前实现
 
 - [文档说明](README.md)
@@ -39,5 +41,3 @@
 - [VCP source conformance](research/vcp-conformance.md)
 - [长期工程方向](roadmap/target-engineering.md)
 - [Architecture-Vault Target Design](https://github.com/Heptalogos-Devs/Architecture-Vault/blob/main/docs/Nous-Wave/TARGET_DESIGN.md)
-
-[返回仓库地图](../INDEX.md)

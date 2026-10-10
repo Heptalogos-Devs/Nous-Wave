@@ -3,13 +3,13 @@
 
 [typescript]
 extensions = [".ts", ".tsx", ".mts", ".cts"]
-warn_at = 800
-reject_at = 1200
+warn_at = 600
+reject_at = 900
 
 [rust]
 extensions = [".rs"]
-warn_at = 600
-reject_at = 1000
+warn_at = 500
+reject_at = 800
 
 [generated]
 exclude = [

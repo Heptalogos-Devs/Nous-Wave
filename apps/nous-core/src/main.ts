@@ -12,7 +12,7 @@ import {
   parseEffectiveConfiguration,
   loadCredentials,
   resolveMediaExecutables,
-} from "./config.js";
+} from "./configuration/schema.js";
 import { claimInstance } from "./discovery.js";
 import { startKernel } from "./process.js";
 import { createCore } from "./server.js";

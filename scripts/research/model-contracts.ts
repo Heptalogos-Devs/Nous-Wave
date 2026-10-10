@@ -4,11 +4,11 @@
 import { parseArgs } from "node:util";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
-import { coreConfigurationValues } from "../../apps/nous-core/src/configuration-catalog.js";
+import { coreConfigurationValues } from "../../apps/nous-core/src/configuration/catalog.js";
 import {
   parseConfiguration,
   parseEffectiveConfiguration,
-} from "../../apps/nous-core/src/config.js";
+} from "../../apps/nous-core/src/configuration/schema.js";
 import {
   roleNames,
   type ModelRole,

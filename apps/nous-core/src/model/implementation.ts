@@ -37,6 +37,8 @@ export async function readModelImplementation(
   const [provider, material] = await Promise.all([
     digest([
       "invocations.ts",
+      "execution/snapshot.ts",
+      "execution/routes.ts",
       "protocols.ts",
       "input.ts",
       "identity.ts",

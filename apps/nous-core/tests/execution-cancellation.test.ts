@@ -4,10 +4,8 @@
 import { createServer } from "node:http";
 import { expect, test } from "vitest";
 import { modelConfigurationSchema } from "../src/model/configuration.js";
-import {
-  ModelInvocations,
-  failedExecutionTelemetry,
-} from "../src/model/invocations.js";
+import { ModelInvocations } from "../src/model/invocations.js";
+import { failedExecutionTelemetry } from "../src/model/execution/routes.js";
 
 test("cancellation preserves the failed route and the transmitted attempt whose outcome is unknown", async () => {
   let reached: () => void = () => {};

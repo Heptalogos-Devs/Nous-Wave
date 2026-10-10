@@ -1,5 +1,7 @@
 # 全仓重整实际观察（2026-10-09）
 
+[返回研究入口](README.md)
+
 本报告保存本轮实际复现与结果，后续追加同一任务的新观察。任务范围包括 owner 结构、配置身份、执行、consumer、Serving、Portable 与成果保全；当前观察不证明整项重整已经完成。
 
 ## CLI 正文与明确拒绝
@@ -46,7 +48,6 @@ Material 时间场景曾一次未召回预期 region；诊断重跑和移除诊�
 
 焦点检查复现并修正旧 BigInt tag 与用户 JSON `$bigint` 键碰撞。四个真实 Node 进程并发写容量为 2 的 pending 空间，恰好两项成功、两项收到容量拒绝；未知请求不回收。同 operation 的不同 frozen input 被拒绝，终态不被 pending/另一个终态覆盖。连续 query 的清除旧结果与保存新结果使用本命令最近成功写入的基线，第二条 query 的 exact `result:N`/UseEvent 对应第二次 Client 返回；该焦点检查使用可控 Client。
 
-[返回研究入口](README.md)
 
 ## Resource 宿主与接纳
 
@@ -233,7 +234,7 @@ Unicode exact Query `01a123f1-aa71-7581-ad52-7c77166c6501` 与 `$history $asof("
 
 完整批准后的prompt/进程flags/events/results、独立readback与首次捕获差异都按原bytes保存并摘要核对。[已授权 Windows MCP续接 corpus](corpus/deep-rebase/windows-approved-mcp-continuation-2026-10-10.json)保留原文、producer、Query/Use/Session、Context append、失败和限制；完整重复Context留在ignored持久结果。此次真实CLI/MCP资格已完成，旧审批失败仍保持其历史身份。退役目录手动清理结果尚未收到，Linux SSD target约54GB仍未处理；PR24保持Draft，最终清理和Squash Merge仍未完成。
 
-## 2026-10-10 非清理范围最终核对与交付
+## 2026-10-10 阶段核对与交付约束
 
 用户明确调整完成条件：“除了清理以外的工作全部执行并检查核对后则认为目标完成。”剩余目录清理因此移出本次完成条件，保留其真实未执行状态；该指令不免除成果保全、原实现范围、实际功能验证或 PR/Squash 交付。
 
@@ -241,4 +242,14 @@ Unicode exact Query `01a123f1-aa71-7581-ad52-7c77166c6501` 与 `$history $asof("
 
 最终按当前文件重读核对 Linux8091、Windows3798份成果archive SHA并逐项解压解析；43份原始VCP JSON逐份核对原SHA且可解析；当前42项成果和SAUC patch摘要不变。当前Portable2335份inventory文件逐项SHA与qualified ZIP摘要一致，三布局boot/restart/relocation/missing-pack结果可读；真实CLI/MCP Query/Use/Session/Context前缀及旧trace原bytes证明连续状态仍可用。旧失败和未运行项继续保留，未批量改写历史事实。
 
-随后用户明确要求“别合并 PR”。当前交付因此保留同一 [PR24](https://github.com/Heptalogos-Devs/Nous-Wave/pull/24) 为未合并状态，不删除分支；目录清理与PR合并均不再属于本次完成条件。非清理实现、成果保全与实际验证范围核对满足要求，最终文档提交继续核对CI。保留当前主实例、可用Program/Runtime、operator configuration/Secrets、研究成果与必要工具链。旧Portable、验证实例、staging/cache及Linux约54GB target仍属未清理材料；它们没有被本结论记作已删除。一次性手动清理脚本可按用户安排独立执行，不再阻止本次目标完成。
+随后用户明确要求“别合并 PR”。交付因此保留同一 [PR24](https://github.com/Heptalogos-Devs/Nous-Wave/pull/24) 为未合并状态，不删除分支；目录清理与PR合并不再属于本次完成条件。上述功能与保全验证是阶段结果。用户随后指出维护结构仍未完成，不能据此宣称全部目标已经满足，以下继续处理测试、模块职责、公共执行部件与文档路由。保留当前主实例、可用Program/Runtime、operator configuration/Secrets、研究成果与必要工具链。旧Portable、验证实例、staging/cache及Linux约54GB target仍属未清理材料；它们没有被本记录记作已删除。一次性手动清理脚本可按用户安排独立执行。
+
+## 2026-10-10 维护结构续作
+
+按用户补充的六项维护目标重新审查，分离原21份共置 TypeScript tests 和 CLI mock Client，按 feature 放入各 owner 的 `tests/`。删除无独立保护价值的全角色清单/schema digest 回放及三份纯 CLI 转发/静态 guidance 案例；语义来源、history/purge、配置 freeze/CAS、取消/预算、未知回执、并发 consumer 和数值算法检查继续保留。Maintenance 的 workflow replay 与 bounded grant/scheduler 分开，两个使用者共用一份 test-local fixture，没有新增测试用例或生产钩子。两份超长 Kernel DB 轨迹按 model/catalog、historical、policy、identity/permission 分组，继续共用原数据库轨迹。
+
+CLI 操作实现进入 `commands/`；Core configuration 进入 `configuration/`；Client/Runtime/Retrieval policy 按各自 owner 归拢。Retrieval 将原来使用 path attributes 的平铺机制放入真正的 `mechanisms/`，VCP、concept、数值 DTSC 和 current/history assets 各自归类；Persistence historical binding/projection 和 projection 输入归类。WorkContext 按 contract/validation、read、mutation、lifecycle 分开，ordered anchors 的重复写入收敛为一次固定 SQL 存储操作。模型 startup 与 reserved execution 的 role 解析合用一个实现；route fallback、取消、attempt/usage 保存从 invocation facade 中抽出，generation/embedding/transcription/rerank 使用同一 executor。维护中的 frozen proposal 构造/校验与持久 records、重放/领域提交/lease 生命周期分开；四个模型阶段使用相同的 attempt 保存回调，并维持先保存真实 execution、再验证 proposal 的时序。旧内部路径、导入、源码摘要输入与静态 include 同步替换，没有平铺兼容别名。
+
+脚本总 README 改为短入口，dev/runtime/release/smoke/research/maintenance/tests 七个目录指南各自给出入口、文件职责、前置条件与输出。纵向研究从 maintenance 尾部移回 research；现行 return routes 前置，局部指南与 INDEX 双向可达。长度配置采用用户工作区更新的 TS600/900、Rust500/800，明确包括测试、test helper、内联 Rust tests 与脚手架，只有原两个 generated 目录排除。边值场景使用小型临时 Git 目录和独立小门限，实际检验 test/helper 的 warning/rejection；不复制巨大源码 fixture，不给测试目录增加豁免。
+
+当前 TypeScript36份/107项、check:fast、Knip production isolation、dependency boundary、文档导航73份/64 human/5 indexes 均通过，长度442份/26warning/0reject；Rust workspace/all-features tests、all-targets/all-features Clippy 均通过。Buf重新生成无差异。一次与 Rust 冷编译并行的 TS运行出现三个5秒 timeout，顺序重跑通过，未提高时限；文件迁移发现的旧 include/子进程路径和 prompt-test 相对路径均在当前使用者修正。新程序构建及原实例真实续接继续核对，本节暂不宣布完成。
