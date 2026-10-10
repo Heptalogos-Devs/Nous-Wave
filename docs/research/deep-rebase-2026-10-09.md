@@ -241,4 +241,4 @@ Unicode exact Query `01a123f1-aa71-7581-ad52-7c77166c6501` 与 `$history $asof("
 
 最终按当前文件重读核对 Linux8091、Windows3798份成果archive SHA并逐项解压解析；43份原始VCP JSON逐份核对原SHA且可解析；当前42项成果和SAUC patch摘要不变。当前Portable2335份inventory文件逐项SHA与qualified ZIP摘要一致，三布局boot/restart/relocation/missing-pack结果可读；真实CLI/MCP Query/Use/Session/Context前缀及旧trace原bytes证明连续状态仍可用。旧失败和未运行项继续保留，未批量改写历史事实。
 
-非清理实现与验证范围核对满足完成条件，最终交付通过同一 [PR24](https://github.com/Heptalogos-Devs/Nous-Wave/pull/24) 的最终CI与Squash Merge完成，GitHub PR记录为实际合并状态依据。保留当前主实例、可用Program/Runtime、operator configuration/Secrets、研究成果与必要工具链。旧Portable、验证实例、staging/cache及Linux约54GB target仍属未清理材料；它们没有被本结论记作已删除。一次性手动清理脚本可按用户安排独立执行，不再阻止本次目标完成。
+随后用户明确要求“别合并 PR”。当前交付因此保留同一 [PR24](https://github.com/Heptalogos-Devs/Nous-Wave/pull/24) 为未合并状态，不删除分支；目录清理与PR合并均不再属于本次完成条件。非清理实现、成果保全与实际验证范围核对满足要求，最终文档提交继续核对CI。保留当前主实例、可用Program/Runtime、operator configuration/Secrets、研究成果与必要工具链。旧Portable、验证实例、staging/cache及Linux约54GB target仍属未清理材料；它们没有被本结论记作已删除。一次性手动清理脚本可按用户安排独立执行，不再阻止本次目标完成。
