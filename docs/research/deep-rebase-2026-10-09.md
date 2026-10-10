@@ -232,3 +232,13 @@ Unicode exact Query `01a123f1-aa71-7581-ad52-7c77166c6501` 与 `$history $asof("
 仅一个新 Session `01a123f1-63ec-7192-bdf4-e406b661c041`（`session:kutad-zilon-vovom`）打开、foreground、使用后关闭，独立 readback closed=true/runtimeRevision3。Codex用fresh CAS将同一 Context14→15/open，追加当前任务事实并保留旧 chronology。父进程随后独立读取公开 CLI输出，核对原37632 UTF8 bytes文本是新文本的完整精确前缀，三个原 trace stdout字节及SHA仍完全一致。第一次由PowerShell管道保存trace时，Set-Content把stdout的LF改成CRLF，产物字节检查失败；JSON内容相同。改用直接captured stdout验证后原bytes全部相同，未修改领域代码或放宽原认知检查。
 
 完整批准后的prompt/进程flags/events/results、独立readback与首次捕获差异都按原bytes保存并摘要核对。[已授权 Windows MCP续接 corpus](corpus/deep-rebase/windows-approved-mcp-continuation-2026-10-10.json)保留原文、producer、Query/Use/Session、Context append、失败和限制；完整重复Context留在ignored持久结果。此次真实CLI/MCP资格已完成，旧审批失败仍保持其历史身份。退役目录手动清理结果尚未收到，Linux SSD target约54GB仍未处理；PR24保持Draft，最终清理和Squash Merge仍未完成。
+
+## 2026-10-10 非清理范围最终核对与交付
+
+用户明确调整完成条件：“除了清理以外的工作全部执行并检查核对后则认为目标完成。”剩余目录清理因此移出本次完成条件，保留其真实未执行状态；该指令不免除成果保全、原实现范围、实际功能验证或 PR/Squash 交付。
+
+按任务包01/02/03/05/06、当前 owner Specs 与 accepted Vault复核，生产结构、配置规范化/身份/CAS/叶路径、唯一当前 Proto/fresh SQL/typed shapes、实际媒体 route与deadline/lease、Terminal/MCP及consumer、Query/Serving current/history/read lease/rebuild、测试与runner精简、官方CLI/模型/Portable持续使用均有对应实现和实际结果。当前架构入口与代码owner一致；没有新增长期语义决定需要修改Vault。实质代码仍为已shipping构建/三布局/真实续接验证的 `c544a46`，其后的提交只改研究文档和corpus。`ed95754` 两端CI再次终态成功；最终复核还重新生成Proto并确认bindings无差异，长度423份/15warning/0reject、文档导航无问题。CI的真实配置CAS/freeze、历史/purge、原候选final validation、同watermark缓存重建和在途reader保护、数值goldens均通过，没有用green状态替代其检查覆盖内容。
+
+最终按当前文件重读核对 Linux8091、Windows3798份成果archive SHA并逐项解压解析；43份原始VCP JSON逐份核对原SHA且可解析；当前42项成果和SAUC patch摘要不变。当前Portable2335份inventory文件逐项SHA与qualified ZIP摘要一致，三布局boot/restart/relocation/missing-pack结果可读；真实CLI/MCP Query/Use/Session/Context前缀及旧trace原bytes证明连续状态仍可用。旧失败和未运行项继续保留，未批量改写历史事实。
+
+非清理实现与验证范围核对满足完成条件，最终交付通过同一 [PR24](https://github.com/Heptalogos-Devs/Nous-Wave/pull/24) 的最终CI与Squash Merge完成，GitHub PR记录为实际合并状态依据。保留当前主实例、可用Program/Runtime、operator configuration/Secrets、研究成果与必要工具链。旧Portable、验证实例、staging/cache及Linux约54GB target仍属未清理材料；它们没有被本结论记作已删除。一次性手动清理脚本可按用户安排独立执行，不再阻止本次目标完成。
