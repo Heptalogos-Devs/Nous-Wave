@@ -339,7 +339,6 @@ async fn concept_lineage_preserves_history_and_canonicalizes_current_query_and_s
     let bound = rt
         .cognition
         .bind_query(CognitiveQuery {
-            api_version: API_VERSION,
             subject,
             projection: Default::default(),
             temporal_frame: Default::default(),

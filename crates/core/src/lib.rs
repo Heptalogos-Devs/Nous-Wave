@@ -14,8 +14,6 @@ use std::{fmt, str::FromStr};
 pub use topology::TopologyRelation;
 use uuid::Uuid;
 
-pub const API_VERSION: u32 = 1;
-
 macro_rules! uuid_id {
     ($name:ident) => {
         #[derive(

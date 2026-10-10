@@ -22,7 +22,6 @@ mod provenance;
 mod query;
 mod query_materialization;
 mod query_support;
-mod runtime;
 pub mod schema;
 mod schema_lane;
 mod source_classes;
@@ -99,7 +98,6 @@ impl MemoryService {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeStatus {
-    pub api_version: u32,
     pub ready: bool,
     pub authority: String,
     pub capabilities: Vec<CapabilityStatus>,
@@ -257,7 +255,6 @@ impl MemoryService {
 
     pub async fn status(&self) -> RuntimeStatus {
         RuntimeStatus {
-            api_version: API_VERSION,
             ready: true,
             authority: "postgresql".into(),
             capabilities: self

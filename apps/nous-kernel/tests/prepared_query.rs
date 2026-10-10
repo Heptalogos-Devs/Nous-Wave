@@ -9,7 +9,6 @@ use test_support::*;
 
 fn query(subject: SubjectId) -> CognitiveQuery {
     CognitiveQuery {
-        api_version: API_VERSION,
         subject,
         projection: Default::default(),
         temporal_frame: Default::default(),

@@ -12,7 +12,6 @@ use std::sync::Arc;
 use test_support::*;
 fn query(subject: SubjectId, reference: CognitiveRef) -> CognitiveQuery {
     CognitiveQuery {
-        api_version: API_VERSION,
         subject,
         session: None,
         work_context: None,

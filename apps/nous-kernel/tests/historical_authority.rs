@@ -404,7 +404,6 @@ async fn check_historical_binding(
         .await
         .unwrap();
     let query = CognitiveQuery {
-        api_version: API_VERSION,
         subject,
         session: None,
         work_context: Some(context.work_context_id),
@@ -632,7 +631,6 @@ async fn historical_material_query_runs_without_memory_micro_system() {
     let cut = rt.cognition.now(subject);
     let future = observation(&rt, subject, "future material archival chronicle").await;
     let request = CognitiveQuery {
-        api_version: API_VERSION,
         subject,
         session: None,
         work_context: None,
@@ -691,7 +689,6 @@ async fn check_permission_fence(
 ) {
     let reference = view.cognition[0].head.clone();
     let query = CognitiveQuery {
-        api_version: API_VERSION,
         subject,
         session: None,
         work_context: None,

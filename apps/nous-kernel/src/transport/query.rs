@@ -230,7 +230,6 @@ pub(super) fn compile_query(
         },
 
         work_context: input.work_context_id.as_deref().map(id).transpose()?,
-        api_version: API_VERSION,
         subject: SubjectId(id(&input.subject_id)?),
         session: input
             .session_id

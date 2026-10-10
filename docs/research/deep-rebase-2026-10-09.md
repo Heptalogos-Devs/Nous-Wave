@@ -200,3 +200,7 @@ Linux公开Core/Kernel/PostgreSQL的Memory历史/清除、Runtime跨Session、Lo
 ## 2026-10-10 Windows 交接点
 
 按用户最新要求提交上传并交接，停止本轮Linux执行，不解除Draft、不Squash Merge。主实例正常SIGTERM停机，管理实例已停机，两者数据库/Blob/Context保留；维护预算退出后的只读DB检查确认五类pending needs均无live lease，Memory workflow无live lease。`1e6e8dc`两平台CI已通过，随后仅增加当前文档与三份真实续接/恢复corpus；该交接提交CI另查。Windows checkout在同一分支，继续前应读取最新commit message与工作区handoff。保留的Windows Portable是此前实际验证的payload，尚未包含本轮Linux的Serving内容摘要、三叶concept policy与lazy startup更新；最新head的Windows native rebuild、Portable资格/实际续接、剩余重复内部api_version决策、最后build清理/审查与Squash Merge仍未完成。本轮没有再次启动Windows二进制。
+
+## 2026-10-10 Windows 续接与当前格式收尾
+
+用户明确要求核对 Linux 进度与 Spec 后继续完成原目标。Windows clean checkout 与 PR24 均为 `f5c88c2`；其 Linux/Windows CI 已实际通过。按原任务包的唯一当前格式要求，复核 Memory Authority、Runtime/Use、Query/Serving 与 Runtime Bundle Spec，删除 Rust CognitiveQuery、Memory/Kernel readiness status 的重复固定 `api_version:1` 和 `API_VERSION`。该值由 Kernel transport 自行注入，不承担协商或历史身份。Canonical Proto 已声明当前 wire shape；认知 revision/epoch、Cognitive Seed 来源版本、模型/Prompt/实现摘要保持其语义。所有 Rust constructors 同时替换，没有增加旧格式 decoder；无调用方的 `MemoryService.ready_status` 转发入口与专属模块一并删除。

@@ -47,7 +47,6 @@ pub struct RuntimeOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeStatus {
-    pub api_version: u32,
     pub ready: bool,
     pub capabilities: Vec<CapabilityStatus>,
 }
@@ -333,7 +332,6 @@ impl NousRuntime {
             capabilities.extend(memory.status().await.capabilities);
         }
         RuntimeStatus {
-            api_version: API_VERSION,
             ready: self.store.check().await.is_ok(),
             capabilities,
         }

@@ -395,7 +395,6 @@ pub struct CognitiveQuery {
     pub temporal_frame: TemporalFrame,
     #[serde(default)]
     pub work_context: Option<uuid::Uuid>,
-    pub api_version: u32,
     #[serde(default)]
     pub subject: SubjectId,
     pub session: Option<SessionId>,
@@ -460,12 +459,6 @@ impl CognitiveQuery {
     }
     pub fn validate(&self) -> Result<()> {
         self.projection.validate()?;
-        if self.api_version != API_VERSION {
-            return Err(Error::Invalid(format!(
-                "unsupported cognitive query api_version {}",
-                self.api_version
-            )));
-        }
         if self.result_need.limit == 0 || self.result_need.limit > MAX_QUERY_RESULT_ITEMS {
             return Err(Error::Invalid(
                 "result_need.limit must be between 1 and 2048".into(),

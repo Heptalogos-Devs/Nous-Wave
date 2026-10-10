@@ -12,7 +12,6 @@ pub(crate) fn query(subject: nous_core::SubjectId) -> CognitiveQuery {
         temporal_frame: Default::default(),
 
         work_context: None,
-        api_version: nous_core::API_VERSION,
         subject,
         session: None,
         situation: Default::default(),
@@ -63,7 +62,6 @@ pub(crate) fn text_query(subject: nous_core::SubjectId) -> CognitiveQuery {
         temporal_frame: Default::default(),
 
         work_context: None,
-        api_version: nous_core::API_VERSION,
         subject,
         session: None,
         situation: Default::default(),

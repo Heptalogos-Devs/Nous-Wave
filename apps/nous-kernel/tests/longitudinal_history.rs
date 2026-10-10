@@ -433,7 +433,6 @@ fn media_episode_query(subject: nous_core::SubjectId, text: &str) -> nous_core::
         temporal_frame: Default::default(),
 
         work_context: None,
-        api_version: nous_core::API_VERSION,
         subject,
         session: None,
         situation: Default::default(),

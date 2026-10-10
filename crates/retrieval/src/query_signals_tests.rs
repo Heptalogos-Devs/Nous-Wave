@@ -74,7 +74,6 @@ fn query() -> CognitiveQuery {
         temporal_frame: Default::default(),
 
         work_context: None,
-        api_version: API_VERSION,
         subject: SubjectId::new(),
         session: None,
         situation: Default::default(),

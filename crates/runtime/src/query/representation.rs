@@ -587,7 +587,6 @@ mod tests {
     use super::*;
     fn query() -> CognitiveQuery {
         CognitiveQuery {
-            api_version: API_VERSION,
             subject: SubjectId::new(),
             projection: Default::default(),
             temporal_frame: Default::default(),

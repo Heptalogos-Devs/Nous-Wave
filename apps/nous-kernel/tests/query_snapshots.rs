@@ -380,7 +380,6 @@ async fn exact_mutable_binding_is_fenced_and_explicit_history_is_readable() {
             temporal_frame: Default::default(),
 
             work_context: None,
-            api_version: nous_core::API_VERSION,
             subject,
             session: None,
             situation: Default::default(),
