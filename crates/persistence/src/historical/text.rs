@@ -13,6 +13,20 @@ pub(crate) async fn historical_sources_in(
     memory_allowed: bool,
     requested: Option<&[CognitiveRef]>,
 ) -> Result<(Vec<TextProjectionSource>, Vec<ConceptProjectionTag>)> {
+    let mut sources = historical_catalog_sources_in(tx, view, memory_allowed, requested).await?;
+    let tags = historical_tag_sources(view, memory_allowed, requested, &mut sources);
+    enrich_cognition_sources_in(tx, view, memory_allowed, &mut sources).await?;
+    episode_fragments_in(tx, view, budget, &mut sources).await?;
+    sources.sort_by_key(|source| source.reference.to_string());
+    Ok((sources, tags))
+}
+
+async fn historical_catalog_sources_in(
+    tx: &mut Transaction<'_, Postgres>,
+    view: &HistoricalAuthoritySnapshot,
+    memory_allowed: bool,
+    requested: Option<&[CognitiveRef]>,
+) -> Result<Vec<TextProjectionSource>> {
     // Selection is frozen at the owner level. Current purge is a hard fence,
     // while current head, suppression and canonical Tag never select this corpus.
     let selected: Vec<_> = match requested {
@@ -105,6 +119,15 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
             crate::projection::text::truncate_text(text, 65536);
         }
     }
+    Ok(sources)
+}
+
+fn historical_tag_sources(
+    view: &HistoricalAuthoritySnapshot,
+    memory_allowed: bool,
+    requested: Option<&[CognitiveRef]>,
+    sources: &mut Vec<TextProjectionSource>,
+) -> Vec<ConceptProjectionTag> {
     let tag_states: Vec<_> = match requested {
         Some(references) => references
             .iter()
@@ -138,6 +161,15 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
             schema_ids: vec![],
         });
     }
+    tags
+}
+
+async fn enrich_cognition_sources_in(
+    tx: &mut Transaction<'_, Postgres>,
+    view: &HistoricalAuthoritySnapshot,
+    memory_allowed: bool,
+    sources: &mut [TextProjectionSource],
+) -> Result<()> {
     let indices: HashMap<_, _> = sources
         .iter()
         .enumerate()
@@ -228,11 +260,7 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
             &row.get::<String, _>("basis_ref"),
         )?;
         if let Some(state) = view.cognition_for(&from).filter(|state| {
-            view.selected_cognition_for(&from).is_some()
-                && state.state["acceptance_state"] == "accepted"
-                && state.state["integrity_state"] == "valid"
-                && state.state["suppression_state"] == "normal"
-                && state.state["purge_state"] == "normal"
+            view.selected_cognition_for(&from).is_some() && eligible_state(&state.state)
         }) && let Some(&index) = indices.get(&to)
         {
             sources[index]
@@ -240,6 +268,15 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
                 .push(reference_parts(&state.object).1);
         }
     }
+    Ok(())
+}
+
+async fn episode_fragments_in(
+    tx: &mut Transaction<'_, Postgres>,
+    view: &HistoricalAuthoritySnapshot,
+    budget: EpisodeTextBudget,
+    sources: &mut [TextProjectionSource],
+) -> Result<()> {
     // Episode fragment selection is likewise bounded by the same effective Material set.
     let episode_ids = sources
         .iter()
@@ -256,13 +293,12 @@ WITH selected AS (SELECT * FROM unnest($2::text[],$3::text[]) r(kind,value)), ca
         Some(view),
     )
     .await?;
-    for source in &mut sources {
+    for source in sources {
         if let CognitiveRef::EpisodeRevision(id) = source.reference {
             source.member_fragments = fragments.remove(&id.0).unwrap_or_default();
         }
     }
-    sources.sort_by_key(|source| source.reference.to_string());
-    Ok((sources, tags))
+    Ok(())
 }
 
 pub(crate) fn document_references(

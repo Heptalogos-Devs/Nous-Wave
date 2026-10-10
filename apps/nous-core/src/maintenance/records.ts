@@ -20,17 +20,13 @@ const outcomeSchema = z.strictObject({
     .array(z.union([consolidationResultSchema, conceptActionResultSchema]))
     .optional(),
 });
-export function readOutcome(text: string) {
-  const value: unknown = JSON.parse(text);
-  if (z.strictObject({ purged: z.literal(true) }).safeParse(value).success)
-    return { status: "obsolete" as const };
-  return outcomeSchema.parse(value);
+export function readOutcome(saved: WorkflowPayload) {
+  if (saved.purged) return { status: "obsolete" as const };
+  return outcomeSchema.parse(JSON.parse(saved.payloadJson));
 }
 export const snapshotSchema = z.strictObject({
   plan: z.unknown(),
   model: z.unknown(),
-  cognitive_formed_at: z.string(),
-  maintenance_claim: z.unknown().optional(),
 });
 export const proposalSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("partition"), request: z.unknown() }),
@@ -57,3 +53,27 @@ export const proposalSchema = z.discriminatedUnion("action", [
 
 export type MaintenanceSnapshot = z.infer<typeof snapshotSchema>;
 export type MaintenanceProposal = z.infer<typeof proposalSchema>;
+
+import type { WorkflowPayload } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_envelope_pb.js";
+import {
+  MaintenancePlanSchema,
+  type MaintenancePlan,
+} from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/longitudinal_pb.js";
+import { protocolReferences } from "@nous-wave/client/data";
+import type { Dependency } from "../durable-operation.js";
+export function maintenanceDependencies(plan: MaintenancePlan): Dependency[] {
+  return protocolReferences(plan, MaintenancePlanSchema);
+}
+export function resultDependencies(
+  results: z.infer<typeof outcomeSchema>["actions"],
+): Dependency[] {
+  const refs: Dependency[] = [];
+  for (const result of results ?? []) {
+    if (result.resultRef) refs.push(result.resultRef);
+    if ("tagResults" in result)
+      for (const tag of result.tagResults) {
+        refs.push({ kind: "tag", value: tag.tagId });
+      }
+  }
+  return refs;
+}

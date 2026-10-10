@@ -83,12 +83,7 @@ impl MemoryService {
         let one_to_one = input.sources.len() == 1 && input.segments.len() == 1;
         if one_to_one && unchanged_partition(mutation.tx(), &input, first).await? {
             let outputs = vec![input.sources[0].revision];
-            let result = serde_json::to_string(&outputs)
-                .map_err(|error| Error::Infrastructure(error.to_string()))?;
-
-            mutation
-                .commit("episode_partition", Some(&result), None, None)
-                .await?;
+            commit_partition_result(mutation, &outputs).await?;
             return self.partition_views(input.subject, outputs).await;
         }
         if !one_to_one {
@@ -137,12 +132,7 @@ impl MemoryService {
             )
             .await?;
         }
-        let result = serde_json::to_string(&outputs)
-            .map_err(|error| Error::Infrastructure(error.to_string()))?;
-
-        mutation
-            .commit("episode_partition", Some(&result), None, None)
-            .await?;
+        commit_partition_result(mutation, &outputs).await?;
         self.partition_views(input.subject, outputs).await
     }
 
@@ -496,4 +486,25 @@ fn partition_payload(
         &payload.basis,
     )?;
     Ok(payload)
+}
+
+async fn commit_partition_result(
+    mut mutation: nous_persistence::MutationEnvelope<'_>,
+    outputs: &[EpisodeRevisionId],
+) -> Result<()> {
+    let result =
+        serde_json::to_string(outputs).map_err(|error| Error::Infrastructure(error.to_string()))?;
+    mutation
+        .publish_workflow_results(
+            "memory",
+            &outputs
+                .iter()
+                .copied()
+                .map(CognitiveRef::EpisodeRevision)
+                .collect::<Vec<_>>(),
+        )
+        .await?;
+    mutation
+        .commit("episode_partition", Some(&result), None, None)
+        .await
 }

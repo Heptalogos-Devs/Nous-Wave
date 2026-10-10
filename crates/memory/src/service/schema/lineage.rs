@@ -18,10 +18,6 @@ impl MemoryService {
         for child in &mut children {
             child.content.producer = canonical_schema_producer(child.content.producer.as_ref())?;
             validate_schema_content(&child.content)?;
-            for link in &child.content.evidence_links {
-                self.validate_basis_for_subject(subject, std::slice::from_ref(&link.basis))
-                    .await?;
-            }
         }
         let digest = operation_digest(
             "split_cognitive_schema",
@@ -34,9 +30,14 @@ impl MemoryService {
         {
             MutationStart::Replay(receipt) => {
                 if receipt.state == "committed" {
-                    return Err(Error::Unavailable(
-                        "split retry requires child lookup".into(),
-                    ));
+                    let revisions: Vec<CognitiveSchemaRevisionId> =
+                        serde_json::from_str(receipt.result_ref.as_deref().ok_or_else(|| {
+                            Error::Infrastructure("schema split receipt has no results".into())
+                        })?)
+                        .map_err(|_| {
+                            Error::Infrastructure("invalid schema split receipt".into())
+                        })?;
+                    return self.schema_split_views(subject, &revisions).await;
                 }
                 return Err(Error::Unavailable(
                     "schema split operation is already in progress".into(),
@@ -67,8 +68,13 @@ impl MemoryService {
         }
         let source_revision: Uuid = source.try_get("current_revision_id").map_err(db)?;
         let mut ids = Vec::new();
+        let mut revisions = Vec::new();
         for mut child in children {
             child.subject = subject;
+            for link in &child.content.evidence_links {
+                self.validate_basis_for_subject(subject, std::slice::from_ref(&link.basis))
+                    .await?;
+            }
             self.validate_schema_formation(subject, &child.content)
                 .await?;
             let producer = if let Some(value) = &child.content.producer {
@@ -81,6 +87,7 @@ impl MemoryService {
                 .await?;
             sqlx::query("INSERT INTO cognitive_schema_lineage(from_revision_id,to_revision_id,relation) VALUES($1,$2,'schema_split_from')").bind(child_revision.0).bind(source_revision).execute(&mut **mutation.tx()).await.map_err(db)?;
             ids.push(child_id);
+            revisions.push(child_revision);
         }
         sqlx::query("UPDATE cognitive_schemas SET acceptance_state='withdrawn',object_epoch=object_epoch+1 WHERE subject_id=$1 AND schema_id=$2").bind(subject.0).bind(schema_id.0).execute(&mut **mutation.tx()).await.map_err(db)?;
         let sequence = mutation.invalidate(ProjectionInvalidation::all()).await?;
@@ -103,16 +110,34 @@ impl MemoryService {
         )
         .await?;
         mutation
-            .commit(
-                "schema_split",
-                Some(&schema_id.0.to_string()),
-                None,
-                Some(epoch + 1),
+            .publish_workflow_results(
+                "memory",
+                &revisions
+                    .iter()
+                    .copied()
+                    .map(CognitiveRef::CognitiveSchemaRevision)
+                    .collect::<Vec<_>>(),
             )
             .await?;
-        let mut views = Vec::new();
-        for id in ids {
-            views.push(self.schema(subject, id).await?);
+        let result = serde_json::to_string(&revisions)
+            .map_err(|error| Error::Infrastructure(error.to_string()))?;
+        mutation
+            .commit("schema_split", Some(&result), None, Some(epoch + 1))
+            .await?;
+        self.schema_split_views(subject, &revisions).await
+    }
+
+    async fn schema_split_views(
+        &self,
+        subject: SubjectId,
+        revisions: &[CognitiveSchemaRevisionId],
+    ) -> Result<Vec<SchemaView>> {
+        if revisions.is_empty() {
+            return Err(Error::NotFound("schema split results were purged".into()));
+        }
+        let mut views = Vec::with_capacity(revisions.len());
+        for revision in revisions {
+            views.push(self.schema_revision(subject, *revision).await?);
         }
         Ok(views)
     }
@@ -157,9 +182,12 @@ impl MemoryService {
         {
             MutationStart::Replay(receipt) => {
                 if receipt.state == "committed" {
-                    return Err(Error::Unavailable(
-                        "merge retry requires result lookup".into(),
-                    ));
+                    let revision = receipt.result_revision.ok_or_else(|| {
+                        Error::Infrastructure("schema merge receipt has no revision".into())
+                    })?;
+                    return self
+                        .schema_revision(subject, CognitiveSchemaRevisionId(revision))
+                        .await;
                 }
                 return Err(Error::Unavailable(
                     "schema merge operation is already in progress".into(),
@@ -248,6 +276,15 @@ impl MemoryService {
         )
         .await?;
         mutation
+            .publish_workflow_results(
+                "memory",
+                &[
+                    CognitiveRef::CognitiveSchema(new_id),
+                    CognitiveRef::CognitiveSchemaRevision(new_revision),
+                ],
+            )
+            .await?;
+        mutation
             .commit(
                 "schema",
                 Some(&new_id.0.to_string()),
@@ -255,6 +292,6 @@ impl MemoryService {
                 Some(1),
             )
             .await?;
-        self.schema(subject, new_id).await
+        self.schema_revision(subject, new_revision).await
     }
 }

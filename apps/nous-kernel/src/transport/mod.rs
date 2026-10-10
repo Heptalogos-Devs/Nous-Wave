@@ -24,6 +24,7 @@ mod material_workflow;
 mod model_workflow;
 mod projection_workflow;
 mod query_workflow;
+mod workflow_convert;
 pub use hosting::router;
 mod concepts;
 mod journal;

@@ -1,6 +1,8 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import type { MessageInitShape } from "@bufbuild/protobuf";
+import { ReserveWorkflowRequestSchema } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/model_pb.js";
 import { coreExecutionSchema } from "../../src/configuration/catalog.js";
 import { expect, it, vi } from "vitest";
 import { dirname, join } from "node:path";
@@ -154,9 +156,11 @@ it("frames without a transcript cannot acquire audio evidence in either structur
       },
     },
     modelWorkflow: {
-      reserveWorkflow: async (input: { snapshotJson: string }) => ({
-        leaseToken: "lease",
-        snapshotJson: input.snapshotJson,
+      reserveWorkflow: async (
+        input: MessageInitShape<typeof ReserveWorkflowRequestSchema>,
+      ) => ({
+        lease: { token: "lease" },
+        snapshot: input.snapshot,
       }),
       saveWorkflow: async () => ({}),
       releaseWorkflow: async () => ({}),

@@ -58,6 +58,8 @@ Memory、CognitiveSchema、Episode 和 Journal 的 mutation 使用 Persistence `
 
 Mutation replay 的 immutable result revision 保持原身份，当前 lifecycle/epoch 作为管理读取的可变 overlay 返回；不会重做后来已恢复的 lifecycle change。管理 get/revision 可读取带状态的 suppressed/withdrawn 内容以供修正；普通 query（包括 exact target）执行 suppression/withdrawal fences，purge 不能由管理或历史视图绕过。
 
+Schema split 回执保存按输入次序创建的 exact child revisions，merge 回执保存 exact merged revision。已提交回放先读取回执，不重新验证后来已 withdrawn、修订或失效的来源，也不改读结果对象的最新 head。领域提交同时发布关联 workflow 的实际结果依赖；其共享合同与一次性数据转换见 [持久操作](../model-runtime/cognitive-io-and-resources.md#持久操作)。
+
 Authority commit 只发布 projection invalidation/watermark；lexical、dense、topology 和 runtime serving 均可重建，不拥有 cognition truth。Memory owner 不持有 concrete Retrieval/Serving；topology candidate generation 属于 Retrieval shared contributor。
 
 

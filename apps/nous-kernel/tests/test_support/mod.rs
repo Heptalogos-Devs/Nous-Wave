@@ -359,3 +359,33 @@ pub(crate) fn query_lease() -> nous_runtime::QueryLease {
 pub(crate) fn query_reservation(bound: nous_runtime::BoundQuery) -> nous_runtime::QueryReservation {
     nous_runtime::QueryReservation::new(bound, query_lease()).unwrap()
 }
+
+#[allow(dead_code)]
+pub(crate) fn workflow_payload(payload: serde_json::Value) -> nous_core::WorkflowPayload {
+    nous_core::WorkflowPayload {
+        payload,
+        ..Default::default()
+    }
+}
+#[allow(dead_code)]
+pub(crate) fn workflow_snapshot(payload: serde_json::Value) -> nous_core::WorkflowSnapshot {
+    nous_core::WorkflowSnapshot {
+        content: workflow_payload(payload),
+        ..Default::default()
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn workflow_lease(
+    subject: nous_core::SubjectId,
+    owner: &str,
+    key: &str,
+    token: uuid::Uuid,
+) -> nous_persistence::WorkflowLease {
+    nous_persistence::WorkflowLease {
+        subject,
+        owner: nous_persistence::WorkflowOwner::new(owner).unwrap(),
+        operation_key: key.into(),
+        token,
+    }
+}

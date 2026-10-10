@@ -1,15 +1,13 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { reserveOperation, workflowPayload } from "../durable-operation.js";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { executionOptions, type ExecutionOptions } from "../execution.js";
 import type { DeriveMaterialRequest } from "@nous-wave/protocol/nous/wave/v1alpha1/model_pb.js";
 import type { KernelClient } from "../kernel-client.js";
 import type { ModelRuntime } from "./runtime.js";
-import {
-  failedExecutionTelemetry,
-  type ExecutionTelemetry,
-} from "./execution/routes.js";
+import { type ExecutionTelemetry } from "./execution/routes.js";
 import {
   type ModelProducerMetadata,
   type ModelRoleSnapshot,
@@ -65,7 +63,6 @@ export async function deriveMaterial(
     );
   const calls = executionOptions(kernel.execution.opportunity, options);
   options = calls;
-  const { opportunity } = calls;
   const region = await kernel.material.getSourceRegion(
     { subjectId: request.subjectId, id: request.sourceRegionId },
     options,
@@ -232,18 +229,24 @@ export async function deriveMaterial(
       operationKey: key,
       semanticDigest: key,
     };
-    const reservation = await kernel.modelWorkflow.reserveWorkflow(
+    const operation = await reserveOperation(
+      kernel,
+      identity,
       {
-        ...identity,
-        snapshotJson: JSON.stringify(model),
-        leaseSeconds: opportunity.leaseSeconds,
+        content: workflowPayload(
+          model,
+          graph.map((input) => input.reference!),
+        ),
       },
       options,
     );
-    if (reservation.outcomeJson) {
+    const reservation = operation.record;
+    if (reservation.outcome) {
+      if (reservation.outcome.purged)
+        throw new ConnectError("Derivation outcome was purged", Code.NotFound);
       const outcome = z
         .strictObject({ representationId: z.string().uuid() })
-        .parse(JSON.parse(reservation.outcomeJson));
+        .parse(JSON.parse(reservation.outcome.payloadJson));
       const representation = await kernel.material.getDerivedRepresentation(
         { subjectId: request.subjectId, id: outcome.representationId },
         options,
@@ -251,17 +254,9 @@ export async function deriveMaterial(
       representations.push(representation);
       return representation;
     }
-    if (reservation.busy || !reservation.leaseToken)
-      throw new Error("Derivation workflow is busy; retry the same inputs");
-    const lease = {
-      subjectId: request.subjectId,
-      owner: "material",
-      operationKey: key,
-      leaseToken: reservation.leaseToken,
-    };
-    try {
-      let proposal = reservation.proposalJson
-        ? (JSON.parse(reservation.proposalJson) as {
+    return operation.run(async () => {
+      let proposal = reservation.proposal?.payloadJson
+        ? (JSON.parse(reservation.proposal?.payloadJson) as {
             text: string;
             producerMetadata: ModelProducerMetadata;
             execution: ExecutionTelemetry;
@@ -271,16 +266,12 @@ export async function deriveMaterial(
         : undefined;
       if (!proposal) {
         proposal = await invoke(
-          JSON.parse(reservation.snapshotJson) as ModelRoleSnapshot,
+          JSON.parse(
+            reservation.snapshot!.content!.payloadJson,
+          ) as ModelRoleSnapshot,
         );
-        await kernel.modelWorkflow.saveWorkflow(
-          {
-            ...lease,
-            proposalJson: JSON.stringify(proposal),
-            executionTelemetryJson: JSON.stringify(proposal.execution),
-          },
-          options,
-        );
+        const { execution, ...saved } = proposal;
+        await operation.saveProposal(saved, [], execution);
       }
       const representation = await commit(
         proposal.text,
@@ -294,33 +285,17 @@ export async function deriveMaterial(
         preprocessingDigest,
         proposal.structuredPayload,
       );
-      await kernel.modelWorkflow.saveWorkflow(
-        {
-          ...lease,
-          outcomeJson: JSON.stringify({
-            representationId: representation.representationId,
-          }),
-        },
-        options,
+      await operation.complete(
+        { representationId: representation.representationId },
+        [
+          {
+            kind: "derived_representation",
+            value: representation.representationId,
+          },
+        ],
       );
       return representation;
-    } catch (error) {
-      if (failedExecutionTelemetry(error))
-        await kernel.modelWorkflow.saveWorkflow(
-          {
-            ...lease,
-            executionTelemetryJson: JSON.stringify(
-              failedExecutionTelemetry(error),
-            ),
-          },
-          opportunity.cleanup(),
-        );
-      throw error;
-    } finally {
-      await kernel.modelWorkflow
-        .releaseWorkflow(lease, opportunity.cleanup())
-        .catch(() => {});
-    }
+    });
   };
   const inputs = [
     {

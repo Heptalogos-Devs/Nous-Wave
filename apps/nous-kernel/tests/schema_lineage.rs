@@ -71,16 +71,74 @@ async fn assert_split(
         source.schema.object_epoch
     );
 
+    let operation = OperationId::new();
     let split = owner
         .split_schemas(
             subject,
             source.schema.schema_id,
-            OperationId::new(),
+            operation,
+            source.schema.object_epoch,
+            children.clone(),
+        )
+        .await
+        .unwrap();
+    let replay = owner
+        .split_schemas(
+            subject,
+            source.schema.schema_id,
+            operation,
+            source.schema.object_epoch,
+            children.clone(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        replay
+            .iter()
+            .map(|child| child.revision.schema_revision_id)
+            .collect::<Vec<_>>(),
+        split
+            .iter()
+            .map(|child| child.revision.schema_revision_id)
+            .collect::<Vec<_>>()
+    );
+    // An old committed split had no result list. Its single lineage batch is recoverable.
+    sqlx::query(
+        "UPDATE mutation_receipts SET result_ref=$3 WHERE subject_id=$1 AND operation_id=$2",
+    )
+    .bind(subject.0)
+    .bind(operation.0)
+    .bind(source.schema.schema_id.0.to_string())
+    .execute(rt.store.pool())
+    .await
+    .unwrap();
+    sqlx::raw_sql("ALTER TABLE model_workflow_operations DROP COLUMN dependencies; ALTER TABLE model_workflow_operations DROP COLUMN mutation_operations;").execute(rt.store.pool()).await.unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../../crates/persistence/migrations/0005_workflow_envelope.sql"
+    ))
+    .execute(rt.store.pool())
+    .await
+    .unwrap();
+    let recovered = owner
+        .split_schemas(
+            subject,
+            source.schema.schema_id,
+            operation,
             source.schema.object_epoch,
             children,
         )
         .await
         .unwrap();
+    assert_eq!(
+        recovered
+            .iter()
+            .map(|child| child.revision.schema_revision_id)
+            .collect::<std::collections::BTreeSet<_>>(),
+        split
+            .iter()
+            .map(|child| child.revision.schema_revision_id)
+            .collect::<std::collections::BTreeSet<_>>()
+    );
     assert_eq!(split.len(), 2);
     for child in &split {
         assert!(child.revision.producer_signature_id.is_some());
@@ -134,10 +192,25 @@ async fn assert_merge(
         assert_eq!(unchanged.schema.object_epoch, child.schema.object_epoch);
         assert_eq!(unchanged.schema.acceptance_state, AcceptanceState::Accepted);
     }
+    let operation = OperationId::new();
     let merged = owner
-        .merge_schemas(subject, OperationId::new(), ids, epochs, merged_input)
+        .merge_schemas(
+            subject,
+            operation,
+            ids.clone(),
+            epochs.clone(),
+            merged_input.clone(),
+        )
         .await
         .unwrap();
+    let replay = owner
+        .merge_schemas(subject, operation, ids, epochs, merged_input)
+        .await
+        .unwrap();
+    assert_eq!(
+        replay.revision.schema_revision_id,
+        merged.revision.schema_revision_id
+    );
     assert!(merged.revision.producer_signature_id.is_some());
     assert_eq!(merged.evidence_links.len(), source.evidence_links.len());
     let origins = lineage(rt, merged.revision.schema_revision_id, "schema_merged_from").await;

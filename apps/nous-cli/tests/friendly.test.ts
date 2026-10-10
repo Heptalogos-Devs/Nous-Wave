@@ -7,7 +7,7 @@ import {
   MemorySchema,
   CognitiveRefSchema,
 } from "@nous-wave/protocol/nous/wave/v1alpha1/types_pb.js";
-import { protocolData } from "@nous-wave/client/data";
+import { protocolData, protocolReferences } from "@nous-wave/client/data";
 import { expect, it, vi } from "vitest";
 import { friendlyOutput } from "../src/friendly.js";
 import type { CliEnvironment } from "../src/runtime.js";
@@ -27,6 +27,7 @@ it("preserves arbitrary JSON, exact UUID/ref bodies, labels and diagnostics with
     diagnostics: { queryId: id, text: id },
   };
   const value = protocolData(fromJson(StructSchema, bodies));
+  expect(protocolReferences(value, StructSchema)).toEqual([]);
   expect(
     await friendlyOutput(value, {
       subjectId: id,
@@ -86,6 +87,14 @@ it("reads one deduplicated directory batch for schema-declared references and on
       },
     ],
   };
+  expect(protocolReferences(cognition, MemorySchema)).toEqual([
+    { kind: "subject", value: id },
+    { kind: "occurrence", value: id },
+    { kind: "source_region", value: id },
+  ]);
+  expect(
+    protocolReferences(input.sources[0]!.reference, CognitiveRefSchema),
+  ).toEqual([{ kind: "source_region", value: id }]);
   const result = await friendlyOutput(input, {
     subjectId: id,
     client: { identity: { addresses, bind } },

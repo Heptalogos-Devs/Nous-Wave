@@ -127,6 +127,8 @@ function fixture() {
       {},
       progress,
       save,
+
+      (_id, commit) => commit(),
     );
   return {
     kernel,

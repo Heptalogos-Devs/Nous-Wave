@@ -1,11 +1,21 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { create, type MessageInitShape } from "@bufbuild/protobuf";
+import {
+  WorkflowSnapshotSchema,
+  WorkflowPayloadSchema,
+  type WorkflowSnapshot,
+  type WorkflowPayload,
+} from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_envelope_pb.js";
+import {
+  ReserveWorkflowRequestSchema,
+  SaveWorkflowRequestSchema,
+} from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/model_pb.js";
 import { coreExecutionSchema } from "../../src/configuration/catalog.js";
 
 import { vi } from "vitest";
 
-import { create } from "@bufbuild/protobuf";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import {
   MaintenanceNeedSchema,
@@ -109,9 +119,9 @@ export function fixture() {
         },
       };
     });
-  let snapshotJson: string | undefined;
-  let proposalJson: string | undefined;
-  let outcomeJson: string | undefined;
+  let snapshot: WorkflowSnapshot | undefined;
+  let proposal: WorkflowPayload | undefined;
+  let outcome: WorkflowPayload | undefined;
   const commit = vi.fn(
     async (
       _input: Parameters<KernelClient["maintenance"]["commitJournal"]>[0],
@@ -128,28 +138,31 @@ export function fixture() {
     },
     modelWorkflow: {
       findWorkflow: vi.fn(async () => ({
-        found: !!snapshotJson,
-        snapshotJson,
-        proposalJson,
-        outcomeJson,
+        found: !!snapshot,
+        snapshot,
+        proposal,
+        outcome,
       })),
-      reserveWorkflow: vi.fn(async (input: { snapshotJson: string }) => {
-        snapshotJson ??= JSON.stringify({
-          ...(JSON.parse(input.snapshotJson) as Record<string, unknown>),
-          cognitive_formed_at: "2026-10-03T00:00:00Z",
-        });
-        return {
-          snapshotJson,
-          proposalJson,
-          outcomeJson,
-          leaseToken: "lease",
-          busy: false,
-        };
-      }),
+      reserveWorkflow: vi.fn(
+        async (
+          input: MessageInitShape<typeof ReserveWorkflowRequestSchema>,
+        ) => {
+          snapshot ??= create(WorkflowSnapshotSchema, input.snapshot);
+          return {
+            snapshot,
+            proposal,
+            outcome,
+            lease: { token: "lease" },
+            busy: false,
+          };
+        },
+      ),
       saveWorkflow: vi.fn(
-        async (input: { proposalJson?: string; outcomeJson?: string }) => {
-          proposalJson = input.proposalJson ?? proposalJson;
-          outcomeJson = input.outcomeJson ?? outcomeJson;
+        async (input: MessageInitShape<typeof SaveWorkflowRequestSchema>) => {
+          if (input.proposal)
+            proposal = create(WorkflowPayloadSchema, input.proposal);
+          if (input.outcome)
+            outcome = create(WorkflowPayloadSchema, input.outcome);
           return {};
         },
       ),

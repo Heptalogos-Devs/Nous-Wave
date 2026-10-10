@@ -70,6 +70,15 @@ impl MemoryService {
         )
         .await?;
         mutation
+            .publish_workflow_results(
+                "memory",
+                &[
+                    CognitiveRef::CognitiveSchema(schema_id),
+                    CognitiveRef::CognitiveSchemaRevision(revision_id),
+                ],
+            )
+            .await?;
+        mutation
             .commit(
                 "schema",
                 Some(&schema_id.0.to_string()),
@@ -77,7 +86,7 @@ impl MemoryService {
                 Some(1),
             )
             .await?;
-        self.schema(input.subject, schema_id).await
+        self.schema_revision(input.subject, revision_id).await
     }
 
     pub(in crate::service) async fn insert_schema_link(
@@ -389,6 +398,15 @@ impl MemoryService {
         )
         .await?;
         mutation
+            .publish_workflow_results(
+                "memory",
+                &[
+                    CognitiveRef::CognitiveSchema(input.schema_id),
+                    CognitiveRef::CognitiveSchemaRevision(revision_id),
+                ],
+            )
+            .await?;
+        mutation
             .commit(
                 "schema_revision",
                 Some(&input.schema_id.0.to_string()),
@@ -396,6 +414,6 @@ impl MemoryService {
                 Some(epoch + 1),
             )
             .await?;
-        self.schema(input.subject, input.schema_id).await
+        self.schema_revision(input.subject, revision_id).await
     }
 }

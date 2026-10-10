@@ -75,34 +75,28 @@ pub(super) async fn select(
         EvidenceFamily::Temporal => (),
         _ => return Err(Error::Invalid("not an owner-direct family".into())),
     }
-    push_time_predicate_if(
-        &mut sql,
-        TimeColumns::Extent {
-            kind: "c.valid_time_kind",
-            start: "c.valid_time_start",
-            end: "c.valid_time_end",
-        },
-        constraints.valid,
-    )?;
-    push_time_predicate_if(
-        &mut sql,
-        TimeColumns::Extent {
-            kind: "c.observed_kind",
-            start: "c.observed_start",
-            end: "c.observed_end",
-        },
-        constraints.observed,
-    )?;
-    push_time_predicate_if(
-        &mut sql,
-        TimeColumns::Instant("c.formed_at"),
-        constraints.formed,
-    )?;
-    push_time_predicate_if(
-        &mut sql,
-        TimeColumns::Instant("c.recorded_at"),
-        constraints.recorded,
-    )?;
+    for (columns, predicate) in [
+        (
+            TimeColumns::Extent {
+                kind: "c.valid_time_kind",
+                start: "c.valid_time_start",
+                end: "c.valid_time_end",
+            },
+            constraints.valid,
+        ),
+        (
+            TimeColumns::Extent {
+                kind: "c.observed_kind",
+                start: "c.observed_start",
+                end: "c.observed_end",
+            },
+            constraints.observed,
+        ),
+        (TimeColumns::Instant("c.formed_at"), constraints.formed),
+        (TimeColumns::Instant("c.recorded_at"), constraints.recorded),
+    ] {
+        push_time_predicate_if(&mut sql, columns, predicate)?;
+    }
     if let Some(predicate) = constraints.occurred {
         sql.push(" AND EXISTS(SELECT 1 FROM source_occurrences oc WHERE oc.root_kind=c.kind AND oc.root=c.id AND (c.kind<>'memory_revision' OR EXISTS(SELECT 1 FROM memory_revision_evidence e WHERE e.memory_revision_id=c.id AND e.occurrence_id=oc.occurrence_id))");
         push_time_predicate(

@@ -79,6 +79,9 @@ impl MemoryService {
             .invalidate(ProjectionInvalidation::topology())
             .await?;
         mutation
+            .publish_workflow_results("memory", &[CognitiveRef::Association(id)])
+            .await?;
+        mutation
             .commit("association", Some(&id.0.to_string()), None, None)
             .await?;
         self.association(subject, id).await

@@ -307,9 +307,7 @@ async fn selected_regions_and_multisource_basis_are_shared_across_read_index_and
                 .position(|reference| reference == &candidate.reference)
             {
                 assert_eq!(candidate.text, expected[index]);
-                if need.is_none() {
-                    need = Some(candidate);
-                }
+                need.get_or_insert(candidate);
             }
         }
         cursor = page.next_cursor;

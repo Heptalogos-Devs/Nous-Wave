@@ -172,9 +172,9 @@ describe("bounded maintenance grants", () => {
       );
       expect(typeof finish.mock.calls[0]?.[0].nextDue?.seconds).toBe("bigint");
       const saved = save.mock.calls[0];
-      expect(
-        JSON.parse(saved![0].executionTelemetryJson!) as unknown,
-      ).toMatchObject({ attempts: [{ status: "unknown" }] });
+      expect(saved![0].executionTelemetry).toMatchObject({
+        attempts: [{ status: "unknown" }],
+      });
       expect(saved?.[1]?.signal).toBeInstanceOf(AbortSignal);
     } finally {
       log.mockRestore();

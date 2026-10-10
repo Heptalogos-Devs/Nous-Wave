@@ -109,7 +109,6 @@ impl AuthorityStore {
 }
 
 #[expect(
-    clippy::excessive_nesting,
     clippy::too_many_lines,
     reason = "topology projection assembles one repeatable-read Authority snapshot"
 )]

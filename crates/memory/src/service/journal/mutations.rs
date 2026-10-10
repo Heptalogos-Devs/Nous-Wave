@@ -69,16 +69,7 @@ impl MemoryService {
             .formation_time_in(mutation.tx(), input.subject, input.operation_id, started)
             .await?;
         let recorded = self.cognition.now(input.subject);
-        let producer = if let Some(signature) = &input.producer {
-            if signature.operation != CapabilityOperation::JournalSynthesisText {
-                return Err(Error::Invalid(
-                    "Journal requires a synthesis producer".into(),
-                ));
-            }
-            Some(AuthorityStore::register_producer_in(mutation.tx(), signature).await?)
-        } else {
-            None
-        };
+        let producer = journal_producer_in(mutation.tx(), input.producer.as_ref()).await?;
         let revision = JournalRevisionId::new();
         self.write_journal_revision_in(
             mutation.tx(),
@@ -125,6 +116,15 @@ impl MemoryService {
         )
         .await?;
 
+        mutation
+            .publish_workflow_results(
+                "memory",
+                &[
+                    CognitiveRef::Journal(journal),
+                    CognitiveRef::JournalRevision(revision),
+                ],
+            )
+            .await?;
         mutation
             .commit(
                 "journal",
@@ -467,4 +467,21 @@ async fn insert_journal_points(
         }
     }
     Ok(())
+}
+
+async fn journal_producer_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    producer: Option<&nous_core::ProducerSignature>,
+) -> Result<Option<Uuid>> {
+    let Some(signature) = producer else {
+        return Ok(None);
+    };
+    if signature.operation != CapabilityOperation::JournalSynthesisText {
+        return Err(Error::Invalid(
+            "Journal requires a synthesis producer".into(),
+        ));
+    }
+    AuthorityStore::register_producer_in(tx, signature)
+        .await
+        .map(Some)
 }

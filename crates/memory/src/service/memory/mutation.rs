@@ -70,6 +70,15 @@ impl MemoryService {
         .await?;
 
         mutation
+            .publish_workflow_results(
+                "memory",
+                &[
+                    CognitiveRef::Memory(memory_id),
+                    CognitiveRef::MemoryRevision(revision_id),
+                ],
+            )
+            .await?;
+        mutation
             .commit(
                 "memory",
                 Some(&memory_id.0.to_string()),
@@ -77,7 +86,8 @@ impl MemoryService {
                 Some(1),
             )
             .await?;
-        self.memory(input.subject, memory_id, None).await
+        self.memory(input.subject, memory_id, Some(revision_id))
+            .await
     }
 
     pub(in crate::service) async fn create_memory_in(
@@ -311,6 +321,15 @@ impl MemoryService {
         )
         .await?;
 
+        mutation
+            .publish_workflow_results(
+                "memory",
+                &[
+                    CognitiveRef::Memory(input.memory_id),
+                    CognitiveRef::MemoryRevision(revision_id),
+                ],
+            )
+            .await?;
         mutation
             .commit(
                 "memory_revision",

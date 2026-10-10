@@ -1,6 +1,8 @@
 // Copyright 2026 Aravine Zhu
 // SPDX-License-Identifier: Apache-2.0
 
+import { workflowPayload } from "../src/durable-operation.js";
+import type { WorkflowPayload } from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_envelope_pb.js";
 import { coreExecutionSchema } from "../src/configuration/catalog.js";
 import { create } from "@bufbuild/protobuf";
 import { MaterializeResourceRequestSchema } from "@nous-wave/protocol/nous/wave/v1alpha1/management_pb.js";
@@ -39,19 +41,19 @@ test("a saved external proposal is revalidated before admission while an accepte
       },
     },
   ]);
-  let outcomeJson: string | undefined;
+  let outcome: WorkflowPayload | undefined;
   const kernel = {
     modelWorkflow: {
       reserveWorkflow: async () => ({
-        leaseToken: "lease",
-        proposalJson: JSON.stringify({
+        lease: { token: "lease" },
+        proposal: workflowPayload({
           content: "saved material",
           mediaType: "text/plain",
         }),
-        outcomeJson,
+        outcome,
       }),
-      saveWorkflow: async (value: { outcomeJson?: string }) => {
-        outcomeJson = value.outcomeJson;
+      saveWorkflow: async (value: { outcome?: WorkflowPayload }) => {
+        outcome = value.outcome;
       },
       releaseWorkflow: async () => {},
     },

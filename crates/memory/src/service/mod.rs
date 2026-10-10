@@ -221,18 +221,14 @@ impl MemoryService {
         operation: OperationId,
         started_at: DateTime<Utc>,
     ) -> Result<DateTime<Utc>> {
-        let timestamp: Option<Option<String>> = sqlx::query_scalar(
-            "SELECT snapshot->>'cognitive_formed_at' FROM model_workflow_operations WHERE subject_id=$1 AND owner='memory' AND operation_key=$2",
-        ).bind(subject.0).bind(operation.0.to_string()).fetch_optional(&mut **tx).await.map_err(db)?;
-        timestamp
-            .flatten()
-            .map(|value| {
-                value.parse().map_err(|_| {
-                    Error::Infrastructure("invalid workflow cognitive formation time".into())
-                })
-            })
-            .transpose()
-            .map(|value| value.unwrap_or(started_at))
+        Ok(AuthorityStore::workflow_cognitive_time_in(
+            tx,
+            subject,
+            "memory",
+            &operation.0.to_string(),
+        )
+        .await?
+        .unwrap_or(started_at))
     }
 
     pub fn new(

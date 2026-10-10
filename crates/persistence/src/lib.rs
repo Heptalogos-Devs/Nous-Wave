@@ -10,7 +10,9 @@ pub use mutations::{
     MutationEnvelope, MutationReceipt, MutationStart, OwnerLock, check_receipt, commit_receipt,
 };
 mod model_workflow;
-pub use model_workflow::{WORKFLOW_VALUE_MAX_BYTES, WorkflowOwner, WorkflowReservation};
+pub use model_workflow::{
+    WORKFLOW_VALUE_MAX_BYTES, WorkflowLease, WorkflowOwner, WorkflowReservation,
+};
 mod episode_text;
 pub use episode_text::EpisodeTextBudget;
 mod historical;

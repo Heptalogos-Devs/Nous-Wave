@@ -244,8 +244,7 @@ impl MemoryService {
             .bind(&refs).execute(&mut **tx).await.map_err(db)?;
         sqlx::query("DELETE FROM work_context_refs WHERE ref_kind='episode_revision' AND ref_value=ANY($1::text[])")
             .bind(&refs).execute(&mut **tx).await.map_err(db)?;
-        sqlx::query("UPDATE model_workflow_operations SET snapshot='{}'::jsonb,proposal=NULL,outcome='{\"purged\":true}'::jsonb,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE subject_id=$1 AND owner='memory' AND lower(operation_key) IN (SELECT operation_id::text FROM mutation_receipts WHERE subject_id=$1 AND result_kind='episode' AND result_ref=$2)")
-            .bind(subject.0).bind(episode.0.to_string()).execute(&mut **tx).await.map_err(db)?;
+
         Ok(())
     }
 }

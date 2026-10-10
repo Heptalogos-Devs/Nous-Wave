@@ -265,24 +265,7 @@ async fn episode_media_synopsis_tracks_ready_derivation_without_revising_authori
         .open_session(subject, serde_json::json!({}))
         .await
         .unwrap();
-    let artifact = rt
-        .material
-        .upload_stream(
-            subject,
-            nous_material::UploadMetadata {
-                media_type: "image/png".into(),
-                metadata: serde_json::json!({}),
-            },
-            futures::stream::iter([Ok(vec![137, 80, 78, 71, 13, 10, 26, 10])]),
-        )
-        .await
-        .unwrap();
-    let mut input = observation(subject, Some(session.session_id));
-    input.material = ObservationMaterial::ArtifactRef {
-        artifact_id: artifact.artifact_id,
-    };
-    let observed = rt.material.record_observation(input).await.unwrap();
-    let region = observed.source_region.unwrap().source_region_id;
+    let region = episode_media_source(&rt, subject, session.session_id).await;
     let episode = rt
         .organize_experience(subject, 128, true)
         .await
@@ -553,4 +536,29 @@ async fn assert_historical_synopsis(
             .as_ref()
             .is_some_and(|text| text.contains("amber inlet"))
     }));
+}
+
+async fn episode_media_source(
+    rt: &NousRuntime,
+    subject: nous_core::SubjectId,
+    session: nous_core::SessionId,
+) -> nous_core::SourceRegionId {
+    let artifact = rt
+        .material
+        .upload_stream(
+            subject,
+            nous_material::UploadMetadata {
+                media_type: "image/png".into(),
+                metadata: serde_json::json!({}),
+            },
+            futures::stream::iter([Ok(vec![137, 80, 78, 71, 13, 10, 26, 10])]),
+        )
+        .await
+        .unwrap();
+    let mut input = observation(subject, Some(session));
+    input.material = ObservationMaterial::ArtifactRef {
+        artifact_id: artifact.artifact_id,
+    };
+    let observed = rt.material.record_observation(input).await.unwrap();
+    observed.source_region.unwrap().source_region_id
 }

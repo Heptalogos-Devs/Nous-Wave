@@ -18,6 +18,16 @@
 
 余项继续围绕 owner selection/provenance、bounded embedding/history、typed workflow/errors、OS lifetime mutex/supervisor、ReleaseInputs 和 command declarations 展开；Runtime 清理职责、embedding-space、deriveMaterial、其余 Rust tests 和现行文档/section anchors 尚待收口。PR24保持 OPEN/Draft，不合并。
 
+## 2026-10-10 Linux 持久操作续作
+
+从 `9fb8046` 继续。共享 lease、snapshot、maintenance claim、依赖引用、purged 终态与 execution telemetry 进入 canonical Proto；Core 的 formation、derivation、Resource admission 与 maintenance 共用持久操作协作模块。领域 payload 保持 owner 校验。Persistence 使用正式 envelope 与依赖集合，旧 JSON 字段推断、telemetry SQL 拼接和递归 purge 扫描退出当前路径。
+
+受控数据库场景复现并保护 commit-to-host-ack 窗口：Host 先登记独立 child mutation ID，Memory 提交时同事务发布真实结果引用；在 Host 保存 outcome 前 purge，workflow 正文立即清除，旧 lease 无法恢复 proposal。旧 snapshot 的真实 maintenance claim、认知形成时间、proposal、unknown usage 与 opaque UUID 经一次性迁移保留；opaque 内容不被当作引用。Schema split/merge 成功重放返回原 exact results，来源已 withdrawn 不阻止已提交回放；旧 split parent-only 回执的单批次 lineage 恢复在临时数据库中实际验证。
+
+当前 Linux 的 TS、focused owner/database/history 场景、Kernel 全 targets Clippy 与 fast checks 通过；Model/Material/Resource 和 longitudinal 公共 Core/Kernel smoke 通过，模型为本地受控替身。未运行新的付费模型资格，也未改写 operator 认知数据或配置。历史投影的 catalog、Tag descriptors、cognition metadata 与 Episode fragments 保持同一 view/transaction，按实际职责整理；原合同场景保留。
+
+完整十四项工作仍未完成。typed domain errors、OS lifetime mutex/Core supervision、ReleaseInputs、command declarations、Runtime 清理所有权、embedding-space、deriveMaterial 与文档/anchor 治理仍需继续。PR24保持 OPEN/Draft。
+
 ## CLI 正文与明确拒绝
 
 基线 `09d67d4452eead78346877980f804ac513675d8d`，Windows 上使用当前源码 CLI environment 连接已有 Dogfooding 实例的 authenticated public Core。每个探针使用独立 consumer state root，既有 Subject 与 WorkContext 不改动。调用无效 `CreateSubject(subjectId="invalid-uuid")`；该请求没有创建有效 Subject 或调用模型。

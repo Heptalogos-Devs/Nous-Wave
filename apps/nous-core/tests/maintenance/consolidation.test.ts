@@ -123,6 +123,8 @@ it("uses canonical owner APIs and returned earlier-action refs for strong Memory
     {},
     [],
     f.save,
+
+    (_id, commit) => commit(),
   );
   expect(outcome.status).toBe("committed");
   expect(f.form.mock.calls[0]?.[0].input?.groundingOccurrenceId).toBe(
@@ -171,6 +173,8 @@ it("preserves earlier commits, skips failed dependencies and continues independe
     {},
     [],
     f.save,
+
+    (_id, commit) => commit(),
   );
   expect(outcome.status).toBe("partial");
   expect(outcome.actions.map((r) => r.status)).toEqual([
@@ -204,6 +208,8 @@ it("resumes saved progress on transport failure with stable operation identities
       {},
       f.progress(),
       f.save,
+
+      (_id, commit) => commit(),
     );
   await expect(run()).rejects.toThrow("lost response");
   expect(f.progress()).toHaveLength(1);
@@ -240,6 +246,8 @@ it("makes a stale target terminal while independent creation still commits", asy
     {},
     [],
     f.save,
+
+    (_id, commit) => commit(),
   );
   expect(outcome.actions.map((r) => r.status)).toEqual([
     "stale",

@@ -129,22 +129,29 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
             "memory",
             &key,
             "semantic input",
-            &serde_json::json!({"model":"frozen"}),
+            &nous_core::WorkflowSnapshot {
+                content: nous_core::WorkflowPayload {
+                    payload: serde_json::json!({"model":"frozen"}),
+                    dependencies: vec![nous_core::CognitiveRef::Memory(third.object.memory_id)],
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
             360,
         )
         .await
         .unwrap();
-    let lease = reservation.lease_token.unwrap();
+    let lease = reservation.lease.as_ref().unwrap().token;
     runtime
         .store
         .save_model_workflow(
-            subject,
-            "memory",
-            &key,
-            lease,
-            Some(&serde_json::json!({"text":"private-cognitive-marker"})),
+            &test_support::workflow_lease(subject, "memory", &key, lease),
+            Some(&test_support::workflow_payload(
+                serde_json::json!({"text":"private-cognitive-marker"}),
+            )),
             None,
             None,
+            &[],
         )
         .await
         .unwrap();
@@ -163,7 +170,7 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
     let row = sqlx::query("SELECT snapshot,proposal,outcome FROM model_workflow_operations WHERE subject_id=$1 AND owner='memory' AND operation_key=$2").bind(subject.0).bind(&key).fetch_one(runtime.store.pool()).await.unwrap();
     assert_eq!(
         row.get::<serde_json::Value, _>("snapshot"),
-        serde_json::json!({})
+        serde_json::to_value(nous_core::WorkflowSnapshot::default()).unwrap()
     );
     assert!(
         row.get::<Option<serde_json::Value>, _>("proposal")
@@ -171,19 +178,23 @@ async fn rerank_revalidates_original_candidates_after_revise_suppress_and_purge(
     );
     assert_eq!(
         row.get::<serde_json::Value, _>("outcome"),
-        serde_json::json!({"purged":true})
+        serde_json::to_value(nous_core::WorkflowPayload {
+            purged: true,
+            ..Default::default()
+        })
+        .unwrap()
     );
     assert!(
         runtime
             .store
             .save_model_workflow(
-                subject,
-                "memory",
-                &key,
-                lease,
-                Some(&serde_json::json!({"text":"resurrect"})),
+                &test_support::workflow_lease(subject, "memory", &key, lease),
+                Some(&test_support::workflow_payload(
+                    serde_json::json!({"text":"resurrect"})
+                )),
                 None,
-                None
+                None,
+                &[],
             )
             .await
             .is_err()

@@ -78,6 +78,56 @@ export const clientDataSchemas = {
 export function protocolReferenceKind(field: DescField) {
   return getOption(field, reference_kind);
 }
+
+/** Exact dependencies follow canonical field annotations; opaque user JSON is never traversed. */
+export function protocolReferences(input: unknown, declared: DescMessage) {
+  const references = new Map<string, { kind: string; value: string }>();
+  const visit = (value: unknown, schema: DescMessage) => {
+    if (!value || typeof value !== "object" || jsonTypes.has(schema.typeName))
+      return;
+    const object = value as Record<string, unknown>;
+    for (const field of schema.fields) {
+      const selected = field.oneof
+        ? (object[field.oneof.localName] as
+            { case?: string; value?: unknown } | undefined)
+        : undefined;
+      const member = field.oneof
+        ? selected?.case === field.localName
+          ? selected.value
+          : undefined
+        : object[field.localName];
+      const declaredKind = protocolReferenceKind(field);
+      const kind = declaredKind === "$kind" ? object.kind : declaredKind;
+      const add = (candidate: unknown) => {
+        if (
+          typeof kind === "string" &&
+          kind &&
+          typeof candidate === "string" &&
+          candidate
+        )
+          references.set(`${kind}:${candidate}`, { kind, value: candidate });
+      };
+      if (field.fieldKind === "message") visit(member, field.message);
+      else if (field.fieldKind === "list" && Array.isArray(member)) {
+        for (const child of member) {
+          if (field.listKind === "message") visit(child, field.message);
+          else add(child);
+        }
+      } else if (
+        field.fieldKind === "map" &&
+        member &&
+        typeof member === "object"
+      ) {
+        for (const child of Object.values(member)) {
+          if (field.mapKind === "message") visit(child, field.message);
+          else add(child);
+        }
+      } else add(member);
+    }
+  };
+  visit(input, declared);
+  return [...references.values()];
+}
 const jsonTypes = new Set([
   "google.protobuf.Value",
   "google.protobuf.Struct",

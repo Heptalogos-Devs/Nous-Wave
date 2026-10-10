@@ -14,17 +14,20 @@ import {
   usageCounts,
   ProviderFailure,
 } from "../protocols.js";
-type ExecutionAttempt = {
-  executionProfile: string;
-  modelProfile: string;
+import type {
+  ExecutionAttempt as WireAttempt,
+  ExecutionTelemetry as WireTelemetry,
+} from "@nous-wave/protocol/nous/wave/kernel/v1alpha1/workflow_envelope_pb.js";
+type ExecutionAttempt = Omit<WireAttempt, "$typeName" | "status" | "usage"> & {
   status: "succeeded" | "failed" | "skipped" | "unknown";
-  failureClass?: string;
-  latencyMs: number;
-  usage?: unknown;
+  usage?: ReturnType<typeof usageCounts>;
 };
-export type ExecutionTelemetry = {
+export type ExecutionTelemetry = Omit<
+  WireTelemetry,
+  "$typeName" | "attempts" | "omittedAttempts"
+> & {
   attempts: ExecutionAttempt[];
-  successfulExecutionProfile?: string;
+  omittedAttempts?: number;
 };
 export class GenerationFailure extends Error {
   constructor(
@@ -154,9 +157,11 @@ export async function executeRoutes<
       if (signal?.aborted) interrupt(name, signal.reason, attempts);
     }
   }
-  throw new GenerationFailure(
+  const failure = new GenerationFailure(
     name,
-    `all_execution_routes_failed:${attempts.at(-1)?.failureClass ?? "route_unavailable"}`,
+    attempts.at(-1)?.failureClass ?? "route_unavailable",
     { attempts },
   );
+  failure.message = `Model role ${name} invocation failed: all_execution_routes_failed:${failure.reason}`;
+  throw failure;
 }

@@ -6,6 +6,14 @@
 
 Core owns model and Resource host calls; Material owns Artifact/Observation/DerivedRepresentation identity, selected text and source lineage; Memory and Runtime own their respective query and lifecycle semantics. Material 的精确文本／Serving／embedding 共同合同见 [Material Derivation](material-derivation.md#selected-text-与-serving)。
 
+## 持久操作
+
+共享合同位于 [workflow envelope Proto](../../../../proto/nous/wave/kernel/v1alpha1/workflow_envelope.proto)：租约包含 Subject、owner、operation key 和 token；snapshot 将领域 payload、认知形成时间与 maintenance claim 分开；proposal/outcome 显式声明依赖引用和 purged 状态。领域 payload 由对应 owner 校验，Persistence 不读取其内部键。Core 的 `durable-operation.ts` 共用 reservation、proposal/outcome 保存、失败 telemetry 和有界释放，领域流程保留自己的提交与拒绝语义。
+
+引用依赖从 canonical Proto 的 `reference_kind` 与 `CognitiveRef` 提取，opaque 用户 JSON 和普通正文不产生依赖。Core 在调用 canonical mutation 前登记其稳定 operation ID；领域 owner 在同一 Authority 事务中发布实际结果依赖。Purge 因此覆盖 Authority 已提交、Host 尚未保存 outcome 的窗口。Telemetry 使用正式的 attempts、usage 和省略计数；缺失 usage 保持未知，累积只保留最早 64 次 attempt。
+
+数据库升级由 `0005_workflow_envelope.sql` 一次性转换已保存的 snapshot/proposal/outcome，保留领域 payload、认知时间、maintenance 绑定和 telemetry。旧 Schema split 回执仅保存 parent 时，只有一个已记录 split 的来源可恢复其存续 child revisions，按 revision ID 返回；多次历史 split 的归属无法从旧回执唯一确定时，迁移拒绝，须先提供精确 child batch。新 split 回执保存原始结果次序。该转换不保留旧 wire 或运行时 JSON 猜测路径。
+
 ## Schema 与来源
 
 Core 的 `model/schemas/material-interpretation.ts` 是唯一 model-facing Zod owner，供 inferred type、local parse、AI SDK Output.object、raw strict JSON Schema 使用。根与嵌套对象 strict、字段 required、可缺省 scalar 为 null；资源数量/byte/time/support/modality 约束在 Material validator 校验。Schema 定义 JSON 结构，Prompt 描述忠实度与任务。
