@@ -7,6 +7,7 @@
 
 - [Linux 干净实例](deep-rebase/linux-continuation-2026-10-09.json)、[重启续接](deep-rebase/linux-restart-continuation-2026-10-09.json)、[有界维护](deep-rebase/linux-maintenance-continuation-2026-10-09.json)与[显式材料恢复](deep-rebase/linux-maintenance-recovery-2026-10-09.json)：保存实际 Doubao Lite formation、原文、Unicode/exact/history、真实预算耗尽与后续 complete Query。
 - [当前 Windows 程序续接](deep-rebase/windows-current-continuation-2026-10-10.json)：最新 clean Portable 三布局/正常重启、原文与 trace 字节连续、public Client exact/Use、外部 Codex MCP 审批失败，以及真实 query embedding/rerank 的 dense 降级与显式恢复。
+- [已授权的真实 Windows MCP 续接](deep-rebase/windows-approved-mcp-continuation-2026-10-10.json)：两项进程内工具授权后的真实 Codex source/producer、exact/history/natural Query、实际 Use、Context 原文精确追加与 Session 关闭；旧失败保留，手动清理仍待完成。
 
 tracked tree 保存 source manifest、少量 oracle metadata 和手工功能场景。持久模型正文、query/result 与数值矩阵保存在 ignored `data/research/results/` 的紧凑成果中；完成提取后已清理旧数据库、下载正文、媒体、vectors 与原始运行目录。
 

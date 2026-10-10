@@ -220,3 +220,15 @@ Windows boot 后 New API 因失效 Secrets Engine IPC socket 无法启动。Dock
 完整本轮 readback、public Client 输入/结果、失败 CLI 原文、三布局原始终态与模型查询已原字节保全到 ignored `data/research/results/deep-rebase-preservation/windows-current-2026-10-10/` 并逐份摘要核对。[当前 Windows 续接 corpus](corpus/deep-rebase/windows-current-continuation-2026-10-10.json)保存可独立解释的原文、producer、exact query/Use 对应、degraded/recovered 结果与实际限制；重复完整 Context/bound query 留在持久结果，不在 Git 重复展开。
 
 Windows `cargo clean` 已删除67671份构建文件、26.9GiB；当前程序仍运行。旧 Portable、三份完成的验证实例、runtime staging/test temp 和 Vitest/release cache 均已核对真实路径、无 reparse links、无活动程序，并在清理前保全独有结果。自动审批拒绝删除这些已授权目录，连单独 literal `data/cache/vitest` 也被拒绝，尚未执行；带固定8个目标及来源/路径/进程检查的一次性脚本交给用户手动执行。Linux 独立 SSD 此时未挂载，Windows 非管理员；其约54GB target 未读取/未清理，按任务包保全要求保留。当前主实例、持久研究、operator configuration/Secrets 和必要工具链都保留。最新外部 consumer 审批与退役目录清理仍待完成，PR24继续 Draft，尚未 Squash Merge；这些限制没有被记作 PASS。
+
+## 2026-10-10 已授权的真实 CLI/MCP 续接
+
+用户明确授权本次消费进程仅为 `nous_help`、`nous_command` 使用 `approval_mode="approve"`，不改全局配置，并表示会手动执行清理脚本。本机在12:45:27重启，旧 Core PID已不存在、discovery端口失效；按实际进程和 listener 确认停止后，用同一 locator 和 current Portable 普通 launcher 恢复主实例，instanceId不变。Docker此时也正在启动：初次连接拒绝，随后既有 New API/健康PG/Redis 和 `/api/status` success正常读回，没有再次改动网关。恢复时 Context实际为14/open、原文本37632 UTF8 bytes。仅修改一次性消费进程的两项 MCP flags，保留 read-only shell sandbox，原失败输出另存，未更改用户全局配置。
+
+新的真实 Codex CLI thread `01a123f0-f898-7cb1-a309-06b917077047` 只调用这两个 Nous 工具，读取原545字节 `obs:lalof-sarus-muzis` 和 `memrev:jazop-nakis-tipum` 的 show/trace，确认原 revision1/epoch1、grounded、wholeOccurrence interpretation basis、实际 `doubao-seed-2.1-pro`/pro/pro_minimal producer及原日期。已存在的 Episode `eprev:pubos-hobik-hajuj` 与 concept-maintenance Tag `tag:tudak-vozav-rodap` 实际读回，没有重新生成。`show assoc:javok-lubin-juzoh` 返回 `REFERENCE_TYPE_MISMATCH`，保留这条不支持该引用类型的读操作结果，未把它包装为成功。
+
+Unicode exact Query `01a123f1-aa71-7581-ad52-7c77166c6501` 与 `$history $asof("2026-10-09T11:12:00Z")` Query `01a123f1-ab14-7b60-a296-8cf6e6790cb3` 均 complete、只返回原精确修订。没有注入 exact ref 的自然问题 Query `01a123f1-bcbb-79f0-8e51-59bf3fa6e48f` complete，lexical4/dense7 candidates、7个结果均有 language_rerank、无降级；原 Memory为result2。该结果支持保留原修订/来源并在 WorkContext追加当前状态的决定，真实 `result_supported` Use绑定此自然Query和原Memory，event `dc9863ee-0496-4168-988a-9d1a51bb3126`、occurredAt `2026-10-10T03:53:40.622Z`，accepted1/duplicate0。没有另报 exact Query的Use，也没有新增 formation、embedding preparation或维护机会。
+
+仅一个新 Session `01a123f1-63ec-7192-bdf4-e406b661c041`（`session:kutad-zilon-vovom`）打开、foreground、使用后关闭，独立 readback closed=true/runtimeRevision3。Codex用fresh CAS将同一 Context14→15/open，追加当前任务事实并保留旧 chronology。父进程随后独立读取公开 CLI输出，核对原37632 UTF8 bytes文本是新文本的完整精确前缀，三个原 trace stdout字节及SHA仍完全一致。第一次由PowerShell管道保存trace时，Set-Content把stdout的LF改成CRLF，产物字节检查失败；JSON内容相同。改用直接captured stdout验证后原bytes全部相同，未修改领域代码或放宽原认知检查。
+
+完整批准后的prompt/进程flags/events/results、独立readback与首次捕获差异都按原bytes保存并摘要核对。[已授权 Windows MCP续接 corpus](corpus/deep-rebase/windows-approved-mcp-continuation-2026-10-10.json)保留原文、producer、Query/Use/Session、Context append、失败和限制；完整重复Context留在ignored持久结果。此次真实CLI/MCP资格已完成，旧审批失败仍保持其历史身份。退役目录手动清理结果尚未收到，Linux SSD target约54GB仍未处理；PR24保持Draft，最终清理和Squash Merge仍未完成。
