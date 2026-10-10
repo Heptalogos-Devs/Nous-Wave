@@ -52,7 +52,7 @@ export async function writeManifest(
       )
     ).stdout,
   ) as Record<string, string>;
-  const nodeLicensePath = "runtime/node/licenses/node/LICENSE";
+  const nodeLicensePath = "runtime/node/LICENSE";
   const nodeLicense = await readFile(join(output, nodeLicensePath), "utf8");
   const nodeDependencies = [
     ["acorn", "Acorn", "deps/acorn", "MIT"],
