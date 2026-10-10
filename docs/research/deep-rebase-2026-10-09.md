@@ -246,7 +246,7 @@ Unicode exact Query `01a123f1-aa71-7581-ad52-7c77166c6501` 与 `$history $asof("
 
 ## 2026-10-10 维护结构续作
 
-按用户补充的六项维护目标重新审查，分离原21份共置 TypeScript tests 和 CLI mock Client，按 feature 放入各 owner 的 `tests/`。删除无独立保护价值的全角色清单/schema digest 回放及三份纯 CLI 转发/静态 guidance 案例；语义来源、history/purge、配置 freeze/CAS、取消/预算、未知回执、并发 consumer 和数值算法检查继续保留。Maintenance 的 workflow replay 与 bounded grant/scheduler 分开，两个使用者共用一份 test-local fixture，没有新增测试用例或生产钩子。两份超长 Kernel DB 轨迹按 model/catalog、historical、policy、identity/permission 分组，继续共用原数据库轨迹。
+按用户补充的六项维护目标重新审查，分离原21份共置 TypeScript tests 和 CLI mock Client，按 feature 放入各 owner 的 `tests/`。删除无独立保护价值的全角色清单/schema digest 回放及三份纯 CLI 转发/静态 guidance 案例；Runtime 中只复述 `UseKind::meaningful` 的三条布尔断言也删除，该风险由真实 QueryFeedback/认知维护数据库轨迹识别。语义来源、history/purge、配置 freeze/CAS、取消/预算、未知回执、并发 consumer 和数值算法检查继续保留。Maintenance 的 workflow replay 与 bounded grant/scheduler 分开，两个使用者共用一份 test-local fixture，没有新增测试用例或生产钩子。两份超长 Kernel DB 轨迹按 model/catalog、historical、policy、identity/permission 分组，继续共用原数据库轨迹。
 
 CLI 操作实现进入 `commands/`；Core configuration 进入 `configuration/`；Client/Runtime/Retrieval policy 按各自 owner 归拢。Retrieval 将原来使用 path attributes 的平铺机制放入真正的 `mechanisms/`，VCP、concept、数值 DTSC 和 current/history assets 各自归类；Persistence historical binding/projection 和 projection 输入归类。WorkContext 按 contract/validation、read、mutation、lifecycle 分开，ordered anchors 的重复写入收敛为一次固定 SQL 存储操作。模型 startup 与 reserved execution 的 role 解析合用一个实现；route fallback、取消、attempt/usage 保存从 invocation facade 中抽出，generation/embedding/transcription/rerank 使用同一 executor。维护中的 frozen proposal 构造/校验与持久 records、重放/领域提交/lease 生命周期分开；四个模型阶段使用相同的 attempt 保存回调，并维持先保存真实 execution、再验证 proposal 的时序。旧内部路径、导入、源码摘要输入与静态 include 同步替换，没有平铺兼容别名。
 
