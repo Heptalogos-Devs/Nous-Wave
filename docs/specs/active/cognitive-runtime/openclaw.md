@@ -14,11 +14,13 @@ Subject 是独立持久个体，创建可省略 Seed；没有 Seed 不生成个�
 
 `CognitionUsage` 从实际执行者、用途、当前意图、参与者与受众形成。它进入已有 Query binding 和 ContextCompiler track；不授予管理权限。adapter 从原生可信 chatType/channel/sender/destination 获取来源，未解析的人物保留 unresolved；不自行分配 Entity。身份、principal、Subject 与受众不从模型工具参数取得。
 
+受控边界额外要求`providerCustodyVersion: 1`。原生SessionManager唯一持有实际provider请求的append-only custom记录；它们不进入模型history。现有OpenAI chat/responses通过SSE HTTP执行，在provider SDK完成全部onPayload修改及具体重试改写后、create前等待完整body保存成功。请求保存失败时阻止提交；HTTP状态、request ID、实际usage和终态以同attempt身份追加。transport headers/API key不保存。尚无确认结果的请求为uncertain；响应usage缺失时保持未知。
+
 Host 保有历史、工具 schema、输出预留和 provider controls。renderer 只在干净的调用输入上应用一个 Nous slice，固定指引说明认知、证据和归属的使用方式；authority 不转换为管理/工具权限。slice 不持久写入 transcript。原生 system prompt 不再加载 SOUL/IDENTITY/USER/MEMORY/BOOTSTRAP 为第二份当前认知。
 
 ## Host Life 与实际接触
 
-可选 Host bridge 使用官方 Client `/host-bridge` 的单一公开 wire 合同。操作者配置的 loopback origin 与私密 credentialFile 决定 Host，不从模型参数获得。v5 严格 provider 边界在每次调用前等待 Host 核验已持久 NativeRun/Activity、原生身份、prompt digest 与受限来源；缺少许可则终止。Host canonical usage 与结构化 contacts 分别进入 CognitionUsage/ObservationInput 的正式 fromJson，不另造认知对象。动态 WorkContext 替代静态绑定；Hosted user 消息不再从工程 prompt 重复生成泛化 Observation。
+可选 Host bridge 使用官方 Client `/host-bridge` 的单一公开 wire 合同。操作者配置的 loopback origin 与私密 credentialFile 决定 Host，不从模型参数获得。v5 严格 provider 边界在每次调用前等待 Host 核验已持久 NativeRun/Activity、原生身份、prompt digest 与受限来源；缺少许可则终止。Host canonical usage 与结构化 contacts 分别进入 CognitionUsage/ObservationInput 的正式 fromJson，不另造认知对象。HostPrepareResponse区分当前工作与已保存义务：正常调用提供当前workContextId；Narrative owner确认原candidate仍有pending索引义务后，可返回continuationSourceRef而省略当前WC，仅限execution-only narrative.review且无工具。插件用正式SetActiveWorkContext CAS清空Session旧绑定，prepare/query不传原任务WC作为当前工作；registration及SourceRead保留原任务lineage。原WC的closed状态、来源撤回和Core历史检查继续适用。Hosted user消息不从工程prompt重复生成泛化Observation。
 
 Host `currentSources` 使用既有 `EvidenceRef` 选择 actual occurrence 的 whole/source-region/derived-representation/derived-region locator，交正式 `currentMaterials`；选择不增加 `SourceRead` 权限。Material owner 在当前 scope 下核对 occurrence 与 locator 的真实 lineage，SDK 只采用 exact locator 与 actual occurrence 均匹配的读回结果，不复制旧投影正文或重派生既有材料。
 
@@ -43,6 +45,8 @@ WorkContext 和 identity/situational guidance 必须完整；不足时拒绝。M
 OpenClaw 继续拥有工具执行、渠道、Computer use、skills、子 Agent 和 transcript。压缩显式委派 `delegateCompactionToRuntime`；其输入不含 Nous slice，下一轮重新应用。默认 memory flush 对主体实例关闭，避免第二套可写认知。
 
 原生 session extension 仅保存 Subject/nativeSession/NousSession 身份，不保存 cognition 或 cursor。重启复用未关闭的对应 Session；native reset 使用新 Nous Session；实际 reset entry 标识其历史代际，不假定物理 native sessionId 必然改变。原生会话扩展按 pluginId/namespace 保存；运行时注册表卸载与显式插件禁用的持久状态清理分别处理。子 Agent 同 Subject、独立 Session/binding，在正式委派准备入口保存父 Session 关系，再派发子任务，以隔离任务交接，不能经模型要求 fork 父历史。
+
+授权详情通过`nous.provider-attempts`只读RPC和正式Client host-bridge schema取得；RPC要求operator.admin，按实际Subject/native run/agent/session核对，默认只给metadata，includeInputs显式读取完整provider body。旧历史无body时返回not_recorded并保留可查的原assistant用量，不重新调用模型补造请求。原生cost字段是配置价表估值，实际provider账单金额未知。
 
 正式 Host bridge 每次许可返回受信 role/purpose/view/contactNature。角色覆盖 world.planner、subject.deliberation、subject.execution、subject.render、narrative.review、subject.reflection 与 system.maintenance；技术 Agent ID 不等于产品角色。Host 从已采用行为和真实 native binding 取得用途，模型参数不能选择视角或提升权限。subject deliberation/render 使用必需主体投影；world author、worker 与 review 使用各自受限资料，隐藏世界内容在候选检索前排除。切换用途需要独立干净 Session/binding，不把旧 worker transcript 带入主体历史。
 

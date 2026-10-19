@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { toJson, type JsonObject } from "@bufbuild/protobuf";
+import { registerProviderAttemptRead } from "./provider-attempts.js";
 import { invocationBudget } from "./budget.js";
 import { scopeCallerHistory, allowsCompactionScope } from "./hosted-history.js";
 import {
@@ -74,6 +75,7 @@ const configuration = z
 
 function register(api: OpenClawPluginApi): void {
   const config = configuration.parse(api.pluginConfig);
+  registerProviderAttemptRead(api, config.subjectId);
   const connect = () => connectNousInstance({ runRoot: config.runRoot });
   const bridge = config.hostBridge
     ? new HostBridge(config.hostBridge)
@@ -699,6 +701,7 @@ function register(api: OpenClawPluginApi): void {
       async prepareModelInput(input) {
         if (
           input.boundaryVersion !== 5 ||
+          input.providerCustodyVersion !== 1 ||
           typeof input.historyGeneration !== "string" ||
           !input.historyGeneration ||
           typeof input.historyIsFresh !== "boolean" ||
@@ -732,6 +735,7 @@ function register(api: OpenClawPluginApi): void {
             { subjectId: config.subjectId, id: binding.sessionId },
             { signal: input.signal },
           );
+          // The Host owns current-work eligibility; omitted current context clears a prior foreground via the official CAS.
           if (session.activeWorkContextId !== permission.response.workContextId)
             await connected.runtime.setActiveWorkContext(
               {
@@ -804,7 +808,9 @@ function register(api: OpenClawPluginApi): void {
                 permission.usage,
               ),
               tools: input.context.tools?.filter((tool) =>
-                permission.response.allowedToolNames.includes(tool.name),
+                permission.response.allowedToolNames.some(
+                  (name) => name === tool.name,
+                ),
               ),
             }
           : input.context;
@@ -897,8 +903,9 @@ function register(api: OpenClawPluginApi): void {
           );
         const prepared = await binding.prepare({
           usage,
-          workContextId:
-            permission?.response.workContextId ?? config.workContextId,
+          workContextId: permission
+            ? permission.response.workContextId
+            : config.workContextId,
           cognitionTokenBudget: budget,
           currentMaterials: currentMaterials.sources,
           signal: input.signal,
@@ -921,6 +928,7 @@ function register(api: OpenClawPluginApi): void {
           },
         );
         const application: ManagedModelApplication = {
+          subjectId: config.subjectId,
           context,
           applied,
           invocationId,
