@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/openclaw/openclaw",
+  "tag": "v2026.10.5",
+  "commit": "1b58cb9a1b4f4353e1add63c8506db4d890962e8",
+  "patch": "model-context.patch",
+  "license": "MIT",
+  "modifiedCommit": "e2adcf4a7b232722685ed8a82880b4c715c8c4dc",
+  "patchSha256": "f2ce617c5aae7ddb2782f25730830f5113c26faad74f393fcf8cf99249019fbb",
+  "snapshotStatus": "source-tested",
+  "includesUncommittedChanges": false
+}

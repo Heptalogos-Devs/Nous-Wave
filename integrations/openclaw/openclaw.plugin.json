@@ -1,0 +1,135 @@
+{
+  "id": "nous-cognition",
+  "name": "Nous Cognition",
+  "categories": [
+    "infrastructure"
+  ],
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "runtimeId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "baseURL": {
+        "type": "string",
+        "format": "uri"
+      },
+      "tokenEnv": {
+        "default": "NOUS_SERVICE_TOKEN",
+        "type": "string"
+      },
+      "installationId": {
+        "type": "string"
+      },
+      "bindings": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "authorityRef": {
+                  "type": "string",
+                  "pattern": "^delegation:[0-9a-f-]{36}$"
+                },
+                "subjectId": {
+                  "type": "string"
+                },
+                "consumer": {
+                  "$ref": "#/$defs/Consumer"
+                },
+                "purpose": {
+                  "default": "worker",
+                  "type": "string"
+                },
+                "audience": {
+                  "default": [],
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "billing": {
+                  "default": "nous",
+                  "type": "string",
+                  "const": "nous"
+                }
+              },
+              "required": [
+                "authorityRef",
+                "subjectId",
+                "consumer"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "billing": {
+                  "type": "string",
+                  "const": "external"
+                }
+              },
+              "required": [
+                "billing"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "modelResources": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "runtimeId",
+      "installationId",
+      "bindings",
+      "modelResources"
+    ],
+    "$defs": {
+      "Consumer": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "subject",
+              "worker",
+              "author",
+              "maintenance"
+            ]
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "host",
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

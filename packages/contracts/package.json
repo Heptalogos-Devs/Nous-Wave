@@ -1,0 +1,81 @@
+{
+  "name": "@nous-wave/contracts",
+  "version": "0.2.0-infrastructure.1",
+  "type": "module",
+  "exports": {
+    "./data": {
+      "types": "./dist/data.d.ts",
+      "default": "./dist/data.js"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./common": {
+      "types": "./dist/common.d.ts",
+      "default": "./dist/common.js"
+    },
+    "./knowledge": {
+      "types": "./dist/knowledge.d.ts",
+      "default": "./dist/knowledge.js"
+    },
+    "./cognition": {
+      "types": "./dist/cognition.d.ts",
+      "default": "./dist/cognition.js"
+    },
+    "./materials": {
+      "types": "./dist/materials.d.ts",
+      "default": "./dist/materials.js"
+    },
+    "./management": {
+      "types": "./dist/management.d.ts",
+      "default": "./dist/management.js"
+    },
+    "./identity": {
+      "types": "./dist/identity.d.ts",
+      "default": "./dist/identity.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
+    },
+    "./settings": {
+      "types": "./dist/settings.d.ts",
+      "default": "./dist/settings.js"
+    },
+    "./credentials": {
+      "types": "./dist/credentials.d.ts",
+      "default": "./dist/credentials.js"
+    },
+    "./prompts": {
+      "types": "./dist/prompts.d.ts",
+      "default": "./dist/prompts.js"
+    },
+    "./time": {
+      "types": "./dist/time.d.ts",
+      "default": "./dist/time.js"
+    },
+    "./models": {
+      "types": "./dist/models.d.ts",
+      "default": "./dist/models.js"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "default": "./dist/http.js"
+    }
+  },
+  "dependencies": {
+    "zod": "4.6.5",
+    "@js-temporal/polyfill": "0.5.1"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "LICENSES"
+  ],
+  "license": "AGPL-3.0-only"
+}

@@ -1,0 +1,48 @@
+{
+  "name": "@nous-wave/openclaw",
+  "version": "0.2.0-infrastructure.1",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    }
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "dependencies": {
+    "@nous-wave/contracts": "workspace:*",
+    "@nous-wave/client": "workspace:*",
+    "zod": "4.6.5",
+    "@nous-wave/platform": "workspace:*"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.10.5"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "openclaw.plugin.json",
+    "upstream",
+    "build-upstream.mjs",
+    "build.mjs",
+    "smoke-upstream.mjs"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

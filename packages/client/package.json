@@ -1,24 +1,28 @@
 {
   "name": "@nous-wave/client",
-  "version": "0.1.0",
-  "private": true,
-  "license": "Apache-2.0",
+  "version": "0.2.0-infrastructure.1",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./node": "./src/node.ts",
-    "./managed": "./src/managed.ts",
-    "./errors": "./src/errors.ts",
-    "./consumer-policy": "./src/policy/consumer.ts",
-    "./execution-policy": "./src/policy/execution.ts",
-    "./host-bridge": "./src/host-bridge.ts",
-    "./motivation": "./src/motivation.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./generated": {
+      "types": "./dist/generated/index.d.ts",
+      "default": "./dist/generated/index.js"
+    }
   },
   "dependencies": {
-    "@bufbuild/protobuf": "2.15.0",
-    "@connectrpc/connect": "2.2.0",
-    "@connectrpc/connect-node": "2.2.0",
-    "@nous-wave/protocol": "workspace:*",
-    "zod": "4.6.5"
-  }
+    "@nous-wave/contracts": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "LICENSES"
+  ],
+  "license": "AGPL-3.0-only"
 }
