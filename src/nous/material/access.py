@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nous_sdk.contracts import CallContext, CognitiveRef, DomainError, MediaReference, SourceRegion
+from nous_sdk.contracts.identity import IdentityPurpose
 from sqlalchemy import select
 
 from nous.identity.access import require_subject_in
@@ -85,6 +86,8 @@ async def read_material_in(
     material_id: str,
     seen: frozenset[str] = frozenset(),
     observation_id: str | None = None,
+    *,
+    purpose: IdentityPurpose = "active",
 ) -> MaterialRecord:
     from .service import (
         MaterialRecord,
@@ -93,7 +96,7 @@ async def read_material_in(
         source_permitted,
     )
 
-    await require_subject_in(view, ctx)
+    await require_subject_in(view, ctx, purpose=purpose)
     if material_id in seen:
         raise DomainError("source_cycle", "An artifact cannot depend on itself")
     value = await view.connection.scalar(
@@ -184,7 +187,12 @@ async def read_material_in(
 
 
 async def media_source_in(
-    self: MaterialService, view: ReadView | WriteTx, ctx: CallContext, reference: MediaReference
+    self: MaterialService,
+    view: ReadView | WriteTx,
+    ctx: CallContext,
+    reference: MediaReference,
+    *,
+    purpose: IdentityPurpose = "active",
 ) -> tuple[MaterialRecord, SourceRegion | None, str]:
     """Authorize an exact original/region and honor an explicitly pinned observation."""
     from pydantic import TypeAdapter
@@ -194,7 +202,12 @@ async def media_source_in(
     region: SourceRegion | None = None
     if reference.kind == "material":
         material = await read_material_in(
-            self, view, ctx, reference.id, observation_id=reference.observation_id
+            self,
+            view,
+            ctx,
+            reference.id,
+            observation_id=reference.observation_id,
+            purpose=purpose,
         )
     elif reference.kind == "source_region":
         region = await self.read_region_in(view, ctx, reference.id)

@@ -269,15 +269,30 @@ class CallLedger:
         ).mappings()
         for row in rows:
             request = row["request"]
-            source = request.get("prompt", {}).get("variables", {}).get("source", {})
+            if not isinstance(request, dict):
+                continue
+            # Embedding and other non-generation calls store flat request fields without a prompt.
+            prompt = request.get("prompt")
+            variables = prompt.get("variables") if isinstance(prompt, dict) else None
+            source = variables.get("source") if isinstance(variables, dict) else None
+            if not isinstance(source, dict):
+                source = {}
             inputs = source_identities(request)
-            inputs.update(source.get("source_material_ids", []))
+            material_ids = source.get("source_material_ids")
+            if isinstance(material_ids, list):
+                inputs.update(item for item in material_ids if isinstance(item, str))
+            observation_ids = request.get("observation_ids")
             if (
                 source.get("material_id") in selected
                 or inputs.intersection(selected)
                 or inputs.intersection(purged_roots)
                 or source.get("observation_id") in purged_roots
-                or set(request.get("observation_ids", [])).intersection(purged_roots)
+                or (
+                    isinstance(observation_ids, list)
+                    and set(item for item in observation_ids if isinstance(item, str)).intersection(
+                        purged_roots
+                    )
+                )
             ):
                 await tx.connection.execute(
                     calls.update()

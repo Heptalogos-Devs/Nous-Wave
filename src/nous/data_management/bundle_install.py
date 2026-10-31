@@ -132,7 +132,8 @@ async def install_prepared(
     mats = {row["id"]: row for row in bundle["materials"]}
     keys = {record.reference.exact() for record in records}
     for record in records:
-        if not record.source_roots or any(oid not in obs for oid in record.source_roots):
+        # Empty source_roots are valid for system-formed cognition; only named roots must resolve.
+        if any(oid not in obs for oid in record.source_roots):
             raise DomainError(
                 "bundle_source_missing", "Cognition has an unresolved supporting source"
             )
@@ -399,7 +400,9 @@ async def install_prepared(
                     CatalogView.model_validate(new["record"])
                 await tx.connection.execute(table.insert().values(**new))
         if original.derivations.representations or original.derivations.regions:
-            await self.cognition.derivations.install_in(tx, ctx, original.derivations, mapping)
+            await self.cognition.derivations.install_in(
+                tx, ctx, original.derivations, mapping, purpose=purpose
+            )
         heads: dict[str, int] = {}
         for record in records:
             heads[record.reference.id] = max(

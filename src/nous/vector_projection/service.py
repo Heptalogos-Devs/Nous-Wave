@@ -190,12 +190,24 @@ class VectorProjectionService:
         ctx: CallContext,
         targets: tuple[CognitiveRef | MediaReference, ...],
         operation_id: str,
+        *,
+        replace_existing: bool = False,
     ) -> ProjectionResult:
-        receipt = await self.submit(ctx, ProjectVectors(operation_id=operation_id, targets=targets))
+        receipt = await self.submit(
+            ctx,
+            ProjectVectors(operation_id=operation_id, targets=targets),
+            replace_existing=replace_existing,
+        )
         request = await self.read_request(receipt.request_id)
         return ProjectionResult.model_validate(await self.execution().wait(ctx, request.job_id))
 
-    async def submit(self, ctx: CallContext, command: ProjectVectors) -> ProjectionReceipt:
+    async def submit(
+        self,
+        ctx: CallContext,
+        command: ProjectVectors,
+        *,
+        replace_existing: bool = False,
+    ) -> ProjectionReceipt:
         from nous.identity.access import require_subject_in
 
         async with self.authority.write(
@@ -209,7 +221,9 @@ class VectorProjectionService:
                 receipt = ProjectionReceipt.model_validate(tx.replay_result)
             else:
                 await require_subject_in(tx, ctx)
-                receipt = await self.admit_in(tx, ctx, command.targets)
+                receipt = await self.admit_in(
+                    tx, ctx, command.targets, replace_existing=replace_existing
+                )
                 tx.result(receipt)
         return receipt
 
@@ -237,13 +251,27 @@ class VectorProjectionService:
     ) -> tuple[Selected, ...]:
         profile = profile or await self.models.prepare_embedding(ctx)
         missing: list[Selected] = []
+        from nous_sdk.contracts import DomainError
+
         async with self.authority.read(ctx) as view:
             for target in targets:
                 value = await resolve_input(
                     self, view, ctx, target, profile.resource_key(), head_only=head_only
                 )
                 if value is not None:
-                    content = await retained_content_in(self, view, ctx, target, value, profile)
+                    try:
+                        content = await retained_content_in(
+                            self, view, ctx, target, value, profile, repair=True
+                        )
+                    except DomainError as error:
+                        # Unresolved prior paid outcomes freeze that exact input. Rebuild already
+                        # skips them; sync must not abort the rest of the missing set.
+                        if error.code in {
+                            "model_invocation_unavailable",
+                            "embedding_producer_conflict",
+                        }:
+                            continue
+                        raise
                     if content is None:
                         missing.append(target)
                     else:

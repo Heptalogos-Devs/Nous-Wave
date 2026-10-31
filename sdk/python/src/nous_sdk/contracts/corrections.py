@@ -1,8 +1,8 @@
 """Saved correction intent, visible proposals and revision-aware adoption."""
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .cognition import CognitiveBody, CognitiveRecord, CognitiveRef
 from .common import Contract, Operation
@@ -37,6 +37,22 @@ class CorrectionSuggestion(Contract):
     key: str
     body: CognitiveBody
     reason: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def unwrap_record_shaped_body(cls, data: Any) -> Any:
+        """Models sometimes paste the whole CognitiveRecord into body; keep only its body."""
+        if not isinstance(data, dict):
+            return data
+        body = data.get("body")
+        if (
+            isinstance(body, dict)
+            and "kind" not in body
+            and isinstance(body.get("body"), dict)
+            and isinstance(body["body"].get("kind"), str)
+        ):
+            return {**data, "body": body["body"]}
+        return data
 
 
 class CorrectionDraft(Contract):

@@ -10,6 +10,7 @@ from nous_sdk.contracts.derivation import (
     DerivedRepresentation,
     RepresentationRef,
 )
+from nous_sdk.contracts.identity import IdentityPurpose
 from sqlalchemy import select
 
 from nous.platform.persistence import Authority, ReadView, WriteTx
@@ -150,13 +151,20 @@ class DerivedAccess:
             return await self.read_region_in(view, ctx, region_id)
 
     async def source_in(
-        self, view: ReadView | WriteTx, ctx: CallContext, reference: MediaReference
+        self,
+        view: ReadView | WriteTx,
+        ctx: CallContext,
+        reference: MediaReference,
+        *,
+        purpose: IdentityPurpose = "active",
     ) -> SourceInfo:
         if reference.kind in {"material", "source_region"}:
             material, region, observation_id = await self.materials.media_source_in(
-                view, ctx, reference
+                view, ctx, reference, purpose=purpose
             )
-            provenance = await self.materials.provenance_in(view, ctx, reference)
+            provenance = await self.materials.provenance_in(
+                view, ctx, reference, purpose=purpose
+            )
             details = material.get("media_info")
             info = MediaInfo.model_validate(details) if details else None
             media_type = material["media_type"]

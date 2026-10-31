@@ -129,11 +129,20 @@ async def retained_content_in(
         await self.models.successful_embedding_in(view, ctx, content.call_id)
         evidence = await self.models.reusable_embedding_in(view, ctx, content.call_id, profile,
             text=value.text, media=value.media, source_ids=value.source_ids)
-        if evidence is not None and (content.space, content.model, content.dimensions, content.vector) == (
-            evidence.batch.space, evidence.batch.model, evidence.batch.dimensions, evidence.batch.vectors[0]):
-            return content
-        if not repair:
-            raise DomainError("embedding_producer_conflict", "Cached projection differs from its retained paid input/output")
+        if evidence is not None:
+            if (content.space, content.model, content.dimensions, content.vector) == (
+                evidence.batch.space,
+                evidence.batch.model,
+                evidence.batch.dimensions,
+                evidence.batch.vectors[0],
+            ):
+                return content
+            if not repair:
+                raise DomainError(
+                    "embedding_producer_conflict",
+                    "Cached projection differs from its retained paid input/output",
+                )
+        # Cached call no longer proves this exact input; look past it for live evidence.
     references = [target.exact()]
     if isinstance(target, CognitiveRef):
         references.extend(
