@@ -1,5 +1,6 @@
 """Bundle host actions use domain archives and managed immutable originals."""
 
+import asyncio
 from hashlib import sha256
 from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
@@ -95,6 +96,13 @@ async def bundle_admin(
             data, "application/vnd.nous-wave.bundle+zip"
         )
         filename = "nous-" + sha256(data).hexdigest()[:16] + ".zip"
+        from nous.material.archive_dependencies import history_archive
+
+        verified_history = (
+            await asyncio.to_thread(history_archive, data)
+            if command.format == "native" and command.content_level == "full"
+            else None
+        )
         try:
             async with service.app.authority.write(
                 ctx,
@@ -118,7 +126,8 @@ async def bundle_admin(
                 media = await service.app.media.freeze()
                 info = await media.probe(lease)
                 material = await service.app.material.put_blob_in(
-                    tx, ctx, lease, document, info, required_source_ids=required_source_ids
+                    tx, ctx, lease, document, info, required_source_ids=required_source_ids,
+                    history_archive=verified_history,
                 )
                 await service.app.material.observe_in(
                     tx, ctx, material["id"], document, kind="contact"

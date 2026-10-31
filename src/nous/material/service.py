@@ -1,6 +1,6 @@
 """Immutable source content and actual Import/Contact events."""
 
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from nous_sdk.contracts import (
     CallContext,
@@ -8,6 +8,7 @@ from nous_sdk.contracts import (
     MediaReference,
     SourceRegion,
 )
+from nous_sdk.contracts.common import ObservationKind
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import JSON, Boolean, Column, Integer, String, Table, select
 
@@ -68,6 +69,7 @@ class MaterialRecord(TypedDict):
     addresses: NotRequired[dict[str, JsonValue]]
     required_source_ids: NotRequired[list[str]]
     required_observation_ids: NotRequired[list[str]]
+    dependency_purpose: NotRequired[Literal["active", "history"]]
 
 
 class SourceRecord(TypedDict):
@@ -76,7 +78,7 @@ class SourceRecord(TypedDict):
     namespace_id: str
     subject_id: str
     material_id: str
-    kind: str
+    kind: ObservationKind
     origin: dict[str, str]
     source_type: str
     source: NotRequired[str | None]

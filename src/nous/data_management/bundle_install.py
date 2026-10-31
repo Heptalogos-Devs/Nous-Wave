@@ -72,6 +72,7 @@ async def install(
 
     validate_graph(bundle)
     leases: dict[str, ContentLease] = {}
+    historical_materials: set[str] = set()
     try:
         if self.content_store:
             for row in bundle.materials:
@@ -98,7 +99,15 @@ async def install(
                 leases[row.content_hash] = await self.content_store.publish_bytes(
                     data, material["media_type"]
                 )
-        return await self.install_prepared(ctx, command, bundle, leases, purpose=purpose)
+                from nous.material.archive_dependencies import history_archive
+
+                verified = await asyncio.to_thread(history_archive, data)
+                if verified is not None and verified.sources == frozenset(material.get("required_source_ids", ())):
+                    historical_materials.add(row.id)
+        return await self.install_prepared(
+            ctx, command, bundle, leases, purpose=purpose,
+            historical_materials=frozenset(historical_materials),
+        )
     finally:
         if self.content_store:
             for lease in leases.values():
@@ -113,6 +122,7 @@ async def install_prepared(
     leases: dict[str, ContentLease],
     *,
     purpose: IdentityPurpose = "active",
+    historical_materials: frozenset[str] = frozenset(),
 ):
     bundle = original.model_dump(mode="json")
     if bundle.get("format") != "nous.subject" or bundle.get("version") != 1:
@@ -142,7 +152,9 @@ async def install_prepared(
                 "bundle_source_missing", "Cognition evidence has an unresolved observation"
             )
     for row in obs.values():
-        if row["material_id"] not in mats or row["kind"] not in {"import", "contact"}:
+        # SubjectBundle has validated the shared ObservationKind, including
+        # immutable snapshots read from registered external resources.
+        if row["material_id"] not in mats:
             raise DomainError(
                 "bundle_observation", "Observation has invalid material or event kind"
             )
@@ -351,6 +363,11 @@ async def install_prepared(
                     "bundle_reference_missing", "Readable binding points outside the bundle"
                 )
         for new in remapped["materials"]:
+            # Imported raw records cannot grant historical read authority. Only
+            # actual validated nested full-archive bytes establish this purpose.
+            new["record"].pop("dependency_purpose", None)
+            if any(mapping[identity] == new["id"] for identity in historical_materials):
+                new["record"]["dependency_purpose"] = "history"
             new["record"]["commit_seq"] = tx.commit_seq
             new["record"]["addresses"] = (
                 await allocate_in(tx, ctx, MediaReference(kind="material", id=new["id"]))

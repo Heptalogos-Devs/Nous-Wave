@@ -19,9 +19,7 @@ from nous_sdk.contracts.derivation import (
 from .common import invoke, read_command
 
 
-def register(cli: typer.Typer) -> None:
-    group = typer.Typer(help="Read and transform exact authorized media.", no_args_is_help=True)
-    cli.add_typer(group, name="media")
+def register(group: typer.Typer) -> None:
 
     @group.command("image")
     def image(

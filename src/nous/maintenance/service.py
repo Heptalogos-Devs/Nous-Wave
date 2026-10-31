@@ -186,17 +186,6 @@ class MaintenanceService:
     async def retry(
         self, ctx: CallContext, run_id: str, operation_id: str
     ) -> MaintenanceSubmission:
-        record = await self.read(ctx, run_id)
-        state = await self.execution.status(ctx, record.job_id)
-        failed_groups = any(group.status == "failed" for group in record.groups)
-        if not failed_groups and state.status not in {
-            "ERROR",
-            "CANCELLED",
-            "MAX_RECOVERY_ATTEMPTS_EXCEEDED",
-        }:
-            raise DomainError(
-                "maintenance_retry_state", "Only failed or cancelled generation can continue"
-            )
         async with self.authority.write(
             ctx,
             operation_id,
@@ -207,6 +196,16 @@ class MaintenanceService:
             if tx.replayed:
                 return MaintenanceSubmission.model_validate(tx.replay_result)
             current = await self.run_in(tx, ctx, run_id)
+            state = await self.execution.status(ctx, current.job_id)
+            failed_groups = any(group.status == "failed" for group in current.groups)
+            if not failed_groups and state.status not in {
+                "ERROR",
+                "CANCELLED",
+                "MAX_RECOVERY_ATTEMPTS_EXCEEDED",
+            }:
+                raise DomainError(
+                    "maintenance_retry_state", "Only failed or cancelled generation can continue"
+                )
             if (
                 current.review is not None
                 and (current.review.decision != "adopt" or not failed_groups)

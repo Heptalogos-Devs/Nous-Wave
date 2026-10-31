@@ -48,6 +48,8 @@ async def revised(
     body: EntityBody | AssociationBody,
     evidence: tuple[EvidenceLink, ...],
     reason: str,
+    *,
+    deleted: bool | None = None,
 ) -> CognitiveRecord:
     value = await self.adopt_in(
         tx,
@@ -67,7 +69,7 @@ async def revised(
                 action="graph_change", actor=ctx.caller_id, reason=reason, parent=previous.reference
             ),
             lifecycle=previous.lifecycle,
-            deleted=previous.deleted,
+            deleted=previous.deleted if deleted is None else deleted,
         ),
     )
     return value
@@ -275,7 +277,9 @@ async def apply_in(
         if matches:
             previous = matches[0]
             await self.get_in(tx, ctx, previous.reference)
-            value = await revised(self, tx, admitted_ctx, previous, body, evidence, command.reason)
+            value = await revised(
+                self, tx, admitted_ctx, previous, body, evidence, command.reason, deleted=False
+            )
             if previous.deleted:
                 revived.append(value.reference)
         else:

@@ -17,6 +17,8 @@ from pydantic import (
     model_validator,
 )
 
+ObservationKind = Literal["import", "contact", "external_snapshot"]
+
 
 class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)

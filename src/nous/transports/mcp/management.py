@@ -696,7 +696,9 @@ def register_management(
                     raise ValueError("Media inspection requires material_id")
                 # This scoped source read authorizes the material before returning
                 # the SDK's globally addressed immutable metadata.
-                await api.source(subject_id, material)
+                from nous_sdk.contracts import MediaReference
+
+                await api.source(subject_id, MediaReference(kind="material", id=material))
             return await api.media(scoped(action, command))
 
     @server.tool()

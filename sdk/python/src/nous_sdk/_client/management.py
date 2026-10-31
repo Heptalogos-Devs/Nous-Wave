@@ -21,6 +21,7 @@ from ..types import (
     QueryParam,
 )
 from .context import ContextClient
+from .requests import resolve_scope
 
 
 class ManagementClient(ContextClient):
@@ -53,12 +54,13 @@ class ManagementClient(ContextClient):
         key = request.get("key", "models")
         if not isinstance(key, str):
             raise ValueError("configuration key must be text")
-        params: dict[str, QueryParam] = {
-            "namespace_id": str(request.get("namespace_id") or self.namespace_id or "instance"),
-            "subject_id": str(request.get("subject_id") or self.subject_id)
-            if request.get("subject_id") or self.subject_id
-            else None,
-        }
+        scope_request = dict(request)
+        if request.get("scope") == "instance" and "namespace_id" not in scope_request:
+            scope_request["namespace_id"] = "instance"
+        if request.get("scope") in {"instance", "namespace"} and "subject_id" not in scope_request:
+            scope_request["subject_id"] = None
+        namespace, subject = resolve_scope(self, scope_request, default_namespace="instance")
+        params: dict[str, QueryParam] = {"namespace_id": namespace, "subject_id": subject}
         if action in {"list", "schema"}:
             return object_value(
                 await self.request(
@@ -89,7 +91,7 @@ class ManagementClient(ContextClient):
                     body={
                         "value": None if action == "reset" else request.get("value"),
                         "scope": request.get(
-                            "scope", "subject" if params["subject_id"] else "instance"
+                            "scope", "subject" if params["subject_id"] else "namespace" if params["namespace_id"] != "instance" else "instance"
                         ),
                         "operation_id": request.get("operation_id") or str(uuid4()),
                     },
@@ -102,10 +104,8 @@ class ManagementClient(ContextClient):
         prompt_id = request.get("id", "formation")
         if not isinstance(prompt_id, str):
             raise ValueError("prompt ID must be text")
-        params: dict[str, QueryParam] = {
-            "namespace_id": str(request.get("namespace_id") or self.namespace_id or "instance"),
-            "subject_id": self.subject_id,
-        }
+        namespace, subject = resolve_scope(self, request, default_namespace="instance")
+        params: dict[str, QueryParam] = {"namespace_id": namespace, "subject_id": subject}
         if action == "list":
             return await self.request("GET", "/api/prompts", params=params)
         if action in {"get", "history"}:
@@ -157,21 +157,14 @@ class ManagementClient(ContextClient):
                 }
             )
         )
-        namespace = (
-            str(request.get("namespace_id") or self.namespace_id or "instance")
-            if isinstance(request, Mapping)
-            else self.namespace_id or "instance"
-        )
-        subject = (
-            request.get("subject_id") or self.subject_id
-            if isinstance(request, Mapping)
-            else self.subject_id
+        namespace, subject = resolve_scope(
+            self, request if isinstance(request, Mapping) else {}, default_namespace="instance"
         )
         return ModelRoleContract.model_validate(
             await self.request(
                 "POST",
                 "/api/models/contract",
-                params={"namespace_id": namespace, "subject_id": str(subject) if subject else None},
+                params={"namespace_id": namespace, "subject_id": subject},
                 body=command.model_dump(mode="json"),
             )
         )
@@ -190,21 +183,14 @@ class ManagementClient(ContextClient):
                 }
             )
         )
-        namespace = (
-            str(request.get("namespace_id") or self.namespace_id or "instance")
-            if isinstance(request, Mapping)
-            else self.namespace_id or "instance"
-        )
-        subject = (
-            request.get("subject_id") or self.subject_id
-            if isinstance(request, Mapping)
-            else self.subject_id
+        namespace, subject = resolve_scope(
+            self, request if isinstance(request, Mapping) else {}, default_namespace="instance"
         )
         return ModelInvocationPreview.model_validate(
             await self.request(
                 "POST",
                 "/api/models/preview",
-                params={"namespace_id": namespace, "subject_id": str(subject) if subject else None},
+                params={"namespace_id": namespace, "subject_id": subject},
                 body=command.model_dump(mode="json"),
             )
         )

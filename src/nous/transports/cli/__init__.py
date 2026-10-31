@@ -31,7 +31,6 @@ from .entities import register as register_entities
 from .feedback import register as register_feedback
 from .maintenance import register as register_maintenance
 from .management import register as register_management
-from .media import register as register_media
 from .retention import register as register_retention
 from .service import register as register_service
 from .social import register as register_social
@@ -161,7 +160,6 @@ register_entities(cli)
 register_feedback(cli)
 register_vectors(cli)
 register_retention(cli)
-register_media(cli)
 register_service(cli)
 register_tuning(cli)
 register_amemorix(cli)

@@ -84,6 +84,9 @@ def register(cli: typer.Typer) -> None:
     cognition = typer.Typer(help="Exact revisions and cognitive evolution.", no_args_is_help=False)
     bundle = typer.Typer(help="Logical subject export and install.", no_args_is_help=False)
     media = typer.Typer(help="Upload and adopt original media.", no_args_is_help=False)
+    from .media import register as register_media
+
+    register_media(media)
     for name, group in (
         ("namespace", namespace),
         ("subject", subject),

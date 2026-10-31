@@ -15,7 +15,7 @@ from .contracts import (
     TimeRange,
 )
 from .contracts.bundles import BundlePlacement
-from .contracts.common import ReferenceAddresses
+from .contracts.common import ObservationKind, ReferenceAddresses
 from .contracts.identity import Namespace as Namespace
 from .contracts.identity import Subject as Subject
 from .contracts.imports import ImportFormat
@@ -41,6 +41,7 @@ class Material(Contract):
     media_info: MediaInfo | None = None
     required_source_ids: tuple[str, ...] = ()
     required_observation_ids: tuple[str, ...] = ()
+    dependency_purpose: Literal["active", "history"] = "active"
     addresses: ReferenceAddresses | None = None
     purged: bool = False
 
@@ -56,7 +57,7 @@ class Source(Contract):
     namespace_id: str
     subject_id: str
     material_id: str
-    kind: str
+    kind: ObservationKind
     origin: dict[str, str]
     source_type: str
     source: str | None = None

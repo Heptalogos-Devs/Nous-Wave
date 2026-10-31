@@ -11,7 +11,7 @@ from .bundles import (
     PackageDescriptor,
 )
 from .cognition import CognitiveRecord, CognitiveRef
-from .common import Contract, Operation
+from .common import Contract, ObservationKind, Operation
 from .derivation import DerivedBundle
 from .imports import UnitOutput
 from .model_calls import ArchivedCall
@@ -100,7 +100,7 @@ class BundleObservation(Contract):
     namespace_id: str
     subject_id: str
     material_id: str
-    kind: Literal["import", "contact"]
+    kind: ObservationKind
     active: bool
     record: dict[str, JsonValue]
     commit_seq: int

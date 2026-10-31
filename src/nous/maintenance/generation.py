@@ -10,6 +10,7 @@ from nous_sdk.contracts.growth import GrowthDraft, GrowthProposal, GrowthSnapsho
 from nous_sdk.contracts.maintenance import CaptureMaintenanceOutput, MaintenanceRun
 
 from nous.cognition.growth_proposal import growth_model_catalog
+from nous.platform.errors import NousError
 from nous.platform.models.generation import MediaInput
 
 if TYPE_CHECKING:
@@ -65,11 +66,19 @@ async def generate_validated(
             media=tuple(media),
         )
         call_id = generated.call_id
-    except Exception:
+    except (DomainError, NousError) as error:
         attempt = await self.models.ledger.attempt(ctx, run.command.role, "maintenance:" + run.id)
-        if attempt is None or attempt.outcome is None or attempt.outcome.kind != "invalid_output":
+        details = error.details if isinstance(error, DomainError) else error.context
+        failed_call = details.get("call_id")
+        call_id = attempt.call_id if attempt is not None else failed_call
+        if not isinstance(call_id, str):
             raise
-        call_id = attempt.call_id
+        # A routed failure is retained against its physical child invocation;
+        # the successful-parent binding does not exist yet. Preserve its actual
+        # response for review without retrying the provider or changing ledger facts.
+        retained = await self.models.retained_output(ctx, call_id)
+        if retained.raw_text is None and retained.saved_output is None:
+            raise
     current = await self.read(ctx, run.id)
     captured = await self.capture_retained(
         ctx,

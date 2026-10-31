@@ -126,7 +126,18 @@ async def read_material_in(
     for dependency in value.get("required_observation_ids", ()):
         await require_observation_exists_in(view, ctx, dependency)
     required = tuple(value.get("required_source_ids", ()))
-    if required:
+    if required and value.get("dependency_purpose") == "history":
+        from .archive_dependencies import history_dependencies_in
+
+        state = await history_dependencies_in(view, ctx, required, authorize=False)
+        if state != "available":
+            raise DomainError("source_unavailable", "Archive history dependency is unavailable", state=state)
+        for group in ctx.source_groups():
+            scoped = ctx.for_source_group(group)
+            if any(source_permitted(scoped, material_id, event) for event in events):
+                continue
+            await history_dependencies_in(view, scoped, required)
+    elif required:
         from .derived_availability import dependency_availability_in
 
         state = await dependency_availability_in(

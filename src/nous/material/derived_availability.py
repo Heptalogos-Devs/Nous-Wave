@@ -136,6 +136,16 @@ async def dependency_availability_in(
     from nous.cognition.schema import revisions
 
     for material in material_rows:
+        if material.get("dependency_purpose") == "history":
+            from .archive_dependencies import history_dependencies_in
+
+            state = await history_dependencies_in(
+                view, ctx, tuple(material.get("required_source_ids", ())), authorize=False,
+                purged_observations=purged_observations, purged_cognition=purged_cognition,
+            )
+            if state != "available":
+                return state
+            continue
         for locator in material.get("required_source_ids", ()):
             kind, colon, identity = str(locator).partition(":")
             if kind in {
