@@ -16,7 +16,7 @@ from nous_sdk.contracts import (
 )
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.content import ContentLease
 from nous.platform.persistence import ReadView, WriteTx
 from nous.references import allocate_in
@@ -152,8 +152,15 @@ async def observe_in(
         )
     if sources:
         for reference in sources:
-            selected, _, _ = await self.media_source_in(tx, ctx, reference)
-            if selected["id"] != material_id:
+            if reference.kind in {"representation", "derived_region"}:
+                from .derived import DerivedService
+
+                info = await DerivedService(self.authority, self).source_in(tx, ctx, reference)
+                matches = material_id in info.material_ids
+            else:
+                selected, _, _ = await self.media_source_in(tx, ctx, reference)
+                matches = selected["id"] == material_id
+            if not matches:
                 raise DomainError(
                     "source_material_conflict", "Observation source belongs to another Material"
                 )
@@ -173,6 +180,10 @@ async def observe_in(
         "recorded_at": str(tx.recorded_at),
         "commit_seq": tx.commit_seq,
     }
+    if "validity" in document.model_fields_set:
+        value["validity"] = (
+            document.validity.model_dump(mode="json") if document.validity is not None else None
+        )
     await tx.connection.execute(
         observations.insert().values(
             id=value["id"],

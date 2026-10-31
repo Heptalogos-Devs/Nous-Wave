@@ -6,6 +6,7 @@ from fastapi import Request
 from nous_sdk.contracts import CallContext, TimePoint
 from nous_sdk.contracts.common import utc_now
 from nous_sdk.contracts.credentials import Capability
+from nous_sdk.contracts.identity import IdentityPurpose
 
 from nous.application import Application
 from nous.identity.credentials import AuthenticationError, Principal
@@ -40,9 +41,12 @@ async def context(
     subject_id: str | None = None,
     *,
     capability: Capability | None = None,
+    identity_purpose: IdentityPurpose = "active",
 ) -> CallContext:
     principal = await authorize(request, capability=capability)
     principal.require_scope(namespace_id, subject_id)
+    if identity_purpose == "management":
+        principal.require("manage")
     clock = request.headers.get("x-nous-cognitive-clock")
     if clock is not None and len(clock.encode()) > 4096:
         raise ValueError("Cognitive clock header exceeds its size limit")
@@ -59,4 +63,19 @@ async def context(
         source_constraints=source_scope.source_constraints,
     )
     bind_call_context(ctx)
+    admission = request.scope.get("nous.namespace_admission")
+    if admission is not None and namespace_id != "instance":
+        stack, admitted = admission
+        if namespace_id not in admitted:
+            await stack.enter_async_context(application(request).namespace_limits.request(ctx))
+            admitted.add(namespace_id)
+    if subject_id is not None or namespace_id != "instance":
+        from nous.identity.access import require_namespace_in, require_subject_in
+
+        if identity_purpose == "active":
+            async with application(request).authority.read(ctx) as view:
+                if subject_id is not None:
+                    await require_subject_in(view, ctx)
+                else:
+                    await require_namespace_in(view, ctx)
     return ctx

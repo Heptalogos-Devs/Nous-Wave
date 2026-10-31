@@ -35,11 +35,11 @@ from nous_sdk.contracts.facts import (
 )
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.persistence import Authority, WriteTx
 
-from . import fact_changes
-from .fact_identity import normalized, scope_identity
+from . import fact_changes, fact_migration
+from .fact_identity import conflicts_with, normalized, requested_validity, scope_identity
 from .fact_reads import claim_in, head_claim_in, heads_in, query_in, view_in
 from .graph_state import heads_in as cognitive_heads_in
 from .revision_state import RevisionState
@@ -51,7 +51,62 @@ if TYPE_CHECKING:
 
 
 class FactService:
+    async def revise_evidence_in(
+        self,
+        tx: WriteTx,
+        ctx: CallContext,
+        previous: CognitiveRecord,
+        *,
+        add: tuple[EvidenceLink, ...],
+        remove: tuple[EvidenceLink, ...],
+        reason: str,
+    ) -> CognitiveRecord:
+        from .evidence_changes import persist_in
+
+        await self.head_in(tx, ctx, previous.reference)
+        return await persist_in(
+            self.cognition, tx, ctx, previous, add=add, remove=remove, reason=reason, fact=True
+        )
+
+    migrate_person_scope_in = fact_migration.migrate_person_scope_in
     apply_in = fact_changes.apply_in
+
+    async def assert_source_in(
+        self,
+        tx: WriteTx,
+        ctx: CallContext,
+        claim: FactClaimInput,
+        origin: CognitiveRecord,
+        validity: TimeRange | None = None,
+        *,
+        validity_explicit: bool = False,
+    ) -> tuple[CognitiveRecord, ...]:
+        from nous_sdk.contracts.fact_body import FactEvidence
+
+        await self.cognition.get_in(tx, ctx, origin.reference)
+        claim = claim.model_copy(
+            update={
+                "authority": "summary_derived"
+                if claim.authority == "summary_derived"
+                else "imported"
+            }
+        )
+        evidence = EvidenceLink(reference=origin.reference)
+        spec = await self.specification_in(tx, ctx, claim)
+        candidates = await heads_in(tx, ctx, spec.scope)
+        command = FactChange(
+            action="assert",
+            claim=claim,
+            evidence=(FactEvidence(link=evidence),),
+            refresh_profile=False,
+            reason="Explicit source assertion",
+        )
+        if validity_explicit:
+            command = command.model_copy(update={"validity": validity})
+        value, changed, _ = await self.apply_in(
+            tx, ctx, command, spec, None, candidates, (), evidence, origin=origin
+        )
+        return (value, *changed)
 
     def __init__(
         self, authority: Authority, cognition: CognitionService, profiles: PersonProfileService
@@ -111,61 +166,30 @@ class FactService:
         *,
         apply_requested_validity: bool = True,
         extra_evidence: tuple[EvidenceLink, ...] = (),
+        origin: CognitiveRecord | None = None,
+        inherit_support: bool = True,
     ) -> CognitiveRecord:
         now = TimePoint(coordinate=int(datetime.fromisoformat(tx.recorded_at).timestamp() * 1000))
         times = (
             previous.times
             if previous
+            else origin.times
+            if origin
             else CognitiveTimes(formation=now, observation=now, recorded=now)
         )
-        if apply_requested_validity and "validity" in command.model_fields_set:
-            times = times.model_copy(update={"validity": command.validity})
-        if apply_requested_validity and command.validity_patch is not None:
-            if "validity" in command.model_fields_set:
-                raise DomainError(
-                    "fact_validity_ambiguous", "Choose a full validity range or a partial update"
-                )
-            patch, old = command.validity_patch, times.validity
-            if old is not None and old.domain != patch.domain:
-                raise DomainError(
-                    "fact_validity_domain",
-                    "Partial validity updates must keep the original clock domain",
-                )
+        if apply_requested_validity:
             times = times.model_copy(
-                update={
-                    "validity": TimeRange(
-                        domain=patch.domain,
-                        start=patch.start
-                        if "start" in patch.model_fields_set
-                        else old.start
-                        if old
-                        else None,
-                        end=patch.end
-                        if "end" in patch.model_fields_set
-                        else old.end
-                        if old
-                        else None,
-                    )
-                }
+                update={"validity": requested_validity(command, times.validity)}
             )
-        validity = times.validity
-        if action in {"retract", "supersede"}:
-            validity = validity or TimeRange(domain=now.domain)
-            if (
-                validity.domain == now.domain
-                and validity.end is None
-                and (validity.start is None or validity.start <= now.coordinate)
-            ):
-                times = times.model_copy(
-                    update={"validity": validity.model_copy(update={"end": now.coordinate})}
-                )
-        elif action == "restore" and validity is not None:
-            times = times.model_copy(update={"validity": validity.model_copy(update={"end": None})})
-        if action in {"assert", "reinforce", "restore"}:
+        if action in {"assert", "reinforce", "restore"} and origin is None:
             times = times.model_copy(update={"observation": now})
         body = body.model_copy(
             update={
-                "first_observed": body.first_observed if previous else now,
+                "first_observed": body.first_observed
+                if previous
+                else origin.times.observation
+                if origin
+                else now,
                 "last_confirmed": now
                 if action in {"assert", "reinforce", "restore"}
                 else body.last_confirmed,
@@ -179,7 +203,12 @@ class FactService:
                 expected_revision=previous.reference.revision if previous else 0,
                 body=body,
                 evidence=(
-                    *(previous.evidence if previous else ()),
+                    *(
+                        link
+                        if inherit_support or link.polarity != "support"
+                        else link.model_copy(update={"polarity": "boundary"})
+                        for link in (previous.evidence if previous else ())
+                    ),
                     *(
                         (
                             EvidenceLink(
@@ -204,8 +233,72 @@ class FactService:
                     parent=previous.reference if previous else None,
                 )
             ),
+            fact_owner=self,
         )
         return value
+
+    async def restore_correction_in(
+        self,
+        tx: WriteTx,
+        ctx: CallContext,
+        current: CognitiveRecord,
+        before: CognitiveRecord | None,
+        report: EvidenceLink,
+        reason: str,
+    ) -> CognitiveRecord:
+        """Undo this operation's claim transition while retaining later conflicting evidence."""
+        await self.head_in(tx, ctx, current.reference)
+        assert isinstance(current.body, FactClaimBody)
+        if before is None:
+            return await self.revise_in(
+                tx,
+                ctx,
+                current.body.model_copy(update={"status": "retracted"}),
+                current,
+                report,
+                "retract",
+                FactChange(action="retract", reason=reason),
+            )
+        assert isinstance(before.body, FactClaimBody)
+        body = before.body
+        if body.status == "active":
+            candidates = await heads_in(tx, ctx, body.scope)
+            if any(
+                candidate.reference.id != current.reference.id
+                and isinstance(candidate.body, FactClaimBody)
+                and candidate.body.status in {"active", "conflicted"}
+                and conflicts_with(
+                    candidate.body, candidate.times.validity, body, before.times.validity
+                )
+                for candidate in candidates
+            ):
+                body = body.model_copy(update={"status": "conflicted"})
+        return await self.cognition.adopt_in(
+            tx,
+            ctx,
+            AdoptCognition(
+                id=current.reference.id,
+                expected_revision=current.reference.revision,
+                body=body,
+                evidence=(
+                    *before.evidence,
+                    report,
+                    EvidenceLink(
+                        reference=current.reference, polarity="boundary", role="fact.rollback"
+                    ),
+                ),
+                times=before.times,
+            ),
+            state=RevisionState(
+                cause=RevisionCause(
+                    action="fact.rollback",
+                    actor=ctx.caller_id,
+                    reason=reason,
+                    parent=current.reference,
+                )
+            ),
+            fact_owner=self,
+        )
 
     async def change(self, ctx: CallContext, command: FactChange) -> FactChangeResult:
         document = ImportDocument(

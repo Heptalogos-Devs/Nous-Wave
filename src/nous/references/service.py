@@ -1,5 +1,7 @@
 """A directory lookup resolves identity, then delegates all visibility to its owner."""
 
+from typing import TYPE_CHECKING
+
 import sqlalchemy as sa
 from nous_sdk.contracts import (
     CallContext,
@@ -8,18 +10,31 @@ from nous_sdk.contracts import (
     DomainError,
     MediaReference,
 )
-from nous_sdk.contracts.context import CognitiveTarget, ContextTarget, MediaTarget
-from nous_sdk.contracts.references import ObjectTarget, ReferenceResolution, SemanticTarget
+from nous_sdk.contracts.context import CognitiveTarget, MediaTarget
+from nous_sdk.contracts.references import (
+    EvidenceTarget,
+    ObjectTarget,
+    ObservationTarget,
+    ReferenceResolution,
+    ResolvedTarget,
+    ResourceTarget,
+    SemanticTarget,
+)
+from nous_sdk.contracts.source_objects import EvidenceReference, ObservationReference
 from pydantic import JsonValue, TypeAdapter
 
 from nous.cognition.schema import revisions
 from nous.cognition.service import CognitionService
-from nous.identity.service import subjects
+from nous.identity.schema import subjects
 from nous.material.service import MaterialService, materials, regions
 from nous.platform.persistence import Authority, ReadView, WriteTx
 
+from . import source_objects
 from .allocation import addresses_in, recover_in, validate_address
 from .schema import addresses, imported
+
+if TYPE_CHECKING:
+    from nous.data_management.resources import ResourceService
 
 _TARGET = TypeAdapter(SemanticTarget)
 
@@ -47,10 +62,22 @@ async def _head_in(
 
 
 class ReferenceDirectory:
+    observation_records_in = source_objects.observation_records_in
+    evidence_records_in = source_objects.evidence_records_in
+    read_source_object_in = source_objects.read_source_object_in
+    require_source_object_in = source_objects.require_source_object_in
+
     def __init__(
-        self, authority: Authority, cognition: CognitionService, materials: MaterialService
+        self,
+        authority: Authority,
+        cognition: CognitionService,
+        materials: MaterialService,
+        *,
+        resources: ResourceService | None = None,
     ) -> None:
         self.authority, self.cognition, self.materials = authority, cognition, materials
+        self.derivations = cognition.derivations
+        self.resources = resources
 
     async def _resolve_target(
         self,
@@ -59,7 +86,7 @@ class ReferenceDirectory:
         target: SemanticTarget,
         as_of_commit: int | None,
         as_of_time: int | None = None,
-    ) -> ContextTarget:
+    ) -> ResolvedTarget:
         if isinstance(target, ObjectTarget):
             statement = sa.select(revisions.c.record).where(
                 revisions.c.namespace_id == ctx.namespace_id,
@@ -85,6 +112,32 @@ class ReferenceDirectory:
             ):
                 raise DomainError(
                     "reference_not_found", "Reference is outside recorded-time history"
+                )
+        elif isinstance(target, ResourceTarget):
+            if self.resources is None:
+                raise DomainError(
+                    "resource_directory_unavailable", "External resource directory is unavailable"
+                )
+            record = await self.resources.get_in(
+                view, ctx, target.reference.id, target.reference.revision
+            )
+            if as_of_commit is not None and record.commit_seq > as_of_commit:
+                raise DomainError(
+                    "reference_not_found", "Resource is outside the requested history"
+                )
+            if as_of_time is not None and record.times.recorded.coordinate > as_of_time:
+                raise DomainError(
+                    "reference_not_found", "Resource is outside recorded-time history"
+                )
+        elif isinstance(target, (ObservationTarget, EvidenceTarget)):
+            source = await self.read_source_object_in(view, ctx, target.reference)
+            if as_of_commit is not None and source.commit_seq > as_of_commit:
+                raise DomainError(
+                    "reference_not_found", "Source object is outside the requested history"
+                )
+            if as_of_time is not None and source.times.recorded.coordinate > as_of_time:
+                raise DomainError(
+                    "reference_not_found", "Source object is outside recorded-time history"
                 )
         elif target.reference.kind == "material":
             await self.materials.read_in(view, ctx, target.reference.id)
@@ -112,6 +165,38 @@ class ReferenceDirectory:
             )
         if ":" in locator:
             kind, identity = locator.split(":", 1)
+            if kind == "resource":
+                if self.resources is None:
+                    raise DomainError(
+                        "resource_directory_unavailable",
+                        "External resource directory is unavailable",
+                    )
+                record = await self.resources.resolve_in(view, ctx, locator, as_of_commit)
+                target = ResourceTarget(reference=record.reference)
+                await self._resolve_target(view, ctx, target, as_of_commit, as_of_time)
+                return ReferenceResolution(
+                    namespace_id=ctx.namespace_id,
+                    subject_id=ctx.require_subject(),
+                    reference=target,
+                )
+            if kind in {"observation", "evidence"}:
+                if kind == "observation":
+                    object_id, mark, version = identity.rpartition("@")
+                    if mark and version != "1":
+                        raise DomainError(
+                            "invalid_reference", "Observation references have one immutable version"
+                        )
+                    target = ObservationTarget(
+                        reference=ObservationReference(id=object_id if mark else identity)
+                    )
+                else:
+                    target = EvidenceTarget(reference=EvidenceReference(id=identity))
+                await self._resolve_target(view, ctx, target, as_of_commit, as_of_time)
+                return ReferenceResolution(
+                    namespace_id=ctx.namespace_id,
+                    subject_id=ctx.require_subject(),
+                    reference=target,
+                )
             if kind in {
                 "material",
                 "source-region",
@@ -186,7 +271,7 @@ class ReferenceDirectory:
         encoded = set((await view.connection.execute(local)).scalars()) | set(
             (await view.connection.execute(inherited)).scalars()
         )
-        matches: dict[str, ContextTarget] = {}
+        matches: dict[str, ResolvedTarget] = {}
         for value in encoded:
             try:
                 target = await self._resolve_target(
@@ -216,7 +301,9 @@ class ReferenceDirectory:
             namespace_id=ctx.namespace_id,
             subject_id=ctx.require_subject(),
             reference=resolved,
-            addresses=await addresses_in(view, ctx, resolved.reference),
+            addresses=await addresses_in(view, ctx, resolved.reference)
+            if isinstance(resolved, (CognitiveTarget, MediaTarget))
+            else None,
         )
 
     async def resolve(

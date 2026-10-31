@@ -21,6 +21,7 @@ from nous.material.derived import DerivedService
 from nous.material.service import MaterialService
 from nous.platform.configuration.service import ConfigurationService
 from nous.platform.execution import JobSpec
+from nous.platform.models.embedding_profile import EmbeddingProfile
 from nous.platform.persistence import Authority, WriteTx
 from nous.platform.persistence.authority import canonical_json
 
@@ -31,6 +32,33 @@ from .schema import claims, contents, requests, subscriptions
 
 
 class VectorProjectionService:
+    async def source_jobs(self, ctx: CallContext, targets: tuple[Target, ...]) -> tuple[str, ...]:
+        async with self.authority.read(ctx) as view:
+            for target in targets:
+                if isinstance(target, CognitiveRef):
+                    await self.cognition.get_in(view, ctx, target)
+                else:
+                    await self.materials.provenance_in(
+                        view, ctx, target, derivations=self.derivations
+                    )
+            values = (
+                await view.connection.execute(
+                    select(requests.c.record).where(
+                        requests.c.namespace_id == ctx.namespace_id,
+                        requests.c.subject_id == ctx.subject_id,
+                    )
+                )
+            ).scalars()
+            selected = {target.exact() for target in targets}
+            result: list[str] = []
+            for value in values:
+                request = Request.model_validate(value)
+                if not request.purged and any(
+                    target.exact() in selected for target in request.targets
+                ):
+                    result.append(request.job_id)
+            return tuple(result)
+
     run = worker.run
     prepare = worker.prepare
     adopt = worker.adopt
@@ -75,6 +103,15 @@ class VectorProjectionService:
             )
         if not selectable(record):
             return
+        if record.reference.kind == "association":
+            from nous_sdk.contracts.namespace_policy import NamespaceFeatures
+
+            from nous.platform.configuration.namespace_policy import policy_in
+
+            if not (
+                await policy_in(tx, ctx, "namespace.features", NamespaceFeatures)
+            ).relation_vectors:
+                return
         policy = self._policies.get(tx)
         if policy == "disabled":
             return
@@ -93,6 +130,8 @@ class VectorProjectionService:
         targets: tuple[Target, ...],
         *,
         head_only: bool = False,
+        replace_existing: bool = False,
+        profile: EmbeddingProfile | None = None,
     ) -> ProjectionReceipt:
         if tx.authority is not self.authority or tx.replayed:
             raise ValueError("Projection admission requires the actual authority write")
@@ -116,7 +155,7 @@ class VectorProjectionService:
                 .values(record=request.model_dump(mode="json"))
             )
         else:
-            profile = await self.models.prepare_embedding(ctx)
+            profile = profile or await self.models.prepare_embedding(ctx)
             job = await tx.enqueue(
                 JobSpec(
                     workflow_name="nous.vectors.project",
@@ -132,6 +171,8 @@ class VectorProjectionService:
                 profile=profile,
                 head_only=head_only,
                 job_id=job.workflow_id,
+                replace_existing=replace_existing,
+                admitted_commit=tx.commit_seq,
             )
             await tx.connection.execute(
                 requests.insert().values(
@@ -151,10 +192,11 @@ class VectorProjectionService:
         operation_id: str,
     ) -> ProjectionResult:
         receipt = await self.submit(ctx, ProjectVectors(operation_id=operation_id, targets=targets))
-        return ProjectionResult.model_validate(await self.execution().wait(ctx, receipt.job_id))
+        request = await self.read_request(receipt.request_id)
+        return ProjectionResult.model_validate(await self.execution().wait(ctx, request.job_id))
 
     async def submit(self, ctx: CallContext, command: ProjectVectors) -> ProjectionReceipt:
-        from nous.identity.service import require_subject_in
+        from nous.identity.access import require_subject_in
 
         async with self.authority.write(
             ctx,
@@ -185,15 +227,20 @@ class VectorProjectionService:
             raise DomainError("source_purged", "Projection inputs were permanently erased")
         return request
 
-    async def missing(
-        self, ctx: CallContext, targets: tuple[CognitiveRef, ...]
-    ) -> tuple[CognitiveRef, ...]:
-        profile = await self.models.prepare_embedding(ctx)
-        missing: list[CognitiveRef] = []
+    async def missing[Selected: Target](
+        self,
+        ctx: CallContext,
+        targets: tuple[Selected, ...],
+        *,
+        head_only: bool = True,
+        profile: EmbeddingProfile | None = None,
+    ) -> tuple[Selected, ...]:
+        profile = profile or await self.models.prepare_embedding(ctx)
+        missing: list[Selected] = []
         async with self.authority.read(ctx) as view:
             for target in targets:
                 value = await resolve_input(
-                    self, view, ctx, target, profile.resource_key(), head_only=True
+                    self, view, ctx, target, profile.resource_key(), head_only=head_only
                 )
                 if value is not None:
                     content = await retained_content_in(self, view, ctx, target, value, profile)

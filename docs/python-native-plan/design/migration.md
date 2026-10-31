@@ -6,7 +6,39 @@ Python 应用拥有认知、来源和事务权威；同进程 native 只使用�
 
 材料原件、输入目录、冻结 Unit、真实 Import Observation、UnitOutput、文件成功事实和后台 Job 各自保留身份。`UnitOutput` 指向实际 Observation；文件成功由实际 Unit 和 Output 的完成事实确定。文件去重按 scope、origin、policy、key、内容与仍可用结果判断，已接纳的成果可以跨作业复用。恢复历史成果不创建未发生的 Job 或模型调用。
 
+`ImportDocument` 接受 text、markdown、html、pdf、json、jsonl、media、parquet、sqlite 和 graphml。SDK 文件及目录导入按文件类型上传原件；media 使用现有图像、GIF、音频和视频解释路径，`media_strategy` 可选择 native、description 或 description_then_native。HTML 由 Trafilatura 提取正文与表格；PDF 从已上传原件逐页读取文本层。提取结果保存在正式 `DerivedRepresentation`，Unit 的 `source` 指向精确派生片段，原始 HTML 或 PDF 页面另有原件区域。无文本层的 PDF 页保留页面 Unit，处理时通过已配置的媒体模型形成转写和描述，付费结果继续保存在同一派生表示体系。关闭模型处理时，扫描页返回需要 OCR 的具体错误。
+
+Parquet 由 PyArrow 分批读取，GraphML 由 NetworkX 读取；MaiBot SQLite 在调用端通过 SQLite backup 捕获一致快照，再上传原件。原始记录中的明确实体、三元组和 Fact 分别交给原生形成、图和 Fact owner，来源外部标识按数据集限定。导入的向量保留在原件并检查其格式与维度，目标向量由当前受信模型路线生成。数据集导入使用 SDK `import_dataset`、CLI `nous dataset import`、MCP `import_dataset`；`export_bundle` 完成后返回可下载的原生 Bundle。A-Memorix 的 OpenIE、LPMM 转换和 MaiBot 迁移入口使用同一目录与持久任务。`backfill_source_times`／`nous dataset source-times` 只从已保存的明确时间字段补齐未知时间，可先预览。
+
+LPMM `graph_structure.pkl` 在迁移边界作为原始归档上传。受限读取仅接受 NetworkX 的四种正式图类、其缓存视图和必要集合类型，再通过 NetworkX 转换为标准 GraphML；未知全局对象和外部对象引用直接拒绝。原 pickle 保留为不可变材料，转换后的 GraphML 依赖该原件，并进入同一目录、来源生命周期与 Bundle。
+
+实际接触使用 `ImportService.contact`，HTTP 为 Subject 下的 `materials/contact`，SDK 为 `contact(namespace_id, subject_id, ContactMaterial(...))`。消费者身份来自已授权请求上下文。相同调用者、主体和 `external_event_id` 返回同一次 Observation；再次阅读使用新的外部事件身份，原件字节和证据根继续复用。文本接触产生 experiential Memory，资料上传只保留可访问原件，知识导入产生 declarative Memory。`form_long_term` 为实际接触提交持久形成任务；原始媒体复用媒体 owner 的解释与采纳路径，`media_strategy` 控制解释方式，形成的 Memory 保留本次接触身份。形成事务调用统一成长入口。`related` 指定本次接触的认知上下文，重新授权后随接触保存并交给成长入口。
+
+原件、派生表示和派生片段统一通过材料 owner 的 `accepted_source_in` 读取接纳时的来源；延后形成、接触重放和查询均重新核验同一精确选择及其权限。处理 origin 变化时，新的 Observation 保留前一次接纳身份，延后形成继续读取原来选定的材料。
+
+A-Memorix `image_memory` 的 `ingest`、`describe`、`observe`、`search`、`get`、`list`、`list_chats`、`status` 和来源维护使用同一原生材料、接触、派生表示、Memory 与来源 owner。SDK 的 `image_bytes` 先上传原件，相同字节复用上传操作，每个 `external_ref` 保留一次真实接触。接触中的原始用户陈述保存在 `ContactMaterial.statement`；主机描述保留实际外部输入，并形成带来源的图像描述表示。`supersedes_id` 通过 Memory owner 创建新修订。SHA-256 使用原件身份，旧 MD5 查询从已授权原件字节计算。检索保留原生实际分数，排除当前 occurrence，并应用聊天范围与共同来源权限。图像向量复用既有持久投影队列；要求向量完成时等待其实际结果。CLI 入口为 `nous media image`，MCP 与 SDK 使用相同合同。
+
+`link`／`unlink` 修改目标认知的正式 Evidence，返回的链接身份是精确目标修订与证据序号；Fact 的证据变化由 Fact owner 执行。`jobs`、`retry_failed_jobs` 和 `process_jobs` 按已授权来源选择原有形成与向量作业，共用执行平台的分页、恢复及等待。bytes 和 base64 可用于上传与检索。
+
+主机模型描述按每次实际 Contact 保存。需要主机继续生成聊天摘要时，材料 owner 的描述投递 outbox 记录精确 Contact 与描述修订；`claim_description_compensations` 原子领取租约，`complete_description_compensation` 核验租约及真实来源后保存结果。未完成租约到期后可重新领取，失败次数和租约时长由实例 `media` 配置控制。材料及认知清除会删除相关投递；Namespace 复制重新授权引用并清除旧安装租约。
+
+`describe(content_hash, text)` 可以先于原件到达。材料 owner 先保存实际外部报告及其声明的哈希和聊天范围；此时 Image 目录仍无原件或 Contact。原件实际接触后，校验真实 SHA-256 或旧 MD5、来源授权与聊天范围，再绑定派生描述、Memory 和投递。报告与 Contact 的提交后读取共同处理到达次序；重复报告和并发绑定复用已有实际关系。报告撤回后停止绑定，永久清除后移除对应未绑定记录和投递。
+
+`ImportDocument` 与结构化 `ImportRecord` 接受独立的 `event_time`、`observed_at` 和 `validity`。记录级显式值覆盖文档默认值；显式 `validity=null` 保留未知适用范围，省略该字段则允许形成时推断。接纳、冻结 Unit、文本与媒体形成共同保留这些区别，实际记录时间由本次事务确定。相同正文带有不同显式时间输入时分别处理。
+
 来源撤回按实际支持关系影响认知，剩余独立来源决定对象是否继续有效。恢复和清除通过各数据 owner 更新认知、派生内容、上下文和索引；备份或 Bundle 不应重新引入已清除的正文。无 offset 的日期保留实际精度及时间域，不由导入调用者补猜 UTC。
+
+纠错的新正文由本次实际支持来源支撑，旧正文及其支持保存为历史边界。传入 `PlanCorrection.supports` 时，操作说明仅记录纠错意图；直接用户纠正可由该次实际用户输入支撑。撤回纠正来源会使依赖它的新正文失效，历史修订仍可精确追踪。回滚恢复原修订的实际支持关系，纠错操作说明只留在谱系中。Fact 内容变更由 Fact owner 负责；共同生命周期可对相同内容更新状态。
+
+Fact 的无引用断言按正文和精确适用窗口确认已有 claim；同一事实在不同窗口保留独立 current 对象及各自支持。冲突只发生在内容不同且适用期重叠的 claim 之间；不同时间域保留各自的适用判断。撤回和恢复改变认知状态，保持原适用窗口；明确修改有效期使用 Fact 操作。实体合并和拆分按同一窗口规则迁移归属。
+
+## Namespace 配置与配额
+
+Namespace 模型选择写入现有 `models` 配置的 Namespace 覆盖。A-Memorix 的 provider 引用仅选择实例已注册的兼容路由；`secret_ref` 可校验既有凭据引用。身份解析和消息来源使用已保存身份、Observation 的 `native` provider。Namespace 创建、配置和 memory Subject 绑定在同一事务提交，配置更新可指定 `expected_config_version`。
+
+`namespace.features` 控制 Episode、人物画像、稀疏检索、关系向量和导入时的无向量完成策略；关闭稀疏检索后，混合查询使用语义候选并停止词法降级。`formation` 保存原生形成开关、默认值、词汇及数量限制和实际字符切分限制；当前注册的形成 profile 为 `native`。旧 A-Memorix `form_memory` 配置按其原有作用域迁入 `formation.default_enabled`。
+
+`namespace.quota` 默认无上限，写入需要实例管理权限。请求并发额度由同一 Namespace 的实际 HTTP、SDK、CLI、MCP 和 RPC 请求共享。存储额度在 Authority 提交时检查，计量 Namespace 的原件、Observation、片段、认知修订、外部资源和主体身份的逻辑记录，以及按内容哈希去重的原件字节。使用量同时返回各项组成。共享派生表示、模型调用事实、操作收据、Job、导入工作集、索引和 SQLite 开销单独列为额度外空间；超额用户数据提交回滚，已保存的模型结果和操作历史保留。
 
 ## 数据移动
 

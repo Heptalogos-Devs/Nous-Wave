@@ -38,3 +38,11 @@ subscriptions = Table(
     Column("reference", String, primary_key=True),
     Column("content_key", String, nullable=False, index=True),
 )
+
+space_retirements = Table(
+    "vector_space_retirements", metadata,
+    Column("namespace_id", String, primary_key=True),
+    Column("space_id", String, primary_key=True),
+    Column("commit_seq", Integer, nullable=False),
+    Column("reason", String, nullable=False),
+)

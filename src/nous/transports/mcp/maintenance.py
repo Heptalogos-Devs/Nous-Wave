@@ -5,7 +5,9 @@ from contextlib import AbstractAsyncContextManager
 
 from nous_sdk import NousClient
 from nous_sdk.contracts.maintenance import (
+    CaptureMaintenanceOutput,
     CreateMaintenanceSchedule,
+    EditMaintenanceProposal,
     ReviewMaintenance,
     StartMaintenance,
 )
@@ -20,6 +22,24 @@ def register_maintenance(
     namespace_id: str,
     subject_id: str,
 ) -> None:
+    @server.tool()
+    async def capture_maintenance_output(
+        run_id: str, command: CaptureMaintenanceOutput
+    ) -> JsonObject:
+        """Read a retained model response into reviewable groups without invoking a model."""
+        async with client() as api:
+            return (
+                await api.capture_maintenance_output(namespace_id, subject_id, run_id, command)
+            ).model_dump(mode="json")
+
+    @server.tool()
+    async def edit_maintenance(run_id: str, command: EditMaintenanceProposal) -> JsonObject:
+        """Compile an explicit human edit, preserving the original paid response and adopted groups."""
+        async with client() as api:
+            return (
+                await api.edit_maintenance(namespace_id, subject_id, run_id, command)
+            ).model_dump(mode="json")
+
     @server.tool()
     async def start_maintenance(command: StartMaintenance) -> JsonObject:
         """Freeze supported knowledge and generate a reviewable proposal through the configured model.
@@ -53,10 +73,9 @@ def register_maintenance(
 
     @server.tool()
     async def review_maintenance(run_id: str, command: ReviewMaintenance) -> JsonObject:
-        """Explicitly adopt all proposed actions atomically, or reject, using expected_revision.
+        """Adopt selected ready groups and their prerequisites, or reject, using expected_revision.
 
-        Exact evidence, local references, current revision and Journal knowledge
-        cutoff are checked by the cognition owner; no partial adoption is reported.
+        Independent failed groups remain readable and editable; each coupled group is atomic.
         """
         async with client() as api:
             return (

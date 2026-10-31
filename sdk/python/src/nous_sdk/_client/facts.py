@@ -16,7 +16,9 @@ class FactClient(ClientCore):
             await self.request(
                 "POST",
                 self.subject_path(namespace_id, subject_id) + "/facts/change",
-                body=command.model_dump(mode="json", exclude_unset=True),
+                body=command.model_dump(
+                    mode="json", include=command.model_fields_set | {"operation_id"}
+                ),
             )
         )
 

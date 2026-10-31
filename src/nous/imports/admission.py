@@ -20,14 +20,13 @@ from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import delete, select, update
 
 from nous.cognition.schema import revisions, vectors
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.material.service import require_observation_in
 from nous.platform.content import ContentLease
 from nous.platform.execution import JobSpec
 from nous.platform.persistence import ReadView, WriteTx
 
 from .schema import inputs, manifest, outputs, requests, successes, units
-from .splitting import split_text
 
 if TYPE_CHECKING:
     from .service import ImportService
@@ -44,9 +43,13 @@ def manifest_key(
 ) -> str:
     digest = content_hash or sha256(document.inline_text().encode()).hexdigest()
     key = document.file_identity if policy == "manifest" and document.file_identity else digest
+    temporal = document.model_dump(
+        mode="json", include={"event_time", "observed_at", "validity"}, exclude_unset=True
+    )
     return sha256(
         json.dumps(
             [ctx.namespace_id, ctx.subject_id, document.origin, policy, key]
+            + ([{"times": temporal}] if temporal else [])
             + (
                 [{"deferred_formation": True, "llm_enabled": llm_enabled}]
                 if deferred_formation
@@ -167,13 +170,9 @@ async def accept_admit(
     if receipt is not None:
         return TypeAdapter(dict[str, JsonValue]).validate_python(receipt.result)
     prepared = [await self.prepare_document(ctx, document) for document in command.inputs]
-    split = [
-        [
-            split_text(parsed.record.text, command) if parsed.record else []
-            for parsed in item.records
-        ]
-        for item in prepared
-    ]
+    from .document_extraction import chunks_for
+
+    split = [[chunks_for(parsed, command) for parsed in item.records] for item in prepared]
     leases: list[ContentLease | None] = []
     try:
         for item in prepared:
@@ -194,6 +193,13 @@ async def accept_admit(
             if tx.replayed:
                 return TypeAdapter(dict[str, JsonValue]).validate_python(tx.replay_result)
             await require_subject_in(tx, ctx, "memory")
+            from nous_sdk.contracts.namespace_policy import NamespaceFeatures
+
+            from nous.platform.configuration.namespace_policy import policy_in
+
+            features = await policy_in(tx, ctx, "namespace.features", NamespaceFeatures)
+            if not features.allow_metadata_only_write:
+                command = command.model_copy(update={"vectors": "required"})
             if command.clear_manifest:
                 origins = [document.origin for document in command.inputs]
                 all_heads = (

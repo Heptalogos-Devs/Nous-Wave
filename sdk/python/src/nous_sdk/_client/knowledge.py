@@ -13,9 +13,30 @@ from ..contracts import (
     MediaReference,
     QueryRequest,
     QueryResult,
+    ReadRecords,
+    RecordDetail,
+    RecordPurpose,
+    RecordsPage,
+    RecordsQuery,
     TimeFilter,
 )
-from ..contracts.references import ReferenceResolution
+from ..contracts.corrections import (
+    ApplyCorrection,
+    CorrectionPlan,
+    CorrectionPlansPage,
+    CorrectionPlansQuery,
+    CorrectionResult,
+    PlanCorrection,
+    RollbackCorrection,
+)
+from ..contracts.references import ExactReference, ReferenceResolution
+from ..contracts.resources import (
+    ChangeResource,
+    ReadResource,
+    RegisterResource,
+    ResourcePage,
+    ResourceRecord,
+)
 from ..errors import NousError
 from ..operations import encoded, object_value, segment
 from ..source_scope import SourceReadScope
@@ -31,6 +52,159 @@ from .imports import ImportClient
 
 
 class KnowledgeClient(ImportClient):
+    async def register_resource(
+        self, namespace_id: str, subject_id: str, command: RegisterResource
+    ) -> ResourceRecord:
+        return ResourceRecord.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/resources",
+                body=encoded(command),
+            )
+        )
+
+    async def resources(
+        self, namespace_id: str, subject_id: str, *, cursor: str | None = None, limit: int = 100
+    ) -> ResourcePage:
+        return ResourcePage.model_validate(
+            await self.request(
+                "GET",
+                self.subject_path(namespace_id, subject_id) + "/resources",
+                params={"cursor": cursor, "limit": limit},
+            )
+        )
+
+    async def resource(
+        self, namespace_id: str, subject_id: str, resource_id: str, *, revision: int | None = None
+    ) -> ResourceRecord:
+        return ResourceRecord.model_validate(
+            await self.request(
+                "GET",
+                self.subject_path(namespace_id, subject_id) + "/resources/" + segment(resource_id),
+                params={"revision": revision},
+            )
+        )
+
+    async def read_resource(
+        self, namespace_id: str, subject_id: str, command: ReadResource
+    ) -> ResourceRecord:
+        return ResourceRecord.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/resources/read",
+                body=encoded(command),
+            )
+        )
+
+    async def change_resource(
+        self, namespace_id: str, subject_id: str, command: ChangeResource
+    ) -> ResourceRecord:
+        return ResourceRecord.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/resources/change",
+                body=encoded(command),
+            )
+        )
+
+    async def plan_correction(
+        self, namespace_id: str, subject_id: str, command: PlanCorrection
+    ) -> CorrectionPlan:
+        return CorrectionPlan.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/corrections/plan",
+                body=encoded(command),
+            )
+        )
+
+    async def apply_correction(
+        self, namespace_id: str, subject_id: str, command: ApplyCorrection
+    ) -> CorrectionResult:
+        return CorrectionResult.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/corrections/apply",
+                body=encoded(command),
+            )
+        )
+
+    async def rollback_correction(
+        self, namespace_id: str, subject_id: str, command: RollbackCorrection
+    ) -> CorrectionResult:
+        return CorrectionResult.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/corrections/rollback",
+                body=encoded(command),
+            )
+        )
+
+    async def correction_plan(
+        self, namespace_id: str, subject_id: str, plan_id: str
+    ) -> CorrectionPlan:
+        return CorrectionPlan.model_validate(
+            await self.request(
+                "GET",
+                self.subject_path(namespace_id, subject_id) + "/corrections/" + segment(plan_id),
+            )
+        )
+
+    async def correction_plans(
+        self, namespace_id: str, subject_id: str, query: CorrectionPlansQuery | None = None
+    ) -> CorrectionPlansPage:
+        query = query or CorrectionPlansQuery()
+        return CorrectionPlansPage.model_validate(
+            await self.request(
+                "GET",
+                self.subject_path(namespace_id, subject_id) + "/corrections",
+                params={"cursor": query.cursor, "limit": query.limit},
+            )
+        )
+
+    async def records(
+        self, namespace_id: str, subject_id: str, command: RecordsQuery
+    ) -> RecordsPage:
+        return RecordsPage.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/records/query",
+                body=encoded(command),
+            )
+        )
+
+    async def read_records(
+        self, namespace_id: str, subject_id: str, command: ReadRecords
+    ) -> tuple[CognitiveRecord, ...]:
+        return TypeAdapter(tuple[CognitiveRecord, ...]).validate_python(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/records/read",
+                body=encoded(command),
+            )
+        )
+
+    async def record_detail(
+        self,
+        namespace_id: str,
+        subject_id: str,
+        reference: CognitiveRef,
+        *,
+        history_limit: int = 100,
+        purpose: RecordPurpose = "exact",
+    ) -> RecordDetail:
+        return RecordDetail.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/records/detail",
+                body={
+                    "reference": encoded(reference),
+                    "history_limit": history_limit,
+                    "purpose": purpose,
+                },
+            )
+        )
+
     async def reconcile_references(
         self, namespace_id: str, *, subject_id: str | None = None, operation_id: str | None = None
     ) -> dict[str, int]:
@@ -161,7 +335,7 @@ class KnowledgeClient(ImportClient):
     async def source(
         self,
         subject_id: str,
-        reference: CognitiveRef | MediaReference | str,
+        reference: ExactReference | str,
         *,
         observation_id: str | None = None,
     ) -> JsonObject:
@@ -187,7 +361,7 @@ class KnowledgeClient(ImportClient):
     async def resolve_reference(
         self,
         subject_id: str,
-        reference: CognitiveRef | MediaReference | str,
+        reference: ExactReference | str,
         *,
         as_of_commit: int | None = None,
     ) -> ReferenceResolution:

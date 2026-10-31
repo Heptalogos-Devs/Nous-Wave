@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pydantic import JsonValue, TypeAdapter
+from pydantic import TypeAdapter
 
 from nous.platform.persistence import WriteTx
 
 from .evolution_validation import validate_merge, validate_split
+from .identity_migration import migrate_current_in
 
 if TYPE_CHECKING:
     from .service import CognitionService
@@ -17,11 +18,7 @@ from nous_sdk.contracts import (
     AdoptCognition,
     CallContext,
     CognitiveRecord,
-    CognitiveRef,
     ConceptBody,
-    ConcernBody,
-    DesireBody,
-    DesiredCondition,
     DomainError,
     EpisodeBody,
     EvidenceLink,
@@ -69,6 +66,7 @@ async def merge_concepts_in(
         for record in records
         if isinstance(record.body, ConceptBody)
         for ref in record.body.members
+        if ref.id not in {item.reference.id for item in records}
     }
     body = target.body.model_copy(
         update={
@@ -115,6 +113,16 @@ async def merge_concepts_in(
                 ),
             )
         )
+    result.extend(
+        await migrate_current_in(
+            self,
+            tx,
+            ctx,
+            {record.reference.id: merged.reference for record in records},
+            command.reason,
+            exclude=frozenset(record.reference.id for record in records),
+        )
+    )
     return tuple(result)
 
 
@@ -167,6 +175,7 @@ async def split_concept_in(
             "lineage": (source.reference,),
         }
     )
+    replacements = tuple(record.reference for record in result)
     result.append(
         await self.adopt_in(
             tx,
@@ -178,6 +187,23 @@ async def split_concept_in(
                 evidence=(EvidenceLink(reference=source.reference, role=command.reason),),
                 times=source.times,
             ),
+        )
+    )
+    result.extend(
+        await migrate_current_in(
+            self,
+            tx,
+            ctx,
+            {source.reference.id: replacements[0]},
+            command.reason,
+            exclude=frozenset({source.reference.id, *(ref.id for ref in replacements)}),
+            partitions=replacements,
+            assignments=command.consumers,
+            member_partitions={
+                member.id: index
+                for index, part in enumerate(command.partitions)
+                for member in part.members
+            },
         )
     )
     return tuple(result)
@@ -255,39 +281,3 @@ async def resegment_episodes_in(
             )
         )
     return tuple(result)
-
-
-async def assess_motivation(
-    self: CognitionService, ctx: CallContext, reference: CognitiveRef
-) -> dict[str, JsonValue]:
-    record = await self.get(ctx, reference)
-    if not isinstance(record.body, (DesireBody, ConcernBody)):
-        raise DomainError("motivation_required", "Assessment requires Desire or Concern")
-
-    def evaluate(condition: DesiredCondition) -> str:
-        if condition.hold is not None and not condition.hold.contains(ctx.clock):
-            return "unknown"
-        if condition.operator == "predicate":
-            return condition.state
-        children = [evaluate(child) for child in condition.children]
-        if condition.operator == "not":
-            return {"true": "false", "false": "true", "unknown": "unknown"}[children[0]]
-        if condition.operator == "all":
-            return (
-                "false" if "false" in children else "unknown" if "unknown" in children else "true"
-            )
-        return "true" if "true" in children else "unknown" if "unknown" in children else "false"
-
-    state = evaluate(record.body.condition)
-    mode = record.body.condition.mode
-    satisfaction = (
-        "unknown"
-        if state == "unknown"
-        else ("true" if (state == "true") == (mode in {"achieve", "maintain"}) else "false")
-    )
-    return {
-        "reference": reference.model_dump(mode="json"),
-        "state": state,
-        "satisfaction": satisfaction,
-        "mode": mode,
-    }

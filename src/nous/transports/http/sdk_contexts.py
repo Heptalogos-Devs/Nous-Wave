@@ -6,6 +6,8 @@ from nous_sdk.contracts.context import (
     ChangeResidents,
     ChangeWorkContext,
     ContextAdmissionCommand,
+    ContextModelCall,
+    ContextModelPreview,
     ContextPrepare,
     ContextReport,
     ContextTrack,
@@ -17,6 +19,24 @@ from .sdk_common import OperationIdentity
 from .security import application, context
 
 router = APIRouter()
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/contexts/model-preview")
+async def preview_model(
+    request: Request, namespace_id: str, subject_id: str, command: ContextModelPreview
+):
+    return await application(request).contexts.preview_model(
+        await context(request, namespace_id, subject_id), command
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/contexts/model-invocations")
+async def invoke_model(
+    request: Request, namespace_id: str, subject_id: str, command: ContextModelCall
+):
+    return await application(request).contexts.invoke_model(
+        await context(request, namespace_id, subject_id), command
+    )
 
 
 @router.post("/namespaces/{namespace_id}/subjects/{subject_id}/contexts/source")

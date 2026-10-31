@@ -25,7 +25,9 @@ from nous_sdk.contracts import (
     SourceRegion,
     SplitConcept,
 )
+from nous_sdk.contracts.dataset_imports import BackfillSourceTimes, ImportDataset
 from nous_sdk.contracts.lifecycle import MemoryChange
+from nous_sdk.contracts.records import ReadRecords, RecordsQuery
 from nous_sdk.contracts.vector_projection import ProjectVectors
 from nous_sdk.operations import encoded, segment
 from pydantic import JsonValue, TypeAdapter
@@ -34,12 +36,37 @@ from .common import invoke, read_command, read_json
 
 
 def register(cli: typer.Typer) -> None:
+    from .resources import register as register_resources
+
+    register_resources(cli)
+    from .corrections import register as register_corrections
+
+    register_corrections(cli)
     from .episodes import register as register_episodes
 
     register_episodes(cli)
     from .facts import register as register_facts
 
     register_facts(cli)
+
+    dataset = typer.Typer(help="Import captured datasets and recover explicit source times.")
+    cli.add_typer(dataset, name="dataset")
+
+    @dataset.command("import")
+    def import_dataset(
+        ctx: typer.Context, namespace_id: str, subject_id: str, request: Path
+    ) -> None:
+        """Submit an ImportDataset request referring to uploaded source originals."""
+        command = read_command(request, ImportDataset)
+        invoke(ctx, lambda api: api.import_dataset(namespace_id, subject_id, command))
+
+    @dataset.command("source-times")
+    def backfill_source_times(
+        ctx: typer.Context, namespace_id: str, subject_id: str, request: Path
+    ) -> None:
+        """Recover missing times from actual stored source fields."""
+        command = read_command(request, BackfillSourceTimes)
+        invoke(ctx, lambda api: api.backfill_source_times(namespace_id, subject_id, command))
 
     @cli.command("project-vectors")
     def project_vectors(ctx: typer.Context, namespace: str, subject: str, request: Path) -> None:
@@ -49,6 +76,9 @@ def register(cli: typer.Typer) -> None:
 
     namespace = typer.Typer(help="Namespace directory and creation.", no_args_is_help=False)
     subject = typer.Typer(help="Subject ownership and capabilities.", no_args_is_help=False)
+    from .identities import register as register_identities
+
+    register_identities(namespace, subject)
     source = typer.Typer(help="Original sources and their lifecycle.", no_args_is_help=False)
     catalog = typer.Typer(help="Freeze and process input catalogs.", no_args_is_help=False)
     cognition = typer.Typer(help="Exact revisions and cognitive evolution.", no_args_is_help=False)
@@ -96,8 +126,10 @@ def register(cli: typer.Typer) -> None:
         )
 
     @subject.command("get")
-    def get_subject(ctx: typer.Context, subject_id: str) -> None:
-        invoke(ctx, lambda api: api.subject(subject_id))
+    def get_subject(
+        ctx: typer.Context, subject_id: str, purpose: Literal["active", "management"] = "active"
+    ) -> None:
+        invoke(ctx, lambda api: api.subject(subject_id, purpose=purpose))
 
     @subject.command("diagnostics")
     def diagnostics(ctx: typer.Context, subject_id: str) -> None:
@@ -113,22 +145,37 @@ def register(cli: typer.Typer) -> None:
         vectors: Literal["disabled", "metadata_allowed", "required"] = "metadata_allowed",
         operation_id: str | None = None,
     ) -> None:
-        """Adopt actual UTF-8 documents; --no-llm keeps literal text."""
-        command = AdmitFiles(
-            operation_id=operation_id or str(uuid4()),
-            llm_enabled=llm,
-            vectors=vectors,
-            inputs=tuple(
-                ImportDocument(
-                    text=path.read_text(encoding="utf-8"),
-                    filename=path.name,
-                    file_identity=str(path.resolve()),
-                    source_type="document",
+        """Upload documents and media in their original formats, then import their content."""
+        from nous_sdk.imports import upload_import_file_documents
+
+        operation = operation_id or str(uuid4())
+
+        async def run(api: NousClient):
+            documents: list[ImportDocument] = []
+            for index, selected in enumerate(paths):
+                path = selected.resolve(strict=True)
+                documents.extend(
+                    await upload_import_file_documents(
+                        api,
+                        namespace_id,
+                        subject_id,
+                        ({"path": str(path), "file_identity": str(path)},),
+                        transfer_root=path.parent,
+                        operation_id=f"{operation}:upload:{index}",
+                    )
                 )
-                for path in paths
-            ),
-        )
-        invoke(ctx, lambda api: api.admit_documents(namespace_id, subject_id, command))
+            return await api.admit_documents(
+                namespace_id,
+                subject_id,
+                AdmitFiles(
+                    operation_id=operation,
+                    llm_enabled=llm,
+                    vectors=vectors,
+                    inputs=tuple(documents),
+                ),
+            )
+
+        invoke(ctx, run)
 
     @cli.command("query")
     def query(
@@ -175,30 +222,57 @@ def register(cli: typer.Typer) -> None:
         request: Path | None = None,
     ) -> None:
         """Browse retained person profiles and exact evidence."""
-        from nous_sdk.amemorix import AMemorixAdapter
 
         async def read(api: NousClient) -> object:
-            from nous_sdk.amemorix.contracts import ProfileAdminInput
+            from nous_sdk.contracts.person_profiles import PersonProfilesQuery, RefreshPersonProfile
 
             command = (
-                read_command(request, ProfileAdminInput)
+                read_command(request, PersonProfilesQuery)
                 if request
-                else ProfileAdminInput(
-                    action=action,
-                    person_id=person_id,
-                    person_name=person_keyword,
+                else PersonProfilesQuery(
+                    identifier=person_id,
+                    name=person_keyword,
                     limit=limit,
-                    force_refresh=force_refresh,
-                    operation_id=str(uuid4()),
+                    evidence_limit=limit,
                 )
             )
-            values = command.model_dump(mode="json", exclude={"action"})
-            return await AMemorixAdapter(
-                api, namespace_id=namespace_id, subject_id=subject_id
-            ).memory_profile_admin(
-                action=command.action,
-                **values,
-            )
+            result = await api.person_profiles(namespace_id, subject_id, command)
+            if force_refresh:
+                if len(result.items) != 1 or not (
+                    command.reference or command.identifier or command.name
+                ):
+                    raise ValueError("Profile refresh requires one explicit Person")
+                receipt = await api.refresh_person_profile(
+                    namespace_id,
+                    subject_id,
+                    RefreshPersonProfile(reference=result.items[0].record.reference),
+                )
+                await api.wait_success(
+                    [receipt.job_id], namespace_id=namespace_id, subject_id=subject_id
+                )
+                result = await api.person_profiles(
+                    namespace_id,
+                    subject_id,
+                    command.model_copy(
+                        update={
+                            "reference": None,
+                            "identifier": result.items[0].record.reference.id,
+                        }
+                    ),
+                )
+            if action == "get_aliases":
+                from nous_sdk.contracts import EntityBody
+
+                return [
+                    {
+                        "reference": item.record.reference,
+                        "name": item.record.body.label,
+                        "aliases": item.record.body.effective_aliases,
+                    }
+                    for item in result.items
+                    if isinstance(item.record.body, EntityBody)
+                ]
+            return result
 
         invoke(ctx, read)
 
@@ -206,15 +280,15 @@ def register(cli: typer.Typer) -> None:
     def graph_search(
         ctx: typer.Context, namespace_id: str, subject_id: str, query: str, limit: int = 50
     ) -> None:
-        """Search graph entities and relations using the A-Memorix search contract."""
-        from nous_sdk.amemorix import AMemorixAdapter
+        """Search authorized canonical graph entities and relations."""
+        from nous_sdk.contracts.graph_management import GraphSearchQuery
 
-        async def search(api: NousClient) -> object:
-            return await AMemorixAdapter(
-                api, namespace_id=namespace_id, subject_id=subject_id
-            ).memory_graph_admin(action="search", query=query, limit=limit)
-
-        invoke(ctx, search)
+        invoke(
+            ctx,
+            lambda api: api.search_graph(
+                namespace_id, subject_id, GraphSearchQuery(text=query, limit=limit)
+            ),
+        )
 
     @cli.command("graph")
     def graph(
@@ -225,18 +299,21 @@ def register(cli: typer.Typer) -> None:
         request: Path | None = None,
     ) -> None:
         """Read graph details or apply a source-backed manual graph action from JSON."""
-        from nous_sdk.amemorix import AMemorixAdapter
+        from nous_sdk.contracts.graph_management import GraphChange, GraphReadQuery
 
-        values = (
-            TypeAdapter(dict[str, JsonValue]).validate_python(read_json(request)) if request else {}
-        )
-
-        async def run(api: NousClient) -> object:
-            return await AMemorixAdapter(
-                api, namespace_id=namespace_id, subject_id=subject_id
-            ).memory_graph_admin(action=action, **values)
-
-        invoke(ctx, run)
+        if action == "get_graph":
+            invoke(ctx, lambda api: api.graph_snapshot(namespace_id, subject_id))
+        elif action in {"node_detail", "edge_detail"}:
+            if request is None:
+                raise ValueError("Graph details require a GraphReadQuery JSON request")
+            selection = read_command(request, GraphReadQuery)
+            invoke(ctx, lambda api: api.read_graph(namespace_id, subject_id, selection))
+        else:
+            if request is None:
+                raise ValueError("Graph changes require a GraphChange JSON request")
+            values = TypeAdapter(dict[str, JsonValue]).validate_python(read_json(request))
+            command = GraphChange.model_validate({**values, "action": action})
+            invoke(ctx, lambda api: api.manage_graph(namespace_id, subject_id, command))
 
     @source.command("list")
     def sources(ctx: typer.Context, namespace_id: str, subject_id: str) -> None:
@@ -248,9 +325,68 @@ def register(cli: typer.Typer) -> None:
 
     @source.command("preview")
     def preview(
-        ctx: typer.Context, namespace_id: str, subject_id: str, observations: list[str]
+        ctx: typer.Context,
+        namespace_id: str,
+        subject_id: str,
+        observations: list[str] | None = None,
+        request: Path | None = None,
+        action: Literal["trash", "restore", "purge"] = "trash",
     ) -> None:
-        invoke(ctx, lambda api: api.preview_sources(namespace_id, subject_id, tuple(observations)))
+        from nous_sdk.contracts.management import SourceSelection
+
+        command = read_command(request, SourceSelection) if request else None
+        invoke(
+            ctx,
+            lambda api: api.preview_sources(
+                namespace_id,
+                subject_id,
+                tuple(observations or ()),
+                selection=command,
+                action=action,
+            ),
+        )
+
+    @source.command("operations")
+    def source_operations(
+        ctx: typer.Context,
+        namespace_id: str,
+        subject_id: str,
+        limit: int = 100,
+        before_commit_seq: int | None = None,
+    ) -> None:
+        invoke(
+            ctx,
+            lambda api: api.source_operations(
+                namespace_id, subject_id, limit=limit, before_commit_seq=before_commit_seq
+            ),
+        )
+
+    @source.command("operation")
+    def source_operation(
+        ctx: typer.Context, namespace_id: str, subject_id: str, operation_id: str
+    ) -> None:
+        invoke(
+            ctx,
+            lambda api: api.source_operation(
+                namespace_id, subject_id, source_operation_id=operation_id
+            ),
+        )
+
+    @source.command("manage")
+    def manage_selection(
+        ctx: typer.Context,
+        namespace_id: str,
+        subject_id: str,
+        action: Literal["trash", "restore", "purge"],
+        request: Path,
+    ) -> None:
+        command = read_command(request, SourceCommand)
+        if action == "trash":
+            invoke(ctx, lambda api: api.trash_sources(namespace_id, subject_id, command))
+        elif action == "restore":
+            invoke(ctx, lambda api: api.restore_sources(namespace_id, subject_id, command))
+        else:
+            invoke(ctx, lambda api: api.purge_sources(namespace_id, subject_id, command))
 
     @source.command("trash")
     def trash(
@@ -261,6 +397,7 @@ def register(cli: typer.Typer) -> None:
         reason: Annotated[str, typer.Option(help="Reason for changing the selected sources.")],
         preview: str | None = None,
         operation_id: str | None = None,
+        background: bool = False,
     ) -> None:
         payload = SourceCommand(
             operation_id=operation_id or str(uuid4()),
@@ -268,7 +405,14 @@ def register(cli: typer.Typer) -> None:
             reason=reason,
             expected_preview=preview,
         )
-        invoke(ctx, lambda api: api.trash_sources(namespace_id, subject_id, payload))
+        if background:
+
+            async def submit(api: NousClient) -> dict[str, str]:
+                return {"job_id": await api.submit_source_trash(namespace_id, subject_id, payload)}
+
+            invoke(ctx, submit)
+        else:
+            invoke(ctx, lambda api: api.trash_sources(namespace_id, subject_id, payload))
 
     @source.command("restore")
     def restore(
@@ -335,6 +479,64 @@ def register(cli: typer.Typer) -> None:
     def adopt(ctx: typer.Context, namespace_id: str, subject_id: str, command: Path) -> None:
         payload = read_command(command, AdoptCognition)
         invoke(ctx, lambda api: api.adopt_cognition(namespace_id, subject_id, payload))
+
+    @cognition.command("list")
+    def list_cognition(
+        ctx: typer.Context,
+        namespace_id: str,
+        subject_id: str,
+        request: Path | None = None,
+        cursor: str | None = None,
+        limit: int = 100,
+        history: bool = False,
+        management: bool = False,
+    ) -> None:
+        """Page complete records; pass the returned cursor to continue the same snapshot."""
+        command = (
+            read_command(request, RecordsQuery)
+            if request
+            else RecordsQuery(
+                cursor=cursor,
+                limit=limit,
+                view="history" if history else "current",
+                purpose="management" if management else "current",
+            )
+        )
+        invoke(ctx, lambda api: api.records(namespace_id, subject_id, command))
+
+    @cognition.command("read-batch")
+    def read_cognition_batch(
+        ctx: typer.Context, namespace_id: str, subject_id: str, request: Path
+    ) -> None:
+        """Read exact references from a ReadRecords JSON request."""
+        command = read_command(request, ReadRecords)
+        invoke(ctx, lambda api: api.read_records(namespace_id, subject_id, command))
+
+    @cognition.command("detail")
+    def cognition_detail(
+        ctx: typer.Context,
+        namespace_id: str,
+        subject_id: str,
+        reference: str,
+        history_limit: int = 100,
+        management: bool = False,
+    ) -> None:
+        """Read one exact cognitive object with its available revision history."""
+        from nous_sdk.contracts.context import CognitiveTarget
+
+        async def read(api: NousClient) -> object:
+            resolved = await api.resolve_reference(subject_id, reference)
+            if not isinstance(resolved.reference, CognitiveTarget):
+                raise ValueError("Reference must select a cognitive object")
+            return await api.record_detail(
+                namespace_id,
+                subject_id,
+                resolved.reference.reference,
+                history_limit=history_limit,
+                purpose="management" if management else "exact",
+            )
+
+        invoke(ctx, read)
 
     @cognition.command("get")
     def get_cognition(ctx: typer.Context, subject_id: str, reference: str) -> None:

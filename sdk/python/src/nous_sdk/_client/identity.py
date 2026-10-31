@@ -15,29 +15,175 @@ from ..contracts.credentials import (
     PrincipalRecord,
     RotateCredential,
 )
-from ..operations import encoded, object_value, segment
+from ..contracts.diagnostics import SubjectDiagnostics
+from ..contracts.identity import (
+    BindSubject,
+    BoundSubject,
+    ChangeNamespace,
+    ChangeSubject,
+    IdentityCapabilities,
+    IdentityDirectoryQuery,
+    IdentityPurpose,
+    NamespacePage,
+    NamespacePurgeResult,
+    PurgeNamespace,
+    ReadSubjectBinding,
+    SubjectPage,
+)
+from ..contracts.namespace_archives import (
+    MigrateSubject,
+    NamespaceArchive,
+    NamespaceRestoreResult,
+    RestoreNamespace,
+    SubjectMigrationResult,
+)
+from ..operations import encoded, segment
 from ..types import (
-    JsonObject,
     Namespace,
     Subject,
 )
-from .core import ClientCore
+from .backups import NamespaceBackupClient
 from .requests import operation_identity, operation_values, required_text
 
 
-class IdentityClient(ClientCore):
-    async def create_namespace(self, name: str, *, operation_id: str | None = None) -> Namespace:
+class IdentityClient(NamespaceBackupClient):
+    async def purge_namespace(
+        self, namespace_id: str, command: PurgeNamespace
+    ) -> NamespacePurgeResult:
+        return NamespacePurgeResult.model_validate(
+            await self.request(
+                "POST", f"/api/namespaces/{segment(namespace_id)}/purge", body=encoded(command)
+            )
+        )
+
+    async def export_namespace_archive(self, namespace_id: str) -> NamespaceArchive:
+        return NamespaceArchive.model_validate(
+            await self.request("POST", f"/api/namespaces/{segment(namespace_id)}/archive")
+        )
+
+    async def restore_namespace_archive(
+        self, namespace_id: str, command: RestoreNamespace
+    ) -> NamespaceRestoreResult:
+        return NamespaceRestoreResult.model_validate(
+            await self.request(
+                "POST",
+                f"/api/namespaces/{segment(namespace_id)}/restore-archive",
+                body=encoded(command),
+            )
+        )
+
+    async def migrate_subject(
+        self, namespace_id: str, subject_id: str, command: MigrateSubject
+    ) -> SubjectMigrationResult:
+        return SubjectMigrationResult.model_validate(
+            await self.request(
+                "POST",
+                f"/api/namespaces/{segment(namespace_id)}/subjects/{segment(subject_id)}/migrate",
+                body=encoded(command),
+            )
+        )
+
+    async def create_namespace(
+        self, name: str, *, namespace_id: str | None = None, operation_id: str | None = None
+    ) -> Namespace:
         return Namespace.model_validate(
             await self.request(
                 "POST",
                 "/api/namespaces",
-                body={"name": name, "operation_id": operation_id or str(uuid4())},
+                body={
+                    "name": name,
+                    "id": namespace_id,
+                    "operation_id": operation_id or str(uuid4()),
+                },
             )
         )
 
-    async def namespaces(self) -> tuple[Namespace, ...]:
+    async def namespaces(self, *, purpose: IdentityPurpose = "active") -> tuple[Namespace, ...]:
         return TypeAdapter(tuple[Namespace, ...]).validate_python(
-            await self.request("GET", "/api/namespaces")
+            await self.request("GET", "/api/namespaces", params={"purpose": purpose})
+        )
+
+    async def namespace(
+        self, namespace_id: str, *, purpose: IdentityPurpose = "active"
+    ) -> Namespace:
+        return Namespace.model_validate(
+            await self.request(
+                "GET", f"/api/namespaces/{segment(namespace_id)}", params={"purpose": purpose}
+            )
+        )
+
+    async def namespace_page(self, command: IdentityDirectoryQuery | None = None) -> NamespacePage:
+        return NamespacePage.model_validate(
+            await self.request(
+                "POST", "/api/namespaces/query", body=encoded(command or IdentityDirectoryQuery())
+            )
+        )
+
+    async def subject_page(
+        self, namespace_id: str, command: IdentityDirectoryQuery | None = None
+    ) -> SubjectPage:
+        return SubjectPage.model_validate(
+            await self.request(
+                "POST",
+                f"/api/namespaces/{segment(namespace_id)}/subjects/query",
+                body=encoded(command or IdentityDirectoryQuery()),
+            )
+        )
+
+    async def change_namespace(self, namespace_id: str, command: ChangeNamespace) -> Namespace:
+        return Namespace.model_validate(
+            await self.request(
+                "POST", f"/api/namespaces/{segment(namespace_id)}/change", body=encoded(command)
+            )
+        )
+
+    async def change_subject(
+        self, namespace_id: str, subject_id: str, command: ChangeSubject
+    ) -> Subject:
+        return Subject.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/change",
+                body=encoded(command),
+            )
+        )
+
+    async def identity_capabilities(
+        self,
+        namespace_id: str,
+        subject_id: str | None = None,
+        *,
+        purpose: IdentityPurpose = "active",
+    ) -> IdentityCapabilities:
+        path = (
+            self.subject_path(namespace_id, subject_id)
+            if subject_id
+            else f"/api/namespaces/{segment(namespace_id)}"
+        )
+        return IdentityCapabilities.model_validate(
+            await self.request("GET", path + "/capabilities", params={"purpose": purpose})
+        )
+
+    async def bind_subject(self, namespace_id: str, command: BindSubject) -> BoundSubject:
+        return BoundSubject.model_validate(
+            await self.request(
+                "POST",
+                f"/api/namespaces/{segment(namespace_id)}/subject-bindings",
+                body=encoded(command),
+                params={"subject_id": self.subject_id},
+            )
+        )
+
+    async def subject_binding(
+        self, namespace_id: str, external_id: str, *, purpose: IdentityPurpose = "active"
+    ) -> BoundSubject:
+        return BoundSubject.model_validate(
+            await self.request(
+                "POST",
+                f"/api/namespaces/{segment(namespace_id)}/subject-bindings/read",
+                body=encoded(ReadSubjectBinding(external_id=external_id, purpose=purpose)),
+                params={"subject_id": self.subject_id},
+            )
         )
 
     async def create_subject(
@@ -47,6 +193,7 @@ class IdentityClient(ClientCore):
         name: str = "default",
         capabilities: Sequence[str] = ("memory",),
         operation_id: str | None = None,
+        subject_id: str | None = None,
     ) -> Subject:
         return Subject.model_validate(
             await self.request(
@@ -55,23 +202,32 @@ class IdentityClient(ClientCore):
                 body={
                     "name": name,
                     "capabilities": list(capabilities),
+                    "id": subject_id,
                     "operation_id": operation_id or str(uuid4()),
                 },
             )
         )
 
-    async def subjects(self, namespace_id: str) -> tuple[Subject, ...]:
+    async def subjects(
+        self, namespace_id: str, *, purpose: IdentityPurpose = "active"
+    ) -> tuple[Subject, ...]:
         return TypeAdapter(tuple[Subject, ...]).validate_python(
-            await self.request("GET", f"/api/namespaces/{segment(namespace_id)}/subjects")
+            await self.request(
+                "GET",
+                f"/api/namespaces/{segment(namespace_id)}/subjects",
+                params={"purpose": purpose},
+            )
         )
 
-    async def subject(self, subject_id: str) -> Subject:
+    async def subject(self, subject_id: str, *, purpose: IdentityPurpose = "active") -> Subject:
         return Subject.model_validate(
-            await self.request("GET", f"/api/subjects/{segment(subject_id)}")
+            await self.request(
+                "GET", f"/api/subjects/{segment(subject_id)}", params={"purpose": purpose}
+            )
         )
 
-    async def subject_diagnostics(self, subject_id: str) -> JsonObject:
-        return object_value(
+    async def subject_diagnostics(self, subject_id: str) -> SubjectDiagnostics:
+        return SubjectDiagnostics.model_validate(
             await self.request("GET", f"/api/subjects/{segment(subject_id)}/diagnostics")
         )
 

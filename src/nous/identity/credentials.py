@@ -7,7 +7,7 @@ import hmac
 import re
 import secrets
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -71,11 +71,14 @@ class Principal:
                 "capability_forbidden", f"Credential does not grant {capability} access"
             )
 
-    def require_scope(self, namespace_id: str, subject_id: str | None = None) -> None:
+    def require_namespace_scope(self, namespace_id: str) -> None:
         if self.namespace_ids is not None and namespace_id not in self.namespace_ids:
             raise DomainError(
                 "namespace_scope_forbidden", "Credential does not grant this namespace"
             )
+
+    def require_scope(self, namespace_id: str, subject_id: str | None = None) -> None:
+        self.require_namespace_scope(namespace_id)
         if self.subject_ids is not None and (
             subject_id is None or subject_id not in self.subject_ids
         ):
@@ -139,6 +142,8 @@ class CredentialsService:
         record = CredentialRecord.model_validate(raw)
         if record.revoked_at is not None:
             raise AuthenticationError()
+        if record.expires_at is not None and record.expires_at <= datetime.now(UTC):
+            raise DomainError("credential_expired", "Credential has expired")
         return Principal(
             record.caller_id,
             record.namespace_ids,
@@ -274,6 +279,7 @@ class CredentialsService:
             **scopes,
             "capabilities": sorted(set(command.capabilities)),
             **({"reason": command.reason} if command.reason else {}),
+            **({"expires_at": command.expires_at} if command.expires_at is not None else {}),
         }
         async with self.authority.write(
             self._context(actor),
@@ -288,6 +294,10 @@ class CredentialsService:
                     sa.select(credentials.c.record).where(credentials.c.id == record.id)
                 )
                 return IssuedCredential(record=CredentialRecord.model_validate(current), token=None)
+            if command.expires_at is not None and command.expires_at <= datetime.now(UTC):
+                raise DomainError(
+                    "credential_expiry_invalid", "A new credential must expire in the future"
+                )
             credential_id = str(uuid4())
             token = f"nous_{credential_id.replace('-', '')}_{secrets.token_urlsafe(32)}"
             record = CredentialRecord(
@@ -301,6 +311,7 @@ class CredentialsService:
                 created_by=actor.caller_id,
                 created_at=tx.recorded_at,
                 commit_seq=tx.commit_seq,
+                expires_at=command.expires_at,
             )
             await tx.connection.execute(
                 credentials.insert().values(

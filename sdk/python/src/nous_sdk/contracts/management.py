@@ -15,14 +15,40 @@ from .common import Contract, Operation
 from .derivation import DerivedBundle
 from .imports import UnitOutput
 from .model_calls import ArchivedCall
+from .records import RecordsQuery
 from .references import ReferenceBinding
+from .retention import RetentionExpectation, RetentionSnapshot
 
 
-class SourceCommand(Operation):
+class SourceSelection(Contract):
+    observation_ids: tuple[str, ...] = ()
+    source_names: tuple[str, ...] = ()
+    references: tuple[CognitiveRef, ...] = Field(default=(), max_length=1000)
+    records: RecordsQuery | None = None
+    retention_expectations: tuple[RetentionExpectation, ...] = Field(default=(), max_length=1000)
+
+
+class SourceCommand(SourceSelection, Operation):
     requested_by: str | None = Field(default=None, max_length=120)
-    observation_ids: tuple[str, ...] = Field(min_length=1)
+    force: bool = False
+    grace_hours: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     reason: str = Field(min_length=1)
     expected_preview: str | None = None
+
+    def operation_payload(self) -> dict[str, JsonValue]:
+        omitted = {
+            name
+            for name, value in {
+                "source_names": self.source_names,
+                "references": self.references,
+                "records": self.records,
+                "force": self.force,
+                "grace_hours": self.grace_hours,
+                "retention_expectations": self.retention_expectations,
+            }.items()
+            if value in (None, False, ())
+        }
+        return self.model_dump(mode="json", exclude=omitted)
 
 
 class SourcePreview(Contract):
@@ -31,6 +57,8 @@ class SourcePreview(Contract):
     retiring: tuple[CognitiveRef, ...]
     retained: tuple[CognitiveRef, ...]
     preview_token: str
+    references: tuple[CognitiveRef, ...] = ()
+    retention_states: tuple[RetentionSnapshot, ...] = ()
 
 
 class SourceResult(Contract):
@@ -38,6 +66,9 @@ class SourceResult(Contract):
     source_operation_id: str | None = None
     observation_ids: tuple[str, ...]
     affected: tuple[CognitiveRef, ...]
+    retired: tuple[CognitiveRef, ...] = ()
+    restored: tuple[CognitiveRef, ...] = ()
+    references: tuple[CognitiveRef, ...] = ()
     commit_seq: int
 
 

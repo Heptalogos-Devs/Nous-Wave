@@ -188,5 +188,53 @@ def initial_resources(generation: ModelRoute, embedding: EmbeddingRoute) -> Mode
                 prompt_id="maintenance",
                 max_calls_per_day=generation.max_calls_per_day,
             ),
+            "seed": RoleResource(
+                routes=("formation",),
+                purpose="seed",
+                prompt_id="seed",
+                max_calls_per_day=generation.max_calls_per_day,
+            ),
+            "correction": RoleResource(
+                routes=("formation",),
+                purpose="correction",
+                prompt_id="correction",
+                max_calls_per_day=generation.max_calls_per_day,
+            ),
+            "feedback": RoleResource(
+                routes=("formation",),
+                purpose="feedback",
+                prompt_id="feedback",
+                max_calls_per_day=generation.max_calls_per_day,
+            ),
+            "motivation": RoleResource(
+                routes=("formation",),
+                purpose="motivation",
+                prompt_id="motivation",
+                max_calls_per_day=generation.max_calls_per_day,
+            ),
+            "symbols": RoleResource(
+                routes=("formation",),
+                purpose="symbols",
+                prompt_id="social-symbols",
+                max_calls_per_day=generation.max_calls_per_day,
+            ),
+            "person_profile": RoleResource(
+                routes=("formation",),
+                purpose="person_profile",
+                prompt_id="person-profile",
+                max_calls_per_day=generation.max_calls_per_day,
+            ),
+            "episode": RoleResource(
+                routes=("formation",),
+                purpose="episode",
+                prompt_id="episode-segmentation",
+                max_calls_per_day=generation.max_calls_per_day,
+            ),
+            "query_rerank": RoleResource(
+                routes=("formation",),
+                purpose="rerank",
+                prompt_id="query-rerank",
+                max_calls_per_day=generation.max_calls_per_day,
+            ),
         },
     )

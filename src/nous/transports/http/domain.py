@@ -1,9 +1,6 @@
 """Thin typed HTTP entrypoints into the shared domain owners."""
 
-from uuid import uuid4
-
-import sqlalchemy as sa
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from nous_sdk.contracts import (
     AdmitFiles,
     AdoptCognition,
@@ -11,74 +8,17 @@ from nous_sdk.contracts import (
     ProcessCatalog,
     QueryRequest,
 )
-from pydantic import BaseModel, ConfigDict, Field
 
-from .security import application, authorize, context
+from .identities import router as identities_router
+from .namespace_backups import router as namespace_backups_router
+from .security import application, context
+from .tuning import router as tuning_router
 
 router = APIRouter(prefix="/api")
 
-
-class NamespaceInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    name: str = Field(min_length=1)
-    operation_id: str = Field(default_factory=lambda: str(uuid4()))
-    id: str = Field(default_factory=lambda: str(uuid4()))
-
-
-class SubjectInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    name: str = "default"
-    capabilities: tuple[str, ...] = ("memory",)
-    operation_id: str = Field(default_factory=lambda: str(uuid4()))
-
-
-@router.get("/namespaces")
-async def namespaces(request: Request):
-    from nous.identity.service import namespaces, subjects
-
-    principal = await authorize(request)
-    statement = sa.select(namespaces)
-    if principal.namespace_ids is not None:
-        statement = statement.where(namespaces.c.id.in_(principal.namespace_ids))
-    if principal.subject_ids is not None:
-        statement = statement.where(
-            namespaces.c.id.in_(
-                sa.select(subjects.c.namespace_id).where(subjects.c.id.in_(principal.subject_ids))
-            )
-        )
-    async with application(request).authority.read() as view:
-        return [dict(row) for row in (await view.connection.execute(statement)).mappings()]
-
-
-@router.post("/namespaces")
-async def create_namespace(request: Request, command: NamespaceInput):
-    return await application(request).identity.create_namespace(
-        await context(request, command.id), command.name, command.operation_id
-    )
-
-
-@router.get("/namespaces/{namespace_id}/subjects")
-async def subjects(request: Request, namespace_id: str):
-    from nous.identity.service import subjects
-
-    principal = await authorize(request)
-    if principal.namespace_ids is not None and namespace_id not in principal.namespace_ids:
-        raise HTTPException(status_code=403, detail="Credential does not grant this namespace")
-    statement = sa.select(subjects).where(subjects.c.namespace_id == namespace_id)
-    if principal.subject_ids is not None:
-        statement = statement.where(subjects.c.id.in_(principal.subject_ids))
-    async with application(request).authority.read() as view:
-        return [dict(row) for row in (await view.connection.execute(statement)).mappings()]
-
-
-@router.post("/namespaces/{namespace_id}/subjects")
-async def create_subject(request: Request, namespace_id: str, command: SubjectInput):
-    return await application(request).identity.create_subject(
-        await context(request, namespace_id),
-        command.name,
-        command.operation_id,
-        capabilities=command.capabilities,
-    )
+router.include_router(identities_router)
+router.include_router(namespace_backups_router)
+router.include_router(tuning_router)
 
 
 @router.post("/namespaces/{namespace_id}/subjects/{subject_id}/imports/catalogs")

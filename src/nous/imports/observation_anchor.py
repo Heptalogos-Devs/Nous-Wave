@@ -58,10 +58,13 @@ async def anchor_in(
             or candidate.deleted
             or candidate.purged
             or (text is not None and candidate.body.text != text)
-            or not any(
-                link.observation_id == command.observation_id
-                and (region_id is None or link.region_id == region_id)
-                for link in candidate.evidence
+            or not (
+                candidate.body.contact_observation_id == command.observation_id
+                or any(
+                    link.observation_id == command.observation_id
+                    and (region_id is None or link.region_id == region_id)
+                    for link in candidate.evidence
+                )
             )
             or not await self.cognition.visible_in(view, ctx, candidate)
         ):

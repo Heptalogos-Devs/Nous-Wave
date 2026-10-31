@@ -3,7 +3,9 @@
 from fastapi import APIRouter, Request
 from nous_sdk.contracts.common import Operation
 from nous_sdk.contracts.maintenance import (
+    CaptureMaintenanceOutput,
     CreateMaintenanceSchedule,
+    EditMaintenanceProposal,
     MaintenanceRun,
     MaintenanceSchedule,
     MaintenanceSubmission,
@@ -14,6 +16,32 @@ from nous_sdk.contracts.maintenance import (
 from .security import application, context
 
 router = APIRouter(prefix="/api/namespaces/{namespace_id}/subjects/{subject_id}/maintenance")
+
+
+@router.post("/runs/{run_id}/capture-output")
+async def capture_output(
+    request: Request,
+    namespace_id: str,
+    subject_id: str,
+    run_id: str,
+    command: CaptureMaintenanceOutput,
+) -> MaintenanceRun:
+    return await application(request).maintenance.capture_retained(
+        await context(request, namespace_id, subject_id), run_id, command
+    )
+
+
+@router.post("/runs/{run_id}/edit")
+async def edit(
+    request: Request,
+    namespace_id: str,
+    subject_id: str,
+    run_id: str,
+    command: EditMaintenanceProposal,
+) -> MaintenanceRun:
+    return await application(request).maintenance.edit_proposal(
+        await context(request, namespace_id, subject_id), run_id, command
+    )
 
 
 @router.post("/runs")
@@ -47,6 +75,15 @@ async def review(
 ) -> MaintenanceRun:
     return await application(request).maintenance.review(
         await context(request, namespace_id, subject_id), run_id, command
+    )
+
+
+@router.post("/runs/{run_id}/retry")
+async def retry(
+    request: Request, namespace_id: str, subject_id: str, run_id: str, command: Operation
+) -> MaintenanceSubmission:
+    return await application(request).maintenance.retry(
+        await context(request, namespace_id, subject_id), run_id, command.operation_id
     )
 
 

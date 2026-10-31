@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from nous_sdk.contracts import CallContext, CognitiveRef, DomainError, MediaReference, SourceRegion
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.persistence import ReadView, WriteTx
 
 if TYPE_CHECKING:

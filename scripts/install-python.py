@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import email.parser
+import json
 import os
 import platform
 import re
@@ -14,6 +15,7 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from typing import cast
 
 PACKAGES = ("nous-server", "nous-sdk", "nous-native")
 
@@ -66,8 +68,11 @@ def main() -> None:
         "--version", help="Choose a version when the wheel directory contains several releases"
     )
     parser.add_argument("--venv", type=Path, default=data_directory() / "venv-nous")
-    parser.add_argument("--instance", type=Path, default=data_directory() / "instance")
+    parser.add_argument("--instance", type=Path)
     parser.add_argument("--python", default="3.14", help="CPython 3.14 selector for uv")
+    parser.add_argument(
+        "--amemorix-rpc", action="store_true", help="Install the optional A-Memorix gRPC transport"
+    )
     parser.add_argument(
         "--offline",
         action="store_true",
@@ -92,7 +97,6 @@ def main() -> None:
             "Use the matching platform bundle with exactly one wheel per project and version"
         )
     environment = args.venv.resolve()
-    instance = args.instance.resolve()
     scripts = environment / ("Scripts" if os.name == "nt" else "bin")
     python = scripts / ("python.exe" if os.name == "nt" else "python")
     nous = scripts / ("nous.exe" if os.name == "nt" else "nous")
@@ -124,19 +128,28 @@ def main() -> None:
     )
     old_distributions = subprocess.run(
         [
-            str(python), "-I", "-c",
+            str(python),
+            "-I",
+            "-c",
             "from importlib.metadata import distributions; "
             "names={d.metadata['Name'].lower().replace('_','-') for d in distributions()}; "
             "print(', '.join(sorted(names & {'nous-wave-server','nous-wave','nous-wave-native'})))",
         ],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
     if old_distributions:
         parser.error(
             "The selected environment contains the previous distribution; "
             "choose a new --venv to preserve it and its installed files"
         )
-    requirements = [str(versions[name][version][0]) for name in PACKAGES]
+    requirements = [
+        f"nous-server[amemorix-rpc] @ {versions[name][version][0].as_uri()}"
+        if name == "nous-server" and args.amemorix_rpc
+        else str(versions[name][version][0])
+        for name in PACKAGES
+    ]
     options = ["--only-binary=:all:", "--find-links", str(directory)]
     if args.offline:
         options.append("--no-index")
@@ -163,10 +176,28 @@ def main() -> None:
         ]
     )
     run([str(nous), "--help"], quiet=True)
-    run([str(nous), "init", "--instance", str(instance)])
+    if args.amemorix_rpc:
+        run([str(python), "-I", "-c", "import grpc; import nous.integrations.amemorix.rpc"])
+    initialize = [str(nous), "--json"]
+    if args.instance is not None:
+        initialize.extend(["--instance", str(args.instance.resolve())])
+    initialize.append("init")
+    initialized = subprocess.run(
+        initialize, check=True, capture_output=True, text=True, encoding="utf-8"
+    )
+    receipt: object = json.loads(initialized.stdout)
+    if not isinstance(receipt, dict):
+        raise ValueError("Installed nous init returned no instance path")
+    instance_value = cast(dict[str, object], receipt).get("instance")
+    if not isinstance(instance_value, str):
+        raise ValueError("Installed nous init returned no instance path")
+    instance = Path(instance_value)
+    if not instance.is_absolute():
+        raise ValueError("Installed nous init returned a relative instance path")
     command = [str(nous), "serve", "--instance", str(instance)]
     display = subprocess.list2cmdline(command) if os.name == "nt" else shlex.join(command)
     print(f"Installed Nous {version} into {environment}")
+    print(f"Initialized instance: {instance}")
     print(f"Start the service: {display}")
     print("The protected instance credential stays in the instance's credentials/admin.token file.")
 

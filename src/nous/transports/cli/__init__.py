@@ -20,27 +20,32 @@ from nous.platform.configuration import Settings
 from nous.platform.errors import NousError
 from nous.platform.instance import initialize
 from nous.platform.localization import Localizer
+from nous.platform.paths import default_instance_path
 
+from .amemorix import register as register_amemorix
 from .common import Options, emit, options
 from .contexts import register as register_contexts
 from .data import register as register_data
+from .ego import register as register_ego
+from .entities import register as register_entities
+from .feedback import register as register_feedback
 from .maintenance import register as register_maintenance
 from .management import register as register_management
 from .media import register as register_media
+from .retention import register as register_retention
 from .service import register as register_service
+from .social import register as register_social
+from .tuning import register as register_tuning
+from .vectors import register as register_vectors
 
-cli = typer.Typer(
-    help="Nous cognitive service", no_args_is_help=False, invoke_without_command=True
-)
+cli = typer.Typer(help="Nous cognitive service", no_args_is_help=False, invoke_without_command=True)
 _current: ContextVar[Options | None] = ContextVar("cli_options", default=None)
 
 
 @cli.callback()
 def configure(
     ctx: typer.Context,
-    instance: Annotated[Path, typer.Option(envvar="NOUS_INSTANCE")] = Path(
-        "temp/instances/default"
-    ),
+    instance: Annotated[Path | None, typer.Option(envvar="NOUS_INSTANCE")] = None,
     url: Annotated[str, typer.Option(envvar="NOUS_URL")] = "http://127.0.0.1:7441",
     credential_file: Annotated[Path | None, typer.Option(envvar="NOUS_CREDENTIAL_FILE")] = None,
     locale: Annotated[str | None, typer.Option(envvar="NOUS_LOCALE")] = None,
@@ -52,7 +57,12 @@ def configure(
     ] = None,
 ) -> None:
     selected = Options(
-        instance, url, credential_file, Localizer(locale).locale, json_mode, source_scope
+        instance if instance is not None else default_instance_path(),
+        url,
+        credential_file,
+        Localizer(locale).locale,
+        json_mode,
+        source_scope,
     )
     ctx.obj = selected
     _current.set(selected)
@@ -73,7 +83,15 @@ def init(ctx: typer.Context, instance: Path | None = None) -> None:
 
 @cli.command()
 def serve(
-    ctx: typer.Context, instance: Path | None = None, host: str = "127.0.0.1", port: int = 7441
+    ctx: typer.Context,
+    instance: Path | None = None,
+    host: str = "127.0.0.1",
+    port: int = 7441,
+    rpc: Annotated[
+        bool | None, typer.Option("--rpc/--no-rpc", help="Enable the A-Memorix gRPC listener.")
+    ] = None,
+    rpc_host: str | None = None,
+    rpc_port: int | None = None,
 ) -> None:
     """Run the foreground HTTP host and its durable workers."""
     from nous.platform.observability import configure_logging
@@ -82,8 +100,25 @@ def serve(
     if options(ctx).json_mode:
         raise ValueError("Foreground service logs are a stream; omit --json when serving")
     settings = Settings(instance=instance or options(ctx).instance, host=host, port=port)
+    overrides = {
+        key: value
+        for key, value in (("enabled", rpc), ("host", rpc_host), ("port", rpc_port))
+        if value is not None
+    }
+    if overrides:
+        rpc_settings = type(settings.rpc).model_validate({**settings.rpc.model_dump(), **overrides})
+        settings = settings.model_copy(update={"rpc": rpc_settings})
     configure_logging(settings.log_level)
-    uvicorn.run(create_app(settings), host=host, port=port, log_config=None, reset_contextvars=True)
+    app = create_app(settings)
+    server = uvicorn.Server(
+        uvicorn.Config(app, host=host, port=port, log_config=None, reset_contextvars=True)
+    )
+
+    def request_shutdown() -> None:
+        server.should_exit = True
+
+    app.state.request_shutdown = request_shutdown
+    server.run()
 
 
 @cli.command()
@@ -120,8 +155,16 @@ register_data(cli)
 register_management(cli)
 register_maintenance(cli)
 register_contexts(cli)
+register_ego(cli)
+register_social(cli)
+register_entities(cli)
+register_feedback(cli)
+register_vectors(cli)
+register_retention(cli)
 register_media(cli)
 register_service(cli)
+register_tuning(cli)
+register_amemorix(cli)
 
 
 def main() -> None:

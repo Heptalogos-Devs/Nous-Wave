@@ -14,7 +14,7 @@ from typing import Literal
 from nous_sdk.contracts import DomainError, ImportRecord
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from nous.platform.time import parse_timepoint
+from nous.platform.time import parse_source_time, parse_timepoint
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,9 @@ class ParsedRecord:
     line_number: int | None = None
     error: str | None = None
     external_id: str | None = None
+    page_number: int | None = None
+    extraction: str | None = None
+    media_required: bool = False
 
 
 def stable_id(value: object) -> str:
@@ -41,8 +44,8 @@ def _record(
     index: int,
     kind: str,
     pointer: str | None,
-    context: JsonValue = None,
     line_number: int | None = None,
+    identifier_scope: str | None = None,
 ) -> ParsedRecord:
     try:
         if kind == "text":
@@ -73,16 +76,40 @@ def _record(
                 raise ValueError("Paragraph content or LPMM passage must be a string")
             if not isinstance(text, str):
                 raise ValueError("Paragraph content or LPMM passage must be a string")
-            structured = {"format": kind, "payload": value, "document_context": context}
+            structured = {"format": kind, "payload": value}
+            from .structured_records import assertions_from_source
+
+            assertions = assertions_from_source(
+                fields, openie=kind == "lpmm_openie", identifier_scope=identifier_scope
+            )
+            supplied_id = next((fields[key] for key in ("external_id", "idx", "hash") if fields.get(key) is not None), None)
             record = ImportRecord.model_validate(
                 {
-                    "external_id": fields.get("external_id") or stable_id(structured),
+                    "external_id": str(supplied_id) if supplied_id is not None else stable_id(structured),
+                    "identifiers": {identifier_scope: str(supplied_id)} if identifier_scope and supplied_id is not None else {},
                     "text": text,
                     "source": fields.get("source"),
                     "source_type": fields.get("source_type") or kind,
                     "tags": fields.get("tags", []),
                     "metadata": fields.get("metadata", {}),
                     "structured": structured,
+                    "assertions": assertions,
+                    **(
+                        {
+                            "event_time": parse_source_time(
+                                fields.get("event_time")
+                                if fields.get("event_time") is not None
+                                else fields.get("event_time_start")
+                            )
+                        }
+                        if "event_time" in fields or "event_time_start" in fields
+                        else {}
+                    ),
+                    **(
+                        {"observed_at": parse_source_time(fields["observed_at"])}
+                        if "observed_at" in fields
+                        else {}
+                    ),
                 }
             )
         if not record.text.strip():
@@ -105,7 +132,9 @@ def _record(
         )
 
 
-def parse_document(content: str, format: Literal["text", "json", "jsonl"]) -> list[ParsedRecord]:
+def parse_document(
+    content: str, format: Literal["text", "json", "jsonl"], *, identifier_scope: str | None = None
+) -> list[ParsedRecord]:
     if not content.strip():
         raise DomainError("empty_import", "Import content is empty")
     if format == "text":
@@ -117,7 +146,7 @@ def parse_document(content: str, format: Literal["text", "json", "jsonl"]) -> li
                 continue
             try:
                 value = json.loads(line)
-                result.append(_record(value, len(result), "native", "/text", line_number=number))
+                result.append(_record(value, len(result), "native", None, line_number=number))
             except json.JSONDecodeError as error:
                 result.append(
                     ParsedRecord(
@@ -162,7 +191,22 @@ def parse_document(content: str, format: Literal["text", "json", "jsonl"]) -> li
         )
     result = []
     for index, value in enumerate(records):
-        field = "text" if kind == "native" else "passage" if kind == "lpmm_openie" else "content"
-        pointer = f"{prefix}/{index}" + ("" if isinstance(value, str) else "/" + field)
-        result.append(_record(value, index, kind, pointer, context))
+        pointer = f"{prefix}/{index}"
+        result.append(
+            _record(value, index, kind, pointer, identifier_scope=identifier_scope)
+        )
+    if isinstance(context, dict):
+        from .structured_records import assertions_from_source
+        for field in ("entities", "relations"):
+            values = context.get(field) or []
+            if not isinstance(values, list):
+                raise DomainError("invalid_import_json", "Global source assertions require arrays")
+            for index, value in enumerate(values):
+                try:
+                    asserted = assertions_from_source({field: [value]}, identifier_scope=identifier_scope)
+                    structured = {"format": "source_assertion", "payload": value}
+                    record = ImportRecord(external_id=stable_id(structured), text=json.dumps(value, ensure_ascii=False, sort_keys=True), source_type="source_assertion", structured=structured, assertions=asserted)
+                    result.append(ParsedRecord(index=len(result), record=record, pointer=f"/{field}/{index}"))
+                except (ValueError, ValidationError) as error:
+                    result.append(ParsedRecord(index=len(result), record=None, pointer=f"/{field}/{index}", error=str(error)))
     return result

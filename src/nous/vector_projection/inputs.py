@@ -35,6 +35,15 @@ async def resolve_input(
     text = None
     media = None
     if isinstance(target, CognitiveRef):
+        if target.kind == "association":
+            from nous_sdk.contracts.namespace_policy import NamespaceFeatures
+
+            from nous.platform.configuration.namespace_policy import policy_in
+
+            if not (
+                await policy_in(view, ctx, "namespace.features", NamespaceFeatures)
+            ).relation_vectors:
+                return None
         record = await self.cognition.get_in(view, ctx, target)
         if not selectable(record, include_inactive=not head_only):
             return None
@@ -112,12 +121,19 @@ async def retained_content_in(
     target: Target,
     value: Input,
     profile: EmbeddingProfile,
+    *, repair: bool = False,
 ) -> Content | None:
     raw = await view.connection.scalar(select(contents.c.record).where(contents.c.key == value.key))
     if raw is not None:
         content = Content.model_validate(raw)
         await self.models.successful_embedding_in(view, ctx, content.call_id)
-        return content
+        evidence = await self.models.reusable_embedding_in(view, ctx, content.call_id, profile,
+            text=value.text, media=value.media, source_ids=value.source_ids)
+        if evidence is not None and (content.space, content.model, content.dimensions, content.vector) == (
+            evidence.batch.space, evidence.batch.model, evidence.batch.dimensions, evidence.batch.vectors[0]):
+            return content
+        if not repair:
+            raise DomainError("embedding_producer_conflict", "Cached projection differs from its retained paid input/output")
     references = [target.exact()]
     if isinstance(target, CognitiveRef):
         references.extend(
@@ -162,9 +178,9 @@ async def retained_content_in(
             batch.dimensions,
             batch.vectors[0],
         ):
-            raise DomainError(
-                "embedding_producer_conflict", "The adopted vector differs from its paid result"
-            )
+            if repair:
+                continue
+            raise DomainError("embedding_producer_conflict", "The adopted vector differs from its paid result")
         return Content(
             input=value,
             space=batch.space,
@@ -174,4 +190,11 @@ async def retained_content_in(
             call_id=str(row["call_id"]),
             call_source_ids=evidence.source_ids,
         )
+    evidence = await self.models.find_embedding_in(view, ctx, profile, text=value.text,
+        media=value.media, source_ids=value.source_ids)
+    if evidence is not None:
+        batch = evidence.batch
+        assert batch.call_ids[0] is not None
+        return Content(input=value, space=batch.space, model=batch.model, dimensions=batch.dimensions,
+            vector=batch.vectors[0], call_id=batch.call_ids[0], call_source_ids=evidence.source_ids)
     return None

@@ -8,7 +8,7 @@ from nous_sdk.contracts import (
 from sqlalchemy import select, update
 
 from nous.cognition.service import CognitionService
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.content import ContentStore
 from nous.platform.models.ledger import CallLedger
 from nous.platform.persistence import Authority
@@ -21,6 +21,7 @@ class BundleService:
     export_archive = archive.export_archive
     inspect_material = archive.inspect_material
     export = bundle_export.export
+    export_in = bundle_export.export_in
     export_zip = bundle_export.export_zip
     inspect_zip = bundle_export.inspect_zip
     install = bundle_install.install

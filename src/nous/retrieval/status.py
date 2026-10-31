@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nous_sdk.contracts import CallContext, CognitiveRecord
+from nous_sdk.contracts import CallContext, CognitiveRecord, DomainError
 from nous_sdk.contracts.diagnostics import RetrievalStatus, VectorSpaceInventory
 from sqlalchemy import select
 
 from nous.cognition.lifecycle import selectable
 from nous.cognition.schema import revisions, vectors
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 
 from .media import media_records_in
 
@@ -19,8 +19,22 @@ if TYPE_CHECKING:
 
 
 async def status(self: RetrievalService, ctx: CallContext) -> RetrievalStatus:
+    profile = None
+    try:
+        profile = await self.models.prepare_embedding(ctx)
+    except DomainError as error:
+        if error.code != "model_unavailable":
+            raise
     async with self.authority.read(ctx) as view:
         await require_subject_in(view, ctx)
+        configured = (
+            await self.models.configured_embedding_spaces_in(view, ctx, profile) if profile else ()
+        )
+        from nous_sdk.contracts.namespace_policy import NamespaceFeatures
+
+        from nous.platform.configuration.namespace_policy import policy_in
+
+        features = await policy_in(view, ctx, "namespace.features", NamespaceFeatures)
         values = (
             await view.connection.execute(
                 select(revisions.c.record).where(
@@ -33,6 +47,10 @@ async def status(self: RetrievalService, ctx: CallContext) -> RetrievalStatus:
         eligible: set[str] = set()
         for value in values:
             record = CognitiveRecord.model_validate(value)
+            if record.reference.kind == "association" and not features.relation_vectors:
+                continue
+            if record.reference.kind == "episode" and not features.episodes:
+                continue
             if selectable(record) and await self.cognition.visible_in(view, ctx, record):
                 eligible.add(record.reference.exact())
         for media in await media_records_in(
@@ -69,4 +87,15 @@ async def status(self: RetrievalService, ctx: CallContext) -> RetrievalStatus:
             visible_targets=len(eligible),
             native_generations=generations,
             spaces=inventories,
+            configured_space_complete=(
+                not eligible
+                or any(
+                    eligible.issubset(
+                        grouped.get((space.space, space.model, space.dimensions), set())
+                    )
+                    for space in configured
+                )
+            )
+            if configured
+            else None,
         )

@@ -1,5 +1,8 @@
 """Context admission and separate observations of contact, use, and outcome."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from nous_sdk.contracts import (
@@ -10,6 +13,7 @@ from nous_sdk.contracts import (
     ContextFeedback,
     DomainError,
 )
+from nous_sdk.contracts.targets import CognitiveTarget
 from sqlalchemy import select
 
 from nous.cognition.projection import body_text
@@ -22,8 +26,13 @@ from nous.platform.models import ModelService
 from nous.platform.persistence import Authority
 from nous.retrieval.service import RetrievalService
 
+from .feedback_events import record_in
 from .managed import ManagedContexts
-from .models import contexts, feedback
+from .models import contexts
+
+if TYPE_CHECKING:
+    from nous.feedback.service import FeedbackService
+    from nous.symbols.service import SymbolsService
 
 
 class ContextService(ManagedContexts):
@@ -38,11 +47,15 @@ class ContextService(ManagedContexts):
         models: ModelService | None = None,
         execution: DurableExecution | None = None,
         derivations: DerivedService | None = None,
+        feedback_owner: FeedbackService | None = None,
+        symbols: SymbolsService | None = None,
     ) -> None:
         self.authority, self.cognition = authority, cognition
         self.retrieval, self.materials = retrieval, materials
         self.configuration, self.models, self.execution = configuration, models, execution
         self.derivations = derivations
+        self.feedback_owner = feedback_owner
+        self.symbols = symbols
 
     async def admit(self, ctx: CallContext, command: ContextCommand):
         async with self.authority.write(
@@ -57,7 +70,8 @@ class ContextService(ManagedContexts):
                     await self.cognition.get_in(tx, ctx, reference)
                 return tx.replay_result
             records = [await self.cognition.get_in(tx, ctx, ref) for ref in command.references]
-            # UTF-8 bytes give a conservative provider-independent upper bound.
+            # Selection uses an explicit byte estimate; only Managed admission
+            # measures the complete host request including history and tools.
             used = 0
             admitted: list[CognitiveRecord] = []
             for record in records:
@@ -71,7 +85,10 @@ class ContextService(ManagedContexts):
                 "executor": command.executor,
                 "purpose": command.purpose,
                 "references": [record.reference.model_dump() for record in admitted],
-                "token_upper_bound": used,
+                "selected_text_bytes": used,
+                "budget_estimate": "utf8_bytes",
+                "session_id": command.session_id,
+                "caller_id": ctx.caller_id,
                 "commit_seq": tx.commit_seq,
             }
             await tx.connection.execute(
@@ -110,10 +127,12 @@ class ContextService(ManagedContexts):
                         "executor",
                         "purpose",
                         "references",
-                        "token_upper_bound",
                         "commit_seq",
                     )
                 },
+                "selected_text_bytes": value.get("selected_text_bytes", value.get("token_upper_bound", 0)),
+                "budget_estimate": value.get("budget_estimate", "legacy_utf8_bytes"),
+                "measurement": value.get("managed_admission", {}).get("measurement"),
                 "objects": [record.model_dump(mode="json") for record in records],
             }
 
@@ -140,15 +159,14 @@ class ContextService(ManagedContexts):
                 raise DomainError(
                     "context_member_not_found", "Feedback target was not admitted to this context"
                 )
+            if "managed_admission" in value and value.get("caller_id") != ctx.caller_id:
+                raise DomainError("context_admission_not_found", "Managed admission belongs to its authenticated host")
             await self.cognition.get_in(tx, ctx, command.reference)
-            result = {
-                "id": str(uuid4()),
-                **command.model_dump(mode="json"),
-                "commit_seq": tx.commit_seq,
-            }
-            await tx.connection.execute(
-                feedback.insert().values(
-                    id=result["id"], context_id=command.context_id, record=result
-                )
-            )
+            managed = value.get("managed_admission", {})
+            result = await record_in(self, tx, ctx, context_id=command.context_id,
+                event_id=command.operation_id, target=CognitiveTarget(reference=command.reference),
+                kind=command.kind, description=command.description, outcome=command.outcome,
+                occurred_at=tx.recorded_at, session_id=managed.get("session_id") or value.get("session_id"),
+                invocation_id=managed.get("invocation_id"),
+                subject_view=value.get("subject_view", value.get("executor") == "subject"))
             return tx.result(result)

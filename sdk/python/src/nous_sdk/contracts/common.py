@@ -6,7 +6,16 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    SerializerFunctionWrapHandler,
+    TypeAdapter,
+    model_serializer,
+    model_validator,
+)
 
 
 class Contract(BaseModel):
@@ -37,6 +46,21 @@ class TimeRange(Contract):
             and (self.start is None or self.start <= point.coordinate)
             and (self.end is None or point.coordinate < self.end)
         )
+
+
+class ApplicableInput(Contract):
+    """An omitted applicability permits inference; explicit null records unknown applicability."""
+
+    validity: TimeRange | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_explicit_validity(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        value: dict[str, object] = handler(self)
+        if "validity" not in self.model_fields_set:
+            value.pop("validity", None)
+        return value
 
 
 def utc_now() -> TimePoint:

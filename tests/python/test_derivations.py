@@ -163,7 +163,9 @@ def test_physical_derivation_exact_scope_revisions_and_withdrawal(tmp_path: Path
         )
         from nous.data_management.bundles import BundleService
 
-        bundles = BundleService(app.authority, app.cognition, content_store=app.content)
+        bundles = BundleService(
+            app.authority, app.cognition, ledger=app.models.ledger, content_store=app.content
+        )
         exported = await bundles.export(ctx)
         recipient = ctx.model_copy(update={"subject_id": "recipient"})
         await app.identity.create_subject(

@@ -11,22 +11,28 @@ from nous_sdk.contracts import DomainError
 from starlette.exceptions import HTTPException
 
 from nous.bootstrap import application
+from nous.integrations.amemorix.rpc.lifecycle import serving as rpc_serving
 from nous.platform.configuration import Settings
 from nous.platform.errors import NousError
 from nous.platform.persistence import OperationConflict
 
 from .amemorix import router as amemorix
+from .corrections import router as corrections
 from .credentials import router as credentials
 from .domain import router as domain
 from .episodes import router as episodes
 from .evolution import router as evolution
 from .facts import router as facts
+from .feedback import router as feedback
 from .knowledge import router as knowledge
 from .maintenance import router as maintenance
 from .management import router as management
 from .media import router as media
 from .observability import instrument_app
+from .resources import router as resources
+from .retention import router as retention
 from .sdk_routes import router as sdk_routes
+from .vector_spaces import router as vector_spaces
 from .web import router as web
 
 
@@ -37,9 +43,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         async with application(settings) as service:
             app.state.application = service
-            yield
+            async with rpc_serving(service):
+                yield
 
     app = FastAPI(title="Nous", version="0.1.0", lifespan=lifespan)
+    from .namespace_quota import NamespaceQuotaMiddleware
+
+    app.add_middleware(NamespaceQuotaMiddleware)
     app.include_router(domain)
     app.include_router(management)
     app.include_router(knowledge)
@@ -47,8 +57,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(evolution)
     app.include_router(episodes)
     app.include_router(facts)
+    app.include_router(feedback)
     app.include_router(sdk_routes)
+    app.include_router(resources)
+    app.include_router(retention)
+    app.include_router(vector_spaces)
     app.include_router(credentials)
+    app.include_router(corrections)
     app.include_router(web)
     app.include_router(amemorix)
     app.include_router(maintenance)
@@ -58,7 +73,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         code = error.code
         status = (
             401
-            if code == "credential_invalid"
+            if code in {"credential_invalid", "credential_expired"}
             else 503
             if code in {"model_unavailable", "capability_unavailable"}
             else 403

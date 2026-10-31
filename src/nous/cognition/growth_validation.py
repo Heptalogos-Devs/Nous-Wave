@@ -13,24 +13,26 @@ from nous_sdk.contracts import (
     ConceptPartition,
     DomainError,
     JournalBody,
-    MemoryBody,
-    MemoryChange,
-    MemoryLifecycle,
+    RetentionChange,
+    RetentionState,
 )
 from nous_sdk.contracts.growth import (
     GrowthAdoption,
     GrowthDraft,
+    GrowthMemoryChange,
     GrowthMerge,
     GrowthSnapshot,
     GrowthSplit,
 )
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
+from nous.platform.configuration.namespace_policy import require_feature_in
 from nous.platform.persistence import ReadView, WriteTx
 
 from .evolution_validation import validate_merge, validate_split
 from .growth_binding import GrowthValue, bind_body
+from .growth_sources import evidence_in as material_evidence_in
 from .lifecycle import active_body, selectable, transition
 from .projection import references_in
 from .schema import revisions
@@ -86,10 +88,11 @@ async def validate_growth_in(
     snapshot: GrowthSnapshot,
 ) -> None:
     actual = await catalog_in(self, view, ctx, snapshot)
+    source_evidence = await material_evidence_in(self, view, ctx, snapshot)
     catalog: dict[str, CognitiveRecord | GrowthValue] = dict(actual)
     snapshot_keys = frozenset(actual)
-    check_keys(draft, snapshot_keys)
-    revised: set[str] = set()
+    check_keys(draft, snapshot_keys | frozenset(source_evidence))
+    checked: set[str] = set()
 
     def lookup(key: str) -> CognitiveRecord | GrowthValue:
         if key not in catalog:
@@ -100,28 +103,28 @@ async def validate_growth_in(
             )
         return catalog[key]
 
-    async def target(key: str) -> CognitiveRecord:
-        if key not in snapshot_keys:
-            raise DomainError(
-                "growth_target_unknown", "Revision targets must identify a supplied snapshot key"
+    async def target(key: str) -> CognitiveRecord | GrowthValue:
+        record = lookup(key)
+        if key in snapshot_keys and record.reference.id not in checked:
+            original = actual[key]
+            current = await view.connection.scalar(
+                select(revisions.c.revision).where(
+                    revisions.c.id == original.reference.id,
+                    revisions.c.namespace_id == ctx.namespace_id,
+                    revisions.c.subject_id == ctx.subject_id,
+                    revisions.c.head.is_(True),
+                )
             )
-        record = actual[key]
-        current = await view.connection.scalar(
-            select(revisions.c.revision).where(
-                revisions.c.id == record.reference.id,
-                revisions.c.namespace_id == ctx.namespace_id,
-                revisions.c.subject_id == ctx.subject_id,
-                revisions.c.head.is_(True),
-            )
-        )
-        if current != record.reference.revision or record.reference.id in revised:
-            raise DomainError(
-                "growth_revision_conflict", "A target is stale or already revised by this proposal"
-            )
-        revised.add(record.reference.id)
+            if current != original.reference.revision:
+                raise DomainError(
+                    "growth_revision_conflict", "A group target changed after its frozen snapshot"
+                )
+            checked.add(original.reference.id)
         return record
 
-    def planned(key: str, body: object, previous: CognitiveRecord | None = None) -> GrowthValue:
+    def planned(
+        key: str, body: object, previous: CognitiveRecord | GrowthValue | None = None
+    ) -> GrowthValue:
         from nous_sdk.contracts import CognitiveBody
         from pydantic import TypeAdapter
 
@@ -137,20 +140,33 @@ async def validate_growth_in(
             snapshot.watermark + 1,
             previous.lifecycle if previous else None,
             previous.deleted if previous else False,
+            times=previous.times if previous else None,
         )
+
+    def publish(key: str, value: GrowthValue) -> None:
+        for alias, existing in tuple(catalog.items()):
+            if existing.reference.id == value.reference.id:
+                catalog[alias] = value
+        catalog[key] = value
 
     for action in draft.actions:
         if isinstance(action, GrowthAdoption):
             previous = await target(action.target_key) if action.target_key else None
-            for key in (*action.evidence_keys, *(binding.key for binding in action.bindings)):
-                lookup(key)
+            for key in (
+                *action.evidence_keys,
+                *(binding.key for binding in action.bindings if binding.kind == "cognitive"),
+            ):
+                if key not in source_evidence:
+                    lookup(key)
             if previous is not None and (
                 previous.deleted or not active_body(previous.body, previous.lifecycle)
             ):
                 raise DomainError(
                     "growth_cognition_inactive", "Growth cannot revise inactive cognition"
                 )
-            body = bind_body(action, catalog, snapshot.watermark)
+            body = bind_body(action, catalog, snapshot.watermark, snapshot.sources)
+            if body.kind == "episode" and (previous is None or previous.body != body):
+                await require_feature_in(view, ctx, "episodes")
             await require_subject_in(view, ctx, capability_for(body))
             if previous is not None and body.kind != previous.reference.kind:
                 raise DomainError(
@@ -170,7 +186,7 @@ async def validate_growth_in(
                     "knowledge_cutoff",
                     "Journal cannot cite cognition formed after its snapshot perspective",
                 )
-            catalog[action.key] = planned(action.key, body, previous)
+            publish(action.key, planned(action.key, body, previous))
         elif isinstance(action, GrowthMerge):
             records = [await target(key) for key in (action.target_key, *action.source_keys)]
             validate_merge(records)
@@ -182,10 +198,13 @@ async def validate_growth_in(
                 if isinstance(record.body, ConceptBody)
                 for ref in record.body.members
             }
-            catalog[action.key] = planned(
+            publish(
                 action.key,
-                original.body.model_copy(update={"members": tuple(members.values())}),
-                original,
+                planned(
+                    action.key,
+                    original.body.model_copy(update={"members": tuple(members.values())}),
+                    original,
+                ),
             )
         elif isinstance(action, GrowthSplit):
             original = await target(action.source_key)
@@ -207,18 +226,21 @@ async def validate_growth_in(
                         members=specification.members,
                     ),
                 )
-            catalog[action.key] = planned(
-                action.key, original.body.model_copy(update={"state": "split"}), original
+            publish(
+                action.key,
+                planned(action.key, original.body.model_copy(update={"state": "split"}), original),
             )
         else:
             original = await target(action.target_key)
-            if not isinstance(original.body, MemoryBody) or original.purged:
+            if original.reference.kind not in {"memory", "association"} or original.body is None or original.purged:
                 raise DomainError(
-                    "memory_unavailable", "Maintenance requires an actual nonpurged Memory"
+                    "retention_unavailable", "Retention requires a nonpurged Memory or Association"
                 )
+            if isinstance(action, GrowthMemoryChange) and original.reference.kind != "memory":
+                raise DomainError("memory_required", "The public memory action requires a Memory target")
             if original.deleted and action.transition != "restore":
                 raise DomainError("memory_deleted", "Restore Memory before changing its lifecycle")
-            change = MemoryChange(
+            change = RetentionChange(
                 reference=original.reference,
                 action=action.transition,
                 strength=action.strength,
@@ -226,15 +248,21 @@ async def validate_growth_in(
                 reason=action.reason,
             )
             now = int(datetime.now(UTC).timestamp() * 1000)
-            lifecycle = original.lifecycle or MemoryLifecycle(
+            lifecycle = original.lifecycle or RetentionState(
                 anchor_unix_ms=original.times.recorded.coordinate
+                if original.times
+                else ctx.clock.coordinate
             )
             updated = transition(lifecycle, change, now)
             value = planned(action.key, original.body, original)
-            catalog[action.key] = GrowthValue(
-                value.reference,
-                value.body,
-                value.commit_seq,
-                updated,
-                False if action.transition == "restore" else original.deleted,
+            publish(
+                action.key,
+                GrowthValue(
+                    value.reference,
+                    value.body,
+                    value.commit_seq,
+                    updated,
+                    False if action.transition == "restore" else original.deleted,
+                    times=original.times,
+                ),
             )

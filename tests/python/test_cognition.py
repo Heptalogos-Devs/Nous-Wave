@@ -21,7 +21,11 @@ from nous.data_management.bundles import BundleService
 from nous.data_management.sources import SourceService
 from nous.identity.service import IdentityService
 from nous.imports.service import ImportService
+from nous.platform.configuration.namespace_policy import entries as namespace_entries
+from nous.platform.configuration.service import ConfigurationEntry, ConfigurationService
+from nous.platform.models.ledger import CallLedger
 from nous.platform.persistence import Authority
+from nous.retrieval.policy import defaults as retrieval_defaults
 from nous.retrieval.service import RetrievalService
 
 
@@ -39,8 +43,16 @@ def test_import_source_bundle_and_restart(tmp_path: Path):
         authority = Authority(path)
         cognition = CognitionService(authority)
         imports = ImportService(authority, cognition, UnusedModels())
-        retrieval = RetrievalService(authority, cognition, UnusedModels(), tmp_path / "index")
-        bundles = BundleService(authority, cognition)
+        retrieval = RetrievalService(
+            authority,
+            cognition,
+            UnusedModels(),
+            tmp_path / "index",
+            configuration=ConfigurationService(
+                authority, {**namespace_entries(), "retrieval": ConfigurationEntry(retrieval_defaults())}
+            ),
+        )
+        bundles = BundleService(authority, cognition,ledger=CallLedger(authority))
         sources = SourceService(authority, cognition)
         contexts = ContextService(authority, cognition)
         identity = IdentityService(authority)
@@ -131,7 +143,8 @@ def test_import_source_bundle_and_restart(tmp_path: Path):
             await authority.close()
         reopened = Authority(path)
         cognition = CognitionService(reopened)
-        retrieval = RetrievalService(reopened, cognition, UnusedModels(), tmp_path / "index")
+        retrieval = RetrievalService(reopened, cognition, UnusedModels(), tmp_path / "index",
+            configuration=ConfigurationService(reopened, {**namespace_entries(), "retrieval": ConfigurationEntry(retrieval_defaults())}))
         await reopened.initialize()
         try:
             found = await retrieval.query(ctx, QueryRequest(text="回滚"))
@@ -157,7 +170,15 @@ def test_purge_clears_history_receipts_and_blocks_late_adoption(tmp_path: Path):
         materials = MaterialService(authority, content)
         cognition = CognitionService(authority)
         imports = ImportService(authority, cognition, UnusedModels(), materials=materials)
-        retrieval = RetrievalService(authority, cognition, UnusedModels(), tmp_path / "index")
+        retrieval = RetrievalService(
+            authority,
+            cognition,
+            UnusedModels(),
+            tmp_path / "index",
+            configuration=ConfigurationService(
+                authority, {**namespace_entries(), "retrieval": ConfigurationEntry(retrieval_defaults())}
+            ),
+        )
         sources = SourceService(
             authority, cognition, content_store=content, invalidate=retrieval.invalidate
         )
@@ -278,10 +299,17 @@ def test_json_original_regions_addresses_attempts_and_artifact_purge(tmp_path: P
         cognition = CognitionService(authority)
         imports = ImportService(authority, cognition, UnusedModels(), materials=materials)
         retrieval = RetrievalService(
-            authority, cognition, UnusedModels(), tmp_path / "index", materials=materials
+            authority,
+            cognition,
+            UnusedModels(),
+            tmp_path / "index",
+            materials=materials,
+            configuration=ConfigurationService(
+                authority, {**namespace_entries(), "retrieval": ConfigurationEntry(retrieval_defaults())}
+            ),
         )
         sources = SourceService(authority, cognition, content_store=content)
-        bundles = BundleService(authority, cognition, content)
+        bundles = BundleService(authority, cognition,ledger=CallLedger(authority),content_store=content)
         identity = IdentityService(authority)
         await authority.initialize()
         ctx = CallContext(
@@ -332,11 +360,13 @@ def test_json_original_regions_addresses_attempts_and_artifact_purge(tmp_path: P
             unit = result.catalog.units[0]
             region_ctx = ctx.model_copy(update={"allowed_source_ids": (unit.source_region_id,)})
             region = await materials.read_region(region_ctx, unit.source_region_id)
-            assert region.line_number == 1 and region.json_pointer == "/text"
+            assert region.line_number == 1 and region.json_pointer is None
             exact = await retrieval.query(
                 region_ctx, QueryRequest(reference=f"source-region:{region.id}", domains=("media",))
             )
-            assert exact.hits[0].object.text == memory.body.text
+            selected_record = json.loads(exact.hits[0].object.text)
+            assert selected_record["text"] == memory.body.text
+            assert selected_record["metadata"] == memory.body.metadata
             from nous_sdk.contracts import MediaReference, SourceRegion
 
             selected = ctx.model_copy(
@@ -517,6 +547,7 @@ def test_ego_seed_observation_reuse_and_attribute_support(tmp_path: Path):
                         ),
                     ),
                 ),
+                imports=imports,
             )
             assert len(seeded.facets) == 2 and len(seeded.memories) == 2
             assert len(await cognition.ego_profile(ctx)) == 2
@@ -528,16 +559,18 @@ def test_ego_seed_observation_reuse_and_attribute_support(tmp_path: Path):
                     .values(capabilities=["memory", "self", "social"])
                 )
             assert len(await cognition.ego_profile(ctx)) == 2
-            assert (await identity.list_subjects(ctx))[0]["capabilities"] == [
-                "memory", "ego", "social"
-            ]
+            assert (await identity.list_subjects(ctx))[0].capabilities == (
+                "memory",
+                "ego",
+                "social",
+            )
             legacy = await identity.create_subject(
                 ctx, "Legacy", "legacy-subject", capabilities=("memory", "self")
             )
             async with authority.writer.begin() as connection:
                 import json
 
-                old_result = {**legacy, "capabilities": ["memory", "self"]}
+                old_result = {**legacy.model_dump(mode="json"), "capabilities": ["memory", "self"]}
                 await connection.execute(
                     update(operations)
                     .where(operations.c.operation_id == "legacy-subject")
@@ -546,10 +579,10 @@ def test_ego_seed_observation_reuse_and_attribute_support(tmp_path: Path):
             replayed = await identity.create_subject(
                 ctx, "Legacy", "legacy-subject", capabilities=("memory", "self")
             )
-            assert replayed == legacy and legacy["capabilities"] == ["memory", "ego"]
+            assert replayed == legacy and legacy.capabilities == ("memory", "ego")
             assert (
                 await cognition.get(ctx, seeded.memories[0])
-            ).body.epistemic.classification == "simulated"
+            ).body.epistemic.classification == "reported"
             preview = await imports.preview_text_import(
                 ctx,
                 ImportDocument(text="一行\n二行\n三行\n四行\n五行"),

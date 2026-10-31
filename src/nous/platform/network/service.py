@@ -90,6 +90,7 @@ class NetworkService:
                         trust_env=policy.trust_env,
                         proxy=policy.proxy_url,
                         follow_redirects=policy.follow_redirects,
+                        headers={"User-Agent": policy.user_agent},
                         timeout=httpx2.Timeout(
                             connect=timeout(policy.connect_timeout_seconds),
                             read=timeout(policy.read_timeout_seconds),

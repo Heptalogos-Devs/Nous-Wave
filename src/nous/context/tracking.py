@@ -42,21 +42,14 @@ async def read_track(
         reset_reason = None
         if projection is not None:
             try:
-                await self.require_targets_in(
-                    view,
-                    ctx,
-                    tuple(
-                        target
-                        for segment in projection.segments
-                        for target in (*segment.sources, *segment.dependencies)
-                    ),
-                )
+                await self.require_projection_in(view, ctx, projection)
             except DomainError as error:
                 if error.code not in {
                     "source_unavailable",
                     "cognition_not_found",
                     "region_not_found",
                     "material_not_found",
+                    "context_source_changed",
                 }:
                     raise
                 projection, reset_reason = None, "source_unavailable"

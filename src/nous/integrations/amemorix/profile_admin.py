@@ -8,10 +8,10 @@ from nous_sdk.amemorix.contracts import ProfileAdminInput, ProfileInput
 from nous_sdk.contracts import CallContext, CognitiveRecord, CognitiveRef, DomainError, EntityBody
 from nous_sdk.contracts.context import CognitiveTarget
 from nous_sdk.contracts.person_profiles import PersonProfileChange, RefreshPersonProfile
-from pydantic import JsonValue
+from pydantic import JsonValue, TypeAdapter
 
 from .helpers import json_object
-from .profile_read import aliases, people, read_profile, select_person, summary
+from .profile_read import aliases, people, person_id, read_profile, select_person, summary
 
 if TYPE_CHECKING:
     from .service import AMemorixService
@@ -46,6 +46,57 @@ async def profile_admin(
     arguments: dict[str, JsonValue],
 ) -> dict[str, JsonValue]:
     command = ProfileAdminInput.model_validate(arguments)
+    if command.action == "status":
+        observed = await self.app.execution.summarize_jobs(
+            ctx, kind="nous.person_profile.refresh", limit=command.limit
+        )
+        native = TypeAdapter(dict[str, int]).validate_python(observed["counts"])
+        counts = {
+            "pending": sum(int(native.get(key, 0)) for key in ("ENQUEUED", "DELAYED")),
+            "running": native.get("PENDING", 0),
+            "done": native.get("SUCCESS", 0),
+            "failed": sum(
+                int(native.get(key, 0)) for key in ("ERROR", "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
+            ),
+            "cancelled": native.get("CANCELLED", 0),
+            "total": sum(native.values()),
+        }
+        return json_object({"success": True, **observed, "counts": counts, "native_counts": native})
+    if command.action == "process_pending":
+        batch = await self.app.execution.process_jobs(
+            ctx, kind="nous.person_profile.refresh", limit=command.limit
+        )
+        refreshed_items: list[dict[str, JsonValue]] = []
+        completed = batch["items"]
+        assert isinstance(completed, list)
+        for item in completed:
+            assert isinstance(item, dict)
+            result = item["result"]
+            if not isinstance(result, dict) or "reference" not in result:
+                raise DomainError(
+                    "profile_refresh_result_invalid", "Profile job returned no reference"
+                )
+            reference = CognitiveRef.model_validate(result["reference"])
+            record = await self.app.cognition.get(ctx, reference)
+            refreshed_items.append(
+                json_object(
+                    {
+                        "job_id": item["job_id"],
+                        "person_id": person_id(record),
+                        "profile_version": reference.revision,
+                        "reference": reference.model_dump(mode="json"),
+                        "profile_source": "nous_entity",
+                    }
+                )
+            )
+        return json_object(
+            {
+                "success": batch["failed"] == 0,
+                **batch,
+                "refreshed": len(refreshed_items),
+                "items": refreshed_items,
+            }
+        )
     if command.action == "list":
         if command.force_refresh:
             raise DomainError("person_required", "Forced refresh requires one explicit Person")

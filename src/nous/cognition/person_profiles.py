@@ -22,10 +22,10 @@ from nous_sdk.contracts.cognition import PersonAliasOverride, PersonSummaryOverr
 from nous_sdk.contracts.lifecycle import MemoryChange
 from nous_sdk.contracts.person_profiles import PersonProfileChange, PersonProfileChangeResult
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.persistence import Authority, ReadView, WriteTx
 
-from . import person_refresh
+from . import person_refresh, profile_reads
 from .revision_state import RevisionState
 
 if TYPE_CHECKING:
@@ -34,6 +34,11 @@ if TYPE_CHECKING:
 
 
 class PersonProfileService:
+    people = profile_reads.people
+    query = profile_reads.query
+    read = profile_reads.read
+    select = profile_reads.select
+
     submit_refresh = person_refresh.submit_refresh
     submit_refresh_in = person_refresh.submit_refresh_in
     run_refresh = person_refresh.run_refresh
@@ -65,10 +70,15 @@ class PersonProfileService:
     async def person_in(
         self, view: ReadView | WriteTx, ctx: CallContext, reference: CognitiveRef
     ) -> CognitiveRecord:
-        record = await self.cognition.get_in(view, ctx, reference)
+        await require_subject_in(view, ctx, "memory")
+        record = await self.cognition.read_in(view, ctx, reference)
         if not isinstance(record.body, EntityBody) or record.body.entity_type != "person":
             raise DomainError("person_required", "Profile operations require a Person Entity")
-        if record.deleted or record.purged:
+        if (
+            record.deleted
+            or record.purged
+            or await self.cognition.automatic_in(view, ctx, reference) is None
+        ):
             raise DomainError("person_unavailable", "The Person is retired or purged")
         return record
 
@@ -84,6 +94,9 @@ class PersonProfileService:
         reason: str,
         producer_call_id: str | None = None,
     ) -> CognitiveRecord:
+        from nous.platform.configuration.namespace_policy import require_feature_in
+
+        await require_feature_in(tx, ctx, "person_profiles")
         value = await self.cognition.adopt_in(
             tx,
             ctx,
@@ -104,6 +117,15 @@ class PersonProfileService:
             ),
         )
         return value
+
+    async def stored_person_in(
+        self, view: ReadView | WriteTx, ctx: CallContext, reference: CognitiveRef
+    ) -> CognitiveRecord:
+        await require_subject_in(view, ctx, "memory")
+        record = await self.cognition.get_in(view, ctx, reference, purpose="current")
+        if not isinstance(record.body, EntityBody) or record.body.entity_type != "person":
+            raise DomainError("person_required", "Profile operations require a Person Entity")
+        return record
 
     async def change(
         self, ctx: CallContext, command: PersonProfileChange
@@ -262,7 +284,7 @@ def corrected_body(body: EntityBody, command: PersonProfileChange) -> EntityBody
             raise DomainError(
                 "profile_evidence_not_found", "The exact Memory does not support this Person"
             )
-        return body.model_copy(update={"attributes": tuple(attributes), "description": ""})
+        return body.model_copy(update={"attributes": tuple(attributes), "generated_profile": None})
     prefix = "/body/attributes/"
     pointer = command.attribute_pointer or ""
     if not pointer.startswith(prefix) or not pointer[len(prefix) :].isdigit():
@@ -284,4 +306,4 @@ def corrected_body(body: EntityBody, command: PersonProfileChange) -> EntityBody
             del attributes[index]
         else:
             attributes[index] = attribute.model_copy(update={"evidence": links})
-    return body.model_copy(update={"attributes": tuple(attributes), "description": ""})
+    return body.model_copy(update={"attributes": tuple(attributes), "generated_profile": None})

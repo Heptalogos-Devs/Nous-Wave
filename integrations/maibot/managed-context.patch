@@ -1,21 +1,22 @@
 diff --git a/src/llm_models/model_client/base_client.py b/src/llm_models/model_client/base_client.py
+index 6aaa8c9b6..64eb33b40 100644
 --- a/src/llm_models/model_client/base_client.py
 +++ b/src/llm_models/model_client/base_client.py
 @@ -1,4 +1,5 @@
  from abc import ABC, abstractmethod
 +from contextlib import AbstractAsyncContextManager
  from dataclasses import dataclass, field
- from typing import Any, Callable, Coroutine, Dict, List, Set, Tuple, Type
+ from typing import Any, Callable, Coroutine, Dict, List, Literal, Set, Tuple, Type
  
-@@ -275,6 +276,7 @@
-     extra_params: Dict[str, Any] = field(default_factory=dict)
+@@ -280,6 +281,7 @@ class ResponseRequest:
      trace_context: RequestTraceContext | None = None
      logical_turn_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+     tool_choice: Literal["none"] | None = None
 +    admission_context: Callable[[Dict[str, Any]], AbstractAsyncContextManager[None]] | None = None
  
      def copy_with(self, **changes: Any) -> "ResponseRequest":
          """基于当前请求创建一个带局部变更的新请求。
-@@ -298,6 +300,7 @@
+@@ -304,6 +306,7 @@ class ResponseRequest:
              "extra_params": dict(self.extra_params),
              "trace_context": self.trace_context,
              "logical_turn_id": self.logical_turn_id,
@@ -23,7 +24,17 @@ diff --git a/src/llm_models/model_client/base_client.py b/src/llm_models/model_c
          }
          payload.update(changes)
          return ResponseRequest(**payload)
+@@ -312,7 +315,7 @@ class ResponseRequest:
+         """冻结输入和模型设置，解除中断、回调及诊断上下文的生命周期。"""
+         return copy.deepcopy(self.copy_with(
+             stream_response_handler=None, async_response_parser=None,
+-            interrupt_flag=None, trace_context=None,
++            interrupt_flag=None, trace_context=None, admission_context=None,
+         ))
+ 
+ 
 diff --git a/src/llm_models/model_client/gemini_client.py b/src/llm_models/model_client/gemini_client.py
+index e6f8bd086..522c2c201 100644
 --- a/src/llm_models/model_client/gemini_client.py
 +++ b/src/llm_models/model_client/gemini_client.py
 @@ -1,3 +1,6 @@
@@ -33,7 +44,7 @@ diff --git a/src/llm_models/model_client/gemini_client.py b/src/llm_models/model
  # ruff: noqa: B025
  
  from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Tuple, cast
-@@ -1046,32 +1049,33 @@
+@@ -1050,32 +1053,33 @@ class GeminiClient(AdapterClient[AsyncIterator[GenerateContentResponse], Generat
                  "model": model_identifier,
                  "system_instruction": system_instruction,
              }
@@ -91,7 +102,7 @@ diff --git a/src/llm_models/model_client/gemini_client.py b/src/llm_models/model
  
              response.wire_protocol = "gemini_generate_content"
              response.request_wire_payload = {
-@@ -1127,6 +1131,8 @@
+@@ -1131,6 +1135,8 @@ class GeminiClient(AdapterClient[AsyncIterator[GenerateContentResponse], Generat
              )
              attach_request_snapshot(exc, snapshot_path)
              raise
@@ -101,6 +112,7 @@ diff --git a/src/llm_models/model_client/gemini_client.py b/src/llm_models/model
              if has_request_snapshot(exc):
                  raise
 diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model_client/openai_client.py
+index 2773a8723..4283bf718 100644
 --- a/src/llm_models/model_client/openai_client.py
 +++ b/src/llm_models/model_client/openai_client.py
 @@ -1,3 +1,6 @@
@@ -110,7 +122,7 @@ diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model
  from dataclasses import dataclass, field
  from typing import Any, Callable, Coroutine, Dict, List, Set, Tuple, cast
  from urllib.parse import urlparse
-@@ -1118,6 +1121,7 @@
+@@ -1118,6 +1121,7 @@ class _OpenAIStreamAccumulator:
          self.tool_call_states: Dict[int, _StreamedToolCallState] = {}
          self.finish_reason: str | None = None
          self.model_name: str | None = None
@@ -118,7 +130,7 @@ diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model
          self._using_native_reasoning = False
  
      def capture_event_metadata(self, event: ChatCompletionChunk) -> None:
-@@ -1126,6 +1130,8 @@
+@@ -1126,6 +1130,8 @@ class _OpenAIStreamAccumulator:
          Args:
              event: 当前流式事件。
          """
@@ -127,7 +139,7 @@ diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model
          if getattr(event, "model", None) and not self.model_name:
              self.model_name = event.model
          if getattr(event, "choices", None):
-@@ -1229,7 +1235,7 @@
+@@ -1229,7 +1235,7 @@ class _OpenAIStreamAccumulator:
                      )
                  )
  
@@ -136,7 +148,7 @@ diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model
          content, reasoning_content, resolved_tool_calls = _apply_xml_tool_call_fallback(
              content or None,
              reasoning_content or None,
-@@ -1631,20 +1637,50 @@
+@@ -1633,20 +1639,50 @@ class OpenaiClient(AdapterClient[AsyncStream[ChatCompletionChunk], ChatCompletio
                      "tools": tools_payload,
                  }
  
@@ -194,15 +206,13 @@ diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model
                              response_format=openai_response_format,
                              extra_headers=self._build_request_headers(request_overrides.extra_headers),
                              extra_query=request_overrides.extra_query or None,
-@@ -1652,39 +1688,10 @@
+@@ -1654,39 +1690,10 @@ class OpenaiClient(AdapterClient[AsyncStream[ChatCompletionChunk], ChatCompletio
                          )
                      )
                      raw_response = cast(
 -                        AsyncStream[ChatCompletionChunk],
 -                        await await_task_with_interrupt(stream_task, request.interrupt_flag),
-+                        ChatCompletion,
-+                        await await_task_with_interrupt(completion_task, request.interrupt_flag),
-                     )
+-                    )
 -                    try:
 -                        return await active_stream_handler(raw_response, request.interrupt_flag)
 -                    finally:
@@ -226,7 +236,9 @@ diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model
 -                        extra_headers=self._build_request_headers(request_overrides.extra_headers),
 -                        extra_query=request_overrides.extra_query or None,
 -                        extra_body=extra_body or None,
--                    )
++                        ChatCompletion,
++                        await await_task_with_interrupt(completion_task, request.interrupt_flag),
+                     )
 -                )
 -                raw_response = cast(
 -                    ChatCompletion,
@@ -237,7 +249,7 @@ diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model
  
              # 已知仅支持 max_completion_tokens 的模型直接走对应分支；否则先按常规发送，
              # 命中「max_tokens 不被支持」的 400 错误时自动改用 max_completion_tokens 重试并记忆。
-@@ -1709,6 +1716,15 @@
+@@ -1711,6 +1718,15 @@ class OpenaiClient(AdapterClient[AsyncStream[ChatCompletionChunk], ChatCompletio
                  else:
                      raise
              response, usage_record = response_result
@@ -253,16 +265,17 @@ diff --git a/src/llm_models/model_client/openai_client.py b/src/llm_models/model
              request_kwargs = snapshot_provider_request["request_kwargs"]
              response.wire_protocol = "chat_completions"
              response.request_wire_payload = {
-@@ -1763,6 +1779,8 @@
-             attach_request_snapshot(wrapped_error, snapshot_path)
+@@ -1766,6 +1782,8 @@ class OpenaiClient(AdapterClient[AsyncStream[ChatCompletionChunk], ChatCompletio
              raise wrapped_error from exc
          except ReqAbortException:
-+            raise
-+        except NousContextError:
              raise
++        except NousContextError:
++            raise
          except Exception as exc:
              if has_request_snapshot(exc):
+                 raise
 diff --git a/src/llm_models/model_client/openai_responses_client.py b/src/llm_models/model_client/openai_responses_client.py
+index 6c3867ea8..0b103dfa6 100644
 --- a/src/llm_models/model_client/openai_responses_client.py
 +++ b/src/llm_models/model_client/openai_responses_client.py
 @@ -1,3 +1,5 @@
@@ -271,7 +284,7 @@ diff --git a/src/llm_models/model_client/openai_responses_client.py b/src/llm_mo
  from copy import deepcopy
  from typing import Any, Dict, List, Sequence, Tuple, cast
  
-@@ -724,54 +726,55 @@
+@@ -726,54 +728,55 @@ class OpenAIResponsesClient(OpenaiClient):
                  "tools": tools,
              }
  
@@ -288,6 +301,13 @@ diff --git a/src/llm_models/model_client/openai_responses_client.py b/src/llm_mo
 -                    extra_headers=self._build_request_headers(request_overrides.extra_headers),
 -                    extra_query=request_overrides.extra_query or None,
 -                    extra_body=extra_body or None,
+-                )
+-            )
+-            raw_response = await await_task_with_interrupt(request_task, request.interrupt_flag)
+-            if model_info.force_stream_mode:
+-                completed_response = await _consume_response_stream(
+-                    cast(AsyncStream[ResponseStreamEvent], raw_response),
+-                    request.interrupt_flag,
 +            async with request.admission_context(snapshot_provider_request) if request.admission_context is not None else nullcontext():
 +                request_task = asyncio.create_task(
 +                    self.client.responses.create(
@@ -303,28 +323,6 @@ diff --git a/src/llm_models/model_client/openai_responses_client.py b/src/llm_mo
 +                        extra_query=request_overrides.extra_query or None,
 +                        extra_body=extra_body or None,
 +                    )
-                 )
--            )
--            raw_response = await await_task_with_interrupt(request_task, request.interrupt_flag)
--            if model_info.force_stream_mode:
--                completed_response = await _consume_response_stream(
--                    cast(AsyncStream[ResponseStreamEvent], raw_response),
--                    request.interrupt_flag,
-+                raw_response = await await_task_with_interrupt(request_task, request.interrupt_flag)
-+                if model_info.force_stream_mode:
-+                    completed_response = await _consume_response_stream(
-+                        cast(AsyncStream[ResponseStreamEvent], raw_response),
-+                        request.interrupt_flag,
-+                    )
-+                else:
-+                    completed_response = cast(Response, raw_response)
-+
-+                response, usage_record = _parse_completed_response(
-+                    completed_response,
-+                    request,
-+                    self.api_provider.name,
-+                    self.api_provider.base_url,
-+                    self.tool_argument_parse_mode,
                  )
 -            else:
 -                completed_response = cast(Response, raw_response)
@@ -342,7 +340,22 @@ diff --git a/src/llm_models/model_client/openai_responses_client.py b/src/llm_mo
 -                    f"provider={self.api_provider.name} model={model_info.model_identifier} "
 -                    f"response={response.raw_data.get('response_id', '')} "
 -                    f"calls={_format_native_tool_log(response.native_tool_calls)}"
--                )
++                raw_response = await await_task_with_interrupt(request_task, request.interrupt_flag)
++                if model_info.force_stream_mode:
++                    completed_response = await _consume_response_stream(
++                        cast(AsyncStream[ResponseStreamEvent], raw_response),
++                        request.interrupt_flag,
++                    )
++                else:
++                    completed_response = cast(Response, raw_response)
++
++                response, usage_record = _parse_completed_response(
++                    completed_response,
++                    request,
++                    self.api_provider.name,
++                    self.api_provider.base_url,
++                    self.tool_argument_parse_mode,
+                 )
 -            if usage_record is not None:
 -                response.usage = self._build_usage_record(model_info, usage_record)
 -            response.wire_protocol = "responses"
@@ -373,16 +386,17 @@ diff --git a/src/llm_models/model_client/openai_responses_client.py b/src/llm_mo
          except (EmptyResponseException, RespParseException) as exc:
              await asyncio.to_thread(self._attach_failure_snapshot, exc, request, snapshot_provider_request)
              raise
-@@ -788,6 +791,8 @@
-             )
+@@ -791,6 +794,8 @@ class OpenAIResponsesClient(OpenaiClient):
              raise wrapped_error from exc
          except ReqAbortException:
-+            raise
-+        except NousContextError:
              raise
++        except NousContextError:
++            raise
          except Exception as exc:
              if not has_request_snapshot(exc):
+                 await asyncio.to_thread(self._attach_failure_snapshot, exc, request, snapshot_provider_request)
 diff --git a/src/llm_models/model_client/plugin_client.py b/src/llm_models/model_client/plugin_client.py
+index 107fd47ee..f53152c4a 100644
 --- a/src/llm_models/model_client/plugin_client.py
 +++ b/src/llm_models/model_client/plugin_client.py
 @@ -1,3 +1,4 @@
@@ -390,7 +404,7 @@ diff --git a/src/llm_models/model_client/plugin_client.py b/src/llm_models/model
  from datetime import datetime
  from typing import Any, Dict, List
  
-@@ -76,7 +77,8 @@
+@@ -76,7 +77,8 @@ class PluginLLMClient(BaseClient):
              raise RespParseException(message="插件 LLM Provider 暂不支持 Host 侧自定义流式处理器或响应解析器")
          validate_context_items(request.context_items, ContextProtocolMode.REQUEST_CONTEXT)
          payload = serialize_response_request_snapshot(request)
@@ -400,10 +414,50 @@ diff --git a/src/llm_models/model_client/plugin_client.py b/src/llm_models/model
          response = self._build_api_response(
              result,
              request.model_info.name,
+diff --git a/src/llm_models/payload_content/context_item.py b/src/llm_models/payload_content/context_item.py
+index 97bfa086f..fe3645986 100644
+--- a/src/llm_models/payload_content/context_item.py
++++ b/src/llm_models/payload_content/context_item.py
+@@ -49,6 +49,7 @@ class ContextItemMeta:
+     item_id: str
+     logical_turn_id: str | None
+     timestamp: datetime
++    invocation_receipt_json: bytes | None = None
+ 
+     def __post_init__(self) -> None:
+         if not self.item_id.strip():
+diff --git a/src/llm_models/payload_content/context_snapshot.py b/src/llm_models/payload_content/context_snapshot.py
+index ef3f431c7..775609eff 100644
+--- a/src/llm_models/payload_content/context_snapshot.py
++++ b/src/llm_models/payload_content/context_snapshot.py
+@@ -1,5 +1,6 @@
+ """Context Item 的纯数据快照，不加载模型客户端或请求日志。"""
+ 
++import json
+ from datetime import datetime
+ from typing import Any, Sequence
+ 
+@@ -17,6 +18,7 @@ def _serialize_item_meta(meta: ContextItemMeta) -> dict[str, Any]:
+         "item_id": meta.item_id,
+         "logical_turn_id": meta.logical_turn_id,
+         "timestamp": meta.timestamp.isoformat(),
++        "invocation_receipt": json.loads(meta.invocation_receipt_json) if meta.invocation_receipt_json is not None else None,
+     }
+ 
+ 
+@@ -58,6 +60,7 @@ def _deserialize_item_meta(raw_meta: Any) -> ContextItemMeta:
+         item_id=item_id.strip(),
+         logical_turn_id=logical_turn_id,
+         timestamp=timestamp,
++        invocation_receipt_json=json.dumps(raw_meta["invocation_receipt"],ensure_ascii=False,sort_keys=True,separators=(",", ":")).encode() if raw_meta.get("invocation_receipt") is not None else None,
+     )
+ 
+ 
 diff --git a/src/llm_models/utils_model.py b/src/llm_models/utils_model.py
+index 55db99831..07cd9fa17 100644
 --- a/src/llm_models/utils_model.py
 +++ b/src/llm_models/utils_model.py
-@@ -64,6 +64,7 @@
+@@ -65,6 +65,7 @@ from src.llm_models.payload_content.tool_option import (
      normalize_tool_options,
  )
  from src.llm_models.utils import compress_messages, llm_usage_recorder
@@ -411,7 +465,7 @@ diff --git a/src/llm_models/utils_model.py b/src/llm_models/utils_model.py
  from src.services.model_task_usage_service import track_model_task_usage
  
  install(extra_lines=3)
-@@ -1065,7 +1066,16 @@
+@@ -1090,7 +1091,16 @@ class LLMOrchestrator:
                      self.task_name, model_info.name, model_info.model_identifier, api_provider.name,
                  ):
                      if isinstance(active_request, ResponseRequest):
@@ -429,7 +483,7 @@ diff --git a/src/llm_models/utils_model.py b/src/llm_models/utils_model.py
                      elif isinstance(active_request, EmbeddingRequest):
                          response = await client.get_embedding(active_request)
                      elif isinstance(active_request, ImageEmbeddingRequest):
-@@ -1243,7 +1253,7 @@
+@@ -1273,7 +1283,7 @@ class LLMOrchestrator:
                  await asyncio.to_thread(update_failed_request_attempt, e, status="retrying", retry_interval=api_provider.retry_interval)
                  await asyncio.sleep(api_provider.retry_interval)
  
@@ -438,8 +492,78 @@ diff --git a/src/llm_models/utils_model.py b/src/llm_models/utils_model.py
                  raise
  
              except Exception as e:
+diff --git a/src/maisaka/builtin_tool/__init__.py b/src/maisaka/builtin_tool/__init__.py
+index c5842ce42..3d5342a0d 100644
+--- a/src/maisaka/builtin_tool/__init__.py
++++ b/src/maisaka/builtin_tool/__init__.py
+@@ -10,6 +10,8 @@ from src.core.tooling import ToolAvailabilityContext, ToolExecutionContext, Tool
+ from src.llm_models.payload_content.tool_option import ToolDefinitionInput
+ 
+ from .context import BuiltinToolRuntimeContext
++from src.services.nous_source_tool import get_tool_spec as get_memory_source_tool_spec
++from src.services.nous_source_tool import handle_tool as handle_memory_source_tool
+ from .query_memory import get_tool_spec as get_query_memory_tool_spec
+ from .query_memory import handle_tool as handle_query_memory_tool
+ from .query_image_memory import get_tool_spec as get_query_image_memory_tool_spec
+@@ -99,6 +101,7 @@ BUILTIN_TOOL_ENTRIES: List[BuiltinToolEntry] = [
+         visibility="deferred",
+     ),
+     BuiltinToolEntry("query_memory", _get_query_memory_tool_spec, handle_query_memory_tool, stage="action"),
++    BuiltinToolEntry("memory_source", get_memory_source_tool_spec, handle_memory_source_tool, stage="action"),
+     BuiltinToolEntry(
+         "query_image_memory",
+         _get_query_image_memory_tool_spec,
+diff --git a/src/maisaka/reasoning_engine.py b/src/maisaka/reasoning_engine.py
+index 03b547d9f..16d094d9b 100644
+--- a/src/maisaka/reasoning_engine.py
++++ b/src/maisaka/reasoning_engine.py
+@@ -1,5 +1,7 @@
+ """Maisaka 推理引擎。"""
+ 
++import json
++
+ from base64 import b64decode
+ from binascii import Error as BinasciiError
+ from copy import deepcopy
+@@ -35,6 +37,7 @@ from src.llm_models.exceptions import ReqAbortException, RespNotOkException
+ from src.llm_models.model_client.adapter_base import await_task_with_interrupt
+ from src.llm_models.payload_content.context_item import (
+     ContextImagePart,
++    FunctionCallItem,
+     ContextItemBuilder,
+     ContextItemMeta,
+     RoleType,
+@@ -66,6 +69,7 @@ from src.maisaka.builtin_tool.reply import execute_reply
+ from src.maisaka.context.messages import (
+     ComplexSessionMessage,
+     LLMContextMessage,
++    ModelOutputContextMessage,
+     ReferenceMessage,
+     SessionBackedMessage,
+     ToolResultMediaMessage,
+@@ -1415,6 +1419,11 @@ class MaisakaReasoningEngine:
+             ToolInvocation: 统一工具调用对象。
+         """
+ 
++        origins = [message.output_item for message in self._runtime._chat_history
++            if isinstance(message, ModelOutputContextMessage)
++            and isinstance(message.output_item, FunctionCallItem)
++            and message.output_item.tool_call.call_id == tool_call.call_id]
++        receipt = origins[0].meta.invocation_receipt_json if len(origins) == 1 else None
+         return ToolInvocation(
+             tool_name=tool_call.func_name,
+             arguments=self._runtime.expand_message_id_aliases(dict(tool_call.args or {})),
+@@ -1422,6 +1431,7 @@ class MaisakaReasoningEngine:
+             session_id=self._runtime.session_id,
+             stream_id=self._runtime.session_id,
+             reasoning=latest_thought,
++            metadata={"invocation_receipt":json.loads(receipt)} if receipt is not None else {},
+         )
+ 
+     def _log_tool_call_source(self, tool_call: ToolCall, *, stage: str) -> None:
 diff --git a/src/services/nous_context.py b/src/services/nous_context.py
 new file mode 100644
+index 000000000..371c11e51
 --- /dev/null
 +++ b/src/services/nous_context.py
 @@ -0,0 +1,366 @@
@@ -809,111 +933,9 @@ new file mode 100644
 +                raise invalid("The host did not report its actual model result")
 +    finally:
 +        await _owned_cleanup(run_on_main_loop(binding.close()))
-diff --git a/src/llm_models/payload_content/context_item.py b/src/llm_models/payload_content/context_item.py
---- a/src/llm_models/payload_content/context_item.py
-+++ b/src/llm_models/payload_content/context_item.py
-@@ -49,6 +49,7 @@
-     item_id: str
-     logical_turn_id: str | None
-     timestamp: datetime
-+    invocation_receipt_json: bytes | None = None
- 
-     def __post_init__(self) -> None:
-         if not self.item_id.strip():
-diff --git a/src/llm_models/payload_content/context_snapshot.py b/src/llm_models/payload_content/context_snapshot.py
---- a/src/llm_models/payload_content/context_snapshot.py
-+++ b/src/llm_models/payload_content/context_snapshot.py
-@@ -1,5 +1,6 @@
- """Context Item 的纯数据快照，不加载模型客户端或请求日志。"""
- 
-+import json
- from datetime import datetime
- from typing import Any, Sequence
- 
-@@ -17,6 +18,7 @@
-         "item_id": meta.item_id,
-         "logical_turn_id": meta.logical_turn_id,
-         "timestamp": meta.timestamp.isoformat(),
-+        "invocation_receipt": json.loads(meta.invocation_receipt_json) if meta.invocation_receipt_json is not None else None,
-     }
- 
- 
-@@ -58,6 +60,7 @@
-         item_id=item_id.strip(),
-         logical_turn_id=logical_turn_id,
-         timestamp=timestamp,
-+        invocation_receipt_json=json.dumps(raw_meta["invocation_receipt"],ensure_ascii=False,sort_keys=True,separators=(",", ":")).encode() if raw_meta.get("invocation_receipt") is not None else None,
-     )
- 
- 
-diff --git a/src/maisaka/reasoning_engine.py b/src/maisaka/reasoning_engine.py
---- a/src/maisaka/reasoning_engine.py
-+++ b/src/maisaka/reasoning_engine.py
-@@ -1,4 +1,6 @@
- """Maisaka 推理引擎。"""
-+
-+import json
- 
- from base64 import b64decode
- from binascii import Error as BinasciiError
-@@ -34,6 +36,7 @@
- from src.llm_models.model_client.adapter_base import await_task_with_interrupt
- from src.llm_models.payload_content.context_item import (
-     ContextImagePart,
-+    FunctionCallItem,
-     ContextItemBuilder,
-     ContextItemMeta,
-     RoleType,
-@@ -62,6 +65,7 @@
- from src.maisaka.context.messages import (
-     ComplexSessionMessage,
-     LLMContextMessage,
-+    ModelOutputContextMessage,
-     ReferenceMessage,
-     SessionBackedMessage,
-     ToolResultMediaMessage,
-@@ -1346,6 +1350,11 @@
-             ToolInvocation: 统一工具调用对象。
-         """
- 
-+        origins = [message.output_item for message in self._runtime._chat_history
-+            if isinstance(message, ModelOutputContextMessage)
-+            and isinstance(message.output_item, FunctionCallItem)
-+            and message.output_item.tool_call.call_id == tool_call.call_id]
-+        receipt = origins[0].meta.invocation_receipt_json if len(origins) == 1 else None
-         return ToolInvocation(
-             tool_name=tool_call.func_name,
-             arguments=self._runtime.expand_message_id_aliases(dict(tool_call.args or {})),
-@@ -1353,6 +1362,7 @@
-             session_id=self._runtime.session_id,
-             stream_id=self._runtime.session_id,
-             reasoning=latest_thought,
-+            metadata={"invocation_receipt":json.loads(receipt)} if receipt is not None else {},
-         )
- 
-     def _log_tool_call_source(self, tool_call: ToolCall, *, stage: str) -> None:
-diff --git a/src/maisaka/builtin_tool/__init__.py b/src/maisaka/builtin_tool/__init__.py
---- a/src/maisaka/builtin_tool/__init__.py
-+++ b/src/maisaka/builtin_tool/__init__.py
-@@ -10,6 +10,8 @@
- from src.llm_models.payload_content.tool_option import ToolDefinitionInput
- 
- from .context import BuiltinToolRuntimeContext
-+from src.services.nous_source_tool import get_tool_spec as get_memory_source_tool_spec
-+from src.services.nous_source_tool import handle_tool as handle_memory_source_tool
- from .query_memory import get_tool_spec as get_query_memory_tool_spec
- from .query_memory import handle_tool as handle_query_memory_tool
- from .query_image_memory import get_tool_spec as get_query_image_memory_tool_spec
-@@ -99,6 +101,7 @@
-         visibility="deferred",
-     ),
-     BuiltinToolEntry("query_memory", _get_query_memory_tool_spec, handle_query_memory_tool, stage="action"),
-+    BuiltinToolEntry("memory_source", get_memory_source_tool_spec, handle_memory_source_tool, stage="action"),
-     BuiltinToolEntry(
-         "query_image_memory",
-         _get_query_image_memory_tool_spec,
 diff --git a/src/services/nous_source_tool.py b/src/services/nous_source_tool.py
 new file mode 100644
+index 000000000..3bbf342c7
 --- /dev/null
 +++ b/src/services/nous_source_tool.py
 @@ -0,0 +1,72 @@

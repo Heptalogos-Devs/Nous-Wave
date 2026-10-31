@@ -4,8 +4,11 @@ from uuid import uuid4
 
 from pydantic import TypeAdapter
 
+from ..contracts.ego_model import InterpretSeed
 from ..contracts.maintenance import (
+    CaptureMaintenanceOutput,
     CreateMaintenanceSchedule,
+    EditMaintenanceProposal,
     MaintenanceRun,
     MaintenanceSchedule,
     MaintenanceSubmission,
@@ -17,6 +20,72 @@ from .social import SocialClient
 
 
 class MaintenanceClient(SocialClient):
+    async def capture_maintenance_output(
+        self, namespace_id: str, subject_id: str, run_id: str, command: CaptureMaintenanceOutput
+    ) -> MaintenanceRun:
+        return MaintenanceRun.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id)
+                + f"/maintenance/runs/{segment(run_id)}/capture-output",
+                body=encoded(command),
+            )
+        )
+
+    async def edit_maintenance(
+        self, namespace_id: str, subject_id: str, run_id: str, command: EditMaintenanceProposal
+    ) -> MaintenanceRun:
+        return MaintenanceRun.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id)
+                + f"/maintenance/runs/{segment(run_id)}/edit",
+                body=encoded(command),
+            )
+        )
+
+    async def retry_maintenance(
+        self, namespace_id: str, subject_id: str, run_id: str, *, operation_id: str | None = None
+    ) -> MaintenanceSubmission:
+        return MaintenanceSubmission.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id)
+                + f"/maintenance/runs/{segment(run_id)}/retry",
+                body={"operation_id": operation_id or str(uuid4())},
+            )
+        )
+
+    async def interpret_seed(
+        self, namespace_id: str, subject_id: str, command: InterpretSeed
+    ) -> MaintenanceSubmission:
+        return MaintenanceSubmission.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/ego/seed/interpret",
+                body=encoded(command),
+            )
+        )
+
+    async def import_seed(
+        self, namespace_id: str, subject_id: str, command: InterpretSeed
+    ) -> MaintenanceRun:
+        return MaintenanceRun.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/ego/seed/import",
+                body=encoded(command),
+            )
+        )
+
+    async def ego_markdown(self, namespace_id: str, subject_id: str) -> str:
+        return TypeAdapter(dict[str, str]).validate_python(
+            await self.request(
+                "GET",
+                self.subject_path(namespace_id, subject_id) + "/ego/profile/view",
+            )
+        )["markdown"]
+
     async def start_maintenance(
         self, namespace_id: str, subject_id: str, command: StartMaintenance
     ) -> MaintenanceSubmission:

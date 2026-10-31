@@ -12,25 +12,16 @@ from .contracts import (
     MediaInfo,
     MediaReference,
     TimePoint,
+    TimeRange,
 )
 from .contracts.bundles import BundlePlacement
 from .contracts.common import ReferenceAddresses
+from .contracts.identity import Namespace as Namespace
+from .contracts.identity import Subject as Subject
+from .contracts.imports import ImportFormat
 
 JsonObject = dict[str, JsonValue]
 QueryParam = str | int | float | bool | None
-
-
-class Namespace(Contract):
-    id: str
-    name: str
-
-
-class Subject(Contract):
-    id: str
-    namespace_id: str
-    name: str
-    capabilities: tuple[str, ...]
-    commit_seq: int
 
 
 class Material(Contract):
@@ -60,6 +51,7 @@ class MaterialReceipt(Contract):
 
 
 class Source(Contract):
+    trashed_at: str | None = None
     id: str
     namespace_id: str
     subject_id: str
@@ -77,6 +69,15 @@ class Source(Contract):
     placement: BundlePlacement | None = None
     previous_observation_id: str | None = None
     retry_parent_job_id: str | None = None
+    validity: TimeRange | None = None
+    external_event_id: str | None = None
+    consumer_subject_id: str | None = None
+    caller_id: str | None = None
+    contact_source: MediaReference | None = None
+    participants: tuple[str, ...] = ()
+    audience: tuple[str, ...] = ()
+    related_cognition: tuple[CognitiveRef, ...] = ()
+    statement: str | None = None
 
 
 class Download(Contract):
@@ -160,7 +161,11 @@ class ContextRecord(Contract):
     executor: str
     purpose: str
     references: tuple[CognitiveRef, ...]
-    token_upper_bound: int
+    selected_text_bytes: int
+    budget_estimate: str
+    session_id: str | None = None
+    caller_id: str | None = None
+    measurement: dict[str, JsonValue] | None = None
     commit_seq: int
     objects: tuple[CognitiveRecord, ...] = ()
 
@@ -170,7 +175,7 @@ class LocalImportFile(Contract):
     staged_path: Path | None = None
     filename: str | None = None
     name: str | None = None
-    format: Literal["text", "json", "jsonl"] | None = None
+    format: ImportFormat | None = None
     source: str | None = None
     file_identity: str | None = None
     size: int | None = Field(default=None, ge=0)

@@ -48,7 +48,6 @@ async def provenance_in(
         from .derived import DerivedService
 
         derivations = DerivedService(self.authority, self)
-    material, region, event = await self.media_source_in(view, ctx, reference)
     cognition = CognitionService(self.authority, materials=self, derivations=derivations)
 
     async def facts(ref: MediaReference) -> tuple[MaterialRecord, SourceRegion | None, str]:
@@ -228,6 +227,9 @@ async def provenance_in(
             tuple(sorted(material_ids)),
         )
 
+    if reference.kind in {"representation", "derived_region"}:
+        return await visit(reference, frozenset())
+    material, region, event = await self.media_source_in(view, ctx, reference)
     if material.get("required_source_ids"):
         return await visit(reference.model_copy(update={"observation_id": event}), frozenset())
     return MaterialProvenance(

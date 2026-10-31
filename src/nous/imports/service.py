@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
+
+from nous_sdk.contracts import CallContext, CognitiveRef
 
 from nous.cognition.models import ModelServices
 from nous.cognition.service import CognitionService
 from nous.material.service import MaterialService
 from nous.platform.content import ContentStore
-from nous.platform.persistence import Authority
+from nous.platform.persistence import Authority, WriteTx
 
 from . import (
     admission,
     attempts,
     catalog,
+    contact,
     embedding,
     file_completion,
     observation,
@@ -27,8 +31,12 @@ from . import (
 if TYPE_CHECKING:
     from nous.vector_projection.service import VectorProjectionService
 
+    from .media import MediaImportService
+
 
 class ImportService:
+    jobs_for_observations = observation_jobs.observation_jobs
+    contact = contact.contact
     submit_text_import = text_admission.submit_text_import
     read_text_import = text_admission.read_text_import
     run_text_import = text_admission.run_text_import
@@ -78,3 +86,7 @@ class ImportService:
         self.materials = materials or MaterialService(authority, content_store)
         self.content_store = self.materials.content_store
         self.projection: VectorProjectionService | None = None
+        self.media_imports: MediaImportService | None = None
+        self.on_contact_in: (
+            Callable[[WriteTx, CallContext, str, tuple[CognitiveRef, ...]], Awaitable[None]] | None
+        ) = None

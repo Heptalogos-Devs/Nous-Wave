@@ -10,9 +10,7 @@ from typing import Literal, NotRequired, TypedDict
 from nous_native import parse_nousql
 from nous_sdk.contracts import (
     CallContext,
-    CognitiveRecord,
     DomainError,
-    MediaRecord,
     QueryRequest,
     TimeFilter,
     TimeRange,
@@ -71,6 +69,25 @@ class BoundPlan(TypedDict):
     explore: NotRequired[bool]
     root_controls: list[str]
     no_matches: NotRequired[bool]
+    checked_resources: NotRequired[list[str]]
+    resource_refresh_complete: NotRequired[bool]
+
+
+def current_selection(request: QueryRequest, plan: BoundPlan) -> bool:
+    return not (
+        request.history
+        or request.as_of_commit is not None
+        or "asof_time" in plan
+        or request.include_deleted
+        or request.include_inactive
+        or request.reference is not None
+        and "@" in request.reference
+        or any(
+            cue.get("selector") == "ref"
+            and any("@" in locator for locator in cue.get("locators", []))
+            for cue in plan["selectors"]
+        )
+    )
 
 
 def coordinate(value: str | int, domain: str = "unix_ms") -> int:
@@ -127,11 +144,10 @@ def bind(ctx: CallContext, request: QueryRequest) -> tuple[QueryRequest, BoundPl
         if name in {"asof", "history", "limit", "effort", "diagnostics", "materialize"}:
             extra["root_controls"].append(name)
         if name == "return":
-            kinds = tuple(value for value in args if value not in {"cognition", "media"})
+            domains = ("cognition", "media", "observation", "evidence", "resource")
+            kinds = tuple(value for value in args if value not in domains)
             update["domains"] = tuple(
-                domain
-                for domain in ("cognition", "media")
-                if domain in args or domain == "cognition" and kinds
+                domain for domain in domains if domain in args or domain == "cognition" and kinds
             )
             update["kinds"] = (
                 tuple(value for value in request.kinds if value in kinds)
@@ -301,28 +317,3 @@ def validate_directive(name: str, args: list[object], named: dict[str, object]) 
         valid = valid and (selectors in ({"within"}, {"at"}, {"from"}, {"to"}, {"from", "to"}))
     if not valid:
         raise DomainError("invalid_query", f"Invalid arguments for ${name}")
-
-
-def time_matches(record: CognitiveRecord | MediaRecord, filters: tuple[TimeFilter, ...]) -> bool:
-    for condition in filters:
-        value = getattr(record.times, condition.axis)
-        if value is None:
-            return False
-        if condition.axis == "validity":
-            if condition.range.domain != value.domain:
-                return False
-            if (
-                value.end is not None
-                and condition.range.start is not None
-                and value.end <= condition.range.start
-            ):
-                return False
-            if (
-                condition.range.end is not None
-                and value.start is not None
-                and condition.range.end <= value.start
-            ):
-                return False
-        elif not condition.range.contains(value):
-            return False
-    return True

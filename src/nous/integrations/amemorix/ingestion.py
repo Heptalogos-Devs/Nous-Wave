@@ -20,6 +20,7 @@ from nous_sdk.contracts import (
     EpistemicStance,
     EvidenceLink,
     ImportDocument,
+    ProcessCatalog,
 )
 from nous_sdk.contracts.cognition import PersonProfileControls
 from pydantic import JsonValue, TypeAdapter
@@ -50,12 +51,32 @@ async def ingest(
             f"nous:amemorix:{ctx.namespace_id}:{ctx.subject_id}:{command.source_type}:{command.external_id}",
         )
     )
+    payload = command.model_dump(
+        mode="json",
+        exclude={
+            "observed_at",
+            "validity",
+            "relation_extraction",
+            "deferred_formation",
+            "require_vectors",
+        },
+    )
+    for name in (
+        "observed_at",
+        "validity",
+        "relation_extraction",
+        "deferred_formation",
+        "require_vectors",
+    ):
+        value = getattr(command, name)
+        if value not in (None, False, "default"):
+            payload[name] = json_value(value)
     replay = await self.app.authority.receipt(
         ctx,
         operation + ":facade",
         operation_kind="amemorix.ingest",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=payload,
     )
     if replay is not None:
         response = json_object(replay.result)
@@ -80,6 +101,7 @@ async def ingest(
         source=command.source_type + (":" + command.chat_id if command.chat_id else ""),
         source_type=command.source_type,
         event_time=event_time,
+        observed_at=point(command.observed_at),
         origin=origin,
         tags=command.tags,
         metadata={
@@ -97,6 +119,8 @@ async def ingest(
             }
         ),
     )
+    if "validity" in command.model_fields_set:
+        record = record.model_copy(update={"validity": command.validity})
     document = ImportDocument(
         text=json.dumps([json_value(record)], ensure_ascii=False),
         format="json",
@@ -107,15 +131,49 @@ async def ingest(
         event_time=event_time,
         file_identity=f"amemorix:{command.source_type}:{command.external_id}",
     )
+    from nous_sdk.contracts.namespace_policy import FormationPolicy, NamespaceFeatures
+
+    formation = FormationPolicy.model_validate(
+        (await self.app.configuration.effective(ctx, "formation"))["value"]
+    )
+    features = NamespaceFeatures.model_validate(
+        (await self.app.configuration.effective(ctx, "namespace.features"))["value"]
+    )
+    form_memory = (
+        formation.default_enabled
+        if command.relation_extraction == "default"
+        else command.relation_extraction == "enabled"
+    )
+    if form_memory and not formation.enabled:
+        raise DomainError("formation_disabled", "Namespace semantic formation is disabled")
+    async with self.app.authority.write(
+        ctx,
+        operation + ":plan",
+        operation_kind="amemorix.ingest.plan",
+        scope=ctx.require_subject(),
+        payload=payload,
+    ) as tx:
+        if tx.replayed:
+            admission = AdmitFiles.model_validate(tx.replay_result)
+        else:
+            admission = tx.result(
+                AdmitFiles(
+                    operation_id=operation,
+                    inputs=(document,),
+                    llm_enabled=form_memory,
+                    deferred_formation=command.deferred_formation,
+                    vectors="required"
+                    if command.require_vectors or not features.allow_metadata_only_write
+                    else "metadata_allowed",
+                    dedupe_policy="manifest",
+                )
+            )
+    extract_async = admission.llm_enabled and admission.deferred_formation
     result = await self.app.imports.admit_files(
         ctx,
-        AdmitFiles(
-            operation_id=operation,
-            inputs=(document,),
-            llm_enabled=policy.form_memory,
-            vectors="metadata_allowed" if policy.form_memory else "disabled",
-            dedupe_policy="manifest",
-        ),
+        admission.model_copy(update={"llm_enabled": False, "deferred_formation": False})
+        if extract_async
+        else admission,
     )
     if result.catalog is None:
         return json_object(
@@ -135,6 +193,20 @@ async def ingest(
     targets: list[CognitiveRef] = []
     if memories:
         targets = await self.adopt_host_graph(ctx, command, memories[0], operation)
+    extraction_job = None
+    if extract_async:
+        submitted = await self.app.imports.submit_process(
+            ctx,
+            ProcessCatalog(
+                operation_id=operation + ":formation",
+                catalog_id=result.catalog.id,
+                llm_enabled=True,
+                force=True,
+                deferred_formation=False,
+                vectors=admission.vectors,
+            ),
+        )
+        extraction_job = TypeAdapter(str).validate_python(json_object(submitted)["job_id"])
     response = json_object(
         {
             "success": True,
@@ -147,6 +219,7 @@ async def ingest(
             },
             "structured_targets": targets,
             "references": [*memories, *targets],
+            "relation_extraction_job_id": extraction_job,
         }
     )
     async with self.app.authority.write(
@@ -154,7 +227,7 @@ async def ingest(
         operation + ":facade",
         operation_kind="amemorix.ingest",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=payload,
     ) as tx:
         if tx.replayed:
             return json_object(tx.replay_result)

@@ -23,7 +23,7 @@ from nous_sdk.contracts import (
 from nous_sdk.contracts.graph_management import GraphChange, GraphChangeResult
 from sqlalchemy import func, select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.persistence import WriteTx
 
 from .graph_state import heads_in, resolve_entity
@@ -88,7 +88,7 @@ async def apply_in(
     report = (EvidenceLink(observation_id=event_id, role=command.reason),)
 
     async def entity(token: str, create: bool = False) -> CognitiveRecord:
-        existing = resolve_entity(tuple(records), token)
+        existing = resolve_entity(tuple(records), token, include_deleted=create)
         if existing is not None:
             await self.get_in(tx, ctx, existing.reference)
             if existing.deleted:

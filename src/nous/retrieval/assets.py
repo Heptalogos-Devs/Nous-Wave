@@ -5,8 +5,10 @@ from dataclasses import dataclass
 import numpy as np
 from nous_sdk.contracts import (
     CognitiveRecord,
-    MediaRecord,
 )
+from nous_sdk.contracts.resources import ResourceRecord
+from nous_sdk.contracts.retrieval import QueryObject
+from nous_sdk.contracts.source_objects import EvidenceRelationRecord, ObservationRecord
 from numpy.typing import NDArray
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
@@ -26,11 +28,23 @@ class VectorAsset(BaseModel):
 
 VECTOR_ROWS = TypeAdapter(list[VectorAsset])
 
-RetrievalRecord = CognitiveRecord | MediaRecord
+RetrievalRecord = QueryObject
 
 
 def record_text(record: RetrievalRecord) -> str:
     return body_text(record.body) if isinstance(record, CognitiveRecord) else record.text
+
+
+def record_domain(record: RetrievalRecord) -> str:
+    if isinstance(record, CognitiveRecord):
+        return "cognition"
+    if isinstance(record, ResourceRecord):
+        return "resource"
+    if isinstance(record, ObservationRecord):
+        return "observation"
+    if isinstance(record, EvidenceRelationRecord):
+        return "evidence"
+    return "media"
 
 
 @dataclass(frozen=True)

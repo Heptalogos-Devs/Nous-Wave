@@ -4,7 +4,30 @@ from graphlib import CycleError, TopologicalSorter
 
 from nous_sdk.contracts import DomainError, FormationCatalogEntry, ProposedConcept
 from nous_sdk.contracts.cognition import FormationDraft
+from nous_sdk.contracts.namespace_policy import FormationPolicy
 from pydantic import JsonValue, TypeAdapter
+
+
+def validate_formation_policy(proposal: FormationDraft, policy: FormationPolicy) -> None:
+    if policy.max_entities is not None and len(proposal.entities) > policy.max_entities:
+        raise DomainError("formation_entity_limit", "Formation exceeds the namespace entity limit")
+    if policy.max_relations is not None and len(proposal.associations) > policy.max_relations:
+        raise DomainError(
+            "formation_relation_limit", "Formation exceeds the namespace relation limit"
+        )
+    if policy.entity_types and any(
+        item.entity_type not in policy.entity_types for item in proposal.entities
+    ):
+        raise DomainError(
+            "formation_entity_type",
+            "Formation proposed an entity type outside the namespace vocabulary",
+        )
+    if policy.predicates and any(
+        item.relation not in policy.predicates for item in proposal.associations
+    ):
+        raise DomainError(
+            "formation_predicate", "Formation proposed a predicate outside the namespace vocabulary"
+        )
 
 
 def validate_formation_draft(

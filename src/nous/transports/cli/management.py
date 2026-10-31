@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 import typer
@@ -48,6 +49,10 @@ def _issue(ctx: typer.Context, path: str, payload: JsonValue, token_out: Path | 
 
 
 def register(cli: typer.Typer) -> None:
+    @cli.command("model-output")
+    def model_output(ctx: typer.Context, namespace_id: str, subject_id: str, call_id: str, management: bool = False) -> None:
+        invoke(ctx, lambda api: api.retained_model_output(namespace_id, subject_id, call_id, management=management))
+
     @cli.command("model-contract")
     def model_contract(
         ctx: typer.Context,
@@ -117,6 +122,7 @@ def register(cli: typer.Typer) -> None:
         kind: str | None = None,
         state: str | None = None,
         scope: str | None = None,
+        purpose: Literal["actor", "management"] = "actor",
     ) -> None:
         invoke(
             ctx,
@@ -127,6 +133,7 @@ def register(cli: typer.Typer) -> None:
                 kind=kind,
                 state=state,
                 scope=scope,
+                purpose=purpose,
             ),
         )
 
@@ -140,6 +147,7 @@ def register(cli: typer.Typer) -> None:
         state: str | None = None,
         scope: str | None = None,
         cursor: str | None = None,
+        purpose: Literal["actor", "management"] = "actor",
     ) -> None:
         """Page durable jobs with exact kind/state filters; reuse next_cursor."""
         invoke(
@@ -152,34 +160,54 @@ def register(cli: typer.Typer) -> None:
                 state=state,
                 scope=scope,
                 cursor=cursor,
+                purpose=purpose,
             ),
         )
 
     @jobs.command("status")
     def job(
-        ctx: typer.Context, namespace_id: str, job_id: str, subject_id: str | None = None
-    ) -> None:
-        invoke(ctx, lambda api: api.job(job_id, namespace_id=namespace_id, subject_id=subject_id))
-
-    @jobs.command("cancel")
-    def cancel(
-        ctx: typer.Context, namespace_id: str, job_id: str, subject_id: str | None = None
+        ctx: typer.Context,
+        namespace_id: str,
+        job_id: str,
+        subject_id: str | None = None,
+        purpose: Literal["actor", "management"] = "actor",
     ) -> None:
         invoke(
             ctx,
-            lambda api: api.cancel_job(job_id, namespace_id=namespace_id, subject_id=subject_id),
+            lambda api: api.job(
+                job_id, namespace_id=namespace_id, subject_id=subject_id, purpose=purpose
+            ),
+        )
+
+    @jobs.command("cancel")
+    def cancel(
+        ctx: typer.Context,
+        namespace_id: str,
+        job_id: str,
+        subject_id: str | None = None,
+        purpose: Literal["actor", "management"] = "actor",
+    ) -> None:
+        invoke(
+            ctx,
+            lambda api: api.cancel_job(
+                job_id, namespace_id=namespace_id, subject_id=subject_id, purpose=purpose
+            ),
         )
 
     @jobs.command("resume")
     def resume(
-        ctx: typer.Context, namespace_id: str, job_id: str, subject_id: str | None = None
+        ctx: typer.Context,
+        namespace_id: str,
+        job_id: str,
+        subject_id: str | None = None,
+        purpose: Literal["actor", "management"] = "actor",
     ) -> None:
         invoke(
             ctx,
             lambda api: api.request(
                 "POST",
                 f"/api/jobs/{segment(job_id)}/resume",
-                params={"namespace_id": namespace_id, "subject_id": subject_id},
+                params={"namespace_id": namespace_id, "subject_id": subject_id, "purpose": purpose},
             ),
         )
 
@@ -190,6 +218,7 @@ def register(cli: typer.Typer) -> None:
         job_id: str,
         subject_id: str | None = None,
         seconds: float = 120,
+        purpose: Literal["actor", "management"] = "actor",
     ) -> None:
         invoke(
             ctx,
@@ -200,6 +229,7 @@ def register(cli: typer.Typer) -> None:
                     "namespace_id": namespace_id,
                     "subject_id": subject_id,
                     "wait_seconds": seconds,
+                    "purpose": purpose,
                 },
             ),
         )

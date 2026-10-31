@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nous_sdk.contracts import CallContext, DomainError, EntityBody, EvidenceLink
+from nous_sdk.contracts.cognition import GeneratedPersonProfile
 from nous_sdk.contracts.person_profiles import (
     PersonProfileDraft,
     PersonProfileEvidence,
@@ -16,11 +17,12 @@ from nous_sdk.contracts.person_profiles import (
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.material.service import require_observation_in
 from nous.platform.execution import JobSpec
 from nous.platform.persistence import ReadView, WriteTx
 
+from .entity_projection import live_links_in
 from .schema import revisions
 
 if TYPE_CHECKING:
@@ -76,12 +78,26 @@ async def submit_refresh_in(
     from .fact_reads import current_person_claims_in
 
     await require_subject_in(tx, ctx, "memory")
-    record = await self.person_in(tx, ctx, command.reference)
+    from nous.platform.configuration.namespace_policy import require_feature_in
+
+    await require_feature_in(tx, ctx, "person_profiles")
+    record = await self.stored_person_in(tx, ctx, command.reference)
     assert isinstance(record.body, EntityBody)
     indices: list[int] = []
+    roots = await self.cognition.source_roots_in(tx, ctx)
+    description_selected = bool(
+        record.body.description
+        and await live_links_in(self.cognition, tx, ctx, record.evidence, roots)
+    )
+    capacity = command.evidence_limit - int(description_selected)
     for index, attribute in enumerate(record.body.attributes):
+        if len(indices) >= capacity:
+            break
+        links = await live_links_in(self.cognition, tx, ctx, attribute.evidence, roots)
+        if not links:
+            continue
         try:
-            await evidence_sources(self, tx, ctx, attribute.evidence)
+            await evidence_sources(self, tx, ctx, links)
         except DomainError as error:
             if error.code not in {
                 "source_unavailable",
@@ -92,16 +108,13 @@ async def submit_refresh_in(
                 raise
             continue
         indices.append(index)
-        if len(indices) == command.evidence_limit:
-            break
     claims = await current_person_claims_in(self.cognition, tx, ctx, record.reference.id)
     intent = PersonProfileRefreshIntent(
         context=ctx,
         command=command,
         attribute_indices=tuple(indices),
-        claim_refs=tuple(
-            claim.reference for claim in claims[: max(0, command.evidence_limit - len(indices))]
-        ),
+        claim_refs=tuple(claim.reference for claim in claims[: max(0, capacity - len(indices))]),
+        description_selected=description_selected,
     )
     job = await tx.enqueue(
         JobSpec(
@@ -125,7 +138,7 @@ async def profile_input_in(
     from .fact_reads import claim_in
 
     ctx, command = intent.context, intent.command
-    record = await self.person_in(view, ctx, command.reference)
+    record = await self.stored_person_in(view, ctx, command.reference)
     assert isinstance(record.body, EntityBody)
     head = await view.connection.scalar(
         select(revisions.c.head).where(
@@ -137,10 +150,31 @@ async def profile_input_in(
         raise DomainError("revision_conflict", "The Person changed after its refresh was frozen")
     catalog: dict[str, tuple[EvidenceLink, ...]] = {}
     evidence: list[PersonProfileEvidence] = []
+    active_roots = await self.cognition.source_roots_in(view, ctx)
+    description_links = await live_links_in(
+        self.cognition, view, ctx, record.evidence, active_roots
+    )
+    if intent.description_selected and record.body.description and description_links:
+        roots = await evidence_sources(self, view, ctx, description_links)
+        if roots:
+            catalog["D0"] = description_links
+            evidence.append(
+                PersonProfileEvidence(
+                    key="D0",
+                    claim=record.body.description,
+                    epistemic="source-backed entity description",
+                    validity="unspecified",
+                )
+            )
     for index, position in enumerate(intent.attribute_indices):
         attribute = record.body.attributes[position]
+        links = await live_links_in(self.cognition, view, ctx, attribute.evidence, active_roots)
+        if not links:
+            raise DomainError(
+                "profile_evidence_changed", "A frozen Entity attribute no longer has live support"
+            )
         key = f"E{index + 1}"
-        catalog[key] = attribute.evidence
+        catalog[key] = links
         evidence.append(
             PersonProfileEvidence(
                 key=key,
@@ -216,7 +250,7 @@ async def run_refresh(self: PersonProfileService, payload: JsonValue) -> JsonVal
     call_id: str | None = None
     support: tuple[EvidenceLink, ...] = ()
     summary, aliases = "", ()
-    if catalog:
+    if set(catalog) - {"D0"}:
         generated = await self.models.generate(
             ctx,
             "person_profile",
@@ -249,19 +283,35 @@ async def run_refresh(self: PersonProfileService, payload: JsonValue) -> JsonVal
         if tx.replayed:
             return tx.replay_result
         await profile_input_in(self, tx, intent)
-        previous = await self.person_in(tx, ctx, command.reference)
+        previous = await self.stored_person_in(tx, ctx, command.reference)
         assert isinstance(previous.body, EntityBody)
-        body = previous.body.model_copy(update={"description": summary, "aliases": aliases})
+        profile = (
+            GeneratedPersonProfile(
+                summary=summary, aliases=aliases, evidence=support, producer_call_id=call_id
+            )
+            if call_id is not None
+            else None
+        )
+        body = previous.body.model_copy(update={"generated_profile": profile})
+        if body == previous.body:
+            return tx.result(
+                {
+                    "reference": previous.reference.model_dump(mode="json"),
+                    "call_id": call_id,
+                    "cleared_no_evidence": not bool(catalog),
+                    "unchanged": True,
+                }
+            )
         value = await self.revise_in(
             tx,
             ctx,
             previous,
             body,
-            (*previous.evidence, *support),
-            action="person_profile.refresh" if catalog else "person_profile.withdraw",
+            previous.evidence,
+            action="person_profile.refresh" if call_id else "person_profile.withdraw",
             reason="Explicit single-person profile refresh"
-            if catalog
-            else "No retained profile evidence remains",
+            if call_id
+            else "No retained attributes or stable claims remain for automatic synthesis",
             producer_call_id=call_id,
         )
         result = tx.result(

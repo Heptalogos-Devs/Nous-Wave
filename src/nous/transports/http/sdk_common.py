@@ -12,11 +12,11 @@ from nous_sdk.contracts.context import (
     CognitiveTarget,
 )
 from nous_sdk.contracts.credentials import Capability
+from nous_sdk.contracts.identity import IdentityPurpose
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from nous.cognition.schema import revisions
-from nous.identity.service import subjects
 from nous.material.service import observations
 
 from .security import application, authorize, context
@@ -28,18 +28,17 @@ class OperationIdentity(BaseModel):
 
 
 async def subject_context(
-    request: Request, subject_id: str, capability: Capability | None = None
+    request: Request,
+    subject_id: str,
+    capability: Capability | None = None,
+    *,
+    identity_purpose: IdentityPurpose = "active",
 ) -> CallContext:
     await authorize(request, capability=capability)
-    async with application(request).authority.read() as view:
-        namespace_id = (
-            await view.connection.execute(
-                select(subjects.c.namespace_id).where(subjects.c.id == subject_id)
-            )
-        ).scalar_one_or_none()
-    if namespace_id is None:
-        raise DomainError("subject_not_found", "Subject does not exist")
-    return await context(request, str(namespace_id), subject_id, capability=capability)
+    namespace_id = await application(request).identity.namespace_for_subject(subject_id)
+    return await context(
+        request, namespace_id, subject_id, capability=capability, identity_purpose=identity_purpose
+    )
 
 
 async def cognitive_context(request: Request, object_id: str) -> CallContext:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 from typing import TYPE_CHECKING
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -12,15 +13,17 @@ from nous_sdk.contracts import CallContext, DomainError
 from nous_sdk.contracts.common import utc_now
 from nous_sdk.contracts.maintenance import (
     CreateMaintenanceSchedule,
+    MaintenanceRun,
     MaintenanceSchedule,
     StartMaintenance,
 )
 from pydantic import JsonValue
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.persistence import ReadView, WriteTx
+from nous.platform.persistence.authority import canonical_json
 
-from .schema import schedules
+from .schema import runs, schedules
 
 if TYPE_CHECKING:
     from .service import MaintenanceService
@@ -203,5 +206,66 @@ async def run_tick(self: MaintenanceService, scheduled_at: str, context: JsonVal
         if record.stopped_at is not None:
             return tx.result({"stopped": True})
         command = StartMaintenance(**record.command.model_dump(), operation_id=operation_id)
+        from .natural import snapshot_in
+
+        snapshot = await snapshot_in(self, tx, ctx, command)
+        roots = {root for entry in snapshot.entries for root in entry.record.source_roots}
+        roots.update(
+            link.observation_id
+            for source in snapshot.sources
+            for link in source.evidence
+            if link.observation_id is not None
+        )
+        digest = sha256(
+            canonical_json(
+                {
+                    "roots": sorted(roots),
+                    "materials": snapshot.material_ids,
+                    "command": record.command.model_dump(mode="json", exclude_defaults=True),
+                    "capabilities": sorted(snapshot.capabilities),
+                }
+            ).encode()
+        ).hexdigest()
+        if record.last_input_digest is None:
+            previous = await tx.connection.scalar(
+                sa.select(runs.c.record)
+                .where(
+                    runs.c.namespace_id == ctx.namespace_id,
+                    runs.c.subject_id == ctx.require_subject(),
+                    runs.c.record["command"]["operation_id"].as_string().startswith(identity + ":"),
+                    runs.c.record["created_by"].as_string() == ctx.caller_id,
+                )
+                .order_by(runs.c.commit_seq.desc())
+                .limit(1)
+            )
+            if previous is not None:
+                previous = MaintenanceRun.model_validate(previous)
+                if (
+                    previous.catalog is not None
+                    and set(previous.catalog.observation_ids) == roots
+                    and set(previous.catalog.material_ids) == set(snapshot.material_ids)
+                    and previous.command.model_dump(
+                        mode="json", exclude={"operation_id"}, exclude_defaults=True
+                    )
+                    == record.command.model_dump(mode="json", exclude_defaults=True)
+                ):
+                    record = record.model_copy(
+                        update={"last_input_digest": digest, "last_run_id": previous.id}
+                    )
+                    await tx.connection.execute(
+                        schedules.update()
+                        .where(schedules.c.id == identity)
+                        .values(record=record.model_dump(mode="json"))
+                    )
+        if not roots or record.last_input_digest == digest:
+            return tx.result({"unchanged": True, "run_id": record.last_run_id})
         submission = await self.submit_in(tx, ctx, command)
+        updated = record.model_copy(
+            update={"last_input_digest": digest, "last_run_id": submission.run_id}
+        )
+        await tx.connection.execute(
+            schedules.update()
+            .where(schedules.c.id == identity)
+            .values(record=updated.model_dump(mode="json"))
+        )
         return tx.result(submission.model_dump(mode="json"))

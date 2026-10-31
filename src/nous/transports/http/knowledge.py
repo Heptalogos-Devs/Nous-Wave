@@ -1,5 +1,7 @@
 """Source lifecycle, bundles and working contexts use the same authority."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Request
 from nous_sdk.contracts import (
     BundleRequest,
@@ -8,15 +10,11 @@ from nous_sdk.contracts import (
     InstallBundle,
     SourceCommand,
 )
-from pydantic import BaseModel
+from nous_sdk.contracts.management import SourceSelection
 
 from .security import application, context
 
 router = APIRouter(prefix="/api/namespaces/{namespace_id}/subjects/{subject_id}")
-
-
-class SourceSelection(BaseModel):
-    observation_ids: tuple[str, ...]
 
 
 @router.get("/sources")
@@ -27,9 +25,21 @@ async def sources(request: Request, namespace_id: str, subject_id: str):
 
 
 @router.post("/sources/preview")
-async def preview(request: Request, namespace_id: str, subject_id: str, command: SourceSelection):
+async def preview(
+    request: Request,
+    namespace_id: str,
+    subject_id: str,
+    command: SourceSelection,
+    action: Literal["trash", "restore", "purge"] = "trash",
+):
     return await application(request).sources.preview(
-        await context(request, namespace_id, subject_id, capability="read"), command.observation_ids
+        await context(request, namespace_id, subject_id, capability="read"),
+        command.observation_ids,
+        references=command.references,
+        source_names=command.source_names,
+        records=command.records,
+        retention_expectations=command.retention_expectations,
+        action=action,
     )
 
 

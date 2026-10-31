@@ -72,8 +72,32 @@ def test_import_retry_formation_overrides_and_runtime_reports(tmp_path):
                 assert report["embedding_fingerprint"] is None
                 assert report["imports"]["visible_outputs"] == 1
                 summary = await client.subject_diagnostics(subject.id)
-                assert summary["retrieval"]["visible_targets"] >= 1
-                assert summary["imports"]["disabled_outputs"] == 1
+                assert summary.retrieval.visible_targets >= 1
+                assert summary.imports.disabled_outputs == 1
+                models_before = await client.configuration(
+                    {
+                        "action": "get",
+                        "key": "models",
+                        "namespace_id": namespace.id,
+                        "subject_id": subject.id,
+                    }
+                )
+                with pytest.raises(NousError) as invalid_request:
+                    await adapter.memory_runtime_admin(
+                        action="set_config", value={"enabled": False}
+                    )
+                assert invalid_request.value.code == "InvalidArgument"
+                assert (
+                    await client.configuration(
+                        {
+                            "action": "get",
+                            "key": "models",
+                            "namespace_id": namespace.id,
+                            "subject_id": subject.id,
+                        }
+                    )
+                    == models_before
+                )
                 await adapter.ingest_text(
                     "second-traveler", "document", "Another traveler remembered the coast."
                 )
@@ -96,19 +120,15 @@ def test_import_retry_formation_overrides_and_runtime_reports(tmp_path):
                         "unprotect", target="traveler", operation_id="unprotect-actual-selection"
                     )
                 )["count"] == 2
-                directory = await client.sources(
-                    {"action": "list", "namespace_id": namespace.id, "subject_id": subject.id}
+                from nous_sdk.contracts import SourceSelection
+
+                directory = await client.source_directory(namespace.id, subject.id)
+                preview = await client.preview_sources(
+                    namespace.id,
+                    subject.id,
+                    selection=SourceSelection(observation_ids=(directory[0].id,)),
                 )
-                label = directory["items"][0]["source"]
-                preview = await client.sources(
-                    {
-                        "action": "preview",
-                        "namespace_id": namespace.id,
-                        "subject_id": subject.id,
-                        "selector": [label],
-                    }
-                )
-                assert preview["preview"]["observation_ids"]
+                assert preview.observation_ids
             finally:
                 await client.close()
 

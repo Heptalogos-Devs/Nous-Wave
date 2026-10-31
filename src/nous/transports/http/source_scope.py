@@ -20,7 +20,7 @@ from sqlalchemy import select
 
 from nous.application import Application
 from nous.context.models import contexts
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.material.service import SourceRecord, observations, regions
 
 _SCOPES = TypeAdapter(tuple[SourceReadScope, ...])

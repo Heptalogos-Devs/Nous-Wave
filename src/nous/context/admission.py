@@ -21,7 +21,8 @@ from nous_sdk.contracts.context import (
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select, update
 
-from .models import contexts, feedback, preparations, reports, sessions, tracks
+from .feedback_events import record_in
+from .models import contexts, preparations, reports, sessions, tracks
 from .selection import segment_eligible_in
 from .uses import record_uses_in
 
@@ -41,7 +42,9 @@ async def admit_managed(
     ) as tx:
         if tx.replayed:
             replay = ContextAdmission.model_validate(tx.replay_result)
-            await self.require_targets_in(tx, ctx, replay.sources)
+            await self.require_projection_in(
+                tx, ctx, await self.stored_projection_in(tx, ctx, replay.projection_id)
+            )
             return replay
         value = await self.read_preparation_in(tx, ctx, command.preparation_id)
         preparation = ContextPreparation.model_validate(value["preparation"])
@@ -56,7 +59,7 @@ async def admit_managed(
             )
         targets = tuple(target for segment in projection.segments for target in segment.sources)
         # The current caller scope and the accepted preparation scope must both hold.
-        await self.require_targets_in(tx, ctx, targets)
+        await self.require_projection_in(tx, ctx, projection)
         for segment in projection.segments:
             if not await segment_eligible_in(self, tx, ctx, segment):
                 raise DomainError(
@@ -67,7 +70,7 @@ async def admit_managed(
         accepted_constraints = TypeAdapter(tuple[tuple[str, ...], ...]).validate_python(
             value.get("source_constraints", ())
         )
-        await self.require_targets_in(
+        await self.require_projection_in(
             tx,
             ctx.model_copy(
                 update={
@@ -75,7 +78,7 @@ async def admit_managed(
                     "source_constraints": accepted_constraints,
                 }
             ),
-            targets,
+            projection,
         )
         prior = (
             await tx.connection.execute(
@@ -117,7 +120,12 @@ async def admit_managed(
             "executor": projection.consumer_id,
             "purpose": projection.usage.purpose,
             "references": references,
-            "token_upper_bound": command.measurement.input_tokens,
+            "measurement": command.measurement.model_dump(mode="json"),
+            "selected_text_bytes": sum(
+                len(segment.text.encode("utf-8")) for segment in projection.segments
+            ),
+            "budget_estimate": "host_measured",
+            "subject_view": projection.usage.view == "subject",
             "commit_seq": tx.commit_seq,
             "managed_admission": result.model_dump(mode="json"),
             "caller_id": ctx.caller_id,
@@ -170,16 +178,17 @@ async def admit_managed(
             .values(record=revised_session.model_dump(mode="json"))
         )
         for target in targets:
-            event = {
-                "id": str(uuid4()),
-                "context_id": result.id,
-                "target": target.model_dump(mode="json"),
-                "kind": "model_contact",
-                "invocation_id": result.invocation_id,
-                "commit_seq": tx.commit_seq,
-            }
-            await tx.connection.execute(
-                feedback.insert().values(id=event["id"], context_id=result.id, record=event)
+            await record_in(
+                self,
+                tx,
+                ctx,
+                context_id=result.id,
+                event_id="admitted:" + str(len(str(target))) + ":" + target.model_dump_json(),
+                target=target,
+                kind="input_admission",
+                occurred_at=tx.recorded_at,
+                invocation_id=result.invocation_id,
+                session_id=result.session_id,
             )
         return tx.result(result)
 
@@ -219,7 +228,47 @@ async def report_managed(
                 "context_invocation_mismatch",
                 "Outcome belongs to a different actual invocation",
             )
+        if command.output is not None and command.output.native_model_call_id is not None:
+            if self.models is None:
+                raise DomainError("model_unavailable", "The native call ledger is unavailable")
+            actual = await self.models.ledger.successful_in(
+                tx, ctx, command.output.native_model_call_id
+            )
+            routing = actual.request.get("routing")
+            if (
+                not isinstance(routing, dict)
+                or routing.get("intent_id") != "context:" + admission.invocation_id
+            ):
+                raise DomainError(
+                    "context_invocation_mismatch",
+                    "The retained model call belongs to another admitted invocation",
+                )
+            role = actual.request.get("budget_role")
+            bound = (
+                await self.models.ledger.attempt(ctx, role, "context:" + admission.invocation_id)
+                if isinstance(role, str)
+                else None
+            )
+            if bound is None or bound.call_id != actual.id:
+                raise DomainError(
+                    "context_invocation_mismatch",
+                    "The native model call is not bound to this host's invocation",
+                )
         await record_uses_in(self, tx, ctx, admission, command.uses, command.occurred_at)
+        if command.outcome == "completed":
+            for target in admission.sources:
+                await record_in(
+                    self,
+                    tx,
+                    ctx,
+                    context_id=admission.id,
+                    event_id="model-contact:" + target.model_dump_json(),
+                    target=target,
+                    kind="model_contact",
+                    occurred_at=command.occurred_at.isoformat(),
+                    invocation_id=admission.invocation_id,
+                    session_id=admission.session_id,
+                )
         result = ContextReportResult(
             id=str(uuid4()),
             admission_id=admission.id,
@@ -262,5 +311,7 @@ async def read_admission(
                 "context_admission_not_found", "Managed context admission is unavailable"
             )
         admission = ContextAdmission.model_validate(value["managed_admission"])
-        await self.require_targets_in(view, ctx, admission.sources)
+        await self.require_projection_in(
+            view, ctx, await self.stored_projection_in(view, ctx, admission.projection_id)
+        )
         return admission

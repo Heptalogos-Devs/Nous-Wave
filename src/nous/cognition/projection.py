@@ -37,6 +37,8 @@ def body_text(body: CognitiveBody | None) -> str:
             "value_text",
             "expression",
             "meaning",
+            "content_description",
+            "pragmatics",
             "relation",
             "facet",
         )

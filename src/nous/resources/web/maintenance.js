@@ -105,7 +105,29 @@ export function renderMaintenance() {
     );
     return;
   }
-  if (current.draft) {
+  if (current.proposal) {
+    const document = current.proposal;
+    panel.append(el("h3", "", document.summary || ""), el("p", "body-text", document.rationale || ""));
+    if (!document.complete) panel.append(heading("web-maintenance-incomplete", "p"));
+    if (document.validation_errors.length) panel.append(jsonView(document.validation_errors));
+    for (const group of current.groups) {
+      const row = el("section", "form-sheet");
+      row.append(el("h3", "", `${group.key} · ${group.status}`));
+      if (group.dependencies.length) row.append(el("p", "ref", `${t("web-maintenance-prerequisites")}: ${group.dependencies.join(", ")}`));
+      row.append(jsonView(group.raw_actions));
+      if (group.error) row.append(jsonView(group.error));
+      if (group.status === "ready" && (!current.review || current.review.decision === "adopt"))
+        row.append(button(t("web-maintenance-approve"), async () => {
+          current = await api(base() + `/runs/${encodeURIComponent(current.id)}/review`, {
+            method: "POST", body: {operation_id: op(), expected_revision: current.revision, decision: "adopt", group_keys: [group.key], reason: ""},
+          });
+          await loadMaintenance();
+        }));
+      panel.append(row);
+    }
+    if (current.catalog) panel.append(jsonView(current.catalog));
+  }
+  if (current.draft && !current.proposal) {
     panel.append(
       el("h3", "", current.draft.summary),
       el("p", "body-text", current.draft.rationale),
@@ -160,36 +182,36 @@ export function renderMaintenance() {
         );
       panel.append(references);
     }
-    if (!current.review) {
-      const review = el("form", "form-sheet");
-      review.id = "maintenance-review";
-      review.append(input("maintenance-reason", "web-reason", "textarea"));
-      const buttons = el("div", "button-row");
-      for (const [decision, key] of [
-        ["adopt", "web-maintenance-approve"],
-        ["reject", "web-maintenance-reject"],
-      ]) {
-        const node = message(el("button", decision === "reject" ? "secondary" : ""), key);
-        node.type = "submit";
-        node.value = decision;
-        buttons.append(node);
-      }
-      review.append(buttons);
-      panel.append(review);
-      form("maintenance-review", async (event) => {
-        const reviewed = await api(base() + `/runs/${encodeURIComponent(current.id)}/review`, {
-          method: "POST",
-          body: {
-            operation_id: op(),
-            expected_revision: current.revision,
-            decision: event.submitter.value,
-            reason: $("maintenance-reason").value,
-          },
-        });
-        current = reviewed;
-        await loadMaintenance();
-      });
+  }
+  if (!current.review && (current.proposal || current.draft)) {
+    const review = el("form", "form-sheet");
+    review.id = "maintenance-review";
+    review.append(input("maintenance-reason", "web-reason", "textarea"));
+    const buttons = el("div", "button-row");
+    for (const [decision, key] of [
+      ["adopt", "web-maintenance-approve"],
+      ["reject", "web-maintenance-reject"],
+    ]) {
+      const node = message(el("button", decision === "reject" ? "secondary" : ""), key);
+      node.type = "submit";
+      node.value = decision;
+      buttons.append(node);
     }
+    review.append(buttons);
+    panel.append(review);
+    form("maintenance-review", async (event) => {
+      const reviewed = await api(base() + `/runs/${encodeURIComponent(current.id)}/review`, {
+        method: "POST",
+        body: {
+          operation_id: op(),
+          expected_revision: current.revision,
+          decision: event.submitter.value,
+          reason: $("maintenance-reason").value,
+        },
+      });
+      current = reviewed;
+      await loadMaintenance();
+    });
   }
   if (current.review) {
     panel.append(

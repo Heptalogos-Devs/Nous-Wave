@@ -1,10 +1,11 @@
 """A-Memorix host tools retain explicit input contracts."""
 
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import AliasChoices, Field, JsonValue
 
-from ..contracts import CognitiveRef, Contract, EvidenceLink
+from ..contracts import CognitiveRef, Contract, EvidenceLink, TimeRange
 
 
 class RelationInput(Contract):
@@ -47,6 +48,11 @@ class IngestInput(Contract):
     user_id: str = ""
     group_id: str = ""
     operation_id: str | None = None
+    observed_at: str | float | None = None
+    validity: TimeRange | None = None
+    relation_extraction: Literal["default", "enabled", "disabled"] = "default"
+    deferred_formation: bool = False
+    require_vectors: bool = False
 
 
 class SummaryInput(IngestInput):
@@ -74,6 +80,19 @@ class MaintainInput(Contract):
     reason: str = ""
     limit: int = Field(default=50, ge=1, le=1000)
     operation_id: str
+    cursor: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
+class V5AdminInput(Contract):
+    action: Literal[
+        "reinforce", "weaken", "remember_forever", "restore", "forget", "recycle_bin", "status"
+    ]
+    target: str = Field(default="", validation_alias=AliasChoices("target", "query"))
+    strength: float = Field(default=1, gt=0, allow_inf_nan=False)
+    limit: int = Field(default=50, ge=1, le=1000)
+    reason: str = ""
+    updated_by: str = Field(default="", validation_alias=AliasChoices("updated_by", "requested_by"))
+    operation_id: str | None = None
 
 
 class ProfileInput(Contract):
@@ -90,6 +109,8 @@ class ProfileInput(Contract):
 
 class ProfileAdminInput(ProfileInput):
     action: Literal[
+        "status",
+        "process_pending",
         "list",
         "query",
         "evidence",
@@ -133,9 +154,9 @@ class AMemorixPolicy(Contract):
     mode: Literal["blacklist", "whitelist"] = "blacklist"
     chats: tuple[str, ...] = ()
     excluded_source_types: tuple[str, ...] = ()
-    form_memory: bool = False
     ingest_wait_ms: int = Field(default=45000, ge=1, le=86400000)
     search_mode: Literal["lexical", "dense", "hybrid", "vcp"] = "hybrid"
+    orphan_sweep_grace_hours: float = Field(default=24, ge=1, allow_inf_nan=False)
 
     def permits(self, respect: bool, chat: str, group: str, user: str) -> bool:
         if not respect or not self.enabled or not any((chat, group, user)):
@@ -158,3 +179,44 @@ class GraphSearchInput(Contract):
     action: Literal["search"] = "search"
     query: str = Field(max_length=65536)
     limit: int = Field(default=50, ge=1, le=200)
+
+
+class ImageInput(Contract):
+    action: str
+    image_base64: str | None = None
+    current_occurrence_id: str | None = None
+    target_type: str = ""
+    target_id: str = ""
+    link_kind: str = "evidence"
+    link_id: str | None = None
+    status: str | None = None
+    description_hash: str = ""
+    lease_token: str = ""
+    success: bool = False
+    error: str = ""
+    operation_id: str = Field(default_factory=lambda: str(uuid4()))
+    material_id: str | None = None
+    asset_id: str | None = None
+    content_hash: str | None = Field(default=None, pattern=r"^[a-fA-F0-9]{32}(?:[a-fA-F0-9]{32})?$")
+    occurrence_id: str | None = None
+    external_ref: str = ""
+    source_kind: str = "chat"
+    scope_type: Literal["chat", "global"] = "chat"
+    chat_id: str = ""
+    session_id: str = ""
+    chat_ids: tuple[str, ...] | None = None
+    message_id: str = ""
+    component_path: str = ""
+    occurred_at: str | float | None = None
+    user_statement: str = ""
+    text: str = ""
+    current_external_ref: str = ""
+    candidate_limit: int = Field(default=10, ge=1, le=1000)
+    limit: int = Field(default=50, ge=1, le=1000)
+    offset: int = Field(default=0, ge=0)
+    similarity_threshold: float | None = Field(default=None, ge=-1, le=1)
+    reason: str = "Image source maintenance"
+    form_long_term: bool = False
+    confirm_status: str = "unconfirmed"
+    evidence: dict[str, JsonValue] = Field(default_factory=dict)
+    supersedes_id: str | None = None

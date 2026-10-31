@@ -16,7 +16,7 @@ from nous_sdk.contracts.text_import import (
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select, update
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.execution import JobSpec
 from nous.platform.persistence import ReadView, WriteTx
 
@@ -195,6 +195,20 @@ async def run_text_import(self: ImportService, request_id: str) -> dict[str, Jso
         for child in formations:
             actual = await execution.wait(ctx, child.job_id)
             formed.append(ObservationFormation.model_validate(actual))
+        for output in admission.outputs:
+            if output.formation is None and output.producer_call_id is not None:
+                if output.projection is not None:
+                    await execution.wait(ctx, output.projection.job_id)
+                formed.append(
+                    ObservationFormation(
+                        observation_id=output.observation_id,
+                        cognition=output.cognition,
+                        producer_call_id=output.producer_call_id,
+                        commit_seq=output.commit_seq,
+                        projection=output.projection,
+                        vector_policy=output.vector_policy,
+                    )
+                )
     result: dict[str, JsonValue] = {
         "completion": command.completion,
         "formation_jobs": [item.model_dump(mode="json") for item in formations],

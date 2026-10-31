@@ -38,6 +38,33 @@ class GraphSnapshot(Contract):
     watermark: int
 
 
+class GraphSearchQuery(Contract):
+    text: str = Field(min_length=1, max_length=8192)
+    limit: int = Field(default=50, ge=1, le=1000)
+
+
+class GraphReadQuery(Contract):
+    node: str | None = None
+    source: str | None = None
+    target: str | None = None
+
+
+class GraphSearchMatch(Contract):
+    record: CognitiveRecord
+    field: str
+    value: str
+    rank: int
+    source_name: str | None = None
+    target_name: str | None = None
+
+
+class GraphSearchResult(Contract):
+    query: str
+    matches: tuple[GraphSearchMatch, ...]
+    total_matches: int
+    watermark: int
+
+
 class GraphChangeResult(Contract):
     operation_id: str
     records: tuple[CognitiveRecord, ...]

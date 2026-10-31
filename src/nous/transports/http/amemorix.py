@@ -3,9 +3,7 @@
 from fastapi import APIRouter, Request
 from nous_sdk.amemorix.contracts import AMemorixRequest
 
-from nous.integrations.amemorix import AMemorixService
-
-from .security import application, authorize, context
+from .security import application, context
 
 router = APIRouter(prefix="/api/integrations")
 
@@ -14,9 +12,48 @@ router = APIRouter(prefix="/api/integrations")
 async def amemorix(request: Request, command: AMemorixRequest):
     if (
         command.operation.tool == "memory_runtime_admin"
-        and command.operation.arguments.get("action") == "set_config"
+        and command.operation.arguments.get("action") == "delete_vector_space"
     ):
-        (await authorize(request, capability="manage")).require_instance_management()
+        return await application(request).amemorix.execute(
+            await context(request, command.namespace_id, capability="manage"), command.operation
+        )
+    if command.operation.tool == "memory_tuning_admin":
+        capability = (
+            "manage"
+            if command.operation.arguments.get("action")
+            in {"create_task", "cancel", "apply_profile", "apply_best", "rollback_profile"}
+            else "read"
+        )
+        return await application(request).amemorix.execute(
+            await context(request, command.namespace_id, command.subject_id, capability=capability),
+            command.operation,
+        )
+    if command.operation.tool == "image_memory" and command.operation.arguments.get("action") in {
+        "delete_occurrence",
+        "trash",
+        "restore",
+        "purge",
+        "link",
+        "unlink",
+        "retry_failed_jobs",
+        "process_jobs",
+    }:
+        return await application(request).amemorix.execute(
+            await context(request, command.namespace_id, command.subject_id, capability="manage"),
+            command.operation,
+        )
+    if command.operation.tool in {
+        "memory_correction_admin",
+        "memory_fuzzy_modify_admin",
+        "memory_v5_admin",
+    } or (
+        command.operation.tool == "memory_feedback_admin"
+        and command.operation.arguments.get("action") == "rollback"
+    ):
+        return await application(request).amemorix.execute(
+            await context(request, command.namespace_id, command.subject_id, capability="manage"),
+            command.operation,
+        )
     read_tools = {"search_memory", "get_person_profile", "memory_source", "memory_stats"}
     read_actions = {
         "list",
@@ -37,13 +74,19 @@ async def amemorix(request: Request, command: AMemorixRequest):
     }
     read_preview = (
         (
+            command.operation.tool == "image_memory"
+            and command.operation.arguments.get("action")
+            in {"search", "list", "list_chats", "get", "status", "jobs"}
+            and not command.operation.arguments.get("image_base64")
+        )
+        or (
             command.operation.tool == "memory_episode_admin"
             and command.operation.arguments.get("action") in {"query", "list", "get", "status"}
         )
         or (
             command.operation.tool == "memory_profile_admin"
             and command.operation.arguments.get("action")
-            in {"list", "query", "evidence", "get_aliases"}
+            in {"list", "query", "evidence", "get_aliases", "status"}
         )
         or (
             command.operation.tool == "memory_graph_admin"
@@ -62,10 +105,7 @@ async def amemorix(request: Request, command: AMemorixRequest):
         )
     )
     capability = (
-        "manage"
-        if command.operation.tool == "memory_runtime_admin"
-        and command.operation.arguments.get("action") == "set_config"
-        else "read"
+        "read"
         if command.operation.tool in read_tools
         or command.operation.arguments.get("action") in read_actions
         or read_preview
@@ -76,7 +116,7 @@ async def amemorix(request: Request, command: AMemorixRequest):
         "memory_profile_admin",
     } and command.operation.arguments.get("force_refresh"):
         capability = "write"
-    return await AMemorixService(application(request)).execute(
+    return await application(request).amemorix.execute(
         await context(request, command.namespace_id, command.subject_id, capability=capability),
         command.operation,
     )

@@ -14,16 +14,19 @@ from nous_sdk.contracts import (
     CognitiveRef,
     CognitiveTimes,
     DomainError,
+    EvidenceLink,
+    JournalBody,
     MediaRecord,
     MediaReference,
     MemoryBody,
-    MemoryLifecycle,
+    RecordPurpose,
+    RetentionState,
     RevisionCause,
     TimePoint,
 )
-from sqlalchemy import select, update
+from sqlalchemy import select, true, update
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.material.coverage import merge_source_regions
 from nous.material.derived import DerivedService
 from nous.material.service import (
@@ -38,6 +41,9 @@ from nous.references import allocate_in
 from . import (
     access,
     ego_model,
+    entity_changes,
+    entity_projection,
+    erasure,
     evolution,
     formation,
     graph_changes,
@@ -46,8 +52,15 @@ from . import (
     growth_validation,
     known_outputs,
     memory,
+    motivation_records,
     retirement,
     social,
+)
+from . import (
+    records as record_directory,
+)
+from . import (
+    retention as retention_owner,
 )
 from .projection import evidence_in, media_references_in, references_in
 from .revision_state import RevisionState
@@ -57,18 +70,63 @@ from .semantics import capability_for, validate_domain_in
 if TYPE_CHECKING:
     from nous.vector_projection.service import VectorProjectionService
 
+    from .facts import FactService
+    from .models import ModelServices
+
 
 class CognitionService:
+    project_record_in = entity_projection.project_record_in
+
+    async def revise_evidence_in(
+        self,
+        tx: WriteTx,
+        ctx: CallContext,
+        reference: CognitiveRef,
+        *,
+        add: tuple[EvidenceLink, ...] = (),
+        remove: tuple[EvidenceLink, ...] = (),
+        reason: str,
+    ) -> CognitiveRecord:
+        from .evidence_changes import revise_evidence_in
+
+        return await revise_evidence_in(
+            self, tx, ctx, reference, add=add, remove=remove, reason=reason
+        )
+
+    require_retention_preconditions_in = retention_owner.require_preconditions_in
+    change_retention_in = retention_owner.change_in
+    change_retentions_in = retention_owner.change_many_in
+    change_retention = retention_owner.change
+    change_retentions = retention_owner.change_many
+    retention_snapshot = retention_owner.read_snapshot
+    decay_retention = retention_owner.decay
+    decay_retention_in = retention_owner.decay_in
+    support_available_in = access.support_available_in
+    erase_history_in = erasure.erase_history_in
+    purge_cognition_in = erasure.purge_cognition_in
+    search_graph = graph_state.search_graph
+    read_graph = graph_state.read_graph
+    merge_entities = entity_changes.merge_entities
+    split_entity = entity_changes.split_entity
+    records_in = record_directory.records_in
+    read_records_in = record_directory.read_records_in
+    read_records = record_directory.read_records
+    record_detail = record_directory.record_detail
+    records = record_directory.records
     growth_snapshot_in = growth.growth_snapshot_in
     apply_growth_in = growth.apply_growth_in
     validate_growth_in = growth_validation.validate_growth_in
+    retirement_plan_in = retirement.retirement_plan_in
     retire_unsupported_in = retirement.retire_unsupported_in
     link_identity = social.link_identity
     resolve_identity = social.resolve_identity
     change_social_relation = social.change_social_relation
     social_profile = social.social_profile
+    propose_identity = social.propose_identity
+    unlink_identity = social.unlink_identity
     history = access.history
     replay_record_in = access.replay_record_in
+    automatic_in = access.automatic_in
     replay_records_in = access.replay_records_in
     concept_by_alias = access.concept_by_alias
     set_deleted = access.set_deleted
@@ -84,9 +142,14 @@ class CognitionService:
     split_concept_in = evolution.split_concept_in
     resegment_episodes = evolution.resegment_episodes
     resegment_episodes_in = evolution.resegment_episodes_in
-    assess_motivation = evolution.assess_motivation
+    assess_motivation = motivation_records.assess_motivation
+    motivation_assessment = motivation_records.read_assessment
+    latest_motivation_assessment_in = motivation_records.latest_assessment_in
+    motivation_assessments = motivation_records.list_assessments
+    purge_motivation_assessments_in = motivation_records.purge_assessments_in
     change_memory_in = memory.change_memory_in
     change_memory = memory.change_memory
+    revise_source_times_in = memory.revise_source_times_in
     change_memories = memory.change_memories
     change_memories_in = memory.change_memories_in
     recycle_bin = memory.recycle_bin
@@ -103,6 +166,7 @@ class CognitionService:
         *,
         materials: MaterialService | None = None,
         derivations: DerivedService | None = None,
+        models: ModelServices | None = None,
         invalidate: Callable[[], Awaitable[None]] | None = None,
         purge_context_in: Callable[
             [WriteTx, CallContext, tuple[CognitiveRef, ...]], Awaitable[None]
@@ -112,17 +176,39 @@ class CognitionService:
         self.authority = authority
         self.materials = materials or MaterialService(authority)
         self.derivations = derivations or DerivedService(authority, self.materials)
+        self.models = models
         self.invalidate = invalidate
         self.purge_context_in = purge_context_in
         self.projection: VectorProjectionService | None = None
+        self.fact_owner: FactService | None = None
 
-    async def active_roots_in(self, view: ReadView | WriteTx, ctx: CallContext):
+    async def source_roots_in(
+        self,
+        view: ReadView | WriteTx,
+        ctx: CallContext,
+        *,
+        purpose: RecordPurpose = "current",
+        include_purged: bool = False,
+    ):
+        from nous.material.read_facts import source_facts_in
+
+        facts = await source_facts_in(view, ctx)
+        if facts is not None:
+            return {
+                event.id: event.material_id
+                for event in facts.observations.values()
+                if (purpose == "management" or event.active)
+                and (include_purged or not event.purged)
+            }
         rows = (
             await view.connection.execute(
                 select(observations.c.id, observations.c.material_id).where(
                     observations.c.namespace_id == ctx.namespace_id,
                     observations.c.subject_id == ctx.subject_id,
-                    observations.c.active.is_(True),
+                    observations.c.active.is_(True) if purpose != "management" else true(),
+                    observations.c.record["purged"].as_boolean().is_not(True)
+                    if not include_purged
+                    else true(),
                 )
             )
         ).all()
@@ -134,13 +220,49 @@ class CognitionService:
         ctx: CallContext,
         record: CognitiveRecord | MediaRecord,
         roots: dict[str, str] | None = None,
+        *,
+        purpose: RecordPurpose = "exact",
     ) -> bool:
-        if isinstance(record, CognitiveRecord):
-            for reference in media_references_in(record.body):
-                if await self.derivations.availability_in(view, ctx, reference) != "available":
-                    return False
-        roots = roots if roots is not None else await self.active_roots_in(view, ctx)
+        if record.namespace_id != ctx.namespace_id or record.subject_id != ctx.subject_id:
+            return False
+        roots = (
+            roots if roots is not None else await self.source_roots_in(view, ctx, purpose=purpose)
+        )
+        if (
+            isinstance(record, CognitiveRecord)
+            and not record.purged
+            and purpose != "management"
+            and not await access.support_available_in(self, view, ctx, record, roots)
+        ):
+            return False
         live = [oid for oid in record.source_roots if oid in roots]
+        from nous.material.read_facts import source_facts_in
+
+        facts = await source_facts_in(view, ctx)
+        contact_sources = (
+            {
+                identity: event.contact_source
+                for identity in live
+                if (event := facts.observations.get(identity)) is not None
+                and event.kind == "contact"
+                and event.contact_source is not None
+            }
+            if facts
+            else {
+                str(row.id): MediaReference.model_validate(row.record["contact_source"])
+                for row in (
+                    await view.connection.execute(
+                        select(observations.c.id, observations.c.record).where(
+                            observations.c.namespace_id == ctx.namespace_id,
+                            observations.c.subject_id == ctx.subject_id,
+                            observations.c.id.in_(live),
+                            observations.c.kind == "contact",
+                        )
+                    )
+                ).all()
+                if row.record.get("contact_source") is not None
+            }
+        )
         support = set(record.support_roots or record.source_roots)
         if not support.intersection(roots):
             return False
@@ -150,7 +272,9 @@ class CognitionService:
             scoped = ctx.for_source_group(group)
             media_roots: set[str] = set()
             if isinstance(record, CognitiveRecord):
-                for media in media_references_in(record.body):
+                for media in dict.fromkeys(
+                    (*media_references_in(record.body), *contact_sources.values())
+                ):
                     try:
                         if media.kind in {"representation", "derived_region"}:
                             info = await self.derivations.source_in(view, scoped, media)
@@ -160,6 +284,9 @@ class CognitionService:
                                 view, scoped, media, derivations=self.derivations
                             )
                             media_roots.update(provenance.roots)
+                        media_roots.update(
+                            oid for oid, source in contact_sources.items() if source == media
+                        )
                     except DomainError as error:
                         if error.code not in {
                             "source_unavailable",
@@ -192,6 +319,7 @@ class CognitionService:
         reference: CognitiveRef,
         *,
         check_visibility: bool = True,
+        purpose: RecordPurpose = "exact",
     ):
         row = (
             await view.connection.execute(
@@ -207,7 +335,40 @@ class CognitionService:
         if row is None:
             raise DomainError("cognition_not_found", "Cognitive revision is unavailable")
         record = CognitiveRecord.model_validate(row)
-        if check_visibility and not await self.visible_in(view, ctx, record):
+        if purpose == "current":
+            from .lifecycle import selectable
+
+            head = await view.connection.scalar(
+                select(revisions.c.revision).where(
+                    revisions.c.id == reference.id,
+                    revisions.c.namespace_id == ctx.namespace_id,
+                    revisions.c.subject_id == ctx.subject_id,
+                    revisions.c.head.is_(True),
+                )
+            )
+            if head != reference.revision or not selectable(record):
+                raise DomainError(
+                    "cognition_inactive", "The revision is not current available cognition"
+                )
+        if check_visibility and not await self.visible_in(view, ctx, record, purpose=purpose):
+            raise DomainError(
+                "source_unavailable", "Cognitive sources are unavailable in this scope"
+            )
+        return record
+
+    async def read_in(
+        self,
+        view: ReadView | WriteTx,
+        ctx: CallContext,
+        reference: CognitiveRef,
+        *,
+        purpose: RecordPurpose = "exact",
+    ) -> CognitiveRecord:
+        if purpose == "management":
+            return await self.get_in(view, ctx, reference, purpose=purpose)
+        record = await self.get_in(view, ctx, reference, check_visibility=False, purpose=purpose)
+        record = await self.project_record_in(view, ctx, record)
+        if not await self.visible_in(view, ctx, record, purpose=purpose):
             raise DomainError(
                 "source_unavailable", "Cognitive sources are unavailable in this scope"
             )
@@ -220,11 +381,9 @@ class CognitionService:
         command: AdoptCognition,
         *,
         state: RevisionState | None = None,
+        retiring_entities: frozenset[str] = frozenset(),
+        fact_owner: FactService | None = None,
     ):
-        if command.body.kind == "fact_claim" and tx.operation_kind != "fact.change":
-            raise DomainError(
-                "fact_owner_required", "FactClaim transitions must use the fact management owner"
-            )
         await require_subject_in(tx, ctx, capability_for(command.body))
         object_id = command.id or str(uuid4())
         head = (
@@ -270,9 +429,57 @@ class CognitionService:
                 raise DomainError(
                     "cognitive_kind_immutable", "A cognitive identity cannot change its domain kind"
                 )
+        if command.body.kind == "episode" and (
+            existing_record is None or command.body != existing_record.body
+        ):
+            from nous.platform.configuration.namespace_policy import require_feature_in
+
+            await require_feature_in(tx, ctx, "episodes")
+        if command.body.kind == "fact_claim":
+            owned_content = (
+                fact_owner is not None
+                and fact_owner.cognition is self
+                and fact_owner.authority is self.authority
+            )
+            unchanged_content_state = (
+                existing_record is not None
+                and state is not None
+                and command.body == existing_record.body
+                and command.times == existing_record.times
+                and command.producer_call_id == existing_record.producer_call_id
+                and all(link in command.evidence for link in existing_record.evidence)
+                and all(
+                    link in existing_record.evidence or link.polarity == "boundary"
+                    for link in command.evidence
+                )
+            )
+            if not owned_content and not unchanged_content_state:
+                raise DomainError(
+                    "fact_owner_required",
+                    "Fact content and applicability changes require the Fact owner",
+                )
         roots: set[str] = set()
         support: set[str] = set()
         requirements: list[tuple[str, tuple[str, ...]]] = []
+        unchanged_lifecycle = (
+            state is not None
+            and state.cause.action in {"trash", "restore"}
+            and existing_record is not None
+            and command.body == existing_record.body
+        )
+        cutoff = (
+            command.body.knowledge_cutoff
+            if isinstance(command.body, JournalBody) and not unchanged_lifecycle
+            else None
+        )
+        if cutoff is not None and cutoff > tx.commit_seq:
+            raise DomainError("knowledge_cutoff", "Journal perspective is outside recorded history")
+
+        def require_known(sequence: int) -> None:
+            if cutoff is not None and sequence > cutoff:
+                raise DomainError(
+                    "knowledge_cutoff", "Journal cites knowledge after its writing perspective"
+                )
 
         def require_root(observation_id: str, region_ids: tuple[str, ...]) -> None:
             roots.add(observation_id)
@@ -284,6 +491,8 @@ class CognitionService:
                 observation = await require_observation_in(
                     tx, ctx, evidence.observation_id, region_id=evidence.region_id
                 )
+                if evidence.polarity != "boundary":
+                    require_known(int(observation["commit_seq"]))
                 source_ref = MediaReference(
                     kind="source_region" if evidence.region_id else "material",
                     id=evidence.region_id or observation["material_id"],
@@ -309,7 +518,9 @@ class CognitionService:
                         }
                     )
             if evidence.reference:
-                source = await self.get_in(tx, ctx, evidence.reference)
+                source = await self.read_in(tx, ctx, evidence.reference)
+                if evidence.polarity != "boundary":
+                    require_known(source.commit_seq)
                 if source.purged and evidence.polarity == "support":
                     raise DomainError(
                         "cognition_purged", "A purged revision cannot support new cognitive content"
@@ -334,14 +545,33 @@ class CognitionService:
         for reference in references_in(command.body):
             if reference.id == object_id and reference.revision >= (head or 0) + 1:
                 raise DomainError("self_reference", "A revision cannot reference itself")
-            source = await self.get_in(tx, ctx, reference)
+            source = await self.read_in(tx, ctx, reference)
             for observation_id in source.source_roots:
                 require_root(observation_id, source.source_regions.get(observation_id, ()))
-            if command.body.kind == "journal" and source.commit_seq > command.body.knowledge_cutoff:
-                raise DomainError(
-                    "knowledge_cutoff", "Journal cites knowledge after its writing perspective"
+            if isinstance(command.body, JournalBody) and reference in command.body.episodes:
+                require_known(source.commit_seq)
+        if isinstance(command.body, MemoryBody) and command.body.contact_observation_id:
+            contact_id = command.body.contact_observation_id
+            contact = await tx.connection.scalar(
+                select(observations.c.record).where(
+                    observations.c.id == contact_id,
+                    observations.c.namespace_id == ctx.namespace_id,
+                    observations.c.subject_id == ctx.subject_id,
+                    observations.c.kind == "contact",
+                    observations.c.active.is_(True),
                 )
-        await validate_domain_in(self, tx, ctx, command.body, object_id)
+            )
+            if (
+                contact is None
+                or MediaReference.model_validate(contact.get("contact_source"))
+                not in command.body.media
+            ):
+                raise DomainError(
+                    "contact_source_mismatch", "Memory must retain its actual encountered selection"
+                )
+            selected = MediaReference.model_validate(contact["contact_source"])
+            require_root(contact_id, (selected.id,) if selected.kind == "source_region" else ())
+        await validate_domain_in(self, tx, ctx, command.body, object_id, retiring_entities)
         if not support:
             raise DomainError(
                 "grounding_required", "Cognitive adoption requires a live supporting source"
@@ -369,13 +599,31 @@ class CognitionService:
             lifecycle=(
                 existing_record.lifecycle
                 if existing_record and existing_record.lifecycle
-                else MemoryLifecycle(anchor_unix_ms=recorded.coordinate)
+                else RetentionState(
+                    anchor_unix_ms=existing_record.times.recorded.coordinate
+                    if existing_record
+                    else recorded.coordinate
+                )
             )
-            if command.body.kind == "memory"
+            if command.body.kind in {"memory", "association"}
             else None,
+            deleted=existing_record.deleted if existing_record else False,
         )
-        if state.purged and not state.deleted:
-            raise ValueError("A purged revision must be deleted")
+        if (
+            command.body.kind in {"memory", "association"}
+            and state.lifecycle is None
+            and not state.purged
+        ):
+            from dataclasses import replace
+
+            from .lifecycle import state_for
+
+            state = replace(
+                state,
+                lifecycle=state_for(existing_record)
+                if existing_record is not None
+                else RetentionState(anchor_unix_ms=recorded.coordinate),
+            )
         result = CognitiveRecord(
             reference=CognitiveRef(kind=command.body.kind, id=object_id, revision=(head or 0) + 1),
             namespace_id=ctx.namespace_id,
@@ -414,7 +662,28 @@ class CognitionService:
                 commit_seq=tx.commit_seq,
             )
         )
-        if self.projection is not None:
+        if self.projection is not None and not (
+            command.body.kind in {"memory", "association"}
+            and existing_record is not None
+            and command.body == existing_record.body
+            and state.cause.action
+            in {
+                "reinforce",
+                "weaken",
+                "protect",
+                "unprotect",
+                "pin",
+                "unpin",
+                "freeze",
+                "forget",
+                "restore",
+                "trash",
+                "purge",
+                "decay",
+                "remember_forever",
+                "allow_decay",
+            }
+        ):
             await self.projection.changed_in(tx, ctx, result)
         return result
 
@@ -435,4 +704,4 @@ class CognitionService:
     async def get(self, ctx: CallContext, reference: CognitiveRef):
         async with self.authority.read(ctx) as view:
             await require_subject_in(view, ctx)
-            return await self.get_in(view, ctx, reference)
+            return await self.read_in(view, ctx, reference)

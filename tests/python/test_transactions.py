@@ -10,7 +10,7 @@ import httpx
 import pytest
 import sqlalchemy as sa
 from dbos import DBOS
-from nous_sdk.contracts.common import CallContext
+from nous_sdk.contracts.common import CallContext, DomainError
 
 from nous.platform.execution import DurableExecution, JobSpec
 from nous.platform.persistence import Authority, OperationConflict, OperationResultPurged
@@ -273,8 +273,9 @@ def test_cancel_and_resume_delayed_job_after_runtime_restart(tmp_path):
         await execution.start()
         try:
             assert (await execution.status(context(), ref.workflow_id)).status == "CANCELLED"
-            with pytest.raises(LookupError):
+            with pytest.raises(DomainError) as forbidden:
                 await execution.resume(context("mallory"), ref.workflow_id)
+            assert forbidden.value.code == "job_not_found"
             await execution.resume(context(), ref.workflow_id)
             async with asyncio.timeout(10):
                 assert await execution.wait(context(), ref.workflow_id) == {
@@ -447,7 +448,10 @@ def test_source_receipt_redaction_keeps_operation_identity_and_prevents_reexecut
         authority = Authority(tmp_path / "authority.sqlite")
         await authority.initialize()
         async with authority.write(
-            context(), "paid", operation_kind="form", payload={"source": "source"}
+            context(),
+            "paid",
+            operation_kind="form",
+            payload={"source": "source", "text": "private original text"},
         ) as tx:
             tx.result({"material_id": "source", "body": "private original text"})
         async with authority.write(context(), "purge", operation_kind="purge", payload={}) as tx:
@@ -458,11 +462,17 @@ def test_source_receipt_redaction_keeps_operation_identity_and_prevents_reexecut
             tx.result({"purged": True})
         with pytest.raises(OperationResultPurged):
             await authority.receipt(
-                context(), "paid", operation_kind="form", payload={"source": "source"}
+                context(),
+                "paid",
+                operation_kind="form",
+                payload={"source": "source", "text": "private original text"},
             )
         with pytest.raises(OperationResultPurged):
             async with authority.write(
-                context(), "paid", operation_kind="form", payload={"source": "source"}
+                context(),
+                "paid",
+                operation_kind="form",
+                payload={"source": "source", "text": "private original text"},
             ):
                 raise AssertionError("An erased completed operation must never execute again")
         with pytest.raises(OperationConflict):
@@ -476,6 +486,12 @@ def test_source_receipt_redaction_keeps_operation_identity_and_prevents_reexecut
                 (await view.connection.execute(sa.select(operations.c.result_json))).scalars().all()
             )
             assert all("private original text" not in value for value in results)
+            payloads = (
+                (await view.connection.execute(sa.select(operations.c.payload_json)))
+                .scalars()
+                .all()
+            )
+            assert all(value is None or "private original text" not in value for value in payloads)
         await authority.close()
 
     asyncio.run(scenario())

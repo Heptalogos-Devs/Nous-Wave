@@ -47,7 +47,8 @@ def test_external_portable_and_native_vector_roundtrip(tmp_path: Path):
         materials = MaterialService(authority, content)
         cognition = CognitionService(authority, materials=materials)
         imports = ImportService(authority, cognition, LiteralModels(), materials=materials)
-        bundles = BundleService(authority, cognition, content)
+        from nous.platform.models.ledger import CallLedger
+        bundles = BundleService(authority, cognition,ledger=CallLedger(authority),content_store=content)
         identity = IdentityService(authority)
         await authority.initialize()
         ctx = CallContext(

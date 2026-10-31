@@ -16,6 +16,7 @@ class CreateCredential(Operation):
     source_ids: tuple[str, ...] | None = None
     capabilities: tuple[Capability, ...] = ("read",)
     reason: str = Field(default="", max_length=4096)
+    expires_at: AwareDatetime | None = None
 
 
 class RotateCredential(Operation):
@@ -45,6 +46,7 @@ class CredentialRecord(Contract):
     revoked_at: str | None = None
     commit_seq: int
     revision: int = Field(default=1, ge=1)
+    expires_at: AwareDatetime | None = None
 
 
 class CredentialEvent(Contract):

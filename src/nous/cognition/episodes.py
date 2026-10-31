@@ -8,13 +8,14 @@ from nous_sdk.contracts import CallContext, CognitiveRecord, CognitiveRef, Domai
 from nous_sdk.contracts.episodes import EpisodeQuery, EpisodeView
 from sqlalchemy import func, select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.material.named_sources import named_source_observations_in, source_name
 from nous.material.service import materials, observations, require_observation_in
 from nous.platform.execution import DurableExecution
 from nous.platform.persistence import Authority, ReadView, WriteTx
 
 from . import episode_jobs, episode_rebuild
+from .lifecycle import selectable
 from .projection import body_text, references_in
 from .schema import revisions
 
@@ -35,11 +36,7 @@ class EpisodeService:
             await require_subject_in(view, ctx)
             for kind in ("memory", "episode"):
                 for record in await self.heads_in(view, ctx, kind):
-                    if (
-                        not record.deleted
-                        and not record.purged
-                        and await self.cognition.visible_in(view, ctx, record)
-                    ):
+                    if selectable(record) and await self.cognition.visible_in(view, ctx, record):
                         names.update(await self.names_in(view, ctx, record))
         return tuple(sorted(names))
 
@@ -107,7 +104,7 @@ class EpisodeService:
             await require_observation_in(view, ctx, identifier)
         members: list[CognitiveRecord] = []
         for record in await self.heads_in(view, ctx, "memory", source_roots=selected):
-            if record.deleted or record.purged or not selected.intersection(record.source_roots):
+            if not selectable(record) or not selected.intersection(record.source_roots):
                 continue
             members.append(await self.cognition.get_in(view, ctx, record.reference))
         originals: list[CognitiveRecord] = []
@@ -160,13 +157,16 @@ class EpisodeService:
 
     async def query(self, ctx: CallContext, command: EpisodeQuery) -> tuple[EpisodeView, ...]:
         async with self.authority.read(ctx) as view:
+            from nous.platform.configuration.namespace_policy import require_feature_in
+
+            await require_feature_in(view, ctx, "episodes")
             await require_subject_in(view, ctx)
             person_members: set[str] | None = None
             if command.person is not None:
                 person = await self.cognition.get_in(view, ctx, command.person)
                 if person.reference.kind != "entity":
                     raise DomainError("person_required", "Episode person filter requires an Entity")
-                person_members = {reference.exact() for reference in references_in(person.body)}
+                person_members = {reference.id for reference in references_in(person.body)}
             found: list[CognitiveRecord] = []
             for record in await self.heads_in(view, ctx, "episode"):
                 body = record.body
@@ -179,12 +179,14 @@ class EpisodeService:
                     continue
                 if command.query.casefold() not in body_text(body).casefold():
                     continue
+                if command.track is not None and body.track != command.track:
+                    continue
                 if command.source is not None and command.source not in await self.names_in(
                     view, ctx, record
                 ):
                     continue
                 if person_members is not None and not person_members.intersection(
-                    member.reference.exact() for member in body.members
+                    member.reference.id for member in body.members
                 ):
                     continue
                 wanted, actual = command.experience, body.experience
@@ -195,10 +197,10 @@ class EpisodeService:
                     and actual.end is None
                     or wanted.start is not None
                     and actual.end is not None
-                    and actual.end < wanted.start
+                    and actual.end <= wanted.start
                     or wanted.end is not None
                     and actual.start is not None
-                    and actual.start > wanted.end
+                    and actual.start >= wanted.end
                 ):
                     continue
                 found.append(record)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from graphlib import CycleError, TopologicalSorter
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -7,7 +8,6 @@ from httpx import HTTPError
 from nous_sdk.contracts import (
     CallContext,
     CatalogView,
-    CognitiveTimes,
     DomainError,
     FormationProposal,
     FormObservation,
@@ -17,19 +17,25 @@ from nous_sdk.contracts import (
     ImportUnit,
     MediaReference,
     ProcessCatalog,
-    TimePoint,
     UnitOutput,
 )
+from nous_sdk.contracts.imports import ImportUnitFailure
 from openai import APIError
 from pydantic import JsonValue
 from sqlalchemy import select, update
 
 from nous.cognition.formation_validation import validate_formation_draft
+from nous.material.observation import cognitive_times
 from nous.material.service import require_observation_in
 from nous.platform.execution import JobSpec
 
 from .attempts import AttemptRecorder, failure, record_attempt
-from .continuation import formation_options, unit_candidates_in, validate_retry_in
+from .continuation import (
+    formation_options,
+    request_profiles_in,
+    unit_candidates_in,
+    validate_retry_in,
+)
 from .model_generation import form
 from .schema import inputs, outputs, requests, units
 from .source_events import processing_source
@@ -124,6 +130,41 @@ async def process_catalog(
     catalog = await self.read_catalog(ctx, command.catalog_id)
     async with self.authority.read(ctx) as view:
         await validate_retry_in(view, ctx, command)
+        from nous_sdk.contracts.namespace_policy import NamespaceFeatures
+
+        from nous.platform.configuration.namespace_policy import policy_in
+
+        if not (
+            await policy_in(view, ctx, "namespace.features", NamespaceFeatures)
+        ).allow_metadata_only_write:
+            command = command.model_copy(update={"vectors": "required"})
+        captured_profiles = await request_profiles_in(view, ctx, catalog.id)
+    if not any(
+        profile == command
+        and row.get("job_id") == attempt_job_id
+        and CallContext.model_validate(row["context"]).caller_id == ctx.caller_id
+        for row, profile in captured_profiles
+    ):
+        async with self.authority.write(
+            ctx,
+            command.operation_id + ":profile",
+            operation_kind="imports.process.profile",
+            scope=ctx.require_subject(),
+            payload={"command": command.model_dump(mode="json"), "job_id": attempt_job_id},
+        ) as tx:
+            if not tx.replayed:
+                await self.read_catalog_in(tx, ctx, command.catalog_id)
+                await tx.connection.execute(
+                    requests.insert().values(
+                        id=str(uuid4()),
+                        record={
+                            "context": ctx.model_dump(mode="json"),
+                            "command": command.model_dump(mode="json"),
+                            "job_id": attempt_job_id,
+                        },
+                    )
+                )
+                tx.result({"captured": True})
     selected = (
         set(command.unit_ids)
         if command.unit_ids is not None
@@ -132,7 +173,8 @@ async def process_catalog(
     if not selected.issubset({unit.id for unit in catalog.units}):
         raise DomainError("unit_not_found", "Requested unit does not belong to this catalog")
     adopted: list[UnitOutput] = []
-    for unit in catalog.units:
+    failures: list[ImportUnitFailure] = []
+    for unit in ordered_units(catalog.units):
         if unit.id not in selected:
             continue
         correction: dict[str, JsonValue] | None = None
@@ -187,6 +229,23 @@ async def process_catalog(
                         "formation_cycle",
                     }
                 ):
+                    if len(failures) < command.max_errors and error.code not in {
+                        "source_unavailable",
+                        "source_purged",
+                        "namespace_disabled",
+                        "subject_disabled",
+                        "namespace_purging",
+                        "model_unavailable",
+                    }:
+                        failures.append(
+                            ImportUnitFailure(
+                                unit_id=unit.id,
+                                code=error.code,
+                                message=str(error),
+                                details=error.details,
+                            )
+                        )
+                        break
                     raise
                 correction = {
                     "code": error.code,
@@ -203,7 +262,52 @@ async def process_catalog(
                 adopted.append(output)
                 break
     facts = await self.complete_files(ctx, command, catalog)
-    return ImportResult(catalog=catalog, outputs=tuple(adopted), file_successes=tuple(facts))
+    return ImportResult(
+        catalog=catalog,
+        outputs=tuple(adopted),
+        file_successes=tuple(facts),
+        failures=tuple(failures),
+    )
+
+
+def ordered_units(catalog_units: tuple[ImportUnit, ...]) -> tuple[ImportUnit, ...]:
+    """Declared source bindings are processed after their actual defining rows."""
+    if not any("assertions" in unit.context for unit in catalog_units):
+        return catalog_units
+    records = {
+        unit.id: ImportRecord.model_validate(
+            {"external_id": "unit:" + unit.id, "text": unit.text, **unit.context}
+        )
+        for unit in catalog_units
+        if unit.text
+    }
+    definitions: dict[tuple[str, str, str], set[str]] = {}
+    for identifier, record in records.items():
+        for key, value in {**record.identifiers, "import": record.external_id}.items():
+            definitions.setdefault(("memory", key, value), set()).add(identifier)
+        if record.assertions:
+            for entity in record.assertions.entities:
+                for key, value in entity.identifiers.items():
+                    definitions.setdefault(("entity", key, value), set()).add(identifier)
+            for association in record.assertions.associations:
+                for key, value in association.external_ids.items():
+                    definitions.setdefault(("association", key, value), set()).add(identifier)
+    dependencies: dict[str, set[str]] = {unit.id: set() for unit in catalog_units}
+    for identifier, record in records.items():
+        if record.assertions:
+            for reference in record.assertions.references:
+                for value in (reference.identifier, *reference.aliases):
+                    dependencies[identifier].update(
+                        definitions.get((reference.kind, reference.identifier_key, value), ())
+                    )
+    try:
+        ordered = tuple(TopologicalSorter(dependencies).static_order())
+    except CycleError as error:
+        raise DomainError(
+            "source_definition_cycle", "Source rows contain cyclic unresolved object definitions"
+        ) from error
+    by_id = {unit.id: unit for unit in catalog_units}
+    return tuple(by_id[identifier] for identifier in ordered)
 
 
 async def process_unit(
@@ -233,6 +337,10 @@ async def process_unit(
         ).scalar_one()
     if reused is not None:
         output = reused
+    elif unit.strategy == "media":
+        from .media_units import process_media_unit
+
+        output = await process_media_unit(self, ctx, command, unit, attempt_job_id, attempt)
     else:
         source_record = ImportRecord.model_validate(
             {"external_id": f"unit:{unit.id}", "text": unit.text, **unit.context}
@@ -274,12 +382,17 @@ async def process_unit(
         )
         await attempt.advance("formation")
         proposal = (
-            (
+            FormationProposal.model_validate(
+                source_record.assertions.model_dump(mode="json", exclude={"facts", "references"})
+            )
+            if source_record.assertions is not None
+            else (
                 await form(
                     self.models,
                     model_ctx,
                     unit.text,
                     model_source,
+                    authority=self.authority,
                     invocation_id=f"import:{command.operation_id}:{unit.id}:form:{retry}"
                     if command.force
                     else None,
@@ -295,7 +408,8 @@ async def process_unit(
             update={"producer_call_id": proposal.producer_call_id}
         )
         attempt.proposal = proposal
-        validate_formation_draft(proposal, catalog.formation_catalog)
+        if source_record.assertions is None or not source_record.assertions.references:
+            validate_formation_draft(proposal, catalog.formation_catalog)
         await attempt.advance("adoption")
         async with self.authority.write(
             ctx,
@@ -330,12 +444,11 @@ async def process_unit(
                         tx, ctx, accepted_event["id"], region_id=unit.source_region_id
                     )
                 )["record"]
-                times = CognitiveTimes(
-                    event=proposal.event or document.event_time,
-                    observation=TimePoint.model_validate(event["observed_at"]),
-                    formation=ctx.clock,
-                    validity=proposal.validity,
-                    recorded=ctx.clock,
+                times = cognitive_times(
+                    event,
+                    ctx.clock,
+                    inferred_event=proposal.event,
+                    inferred_validity=proposal.validity,
                 )
                 if self.projection is not None:
                     await self.projection.policy_in(tx, "disabled")
@@ -349,6 +462,7 @@ async def process_unit(
                     unit.source_region_id,
                     times,
                     catalog.formation_catalog,
+                    media=(unit.source,) if unit.source is not None else (),
                 )
                 refs = [record.reference for record in records]
                 formation = (
@@ -359,7 +473,8 @@ async def process_unit(
                             operation_id=f"{command.operation_id}:{unit.id}:form",
                             observation_id=event["id"],
                             anchor=records[0].reference,
-                            source=MediaReference(
+                            source=unit.source
+                            or MediaReference(
                                 kind="source_region",
                                 id=unit.source_region_id,
                                 observation_id=event["id"],

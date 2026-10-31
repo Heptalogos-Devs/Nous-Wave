@@ -27,12 +27,13 @@ async def query_embedding(
     request: QueryRequest,
     *,
     source_ids: tuple[str, ...] = (),
+    concepts: tuple[str, ...] = (),
 ) -> EmbeddingBatch:
     parts = request.parts or (request.text, *request.media)
     if not any(isinstance(part, MediaReference) for part in parts):
         return await self.models.embed(
             ctx.model_copy(update={"request_id": f"{ctx.request_id}:query"}),
-            ("\n".join(part for part in parts if isinstance(part, str)),),
+            ("\n".join(part for part in parts if isinstance(part, str)), *concepts),
             source_ids=source_ids,
         )
     async with self.authority.read(ctx) as view:
@@ -70,7 +71,7 @@ async def query_embedding(
             )
     return await self.models.embed_media(
         ctx.model_copy(update={"request_id": f"{ctx.request_id}:query-media"}),
-        (tuple(converted),),
+        (tuple(converted), *((text,) for text in concepts)),
         source_ids=tuple(sorted(input_sources)),
     )
 

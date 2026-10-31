@@ -23,7 +23,7 @@ from dbos import (
     WorkflowSerializationFormat,
     WorkflowStatus,
 )
-from nous_sdk.contracts.common import CallContext
+from nous_sdk.contracts.common import CallContext, DomainError
 from opentelemetry.context import get_current
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import event
@@ -35,8 +35,9 @@ from nous.platform.persistence import Authority, WriteTx
 from nous.platform.persistence.authority import SQLiteConnection, canonical_json
 from nous.platform.persistence.schema import job_links
 
+from .batches import process_jobs, retry_jobs, summarize_jobs
 from .query import JobPage, query_jobs
-from .scope import require_job_in
+from .scope import JobPurpose, require_job_in
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -69,6 +70,10 @@ class QueueSpec:
 
 
 class DurableExecution:
+    retry_jobs = retry_jobs
+    summarize_jobs = summarize_jobs
+    process_jobs = process_jobs
+
     def __init__(
         self,
         authority: Authority,
@@ -309,12 +314,16 @@ class DurableExecution:
         )
         return JobRef(handle.get_workflow_id())
 
-    async def _require_job(self, ctx: CallContext, workflow_id: str) -> None:
+    async def _require_job(
+        self, ctx: CallContext, workflow_id: str, *, purpose: JobPurpose = "actor"
+    ) -> None:
         async with self.authority.read(ctx) as view:
-            await require_job_in(view, ctx, workflow_id)
+            await require_job_in(view, ctx, workflow_id, purpose=purpose)
 
-    async def status(self, ctx: CallContext, workflow_id: str) -> WorkflowStatus:
-        await self._require_job(ctx, workflow_id)
+    async def status(
+        self, ctx: CallContext, workflow_id: str, *, purpose: JobPurpose = "actor"
+    ) -> WorkflowStatus:
+        await self._require_job(ctx, workflow_id, purpose=purpose)
         handle: WorkflowHandleAsync[JsonValue] = await self.client.retrieve_workflow_async(
             workflow_id
         )
@@ -335,6 +344,8 @@ class DurableExecution:
         state: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
+        purpose: JobPurpose = "actor",
+        workflow_ids: tuple[str, ...] | None = None,
     ) -> JobPage:
         return await query_jobs(
             self.authority,
@@ -345,10 +356,14 @@ class DurableExecution:
             state=state,
             limit=limit,
             cursor=cursor,
+            purpose=purpose,
+            workflow_ids=workflow_ids,
         )
 
-    async def wait(self, ctx: CallContext, workflow_id: str) -> JsonValue:
-        await self._require_job(ctx, workflow_id)
+    async def wait(
+        self, ctx: CallContext, workflow_id: str, *, purpose: JobPurpose = "actor"
+    ) -> JsonValue:
+        await self._require_job(ctx, workflow_id, purpose=purpose)
         handle: WorkflowHandleAsync[JsonValue] = await self.client.retrieve_workflow_async(
             workflow_id
         )
@@ -358,12 +373,16 @@ class DurableExecution:
             value = TypeAdapter(JsonValue).validate_python(error.data)
             details = value if isinstance(value, dict) else {"data": value}
             code = str(error.code) if error.code is not None else "job_failed"
+            if error.name == "DomainError":
+                raise DomainError(code, error.message, **details) from error
             raise NousError(
                 code, error.message, status=503 if code == "Unavailable" else 400, context=details
             ) from error
 
-    async def cancel(self, ctx: CallContext, workflow_id: str) -> None:
-        await self._require_job(ctx, workflow_id)
+    async def cancel(
+        self, ctx: CallContext, workflow_id: str, *, purpose: JobPurpose = "actor"
+    ) -> None:
+        await self._require_job(ctx, workflow_id, purpose=purpose)
         # Mark the parent first. Its SQLite write waits for any in-progress child
         # admission to commit; subsequent admissions see a terminal parent. The
         # following ownership snapshot therefore includes every accepted child.
@@ -376,17 +395,63 @@ class DurableExecution:
                         sa.select(job_links.c.workflow_id).where(
                             job_links.c.owned_parent == workflow_id,
                             job_links.c.namespace_id == ctx.namespace_id,
-                            job_links.c.caller_id == ctx.caller_id,
+                            sa.true()
+                            if purpose == "management"
+                            else job_links.c.caller_id == ctx.caller_id,
                         )
                     )
                 ).scalars()
             )
         for child in owned:
-            await self.cancel(ctx, child)
+            await self.cancel(ctx, child, purpose=purpose)
 
-    async def resume(self, ctx: CallContext, workflow_id: str) -> None:
-        await self._require_job(ctx, workflow_id)
+    async def resume(
+        self, ctx: CallContext, workflow_id: str, *, purpose: JobPurpose = "actor"
+    ) -> None:
+        await self._require_job(ctx, workflow_id, purpose=purpose)
+        handle: WorkflowHandleAsync[JsonValue] = await self.client.retrieve_workflow_async(
+            workflow_id
+        )
+        restored = TypeAdapter(dict[str, JsonValue] | None).validate_python(
+            (await handle.get_status()).attributes
+        )
+        marker = restored.get("namespace_restore") if restored else None
+        if isinstance(marker, dict) and marker.get("requires_review") is True:
+            raise DomainError(
+                "namespace_restore_review_required",
+                "Copied work retains its original checkpoint; submit a new authorized domain command to continue in the receiving identity",
+                workflow_id=workflow_id,
+            )
         await self.client.resume_workflow_async(workflow_id)
+
+    async def purge_namespace_jobs(self, ctx: CallContext, schedules: tuple[str, ...] = ()) -> None:
+        from nous.identity.access import require_namespace_in
+
+        from .scope import require_job_purpose
+
+        require_job_purpose(ctx, "management")
+        async with self.authority.read(ctx) as view:
+            namespace = await require_namespace_in(view, ctx, purpose="management")
+            if ctx.subject_id is not None or not namespace.purging or not namespace.deleted:
+                raise DomainError(
+                    "namespace_purge_scope_forbidden",
+                    "Job removal requires the admitted complete Namespace",
+                )
+            identities = [
+                str(value)
+                for value in (
+                    await view.connection.execute(
+                        sa.select(job_links.c.workflow_id).where(
+                            job_links.c.namespace_id == ctx.namespace_id
+                        )
+                    )
+                ).scalars()
+            ]
+        for schedule in schedules:
+            await self.client.delete_schedule_async(schedule)
+        if identities:
+            await self.client.cancel_workflows_async(identities, cancel_children=True)
+            await self.client.delete_workflows_async(identities, delete_children=True)
 
     async def close(self) -> None:
         if self._engine is None:

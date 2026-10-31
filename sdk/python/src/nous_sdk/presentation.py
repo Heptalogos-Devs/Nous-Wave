@@ -4,15 +4,18 @@ import json
 
 from .contracts import AssociationBody, CognitiveRecord, EntityBody, MediaRecord, QueryResult
 from .contracts.fact_body import FactClaimBody
+from .contracts.retrieval import QueryObject
 
 
-def reference_text(record: CognitiveRecord | MediaRecord) -> str:
+def reference_text(record: QueryObject) -> str:
     return record.addresses.exact if record.addresses else record.reference.exact()
 
 
-def object_text(record: CognitiveRecord | MediaRecord) -> str:
+def object_text(record: QueryObject) -> str:
     if isinstance(record, MediaRecord):
         return record.text or f"{record.filename} ({record.media_type})"
+    if not isinstance(record, CognitiveRecord):
+        return record.text
     if record.body is None:
         return "purged" if record.purged else ""
     body = record.body

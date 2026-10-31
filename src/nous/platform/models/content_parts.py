@@ -59,6 +59,7 @@ async def complete_video[T: BaseModel | str](
     *,
     role: str,
     invocation_id: str | None,
+    response_format_snapshot: JsonValue = None,
 ) -> tuple[T, str]:
     raw: JsonValue = None
     try:
@@ -96,7 +97,8 @@ async def complete_video[T: BaseModel | str](
                 reasoning_effort=route.reasoning_effort
                 if route.reasoning_effort is not None
                 else omit,
-                extra_body={**route.extra_body, "messages": [{"role": "user", "content": parts}]},
+                extra_body={**route.extra_body, "messages": [{"role": "user", "content": parts}],
+                    **({"response_format": response_format_snapshot} if response_format_snapshot is not None else {})},
             )
             raw = TypeAdapter(JsonValue).validate_json(response_json.content)
             parsed_json = response_json.parse()
