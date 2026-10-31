@@ -101,11 +101,29 @@ async def search(
             "mode": mode,
             "kinds": kinds,
             "limit": command.limit,
+            "capabilities": {"semantic": "optional"},
             "source_ids": selected,
             "times": [value.model_dump(mode="json") for value in times],
         }
     )
     result = await self.app.retrieval.query(ctx, query)
+    execution = result.execution
+    effective_mode = execution.effective_mode if execution is not None else mode
+    available = ["metadata"]
+    if effective_mode in {"lexical", "hybrid", "vcp"}:
+        available.append("sparse")
+    if effective_mode in {"dense", "hybrid", "vcp"}:
+        available.extend(("vector_read", "embedding"))
+    if effective_mode == "vcp":
+        available.append("graph")
+    unavailable: list[str] = []
+    if execution is not None:
+        if "model_unavailable" in execution.reasons:
+            unavailable.append("embedding")
+        if any(
+            "vectors" in reason or "semantic_unavailable" in reason for reason in execution.reasons
+        ):
+            unavailable.append("vector_read")
     hits: list[dict[str, JsonValue]] = []
     for hit in result.hits:
         if not isinstance(hit.object, CognitiveRecord) or hit.object.body is None:
@@ -151,7 +169,12 @@ async def search(
             "hits": hits,
             "filtered": False,
             "coverage": result.coverage,
-            "retrieval_mode": command.mode,
+            "retrieval_mode": effective_mode,
+            "degraded": not result.coverage.complete or bool(execution and execution.degraded),
+            "retrieval_ready": bool(result.coverage.complete),
+            "available_channels": available,
+            "unavailable_channels": unavailable,
+            "execution": execution,
             "time_start": command.time_start,
             "time_end": command.time_end,
         }

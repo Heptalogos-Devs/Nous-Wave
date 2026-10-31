@@ -9,10 +9,10 @@ from nous_sdk.contracts.fact_body import FactClaimBody, FactScope, PersonFactSco
 from nous_sdk.contracts.facts import FactQuery, FactView
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.persistence import ReadView, WriteTx
 
-from .fact_identity import conflict_group
+from .fact_identity import conflicts_with
 from .schema import revisions
 
 if TYPE_CHECKING:
@@ -148,7 +148,6 @@ async def view_in(
             history.append(previous)
     conflicts: list[CognitiveRef] = []
     successors: list[CognitiveRef] = []
-    group = conflict_group(record.body)
     for other in await heads_in(view, ctx, record.body.scope):
         if (
             isinstance(other.body, FactClaimBody)
@@ -159,8 +158,8 @@ async def view_in(
         if (
             other.reference.id != reference.id
             and isinstance(other.body, FactClaimBody)
-            and other.body.status == "active"
-            and conflict_group(other.body) == group
+            and other.body.status in {"active", "conflicted"}
+            and conflicts_with(other.body, other.times.validity, record.body, record.times.validity)
             and await cognition.visible_in(view, ctx, other)
         ):
             conflicts.append(other.reference)

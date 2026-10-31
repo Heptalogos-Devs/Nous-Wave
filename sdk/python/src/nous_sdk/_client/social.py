@@ -3,12 +3,115 @@
 from pydantic import TypeAdapter
 
 from ..contracts.cognition import CognitiveRecord
-from ..contracts.social import ChangeSocialRelation, LinkIdentity
+from ..contracts.motivation import (
+    AssessMotivation,
+    MotivationAssessment,
+    MotivationAssessmentsPage,
+    MotivationAssessmentsQuery,
+    SavedMotivationAssessment,
+)
+from ..contracts.social import (
+    ChangeSocialRelation,
+    IdentityHypothesis,
+    LinkIdentity,
+    RecoverSymbolResult,
+    SymbolCandidates,
+    SymbolSelection,
+    UnlinkIdentity,
+)
 from ..operations import encoded, segment
 from .media import MediaClient
 
 
 class SocialClient(MediaClient):
+    async def recover_symbol_result(
+        self, namespace_id: str, subject_id: str, command: RecoverSymbolResult
+    ) -> SymbolCandidates:
+        return SymbolCandidates.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/social/symbols/recover",
+                body=encoded(command),
+            )
+        )
+
+    async def motivation_assessment(
+        self, namespace_id: str, subject_id: str, assessment_id: str
+    ) -> SavedMotivationAssessment:
+        return SavedMotivationAssessment.model_validate(
+            await self.request(
+                "GET",
+                self.subject_path(namespace_id, subject_id)
+                + f"/motivation/assessments/{segment(assessment_id)}",
+            )
+        )
+
+    async def motivation_assessments(
+        self, namespace_id: str, subject_id: str, query: MotivationAssessmentsQuery
+    ) -> MotivationAssessmentsPage:
+        return MotivationAssessmentsPage.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/motivation/assessments/query",
+                body=encoded(query),
+            )
+        )
+
+    async def propose_identity(
+        self, namespace_id: str, subject_id: str, command: IdentityHypothesis
+    ) -> CognitiveRecord:
+        return CognitiveRecord.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/social/identities/hypotheses",
+                body=encoded(command),
+            )
+        )
+
+    async def unlink_identity(
+        self, namespace_id: str, subject_id: str, command: UnlinkIdentity
+    ) -> CognitiveRecord:
+        return CognitiveRecord.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/social/identities/unlink",
+                body=encoded(command),
+            )
+        )
+
+    async def understand_symbol(
+        self, namespace_id: str, subject_id: str, command: SymbolSelection
+    ) -> SymbolCandidates:
+        return SymbolCandidates.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/social/symbols/understand",
+                body=encoded(command),
+            )
+        )
+
+    async def expression_candidates(
+        self, namespace_id: str, subject_id: str, command: SymbolSelection
+    ) -> SymbolCandidates:
+        return SymbolCandidates.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/social/symbols/express",
+                body=encoded(command),
+            )
+        )
+
+    async def assess_motivation(
+        self, namespace_id: str, subject_id: str, command: AssessMotivation
+    ) -> MotivationAssessment:
+        return MotivationAssessment.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/motivation/assess",
+                body=encoded(command),
+            )
+        )
+
     async def link_identity(
         self, namespace_id: str, subject_id: str, command: LinkIdentity
     ) -> CognitiveRecord:

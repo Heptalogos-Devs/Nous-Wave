@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Request
 from nous_sdk.contracts import AdmitFiles, ImportDocument
+from nous_sdk.contracts.dataset_imports import BackfillSourceTimes, ImportDataset
 from nous_sdk.contracts.imports import FormObservation, TextSplitOptions
 from nous_sdk.contracts.text_import import TextImport
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,6 +11,24 @@ from .sdk_common import OperationIdentity
 from .security import application, context
 
 router = APIRouter()
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/datasets/import")
+async def import_dataset(
+    request: Request, namespace_id: str, subject_id: str, command: ImportDataset
+):
+    return await application(request).datasets.submit(
+        await context(request, namespace_id, subject_id), command
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/datasets/source-times")
+async def backfill_source_times(
+    request: Request, namespace_id: str, subject_id: str, command: BackfillSourceTimes
+):
+    return await application(request).datasets.submit_time_backfill(
+        await context(request, namespace_id, subject_id), command
+    )
 
 
 class TextPreview(BaseModel):

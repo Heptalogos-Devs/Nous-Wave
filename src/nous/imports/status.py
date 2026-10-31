@@ -10,7 +10,7 @@ from nous_sdk.contracts.imports import UnitAttempt
 from sqlalchemy import select
 
 from nous.cognition.schema import vectors
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 
 from .schema import outputs, requests
 

@@ -1,7 +1,7 @@
 """Typed operations over the service's domain contracts."""
 
 from collections.abc import Mapping
-from typing import TypeVar
+from typing import Literal, TypeVar
 from urllib.parse import quote
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
@@ -36,6 +36,10 @@ from .contracts.context import (
     ContextAdmissionCommand,
     ContextCommand,
     ContextFeedback,
+    ContextModelCall,
+    ContextModelPlan,
+    ContextModelPreview,
+    ContextModelResult,
     ContextPreparation,
     ContextPreparationJob,
     ContextPrepare,
@@ -46,7 +50,39 @@ from .contracts.context import (
     WorkContext,
 )
 from .contracts.ego_model import AdoptSeed, SeedResult
+from .contracts.feedback import (
+    EnqueueFeedback,
+    FeedbackPage,
+    FeedbackQuery,
+    FeedbackTask,
+    RetryFeedback,
+    RollbackFeedback,
+)
 from .contracts.lifecycle import MemoryChange
+from .contracts.management import SourceSelection
+from .contracts.model_calls import RetainedModelOutput
+from .contracts.retention import (
+    DecayRetention,
+    RetentionChange,
+    RetentionChanges,
+    RetentionDecayResult,
+    RetentionSnapshot,
+)
+from .contracts.vector_projection import ProjectionReceipt
+from .contracts.vector_spaces import (
+    CheckVectorSpaces,
+    DeleteVectorSpace,
+    PersistenceState,
+    RebuildVectors,
+    RecoverVectors,
+    RetryVectorProjection,
+    VectorProjectionProgress,
+    VectorRebuild,
+    VectorRecovery,
+    VectorSpaceCheck,
+    VectorSpaceDeleted,
+    VectorSpaces,
+)
 from .types import ContextRecord, ImportSubmission, JsonObject, QueryParam, Source
 
 T = TypeVar("T")
@@ -67,6 +103,184 @@ def segment(value: str) -> str:
 
 
 class TypedOperations:
+    async def decay_retention(self, namespace_id: str, subject_id: str, command: DecayRetention) -> RetentionDecayResult:
+        return RetentionDecayResult.model_validate(await self.request("POST", self.subject_path(namespace_id, subject_id) + "/retention/decay", body=encoded(command)))
+
+    async def change_retention(self, namespace_id: str, subject_id: str, command: RetentionChange) -> CognitiveRecord:
+        return CognitiveRecord.model_validate(await self.request("POST", self.subject_path(namespace_id, subject_id) + "/retention/change", body=encoded(command)))
+
+    async def change_retentions(self, namespace_id: str, subject_id: str, command: RetentionChanges) -> tuple[CognitiveRecord, ...]:
+        return TypeAdapter(tuple[CognitiveRecord,...]).validate_python(await self.request("POST", self.subject_path(namespace_id, subject_id) + "/retention/change-many", body=encoded(command)))
+
+    async def retention_snapshot(self, namespace_id: str, subject_id: str, reference: CognitiveRef) -> RetentionSnapshot:
+        return RetentionSnapshot.model_validate(await self.request("POST", self.subject_path(namespace_id, subject_id) + "/retention/snapshot", body=encoded(reference)))
+
+    async def retained_model_output(self, namespace_id: str, subject_id: str, call_id: str, *, management: bool = False) -> RetainedModelOutput:
+        return RetainedModelOutput.model_validate(await self.request("GET", f"/api/models/calls/{segment(call_id)}/output", params={"namespace_id": namespace_id, "subject_id": subject_id, "management": management}))
+
+    async def recover_vectors(
+        self, namespace_id: str, subject_id: str, command: RecoverVectors
+    ) -> VectorRecovery:
+        return VectorRecovery.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/vectors/recover",
+                body=encoded(command),
+            )
+        )
+
+    async def vector_spaces(
+        self, namespace_id: str, subject_id: str | None = None, *, include_media: bool = False
+    ) -> VectorSpaces:
+        path = (
+            self.subject_path(namespace_id, subject_id)
+            if subject_id
+            else f"/api/namespaces/{segment(namespace_id)}"
+        )
+        return VectorSpaces.model_validate(
+            await self.request(
+                "GET", path + "/vector-spaces", params={"include_media": include_media}
+            )
+        )
+
+    async def delete_vector_space(
+        self, namespace_id: str, command: DeleteVectorSpace
+    ) -> VectorSpaceDeleted:
+        return VectorSpaceDeleted.model_validate(
+            await self.request(
+                "POST",
+                f"/api/namespaces/{segment(namespace_id)}/vector-spaces/delete",
+                body=encoded(command),
+            )
+        )
+
+    async def rebuild_vectors(
+        self, namespace_id: str, subject_id: str, command: RebuildVectors
+    ) -> VectorRebuild:
+        return VectorRebuild.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/vectors/rebuild",
+                body=encoded(command),
+            )
+        )
+
+    async def check_vector_spaces(
+        self, namespace_id: str, subject_id: str, command: CheckVectorSpaces
+    ) -> VectorSpaceCheck:
+        return VectorSpaceCheck.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/vectors/check",
+                body=encoded(command),
+            )
+        )
+
+    async def vector_projection_progress(
+        self, namespace_id: str, subject_id: str, request_id: str
+    ) -> VectorProjectionProgress:
+        return VectorProjectionProgress.model_validate(
+            await self.request(
+                "GET",
+                self.subject_path(namespace_id, subject_id)
+                + f"/vectors/projections/{segment(request_id)}",
+            )
+        )
+
+    async def retry_vector_projection(
+        self, namespace_id: str, subject_id: str, command: RetryVectorProjection
+    ) -> ProjectionReceipt:
+        return ProjectionReceipt.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/vectors/retry",
+                body=encoded(command),
+            )
+        )
+
+    async def persistence_state(
+        self, namespace_id: str, subject_id: str | None = None
+    ) -> PersistenceState:
+        path = (
+            self.subject_path(namespace_id, subject_id) + "/vectors/persistence"
+            if subject_id
+            else f"/api/namespaces/{segment(namespace_id)}/persistence"
+        )
+        return PersistenceState.model_validate(await self.request("GET", path))
+
+    async def retry_feedback(
+        self, namespace_id: str, subject_id: str, command: RetryFeedback
+    ) -> FeedbackTask:
+        return FeedbackTask.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/feedback/retry",
+                body=encoded(command),
+            )
+        )
+
+    async def preview_context_model(
+        self, namespace_id: str, subject_id: str, command: ContextModelPreview
+    ) -> ContextModelPlan:
+        return ContextModelPlan.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/contexts/model-preview",
+                body=encoded(command),
+            )
+        )
+
+    async def invoke_context_model(
+        self, namespace_id: str, subject_id: str, command: ContextModelCall
+    ) -> ContextModelResult:
+        return ContextModelResult.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/contexts/model-invocations",
+                body=encoded(command),
+            )
+        )
+
+    async def enqueue_feedback(
+        self, namespace_id: str, subject_id: str, command: EnqueueFeedback
+    ) -> FeedbackTask:
+        return FeedbackTask.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/feedback",
+                body=encoded(command),
+            )
+        )
+
+    async def feedback_task(self, namespace_id: str, subject_id: str, task_id: str) -> FeedbackTask:
+        return FeedbackTask.model_validate(
+            await self.request(
+                "GET", self.subject_path(namespace_id, subject_id) + f"/feedback/{segment(task_id)}"
+            )
+        )
+
+    async def feedback_tasks(
+        self, namespace_id: str, subject_id: str, command: FeedbackQuery | None = None
+    ) -> FeedbackPage:
+        return FeedbackPage.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/feedback/query",
+                body=encoded(command or FeedbackQuery()),
+            )
+        )
+
+    async def rollback_feedback(
+        self, namespace_id: str, subject_id: str, command: RollbackFeedback
+    ) -> FeedbackTask:
+        return FeedbackTask.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/feedback/rollback",
+                body=encoded(command),
+            )
+        )
+
     async def adopt_seed(
         self, namespace_id: str, subject_id: str, command: AdoptSeed
     ) -> SeedResult:
@@ -225,13 +439,20 @@ class TypedOperations:
         )
 
     async def preview_sources(
-        self, namespace_id: str, subject_id: str, sources: tuple[str, ...]
+        self,
+        namespace_id: str,
+        subject_id: str,
+        sources: tuple[str, ...] = (),
+        *,
+        selection: SourceSelection | None = None,
+        action: Literal["trash", "restore", "purge"] = "trash",
     ) -> SourcePreview:
         return SourcePreview.model_validate(
             await self.request(
                 "POST",
                 self.subject_path(namespace_id, subject_id) + "/sources/preview",
-                body={"observation_ids": list(sources)},
+                body=encoded(selection or SourceSelection(observation_ids=sources)),
+                params={"action": action},
             )
         )
 
@@ -245,6 +466,18 @@ class TypedOperations:
                 body=encoded(command),
             )
         )
+
+    async def submit_source_trash(
+        self, namespace_id: str, subject_id: str, command: SourceCommand
+    ) -> str:
+        result = object_value(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/sources/trash/jobs",
+                body=encoded(command),
+            )
+        )
+        return TypeAdapter(str).validate_python(result["job_id"])
 
     async def restore_sources(
         self, namespace_id: str, subject_id: str, command: SourceCommand

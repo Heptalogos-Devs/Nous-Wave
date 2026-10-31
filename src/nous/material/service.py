@@ -1,6 +1,6 @@
 """Immutable source content and actual Import/Contact events."""
 
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from nous_sdk.contracts import (
     CallContext,
@@ -8,6 +8,7 @@ from nous_sdk.contracts import (
     MediaReference,
     SourceRegion,
 )
+from nous_sdk.contracts.common import ObservationKind
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import JSON, Boolean, Column, Integer, String, Table, select
 
@@ -15,7 +16,7 @@ from nous.platform.content import ContentStore
 from nous.platform.persistence import Authority, ReadView, WriteTx, metadata
 from nous.references import allocate_in
 
-from . import admission, writes
+from . import admission, observation, writes
 from .access import media_source_in
 from .provenance import provenance_in
 
@@ -68,25 +69,36 @@ class MaterialRecord(TypedDict):
     addresses: NotRequired[dict[str, JsonValue]]
     required_source_ids: NotRequired[list[str]]
     required_observation_ids: NotRequired[list[str]]
+    dependency_purpose: NotRequired[Literal["active", "history"]]
 
 
 class SourceRecord(TypedDict):
+    trashed_at: NotRequired[str]
     id: str
     namespace_id: str
     subject_id: str
     material_id: str
-    kind: str
+    kind: ObservationKind
     origin: dict[str, str]
     source_type: str
     source: NotRequired[str | None]
     event_time: dict[str, JsonValue] | None
     observed_at: dict[str, JsonValue]
+    validity: NotRequired[dict[str, JsonValue] | None]
     recorded_at: str
     commit_seq: int
     purged: NotRequired[bool]
     placement: NotRequired[dict[str, JsonValue]]
     previous_observation_id: NotRequired[str]
     retry_parent_job_id: NotRequired[str]
+    external_event_id: NotRequired[str]
+    consumer_subject_id: NotRequired[str]
+    caller_id: NotRequired[str]
+    contact_source: NotRequired[dict[str, JsonValue]]
+    participants: NotRequired[list[str]]
+    audience: NotRequired[list[str]]
+    related_cognition: NotRequired[list[dict[str, JsonValue]]]
+    statement: NotRequired[str]
 
 
 _MATERIAL = TypeAdapter(MaterialRecord)
@@ -159,6 +171,7 @@ async def require_observation_in(
 
 
 class MaterialService:
+    accepted_source_in = observation.accepted_source_in
     put_in = writes.put_in
     put_blob_in = writes.put_blob_in
     observe_in = writes.observe_in

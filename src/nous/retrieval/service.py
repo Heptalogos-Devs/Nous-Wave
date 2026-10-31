@@ -22,6 +22,7 @@ from .readout import finalize
 from .source_expansion import expand_sources
 
 if TYPE_CHECKING:
+    from nous.data_management.resources import ResourceService
     from nous.vector_projection.service import VectorProjectionService
 
 
@@ -32,7 +33,7 @@ class RetrievalService:
     eligible = candidates.eligible
     selectors = binding.selectors
     order = candidates.order
-    graph = graph.graph
+    graph = staticmethod(graph.graph)
     query = query.query
     query_embedding = embedding.query_embedding
     embed_media = embedding.embed_media
@@ -47,18 +48,22 @@ class RetrievalService:
         derivations: DerivedService | None = None,
         *,
         configuration: ConfigurationService,
+        resources: ResourceService | None = None,
     ) -> None:
         self.authority, self.cognition, self.models = authority, cognition, models
         self.configuration = configuration
         self.materials = materials or MaterialService(authority)
         self.derivations = derivations or cognition.derivations
-        self.references = ReferenceDirectory(authority, cognition, self.materials)
+        self.references = ReferenceDirectory(
+            authority, cognition, self.materials, resources=resources
+        )
         self.index_path = Path(index_path)
         self.index_path.mkdir(parents=True, exist_ok=True)
         self.snapshots: dict[str, Snapshot] = {}
         self.stores: dict[str, IndexStore] = {}
         self.lock = asyncio.Lock()
         self.projection: VectorProjectionService | None = None
+        self.resources = resources
 
     async def close(self) -> None:
         async with self.lock:

@@ -1,10 +1,19 @@
 """Read source operations through their scoped lifecycle owner."""
 
 from fastapi import APIRouter, Query, Request
+from nous_sdk.contracts import SourceCommand
 
 from .security import application, context
 
 router = APIRouter()
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/sources/trash/jobs")
+async def submit_source_trash(
+    request: Request, namespace_id: str, subject_id: str, command: SourceCommand
+) -> dict[str, str]:
+    ctx = await context(request, namespace_id, subject_id, capability="write")
+    return {"job_id": await application(request).sources.submit_trash(ctx, command)}
 
 
 @router.get("/namespaces/{namespace_id}/subjects/{subject_id}/sources/operation")

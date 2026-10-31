@@ -2,8 +2,9 @@
 
 from collections.abc import Mapping, Sequence
 from copy import copy
+from datetime import datetime
 from pathlib import Path
-from typing import Literal, Self
+from typing import Self
 from uuid import uuid4
 
 from pydantic import JsonValue
@@ -16,6 +17,7 @@ from ..contracts.context import (
     ContextTarget,
     ReadContextSource,
 )
+from ..contracts.imports import ImportFormat
 from ..files import ManagedFiles
 from ..operations import encoded, object_value
 from ..source_scope import SourceReadScope
@@ -25,6 +27,34 @@ from .references import target_reference
 
 
 class AMemorixAdapter:
+    async def enqueue_feedback_task(
+        self,
+        *,
+        query_tool_id: str,
+        session_id: str,
+        query_timestamp: float | str | datetime | None = None,
+        structured_content: dict[str, JsonValue] | None = None,
+    ) -> JsonObject:
+        return await self.call(
+            "enqueue_feedback_task",
+            {
+                "query_tool_id": query_tool_id,
+                "session_id": session_id,
+                "query_timestamp": query_timestamp.isoformat() if isinstance(query_timestamp, datetime) else query_timestamp,
+                "structured_content": structured_content,
+            },
+        )
+
+    async def memory_feedback_admin(self, *, action: str, **kwargs: JsonValue) -> JsonObject:
+        return await self.call("memory_feedback_admin", {"action": action, **kwargs})
+
+    async def image_memory(
+        self, *, action: str, image_bytes: bytes | None = None, **kwargs: JsonValue
+    ) -> JsonObject:
+        from .images import image_memory
+
+        return await image_memory(self, action=action, image_bytes=image_bytes, **kwargs)
+
     def __init__(
         self,
         client: NousClient,
@@ -53,7 +83,7 @@ class AMemorixAdapter:
         self,
         files: Sequence[str | Path | Mapping[str, JsonValue]],
         *,
-        input_format: Literal["text", "json", "jsonl"] | None = None,
+        input_format: ImportFormat | None = None,
         operation_id: str | None = None,
     ) -> tuple[ImportDocument, ...]:
         from ..imports import upload_import_inputs
@@ -81,7 +111,8 @@ class AMemorixAdapter:
             tool in {"memory_profile_admin", "get_person_profile"}
             and values.get("force_refresh") is True
         )
-        if (profile_write or profile_refresh) and not values.get("operation_id"):
+        runtime_write = tool == "memory_runtime_admin" and values.get("action") not in {"get_config", "list_vector_spaces", "projection_progress"}
+        if (profile_write or profile_refresh or runtime_write) and not values.get("operation_id"):
             values["operation_id"] = str(uuid4())
         command = AMemorixRequest(
             namespace_id=self.namespace_id,
@@ -268,7 +299,32 @@ class AMemorixAdapter:
         return await self.call("memory_graph_admin", {"action": action, **kwargs})
 
     async def memory_runtime_admin(self, *, action: str, **kwargs: JsonValue) -> JsonObject:
+        """Inspect, check, recover or rebuild vectors through the native space owner."""
         return await self.call("memory_runtime_admin", {"action": action, **kwargs})
+
+    async def memory_tuning_admin(self, *, action: str, **kwargs: JsonValue) -> JsonObject:
+        values = {"action": action, **kwargs}
+        if action in {"create_task", "apply_profile", "apply_best", "rollback_profile"}:
+            values.setdefault("operation_id", str(uuid4()))
+        return await self.call("memory_tuning_admin", values)
+
+    async def memory_v5_admin(self, *, action: str, **kwargs: JsonValue) -> JsonObject:
+        values = {"action": action, **kwargs}
+        if action not in {"status", "recycle_bin"}:
+            values.setdefault("operation_id", str(uuid4()))
+        return await self.call("memory_v5_admin", values)
+
+    async def memory_correction_admin(self, *, action: str, **kwargs: JsonValue) -> JsonObject:
+        values = {"action": action, **kwargs}
+        if action in {"plan", "preview", "execute", "rollback"}:
+            values.setdefault("operation_id", str(uuid4()))
+        return await self.call("memory_correction_admin", values)
+
+    async def memory_fuzzy_modify_admin(self, *, action: str, **kwargs: JsonValue) -> JsonObject:
+        values = {"action": action, **kwargs}
+        if action in {"plan", "preview", "execute", "rollback"}:
+            values.setdefault("operation_id", str(uuid4()))
+        return await self.call("memory_fuzzy_modify_admin", values)
 
     async def memory_fact_admin(self, *, action: str, **kwargs: JsonValue) -> JsonObject:
         values = {"action": action, **kwargs}
@@ -307,44 +363,44 @@ class AMemorixAdapter:
     async def invoke(
         self,
         component_name: str,
-        arguments: Mapping[str, JsonValue] | None = None,
+        arguments: Mapping[str, object] | None = None,
         *,
         timeout_ms: int | None = None,
     ) -> JsonObject:
-        values = dict(arguments or {})
-        if component_name == "memory_v5_admin":
-            if values.get("action") == "remember_forever":
-                values.update(action="protect", hours=0)
-            if values.get("action") in {
-                "reinforce",
-                "weaken",
-                "protect",
-                "restore",
-                "freeze",
-                "forget",
-                "recycle_bin",
-                "unprotect",
-                "trash",
-                "purge",
-                "decay",
-            }:
-                component_name = "maintain_memory"
+        from pydantic import TypeAdapter
+
+        async def dispatch() -> JsonObject:
+            raw = dict(arguments or {})
+            binary = raw.pop("image_bytes", None) if component_name == "image_memory" else None
+            if binary is not None and not isinstance(binary, (bytes, bytearray, memoryview)):
+                raise ValueError("image_bytes must contain actual bytes")
+            if isinstance(binary, memoryview):
+                from typing import cast
+                binary = cast("memoryview[int]", binary).tobytes()
+            elif isinstance(binary, bytearray):
+                binary = bytes(binary)
+            values = TypeAdapter(JsonObject).validate_python(raw)
+            if component_name == "memory_v5_admin":
+                if values.get("action") not in {"status", "recycle_bin"}:
+                    values.setdefault("operation_id", str(uuid4()))
+            if component_name == "maintain_memory":
                 values.setdefault("operation_id", str(uuid4()))
-        if component_name == "maintain_memory":
-            values.setdefault("operation_id", str(uuid4()))
-        if component_name == "memory_import_admin":
-            action = values.pop("action", None)
-            if not isinstance(action, str):
-                raise ValueError("Import administration requires action")
-            return await self.memory_import_admin(action=action, **values)
-        if component_name == "memory_bundle_admin":
-            action = values.pop("action", None)
-            if not isinstance(action, str):
-                raise ValueError("Bundle administration requires action")
-            return await self.memory_bundle_admin(action=action, **values)
+            if component_name in {"memory_import_admin", "memory_bundle_admin", "image_memory"}:
+                action = values.pop("action", None)
+                if not isinstance(action, str):
+                    raise ValueError(f"{component_name} requires action")
+                if component_name == "image_memory":
+                    return await self.image_memory(action=action, image_bytes=binary, **values)
+                if component_name == "memory_import_admin":
+                    return await self.memory_import_admin(action=action, **values)
+                return await self.memory_bundle_admin(action=action, **values)
+            return await self.call(component_name, values)
+
         if timeout_ms is not None:
+            if timeout_ms <= 0:
+                raise ValueError("timeout_ms must be positive")
             import anyio
 
             with anyio.fail_after(timeout_ms / 1000):
-                return await self.call(component_name, values)
-        return await self.call(component_name, values)
+                return await dispatch()
+        return await dispatch()

@@ -8,11 +8,18 @@ from pydantic import Field
 
 from .cognition import EpistemicStance, MemoryInterpretation
 from .common import Contract, TimeRange
+from .personality import FacetCategory, SocialDimension
 
 
 class GrowthRef(Contract):
     key: str = Field(
         min_length=1, description="An exact supplied catalog key or an earlier proposal key"
+    )
+
+
+class GrowthMediaRef(Contract):
+    key: str = Field(
+        min_length=1, description="An actual media catalog key supplied in snapshot.media"
     )
 
 
@@ -120,6 +127,14 @@ class GrowthAssociation(Contract):
     )
 
 
+class GrowthRelationshipRequirement(Contract):
+    from_entity: GrowthRef
+    dimension: SocialDimension
+    minimum_degree: float = Field(default=0, ge=-1, le=1, allow_inf_nan=False)
+    minimum_confidence: float | None = Field(default=None, ge=0, le=1)
+    trust_domain: str | None = None
+
+
 class GrowthEgoFacet(Contract):
     kind: Literal["self_facet"]
     facet: str
@@ -127,6 +142,9 @@ class GrowthEgoFacet(Contract):
     epistemic: EpistemicStance
     contexts: tuple[str, ...] = ()
     exceptions: tuple[str, ...] = ()
+    category: FacetCategory = "other"
+    audience: tuple[GrowthRef, ...] = ()
+    relationship: GrowthRelationshipRequirement | None = None
 
 
 class GrowthNarrativeThread(Contract):
@@ -176,6 +194,16 @@ class GrowthLanguageConvention(Contract):
     audience: tuple[GrowthRef, ...] = Field(min_length=1)
     pragmatics: str
     contexts: tuple[str, ...] = ()
+    carriers: tuple[GrowthMediaRef, ...] = ()
+    content_description: str = ""
+    emotions: tuple[str, ...] = ()
+    intentions: tuple[str, ...] = ()
+    speakers: tuple[GrowthRef, ...] = ()
+    targets: tuple[GrowthRef, ...] = ()
+    groups: tuple[GrowthRef, ...] = ()
+    usage_events: tuple[GrowthRef, ...] = ()
+    avoid_for: tuple[GrowthRef, ...] = ()
+    epistemic: EpistemicStance = Field(default_factory=EpistemicStance)
 
 
 class GrowthCondition(Contract):

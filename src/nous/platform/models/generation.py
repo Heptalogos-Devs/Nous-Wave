@@ -129,11 +129,23 @@ class Generation:
         invocation_id: str | None = None,
         cache_policy: ModelCachePolicy = "shared",
         routing: ModelRouteAttempt | None = None,
+        request_snapshot: dict[str, JsonValue] | None = None,
     ) -> tuple[T, str]:
         video = any(part.media_type.startswith("video/") for part in media)
         snapshot = prepare_invocation(purpose, route, prompt, output_type, media, source_ids)
+        if request_snapshot is not None:
+            # The accepted route owns the schema and provider envelope; the
+            # current Python contract parses the retained output after evolution.
+            for field in ("schema", "provider_response_format", "provider_schema_backend"):
+                snapshot[field] = request_snapshot[field]
         if cache_policy != "shared":
             snapshot["cache_policy"] = cache_policy
+        if invocation_id is not None:
+            accepted = await self.ledger.attempt(ctx, budget_role or purpose, invocation_id)
+            if accepted is not None:
+                for field in ("schema", "provider_response_format", "provider_schema_backend"):
+                    if field in accepted.request:
+                        snapshot[field] = accepted.request[field]
         call_id, cached = await self.ledger.reserve(
             ctx,
             purpose,
@@ -195,6 +207,7 @@ class Generation:
                     client,
                     role=budget_role or purpose,
                     invocation_id=invocation_id,
+                    response_format_snapshot=snapshot.get("provider_response_format"),
                 )
             provider = OpenAIProvider(
                 openai_client=AsyncOpenAI(
@@ -238,8 +251,11 @@ class Generation:
                         settings["temperature"] = route.temperature
                     if route.reasoning_effort is not None:
                         settings["openai_reasoning_effort"] = route.reasoning_effort
-                    if route.extra_body:
-                        settings["extra_body"] = route.extra_body
+                    extra_body: dict[str, JsonValue] = dict(route.extra_body)
+                    if output_type is not str:
+                        extra_body["response_format"] = snapshot["provider_response_format"]
+                    if extra_body:
+                        settings["extra_body"] = extra_body
                     result = await agent.run(content, model_settings=settings, retries=0)
                     usage = result.usage
                     usage_record.update(
@@ -265,6 +281,17 @@ class Generation:
                     )
                     raise
                 except Exception as error:
+                    responses = [item for item in messages if isinstance(item, ModelResponse)]
+                    if responses:
+                        usage_record.update(
+                            {
+                                "input_tokens": sum(item.usage.input_tokens for item in responses),
+                                "output_tokens": sum(
+                                    item.usage.output_tokens for item in responses
+                                ),
+                                "finish_reason": responses[-1].finish_reason,
+                            }
+                        )
                     code = (
                         error.code
                         if isinstance(error, (DomainError, NousError))

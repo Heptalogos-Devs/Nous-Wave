@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import sqlalchemy as sa
 from nous_sdk.contracts import CallContext, DomainError
-from nous_sdk.contracts.model_calls import ArchivedCall
+from nous_sdk.contracts.model_calls import ArchivedCall, InvocationBinding, InvocationRestore
 from nous_sdk.contracts.model_roles import ModelCachePolicy
 from nous_sdk.contracts.model_routing import ModelCallOutcome, ModelRouteAttempt
 from pydantic import JsonValue, TypeAdapter
@@ -17,7 +17,7 @@ from pydantic import JsonValue, TypeAdapter
 from nous.platform.errors import NousError
 from nous.platform.persistence import Authority, ReadView, WriteTx, metadata
 
-from . import history
+from . import history, invocation_transfer
 from .invocations import (
     InvocationAttempt,
     InvocationResult,
@@ -53,9 +53,51 @@ class PaidInvocation:
     request_hash: str
     request: dict[str, JsonValue]
     result: JsonValue
+    origin_call_id: str | None = None
 
 
 class CallLedger:
+    async def embedding_candidates_in(self, view: ReadView | WriteTx, ctx: CallContext, text: str | None) -> tuple[str, ...]:
+        statement = sa.select(calls.c.id).where(calls.c.namespace_id == ctx.namespace_id,
+            calls.c.subject_id == ctx.require_subject(), calls.c.status != "purged", calls.c.purpose == "embedding")
+        if text is not None:
+            items = sa.func.json_each(calls.c.request, "$.texts").table_valued("value")
+            statement = statement.where(sa.select(items.c.value).where(items.c.value == text).exists())
+        from .history import imported_calls
+        historical = sa.select(imported_calls.c.id).where(imported_calls.c.namespace_id == ctx.namespace_id,
+            imported_calls.c.subject_id == ctx.subject_id, imported_calls.c.record["status"].as_string() != "purged",
+            imported_calls.c.record["purpose"].as_string() == "embedding")
+        if text is not None:
+            items = sa.func.json_each(imported_calls.c.record, "$.request.texts").table_valued("value")
+            historical = historical.where(sa.select(items.c.value).where(items.c.value == text).exists())
+        return tuple((await view.connection.scalars(statement)).all()) + tuple((await view.connection.scalars(historical)).all())
+
+    async def export_invocations_in(self, view: ReadView | WriteTx, ctx: CallContext):
+        return await invocation_transfer.export_in(view, ctx)
+
+    async def restore_invocations_in(
+        self,
+        tx: WriteTx,
+        ctx: CallContext,
+        bindings: tuple[InvocationBinding, ...],
+        *,
+        subject_mapping: Mapping[str, str],
+        caller_mapping: Mapping[str, str],
+        call_mapping: Mapping[str, str],
+        preserve_opaque: bool = False,
+        source_namespace_id: str | None = None,
+    ) -> InvocationRestore:
+        return await invocation_transfer.restore_in(
+            tx,
+            ctx,
+            bindings,
+            subject_mapping=subject_mapping,
+            caller_mapping=caller_mapping,
+            call_mapping=call_mapping,
+            preserve_opaque=preserve_opaque,
+            source_namespace_id=source_namespace_id,
+        )
+
     def __init__(self, authority: Authority) -> None:
         self.authority = authority
 
@@ -165,6 +207,24 @@ class CallLedger:
             .first()
         )
         if row is None:
+            historical = await view.connection.scalar(
+                sa.select(history.imported_calls.c.record).where(
+                    history.imported_calls.c.id == call_id,
+                    history.imported_calls.c.namespace_id == ctx.namespace_id,
+                    history.imported_calls.c.subject_id == ctx.require_subject(),
+                )
+            )
+            if historical is not None:
+                archived = ArchivedCall.model_validate(historical)
+                if archived.status == "succeeded":
+                    history.require_visible(ctx, archived.source_ids)
+                    return PaidInvocation(
+                        archived.id,
+                        archived.request_hash,
+                        archived.request,
+                        archived.result,
+                        archived.origin.call_id,
+                    )
             raise DomainError(
                 "model_call_unavailable", "A retained successful model call is required"
             )
@@ -209,15 +269,30 @@ class CallLedger:
         ).mappings()
         for row in rows:
             request = row["request"]
-            source = request.get("prompt", {}).get("variables", {}).get("source", {})
+            if not isinstance(request, dict):
+                continue
+            # Embedding and other non-generation calls store flat request fields without a prompt.
+            prompt = request.get("prompt")
+            variables = prompt.get("variables") if isinstance(prompt, dict) else None
+            source = variables.get("source") if isinstance(variables, dict) else None
+            if not isinstance(source, dict):
+                source = {}
             inputs = source_identities(request)
-            inputs.update(source.get("source_material_ids", []))
+            material_ids = source.get("source_material_ids")
+            if isinstance(material_ids, list):
+                inputs.update(item for item in material_ids if isinstance(item, str))
+            observation_ids = request.get("observation_ids")
             if (
                 source.get("material_id") in selected
                 or inputs.intersection(selected)
                 or inputs.intersection(purged_roots)
                 or source.get("observation_id") in purged_roots
-                or set(request.get("observation_ids", [])).intersection(purged_roots)
+                or (
+                    isinstance(observation_ids, list)
+                    and set(item for item in observation_ids if isinstance(item, str)).intersection(
+                        purged_roots
+                    )
+                )
             ):
                 await tx.connection.execute(
                     calls.update()
@@ -250,7 +325,12 @@ class CallLedger:
             ctx,
             str(uuid4()),
             operation_kind="model.reserve",
-            payload={"request_hash": digest, "purpose": purpose},
+            payload={
+                "request_hash": digest,
+                "purpose": purpose,
+                "role": role,
+                "invocation_id": invocation_id,
+            },
         ) as tx:
             if await erased_sources_in(tx, ctx, request):
                 raise NousError(
@@ -265,6 +345,23 @@ class CallLedger:
                         "model_invocation_conflict",
                         "Invocation identity already has a different provider input",
                     )
+                if attempt is not None and attempt.status == "failed" and attempt.outcome is not None and attempt.outcome.kind == "not_sent":
+                    from nous.identity.access import require_subject_in
+
+                    await require_subject_in(tx, ctx)
+                    local = await tx.connection.scalar(sa.select(calls.c.id).where(
+                        calls.c.id == attempt.call_id, calls.c.namespace_id == ctx.namespace_id,
+                        calls.c.subject_id == ctx.subject_id))
+                    if local is None:
+                        raise DomainError("model_invocation_unavailable", "An imported unfinished invocation remains frozen", status="frozen")
+                    # No physical request left this reservation. A later explicit
+                    # execution may finish it, while reserved/unknown calls remain
+                    # unavailable. The receipt retains the prior transport fact.
+                    await tx.connection.execute(calls.update().where(calls.c.id == attempt.call_id,
+                        calls.c.status == "failed").values(status="reserved", error_code=None, usage=None, day=day))
+                    tx.result({"id": attempt.call_id, "reopened_not_sent": True,
+                        "previous_error": attempt.error_code, "previous_outcome": attempt.outcome})
+                    return attempt.call_id, None
                 retained = await invocation_in(tx, ctx, role, invocation_id, calls)
                 if retained is not None:
                     tx.result({"id": retained.call_id, "reused": True})
@@ -292,6 +389,9 @@ class CallLedger:
                     await bind_in(tx, ctx, role, invocation_id, str(cached["id"]))
                 tx.result({"id": cached["id"], "reused": True})
                 return str(cached["id"]), cached["result"]
+            from nous.identity.access import require_subject_in
+
+            await require_subject_in(tx, ctx)
             count = int(
                 await tx.connection.scalar(
                     sa.select(sa.func.count())

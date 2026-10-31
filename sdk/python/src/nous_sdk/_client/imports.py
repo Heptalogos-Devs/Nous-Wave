@@ -18,9 +18,11 @@ from ..contracts import (
     MediaReference,
     ProcessCatalog,
 )
+from ..contracts.dataset_imports import BackfillSourceTimes, ImportDataset
 from ..contracts.imports import (
     EmbeddingSyncResult,
     FormObservation,
+    ImportFormat,
     ImportUnit,
     ObservationFormation,
     TextImportPreview,
@@ -38,11 +40,33 @@ from ..types import (
 from .import_inputs import document as input_document
 from .import_inputs import normalize_inputs, split_options, validate_flags
 from .import_inputs import origin as input_origin
-from .jobs import JobClient
 from .requests import request_scope
+from .tuning import TuningClient
 
 
-class ImportClient(JobClient):
+class ImportClient(TuningClient):
+    async def import_dataset(
+        self, namespace_id: str, subject_id: str, command: ImportDataset
+    ) -> JsonObject:
+        return TypeAdapter(JsonObject).validate_python(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/datasets/import",
+                body=encoded(command),
+            )
+        )
+
+    async def backfill_source_times(
+        self, namespace_id: str, subject_id: str, command: BackfillSourceTimes
+    ) -> JsonObject:
+        return TypeAdapter(JsonObject).validate_python(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/datasets/source-times",
+                body=encoded(command),
+            )
+        )
+
     async def project_vectors(
         self, namespace_id: str, subject_id: str, command: ProjectVectors
     ) -> ProjectionReceipt:
@@ -141,7 +165,7 @@ class ImportClient(JobClient):
         files: Sequence[str | Path | Mapping[str, JsonValue]],
         *,
         transfer_root: str | Path,
-        input_format: Literal["text", "json", "jsonl"] | None = None,
+        input_format: ImportFormat | None = None,
         form_memory: bool = False,
         completion: Literal["accepted", "formed"] = "accepted",
         origin: Mapping[str, str] | None = None,
@@ -172,7 +196,7 @@ class ImportClient(JobClient):
         relative_path: str = "",
         pattern: str = "*",
         recursive: bool = True,
-        input_format: Literal["text", "json", "jsonl"] | None = None,
+        input_format: ImportFormat | None = None,
         form_memory: bool = False,
         completion: Literal["accepted", "formed"] = "accepted",
         origin: Mapping[str, str] | None = None,

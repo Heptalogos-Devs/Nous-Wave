@@ -43,6 +43,7 @@ const exact = (ref) =>
     : `${ref.kind}:${ref.id}@${ref.revision}`;
 const bodyText = (item) => {
   const b = item.body;
+  if (b?.kind === "entity") return b.profile_controls?.summary?.text ?? (b.generated_profile?.summary || b.description || "");
   return (
     b?.text || b?.narrative || b?.description || b?.claim || b?.understanding || item.filename || ""
   );

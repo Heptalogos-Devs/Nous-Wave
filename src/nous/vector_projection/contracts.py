@@ -39,6 +39,10 @@ class Request(Contract):
     job_id: str
     plan: Plan | None = None
     purged: bool = False
+    replace_existing: bool = False
+    admitted_commit: int | None = None
+    parent_request_id: str | None = None
+    retry_operation_id: str | None = None
 
 
 class Content(Contract):

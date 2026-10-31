@@ -3,13 +3,14 @@
 import asyncio
 import io
 import math
-import os
+import shutil
 import struct
 import sys
 import time
 import wave
 from pathlib import Path
 
+import psutil
 import pytest
 from nous_sdk.contracts import CallContext, PixelRect, TimeSpan
 from PIL import Image
@@ -19,6 +20,11 @@ from nous.platform.execution import DurableExecution, JobSpec
 from nous.platform.media import MediaService, run_process
 from nous.platform.media import service as media_service
 from nous.platform.persistence import Authority
+
+requires_codecs = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
+    reason="Real media codecs require both ffmpeg and ffprobe on PATH",
+)
 
 
 def test_shared_content_references_and_rollback_leases_control_purge(tmp_path):
@@ -107,6 +113,7 @@ def test_image_crop_preserves_original_and_exact_coordinates(tmp_path):
     asyncio.run(scenario())
 
 
+@requires_codecs
 def test_audio_clip_and_video_frame_preparation_use_real_codecs(tmp_path):
     async def scenario():
         authority = Authority(tmp_path / "authority.sqlite")
@@ -196,15 +203,17 @@ def test_process_cancellation_waits_for_actual_process_exit(tmp_path):
             raise TimeoutError("Child did not start")
 
         pid = await asyncio.to_thread(wait_pid)
+        child = psutil.Process(pid)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
-        with pytest.raises(ProcessLookupError):
-            os.kill(pid, 0)
+        await asyncio.to_thread(child.wait, timeout=5)
+        assert not child.is_running()
 
     asyncio.run(scenario())
 
 
+@requires_codecs
 def test_successful_early_transcode_is_rejected_before_content_publication(tmp_path, monkeypatch):
     async def scenario():
         authority = Authority(tmp_path / "authority.sqlite")
@@ -272,19 +281,10 @@ def test_persistent_cancellation_reaches_preemptible_owned_subprocess(tmp_path):
                 raise TimeoutError("Durable preparation did not start")
 
             pid = await asyncio.to_thread(wait_pid)
+            child = psutil.Process(pid)
             await execution.cancel(ctx, job.workflow_id)
-
-            def wait_stopped():
-                deadline = time.monotonic() + 10
-                while time.monotonic() < deadline:
-                    try:
-                        os.kill(pid, 0)
-                    except ProcessLookupError:
-                        return
-                    time.sleep(0.01)
-                raise TimeoutError("Cancelled workflow retained its media subprocess")
-
-            await asyncio.to_thread(wait_stopped)
+            await asyncio.to_thread(child.wait, timeout=10)
+            assert not child.is_running()
             assert (await execution.status(ctx, job.workflow_id)).status == "CANCELLED"
         finally:
             await execution.close()

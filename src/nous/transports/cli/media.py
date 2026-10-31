@@ -2,9 +2,12 @@
 
 from pathlib import Path
 
+import anyio
 import typer
 from nous_sdk import NousClient
-from nous_sdk.contracts import DomainError
+from nous_sdk.amemorix import AMemorixAdapter
+from nous_sdk.amemorix.contracts import ImageInput
+from nous_sdk.contracts import ContactMaterial, DomainError
 from nous_sdk.contracts.context import MediaTarget
 from nous_sdk.contracts.derivation import (
     CreateDerivedRegion,
@@ -16,9 +19,34 @@ from nous_sdk.contracts.derivation import (
 from .common import invoke, read_command
 
 
-def register(cli: typer.Typer) -> None:
-    group = typer.Typer(help="Read and transform exact authorized media.", no_args_is_help=True)
-    cli.add_typer(group, name="media")
+def register(group: typer.Typer) -> None:
+
+    @group.command("image")
+    def image(
+        ctx: typer.Context,
+        namespace_id: str,
+        subject_id: str,
+        command: Path,
+        image_file: Path | None = None,
+    ) -> None:
+        value = read_command(command, ImageInput)
+
+        async def run(api: NousClient):
+            data = await anyio.Path(image_file).read_bytes() if image_file is not None else None
+            return await AMemorixAdapter(
+                api, namespace_id=namespace_id, subject_id=subject_id
+            ).image_memory(
+                action=value.action,
+                image_bytes=data,
+                **value.model_dump(mode="json", exclude={"action"}, exclude_unset=True),
+            )
+
+        invoke(ctx, run)
+
+    @group.command("contact")
+    def contact(ctx: typer.Context, namespace_id: str, subject_id: str, command: Path) -> None:
+        value = read_command(command, ContactMaterial)
+        invoke(ctx, lambda api: api.contact(namespace_id, subject_id, value))
 
     @group.command("lineage")
     def lineage(ctx: typer.Context, namespace_id: str, subject_id: str, reference: str) -> None:

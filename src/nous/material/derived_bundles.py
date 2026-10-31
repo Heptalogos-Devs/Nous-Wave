@@ -10,6 +10,7 @@ from nous_sdk.contracts.derivation import (
     DerivedRepresentation,
     RepresentationRef,
 )
+from nous_sdk.contracts.identity import IdentityPurpose
 from sqlalchemy import select
 
 from nous.platform.persistence import ReadView, WriteTx
@@ -98,6 +99,8 @@ class DerivedBundles(DerivedAvailability):
         ctx: CallContext,
         bundle: DerivedBundle,
         mapping: dict[str, str],
+        *,
+        purpose: IdentityPurpose = "active",
     ) -> tuple[MediaReference, ...]:
         """Install archived provenance after its materials and observations, in the same transaction."""
         representation_ids = {value.reference.id for value in bundle.representations}
@@ -208,7 +211,10 @@ class DerivedBundles(DerivedAvailability):
                     item.model_copy(update={"source": reference(item.source)})
                     for item in value.inputs
                 )
-                infos = [await self.source_in(tx, ctx, item.source) for item in inputs]
+                infos = [
+                    await self.source_in(tx, ctx, item.source, purpose=purpose)
+                    for item in inputs
+                ]
                 roots = tuple(sorted({root for info in infos for root in info.roots}))
                 mapped_roots = tuple(sorted(identity(root) for root in value.source_roots))
                 if roots != mapped_roots:

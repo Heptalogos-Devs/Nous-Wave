@@ -28,7 +28,7 @@ from nous_sdk.contracts.episodes import (
 )
 from pydantic import JsonValue, TypeAdapter
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.execution import JobSpec
 
 from .projection import body_text
@@ -56,6 +56,9 @@ async def submit_rebuild(
                 await self.source_snapshot_in(tx, ctx, source)
             return result
         await require_subject_in(tx, ctx, "memory")
+        from nous.platform.configuration.namespace_policy import require_feature_in
+
+        await require_feature_in(tx, ctx, "episodes")
         snapshots: list[EpisodeSourceSnapshot] = []
         for source in command.sources:
             members, originals, observation_ids = await self.source_snapshot_in(tx, ctx, source)

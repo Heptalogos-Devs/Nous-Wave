@@ -35,10 +35,16 @@ async def embed_records(
     ctx: CallContext,
     references: tuple[CognitiveRef, ...],
     operation_id: str,
+    *,
+    replace_existing: bool = False,
 ) -> VectorAdoption:
     if self.projection is None:
         raise RuntimeError("The vector projection owner is not composed")
-    return adoption(await self.projection.project(ctx, references, operation_id))
+    return adoption(
+        await self.projection.project(
+            ctx, references, operation_id, replace_existing=replace_existing
+        )
+    )
 
 
 async def embed_output(
@@ -109,7 +115,9 @@ async def embedding_sync(
     selected = missing[:limit]
     if not selected:
         return EmbeddingSyncResult(embedded=0, remaining=0, space=None)
-    result = await self.embed_records(ctx, selected, operation_id or str(uuid4()))
+    result = await self.embed_records(
+        ctx, selected, operation_id or str(uuid4()), replace_existing=True
+    )
     return EmbeddingSyncResult(
         embedded=result.embedded, remaining=len(missing) - len(selected), space=result.space
     )

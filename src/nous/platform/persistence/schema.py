@@ -22,6 +22,7 @@ operations = Table(
     Column("operation_id", String, nullable=False),
     Column("operation_kind", String, nullable=False),
     Column("payload_hash", String, nullable=False),
+    Column("payload_json", Text),
     Column("commit_seq", Integer, nullable=False, unique=True),
     Column("recorded_at", String, nullable=False),
     Column("result_json", Text, nullable=False),

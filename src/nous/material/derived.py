@@ -13,7 +13,7 @@ from nous_sdk.contracts.derivation import (
 from pydantic import TypeAdapter
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.models.ledger import CallLedger
 from nous.platform.persistence import Authority, ReadView, WriteTx
 from nous.references import allocate_in

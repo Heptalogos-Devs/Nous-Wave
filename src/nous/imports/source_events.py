@@ -11,6 +11,7 @@ from nous_sdk.contracts import (
     MediaReference,
     ProcessCatalog,
     TimePoint,
+    TimeRange,
 )
 from pydantic import TypeAdapter
 from sqlalchemy import update
@@ -84,6 +85,16 @@ async def processing_source(
                 else None,
             }
         )
+        if "validity" in previous:
+            captured = captured.model_copy(
+                update={
+                    "validity": TimeRange.model_validate(previous["validity"])
+                    if previous["validity"] is not None
+                    else None
+                }
+            )
+        else:
+            captured = ImportDocument.model_validate(captured.model_dump(exclude={"validity"}))
         selected = (
             MediaReference(
                 kind="source_region", id=unit.source_region_id, observation_id=unit.observation_id

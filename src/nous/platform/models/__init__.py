@@ -21,16 +21,18 @@ from nous.platform.prompts import PromptService
 from . import routing
 from .contracts import model_contract, model_preview, prepare_role
 from .embedding import MediaResolver, retained_embedding
-from .embedding_evidence import reusable_embedding_in
+from .embedding_evidence import find_embedding_in, reusable_embedding_in
 from .embedding_profile import EmbeddingProfile
+from .embedding_spaces import configured_spaces_in
 from .generation import (
     Generation,
     MediaInput,
 )
 from .ledger import CallLedger
+from .retained_output import retained_output
 from .roles import RoleRegistry
 
-os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
+os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")  # pyright: ignore[reportUnusedCallResult]
 
 
 def credential(route: ModelRoute, role_id: str | None = None) -> str:
@@ -65,10 +67,51 @@ def credential(route: ModelRoute, role_id: str | None = None) -> str:
 
 
 class ModelService:
+    configured_embedding_spaces_in = configured_spaces_in
+    retained_output = retained_output
+    async def accept_generation(
+        self,
+        ctx: CallContext,
+        role: str,
+        variables: dict[str, object],
+        *,
+        invocation_id: str,
+        source_ids: tuple[str, ...] = (),
+        media: tuple[MediaInput, ...] = (),
+    ) -> routing.GenerationPlan:
+        saved = await routing.saved_generation(self, ctx, role, invocation_id)
+        if saved is not None and saved[0].contract_purpose is not None:
+            definition = self.roles.resolve(saved[0].contract_purpose, saved[0].variant)
+            prepared = None
+        else:
+            prepared = await self.prepare_role(ctx, role, variables, require_configured=False)
+            definition = prepared.definition
+        parent = await self.ledger.attempt(ctx, role, invocation_id)
+        plan = await routing.generation_plan(
+            self,
+            ctx,
+            role,
+            variables,
+            definition.output_type,
+            source_ids,
+            media,
+            invocation_id,
+            "invocation",
+            parent,
+            prepared=prepared,
+        )
+        if plan is None:
+            raise DomainError(
+                "model_plan_unavailable",
+                "This historical invocation has no complete accepted route directory",
+            )
+        return plan
+
     generate = routing.generate
     embed = routing.embed
     embed_media = routing.embed_media
     reusable_embedding_in = reusable_embedding_in
+    find_embedding_in = find_embedding_in
     model_contract = model_contract
     model_preview = model_preview
     prepare_role = prepare_role
@@ -120,7 +163,7 @@ class ModelService:
                         "id": route_id,
                         "model": model.name,
                         "provider": model.provider,
-                        "capabilities": model.capabilities,
+                        "capabilities": list(model.capabilities),
                         "dimensions": model.dimensions,
                         "normalization": model.normalization,
                         "max_batch_items": model.max_batch_items
@@ -190,4 +233,5 @@ class ModelService:
         call_id: str,
     ) -> EmbeddingBatch:
         paid = await self.ledger.successful_in(view, ctx, call_id)
-        return retained_embedding(paid.result, paid.id)
+        batch = retained_embedding(paid.result, paid.origin_call_id or paid.id)
+        return batch.model_copy(update={"call_ids": (paid.id,) * len(batch.vectors)})

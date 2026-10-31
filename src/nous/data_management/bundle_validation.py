@@ -2,7 +2,7 @@
 
 from graphlib import CycleError, TopologicalSorter
 
-from nous_sdk.contracts import DomainError, EntityBody, MediaReference, SubjectBundle
+from nous_sdk.contracts import DomainError, EntityBody, MediaReference, MemoryBody, SubjectBundle
 from nous_sdk.contracts.derivation import ArtifactRepresentation
 from nous_sdk.contracts.fact_body import FactClaimBody, PersonFactScope
 
@@ -114,6 +114,8 @@ def validate_graph(bundle: SubjectBundle) -> None:
             ),
             *(f"observation:{root}" for root in record.source_roots),
         }
+        if isinstance(record.body, MemoryBody) and record.body.contact_observation_id:
+            graph[record.reference.exact()].add(f"observation:{record.body.contact_observation_id}")
     call_ids = {call.id for call in bundle.calls}
     producer_ids = {
         *[record.producer_call_id for record in bundle.cognition if record.producer_call_id],

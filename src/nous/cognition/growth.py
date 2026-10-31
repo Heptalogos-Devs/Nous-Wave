@@ -14,15 +14,17 @@ from nous_sdk.contracts import (
     EntityBody,
     EvidenceLink,
     MemoryBody,
-    MemoryChange,
     MergeConcepts,
+    RetentionChange,
     SplitConcept,
 )
 from nous_sdk.contracts.cognition import CognitiveKind
 from nous_sdk.contracts.growth import (
     GrowthAdoption,
+    GrowthApplication,
     GrowthDraft,
     GrowthEntry,
+    GrowthMemoryChange,
     GrowthMerge,
     GrowthSnapshot,
     GrowthSplit,
@@ -30,11 +32,12 @@ from nous_sdk.contracts.growth import (
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.material.service import observations
 from nous.platform.persistence import ReadView, WriteTx
 
 from .growth_binding import bind_body
+from .growth_sources import evidence_in as material_evidence_in
 from .lifecycle import selectable
 from .projection import media_references_in
 from .schema import revisions
@@ -67,7 +70,7 @@ async def growth_snapshot_in(
     entries: list[GrowthEntry] = []
     roots: set[str] = set()
     for value in (await view.connection.execute(statement)).scalars():
-        record = CognitiveRecord.model_validate(value)
+        record = await self.project_record_in(view, ctx, CognitiveRecord.model_validate(value))
         if not selectable(record) or not await self.visible_in(view, ctx, record):
             continue
         entries.append(GrowthEntry(key=f"c{len(entries)}", record=record))
@@ -121,8 +124,9 @@ async def apply_growth_in(
     snapshot: GrowthSnapshot,
     *,
     producer_call_id: str | None = None,
-) -> tuple[CognitiveRecord, ...]:
+) -> GrowthApplication:
     await self.validate_growth_in(tx, ctx, draft, snapshot)
+    source_evidence = await material_evidence_in(self, tx, ctx, snapshot)
     if snapshot.watermark > tx.commit_seq:
         raise DomainError(
             "growth_snapshot_future", "A growth snapshot cannot come from a later authority state"
@@ -151,41 +155,38 @@ async def apply_growth_in(
             else (action.key,)
         )
     ]
-    if len(keys) != len(set(keys)) or set(keys).intersection(snapshot_keys):
+    if len(keys) != len(set(keys)) or set(keys).intersection(
+        snapshot_keys | frozenset(source_evidence)
+    ):
         raise DomainError(
             "growth_key_conflict",
             "Proposal local keys must be unique and cannot shadow snapshot keys",
         )
     results: list[CognitiveRecord] = []
-    revised: set[str] = set()
+
+    def publish(key: str | None, record: CognitiveRecord) -> None:
+        for alias, existing in tuple(catalog.items()):
+            if existing.reference.id == record.reference.id:
+                catalog[alias] = record
+        if key is not None:
+            catalog[key] = record
+
     for action in draft.actions:
         if not isinstance(action, GrowthAdoption):
             if isinstance(action, GrowthMerge):
                 required_keys = (action.target_key, *action.source_keys)
-                target_keys = required_keys
             elif isinstance(action, GrowthSplit):
                 required_keys = (
                     action.source_key,
                     *(key for part in action.partitions for key in part.member_keys),
                 )
-                target_keys = (action.source_key,)
             else:
                 required_keys = (action.target_key,)
-                target_keys = required_keys
             if any(key not in catalog for key in required_keys):
                 raise DomainError(
                     "growth_key_unknown",
                     "Structural actions require actual snapshot or earlier action keys",
                 )
-            if any(
-                key not in snapshot_keys or catalog[key].reference.id in revised
-                for key in target_keys
-            ):
-                raise DomainError(
-                    "growth_revision_conflict",
-                    "Each structural target must be one unmodified snapshot identity",
-                )
-            revised.update(catalog[key].reference.id for key in target_keys)
             if isinstance(action, GrowthMerge):
                 changed = await self.merge_concepts_in(
                     tx,
@@ -196,7 +197,11 @@ async def apply_growth_in(
                         reason=action.reason,
                     ),
                 )
-                catalog[action.key] = changed[0]
+                for changed_record in changed:
+                    publish(
+                        action.key if changed_record == changed[0] else None,
+                        changed_record,
+                    )
             elif isinstance(action, GrowthSplit):
                 changed = await self.split_concept_in(
                     tx,
@@ -215,13 +220,15 @@ async def apply_growth_in(
                 )
                 for part, record in zip(action.partitions, changed[:-1], strict=True):
                     catalog[part.key] = record
-                catalog[action.key] = changed[-1]
+                publish(action.key, changed[-1])
             else:
+                if isinstance(action, GrowthMemoryChange) and catalog[action.target_key].reference.kind != "memory":
+                    raise DomainError("memory_required", "The public memory action requires a Memory target")
                 changed = (
-                    await self.change_memory_in(
+                    await self.change_retention_in(
                         tx,
                         ctx,
-                        MemoryChange(
+                        RetentionChange(
                             reference=catalog[action.target_key].reference,
                             action=action.transition,
                             strength=action.strength,
@@ -230,31 +237,29 @@ async def apply_growth_in(
                         ),
                     ),
                 )
-                catalog[action.key] = changed[0]
+                publish(action.key, changed[0])
             results.extend(changed)
             continue
-        required = {*action.evidence_keys, *(binding.key for binding in action.bindings)}
+        required = {
+            *action.evidence_keys,
+            *(binding.key for binding in action.bindings if binding.kind == "cognitive"),
+        }
         if action.target_key is not None:
-            if action.target_key not in snapshot_keys:
+            if action.target_key not in catalog:
                 raise DomainError(
                     "growth_target_unknown", "Revision targets must identify an actual snapshot key"
                 )
             required.add(action.target_key)
-        unknown = required.difference(catalog)
+        unknown = required.difference(catalog).difference(source_evidence)
         if unknown:
             raise DomainError(
                 "growth_key_unknown",
                 "Proposal references an unknown or later local key",
                 unknown_keys=TypeAdapter(list[JsonValue]).validate_python(sorted(unknown)),
             )
-        body = bind_body(action, catalog, snapshot.watermark)
+        body = bind_body(action, catalog, snapshot.watermark, snapshot.sources)
         target = catalog[action.target_key] if action.target_key else None
         if target is not None:
-            if target.reference.id in revised:
-                raise DomainError(
-                    "growth_revision_conflict", "A proposal can revise each snapshot identity once"
-                )
-            revised.add(target.reference.id)
             if not selectable(target):
                 raise DomainError(
                     "growth_memory_inactive",
@@ -273,8 +278,13 @@ async def apply_growth_in(
         ):
             body = body.model_copy(update={"profile_controls": target.body.profile_controls})
         links = tuple(
-            EvidenceLink(reference=catalog[key].reference, role=action.reason)
+            link.model_copy(update={"role": action.reason})
             for key in action.evidence_keys
+            for link in (
+                source_evidence[key]
+                if key in source_evidence
+                else (EvidenceLink(reference=catalog[key].reference),)
+            )
         )
         adopted = await self.adopt_in(
             tx,
@@ -288,6 +298,14 @@ async def apply_growth_in(
                 times=CognitiveTimes(formation=ctx.clock, recorded=ctx.clock),
             ),
         )
-        catalog[action.key] = adopted
+        publish(action.key, adopted)
         results.append(adopted)
-    return tuple(results)
+    changed_ids = {record.reference.id for record in results}
+    return GrowthApplication(
+        records=tuple(results),
+        bindings={
+            key: value.reference
+            for key, value in catalog.items()
+            if value.reference.id in changed_ids
+        },
+    )

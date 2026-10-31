@@ -9,6 +9,8 @@ from uuid import uuid4
 import anyio
 
 from ..contracts import (
+    ContactMaterial,
+    ContactReceipt,
     TimePoint,
 )
 from ..errors import NousError
@@ -24,6 +26,17 @@ from .identity import IdentityClient
 
 
 class MaterialClient(IdentityClient):
+    async def contact(
+        self, namespace_id: str, subject_id: str, command: ContactMaterial
+    ) -> ContactReceipt:
+        return ContactReceipt.model_validate(
+            await self.request(
+                "POST",
+                self.subject_path(namespace_id, subject_id) + "/materials/contact",
+                body=encoded(command),
+            )
+        )
+
     async def put_text(
         self,
         namespace_id: str,

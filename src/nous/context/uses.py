@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from hashlib import sha256
 from typing import TYPE_CHECKING
 
 from nous_sdk.contracts import CallContext, DomainError
@@ -12,7 +11,8 @@ from sqlalchemy import select, update
 
 from nous.platform.persistence import WriteTx
 
-from .models import feedback, sessions
+from .feedback_events import record_in
+from .models import contexts, sessions
 
 if TYPE_CHECKING:
     from .managed import ManagedContexts
@@ -26,40 +26,18 @@ async def record_uses_in(
     uses: tuple[ContextUse, ...],
     occurred_at: datetime,
 ) -> None:
+    context_value = await tx.connection.scalar(select(contexts.c.record).where(contexts.c.id == admission.id))
     for use in uses:
         if use.target not in admission.sources:
             raise DomainError(
                 "context_use_not_admitted",
                 "Reported use was not present in the admitted model input",
             )
-        await self.require_targets_in(tx, ctx, (use.target,))
-        event_key = sha256(f"{ctx.caller_id}\0{admission.id}\0{use.event_id}".encode()).hexdigest()
-        event = {
-            "id": event_key,
-            "event_id": use.event_id,
-            "context_id": admission.id,
-            "target": use.target.model_dump(mode="json"),
-            "kind": "actual_use",
-            "use_kind": use.kind,
-            "invocation_id": admission.invocation_id,
-            "occurred_at": occurred_at.isoformat(),
-            "commit_seq": tx.commit_seq,
-        }
-        existing_event = await tx.connection.scalar(
-            select(feedback.c.record).where(feedback.c.id == event_key)
-        )
-        if existing_event is None:
-            await tx.connection.execute(
-                feedback.insert().values(id=event_key, context_id=admission.id, record=event)
-            )
-        elif (
-            existing_event.get("target") != event["target"]
-            or existing_event.get("use_kind") != use.kind
-        ):
-            raise DomainError(
-                "context_use_conflict",
-                "Use event identity already names a different observation",
-            )
+        await record_in(self, tx, ctx, context_id=admission.id, event_id=use.event_id,
+            target=use.target, kind="actual_use", use_kind=use.kind,
+            description=use.description, invocation_id=admission.invocation_id,
+            session_id=admission.session_id, occurred_at=occurred_at.isoformat(),
+            subject_view=bool(context_value and context_value.get("subject_view", False)))
     if uses:
         from .lifecycle import session_key
 

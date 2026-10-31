@@ -4,16 +4,32 @@ from typing import Literal
 
 from pydantic import Field, JsonValue, model_validator
 
-from .cognition import CognitiveRef, FormationCatalogEntry
-from .common import Contract, Operation, TimePoint
-from .media import MediaReference
+from .cognition import CognitiveRef, FormationCatalogEntry, FormationDraft, ProposedMemory
+from .common import ApplicableInput, Contract, Operation, TimePoint, TimeRange
+from .fact_body import FactClaimValue
+from .media import MediaReference, MediaStrategy
 from .vector_projection import ProjectionReceipt
 
+ImportFormat = Literal[
+    "text", "markdown", "html", "pdf", "json", "jsonl", "media", "parquet", "sqlite", "graphml"
+]
 
-class ImportDocument(Contract):
+
+class RecordSelection(Contract):
+    after_sequence: int | None = Field(default=None, ge=0)
+    through_sequence: int | None = Field(default=None, ge=0)
+    conversation_refs: tuple[str, ...] | None = None
+    group_refs: tuple[str, ...] = ()
+    user_refs: tuple[str, ...] = ()
+    event: TimeRange | None = None
+    limit: int | None = Field(default=None, ge=1, le=10000000)
+
+
+class ImportDocument(ApplicableInput):
     text: str | None = Field(default=None, min_length=1)
     material_id: str | None = None
-    format: Literal["text", "json", "jsonl"] = "text"
+    format: ImportFormat = "text"
+    media_strategy: MediaStrategy = "description"
     filename: str = "input.txt"
     media_type: str = "text/plain"
     file_identity: str | None = None
@@ -22,6 +38,13 @@ class ImportDocument(Contract):
     origin: dict[str, str] = Field(default_factory=dict)
     event_time: TimePoint | None = None
     observed_at: TimePoint | None = None
+    selection: RecordSelection | None = Field(default=None, exclude_if=lambda value: value is None)
+    declared_vector_dimensions: int | None = Field(
+        default=None, gt=0, exclude_if=lambda value: value is None
+    )
+    read_batch_size: int | None = Field(
+        default=None, ge=1, le=1000000, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def exact_input(self) -> ImportDocument:
@@ -35,7 +58,35 @@ class ImportDocument(Contract):
         return self.text
 
 
-class ImportRecord(Contract):
+class ImportFact(FactClaimValue, ApplicableInput):
+    person_key: str | None = None
+    conversation_ref: str | None = None
+    authority: Literal["manual", "direct_user", "imported", "summary_derived"] = "imported"
+
+    @model_validator(mode="after")
+    def explicit_scope(self) -> ImportFact:
+        if (self.person_key is None) == (self.conversation_ref is None):
+            raise ValueError(
+                "Source facts require exactly one person key or conversation reference"
+            )
+        return self
+
+
+class ImportAssertions(FormationDraft):
+    memories: tuple[ProposedMemory, ...] = ()
+    facts: tuple[ImportFact, ...] = ()
+    references: tuple[ImportReference, ...] = ()
+
+
+class ImportReference(Contract):
+    key: str = Field(min_length=1)
+    kind: Literal["memory", "entity", "association"]
+    identifier_key: str = Field(min_length=1)
+    identifier: str = Field(min_length=1)
+    aliases: tuple[str, ...] = ()
+
+
+class ImportRecord(ApplicableInput):
     external_id: str = Field(min_length=1)
     text: str = Field(min_length=1)
     source: str | None = None
@@ -45,7 +96,11 @@ class ImportRecord(Contract):
     origin: dict[str, str] = Field(default_factory=dict)
     tags: tuple[str, ...] = ()
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    identifiers: dict[str, str] = Field(default_factory=dict, exclude_if=lambda value: not value)
     structured: JsonValue = None
+    assertions: ImportAssertions | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ImportRecordError(Contract):
@@ -91,6 +146,7 @@ class ImportUnit(Contract):
     record_index: int = 0
     observation_id: str | None = None
     source_region_id: str | None = None
+    source: MediaReference | None = None
     json_pointer: str | None = None
     line_number: int | None = None
     context: dict[str, JsonValue] = Field(default_factory=dict)
@@ -122,6 +178,7 @@ class FormationOptionsOverride(Contract):
 
 
 class ProcessCatalog(Operation):
+    max_errors: int = Field(default=0, ge=0, exclude_if=lambda value: value == 0)
     force: bool = False
     deferred_formation: bool = False
     origin: dict[str, str] | None = None
@@ -163,6 +220,9 @@ class ImportResult(Contract):
     outputs: tuple[UnitOutput, ...]
     file_successes: tuple[FileSuccess, ...]
     skipped_success_ids: tuple[str, ...] = ()
+    failures: tuple[ImportUnitFailure, ...] = Field(
+        default=(), exclude_if=lambda values: not values
+    )
 
 
 class AdmitFiles(FreezeCatalog):
@@ -178,6 +238,11 @@ class AdmitFiles(FreezeCatalog):
 class ImportFailure(Contract):
     code: str
     message: str
+
+
+class ImportUnitFailure(ImportFailure):
+    unit_id: str
+    details: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class UnitAttempt(Contract):
@@ -210,14 +275,22 @@ class TextImportPreview(Contract):
     byte_len: int
     options: TextSplitOptions
     units: tuple[TextPreviewUnit, ...]
+    errors: tuple[str, ...] = ()
 
 
 class FormObservation(Operation):
+    media_strategy: MediaStrategy = "description"
     anchor: CognitiveRef | None = None
     vectors: Literal["disabled", "metadata_allowed", "required"] = "disabled"
     observation_id: str
     source: MediaReference | None = None
     llm_enabled: bool = True
+
+    def identity_payload(self) -> dict[str, JsonValue]:
+        return self.model_dump(
+            mode="json",
+            exclude={"media_strategy"} if self.media_strategy == "description" else set(),
+        )
 
 
 class ObservationFormation(Contract):

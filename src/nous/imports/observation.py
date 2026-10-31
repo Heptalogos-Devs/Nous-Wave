@@ -7,18 +7,15 @@ from typing import TYPE_CHECKING
 
 from nous_sdk.contracts import (
     CallContext,
-    CognitiveTimes,
     DomainError,
     FormationProposal,
     ImportRecord,
-    MediaReference,
     MemoryBody,
-    TimePoint,
 )
 from nous_sdk.contracts.imports import FormObservation, ObservationFormation
 
 from nous.cognition.formation_validation import validate_formation_draft
-from nous.material.service import require_observation_in
+from nous.material.observation import cognitive_times
 from nous.material.text import source_region_text
 from nous.platform.content import ContentObject
 
@@ -37,7 +34,7 @@ async def adopt_observation(
         command.operation_id,
         operation_kind="cognition.form_observation",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=command.identity_payload(),
     )
     if receipt is not None:
         return ObservationFormation.model_validate(receipt.result)
@@ -62,42 +59,47 @@ async def adopt_observation(
                     "The anchor requires an explicit exact source selection",
                 )
             region_id = next(iter(exact_regions))
-        event = await require_observation_in(view, ctx, command.observation_id, region_id=region_id)
-        reference = command.source or MediaReference(
-            kind="source_region" if region_id else "material", id=region_id or event["material_id"]
+        from nous_sdk.contracts.derivation import StructuredRepresentation, TextRepresentation
+
+        from nous.platform.persistence.authority import canonical_json
+
+        selected = await self.materials.accepted_source_in(
+            view,
+            ctx,
+            command.observation_id,
+            command.source,
+            derivations=self.cognition.derivations,
         )
-        if (
-            reference.observation_id is not None
-            and reference.observation_id != command.observation_id
-        ):
-            raise DomainError(
-                "observation_source_mismatch",
-                "The selected source belongs to a different observation",
+        reference, material = selected.source, selected.material
+        if reference.kind in {"representation", "derived_region"}:
+            payload = (await self.cognition.derivations.selected_in(view, ctx, reference)).payload
+            text = (
+                payload.text
+                if isinstance(payload, TextRepresentation)
+                else canonical_json(payload.value)
+                if isinstance(payload, StructuredRepresentation)
+                else None
             )
-        material, region, _ = await self.materials.media_source_in(
-            view, ctx, reference.model_copy(update={"observation_id": command.observation_id})
-        )
-        if material["id"] != event["material_id"]:
-            raise DomainError(
-                "observation_source_mismatch", "The selected source belongs to a different original"
-            )
-        text = material["text"]
-        if text is None:
-            if self.content_store is None or not (
-                material["media_type"].startswith("text/") or "json" in material["media_type"]
-            ):
-                raise DomainError(
-                    "media_formation_required",
-                    "Non-text observations require the media interpretation owner",
-                )
-            async with self.content_store.protect(
-                ContentObject(
-                    material["content_hash"], material["byte_len"], material["media_type"]
-                )
-            ) as path:
-                text = (await asyncio.to_thread(path.read_bytes)).decode("utf-8-sig")
-        if region:
-            text = source_region_text(text, region)
+        else:
+            material, region, _ = await self.materials.media_source_in(view, ctx, reference)
+            text = material["text"]
+            if text is None:
+                if self.content_store is None or not (
+                    material["media_type"].startswith("text/") or "json" in material["media_type"]
+                ):
+                    raise DomainError(
+                        "media_formation_required", "Interpret the selected non-text media first"
+                    )
+                async with self.content_store.protect(
+                    ContentObject(
+                        material["content_hash"], material["byte_len"], material["media_type"]
+                    )
+                ) as path:
+                    text = (await asyncio.to_thread(path.read_bytes)).decode("utf-8-sig")
+            if region:
+                text = source_region_text(text, region)
+        if not text:
+            raise DomainError("formation_source_empty", "The accepted source contains no text")
         catalog = await self.cognition.formation_catalog_in(view, ctx, text)
         if anchor is None:
             anchor = await anchor_in(self, view, ctx, command, region_id=region_id, text=text)
@@ -117,38 +119,58 @@ async def adopt_observation(
         "source": reference.model_dump(mode="json"),
         "formation_catalog": [entry.model_dump(mode="json") for entry in catalog],
     }
-    proposal = (
-        await form(
-            self.models,
-            ctx.model_copy(update={"request_id": command.operation_id + ":form"}),
-            text,
-            source,
+    proposal = FormationProposal(memories=())
+    for attempt in range(2):
+        proposal = (
+            await form(
+                self.models,
+                ctx.model_copy(update={"request_id": command.operation_id + f":form:{attempt}"}),
+                text,
+                source,
+                authority=self.authority,
+            )
+            if command.llm_enabled
+            else FormationProposal(memories=())
         )
-        if command.llm_enabled
-        else FormationProposal(memories=())
-    )
-    validate_formation_draft(proposal, catalog)
+        try:
+            validate_formation_draft(proposal, catalog)
+        except DomainError as error:
+            if attempt or error.code not in {
+                "formation_key_unknown",
+                "formation_key_conflict",
+                "formation_target_unknown",
+                "formation_cycle",
+            }:
+                raise
+            source["formation_correction"] = {
+                "code": error.code,
+                "message": str(error),
+                **error.details,
+                "previous_call_id": proposal.producer_call_id,
+                "previous_proposal": proposal.model_dump(mode="json"),
+            }
+        else:
+            break
     async with self.authority.write(
         ctx,
         command.operation_id,
         operation_kind="cognition.form_observation",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=command.identity_payload(),
     ) as tx:
         if tx.replayed:
             return ObservationFormation.model_validate(tx.replay_result)
-        current = await require_observation_in(tx, ctx, command.observation_id, region_id=region_id)
-        times = CognitiveTimes(
-            event=proposal.event
-            or (
-                TimePoint.model_validate(current["record"]["event_time"])
-                if current["record"].get("event_time")
-                else None
-            ),
-            observation=TimePoint.model_validate(current["record"]["observed_at"]),
-            formation=ctx.clock,
-            recorded=ctx.clock,
-            validity=proposal.validity,
+        current = (
+            await self.materials.accepted_source_in(
+                tx,
+                ctx,
+                command.observation_id,
+                command.source,
+                derivations=self.cognition.derivations,
+            )
+        ).event
+        times = cognitive_times(
+            current, ctx.clock, inferred_event=proposal.event, inferred_validity=proposal.validity
         )
         if self.projection is not None:
             await self.projection.policy_in(tx, "disabled")
@@ -168,8 +190,8 @@ async def adopt_observation(
                 ImportRecord(
                     external_id="observation:" + command.observation_id,
                     text=text,
-                    origin=current["record"]["origin"],
-                    source_type=current["record"]["source_type"],
+                    origin=current["origin"],
+                    source_type=current["source_type"],
                 ),
                 proposal,
                 command.observation_id,
@@ -205,7 +227,7 @@ async def form_observation(
         command.operation_id + ":complete",
         operation_kind="cognition.form_observation.complete",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=command.identity_payload(),
     )
     if receipt is not None:
         result = ObservationFormation.model_validate(receipt.result)
@@ -213,7 +235,32 @@ async def form_observation(
             for reference in result.cognition:
                 await self.cognition.get_in(view, ctx, reference)
         return result
-    result = await adopt_observation(self, ctx, command)
+    from nous_sdk.contracts.derivation import ArtifactRepresentation
+
+    async with self.authority.read(ctx) as view:
+        selected = await self.materials.accepted_source_in(
+            view,
+            ctx,
+            command.observation_id,
+            command.source,
+            derivations=self.cognition.derivations,
+        )
+        if selected.source.kind in {"representation", "derived_region"}:
+            media_source = isinstance(
+                (await self.cognition.derivations.selected_in(view, ctx, selected.source)).payload,
+                ArtifactRepresentation,
+            )
+        else:
+            media_source = selected.material["text"] is None and not (
+                selected.material["media_type"].startswith("text/")
+                or "json" in selected.material["media_type"]
+            )
+    if media_source:
+        from .observation_media import form_media_observation
+
+        result = await form_media_observation(self, ctx, command)
+    else:
+        result = await adopt_observation(self, ctx, command)
     vector_error = None
     if command.vectors != "disabled":
         try:
@@ -236,7 +283,7 @@ async def form_observation(
         command.operation_id + ":complete",
         operation_kind="cognition.form_observation.complete",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=command.identity_payload(),
     ) as tx:
         if tx.replayed:
             return ObservationFormation.model_validate(tx.replay_result)

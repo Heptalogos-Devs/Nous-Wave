@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from nous_sdk.contracts import CallContext, CognitiveRef, DomainError, MediaReference, SourceRegion
+from nous_sdk.contracts.identity import IdentityPurpose
 from pydantic import TypeAdapter
 from sqlalchemy import select
 
@@ -33,6 +34,7 @@ async def provenance_in(
     reference: MediaReference,
     *,
     derivations: DerivedService | None = None,
+    purpose: IdentityPurpose = "active",
 ) -> MaterialProvenance:
     from nous_sdk.contracts.derivation import DerivedRegion
 
@@ -48,7 +50,6 @@ async def provenance_in(
         from .derived import DerivedService
 
         derivations = DerivedService(self.authority, self)
-    material, region, event = await self.media_source_in(view, ctx, reference)
     cognition = CognitionService(self.authority, materials=self, derivations=derivations)
 
     async def facts(ref: MediaReference) -> tuple[MaterialRecord, SourceRegion | None, str]:
@@ -228,6 +229,11 @@ async def provenance_in(
             tuple(sorted(material_ids)),
         )
 
+    if reference.kind in {"representation", "derived_region"}:
+        return await visit(reference, frozenset())
+    material, region, event = await self.media_source_in(
+        view, ctx, reference, purpose=purpose
+    )
     if material.get("required_source_ids"):
         return await visit(reference.model_copy(update={"observation_id": event}), frozenset())
     return MaterialProvenance(

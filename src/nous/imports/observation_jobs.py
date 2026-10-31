@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from nous_sdk.contracts import CallContext, DomainError, MediaReference
+from nous_sdk.contracts import CallContext, DomainError
 from nous_sdk.contracts.imports import FormObservation, ObservationFormSubmission
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select, update
@@ -19,6 +19,31 @@ if TYPE_CHECKING:
     from .service import ImportService
 
 
+async def observation_jobs(
+    self: ImportService, ctx: CallContext, observation_ids: tuple[str, ...]
+) -> tuple[str, ...]:
+    async with self.authority.read(ctx) as view:
+        for identifier in observation_ids:
+            await self.materials.accepted_source_in(
+                view, ctx, identifier, derivations=self.cognition.derivations
+            )
+        values = (
+            await view.connection.execute(
+                select(requests.c.record).where(
+                    requests.c.record["context"]["namespace_id"].as_string() == ctx.namespace_id,
+                    requests.c.record["context"]["subject_id"].as_string() == ctx.subject_id,
+                    requests.c.record["kind"].as_string() == "observation_form",
+                    requests.c.record["command"]["observation_id"].as_string().in_(observation_ids),
+                )
+            )
+        ).scalars()
+        return tuple(
+            str(value["job_id"])
+            for value in values
+            if value.get("job_id") and not value.get("purged")
+        )
+
+
 async def submit_form_observation_in(
     self: ImportService,
     tx: WriteTx,
@@ -27,23 +52,10 @@ async def submit_form_observation_in(
     *,
     owned_parent: str | None = None,
 ) -> ObservationFormSubmission:
-    from nous.material.service import require_observation_in
-
-    reference = command.source
-    region_id = reference.id if reference and reference.kind == "source_region" else None
-    event = await require_observation_in(tx, ctx, command.observation_id, region_id=region_id)
-    source = reference or MediaReference(kind="material", id=event["material_id"])
-    if source.observation_id is not None and source.observation_id != command.observation_id:
-        raise DomainError(
-            "observation_source_mismatch", "Formation must use its actual source observation"
-        )
-    material, _, _ = await self.materials.media_source_in(
-        tx, ctx, source.model_copy(update={"observation_id": command.observation_id})
+    selected = await self.materials.accepted_source_in(
+        tx, ctx, command.observation_id, command.source, derivations=self.cognition.derivations
     )
-    if material["id"] != event["material_id"]:
-        raise DomainError(
-            "observation_source_mismatch", "Formation source belongs to a different original"
-        )
+    material = selected.material
     request_id = str(uuid4())
     await tx.connection.execute(
         requests.insert().values(
@@ -88,7 +100,7 @@ async def submit_form_observation(
         command.operation_id,
         operation_kind="imports.form.submit",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=command.identity_payload(),
     ) as tx:
         if tx.replayed:
             return ObservationFormSubmission.model_validate(tx.replay_result)

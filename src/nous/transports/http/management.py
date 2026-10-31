@@ -21,6 +21,16 @@ from .security import application, authorize, context
 router = APIRouter(prefix="/api")
 
 
+@router.post("/stop")
+async def stop_host(request: Request) -> dict[str, bool]:
+    (await authorize(request, capability="manage")).require_instance_management()
+    shutdown = getattr(request.app.state, "request_shutdown", None)
+    if shutdown is None:
+        raise HTTPException(status_code=503, detail="This host has no shutdown controller")
+    shutdown()
+    return {"stopping": True}
+
+
 @router.post("/models/contract")
 async def model_contract(
     request: Request,
@@ -38,6 +48,13 @@ async def model_preview(
 ):
     ctx = await context(request, namespace_id, subject_id, capability="read")
     return await application(request).models.model_preview(ctx, command)
+
+
+@router.get("/models/calls/{call_id}/output")
+async def retained_model_output(request: Request, call_id: str, namespace_id: str, subject_id: str, management: bool = False):
+    purpose = "management" if management else "active"
+    ctx = await context(request, namespace_id, subject_id, capability="manage" if management else "read", identity_purpose=purpose)
+    return await application(request).models.retained_output(ctx, call_id, purpose=purpose)
 
 
 @router.post("/backups")
@@ -266,10 +283,23 @@ async def model_calls(request: Request, namespace_id: str, subject_id: str | Non
 
 
 @router.get("/jobs/{job_id}")
-async def job(request: Request, job_id: str, namespace_id: str, subject_id: str | None = None):
+async def job(
+    request: Request,
+    job_id: str,
+    namespace_id: str,
+    subject_id: str | None = None,
+    purpose: Literal["actor", "management"] = "actor",
+):
     app = application(request)
     value = await app.execution.status(
-        await context(request, namespace_id, subject_id, capability="read"), job_id
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="manage" if purpose == "management" else "read",
+        ),
+        job_id,
+        purpose=purpose,
     )
     return {"job": value}
 
@@ -282,16 +312,22 @@ async def job_action(
     namespace_id: str,
     subject_id: str | None = None,
     wait_seconds: float = 120,
+    purpose: Literal["actor", "management"] = "actor",
 ):
     app = application(request)
     ctx = await context(
-        request, namespace_id, subject_id, capability="read" if action == "wait" else "write"
+        request,
+        namespace_id,
+        subject_id,
+        capability="manage"
+        if purpose == "management"
+        else ("read" if action == "wait" else "write"),
     )
     if action == "wait":
         async with asyncio.timeout(wait_seconds):
-            return await app.execution.wait(ctx, job_id)
+            return await app.execution.wait(ctx, job_id, purpose=purpose)
     if action == "cancel":
-        await app.execution.cancel(ctx, job_id)
+        await app.execution.cancel(ctx, job_id, purpose=purpose)
     else:
-        await app.execution.resume(ctx, job_id)
+        await app.execution.resume(ctx, job_id, purpose=purpose)
     return {"id": job_id, "action": action}

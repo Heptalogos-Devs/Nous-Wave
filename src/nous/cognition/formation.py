@@ -33,6 +33,7 @@ from nous_sdk.contracts import (
     FormationCatalogEntry,
     FormationProposal,
     ImportRecord,
+    MediaReference,
     MemoryBody,
     MemoryInterpretation,
     MemorySemanticsBody,
@@ -41,6 +42,7 @@ from nous_sdk.contracts import (
     SchemaBody,
 )
 from nous_sdk.contracts.cognition import PersonProfileControls
+from nous_sdk.contracts.imports import ImportFact, ImportReference
 
 
 async def adopt_tags_in(
@@ -137,7 +139,7 @@ async def formation_catalog_in(
     limit: int = 128,
 ) -> tuple[FormationCatalogEntry, ...]:
     result: list[FormationCatalogEntry] = []
-    active_roots = await self.active_roots_in(view, ctx)
+    active_roots = await self.source_roots_in(view, ctx)
     rows = (
         await view.connection.execute(
             select(revisions.c.record)
@@ -151,7 +153,7 @@ async def formation_catalog_in(
         )
     ).scalars()
     for value in rows:
-        record = CognitiveRecord.model_validate(value)
+        record = await self.project_record_in(view, ctx, CognitiveRecord.model_validate(value))
         if not selectable(record) or not await self.visible_in(view, ctx, record):
             continue
         body = record.body
@@ -184,7 +186,7 @@ async def formation_catalog_in(
                 reference=record.reference,
                 label=label,
                 aliases=aliases,
-                description=body.profile_text
+                description=body.description
                 if isinstance(body, EntityBody)
                 else body.description
                 if isinstance(body, ConceptBody)
@@ -216,6 +218,8 @@ async def adopt_text_formation_in(
     region_id: str | None,
     times: CognitiveTimes,
     catalog: tuple[FormationCatalogEntry, ...] = (),
+    *,
+    media: tuple[MediaReference, ...] = (),
 ) -> tuple[CognitiveRecord, ...]:
     """One faithful Memory and a separately identified interpretation of its revision."""
     original = await self.adopt_in(
@@ -224,8 +228,9 @@ async def adopt_text_formation_in(
         AdoptCognition(
             body=MemoryBody(
                 text=unit_text,
+                media=media,
                 tags=source_record.tags,
-                external_ids={"import": source_record.external_id},
+                external_ids={**source_record.identifiers, "import": source_record.external_id},
                 metadata=source_record.metadata,
                 structured=source_record.structured,
             ),
@@ -235,7 +240,20 @@ async def adopt_text_formation_in(
     )
     return (
         original,
-        *(await self.adopt_semantic_proposal_in(tx, ctx, original, proposal, times, catalog)),
+        *(
+            await self.adopt_semantic_proposal_in(
+                tx,
+                ctx,
+                original,
+                proposal,
+                times,
+                catalog,
+                facts=source_record.assertions.facts if source_record.assertions else (),
+                source_references=source_record.assertions.references
+                if source_record.assertions
+                else (),
+            )
+        ),
     )
 
 
@@ -247,14 +265,62 @@ async def adopt_semantic_proposal_in(
     proposal: FormationProposal,
     times: CognitiveTimes,
     catalog: tuple[FormationCatalogEntry, ...] = (),
+    *,
+    facts: tuple[ImportFact, ...] = (),
+    source_references: tuple[ImportReference, ...] = (),
 ) -> tuple[CognitiveRecord, ...]:
     """Resolve model-local keys to real identities before adopting semantic objects."""
+    from nous_sdk.contracts.namespace_policy import FormationPolicy
+
+    from nous.platform.configuration.namespace_policy import policy_in
+
+    from .formation_validation import validate_formation_policy
+
+    if proposal.producer_call_id is not None:
+        policy = await policy_in(tx, ctx, "formation", FormationPolicy)
+        if not policy.enabled:
+            raise DomainError("formation_disabled", "Namespace model formation is disabled")
+        validate_formation_policy(proposal, policy)
     from graphlib import CycleError, TopologicalSorter
 
     if not isinstance(anchor.body, MemoryBody):
         raise DomainError(
             "formation_anchor", "Semantic formation requires an actual adopted Memory"
         )
+    if source_references:
+        from .graph_state import heads_in
+
+        entries: list[FormationCatalogEntry] = []
+        for binding in source_references:
+            matches: list[CognitiveRecord] = []
+            for record in await heads_in(tx, ctx, (binding.kind,)):
+                identifiers = (
+                    record.body.identifiers
+                    if isinstance(record.body, EntityBody)
+                    else record.body.external_ids
+                    if isinstance(record.body, (MemoryBody, AssociationBody))
+                    else {}
+                )
+                if (
+                    identifiers.get(binding.identifier_key)
+                    in {binding.identifier, *binding.aliases}
+                    and selectable(record)
+                    and await self.visible_in(tx, ctx, record)
+                ):
+                    matches.append(record)
+            if len(matches) != 1:
+                raise DomainError(
+                    "source_reference_missing" if not matches else "source_reference_ambiguous",
+                    "Imported source reference must resolve to one current authorized object",
+                    key=binding.key,
+                )
+            selected = matches[0]
+            entries.append(
+                FormationCatalogEntry(
+                    key=binding.key, reference=selected.reference, label=binding.identifier
+                )
+            )
+        catalog = (*catalog, *entries)
     validate_formation_draft(proposal, catalog)
     result: list[CognitiveRecord] = []
     references = {entry.key: entry.reference for entry in catalog}
@@ -284,6 +350,47 @@ async def adopt_semantic_proposal_in(
         previous = (
             await self.get_in(tx, ctx, await resolve(item.target_key)) if item.target_key else None
         )
+        if previous is None and proposal.producer_call_id is None:
+            from .graph_state import heads_in, resolve_entity
+
+            existing = await heads_in(tx, ctx, ("entity",))
+            if item.identifiers:
+                # Captured dataset IDs name the source object, while generated
+                # :name entries only let name-only declarations find it. A
+                # shared label must never replace another exact source ID.
+                explicit_identifiers = {
+                    key: value
+                    for key, value in item.identifiers.items()
+                    if not key.endswith(":name")
+                }
+                identity = (
+                    {
+                        key: value
+                        for key, value in explicit_identifiers.items()
+                        if key.startswith("dataset:")
+                    }
+                    or explicit_identifiers
+                    or item.identifiers
+                )
+                matches = [
+                    record
+                    for record in existing
+                    if isinstance(record.body, EntityBody)
+                    and any(
+                        record.body.identifiers.get(key) == value for key, value in identity.items()
+                    )
+                    and selectable(record)
+                ]
+                if len(matches) > 1:
+                    raise DomainError(
+                        "source_entity_ambiguous",
+                        "Source identifiers resolve to multiple active Entities",
+                    )
+                previous = matches[0] if matches else None
+            else:
+                previous = resolve_entity(existing, item.label)
+            if previous is not None:
+                await self.get_in(tx, ctx, previous.reference)
         if previous is not None and not isinstance(previous.body, EntityBody):
             raise DomainError(
                 "formation_entity_target", "An entity update must target an Entity catalog entry"
@@ -305,9 +412,16 @@ async def adopt_semantic_proposal_in(
         )
         body = EntityBody(
             label=item.label,
-            entity_type=item.entity_type,
+            entity_type=prior.entity_type
+            if prior is not None
+            and proposal.producer_call_id is None
+            and item.entity_type == "other"
+            else item.entity_type,
             aliases=tuple(dict.fromkeys([*(prior.aliases if prior else ()), *item.aliases])),
-            description=item.description,
+            description=item.description or (prior.description if prior is not None else ""),
+            generated_profile=prior.generated_profile
+            if prior is not None and not item.description and not attributes
+            else None,
             profile_controls=prior.profile_controls if prior else PersonProfileControls(),
             platform_identities=prior.platform_identities if prior else (),
             identifiers={**(prior.identifiers if prior else {}), **item.identifiers},
@@ -334,6 +448,35 @@ async def adopt_semantic_proposal_in(
         )
         references[item.key] = record.reference
         result.append(record)
+    if facts:
+        from nous_sdk.contracts.facts import FactClaimInput
+
+        if self.fact_owner is None:
+            raise DomainError(
+                "fact_owner_unavailable", "Declared source facts require the Fact owner"
+            )
+        for fact in facts:
+            scope = (
+                {"kind": "person", "person": (await resolve(fact.person_key)).model_dump()}
+                if fact.person_key is not None
+                else {"kind": "chat", "conversation_ref": fact.conversation_ref}
+            )
+            claim = FactClaimInput.model_validate(
+                {
+                    **fact.model_dump(exclude={"person_key", "conversation_ref", "validity"}),
+                    "scope": scope,
+                }
+            )
+            result.extend(
+                await self.fact_owner.assert_source_in(
+                    tx,
+                    ctx,
+                    claim,
+                    anchor,
+                    fact.validity,
+                    validity_explicit="validity" in fact.model_fields_set,
+                )
+            )
     nodes: dict[str, ProposedConcept | ProposedSchema] = {
         item.key: item for item in (*proposal.concepts, *proposal.schemas)
     }
@@ -429,6 +572,7 @@ async def adopt_semantic_proposal_in(
         result.append(record)
     for item in proposal.associations:
         body = AssociationBody(
+            external_ids=item.external_ids,
             from_ref=await resolve(item.from_key),
             to_ref=await resolve(item.to_key),
             relation=item.relation,

@@ -17,17 +17,19 @@ from nous_sdk.contracts import (
 )
 from nous_sdk.contracts.query_conditions import QueryEffectiveMode, QueryExecution
 from nous_sdk.contracts.query_vcp import VcpResult
+from nous_sdk.contracts.resources import ResourceRecord
 from numpy.typing import NDArray
 from pydantic import JsonValue
 
-from .assets import GraphAssets, record_text
+from .assets import GraphAssets, record_domain, record_text
 from .filters import authority
 from .native import failure, run_native
-from .planning import BoundPlan, bind
+from .planning import BoundPlan, bind, current_selection
 from .policy import ResolvedPolicy, native_diagnostics
 from .policy import resolve as resolve_policy
 from .readout import visible_hits
-from .vcp_intent import embed_concepts, resolve_intent
+from .resource_selection import prepare_sources
+from .vcp_intent import concept_vectors, resolve_intent
 from .vcp_thinking import resolve_thinking
 from .work import QueryWork
 
@@ -38,6 +40,8 @@ if TYPE_CHECKING:
 async def query(self: RetrievalService, ctx: CallContext, request: QueryRequest) -> QueryResult:
     bound, plan = bind(ctx, request)
     policy = await resolve_policy(self.configuration, ctx)
+    if bound.profile is not None:
+        policy = ResolvedPolicy(bound.profile, "request", ctx.namespace_id, ctx.require_subject())
     result = await execute(self, ctx, bound, plan, 0, QueryWork.from_budget(bound.budget), policy)
     if plan["diagnostics"] != "none":
         result = result.model_copy(update={"plan": {**result.plan, "policy": policy.diagnostics()}})
@@ -52,6 +56,7 @@ async def query(self: RetrievalService, ctx: CallContext, request: QueryRequest)
         ),
         result,
         explicit_sort=plan["sort"] is not None,
+        current_selection=current_selection(bound, plan),
     )
 
 
@@ -66,22 +71,26 @@ async def execute(
 ) -> QueryResult:
     if depth >= bound.budget.depth:
         raise DomainError("query_budget_exceeded", "Query composition exceeds depth budget")
+    from nous_sdk.contracts.namespace_policy import NamespaceFeatures
+
+    features = NamespaceFeatures.model_validate(
+        (await self.configuration.effective(ctx, "namespace.features"))["value"]
+    )
+    if not features.sparse_retrieval:
+        policy = ResolvedPolicy(
+            policy.value.model_copy(update={"lexical_weight": 0.0}),
+            policy.origin,
+            policy.namespace_id,
+            policy.subject_id,
+        )
+        if bound.mode == "hybrid":
+            bound = bound.model_copy(update={"mode": "dense"})
     if depth and plan["root_controls"]:
         raise DomainError(
             "invalid_query",
             "History, cutoff, limit, effort, diagnostics and materialization belong at the query root",
         )
-    if bound.current == "required" or bound.filters.authority in {
-        "external_current_authority",
-        "resource_descriptor",
-    }:
-        raise DomainError(
-            "capability_unavailable",
-            "External authority requires a resource directory and an adapter with access and version checks",
-            capability="external_current_authority",
-            current=bound.current,
-            authority=bound.filters.authority,
-        )
+    bound = await prepare_sources(self, ctx, bound, plan)
     # Resolve addresses with the same authority visibility rules as canonical references.
     async with self.authority.read(ctx) as reader:
         if bound.reference:
@@ -101,10 +110,13 @@ async def execute(
                         reader, ctx, locator, bound.as_of_commit, plan.get("asof_time")
                     )
                     locators.append(resolved.reference.reference.exact())
-                    if resolved.reference.kind == "media":
-                        bound = bound.model_copy(
-                            update={"domains": tuple(dict.fromkeys((*bound.domains, "media")))}
-                        )
+                    bound = bound.model_copy(
+                        update={
+                            "domains": tuple(
+                                dict.fromkeys((*bound.domains, resolved.reference.kind))
+                            )
+                        }
+                    )
                 cue["locators"] = locators
             elif cue.get("selector") == "resource":
                 media = list(bound.media)
@@ -275,6 +287,12 @@ async def execute(
     view = await self.eligible(ctx, bound, plan)
     selection = self.selectors(view.records, view.catalog, plan, view.sources)
     records, direct = selection.records, selection.direct
+    if not features.sparse_retrieval and bound.mode == "lexical" and bound.text and not direct:
+        raise DomainError(
+            "namespace_feature_disabled",
+            "Namespace sparse retrieval is disabled",
+            feature="sparse_retrieval",
+        )
     intent = resolve_intent(bound, plan, selection, view.catalog, view.sources, policy, work)
     if bound.mode == "vcp" and intent.thinking:
         direct = False
@@ -290,11 +308,7 @@ async def execute(
         )
     if plan.get("no_matches"):
         records = []
-    records = [
-        record
-        for record in records
-        if ("cognition" if isinstance(record, CognitiveRecord) else "media") in bound.domains
-    ]
+    records = [record for record in records if record_domain(record) in bound.domains]
     if bound.kinds:
         records = [
             record
@@ -312,8 +326,12 @@ async def execute(
     missing = 0
     requested_mode = bound.mode
     reasons: list[str] = []
-    if bound.current == "prefer":
-        reasons.append("external_freshness_unchecked")
+    if bound.current == "prefer" and any(
+        isinstance(record, ResourceRecord)
+        and record.reference.exact() not in plan.get("checked_resources", [])
+        for record in records
+    ):
+        reasons.append("external_snapshot_stale")
     if plan.get("explore") and bound.mode != "vcp":
         if bound.capabilities.exploration == "required":
             raise DomainError("capability_unavailable", "$explore requires VCP mode")
@@ -332,15 +350,21 @@ async def execute(
                 ctx,
                 bound,
                 source_ids=tuple(sorted(set((*selection.source_material_ids, *intent.source_ids)))),
+                concepts=tuple(concept.text for concept in intent.concepts),
             )
         except DomainError as error:
-            if bound.capabilities.semantic != "optional" or error.code not in {
-                "model_unavailable",
-                "model_not_configured",
-                "embedding_unavailable",
-                "capability_unavailable",
-                "configuration_missing",
-            }:
+            if (
+                not features.sparse_retrieval
+                or bound.capabilities.semantic != "optional"
+                or error.code
+                not in {
+                    "model_unavailable",
+                    "model_not_configured",
+                    "embedding_unavailable",
+                    "capability_unavailable",
+                    "configuration_missing",
+                }
+            ):
                 raise
             bound = bound.model_copy(update={"mode": "lexical"})
             reasons.append(error.code)
@@ -349,7 +373,7 @@ async def execute(
         batch = None
     if batch is not None:
         if (
-            len(batch.vectors) != 1
+            len(batch.vectors) != 1 + len(intent.concepts)
             or len(batch.vectors[0]) != batch.dimensions
             or not np.isfinite(batch.vectors[0]).all()
         ):
@@ -361,6 +385,7 @@ async def execute(
             row.reference: row
             for row in view.vectors
             if row.space == space
+            and (features.relation_vectors or not row.reference.startswith("association:"))
             and row.model == batch.model
             and row.dimensions == batch.dimensions
         }
@@ -379,13 +404,13 @@ async def execute(
                 "No selected candidate has a vector in the query model space",
                 space=space,
             )
-        if missing and bound.mode == "hybrid":
+        if missing and bound.mode == "hybrid" and features.sparse_retrieval:
             reasons.append("missing_vectors_lexical_fallback")
             bound = bound.model_copy(update={"mode": "lexical"})
             eligible = records
         elif missing:
             reasons.append("missing_vectors_omitted")
-            if not eligible:
+            if not eligible and features.sparse_retrieval:
                 bound = bound.model_copy(update={"mode": "lexical"})
                 eligible = records
                 reasons.append("semantic_unavailable_lexical_fallback")
@@ -415,11 +440,13 @@ async def execute(
                         "VCP requires live, authorized graph node vectors in the query model space",
                     )
                 reasons.append("vcp_assets_unavailable")
-                bound = bound.model_copy(update={"mode": "hybrid"})
+                bound = bound.model_copy(
+                    update={"mode": "hybrid" if features.sparse_retrieval else "dense"}
+                )
                 graph = None
             else:
                 core_references = intent.graph_core(graph, bound, reasons)
-                ghost_vectors, concept_results = await embed_concepts(self, ctx, intent, batch)
+                ghost_vectors, concept_results = concept_vectors(intent, batch)
                 vcp_result = VcpResult(core=core_references, concepts=concept_results)
     if intent.thinking and (bound.mode != "vcp" or not records):
         vcp_result = VcpResult(
@@ -550,10 +577,21 @@ async def execute(
         ranked, generation = [(record, 1.0) for record in records], "authority"
     ranked = self.order(ranked, plan)
     ranked = ranked[: bound.budget.candidates]
-    hits = await visible_hits(self, ctx, ranked, bound.limit)
-    complete = missing == 0 and (
-        bound.min_commit_seq is None or view.commit_seq >= bound.min_commit_seq
+    hits = await visible_hits(
+        self, ctx, ranked, bound.limit, current_selection=current_selection(bound, plan)
     )
+    complete = (
+        missing == 0
+        and (bound.min_commit_seq is None or view.commit_seq >= bound.min_commit_seq)
+        and plan.get("resource_refresh_complete", True)
+    )
+    checked = set(plan.get("checked_resources", []))
+    hits = [
+        hit.model_copy(update={"authority": "external_current_authority"})
+        if isinstance(hit.object, ResourceRecord) and hit.object.reference.exact() in checked
+        else hit
+        for hit in hits
+    ]
     return QueryResult(
         vcp=vcp_result,
         hits=tuple(hits),

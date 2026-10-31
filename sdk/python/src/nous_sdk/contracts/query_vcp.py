@@ -9,6 +9,12 @@ from pydantic import Field, FiniteFloat
 from .cognition import CognitiveRef
 from .common import Contract
 from .media import MediaReference
+from .resources import ResourceReference
+from .source_objects import EvidenceReference, ObservationReference
+
+ThinkingReference = (
+    CognitiveRef | MediaReference | ResourceReference | ObservationReference | EvidenceReference
+)
 
 
 class QueryConcept(Contract):
@@ -39,9 +45,9 @@ class ThinkingRoute(Contract):
 
 
 class ThinkingSelection(Contract):
-    reference: CognitiveRef | MediaReference
+    reference: ThinkingReference
     score: FiniteFloat
-    parents: tuple[CognitiveRef | MediaReference, ...]
+    parents: tuple[ThinkingReference, ...]
     relation: Literal["root", "continuation", "analogy", "supplement"]
     route: ThinkingRoute | None
 

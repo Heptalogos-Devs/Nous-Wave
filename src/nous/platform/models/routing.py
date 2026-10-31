@@ -8,18 +8,23 @@ from typing import TYPE_CHECKING
 from nous_sdk.contracts import CallContext, DomainError, EmbeddingBatch, MediaEmbeddingInput
 from nous_sdk.contracts.common import Contract
 from nous_sdk.contracts.model_roles import ModelCachePolicy
-from nous_sdk.contracts.model_routing import ModelRouteAttempt, ModelRoutingPolicy
+from nous_sdk.contracts.model_routing import ModelCallOutcome, ModelRouteAttempt, ModelRoutingPolicy
 from pydantic import BaseModel, JsonValue, TypeAdapter
+from sqlalchemy import select
 
 from nous.platform.configuration import ModelRoute
 from nous.platform.errors import NousError, Unavailable
-from nous.platform.persistence import OperationConflict
+from nous.platform.persistence import OperationConflict, OperationResultPurged
+from nous.platform.persistence.authority import operation_key
+from nous.platform.persistence.schema import operations
 
+from .contracts import PreparedRole
 from .embedding import embed_media as request_media
 from .embedding_profile import EmbeddingProfile
 from .generation import Generated, MediaInput, prepare_invocation
-from .invocations import InvocationAttempt
+from .invocations import InvocationAttempt, child
 from .outcomes import may_continue
+from .retries import needs_provider_request, rate_limited
 from .roles import json_object
 from .text_embedding import embed_text
 
@@ -32,6 +37,7 @@ class GenerationRoute(Contract):
     index: int
     route: ModelRoute
     capabilities: tuple[str, ...]
+    invocation: dict[str, JsonValue] | None = None
 
 
 class GenerationPlan(Contract):
@@ -41,6 +47,20 @@ class GenerationPlan(Contract):
     routes: tuple[GenerationRoute, ...]
     policy: ModelRoutingPolicy
     source_ids: tuple[str, ...]
+    contract_purpose: str | None = None
+    variant: str | None = None
+
+
+async def saved_generation(self: ModelService, ctx: CallContext, role: str, intent: str) -> tuple[GenerationPlan, dict[str, JsonValue] | None] | None:
+    async with self.ledger.authority.read(ctx) as view:
+        raw = (await view.connection.execute(select(operations.c.result_json, operations.c.payload_json).where(
+            operations.c.operation_key == operation_key(ctx, "model.generation_plan", role, intent)))).first()
+    if raw is None:
+        return None
+    result = TypeAdapter(JsonValue).validate_json(raw.result_json)
+    if isinstance(result, dict) and result.get("$nous_operation_result") == "purged":
+        raise OperationResultPurged(intent)
+    return GenerationPlan.model_validate(result), TypeAdapter(dict[str, JsonValue]).validate_json(raw.payload_json) if raw.payload_json else None
 
 
 def identity(ctx: CallContext, supplied: str | None, mechanism: str) -> str:
@@ -58,8 +78,14 @@ def permissions(ctx: CallContext) -> dict[str, JsonValue]:
     )
 
 
-def child(identity: str, index: int) -> str:
-    return f"route:{sha256(identity.encode()).hexdigest()}:{index}"
+def has_sent_attempt(failures: list[dict[str, object]]) -> bool:
+    for failure in failures:
+        if not failure.get("call_id"):
+            continue
+        value = failure.get("outcome")
+        if not isinstance(value, dict) or ModelCallOutcome.model_validate(value).kind != "not_sent":
+            return True
+    return False
 
 
 async def generation_plan[T: BaseModel | str](
@@ -73,8 +99,9 @@ async def generation_plan[T: BaseModel | str](
     intent: str,
     cache_policy: ModelCachePolicy,
     parent: InvocationAttempt | None,
+    prepared: PreparedRole | None = None,
 ) -> GenerationPlan | None:
-    payload = {
+    payload: dict[str, object] = {
         "role": role,
         "variables": variables,
         "schema": TypeAdapter(output).json_schema(),
@@ -86,6 +113,30 @@ async def generation_plan[T: BaseModel | str](
             for item in media
         ],
     }
+    saved = await saved_generation(self, ctx, role, intent)
+    if saved is not None:
+        directory, original_payload = saved
+        original_schema = original_payload.get("schema") if original_payload else None
+        if original_schema is None:
+            original_schema = next((route.invocation.get("schema") for route in directory.routes if route.invocation is not None), None)
+        if original_schema is not None:
+            payload["schema"] = original_schema
+        old_variables = original_payload.get("variables") if original_payload else None
+        if isinstance(old_variables, dict) and "body_schema" in variables and "body_schema" in old_variables:
+            payload["variables"] = {**variables, "body_schema": old_variables["body_schema"]}
+    accepted = parent or await self.ledger.attempt(ctx, role, child(intent, 0))
+    if accepted is not None:
+        # Recover against the schema actually sent. Additive local contract
+        # changes do not authorize another paid call for the same semantic input.
+        payload["schema"] = accepted.request.get("schema", payload["schema"])
+        prompt = accepted.request.get("prompt")
+        old_variables = prompt.get("variables") if isinstance(prompt, dict) else None
+        if (
+            isinstance(old_variables, dict)
+            and "body_schema" in variables
+            and "body_schema" in old_variables
+        ):
+            payload["variables"] = {**variables, "body_schema": old_variables["body_schema"]}
     try:
         if parent is not None:
             saved = await self.ledger.authority.receipt(
@@ -96,7 +147,7 @@ async def generation_plan[T: BaseModel | str](
             # A physical parent already exists without a separate accepted route
             # directory. Prove its input before returning it; do not create a new
             # accepted plan which could replace that earlier private intent.
-            prepared = await self.prepare_role(
+            prepared = prepared or await self.prepare_role(
                 ctx, role, variables, output_type=output, require_configured=False
             )
             route = prepared.routes[0].route
@@ -132,11 +183,13 @@ async def generation_plan[T: BaseModel | str](
         ) as tx:
             if tx.replayed:
                 return GenerationPlan.model_validate(tx.replay_result)
-            prepared = await self.prepare_role(
+            prepared = prepared or await self.prepare_role(
                 ctx, role, variables, output_type=output, require_configured=False
             )
             plan = GenerationPlan(
                 role=role,
+                contract_purpose=prepared.definition.purpose,
+                variant=prepared.definition.variant,
                 purpose=prepared.definition.invocation_purpose or role,
                 prompt=json_object(prepared.prompt),
                 policy=prepared.role.fallback,
@@ -147,6 +200,14 @@ async def generation_plan[T: BaseModel | str](
                         index=item.index,
                         route=item.route,
                         capabilities=item.model.capabilities,
+                        invocation=prepare_invocation(
+                            prepared.definition.invocation_purpose or role,
+                            item.route,
+                            prepared.prompt,
+                            output,
+                            media,
+                            source_ids,
+                        ),
                     )
                     for item in prepared.routes
                 ),
@@ -176,6 +237,10 @@ async def generate[T: BaseModel | str](
 
     intent = identity(ctx, invocation_id, "generation")
     previous = await self.ledger.attempt(ctx, role_id, intent)
+    if previous is not None and previous.status != "succeeded":
+        # Unknown physical outcomes must reach their recovery contract before
+        # current configuration or prompt validation can obscure that state.
+        await self.ledger.recall(ctx, role_id, intent)
     plan = await generation_plan(
         self,
         ctx,
@@ -200,7 +265,13 @@ async def generate[T: BaseModel | str](
         attempt_id = child(intent, item.index)
         actual = await self.ledger.attempt(ctx, role_id, attempt_id)
         if actual is not None and actual.status != "succeeded":
-            if may_continue(plan.policy, actual.outcome):
+            rate_retry = (
+                plan.policy.rate_limit_retries
+                and actual.outcome is not None
+                and actual.outcome.kind == "rejected"
+                and actual.outcome.http_status == 429
+            )
+            if may_continue(plan.policy, actual.outcome) and not rate_retry and (actual.outcome is None or actual.outcome.kind != "not_sent"):
                 failures.append(
                     {
                         "route_id": item.id,
@@ -211,9 +282,16 @@ async def generate[T: BaseModel | str](
                     }
                 )
                 continue
-            await self.ledger.recall(ctx, role_id, attempt_id)
+            if not rate_retry and not (actual.outcome is not None and actual.outcome.kind == "not_sent" and plan.policy.not_sent):
+                await self.ledger.recall(ctx, role_id, attempt_id)
         try:
-            key = credential(item.route, role_id)
+            key = (
+                credential(item.route, role_id)
+                if await needs_provider_request(
+                    ctx, role_id, (attempt_id,), plan.policy, self.ledger
+                )
+                else ""
+            )
             required = {
                 "image"
                 if part.media_type.startswith("image/")
@@ -230,29 +308,55 @@ async def generate[T: BaseModel | str](
                     role=role_id,
                     reason="capability_missing",
                 )
-            result, call_id = await self.generation.request(
-                ctx,
-                plan.purpose,
-                item.route,
-                key,
-                dict(plan.prompt),
-                output_type,
-                media,
-                source_ids=source_ids,
-                budget_role=role_id,
-                invocation_id=attempt_id,
-                cache_policy=cache_policy,
-                routing=ModelRouteAttempt(
-                    intent_id=intent, route_id=item.id, route_index=item.index
-                ),
+
+            async def request(
+                identity: str | None, item: GenerationRoute = item, key: str = key
+            ) -> tuple[T, str]:
+                return await self.generation.request(
+                    ctx,
+                    plan.purpose,
+                    item.route,
+                    key,
+                    dict(plan.prompt),
+                    output_type,
+                    media,
+                    source_ids=source_ids,
+                    budget_role=role_id,
+                    invocation_id=identity,
+                    cache_policy=cache_policy,
+                    routing=ModelRouteAttempt(
+                        intent_id=intent, route_id=item.id, route_index=item.index
+                    ),
+                    request_snapshot=item.invocation,
+                )
+
+            result, call_id = await rate_limited(
+                ctx, role_id, attempt_id, plan.policy, self.ledger, request
             )
         except DomainError as error:
+            failed_identity = error.details.get("invocation_id")
+            if error.code == "model_invocation_unavailable" and isinstance(failed_identity, str):
+                actual = await self.ledger.attempt(ctx, role_id, failed_identity)
+                if actual is not None and may_continue(plan.policy, actual.outcome):
+                    failures.append(
+                        {
+                            "route_id": item.id,
+                            "call_id": actual.call_id,
+                            "outcome": actual.outcome.model_dump(mode="json")
+                            if actual.outcome
+                            else None,
+                        }
+                    )
+                    continue
             if error.code != "model_unavailable" or not plan.policy.unavailable:
                 raise
             failures.append({"route_id": item.id, "reason": error.details})
             continue
-        except Unavailable:
-            actual = await self.ledger.attempt(ctx, role_id, attempt_id)
+        except Unavailable as error:
+            failed_identity = error.context.get("invocation_id")
+            actual = await self.ledger.attempt(
+                ctx, role_id, failed_identity if isinstance(failed_identity, str) else attempt_id
+            )
             if actual is None or not may_continue(plan.policy, actual.outcome):
                 raise
             failures.append(
@@ -265,7 +369,7 @@ async def generate[T: BaseModel | str](
             continue
         await self.ledger.bind_success(ctx, role_id, intent, call_id)
         return Generated(result, call_id)
-    if not any(item.get("call_id") for item in failures):
+    if not has_sent_attempt(failures):
         raise DomainError(
             "model_unavailable",
             "No configured route is locally available",
@@ -293,7 +397,15 @@ async def embedding_plan(
             intent,
             operation_kind="model.embedding_plan",
             scope="embedding",
-            payload={"input": payload, "permissions": permissions(ctx), "profile": profile},
+            # A persisted profile keeps the exact fields present when accepted.
+            # Newly introduced defaults must not alter an existing intent's hash.
+            payload={
+                "input": payload,
+                "permissions": permissions(ctx),
+                "profile": profile.model_dump(mode="json", exclude_unset=True)
+                if profile is not None
+                else None,
+            },
         ) as tx:
             if tx.replayed:
                 return EmbeddingProfile.model_validate(tx.replay_result)
@@ -315,8 +427,9 @@ async def embed(
     source_ids: tuple[str, ...] = (),
     invocation_id: str | None = None,
     profile: EmbeddingProfile | None = None,
+    retry_authorization: str | None = None,
 ) -> EmbeddingBatch:
-    return await route_embedding(self, ctx, texts, None, source_ids, invocation_id, profile)
+    return await route_embedding(self, ctx, texts, None, source_ids, invocation_id, profile, retry_authorization)
 
 
 async def embed_media(
@@ -327,8 +440,9 @@ async def embed_media(
     source_ids: tuple[str, ...] = (),
     invocation_id: str | None = None,
     profile: EmbeddingProfile | None = None,
+    retry_authorization: str | None = None,
 ) -> EmbeddingBatch:
-    return await route_embedding(self, ctx, None, inputs, source_ids, invocation_id, profile)
+    return await route_embedding(self, ctx, None, inputs, source_ids, invocation_id, profile, retry_authorization)
 
 
 async def route_embedding(
@@ -339,6 +453,7 @@ async def route_embedding(
     source_ids: tuple[str, ...],
     invocation_id: str | None,
     profile: EmbeddingProfile | None,
+    retry_authorization: str | None = None,
 ) -> EmbeddingBatch:
     from . import credential
 
@@ -354,7 +469,22 @@ async def route_embedding(
         route_id = accepted.route_ids[index] if accepted.route_ids else None
         metadata = ModelRouteAttempt(intent_id=intent, route_id=route_id, route_index=index)
         try:
-            key = credential(route, "embedding")
+            physical_ids = tuple(
+                f"{prefix}:{index}"
+                for index in range(
+                    (len(texts) + route.max_batch_items - 1) // route.max_batch_items
+                    if texts is not None
+                    else len(media or ())
+                )
+            )
+            key = (
+                credential(route, "embedding")
+                if await needs_provider_request(
+                    ctx, "embedding", physical_ids, accepted.fallback_policy, self.ledger,
+                    authorization=retry_authorization,
+                )
+                else ""
+            )
             if texts is not None:
                 return await embed_text(
                     ctx,
@@ -366,6 +496,9 @@ async def route_embedding(
                     source_ids,
                     invocation_id=prefix,
                     routing=metadata,
+                    retry_policy=accepted.fallback_policy,
+                    cache_policy=accepted.cache_policy,
+                    retry_authorization=retry_authorization,
                 )
             if self.media_resolver is None:
                 raise DomainError(
@@ -383,6 +516,9 @@ async def route_embedding(
                 source_ids,
                 invocation_id=prefix,
                 routing=metadata,
+                retry_policy=accepted.fallback_policy,
+                cache_policy=accepted.cache_policy,
+                retry_authorization=retry_authorization,
             )
         except DomainError as error:
             if error.code == "model_unavailable" and accepted.fallback_policy.unavailable:
@@ -417,7 +553,7 @@ async def route_embedding(
                     "outcome": actual.outcome.model_dump(mode="json") if actual.outcome else None,
                 }
             )
-    if not any(item.get("call_id") for item in failures):
+    if not has_sent_attempt(failures):
         raise DomainError(
             "model_unavailable",
             "No embedding route is locally available",

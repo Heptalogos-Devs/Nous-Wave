@@ -23,13 +23,14 @@ from nous_sdk.contracts import (
 )
 from nous_sdk.contracts.bundles import BundlePlacement
 from nous_sdk.contracts.context import CognitiveTarget
+from nous_sdk.contracts.identity import IdentityPurpose
 from nous_sdk.contracts.references import ObjectTarget, ReferenceBinding
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select
 
 from nous.cognition.projection import evidence_in, references_in
 from nous.cognition.schema import revisions, vectors
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.imports.schema import catalogs, inputs, outputs, successes, units
 from nous.material.service import MaterialRecord, materials, observations, regions
 from nous.platform.content import ContentLease, ContentObject
@@ -50,7 +51,13 @@ async def install_zip(self: BundleService, ctx: CallContext, data: bytes, operat
     )
 
 
-async def install(self: BundleService, ctx: CallContext, command: InstallBundle):
+async def install(
+    self: BundleService,
+    ctx: CallContext,
+    command: InstallBundle,
+    *,
+    purpose: IdentityPurpose = "active",
+):
     receipt = await self.authority.receipt(
         ctx,
         command.operation_id,
@@ -65,6 +72,7 @@ async def install(self: BundleService, ctx: CallContext, command: InstallBundle)
 
     validate_graph(bundle)
     leases: dict[str, ContentLease] = {}
+    historical_materials: set[str] = set()
     try:
         if self.content_store:
             for row in bundle.materials:
@@ -91,7 +99,15 @@ async def install(self: BundleService, ctx: CallContext, command: InstallBundle)
                 leases[row.content_hash] = await self.content_store.publish_bytes(
                     data, material["media_type"]
                 )
-        return await self.install_prepared(ctx, command, bundle, leases)
+                from nous.material.archive_dependencies import history_archive
+
+                verified = await asyncio.to_thread(history_archive, data)
+                if verified is not None and verified.sources == frozenset(material.get("required_source_ids", ())):
+                    historical_materials.add(row.id)
+        return await self.install_prepared(
+            ctx, command, bundle, leases, purpose=purpose,
+            historical_materials=frozenset(historical_materials),
+        )
     finally:
         if self.content_store:
             for lease in leases.values():
@@ -104,6 +120,9 @@ async def install_prepared(
     command: InstallBundle,
     original: SubjectBundle,
     leases: dict[str, ContentLease],
+    *,
+    purpose: IdentityPurpose = "active",
+    historical_materials: frozenset[str] = frozenset(),
 ):
     bundle = original.model_dump(mode="json")
     if bundle.get("format") != "nous.subject" or bundle.get("version") != 1:
@@ -113,7 +132,8 @@ async def install_prepared(
     mats = {row["id"]: row for row in bundle["materials"]}
     keys = {record.reference.exact() for record in records}
     for record in records:
-        if not record.source_roots or any(oid not in obs for oid in record.source_roots):
+        # Empty source_roots are valid for system-formed cognition; only named roots must resolve.
+        if any(oid not in obs for oid in record.source_roots):
             raise DomainError(
                 "bundle_source_missing", "Cognition has an unresolved supporting source"
             )
@@ -133,7 +153,9 @@ async def install_prepared(
                 "bundle_source_missing", "Cognition evidence has an unresolved observation"
             )
     for row in obs.values():
-        if row["material_id"] not in mats or row["kind"] not in {"import", "contact"}:
+        # SubjectBundle has validated the shared ObservationKind, including
+        # immutable snapshots read from registered external resources.
+        if row["material_id"] not in mats:
             raise DomainError(
                 "bundle_observation", "Observation has invalid material or event kind"
             )
@@ -155,7 +177,7 @@ async def install_prepared(
     ) as tx:
         if tx.replayed:
             return tx.replay_result
-        await require_subject_in(tx, ctx, "memory")
+        await require_subject_in(tx, ctx, "memory", purpose=purpose)
         if command.archive_material_id:
             await self.cognition.materials.read_in(tx, ctx, command.archive_material_id)
         if command.mode == "restore":
@@ -259,6 +281,7 @@ async def install_prepared(
             "input_source_id",
             "material_id",
             "observation_id",
+            "contact_observation_id",
             "unit_id",
             "output_id",
             "parent_catalog_id",
@@ -341,6 +364,11 @@ async def install_prepared(
                     "bundle_reference_missing", "Readable binding points outside the bundle"
                 )
         for new in remapped["materials"]:
+            # Imported raw records cannot grant historical read authority. Only
+            # actual validated nested full-archive bytes establish this purpose.
+            new["record"].pop("dependency_purpose", None)
+            if any(mapping[identity] == new["id"] for identity in historical_materials):
+                new["record"]["dependency_purpose"] = "history"
             new["record"]["commit_seq"] = tx.commit_seq
             new["record"]["addresses"] = (
                 await allocate_in(tx, ctx, MediaReference(kind="material", id=new["id"]))
@@ -372,7 +400,9 @@ async def install_prepared(
                     CatalogView.model_validate(new["record"])
                 await tx.connection.execute(table.insert().values(**new))
         if original.derivations.representations or original.derivations.regions:
-            await self.cognition.derivations.install_in(tx, ctx, original.derivations, mapping)
+            await self.cognition.derivations.install_in(
+                tx, ctx, original.derivations, mapping, purpose=purpose
+            )
         heads: dict[str, int] = {}
         for record in records:
             heads[record.reference.id] = max(
@@ -381,6 +411,23 @@ async def install_prepared(
         for record, value in zip(records, remapped["cognition"], strict=True):
             value["commit_seq"] = tx.commit_seq
             adopted = CognitiveRecord.model_validate(value)
+            from nous_sdk.contracts import MemoryBody
+
+            if command.mode != "restore" and isinstance(adopted.body, MemoryBody):
+                body = adopted.body
+                adopted = adopted.model_copy(
+                    update={
+                        "body": body.model_copy(
+                            update={
+                                "contact_observation_id": None,
+                                "role": "declarative" if body.role == "experiential" else body.role,
+                                "epistemic": body.epistemic.model_copy(
+                                    update={"classification": "reported"}
+                                ),
+                            }
+                        )
+                    }
+                )
             adopted = adopted.model_copy(
                 update={
                     "addresses": await allocate_in(tx, ctx, adopted.reference),
@@ -407,6 +454,11 @@ async def install_prepared(
                     commit_seq=tx.commit_seq,
                 )
             )
+        from nous.cognition.entity_profile_migration import migrate as migrate_entity_profiles
+
+        await tx.connection.run_sync(
+            lambda connection: migrate_entity_profiles(connection, revisions)
+        )
         vector_targets = {
             *keys,
             *(f"material:{identity}" for identity in mats),

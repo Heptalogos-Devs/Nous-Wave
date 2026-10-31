@@ -4,7 +4,7 @@ from hashlib import sha256
 
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
-from nous_sdk.contracts import MediaReference, SourceRegion
+from nous_sdk.contracts import ContactMaterial, MediaReference, SourceRegion
 from nous_sdk.contracts.derivation import (
     CreateDerivedRegion,
     CreateRepresentation,
@@ -16,6 +16,15 @@ from .sdk_common import OperationIdentity
 from .security import application, context
 
 router = APIRouter()
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/materials/contact")
+async def contact_material(
+    request: Request, namespace_id: str, subject_id: str, command: ContactMaterial
+):
+    return await application(request).imports.contact(
+        await context(request, namespace_id, subject_id), command
+    )
 
 
 class SourceRegionCreation(OperationIdentity):

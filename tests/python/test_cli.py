@@ -7,11 +7,135 @@ import socket
 import subprocess
 import sys
 import time
+from pathlib import Path
 
+import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from nous_sdk import NousClient
 from opentelemetry.instrumentation.utils import suppress_http_instrumentation
+
+
+def test_installed_default_instance_is_independent_of_cwd_and_keeps_overrides(tmp_path):
+    command = [sys.executable, "-I", "-c", "from nous.transports.cli import main; main()"]
+    environment = os.environ.copy()
+    for name in ("NOUS_INSTANCE", "NOUS_CREDENTIAL_FILE"):
+        environment.pop(name, None)
+    environment.update(
+        LOCALAPPDATA=str(tmp_path / "data"),
+        XDG_DATA_HOME=str(tmp_path / "data"),
+        HOME=str(tmp_path / "home"),
+    )
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    def invoke_at(directory, *arguments, env=environment):
+        result = subprocess.run(
+            [*command, "--json", *arguments],
+            cwd=directory,
+            env=env,
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+            timeout=40,
+        )
+        return json.loads(result.stdout)
+
+    initialized = invoke_at(first, "init")
+    expected = Path(initialized["instance"])
+    assert expected.is_absolute() and expected.name == "instance"
+    assert expected.is_relative_to(tmp_path)
+    credential = Path(initialized["credential_file"]).read_bytes()
+    assert invoke_at(second, "init") == initialized
+    assert Path(initialized["credential_file"]).read_bytes() == credential
+    configured = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            "from nous.platform.configuration import Settings; print(Settings().instance)",
+        ],
+        cwd=second,
+        env=environment,
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=20,
+    )
+    assert Path(configured.stdout.strip()) == expected
+    env_instance, flag_instance = tmp_path / "environment", tmp_path / "explicit"
+    overridden = {**environment, "NOUS_INSTANCE": str(env_instance)}
+    assert Path(invoke_at(first, "init", env=overridden)["instance"]) == env_instance
+    assert (
+        Path(
+            invoke_at(second, "--instance", str(flag_instance), "init", env=overridden)["instance"]
+        )
+        == flag_instance
+    )
+    assert (
+        Path(
+            invoke_at(second, "init", "--instance", str(flag_instance), env=overridden)["instance"]
+        )
+        == flag_instance
+    )
+    assert Path(initialized["credential_file"]).read_bytes() == credential
+
+    # An existing installation keeps its previous data location without moving it.
+    legacy_env = {
+        **environment,
+        "LOCALAPPDATA": str(tmp_path / "legacy-data"),
+        "XDG_DATA_HOME": str(tmp_path / "legacy-data"),
+        "HOME": str(tmp_path / "legacy-home"),
+    }
+    parent = (
+        tmp_path / "legacy-home/Library/Application Support"
+        if sys.platform == "darwin"
+        else tmp_path / "legacy-data"
+    )
+    legacy = (
+        parent / ("NousWave" if sys.platform in {"win32", "darwin"} else "nous-wave") / "instance"
+    )
+    previous = invoke_at(first, "init", "--instance", str(legacy), env=legacy_env)
+    assert invoke_at(second, "init", env=legacy_env) == previous
+
+    with socket.socket() as available:
+        available.bind(("127.0.0.1", 0))
+        port = available.getsockname()[1]
+    url = f"http://127.0.0.1:{port}"
+    with (tmp_path / "default-host.log").open("w", encoding="utf-8") as log:
+        host = subprocess.Popen(
+            [*command, "serve", "--no-rpc", "--port", str(port)],
+            cwd=first,
+            env=environment,
+            stdout=log,
+            stderr=log,
+        )
+        headers = {"Authorization": "Bearer " + credential.decode().strip()}
+        try:
+            deadline = time.monotonic() + 40
+            while True:
+                try:
+                    response = httpx.get(url + "/api/status", headers=headers, timeout=1)
+                    if response.is_success:
+                        break
+                except httpx.HTTPError:
+                    pass
+                assert host.poll() is None and time.monotonic() < deadline
+                time.sleep(0.1)
+            assert Path(response.json()["instance"]) == expected
+            assert Path(invoke_at(second, "--url", url, "status")["instance"]) == expected
+            assert (expected / "data/authority.sqlite").is_file()
+            assert not (first / "temp/instances/default").exists()
+            assert not (second / "temp/instances/default").exists()
+        finally:
+            if host.poll() is None:
+                try:
+                    httpx.post(url + "/api/stop", headers=headers, timeout=5)
+                    host.wait(timeout=25)
+                except httpx.HTTPError, subprocess.TimeoutExpired:
+                    host.terminate()
+                    host.wait(timeout=10)
 
 
 def test_cli_literal_query_and_revocable_readonly_token(tmp_path):

@@ -493,3 +493,6 @@ web-config-history = 读取变更历史
 web-config-use-value = 取回此值编辑
 cli-key = 配置项
 cli-write-access = 需要的权限
+
+web-maintenance-incomplete = 响应已截断，请逐组审阅保留内容后采用。
+web-maintenance-prerequisites = 前置分组

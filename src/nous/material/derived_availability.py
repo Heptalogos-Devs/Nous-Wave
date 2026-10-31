@@ -21,8 +21,15 @@ async def dependency_availability_in(
     view: ReadView | WriteTx,
     ctx: CallContext,
     reference: MediaReference,
+    *,
+    withdrawn_observations: frozenset[str] = frozenset(),
+    purged_observations: frozenset[str] = frozenset(),
+    purged_cognition: frozenset[str] = frozenset(),
 ) -> DependencyAvailability:
     """Inspect same-subject dependencies for domain maintenance, without returning source bodies."""
+    from .read_facts import ObservationFacts, source_facts_in
+
+    facts = await source_facts_in(view, ctx)
     if reference.kind in {"representation", "derived_region"}:
         if reference.kind == "derived_region":
             raw_region = await view.connection.scalar(
@@ -55,7 +62,17 @@ async def dependency_availability_in(
             return "purged"
         if reference.observation_id and reference.observation_id not in value.source_roots:
             return "missing"
-        states = [await dependency_availability_in(view, ctx, item.source) for item in value.inputs]
+        states = [
+            await dependency_availability_in(
+                view,
+                ctx,
+                item.source,
+                withdrawn_observations=withdrawn_observations,
+                purged_observations=purged_observations,
+                purged_cognition=purged_cognition,
+            )
+            for item in value.inputs
+        ]
         for unavailable in ("purged", "missing", "withdrawn"):
             if unavailable in states:
                 return unavailable
@@ -63,39 +80,54 @@ async def dependency_availability_in(
     else:
         material_id = reference.id
         if reference.kind == "source_region":
-            material_id = await view.connection.scalar(
-                select(regions.c.material_id).where(
-                    regions.c.id == reference.id,
-                    regions.c.namespace_id == ctx.namespace_id,
+            material_id = facts.region_materials.get(reference.id) if facts else None
+            if material_id is None:
+                material_id = await view.connection.scalar(
+                    select(regions.c.material_id).where(
+                        regions.c.id == reference.id,
+                        regions.c.namespace_id == ctx.namespace_id,
+                    )
                 )
-            )
             if material_id is None:
                 return "missing"
         material_ids = (material_id,)
-        roots = tuple(
-            str(identity)
-            for identity in (
-                await view.connection.execute(
-                    select(observations.c.id).where(
-                        observations.c.namespace_id == ctx.namespace_id,
-                        observations.c.subject_id == ctx.require_subject(),
-                        observations.c.material_id == material_id,
+        roots = (
+            tuple(
+                event.id
+                for event in facts.observations.values()
+                if event.material_id == material_id
+                and (reference.observation_id is None or event.id == reference.observation_id)
+            )
+            if facts
+            else tuple(
+                str(identity)
+                for identity in (
+                    await view.connection.execute(
+                        select(observations.c.id).where(
+                            observations.c.namespace_id == ctx.namespace_id,
+                            observations.c.subject_id == ctx.require_subject(),
+                            observations.c.material_id == material_id,
+                        )
                     )
-                )
-            ).scalars()
-            if reference.observation_id is None or identity == reference.observation_id
-        )
-    material_rows = (
-        (
-            await view.connection.execute(
-                select(materials.c.record).where(
-                    materials.c.namespace_id == ctx.namespace_id,
-                    materials.c.id.in_(material_ids),
-                )
+                ).scalars()
+                if reference.observation_id is None or identity == reference.observation_id
             )
         )
-        .scalars()
-        .all()
+    material_rows = (
+        [facts.materials[identity] for identity in material_ids if identity in facts.materials]
+        if facts and set(material_ids).issubset(facts.material_ids)
+        else (
+            (
+                await view.connection.execute(
+                    select(materials.c.record).where(
+                        materials.c.namespace_id == ctx.namespace_id,
+                        materials.c.id.in_(material_ids),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
     )
     if len(material_rows) != len(material_ids):
         return "missing"
@@ -104,6 +136,16 @@ async def dependency_availability_in(
     from nous.cognition.schema import revisions
 
     for material in material_rows:
+        if material.get("dependency_purpose") == "history":
+            from .archive_dependencies import history_dependencies_in
+
+            state = await history_dependencies_in(
+                view, ctx, tuple(material.get("required_source_ids", ())), authorize=False,
+                purged_observations=purged_observations, purged_cognition=purged_cognition,
+            )
+            if state != "available":
+                return state
+            continue
         for locator in material.get("required_source_ids", ()):
             kind, colon, identity = str(locator).partition(":")
             if kind in {
@@ -118,6 +160,9 @@ async def dependency_availability_in(
                     view,
                     ctx,
                     MediaReference.model_validate({"kind": kind.replace("-", "_"), "id": identity}),
+                    withdrawn_observations=withdrawn_observations,
+                    purged_observations=purged_observations,
+                    purged_cognition=purged_cognition,
                 )
                 if state != "available":
                     return state
@@ -138,7 +183,11 @@ async def dependency_availability_in(
                 if raw is None:
                     return "missing"
                 record = CognitiveRecord.model_validate(raw)
-                if record.purged:
+                if (
+                    record.purged
+                    or record.reference.exact() in purged_cognition
+                    or record.reference.id in purged_cognition
+                ):
                     return "purged"
                 active = set(
                     (
@@ -148,6 +197,9 @@ async def dependency_availability_in(
                                 observations.c.subject_id == ctx.require_subject(),
                                 observations.c.id.in_(record.support_roots or record.source_roots),
                                 observations.c.active.is_(True),
+                                observations.c.id.not_in(
+                                    withdrawn_observations | purged_observations
+                                ),
                             )
                         )
                     ).scalars()
@@ -162,7 +214,12 @@ async def dependency_availability_in(
                 )
                 if known:
                     state = await dependency_availability_in(
-                        view, ctx, MediaReference(kind="material", id=str(locator))
+                        view,
+                        ctx,
+                        MediaReference(kind="material", id=str(locator)),
+                        withdrawn_observations=withdrawn_observations,
+                        purged_observations=purged_observations,
+                        purged_cognition=purged_cognition,
                     )
                     if state != "available":
                         return state
@@ -171,34 +228,66 @@ async def dependency_availability_in(
     }
     if not roots:
         return "missing"
-    rows = (
-        (
-            await view.connection.execute(
-                select(observations).where(
-                    observations.c.namespace_id == ctx.namespace_id,
-                    observations.c.subject_id == ctx.require_subject(),
-                    observations.c.id.in_((*roots, *required_pins)),
+    wanted = set(roots) | required_pins
+    if facts is not None:
+        rows = [
+            facts.observations[identity] for identity in wanted if identity in facts.observations
+        ]
+    else:
+        raw_rows = (
+            (
+                await view.connection.execute(
+                    select(observations).where(
+                        observations.c.namespace_id == ctx.namespace_id,
+                        observations.c.subject_id == ctx.require_subject(),
+                        observations.c.id.in_((*roots, *required_pins)),
+                    )
                 )
             )
+            .mappings()
+            .all()
         )
-        .mappings()
-        .all()
-    )
+        rows = [
+            ObservationFacts(
+                str(row["id"]),
+                str(row["material_id"]),
+                str(row["kind"]),
+                bool(row["active"]),
+                bool(row["record"].get("purged")),
+                None,
+            )
+            for row in raw_rows
+        ]
     if len(rows) != len(set(roots) | required_pins):
         return "missing"
-    if any(row["record"].get("purged") for row in rows if row["id"] in required_pins):
+    if any(row.purged or row.id in purged_observations for row in rows if row.id in required_pins):
         return "purged"
-    if any(not row["active"] for row in rows if row["id"] in required_pins):
+    if any(
+        not row.active or row.id in withdrawn_observations
+        for row in rows
+        if row.id in required_pins
+    ):
         return "withdrawn"
     if reference.kind in {"material", "source_region"} and reference.observation_id is None:
+        if roots and set(roots).issubset(purged_observations):
+            return "purged"
         return (
             "available"
-            if any(row["active"] and row["id"] in roots for row in rows)
+            if any(
+                row.active
+                and row.id in roots
+                and row.id not in withdrawn_observations | purged_observations
+                for row in rows
+            )
             else "withdrawn"
         )
-    if any(row["record"].get("purged") for row in rows):
+    if any(row.purged or row.id in purged_observations for row in rows):
         return "purged"
-    return "available" if all(row["active"] for row in rows) else "withdrawn"
+    return (
+        "available"
+        if all(row.active and row.id not in withdrawn_observations for row in rows)
+        else "withdrawn"
+    )
 
 
 class DerivedAvailability(DerivedViews):

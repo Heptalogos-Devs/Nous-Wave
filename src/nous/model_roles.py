@@ -2,9 +2,14 @@
 
 from nous_sdk.contracts.cognition import FormationDraft
 from nous_sdk.contracts.context import ContextSegment, ContextUsage, StewardProposal
+from nous_sdk.contracts.corrections import CorrectionDraft, CorrectionModelInput
+from nous_sdk.contracts.ego_model import SeedProposal
 from nous_sdk.contracts.episodes import EpisodeSegmentationDraft, EpisodeSegmentationInput
+from nous_sdk.contracts.feedback import FeedbackDecision, FeedbackInput
 from nous_sdk.contracts.growth import GrowthProposal
+from nous_sdk.contracts.motivation import MotivationInterpretation
 from nous_sdk.contracts.person_profiles import PersonProfileDraft, PersonProfileModelInput
+from nous_sdk.contracts.social import SymbolDecision, SymbolSemanticInput
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from nous.imports.model_contracts import MediaFormationDraft
@@ -67,6 +72,13 @@ class RerankInput(RoleInput):
     documents: tuple[RerankDocument, ...]
 
 
+class MotivationInput(RoleInput):
+    desire: str
+    predicate: str
+    subject_name: str
+    evidence: tuple[dict[str, JsonValue], ...]
+
+
 def append_description(prompt: dict[str, object], value: BaseModel) -> dict[str, object]:
     parsed = MediaFormationInput.model_validate(value)
     if parsed.saved_description is None:
@@ -101,7 +113,16 @@ def register(registry: RoleRegistry) -> None:
         ),
         RoleDefinition("steward", "selection", StewardInput, StewardProposal, default=True),
         RoleDefinition("maintenance", "proposal", MaintenanceInput, GrowthProposal, default=True),
+        RoleDefinition("seed", "proposal", MaintenanceInput, SeedProposal, default=True),
+        RoleDefinition(
+            "correction", "proposal", CorrectionModelInput, CorrectionDraft, default=True
+        ),
         RoleDefinition("rerank", "ranking", RerankInput, Ranking, default=True),
+        RoleDefinition("feedback", "classification", FeedbackInput, FeedbackDecision, default=True),
+        RoleDefinition("symbols", "interpretation", SymbolSemanticInput, SymbolDecision, default=True),
+        RoleDefinition(
+            "motivation", "interpretation", MotivationInput, MotivationInterpretation, default=True
+        ),
         RoleDefinition(
             "person_profile", "text", PersonProfileModelInput, PersonProfileDraft, default=True
         ),

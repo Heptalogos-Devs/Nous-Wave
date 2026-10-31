@@ -14,14 +14,16 @@ from nous_sdk.contracts import (
     MediaInfo,
     MediaReference,
 )
+from nous_sdk.contracts.common import ObservationKind
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 from nous.platform.content import ContentLease
 from nous.platform.persistence import ReadView, WriteTx
 from nous.references import allocate_in
 
 if TYPE_CHECKING:
+    from .archive_dependencies import VerifiedHistoryArchive
     from .service import MaterialRecord, MaterialService, SourceRecord
 
 
@@ -78,6 +80,7 @@ async def put_blob_in(
     *,
     required_source_ids: tuple[str, ...] = (),
     required_observation_ids: tuple[str, ...] = (),
+    history_archive: VerifiedHistoryArchive | None = None,
 ) -> MaterialRecord:
     from .service import materials, require_observation_in
 
@@ -85,7 +88,15 @@ async def put_blob_in(
         raise DomainError("content_unavailable", "Immutable content storage is not configured")
     from .access import require_dependencies_in
 
-    if required_source_ids:
+    if history_archive is not None:
+        from .archive_dependencies import history_dependencies_in
+
+        if history_archive.content_hash != lease.content_hash or history_archive.sources != frozenset(required_source_ids):
+            raise DomainError("bundle_history_mismatch", "Archive bytes and historical dependencies differ")
+        state = await history_dependencies_in(tx, ctx, required_source_ids)
+        if state != "available":
+            raise DomainError("source_unavailable", "Archive historical dependency is unavailable", state=state)
+    elif required_source_ids:
         await require_dependencies_in(self, tx, ctx, required_source_ids)
     for observation_id in required_observation_ids:
         if required_source_ids:
@@ -110,6 +121,8 @@ async def put_blob_in(
         "recorded_at": str(tx.recorded_at),
         "commit_seq": tx.commit_seq,
     }
+    if history_archive is not None:
+        value["dependency_purpose"] = "history"
     value["addresses"] = (
         await allocate_in(tx, ctx, MediaReference(kind="material", id=value["id"]))
     ).model_dump(mode="json")
@@ -131,7 +144,7 @@ async def observe_in(
     ctx: CallContext,
     material_id: str,
     document: ImportDocument | BlobDocument,
-    kind: str = "import",
+    kind: ObservationKind = "import",
     *,
     sources: tuple[MediaReference, ...] = (),
 ) -> SourceRecord:
@@ -152,8 +165,15 @@ async def observe_in(
         )
     if sources:
         for reference in sources:
-            selected, _, _ = await self.media_source_in(tx, ctx, reference)
-            if selected["id"] != material_id:
+            if reference.kind in {"representation", "derived_region"}:
+                from .derived import DerivedService
+
+                info = await DerivedService(self.authority, self).source_in(tx, ctx, reference)
+                matches = material_id in info.material_ids
+            else:
+                selected, _, _ = await self.media_source_in(tx, ctx, reference)
+                matches = selected["id"] == material_id
+            if not matches:
                 raise DomainError(
                     "source_material_conflict", "Observation source belongs to another Material"
                 )
@@ -173,6 +193,10 @@ async def observe_in(
         "recorded_at": str(tx.recorded_at),
         "commit_seq": tx.commit_seq,
     }
+    if "validity" in document.model_fields_set:
+        value["validity"] = (
+            document.validity.model_dump(mode="json") if document.validity is not None else None
+        )
     await tx.connection.execute(
         observations.insert().values(
             id=value["id"],

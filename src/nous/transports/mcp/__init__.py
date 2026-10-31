@@ -10,12 +10,19 @@ from uuid import uuid4
 from nous_sdk import NousClient
 from nous_sdk.amemorix import AMemorixAdapter
 from nous_sdk.amemorix.contracts import ProfileAdminInput
-from nous_sdk.contracts import AdmitFiles, AdoptCognition, DomainError, QueryRequest
+from nous_sdk.contracts import (
+    AdmitFiles,
+    AdoptCognition,
+    ContactMaterial,
+    DomainError,
+    QueryRequest,
+)
 from nous_sdk.contracts.context import (
     ContextAdmissionCommand,
     ContextPrepare,
     ContextReport,
 )
+from nous_sdk.contracts.dataset_imports import BackfillSourceTimes, ImportDataset
 from nous_sdk.errors import NousError as ClientError
 from nous_sdk.presentation import query_text
 from nous_sdk.types import JsonObject
@@ -27,6 +34,7 @@ from mcp.types import CallToolResult, TextContent
 from nous.platform.errors import NousError
 from nous.platform.observability import configure_logging
 
+from .entities import register_entities
 from .maintenance import register_maintenance
 from .management import register_management
 
@@ -69,6 +77,44 @@ def run(
         async with client() as api:
             adapter = AMemorixAdapter(api, namespace_id=namespace_id, subject_id=subject_id)
             return await adapter.call(tool, arguments)
+
+    @mcp.tool()
+    async def enqueue_feedback_task(
+        query_tool_id: str,
+        session_id: str,
+        query_timestamp: float | str | None = None,
+        structured_content: dict[str, JsonValue] | None = None,
+    ) -> JsonObject:
+        """Schedule feedback from subsequent real messages for this supplied query."""
+        return await call(
+            "enqueue_feedback_task",
+            {
+                "query_tool_id": query_tool_id,
+                "session_id": session_id,
+                "query_timestamp": query_timestamp,
+                "structured_content": structured_content,
+            },
+        )
+
+    @mcp.tool()
+    async def memory_feedback_admin(
+        action: Literal["get", "list", "rollback"],
+        task_id: int | None = None,
+        limit: int = 50,
+        status: str | None = None,
+        reason: str = "Rollback feedback correction",
+    ) -> JsonObject:
+        """Inspect feedback tasks or roll back their native correction."""
+        return await call(
+            "memory_feedback_admin",
+            {
+                "action": action,
+                "task_id": task_id,
+                "limit": limit,
+                "status": status,
+                "reason": reason,
+            },
+        )
 
     @mcp.tool()
     async def search_memory(
@@ -225,12 +271,40 @@ def run(
             ).model_dump(mode="json")
 
     @mcp.tool()
+    async def image_memory(
+        action: str, arguments: dict[str, JsonValue] | None = None
+    ) -> JsonObject:
+        """Read, describe, search or maintain uploaded images and their actual occurrences."""
+        async with client() as api:
+            return await AMemorixAdapter(
+                api, namespace_id=namespace_id, subject_id=subject_id
+            ).invoke("image_memory", {"action": action, **(arguments or {})})
+
+    @mcp.tool()
+    async def contact_material(command: ContactMaterial) -> JsonObject:
+        """Record an actual subject encounter with an exact source and external event identity."""
+        async with client() as api:
+            return (await api.contact(namespace_id, subject_id, command)).model_dump(mode="json")
+
+    @mcp.tool()
     async def admit_documents(command: AdmitFiles) -> JsonObject:
         """Preserve real documents and form cognition under the supplied completion policy."""
         async with client() as api:
             return (await api.admit_documents(namespace_id, subject_id, command)).model_dump(
                 mode="json"
             )
+
+    @mcp.tool()
+    async def import_dataset(command: ImportDataset) -> JsonObject:
+        """Import captured source datasets and optionally export a portable subject bundle."""
+        async with client() as api:
+            return await api.import_dataset(namespace_id, subject_id, command)
+
+    @mcp.tool()
+    async def backfill_source_times(command: BackfillSourceTimes) -> JsonObject:
+        """Recover missing source times from explicit fields, with an optional preview."""
+        async with client() as api:
+            return await api.backfill_source_times(namespace_id, subject_id, command)
 
     @mcp.tool()
     async def adopt_cognition(command: AdoptCognition) -> JsonObject:
@@ -283,4 +357,5 @@ def run(
 
     register_management(mcp, client, namespace_id, subject_id)
     register_maintenance(mcp, client, namespace_id, subject_id)
+    register_entities(mcp, client, namespace_id, subject_id)
     mcp.run(transport="stdio")

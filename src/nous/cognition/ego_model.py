@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
 
 from nous_sdk.contracts import (
@@ -10,26 +9,27 @@ from nous_sdk.contracts import (
     CallContext,
     CognitiveRecord,
     CognitiveRef,
-    CognitiveTimes,
     DomainError,
     EgoFacetBody,
     EpistemicStance,
     EvidenceLink,
+    FreezeCatalog,
     MemoryBody,
-    TimePoint,
 )
 from nous_sdk.contracts.ego_model import AdoptSeed, SeedResult
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
-from nous.material.service import MaterialRecord
-from nous.platform.content import ContentLease, ContentObject
+from nous.identity.access import require_subject_in
 from nous.platform.persistence import ReadView, WriteTx
 
+from .growth_sources import from_units_in
+from .growth_sources import read_in as read_sources_in
 from .lifecycle import selectable
 from .schema import revisions
 
 if TYPE_CHECKING:
+    from nous.imports.service import ImportService
+
     from .service import CognitionService
 
 
@@ -46,8 +46,29 @@ async def replay_seed(
         for facet in entry.facets:
             if facet.target:
                 await self.get_in(view, ctx, facet.target)
-    effective = (
-        await self.qualify_known_outputs_in(
+    frozen = FreezeCatalog(
+        operation_id=command.operation_id + ":materials",
+        inputs=tuple(entry.document for entry in command.documents),
+    )
+    frozen_receipt = await self.authority.receipt(
+        ctx,
+        frozen.operation_id,
+        operation_kind="imports.freeze",
+        scope=ctx.require_subject(),
+        payload=frozen,
+    )
+    if ctx.source_groups() and frozen_receipt is not None:
+        effective = (
+            await self.materials.restore_input_in(
+                view,
+                ctx,
+                operation_id=frozen.operation_id,
+                operation_kind="imports.freeze",
+                scope=ctx.require_subject(),
+            )
+        ).context
+    elif ctx.source_groups():
+        effective = await self.qualify_known_outputs_in(
             view,
             ctx,
             (*cached.memories, *cached.facets),
@@ -55,15 +76,18 @@ async def replay_seed(
             operation_kind="self.seed",
             scope=ctx.require_subject(),
         )
-        if ctx.source_groups()
-        else ctx
-    )
+    else:
+        effective = ctx
     for reference in (*cached.memories, *cached.facets):
         await self.get_in(view, effective, reference)
     return cached
 
 
-async def adopt_seed(self: CognitionService, ctx: CallContext, command: AdoptSeed) -> SeedResult:
+async def adopt_seed(
+    self: CognitionService, ctx: CallContext, command: AdoptSeed, *, imports: ImportService
+) -> SeedResult:
+    async with self.authority.read(ctx) as view:
+        await require_subject_in(view, ctx, "ego")
     receipt = await self.authority.receipt(
         ctx,
         command.operation_id,
@@ -76,136 +100,116 @@ async def adopt_seed(self: CognitionService, ctx: CallContext, command: AdoptSee
             return await replay_seed(
                 self, view, ctx, command, SeedResult.model_validate(receipt.result)
             )
+    frozen = FreezeCatalog(
+        operation_id=command.operation_id + ":materials",
+        inputs=tuple(entry.document for entry in command.documents),
+    )
+    catalog = await imports.freeze_catalog(ctx, frozen)
+    if catalog.errors or not catalog.units:
+        raise DomainError(
+            "seed_input_invalid", "Seed documents require supported readable material"
+        )
+    effective = ctx
     async with self.authority.read(ctx) as view:
-        await require_subject_in(view, ctx, "ego")
-    prepared: list[tuple[MaterialRecord | None, str, ContentLease | None]] = []
-    try:
-        for entry in command.documents:
-            document = entry.document
-            material = (
-                await self.materials.read(ctx, document.material_id)
-                if document.material_id
-                else None
+        if ctx.source_groups():
+            effective = (
+                await self.materials.restore_input_in(
+                    view,
+                    ctx,
+                    operation_id=frozen.operation_id,
+                    operation_kind="imports.freeze",
+                    scope=ctx.require_subject(),
+                )
+            ).context
+        sources = await from_units_in(self, view, effective, catalog.units)
+        sources = await read_sources_in(self, view, effective, sources)
+    async with self.authority.write(
+        ctx,
+        command.operation_id,
+        operation_kind="self.seed",
+        scope=ctx.require_subject(),
+        payload=command,
+    ) as tx:
+        if tx.replayed:
+            return await replay_seed(
+                self, tx, ctx, command, SeedResult.model_validate(tx.replay_result)
             )
-            text = material["text"] if material else document.inline_text()
-            if text is None:
-                if self.materials.content_store is None:
-                    raise DomainError(
-                        "content_unavailable", "The Seed original bytes are unavailable"
-                    )
-                assert material is not None
-                async with self.materials.content_store.protect(
-                    ContentObject(
-                        material["content_hash"], material["byte_len"], material["media_type"]
-                    )
-                ) as path:
-                    text = (await asyncio.to_thread(path.read_bytes)).decode("utf-8-sig")
-            lease = (
-                await self.materials.content_store.publish_bytes(text.encode(), document.media_type)
-                if self.materials.content_store and material is None
-                else None
+        await require_subject_in(tx, effective, "ego")
+        memories: list[CognitiveRef] = []
+        facets: list[CognitiveRef] = []
+        observation_ids: list[str] = []
+        for entry, source_id in zip(command.documents, catalog.input_source_ids, strict=True):
+            selected = tuple(
+                source
+                for unit, source in zip(catalog.units, sources, strict=True)
+                if unit.input_source_id == source_id
             )
-            prepared.append((material, text, lease))
-        async with self.authority.write(
-            ctx,
-            command.operation_id,
-            operation_kind="self.seed",
-            scope=ctx.require_subject(),
-            payload=command,
-        ) as tx:
-            if tx.replayed:
-                return await replay_seed(
-                    self, tx, ctx, command, SeedResult.model_validate(tx.replay_result)
-                )
-            await require_subject_in(tx, ctx, "ego")
-            memories: list[CognitiveRef] = []
-            facets: list[CognitiveRef] = []
-            observation_ids: list[str] = []
-            effective = ctx
-            for entry, (original, text, lease) in zip(command.documents, prepared, strict=True):
-                document = entry.document.model_copy(update={"source_type": "self_seed"})
-                if original:
-                    await self.materials.read_in(tx, ctx, original["id"])
-                    admission = await self.materials.admit_observation_in(
-                        tx, effective, original["id"], document
-                    )
-                else:
-                    admission = await self.materials.admit_text_in(tx, effective, document, lease)
-                material, event, effective = admission.material, admission.event, admission.context
-                observation_ids.append(event["id"])
-                evidence = (EvidenceLink(observation_id=event["id"]),)
-                times = CognitiveTimes(
-                    event=document.event_time,
-                    observation=TimePoint.model_validate(event["observed_at"]),
-                    formation=ctx.clock,
-                    recorded=ctx.clock,
-                )
-                stance = EpistemicStance(
-                    classification="simulated", attribution="self_seed:" + material["id"]
-                )
-                if entry.enter_memory:
+            evidence = tuple(link for source in selected for link in source.evidence)
+            observation_ids.extend(
+                link.observation_id for link in evidence if link.observation_id is not None
+            )
+            stance = EpistemicStance(classification="reported", attribution="creator_document")
+            if entry.enter_memory:
+                for source in selected:
                     memory = await self.adopt_in(
                         tx,
                         effective,
                         AdoptCognition(
                             body=MemoryBody(
-                                text=text, role="procedural_experience", epistemic=stance
+                                text=source.text,
+                                media=(source.source,),
+                                role="declarative",
+                                epistemic=stance,
                             ),
-                            evidence=evidence,
-                            times=times,
+                            evidence=source.evidence,
+                            times=source.times,
                         ),
                     )
                     memories.append(memory.reference)
-                for facet in entry.facets:
-                    prior = await self.get_in(tx, ctx, facet.target) if facet.target else None
-                    if prior is not None and not isinstance(prior.body, EgoFacetBody):
-                        raise DomainError(
-                            "seed_target_invalid",
-                            "A seeded facet can only revise an existing EgoFacet",
-                        )
-                    record = await self.adopt_in(
-                        tx,
-                        effective,
-                        AdoptCognition(
-                            id=prior.reference.id if prior else None,
-                            expected_revision=prior.reference.revision if prior else 0,
-                            body=EgoFacetBody(
-                                facet=facet.facet,
-                                description=facet.description,
-                                contexts=facet.contexts,
-                                exceptions=facet.exceptions,
-                                epistemic=stance,
-                            ),
-                            evidence=(
-                                *evidence,
-                                *(
-                                    (
-                                        EvidenceLink(
-                                            reference=prior.reference,
-                                            polarity="boundary",
-                                            role="superseded_seed",
-                                        ),
-                                    )
-                                    if prior
-                                    else ()
-                                ),
-                            ),
-                            times=times,
-                        ),
+            for facet in entry.facets:
+                prior = await self.get_in(tx, effective, facet.target) if facet.target else None
+                if prior is not None and not isinstance(prior.body, EgoFacetBody):
+                    raise DomainError(
+                        "seed_target_invalid", "Seeded facet updates require an EgoFacet"
                     )
-                    facets.append(record.reference)
-            result = SeedResult(
-                observation_ids=tuple(observation_ids),
+                record = await self.adopt_in(
+                    tx,
+                    effective,
+                    AdoptCognition(
+                        id=prior.reference.id if prior else None,
+                        expected_revision=prior.reference.revision if prior else 0,
+                        body=EgoFacetBody(
+                            facet=facet.facet,
+                            description=facet.description,
+                            contexts=facet.contexts,
+                            exceptions=facet.exceptions,
+                            category=facet.category,
+                            epistemic=stance,
+                        ),
+                        evidence=evidence
+                        + (
+                            (
+                                EvidenceLink(
+                                    reference=prior.reference,
+                                    polarity="boundary",
+                                    role="superseded_seed",
+                                ),
+                            )
+                            if prior
+                            else ()
+                        ),
+                        times=selected[0].times,
+                    ),
+                )
+                facets.append(record.reference)
+        return tx.result(
+            SeedResult(
+                observation_ids=tuple(dict.fromkeys(observation_ids)),
                 memories=tuple(memories),
                 facets=tuple(facets),
                 commit_seq=tx.commit_seq,
             )
-            return tx.result(result)
-    finally:
-        if self.materials.content_store:
-            for _, _, lease in prepared:
-                if lease is not None:
-                    await self.materials.content_store.release(lease)
+        )
 
 
 async def ego_profile(self: CognitionService, ctx: CallContext) -> tuple[CognitiveRecord, ...]:

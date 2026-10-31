@@ -15,7 +15,14 @@ from .query_conditions import (
 )
 from .query_readout import RerankInfo
 from .query_vcp import VcpIntent, VcpResult
+from .resources import ResourceRecord
+from .retrieval_policy import RetrievalPolicy
 from .source_graph import ExpandedSources
+from .source_objects import EvidenceRelationRecord, ObservationRecord
+
+QueryObject = (
+    CognitiveRecord | MediaRecord | ObservationRecord | EvidenceRelationRecord | ResourceRecord
+)
 
 
 class TimeFilter(Contract):
@@ -24,6 +31,7 @@ class TimeFilter(Contract):
 
 
 class QueryRequest(Contract):
+    profile: RetrievalPolicy | None = None
     vcp: VcpIntent = Field(default_factory=VcpIntent)
     text: str = ""
     expression: QueryExpression | None = None
@@ -36,7 +44,9 @@ class QueryRequest(Contract):
     materialize: bool = False
     mode: Literal["lexical", "dense", "hybrid", "vcp"] = "lexical"
     kinds: tuple[CognitiveKind, ...] = ()
-    domains: tuple[Literal["cognition", "media"], ...] = ("cognition",)
+    domains: tuple[Literal["cognition", "media", "observation", "evidence", "resource"], ...] = (
+        "cognition",
+    )
     media: tuple[MediaReference, ...] = ()
     parts: tuple[str | MediaReference, ...] = ()
     limit: int = Field(default=10, ge=1, le=1000)
@@ -52,7 +62,7 @@ class QueryRequest(Contract):
 
 
 class QueryHit(Contract):
-    object: CognitiveRecord | MediaRecord
+    object: QueryObject
     score: float
     source_roots: tuple[str, ...]
     rerank_score: float | None = None

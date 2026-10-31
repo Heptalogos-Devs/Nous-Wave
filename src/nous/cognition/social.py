@@ -13,10 +13,15 @@ from nous_sdk.contracts import (
     EvidenceLink,
     SocialRelationBody,
 )
-from nous_sdk.contracts.social import ChangeSocialRelation, LinkIdentity
+from nous_sdk.contracts.social import (
+    ChangeSocialRelation,
+    IdentityHypothesis,
+    LinkIdentity,
+    UnlinkIdentity,
+)
 from sqlalchemy import select
 
-from nous.identity.service import require_subject_in
+from nous.identity.access import require_subject_in
 
 from .lifecycle import selectable
 from .projection import references_in
@@ -198,3 +203,95 @@ async def social_profile(
             ):
                 result.append(record)
         return tuple(result)
+
+
+async def propose_identity(
+    self: CognitionService, ctx: CallContext, command: IdentityHypothesis
+) -> CognitiveRecord:
+    from nous_sdk.contracts import AssociationBody, EpistemicStance
+
+    async with self.authority.write(
+        ctx,
+        command.operation_id,
+        operation_kind="social.identity_hypothesis",
+        scope=ctx.require_subject(),
+        payload=command,
+    ) as tx:
+        if tx.replayed:
+            return await self.replay_record_in(
+                tx, ctx, CognitiveRecord.model_validate(tx.replay_result)
+            )
+        await require_subject_in(tx, ctx, "social")
+        for reference in (command.left, command.right):
+            person = await self.get_in(tx, ctx, reference)
+            if not isinstance(person.body, EntityBody) or person.body.entity_type != "person":
+                raise DomainError(
+                    "identity_person_required", "An identity hypothesis requires two people"
+                )
+        return tx.result(
+            await self.adopt_in(
+                tx,
+                ctx,
+                AdoptCognition(
+                    body=AssociationBody(
+                        from_ref=command.left,
+                        to_ref=command.right,
+                        relation="possible_same_person",
+                        basis_class="source_evidence",
+                        description=command.explanation,
+                        epistemic=EpistemicStance(
+                            classification="inferred", confidence=command.confidence
+                        ),
+                    ),
+                    evidence=command.evidence,
+                    times=command.times,
+                ),
+            )
+        )
+
+
+async def unlink_identity(
+    self: CognitionService, ctx: CallContext, command: UnlinkIdentity
+) -> CognitiveRecord:
+    async with self.authority.write(
+        ctx,
+        command.operation_id,
+        operation_kind="social.unlink_identity",
+        scope=ctx.require_subject(),
+        payload=command,
+    ) as tx:
+        if tx.replayed:
+            return await self.replay_record_in(
+                tx, ctx, CognitiveRecord.model_validate(tx.replay_result)
+            )
+        await require_subject_in(tx, ctx, "social")
+        person = await self.get_in(tx, ctx, command.entity)
+        if not isinstance(person.body, EntityBody):
+            raise DomainError("identity_person_required", "Account correction requires an Entity")
+        retained = tuple(
+            identity
+            for identity in person.body.platform_identities
+            if (identity.platform, identity.account_id) != (command.platform, command.account_id)
+        )
+        if retained == person.body.platform_identities:
+            raise DomainError(
+                "identity_not_found", "The selected account is not linked to this person"
+            )
+        return tx.result(
+            await self.adopt_in(
+                tx,
+                ctx,
+                AdoptCognition(
+                    id=person.reference.id,
+                    expected_revision=person.reference.revision,
+                    body=person.body.model_copy(update={"platform_identities": retained}),
+                    evidence=(
+                        *command.evidence,
+                        EvidenceLink(
+                            reference=person.reference, polarity="boundary", role=command.reason
+                        ),
+                    ),
+                    times=command.times,
+                ),
+            )
+        )

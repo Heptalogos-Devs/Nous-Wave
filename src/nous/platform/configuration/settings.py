@@ -8,6 +8,7 @@ from pydantic import AfterValidator, BaseModel, Field, JsonValue
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from nous.platform.network.policy import NetworkPolicy
+from nous.platform.paths import default_instance_path
 
 ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 
@@ -61,9 +62,16 @@ class EmbeddingRoute(ModelRoute):
     max_batch_items: int = Field(default=64, ge=1, le=2048)
 
 
+class RPCSettings(BaseModel):
+    enabled: bool = False
+    host: str = "127.0.0.1"
+    port: int = Field(default=7442, ge=0, le=65535)
+    maximum_message_bytes: int = Field(default=16 * 1024 * 1024, ge=1024, le=256 * 1024 * 1024)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="NOUS_", env_nested_delimiter="__")
-    instance: Path = Path("temp/instances/default")
+    instance: Path = Field(default_factory=default_instance_path)
     host: str = "127.0.0.1"
     port: int = Field(default=7441, ge=1, le=65535)
     locale: str = "zh-CN"
@@ -71,6 +79,7 @@ class Settings(BaseSettings):
     embedding: EmbeddingRoute = Field(default_factory=EmbeddingRoute)
     network: NetworkPolicy = Field(default_factory=NetworkPolicy)
     media: MediaPolicy = Field(default_factory=MediaPolicy)
+    rpc: RPCSettings = Field(default_factory=RPCSettings)
     log_level: str = "INFO"
 
     @property

@@ -7,7 +7,6 @@ from nous_sdk.contracts import (
     AdoptMedia,
     BlobDocument,
     CallContext,
-    CognitiveTimes,
     DomainError,
     EpistemicStance,
     EvidenceLink,
@@ -28,7 +27,8 @@ from nous_sdk.contracts.derivation import (
 from pydantic import JsonValue, TypeAdapter
 
 from nous.cognition.formation_validation import validate_formation_draft
-from nous.material.service import MaterialRecord, SourceRecord, require_observation_in
+from nous.material.observation import cognitive_times
+from nous.material.service import MaterialRecord, SourceRecord
 from nous.platform.content import ContentObject
 from nous.platform.persistence import ReadView, WriteTx
 
@@ -38,6 +38,36 @@ from .model_generation import interpret
 
 if TYPE_CHECKING:
     from .media import MediaImportService
+
+
+async def accepted_media_in(
+    self: MediaImportService,
+    view: ReadView | WriteTx,
+    ctx: CallContext,
+    command: AdoptMedia,
+    observation_id: str,
+) -> SourceRecord:
+    references = (
+        (command.source,)
+        if command.source is not None
+        else tuple(
+            MediaReference(kind="source_region", id=region.id, observation_id=observation_id)
+            for region in command.regions
+        )
+        or (MediaReference(kind="material", id=command.material_id, observation_id=observation_id),)
+    )
+    event: SourceRecord | None = None
+    for reference in references:
+        selected = await self.materials.accepted_source_in(
+            view, ctx, observation_id, reference, derivations=self.derivations
+        )
+        if selected.material["id"] != command.material_id:
+            raise DomainError(
+                "observation_material_conflict", "Observation belongs to a different original"
+            )
+        event = selected.event
+    assert event is not None
+    return event
 
 
 async def authorize_result(
@@ -60,12 +90,7 @@ async def authorize_result(
             )
         ).context
     observation_id = TypeAdapter(str).validate_python(result["observation_id"])
-    references = tuple(
-        MediaReference(kind="source_region", id=region.id, observation_id=observation_id)
-        for region in command.regions
-    ) or (MediaReference(kind="material", id=command.material_id, observation_id=observation_id),)
-    for reference in references:
-        await self.materials.media_source_in(view, ctx, reference)
+    await accepted_media_in(self, view, ctx, command, observation_id)
     return result
 
 
@@ -86,7 +111,7 @@ async def observe(
         command.operation_id + ":contact",
         operation_kind="media.contact",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=command.identity_payload(),
     ) as tx:
         if tx.replayed:
             value = TypeAdapter(SourceRecord).validate_python(tx.replay_result)
@@ -104,12 +129,7 @@ async def observe(
                 if command.observation_id is None and ctx.source_groups()
                 else ctx
             )
-            await require_observation_in(
-                tx,
-                effective,
-                value["id"],
-                region_id=command.regions[0].id if command.regions else None,
-            )
+            await accepted_media_in(self, tx, effective, command, value["id"])
             return value, effective
         if command.observation_id is None:
             sources = tuple(
@@ -120,19 +140,7 @@ async def observe(
             )
             value, effective = admission.event, admission.context
         else:
-            existing = await require_observation_in(
-                tx,
-                ctx,
-                command.observation_id,
-                region_id=command.regions[0].id if command.regions else None,
-            )
-            if existing["material_id"] != command.material_id:
-                raise DomainError(
-                    "observation_material_conflict", "Observation belongs to a different original"
-                )
-            for region in command.regions[1:]:
-                await require_observation_in(tx, ctx, command.observation_id, region_id=region.id)
-            value = TypeAdapter(SourceRecord).validate_python(existing["record"])
+            value = await accepted_media_in(self, tx, ctx, command, command.observation_id)
             effective = ctx
         tx.result(value)
         return value, effective
@@ -146,12 +154,23 @@ async def adopt(
         command.operation_id,
         operation_kind="media.adopt",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=command.identity_payload(),
     )
     if completed is not None:
         async with self.authority.read(ctx) as view:
             return await authorize_result(self, view, ctx, command, completed.result)
-    if command.regions:
+    if command.source is not None:
+        assert command.observation_id is not None
+        async with self.authority.read(ctx) as view:
+            selected = await self.materials.accepted_source_in(
+                view, ctx, command.observation_id, command.source, derivations=self.derivations
+            )
+            material = selected.material
+        if material["id"] != command.material_id:
+            raise DomainError(
+                "observation_material_conflict", "Selected source belongs to a different original"
+            )
+    elif command.regions:
         if any(region.material_id != command.material_id for region in command.regions):
             raise DomainError(
                 "region_material_conflict", "Every region must belong to the selected original"
@@ -183,16 +202,26 @@ async def adopt(
         material = await self.materials.read(ctx, command.material_id)
     observation, ctx = await observe(self, ctx, command, material)
     observation_id = observation["id"]
-    references = tuple(
-        MediaReference(kind="source_region", id=region.id, observation_id=observation_id)
-        for region in command.regions
-    ) or (MediaReference(kind="material", id=command.material_id, observation_id=observation_id),)
+    contact_source = observation.get("contact_source")
+    references = (
+        (MediaReference.model_validate(contact_source),)
+        if contact_source is not None
+        else (command.source,)
+        if command.source
+        else tuple(
+            MediaReference(kind="source_region", id=region.id, observation_id=observation_id)
+            for region in command.regions
+        )
+        or (MediaReference(kind="material", id=command.material_id, observation_id=observation_id),)
+    )
     source_inputs = tuple(
         DerivationInput(ordinal=index, source=reference)
         for index, reference in enumerate(references)
     )
     prepared_media = await self.media.freeze()
-    if command.regions:
+    if command.source is not None:
+        media = (await self.generation_input(ctx, references[0], media=prepared_media),)
+    elif command.regions:
         media = tuple(
             [
                 await self.region_input(ctx, region.id, media=prepared_media)
@@ -221,11 +250,11 @@ async def adopt(
                 operation_id=command.operation_id + ":description",
                 inputs=source_inputs,
                 kind="image_description"
-                if material["media_type"].startswith("image/")
+                if media[0].media_type.startswith("image/")
                 else "audio_description"
-                if material["media_type"].startswith("audio/")
+                if media[0].media_type.startswith("audio/")
                 else "scene_description"
-                if material["media_type"].startswith("video/")
+                if media[0].media_type.startswith("video/")
                 else "resource_synopsis",
                 payload=TextRepresentation(text=value.description),
                 producer=producer,
@@ -240,11 +269,22 @@ async def adopt(
         "description": "description_only",
         "description_then_native": "describe_then_structure",
     }
+    material_ids: set[str] = set()
+    async with self.authority.read(ctx) as view:
+        for reference in references:
+            info = (
+                await self.derivations.source_in(view, ctx, reference)
+                if reference.kind in {"representation", "derived_region"}
+                else await self.materials.provenance_in(
+                    view, ctx, reference, derivations=self.derivations
+                )
+            )
+            material_ids.update(info.material_ids)
     source: dict[str, object] = {
         "material_id": command.material_id,
         "filename": material["filename"],
         "observation_id": observation_id,
-        "source_material_ids": [command.material_id],
+        "source_material_ids": sorted(material_ids),
         "regions": [region.model_dump(mode="json") for region in command.regions],
     }
     for attempt in range(2):
@@ -255,6 +295,7 @@ async def adopt(
             source,
             media,
             strategies[command.strategy],
+            authority=self.authority,
             description_adopter=save_description,
             cached_description=description,
         )
@@ -294,12 +335,16 @@ async def adopt(
         command.operation_id,
         operation_kind="media.adopt",
         scope=ctx.require_subject(),
-        payload=command,
+        payload=command.identity_payload(),
     ) as tx:
         if tx.replayed:
             return await authorize_result(self, tx, ctx, command, tx.replay_result)
+        await accepted_media_in(self, tx, ctx, command, observation_id)
         for reference in references:
-            await self.materials.media_source_in(tx, ctx, reference)
+            if reference.kind in {"representation", "derived_region"}:
+                await self.derivations.source_in(tx, ctx, reference)
+            else:
+                await self.materials.media_source_in(tx, ctx, reference)
         representation = description_record
         if not isinstance(result, Description):
             if proposal.producer_call_id is None:
@@ -342,12 +387,14 @@ async def adopt(
             EvidenceLink(observation_id=observation_id, region_id=region.id)
             for region in command.regions
         ) or (EvidenceLink(observation_id=observation_id),)
-        times = CognitiveTimes(
-            formation=ctx.clock,
-            observation=TimePoint.model_validate(observation["observed_at"]),
-            recorded=ctx.clock,
-            event=proposal.event or document_event(material),
-            validity=proposal.validity,
+        actual_contact = observation["kind"] == "contact"
+        if actual_contact:
+            evidence = ()
+        times = cognitive_times(
+            observation,
+            ctx.clock,
+            inferred_event=proposal.event or document_event(material),
+            inferred_validity=proposal.validity,
         )
         if not proposal.memories:
             raise DomainError(
@@ -358,7 +405,19 @@ async def adopt(
             ctx,
             AdoptCognition(
                 body=MemoryBody(
-                    media=(representation.reference.media(),) if representation else (),
+                    media=tuple(
+                        dict.fromkeys(
+                            (representation.reference.media(), *references)
+                            if actual_contact and representation
+                            else references
+                            if actual_contact
+                            else (representation.reference.media(),)
+                            if representation
+                            else ()
+                        )
+                    ),
+                    contact_observation_id=observation_id if actual_contact else None,
+                    role="experiential" if actual_contact else "declarative",
                     text="\n\n".join(item.text for item in proposal.memories),
                     tags=tuple(
                         dict.fromkeys(tag for item in proposal.memories for tag in item.tags)

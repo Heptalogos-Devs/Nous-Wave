@@ -17,6 +17,8 @@ from nous_sdk.contracts import (
     SourceRegion,
 )
 from nous_sdk.contracts.context import CognitiveTarget, ContextUsage, ContextUse
+from nous_sdk.contracts.graph_management import GraphReadQuery, GraphSearchQuery
+from nous_sdk.contracts.person_profiles import PersonProfilesQuery
 from nous_sdk.source_scope import CognitionSource, MediaSource, OriginalMedia
 
 from nous.platform.configuration import Settings
@@ -468,6 +470,32 @@ def test_sdk_scopes_and_managed_real_http(tmp_path):
                 assert (await adapter.search_memory("绿茶", chat_id="chat:one"))["hits"]
                 profile = await adapter.get_person_profile(person_id="person:alice")
                 assert any("绿茶" in trait for trait in profile["traits"])
+                native_profile = await client.person_profiles(
+                    namespace.id, subject.id, PersonProfilesQuery(identifier="person:alice")
+                )
+                assert any("绿茶" in item.content for item in native_profile.items[0].evidence)
+                native_graph = await client.search_graph(
+                    namespace.id, subject.id, GraphSearchQuery(text="Alice")
+                )
+                assert (
+                    native_graph.matches[0].record.reference
+                    == native_profile.items[0].record.reference
+                )
+                neighborhood = await client.read_graph(
+                    namespace.id,
+                    subject.id,
+                    GraphReadQuery(node=native_profile.items[0].record.reference.exact()),
+                )
+                assert native_profile.items[0].record.reference in {
+                    record.reference for record in neighborhood.records
+                }
+                compatibility_graph = await adapter.memory_graph_admin(
+                    action="search", query="Alice"
+                )
+                assert (
+                    compatibility_graph["items"][0]["entity_hash"]
+                    == native_graph.matches[0].record.reference.id
+                )
                 assert (await adapter.memory_stats())["paragraphs"] >= 2
                 memory_id = stored["stored_ids"][0]
                 await adapter.maintain_memory(action="freeze", target=memory_id)

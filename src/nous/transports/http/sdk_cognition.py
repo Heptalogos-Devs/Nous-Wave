@@ -1,11 +1,17 @@
 """Exact cognitive lookup and lifecycle share their formal domain owner."""
 
 from fastapi import APIRouter, Request
-from nous_sdk.contracts import CognitiveRef, DomainError
+from nous_sdk.contracts import CognitiveRef, DomainError, MergeEntities, SplitEntity
 from nous_sdk.contracts.cognition import CognitiveKind
 from nous_sdk.contracts.lifecycle import MemoryChanges
-from nous_sdk.contracts.person_profiles import PersonProfileChange, RefreshPersonProfile
-from pydantic import TypeAdapter
+from nous_sdk.contracts.person_profiles import (
+    PersonProfileChange,
+    PersonProfilesQuery,
+    PersonProfilesResult,
+    RefreshPersonProfile,
+)
+from nous_sdk.contracts.records import ReadRecords, RecordPurpose, RecordsQuery
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from sqlalchemy import select
 
 from nous.cognition.schema import revisions
@@ -14,6 +20,83 @@ from .sdk_common import OperationIdentity, cognitive_context
 from .security import application, context
 
 router = APIRouter()
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/person-profiles/query")
+async def person_profiles(
+    request: Request, namespace_id: str, subject_id: str, command: PersonProfilesQuery
+) -> PersonProfilesResult:
+    return await application(request).person_profiles.query(
+        await context(request, namespace_id, subject_id, capability="read"), command
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/entities/merge")
+async def merge_entities(
+    request: Request, namespace_id: str, subject_id: str, command: MergeEntities
+):
+    return await application(request).cognition.merge_entities(
+        await context(request, namespace_id, subject_id, capability="manage"), command
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/entities/split")
+async def split_entity(request: Request, namespace_id: str, subject_id: str, command: SplitEntity):
+    return await application(request).cognition.split_entity(
+        await context(request, namespace_id, subject_id, capability="manage"), command
+    )
+
+
+class RecordDetailRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reference: CognitiveRef
+    history_limit: int = Field(default=100, ge=1, le=1000)
+    purpose: RecordPurpose = "exact"
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/records/query")
+async def records_query(
+    request: Request, namespace_id: str, subject_id: str, command: RecordsQuery
+):
+    return await application(request).cognition.records(
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="manage" if command.purpose == "management" else "read",
+        ),
+        command,
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/records/read")
+async def records_read(request: Request, namespace_id: str, subject_id: str, command: ReadRecords):
+    return await application(request).cognition.read_records(
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="manage" if command.purpose == "management" else "read",
+        ),
+        command,
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/records/detail")
+async def record_detail(
+    request: Request, namespace_id: str, subject_id: str, command: RecordDetailRequest
+):
+    return await application(request).cognition.record_detail(
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="manage" if command.purpose == "management" else "read",
+        ),
+        command.reference,
+        history_limit=command.history_limit,
+        purpose=command.purpose,
+    )
 
 
 @router.post("/namespaces/{namespace_id}/subjects/{subject_id}/person-profiles/change")

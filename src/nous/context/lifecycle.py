@@ -249,7 +249,8 @@ class ContextLifecycle:
                     for target in result.content.anchors
                     if target.kind == "cognition"
                 ],
-                "token_upper_bound": len(result.content.context_text.encode()),
+                "selected_text_bytes": len(result.content.context_text.encode()),
+                "budget_estimate": "utf8_bytes",
                 "commit_seq": tx.commit_seq,
                 "work_context": result.model_dump(mode="json"),
             }

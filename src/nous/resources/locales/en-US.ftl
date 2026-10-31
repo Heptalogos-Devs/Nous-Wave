@@ -499,3 +499,6 @@ web-config-history = Read change history
 web-config-use-value = Edit this value
 cli-key = Setting
 cli-write-access = Required permission
+
+web-maintenance-incomplete = The response was interrupted. Review each retained group before adopting.
+web-maintenance-prerequisites = Prerequisite groups

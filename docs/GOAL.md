@@ -30,8 +30,8 @@ Python 主应用拥有认知规则、SQLite 权威数据和事务、来源授权
 
 ## 当前工作
 
-正式开发基线为 `main`。真实文本、图像、动态媒体、模型形成与向量、来源、重启、MaiBot 画像、Episode 和 Managed Context 已有实际使用结果。VCP 请求意图、Fact、Context Source 工具及 SDK/MCP 可读输出已有真实运行记录，相关实现已保存到 WIP 代码检查点 `67e09cd`；此前正式功能节点为 `68fc3ae`。
+正式开发基线为 `main`。Python 应用已恢复启动、资源关闭和真实模型调用，统一认知修订、来源与实际向量空间；CLI、HTTP、MCP、SDK 和 A-Memorix 公共工具消费同一原生权威。旧 Rust 应用已移除，保留独立的 Native 计算工作区。Windows 发行包已在独立目录完成安装和多入口读取。
 
-下一项先完成统一 `RevisionState` 的消费者接线和重新加载，实际验证 freeze、restore、Fact retract 及查询结果。模型 Role 多路线还需向应用注入 `RoleRegistry`，将向量投影的整个输入目录与分批统一到同一模型空间，并完成实际 Provider 路径。运行实例加载的是此前代码，检查点源码尚不能直接启动。随后继续未完成的 A-Memorix 消费路径、完整查询及各认知领域。
+首轮使用原著文档、真实开发事件、MemeCap 原图及 LongMemEval 原题运行认知与检索。实际结果、模型输出问题和修正见[重构进展](python-native-plan/progress-report.md)；检索来源重复读取已按实测修复。当前完成真实旧图中同名实体的精确外部身份匹配、VCP 操作和对应发行更新，随后进入以现有 MaiBot Fork 为基础的 Heptalogos 开发。
 
 日常开发与启动见[项目 README](../README.md)，安装、服务管理与恢复见[安装说明](python-native-install.md)。开发缓存和实例使用 `temp/`；旧实例独立保留。

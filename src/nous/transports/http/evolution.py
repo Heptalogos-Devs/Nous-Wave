@@ -11,18 +11,58 @@ from nous_sdk.contracts import (
     SourceRegion,
     SplitConcept,
 )
-from nous_sdk.contracts.ego_model import AdoptSeed
+from nous_sdk.contracts.ego_model import AdoptSeed, InterpretSeed
+from nous_sdk.contracts.motivation import (
+    AssessMotivation,
+    MotivationAssessmentsPage,
+    MotivationAssessmentsQuery,
+    SavedMotivationAssessment,
+)
 
 from .security import application, context
 
 router = APIRouter(prefix="/api/namespaces/{namespace_id}/subjects/{subject_id}")
 
 
+@router.post("/ego/seed/interpret")
+async def interpret_seed(
+    request: Request, namespace_id: str, subject_id: str, command: InterpretSeed
+):
+    return await application(request).seeds.interpret(
+        await context(request, namespace_id, subject_id), command
+    )
+
+
+@router.post("/ego/seed/import")
+async def import_seed(request: Request, namespace_id: str, subject_id: str, command: InterpretSeed):
+    return await application(request).seeds.import_and_adopt(
+        await context(request, namespace_id, subject_id), command
+    )
+
+
+@router.get("/ego/profile/markdown")
+async def ego_markdown(request: Request, namespace_id: str, subject_id: str):
+    text = await application(request).seeds.markdown(
+        await context(request, namespace_id, subject_id, capability="read")
+    )
+    return Response(text, media_type="text/markdown; charset=utf-8")
+
+
+@router.get("/ego/profile/view")
+async def ego_view(request: Request, namespace_id: str, subject_id: str):
+    return {
+        "markdown": await application(request).seeds.markdown(
+            await context(request, namespace_id, subject_id, capability="read")
+        )
+    }
+
+
 @router.post("/self/seed", include_in_schema=False)
 @router.post("/ego/seed")
 async def seed_ego(request: Request, namespace_id: str, subject_id: str, command: AdoptSeed):
-    return await application(request).cognition.adopt_seed(
-        await context(request, namespace_id, subject_id), command
+    app = application(request)
+    return await app.cognition.adopt_seed(
+        await context(request, namespace_id, subject_id), command, imports=app.imports
     )
 
 
@@ -58,9 +98,38 @@ async def resegment(
 
 
 @router.post("/motivation/assess")
-async def assess(request: Request, namespace_id: str, subject_id: str, reference: CognitiveRef):
+async def assess(
+    request: Request, namespace_id: str, subject_id: str, reference: AssessMotivation | CognitiveRef
+):
     return await application(request).cognition.assess_motivation(
-        await context(request, namespace_id, subject_id), reference
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="write"
+            if isinstance(reference, AssessMotivation)
+            and (reference.save or reference.semantic != "off")
+            else "read",
+        ),
+        reference,
+    )
+
+
+@router.post("/motivation/assessments/query")
+async def assessment_history(
+    request: Request, namespace_id: str, subject_id: str, query: MotivationAssessmentsQuery
+) -> MotivationAssessmentsPage:
+    return await application(request).cognition.motivation_assessments(
+        await context(request, namespace_id, subject_id, capability="read"), query
+    )
+
+
+@router.get("/motivation/assessments/{assessment_id}")
+async def saved_assessment(
+    request: Request, namespace_id: str, subject_id: str, assessment_id: str
+) -> SavedMotivationAssessment:
+    return await application(request).cognition.motivation_assessment(
+        await context(request, namespace_id, subject_id, capability="read"), assessment_id
     )
 
 

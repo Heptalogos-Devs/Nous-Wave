@@ -13,6 +13,74 @@ from nous.platform.persistence import Authority
 from nous.platform.prompts import PromptService
 
 
+def test_definitely_not_sent_reservation_resumes_but_reserved_and_unknown_do_not(tmp_path):
+    async def scenario():
+        from nous_sdk.contracts import DomainError
+        from nous_sdk.contracts.model_routing import ModelCallOutcome
+
+        from nous.application import Application
+        from nous.platform.configuration import Settings
+
+        app = Application(Settings(instance=tmp_path / "instance"))
+        await app.authority.initialize()
+        ctx = CallContext(caller_id="owner", namespace_id="n", subject_id="s", credential_source_ids=None)
+        try:
+            await app.identity.create_namespace(ctx, "N", "namespace")
+            await app.identity.create_subject(ctx, "S", "subject", subject_id="s")
+            call, _ = await app.models.ledger.reserve(ctx, "formation", {"input": "retained"}, 2, invocation_id="same")
+            await app.models.ledger.finish(ctx, call, None, {}, "ConnectError", outcome=ModelCallOutcome(kind="not_sent"))
+            recovered, output = await app.models.ledger.reserve(ctx, "formation", {"input": "retained"}, 2, invocation_id="same")
+            assert recovered == call and output is None
+            with pytest.raises(DomainError) as pending:
+                await app.models.ledger.reserve(ctx, "formation", {"input": "retained"}, 2, invocation_id="same")
+            assert pending.value.details["status"] == "reserved"
+            await app.models.ledger.finish(ctx, call, None, {}, "ReadTimeout", outcome=ModelCallOutcome(kind="unknown"))
+            with pytest.raises(DomainError) as unknown:
+                await app.models.ledger.reserve(ctx, "formation", {"input": "retained"}, 2, invocation_id="same")
+            assert unknown.value.details["error_code"] == "ReadTimeout"
+            assert len(await app.models.ledger.list(ctx)) == 1
+        finally:
+            await app.network.close()
+            await app.authority.close()
+
+    asyncio.run(scenario())
+
+
+def test_accepted_generation_schema_and_prompt_survive_contract_evolution_before_dispatch(tmp_path):
+    async def scenario():
+        from dataclasses import replace
+
+        from nous_sdk.contracts import DomainError
+        from nous_sdk.contracts.growth import GrowthProposal
+
+        from nous.application import Application
+        from nous.platform.configuration import Settings
+
+        class ExtendedProposal(GrowthProposal):
+            optional_note: str | None = None
+
+        app = Application(Settings(instance=tmp_path / "instance"))
+        await app.authority.initialize()
+        ctx = CallContext(caller_id="owner", namespace_id="n", subject_id="s", credential_source_ids=None)
+        variables = {"maintenance_run_id": "r", "instruction": "", "snapshot": {}, "body_schema": {}}
+        try:
+            original = await app.models.accept_generation(ctx, "maintenance", variables, invocation_id="frozen")
+            key = ("maintenance", "proposal")
+            app.models.roles.definitions[key] = replace(app.models.roles.definitions[key], output_type=ExtendedProposal)
+            await app.prompts.save(ctx, "maintenance", "New prompt {{ other_input }}", "change-prompt")
+            recovered = await app.models.accept_generation(ctx, "maintenance", variables, invocation_id="frozen")
+            assert recovered == original
+            with pytest.raises(DomainError) as changed:
+                await app.models.accept_generation(ctx, "maintenance", {**variables, "instruction": "changed input"}, invocation_id="frozen")
+            assert changed.value.code == "model_invocation_conflict"
+            assert await app.models.ledger.list(ctx) == []
+        finally:
+            await app.network.close()
+            await app.authority.close()
+
+    asyncio.run(scenario())
+
+
 def test_prompt_preview_history_restore_and_restart(tmp_path: Path):
     async def scenario():
         path = tmp_path / "authority.sqlite"
@@ -71,6 +139,48 @@ def test_prompt_preview_history_restore_and_restart(tmp_path: Path):
     asyncio.run(scenario())
 
 
+def test_embedding_plan_recovers_the_persisted_profile_field_set(tmp_path):
+    async def scenario():
+        from nous_sdk.contracts import DomainError
+
+        from nous.application import Application
+        from nous.platform.configuration import EmbeddingRoute, Settings
+        from nous.platform.models.embedding_profile import EmbeddingProfile
+        from nous.platform.models.routing import embedding_plan, permissions
+
+        app = Application(Settings(instance=tmp_path / "instance"))
+        await app.authority.initialize()
+        ctx = CallContext(
+            caller_id="owner", namespace_id="ns", subject_id="subject", credential_source_ids=None
+        )
+        raw = EmbeddingProfile(route=EmbeddingRoute(model="retained")).model_dump(mode="json")
+        for key in ("rate_limit_retries", "rate_limit_wait_seconds", "max_retry_after_seconds"):
+            raw["fallback_policy"].pop(key)
+        inputs = {"texts": ("original",), "media": None, "source_ids": ()}
+        try:
+            async with app.authority.write(
+                ctx,
+                "original-intent",
+                operation_kind="model.embedding_plan",
+                scope="embedding",
+                payload={"input": inputs, "permissions": permissions(ctx), "profile": raw},
+            ) as tx:
+                tx.result(raw)
+            profile = EmbeddingProfile.model_validate(raw)
+            recovered = await embedding_plan(app.models, ctx, "original-intent", inputs, profile)
+            assert recovered.route.model == "retained"
+            with pytest.raises(DomainError) as changed:
+                await embedding_plan(
+                    app.models, ctx, "original-intent", {**inputs, "texts": ("changed",)}, profile
+                )
+            assert changed.value.code == "model_invocation_conflict"
+            assert await app.models.ledger.list(ctx) == []
+        finally:
+            await app.close()
+
+    asyncio.run(scenario())
+
+
 def test_text_and_media_share_one_formation_role_budget(tmp_path: Path):
     async def scenario():
         authority = Authority(tmp_path / "authority.sqlite")
@@ -83,6 +193,11 @@ def test_text_and_media_share_one_formation_role_budget(tmp_path: Path):
             subject_id="owner",
         )
         try:
+            from nous.identity.service import IdentityService
+
+            identities = IdentityService(authority)
+            await identities.create_namespace(ctx, "Research", "namespace")
+            await identities.create_subject(ctx, "Owner", "subject", subject_id="owner")
             call_id, _ = await ledger.reserve(
                 ctx, "media.formation", {"input": "image"}, 1, budget_role="formation"
             )
@@ -167,7 +282,9 @@ def test_durable_model_invocation_keeps_paid_result_across_configuration_changes
 
         from nous.application import Application
         from nous.platform.configuration import Settings
+        from nous.platform.models.generation import prepare_invocation
         from nous.platform.models.ledger import calls
+        from nous.platform.models.routing import generation_plan
 
         app = Application(Settings(instance=tmp_path / "instance"))
         await app.authority.initialize()
@@ -178,10 +295,39 @@ def test_durable_model_invocation_keeps_paid_result_across_configuration_changes
             subject_id="owner",
         )
         try:
+            await app.identity.create_namespace(ctx, "Research", "namespace")
+            await app.identity.create_subject(ctx, "Owner", "subject", subject_id="owner")
+            variables = {
+                "maintenance_run_id": "one",
+                "instruction": "Review retained material",
+                "snapshot": {},
+                "body_schema": {},
+            }
+            plan = await generation_plan(
+                app.models,
+                ctx,
+                "maintenance",
+                variables,
+                GrowthProposal,
+                (),
+                (),
+                "run:one",
+                "shared",
+                None,
+            )
+            assert plan is not None
+            request = prepare_invocation(
+                "maintenance",
+                plan.routes[0].route,
+                plan.prompt,
+                GrowthProposal,
+                (),
+                (),
+            )
             call, output = await app.models.ledger.reserve(
                 ctx,
                 "maintenance",
-                {"prompt": "original frozen request"},
+                request,
                 10,
                 invocation_id="run:one",
             )
@@ -194,7 +340,7 @@ def test_durable_model_invocation_keeps_paid_result_across_configuration_changes
                     10,
                     invocation_id="run:one",
                 )
-            assert pending.value.code == "model_invocation_unavailable"
+            assert pending.value.code == "model_invocation_conflict"
             await app.models.ledger.finish(
                 ctx,
                 call,
@@ -206,7 +352,7 @@ def test_durable_model_invocation_keeps_paid_result_across_configuration_changes
             recovered = await app.models.generate(
                 ctx,
                 "maintenance",
-                {"different": "variables"},
+                variables,
                 GrowthProposal,
                 invocation_id="run:one",
             )

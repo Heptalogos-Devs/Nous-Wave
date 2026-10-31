@@ -2,7 +2,7 @@
 
 补丁将 `src/services/memory_service.py` 的后端设为官方 Nous SDK。Planner、Replyer 和 WebUI 继续使用原 `MemoryService`；请求沿 MaiBot 的主事件循环发送。Nous 负责原文接纳、检索、维护任务、人物实体与精确来源。
 
-补丁和服务需使用匹配的构建。当前工作区的模型多路线仍在集成，运行中的开发实例加载的是此前代码；功能与实际运行范围见[重构进展](../../docs/python-native-plan/progress-report.md)。
+补丁与 Nous SDK 使用同一发行构建。模型角色、来源权限、持久任务和认知修订由 Nous 的原生所有者处理。
 
 ## 安装
 
@@ -16,6 +16,7 @@ git apply "/绝对路径/Nous-Wave/integrations/maibot/diagnostics-unknown.patch
 git apply "/绝对路径/Nous-Wave/integrations/maibot/bundle-files.patch"
 git apply "/绝对路径/Nous-Wave/integrations/maibot/bundle-unknown.patch"
 git apply "/绝对路径/Nous-Wave/integrations/maibot/import-admin.patch"
+git apply "/绝对路径/Nous-Wave/integrations/maibot/records-native.patch"
 ```
 
 开发环境也可使用源码包：`uv add --editable "/绝对路径/Nous-Wave/sdk/python"`。SDK 使用说明见 [Python SDK](../../sdk/python/README.md)。
@@ -50,7 +51,7 @@ uv run --env-file "/MaiBot实例/.env" maibot run --directory "/MaiBot实例"
 
 `memory_runtime_admin` 提供 `get_config`、`list_vector_spaces`，以及通过正式配置 owner 的 `set_config`。模型自检、向量重建等操作仍待续接。没有对应原生资源或队列的字段返回 `null`，原因放在 `unknown` 中。`diagnostics-unknown.patch` 使管理界面保留未知值：空间大小、关系开关和回填状态不会显示成零、关闭或完成。安装后重新构建 MaiBot dashboard。
 
-`integrations.amemorix` 配置控制聊天过滤、检索模式与接纳后的形成任务。向量检索使用 Nous 的模型资源配置；普通文本接纳可直接保存原文。
+`integrations.amemorix` 配置控制聊天过滤与检索模式；接纳后的形成采用原生 `formation.default_enabled`，向量写入策略采用 `namespace.features.allow_metadata_only_write`。向量检索使用 Nous 的模型资源配置；普通文本接纳可直接保存原文。
 
 记忆包入口保留 `export`、`inspect`、`import`、`list`、`resolve_file`、`uninstall` 六个 action。`export` 的 `preview=true` 返回正式导出预览。Bundle 的内容选择、安装范围和资源状态由 Nous 统一处理。WebUI 上传逐块写入传输目录，SDK 将原件流式上传为当前 Subject 所有的 Material，再通过 `material_id` 检查或安装。直接 SDK 使用本地 `path` 时，文件必须位于显式 `transfer_root` 内；已上传的包也可直接传 `material_id`。
 
@@ -98,7 +99,9 @@ source `preview` 与 `execute(dry_run=true)` 由同一来源事务生成计划�
 
 `memory_episode_admin` 已接 query、list、get、status、rebuild 和 process_sources。`memory_fact_admin` 已接 create、update、retract、restore、get 和 list；写入要求稳定 operation_id，跨 key 更新保留上游撤回与新主张的语义。Fact 管理与 Native/A portable 包已有实际往返，普通查询的修订状态统一仍待加载验证。
 
-`memory_v5_admin` 的部分维护动作经 SDK 转到 `maintain_memory`；其余 V5 动作以及 `memory_tuning_admin`、`memory_correction_admin` 和 `memory_fuzzy_modify_admin` 尚未接入服务分发。runtime 的部分动作及特定删除模式也尚无对应 owner。尚未提供的管理动作返回明确错误。画像与统计异常向调用者传播，写入、检索及其他管理请求沿原有明确失败结果呈现。
+`memory_v5_admin` 使用原生生命周期；`memory_correction_admin` 与 `memory_fuzzy_modify_admin` 共享原生纠错计划、采用和回滚。`memory_tuning_admin` 接受调用方提供的查询与相关性标签，运行有界候选参数，保留逐查询结果；`apply_profile/apply_best` 才发布正式配置，`rollback_profile` 保存恢复修订。画像与统计异常向调用者传播。
+
+`records-native.patch` 将既有记录搜索与详情路由接到 SDK 的查询、记录目录、来源和修订历史。关键词搜索返回当前获准记录；`include_inactive=true` 使用管理读取，要求 Subject 管理权限。详情的关联列表来自同一实际来源范围，并保留原生历史与覆盖信息。旧 A-Memorix 的记录 SQL 与专属转换函数随迁移移除。
 
 ## 模型调用与托管上下文
 

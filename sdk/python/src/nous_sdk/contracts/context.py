@@ -9,7 +9,9 @@ from pydantic import Field, JsonValue, model_validator
 
 from .cognition import CognitiveRecord, CognitiveRef, EpistemicStance
 from .common import Contract, Operation, TimePoint
+from .model_roles import InvocationSnapshot
 from .retrieval import QueryRequest
+from .social import SymbolSelection
 from .source_graph import ExpandedSources
 from .targets import CognitiveTarget as CognitiveTarget
 from .targets import ContextTarget as ContextTarget
@@ -22,6 +24,7 @@ class ContextCommand(Operation):
     kind: Literal["active", "resident", "work", "managed"] = "work"
     executor: str = "subject"
     token_budget: int = Field(default=8192, gt=0)
+    session_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ContextFeedback(Operation):
@@ -41,6 +44,12 @@ class ContextUsage(Contract):
     activity_ref: str | None = None
     world_id: str | None = None
     world_time: TimePoint | None = None
+    audience_entities: tuple[CognitiveRef, ...] = ()
+    situations: tuple[str, ...] = ()
+    symbols: SymbolSelection | None = Field(default=None, exclude_if=lambda value: value is None)
+    symbols_mode: Literal["understand", "express"] = Field(
+        default="understand", exclude_if=lambda value: value == "understand"
+    )
 
 
 class ContextCursor(Contract):
@@ -172,6 +181,7 @@ class ContextUse(Contract):
     kind: Literal[
         "referenced", "acted_on", "result_supported", "result_refuted", "corrected", "pinned"
     ]
+    description: str = Field(default="", max_length=16000, exclude_if=lambda value: not value)
 
 
 class ContextInvocationOutput(Contract):
@@ -181,11 +191,36 @@ class ContextInvocationOutput(Contract):
     status: str | None = None
     output_item_ids: tuple[str, ...] = ()
     tool_call_ids: tuple[str, ...] = ()
+    native_model_call_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ContextAdmissionRef(Contract):
     admission_id: str
     invocation_id: str
+
+
+class ContextModelPreview(Contract):
+    preparation_id: str
+    invocation_id: str = Field(min_length=1, max_length=400)
+    role: str
+    input: dict[str, JsonValue]
+
+
+class ContextModelPlan(Contract):
+    preparation_id: str
+    invocation_id: str
+    role: str
+    requests: tuple[InvocationSnapshot, ...]
+
+
+class ContextModelCall(ContextModelPreview, Operation):
+    admission_id: str
+
+
+class ContextModelResult(Contract):
+    call_id: str
+    output: JsonValue
+    report: ContextReportResult
 
 
 class ReadContextSource(Operation):

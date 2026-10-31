@@ -1,11 +1,75 @@
 """Evidence-backed Social and configuration-seed operations."""
 
 from fastapi import APIRouter, Request
-from nous_sdk.contracts.social import ChangeSocialRelation, LinkIdentity
+from nous_sdk.contracts.social import (
+    ChangeSocialRelation,
+    IdentityHypothesis,
+    LinkIdentity,
+    RecoverSymbolResult,
+    SymbolSelection,
+    UnlinkIdentity,
+)
 
 from .security import application, context
 
 router = APIRouter()
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/social/symbols/recover")
+async def recover_symbol_result(
+    request: Request, namespace_id: str, subject_id: str, command: RecoverSymbolResult
+):
+    return await application(request).symbols.recover(
+        await context(request, namespace_id, subject_id, capability="read"), command
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/social/identities/hypotheses")
+async def identity_hypothesis(
+    request: Request, namespace_id: str, subject_id: str, command: IdentityHypothesis
+):
+    return await application(request).cognition.propose_identity(
+        await context(request, namespace_id, subject_id), command
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/social/identities/unlink")
+async def unlink_identity(
+    request: Request, namespace_id: str, subject_id: str, command: UnlinkIdentity
+):
+    return await application(request).cognition.unlink_identity(
+        await context(request, namespace_id, subject_id), command
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/social/symbols/understand")
+async def understand_symbol(
+    request: Request, namespace_id: str, subject_id: str, command: SymbolSelection
+):
+    return await application(request).symbols.understand(
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="read" if command.semantic == "off" else "write",
+        ),
+        command,
+    )
+
+
+@router.post("/namespaces/{namespace_id}/subjects/{subject_id}/social/symbols/express")
+async def expression_candidates(
+    request: Request, namespace_id: str, subject_id: str, command: SymbolSelection
+):
+    return await application(request).symbols.expressions(
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="read" if command.semantic == "off" else "write",
+        ),
+        command,
+    )
 
 
 @router.post("/namespaces/{namespace_id}/subjects/{subject_id}/social/identities")

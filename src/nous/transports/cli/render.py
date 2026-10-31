@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from nous_sdk.contracts import QueryHit
+from nous_sdk.contracts import CognitiveRecord, QueryHit
 from nous_sdk.presentation import object_text, reference_text
 from pydantic import JsonValue
 from rich.console import Console
@@ -111,7 +111,47 @@ def _episode(value: dict[str, JsonValue], locale: Localizer, *, expand: bool) ->
                 console.print(Text(text))
 
 
+def _record_entry(value: JsonValue, locale: Localizer) -> bool:
+    if not isinstance(value, dict) or "state" not in value:
+        return False
+    raw = value.get("record")
+    if not isinstance(raw, dict) or "reference" not in raw or "body" not in raw:
+        return False
+    record = CognitiveRecord.model_validate(raw)
+    console.print(Text(f"{reference_text(record)}  {value['state']}", style="bold"))
+    console.print(Text(object_text(record)))
+    if record.source_roots:
+        console.print(
+            Text(f"{_label('sources', locale)}: {', '.join(record.source_roots)}", style="dim")
+        )
+    return True
+
+
 def present(value: JsonValue, locale: Localizer) -> None:
+    if isinstance(value, dict) and {"job_id", "total_trials", "completed_trials"} <= value.keys():
+        console.print(Text(f"{value.get('id', '')}  {value.get('status', '')}", style="bold"))
+        console.print(
+            Text(
+                f"{_label('progress', locale)}: {value['completed_trials']}/{value['total_trials']}"
+                f" · {_label('job_id', locale)}: {value['job_id']}"
+            )
+        )
+        if value.get("best_index") is not None:
+            console.print(Text(f"{_label('selected_trial', locale)}: {value['best_index']}"))
+        metrics = value.get("best_metrics")
+        if isinstance(metrics, dict):
+            _table([metrics], locale)
+        if value.get("purged"):
+            console.print(Text(f"{_label('purged', locale)}: {_cell(True, locale)}"))
+        return
+    if _record_entry(value, locale):
+        return
+    if isinstance(value, dict) and isinstance(value.get("entry"), dict):
+        if _record_entry(value["entry"], locale):
+            if history := value.get("history"):
+                console.print(Text(_label("history", locale), style="bold"))
+                present(history, locale)
+            return
     if isinstance(value, dict) and _episode_record(value) is not None:
         _episode(value, locale, expand=True)
         return
@@ -189,6 +229,37 @@ def present(value: JsonValue, locale: Localizer) -> None:
             console.print(locale.text("cli-items", count=0))
             return
         records = [item for item in value if isinstance(item, dict)]
+        if (
+            records
+            and len(records) == len(value)
+            and all({"index", "profile", "metrics", "queries"} <= item.keys() for item in records)
+        ):
+            measurements: list[dict[str, JsonValue]] = []
+            for item in records:
+                metrics = item["metrics"]
+                if isinstance(metrics, dict):
+                    measurements.append(
+                        {
+                            "trial": item["index"],
+                            "P@5": metrics.get("precision_at_5"),
+                            "Recall@10": metrics.get("recall_at_10"),
+                            "nDCG@10": metrics.get("ndcg_at_10"),
+                            "mean_ms": metrics.get("mean_latency_ms"),
+                            "failed_queries": metrics.get("failed_queries"),
+                        }
+                    )
+            _table(measurements, locale)
+            return
+        if (
+            records
+            and len(records) == len(value)
+            and all("state" in item and isinstance(item.get("record"), dict) for item in records)
+        ):
+            for item in records:
+                _record_entry(item, locale)
+                console.print()
+            console.print(locale.text("cli-items", count=len(records)), style="dim")
+            return
         if (
             records
             and len(records) == len(value)

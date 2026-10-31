@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from nous_sdk.contracts import CallContext, Contract, DomainError, SourceCommand, SourceResult
-from pydantic import Field, JsonValue, TypeAdapter
+from nous_sdk.contracts.management import SourceSelection
+from pydantic import Field, JsonValue
 
 from .helpers import json_object
 
@@ -21,6 +22,14 @@ class Selection(Contract):
     selector: JsonValue = None
     query: str | None = None
     items: tuple[str, ...] = ()
+    hash: str | None = None
+    hashes: tuple[str, ...] = ()
+    name: str | None = None
+    names: tuple[str, ...] = ()
+    content: str | None = None
+    paragraph_hashes: tuple[str, ...] = ()
+    entity_hashes: tuple[str, ...] = ()
+    relation_hashes: tuple[str, ...] = ()
     requested_by: str | None = Field(default=None, max_length=120)
     reason: str = "A-Memorix source management"
     operation_id: str | None = None
@@ -43,12 +52,36 @@ async def source_admin(
     service: AMemorixService, ctx: CallContext, tool: str, arguments: dict[str, JsonValue]
 ) -> dict[str, JsonValue]:
     command = Selection.model_validate(arguments)
-    if command.mode.strip().lower() not in {"", "source"}:
-        raise DomainError("capability_unavailable", "Deletion mode requires its scoped owner")
-    if command.cascade or command.grace_hours is not None:
-        raise DomainError(
-            "capability_unavailable", "Source selection has no delayed cascade policy"
+    command = command.model_copy(
+        update={"action": command.action.strip().lower(), "mode": command.mode.strip().lower()}
+    )
+    if command.action == "purge" and tool == "memory_delete_admin":
+        policy = await service.policy(ctx)
+        command = command.model_copy(
+            update={
+                "mode": "mixed",
+                "selector": None,
+                "source": None,
+                "sources": (),
+                "query": None,
+                "items": (),
+                "hash": None,
+                "hashes": (),
+                "name": None,
+                "names": (),
+                "content": None,
+                "paragraph_hashes": (),
+                "entity_hashes": (),
+                "relation_hashes": (),
+                "operation_id": None,
+                "grace_hours": command.grace_hours
+                if command.grace_hours is not None
+                else policy.orphan_sweep_grace_hours,
+            }
         )
+    mode = command.mode.strip().lower() or "source"
+    if mode not in {"source", "paragraph", "entity", "relation", "mixed"}:
+        raise DomainError("source_selection_invalid", "Unknown deletion selection mode")
     sources = [
         source for source in await service.app.sources.list(ctx) if not source.get("purged", False)
     ]
@@ -99,25 +132,49 @@ async def source_admin(
                 else None,
             }
         )
-    labels = selected_labels(command)
+    from .deletion_selectors import selection
+
     if command.action in {"restore", "purge"} and command.operation_id:
         raw = await selected_operation(service, ctx, command.operation_id)
-        ids = SourceResult.model_validate(raw["result"]).observation_ids
+        prior = SourceResult.model_validate(raw["result"])
+        chosen = SourceSelection(observation_ids=prior.observation_ids, references=prior.references)
     else:
-        if not labels:
+        if command.action == "restore" and tool == "memory_delete_admin" and mode != "relation":
             raise DomainError(
-                "source_selection_required", "Source administration requires explicit source labels"
+                "operation_required",
+                "Restoring this selection requires its deletion operation identity",
             )
-        missing = set(labels).difference(grouped)
-        if missing:
-            raise DomainError("source_not_found", "Selected source label is unavailable")
-        ids = tuple(sorted({identity for label in labels for identity in grouped[label]}))
-    preview = await service.app.sources.preview(ctx, ids)
+        chosen = await selection(service, ctx, command)
+    if command.action == "purge" and chosen.records is not None:
+        eligible = await service.app.cognition.records(ctx, chosen.records)
+        if not eligible.items:
+            return {"success": True, "purged_count": 0, "deleted_count": 0}
+    preview = await service.app.sources.preview(
+        ctx,
+        chosen.observation_ids,
+        references=chosen.references,
+        source_names=chosen.source_names,
+        records=chosen.records,
+        retention_expectations=chosen.retention_expectations,
+        action="restore"
+        if command.action == "restore"
+        else "purge"
+        if command.action == "purge"
+        else "trash",
+    )
+    counts = {
+        "paragraphs": sum(ref.kind == "memory" for ref in preview.retiring),
+        "entities": sum(ref.kind == "entity" for ref in preview.retiring),
+        "relations": sum(ref.kind == "association" for ref in preview.retiring),
+        "sources": len(chosen.source_names),
+    }
     if command.action == "preview" or command.dry_run:
         return json_object(
             {
                 "success": True,
+                "mode": mode,
                 "preview": preview,
+                "counts": counts,
                 "deleted_count": len(preview.retiring),
                 "native_result": preview,
             }
@@ -129,10 +186,14 @@ async def source_admin(
     )
     native = SourceCommand(
         operation_id=operation,
-        observation_ids=ids,
+        observation_ids=preview.observation_ids,
+        references=preview.references,
         reason=command.reason.strip() or f"{tool}.{command.action}",
         requested_by=command.requested_by or tool,
         expected_preview=preview.preview_token,
+        force=command.force,
+        grace_hours=command.grace_hours,
+        retention_expectations=chosen.retention_expectations,
     )
     if command.action in {"delete", "batch_delete", "execute"}:
         result = await service.app.sources.trash(ctx, native)
@@ -145,8 +206,15 @@ async def source_admin(
     return json_object(
         {
             "success": True,
+            "mode": mode,
             "operation_id": result.source_operation_id,
-            "deleted_count": len(preview.retiring) if command.action != "restore" else 0,
+            "deleted_count": len(result.retired),
+            "restored_count": len(result.restored),
+            "purged_count": len(result.references) if command.action == "purge" else 0,
+            "deleted_paragraph_count": sum(ref.kind == "memory" for ref in result.retired),
+            "deleted_entity_count": sum(ref.kind == "entity" for ref in result.retired),
+            "deleted_relation_count": sum(ref.kind == "association" for ref in result.retired),
+            "counts": counts,
             "native_result": result,
         }
     )
@@ -158,28 +226,3 @@ async def selected_operation(service: AMemorixService, ctx: CallContext, identit
     if identity.isdecimal():
         return await service.app.sources.get_operation(ctx, commit_seq=int(identity))
     return await service.app.sources.get_operation(ctx, identity)
-
-
-def selected_labels(command: Selection) -> tuple[str, ...]:
-    selector = command.selector
-    if isinstance(selector, str):
-        return (selector,)
-    if isinstance(selector, list):
-        return TypeAdapter(tuple[str, ...]).validate_python(selector)
-    if selector is None:
-        values = [*command.sources, *command.items]
-        values.extend(value for value in (command.source, command.query) if value is not None)
-        return tuple(sorted(set(values)))
-    if not isinstance(selector, dict):
-        raise DomainError("source_selection_invalid", "Source selector requires exact text labels")
-    unknown = set(selector).difference({"source", "query", "sources", "items"})
-    if unknown:
-        raise DomainError("source_selection_invalid", "Unknown source selector fields")
-    labels: list[str] = []
-    for key in ("source", "query"):
-        if key in selector:
-            labels.append(TypeAdapter(str).validate_python(selector[key]))
-    for key in ("sources", "items"):
-        if key in selector:
-            labels.extend(TypeAdapter(tuple[str, ...]).validate_python(selector[key]))
-    return tuple(sorted(set(labels)))

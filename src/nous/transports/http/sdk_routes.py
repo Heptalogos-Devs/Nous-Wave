@@ -1,12 +1,13 @@
 """Public SDK resource routes backed by the shared domain owners."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Request
 from nous_sdk.contracts import (
     BlobDocument,
     CognitiveRef,
     DomainError,
     ImportDocument,
-    MediaReference,
     MergeConcepts,
     QueryRequest,
     ResegmentEpisodes,
@@ -18,12 +19,20 @@ from nous_sdk.contracts.context import (
     CognitiveTarget,
     MediaTarget,
 )
+from nous_sdk.contracts.diagnostics import SubjectDiagnostics
+from nous_sdk.contracts.identity import IdentityPurpose, Subject
 from nous_sdk.contracts.lifecycle import MemoryChange
+from nous_sdk.contracts.references import (
+    EvidenceTarget,
+    ExactReference,
+    ObservationTarget,
+    ResourceTarget,
+)
 from nous_sdk.contracts.source_graph import ExpandSources
+from nous_sdk.contracts.source_objects import EvidenceRelationRecord
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 from sqlalchemy import select
 
-from nous.identity.service import subjects
 from nous.imports.schema import outputs
 from nous.material.service import require_observation_in
 
@@ -73,7 +82,7 @@ class Observe(OperationIdentity):
 class ReadReference(BaseModel):
     model_config = ConfigDict(extra="forbid")
     subject_id: str
-    reference: CognitiveRef | MediaReference | str
+    reference: ExactReference | str
     observation_id: str | None = None
     as_of_commit: int | None = None
 
@@ -158,12 +167,8 @@ async def resolve_reference(request: Request, command: ReadReference):
 async def source_read(request: Request, command: ReadReference):
     app = application(request)
     ctx = await subject_context(request, command.subject_id, "read")
-    if isinstance(command.reference, str):
-        target = (await app.references.resolve(ctx, command.reference)).reference
-    elif isinstance(command.reference, CognitiveRef):
-        target = CognitiveTarget(reference=command.reference)
-    else:
-        target = MediaTarget(reference=command.reference)
+    locator = command.reference if isinstance(command.reference, str) else command.reference.exact()
+    target = (await app.references.resolve(ctx, locator, command.as_of_commit)).reference
     if isinstance(target, CognitiveTarget):
         record = await app.cognition.get(ctx, target.reference)
         return {
@@ -172,6 +177,36 @@ async def source_read(request: Request, command: ReadReference):
             "source_roots": record.source_roots,
             "evidence": record.evidence,
             "graph": await app.retrieval.expand_sources(ctx, ExpandSources(targets=(target,))),
+        }
+    if isinstance(target, (ResourceTarget, ObservationTarget, EvidenceTarget)):
+        async with app.authority.read(ctx) as view:
+            if isinstance(target, ResourceTarget):
+                record = await app.resources.get_in(
+                    view, ctx, target.reference.id, target.reference.revision
+                )
+                sources = (
+                    (MediaTarget(reference=record.snapshot.source),) if record.snapshot else ()
+                )
+                result = {
+                    "reference": record.reference,
+                    "resource": record,
+                    "source_roots": record.source_roots,
+                }
+            else:
+                record = await app.references.read_source_object_in(view, ctx, target.reference)
+                sources = (MediaTarget(reference=record.source),) if record.source else ()
+                if isinstance(record, EvidenceRelationRecord):
+                    sources = (CognitiveTarget(reference=record.target), *sources)
+                result = {
+                    "reference": record.reference,
+                    "observation" if isinstance(target, ObservationTarget) else "evidence": record,
+                    "source_roots": record.source_roots,
+                }
+        return {
+            **result,
+            "graph": await app.retrieval.expand_sources(ctx, ExpandSources(targets=sources))
+            if sources
+            else None,
         }
     ref = target.reference
     if (
@@ -358,14 +393,21 @@ async def job_page(
     scope: str | None = None,
     kind: str | None = None,
     state: str | None = None,
+    purpose: Literal["actor", "management"] = "actor",
 ):
     page = await application(request).execution.query_jobs(
-        await context(request, namespace_id, subject_id, capability="read"),
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="manage" if purpose == "management" else "read",
+        ),
         limit=limit,
         cursor=cursor,
         scope=scope,
         kind=kind,
         state=state,
+        purpose=purpose,
     )
     return {"items": page.items, "next_cursor": page.next_cursor}
 
@@ -379,33 +421,35 @@ async def jobs(
     scope: str | None = None,
     kind: str | None = None,
     state: str | None = None,
+    purpose: Literal["actor", "management"] = "actor",
 ):
     page = await application(request).execution.query_jobs(
-        await context(request, namespace_id, subject_id, capability="read"),
+        await context(
+            request,
+            namespace_id,
+            subject_id,
+            capability="manage" if purpose == "management" else "read",
+        ),
         limit=limit,
         scope=scope,
         kind=kind,
         state=state,
+        purpose=purpose,
     )
     return page.items
 
 
 @router.get("/subjects/{subject_id}")
-async def subject_read(request: Request, subject_id: str):
-    ctx = await subject_context(request, subject_id, "read")
-    async with application(request).authority.read(ctx) as view:
-        row = (
-            (
-                await view.connection.execute(
-                    select(subjects).where(
-                        subjects.c.id == subject_id, subjects.c.namespace_id == ctx.namespace_id
-                    )
-                )
-            )
-            .mappings()
-            .one()
-        )
-        return dict(row)
+async def subject_read(
+    request: Request, subject_id: str, purpose: IdentityPurpose = "active"
+) -> Subject:
+    ctx = await subject_context(
+        request,
+        subject_id,
+        "manage" if purpose == "management" else "read",
+        identity_purpose=purpose,
+    )
+    return await application(request).identity.subject(ctx, purpose)
 
 
 @router.post("/namespaces/{namespace_id}/subjects/{subject_id}/memories/change")
@@ -418,28 +462,9 @@ async def memory_change(
 
 
 @router.get("/subjects/{subject_id}/diagnostics")
-async def subject_diagnostics(request: Request, subject_id: str):
-    from nous.integrations.amemorix.service import AMemorixService
-
+async def subject_diagnostics(request: Request, subject_id: str) -> SubjectDiagnostics:
     ctx = await subject_context(request, subject_id, "read")
-    app = application(request)
-    summary = await AMemorixService(app).stats(ctx)
-    model_calls = await app.models.ledger.list(ctx)
-    usage: dict[str, int] = {}
-    for call in model_calls:
-        measured = TypeAdapter(JsonValue).validate_python(call.get("usage"))
-        if isinstance(measured, dict):
-            for key in ("input_tokens", "output_tokens", "total_tokens"):
-                value = measured.get(key)
-                if isinstance(value, int):
-                    usage[key] = usage.get(key, 0) + value
-    return {
-        **summary,
-        "namespace_id": ctx.namespace_id,
-        "subject_id": subject_id,
-        "model_calls": len(model_calls),
-        "model_usage": usage,
-    }
+    return await application(request).diagnostics.read(ctx)
 
 
 @router.post("/namespaces/{namespace_id}/references/reconcile")

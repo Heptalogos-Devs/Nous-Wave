@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from typing import TYPE_CHECKING
 
 from nous_sdk.amemorix.contracts import (
@@ -28,12 +27,11 @@ async def profile(
 
 
 async def stats(self: AMemorixService, ctx: CallContext) -> dict[str, JsonValue]:
-    records = await self.records(ctx)
-    counts = Counter(record.reference.kind for record in records if not record.deleted)
-    jobs = await self.app.execution.list_jobs(ctx)
     from .diagnostics import diagnostics
 
     observed = await diagnostics(self, ctx)
+    counts = observed["cognition"]
+    assert isinstance(counts, dict)
     retrieval = observed["retrieval"]
     assert isinstance(retrieval, dict)
     spaces = retrieval["spaces"]
@@ -48,13 +46,10 @@ async def stats(self: AMemorixService, ctx: CallContext) -> dict[str, JsonValue]
         {
             **observed,
             "success": True,
-            "paragraphs": counts["memory"],
-            "entities": counts["entity"],
-            "relations": counts["association"],
-            "episodes": counts["episode"],
-            "cognition": dict(counts),
-            "tasks": dict(Counter(job.status for job in jobs)),
-            "tasks_recent": True,
+            "paragraphs": counts.get("memory", 0),
+            "entities": counts.get("entity", 0),
+            "relations": counts.get("association", 0),
+            "episodes": counts.get("episode", 0),
             "vectors": vector_count,
         }
     )

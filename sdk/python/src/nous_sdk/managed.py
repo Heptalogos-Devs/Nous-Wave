@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -20,6 +21,7 @@ from .contracts.context import (
     ContextAdmissionCommand,
     ContextCursor,
     ContextInvocationOutput,
+    ContextModelPlan,
     ContextPrepare,
     ContextProjection,
     ContextReportResult,
@@ -38,6 +40,17 @@ if TYPE_CHECKING:
     from ._client.context import ContextClient
 
 T = TypeVar("T")
+
+
+def serialize_model_plan(plan: ContextModelPlan) -> bytes:
+    """Serialize the complete native request directory used by admission and dispatch."""
+    return json.dumps(
+        plan.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
 
 
 @dataclass(frozen=True, eq=False)
@@ -343,4 +356,4 @@ def event_id(kind: str, invocation_id: str, source: str) -> str:
     return str(uuid5(NAMESPACE_URL, f"nous:{kind}:{invocation_id}:{source}"))
 
 
-__all__ = ["AppliedContext", "HostInputMeasurement", "ManagedBinding", "PreparedContext"]
+__all__ = ["AppliedContext", "HostInputMeasurement", "ManagedBinding", "PreparedContext", "serialize_model_plan"]

@@ -7,7 +7,7 @@ import json
 import sqlite3
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager, closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeVar
@@ -28,6 +28,8 @@ from .schema import clock, metadata, operations
 
 if TYPE_CHECKING:
     from nous.platform.execution import DurableExecution, JobRef, JobSpec
+
+    from .namespace_limits import NamespaceLimits
 
 T = TypeVar("T")
 
@@ -98,6 +100,7 @@ class OperationReceipt:
 class ReadView:
     connection: AsyncConnection
     commit_seq: int
+    facts: dict[object, object] = field(default_factory=dict, compare=False, repr=False)
 
 
 class WriteTx:
@@ -131,6 +134,7 @@ class WriteTx:
         self.jobs: list[str] = []
         self.result_set = False
         self.result_value: JsonValue = None
+        self.storage_baseline: int | None = None
 
     @property
     def replay_result(self) -> JsonValue:
@@ -178,6 +182,7 @@ class Authority:
         self.path = Path(path).resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.execution: DurableExecution | None = None
+        self.namespace_limits: NamespaceLimits | None = None
         self.initialized = False
         url = sa.URL.create("sqlite+aiosqlite", database=str(self.path))
         self.reader = create_async_engine(url)
@@ -208,7 +213,24 @@ class Authority:
             # SQLite changes journal mode outside the application transaction.
             await connection.run_sync(self._enable_wal)
             async with connection.begin():
+                from nous.identity.schema import migrate as migrate_identity
+                from nous.platform.configuration.service import migrate as migrate_configuration
+
                 await connection.run_sync(metadata.create_all, checkfirst=True)
+                await migrate_identity(connection)
+                await migrate_configuration(connection)
+                operation_columns = await connection.run_sync(
+                    lambda sync: {
+                        column["name"] for column in sa.inspect(sync).get_columns("nous_operations")
+                    }
+                )
+                if "payload_json" not in operation_columns:
+                    await connection.exec_driver_sql(
+                        "ALTER TABLE nous_operations ADD COLUMN payload_json TEXT"
+                    )
+                for table in metadata.sorted_tables:
+                    for index in table.indexes:
+                        await connection.run_sync(index.create, checkfirst=True)
                 await connection.execute(
                     insert(clock)
                     .values(singleton=1, commit_seq=0)
@@ -296,6 +318,12 @@ class Authority:
                     finally:
                         await connection.exec_driver_sql("PRAGMA query_only=OFF")
                 else:
+                    storage_before = None
+                    if self.namespace_limits is not None:
+                        quota = await self.namespace_limits.quota_in(ReadView(connection, 0), ctx)
+                        if quota.max_storage_bytes is not None:
+                            usage = await self.namespace_limits.usage_in(ReadView(connection, 0), ctx)
+                            storage_before = int(str(usage["storage_bytes"]))
                     seq = await connection.scalar(
                         sa.update(clock)
                         .where(clock.c.singleton == 1)
@@ -317,9 +345,12 @@ class Authority:
                         commit_seq=int(seq),
                         recorded_at=now,
                     )
+                    tx.storage_baseline = storage_before
                     yield tx
                     if not tx.result_set:
                         raise RuntimeError("A successful write must record tx.result(value)")
+                    if tx.storage_baseline is not None and self.namespace_limits is not None:
+                        await self.namespace_limits.enforce_in(tx, ctx, tx.storage_baseline)
                     await connection.execute(
                         operations.insert().values(
                             operation_key=key,
@@ -330,6 +361,7 @@ class Authority:
                             operation_id=operation_id,
                             operation_kind=operation_kind,
                             payload_hash=payload_hash,
+                            payload_json=canonical_json(payload),
                             commit_seq=seq,
                             recorded_at=now,
                             result_json=canonical_json(tx.result_value),
@@ -380,7 +412,13 @@ class Authority:
                 tuple(json.loads(row["jobs_json"])),
             )
 
-    async def redact_receipts_in(self, tx: WriteTx, predicate: Callable[[JsonValue], bool]) -> int:
+    async def redact_receipts_in(
+        self,
+        tx: WriteTx,
+        predicate: Callable[[JsonValue], bool],
+        *,
+        commit_sequences: tuple[int, ...] | None = None,
+    ) -> int:
         """Erase matching source-bearing results while retaining operation identity.
 
         The source owner supplies the domain predicate. A repeated command observes
@@ -388,21 +426,23 @@ class Authority:
         """
         if tx.authority is not self:
             raise ValueError("Receipt purge must use this authority's transaction")
-        rows = (
-            await tx.connection.execute(
-                sa.select(operations.c.operation_key, operations.c.result_json).where(
-                    operations.c.namespace_id == tx.ctx.namespace_id
-                )
-            )
-        ).all()
+        statement = sa.select(
+            operations.c.operation_key, operations.c.result_json, operations.c.payload_json
+        ).where(operations.c.namespace_id == tx.ctx.namespace_id)
+        if commit_sequences is not None:
+            statement = statement.where(operations.c.commit_seq.in_(commit_sequences))
+        rows = (await tx.connection.execute(statement)).all()
         changed = 0
-        for key, raw in rows:
+        for key, raw, payload in rows:
             value: JsonValue = json.loads(raw)
-            if predicate(value):
+            if predicate(value) or (payload is not None and predicate(json.loads(payload))):
                 await tx.connection.execute(
                     operations.update()
                     .where(operations.c.operation_key == key)
-                    .values(result_json=canonical_json({"$nous_operation_result": "purged"}))
+                    .values(
+                        result_json=canonical_json({"$nous_operation_result": "purged"}),
+                        payload_json=None,
+                    )
                 )
                 changed += 1
         return changed

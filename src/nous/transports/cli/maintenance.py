@@ -1,12 +1,14 @@
 """Reviewable growth and repeat policies through the public SDK."""
 
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
 import typer
 from nous_sdk.contracts.maintenance import (
+    CaptureMaintenanceOutput,
     CreateMaintenanceSchedule,
+    EditMaintenanceProposal,
     ReviewMaintenance,
     StartMaintenance,
 )
@@ -20,6 +22,39 @@ def register(cli: typer.Typer) -> None:
         no_args_is_help=False,
     )
     cli.add_typer(group, name="maintenance")
+
+    @group.command("capture-output")
+    def capture(
+        ctx: typer.Context, namespace_id: str, subject_id: str, run_id: str, command: Path
+    ) -> None:
+        """Read a retained model call into independently validated proposal groups; no provider call."""
+        value = read_command(command, CaptureMaintenanceOutput)
+        invoke(
+            ctx, lambda api: api.capture_maintenance_output(namespace_id, subject_id, run_id, value)
+        )
+
+    @group.command("edit")
+    def edit(
+        ctx: typer.Context, namespace_id: str, subject_id: str, run_id: str, command: Path
+    ) -> None:
+        """Compile an explicitly edited proposal while retaining the original model call."""
+        value = read_command(command, EditMaintenanceProposal)
+        invoke(ctx, lambda api: api.edit_maintenance(namespace_id, subject_id, run_id, value))
+
+    @group.command("retry")
+    def retry(
+        ctx: typer.Context,
+        namespace_id: str,
+        subject_id: str,
+        run_id: str,
+        operation_id: str | None = None,
+    ) -> None:
+        invoke(
+            ctx,
+            lambda api: api.retry_maintenance(
+                namespace_id, subject_id, run_id, operation_id=operation_id
+            ),
+        )
 
     @group.command("start")
     def start(ctx: typer.Context, namespace_id: str, subject_id: str, command: Path) -> None:
@@ -45,12 +80,14 @@ def register(cli: typer.Typer) -> None:
         expected_revision: int,
         reason: str = "",
         operation_id: str | None = None,
+        group_key: Annotated[list[str] | None, typer.Option("--group")] = None,
     ) -> None:
         command = ReviewMaintenance(
             operation_id=operation_id or str(uuid4()),
             expected_revision=expected_revision,
             decision=decision,
             reason=reason,
+            group_keys=tuple(group_key) if group_key is not None else None,
         )
         invoke(ctx, lambda api: api.review_maintenance(namespace_id, subject_id, run_id, command))
 

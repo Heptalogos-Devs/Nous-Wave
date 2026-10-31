@@ -8,6 +8,7 @@ from .common import CallContext, Contract, Operation, TimeRange
 
 class EpisodeQuery(Contract):
     query: str = ""
+    track: str | None = None
     source: str | None = None
     person: CognitiveRef | None = None
     experience: TimeRange | None = None

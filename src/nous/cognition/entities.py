@@ -67,10 +67,25 @@ async def redact_attributes_in(tx: WriteTx, record: CognitiveRecord, unpurged: s
     if summary is not None and not await supported_in(tx, record, summary.evidence, unpurged):
         summary = None
     controls = controls.model_copy(update={"aliases": aliases, "summary": summary})
+    generated = record.body.generated_profile
+    if generated is not None and not all(
+        [
+            await supported_in(tx, record, (link,), unpurged)
+            for link in generated.evidence
+            if link.polarity == "support"
+        ]
+    ):
+        generated = None
+    base_live = await supported_in(tx, record, record.evidence, unpurged)
+    description = record.body.description if base_live else ""
+    base_aliases = record.body.aliases if base_live else ()
     if (
         len(kept) == len(record.body.attributes)
         and tuple(identities) == record.body.platform_identities
         and controls == record.body.profile_controls
+        and generated == record.body.generated_profile
+        and description == record.body.description
+        and base_aliases == record.body.aliases
     ):
         return False
     body = record.body.model_copy(
@@ -78,6 +93,9 @@ async def redact_attributes_in(tx: WriteTx, record: CognitiveRecord, unpurged: s
             "attributes": kept,
             "platform_identities": tuple(identities),
             "profile_controls": controls,
+            "generated_profile": generated,
+            "description": description,
+            "aliases": base_aliases,
             "purged_identity_count": record.body.purged_identity_count
             + len(record.body.platform_identities)
             - len(identities),

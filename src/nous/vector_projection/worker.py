@@ -6,14 +6,19 @@ import math
 from typing import TYPE_CHECKING
 
 from nous_sdk.contracts import DomainError, EmbeddingBatch
+from nous_sdk.contracts.model_routing import ModelCallOutcome
 from nous_sdk.contracts.vector_projection import ProjectionResult
 from sqlalchemy import select, update
+from sqlalchemy.dialects.sqlite import insert
 
 from nous.cognition.schema import vectors
+from nous.platform.errors import NousError
+from nous.platform.models.outcomes import may_continue
 
 from .contracts import Content, Input, Plan, Request, TargetInput
 from .inputs import resolve_input, retained_content_in
 from .schema import claims, contents, requests, subscriptions
+from .space_lifecycle import require_live_in
 
 if TYPE_CHECKING:
     from .service import VectorProjectionService
@@ -90,9 +95,20 @@ async def prepare(self: VectorProjectionService, request: Request) -> Request:
                 )
             )
             retained = await retained_content_in(
-                self, tx, ctx, candidate.target, actual, request.profile
+                self,
+                tx,
+                ctx,
+                candidate.target,
+                actual,
+                request.profile,
+                repair=request.replace_existing,
             )
             if retained is not None:
+                await require_live_in(tx, request, retained.space)
+                if request.replace_existing:
+                    await tx.connection.execute(
+                        contents.delete().where(contents.c.key == actual.key)
+                    )
                 if (
                     await tx.connection.scalar(
                         select(contents.c.key).where(contents.c.key == actual.key)
@@ -133,7 +149,7 @@ async def prepare(self: VectorProjectionService, request: Request) -> Request:
                 dependencies.add(str(owner_id))
         plan = Plan(
             targets=tuple(targets),
-            owned=tuple(owned[key] for key in sorted(owned)),
+            owned=tuple(owned.values()),
             dependencies=tuple(sorted(dependencies)),
             omitted=tuple(dict.fromkeys(omitted)),
         )
@@ -184,6 +200,24 @@ async def save_batch(
         )
         if current.purged:
             raise DomainError("source_purged", "Projection input was erased during embedding")
+        await require_live_in(tx, request, batch.space)
+        assert current.plan is not None
+        prior = (
+            await tx.connection.execute(
+                select(contents.c.record).where(
+                    contents.c.key.in_(target.input.key for target in current.plan.targets)
+                )
+            )
+        ).scalars()
+        expected = (batch.space, batch.model, batch.dimensions)
+        if any(
+            (content.space, content.model, content.dimensions) != expected
+            for content in (Content.model_validate(raw) for raw in prior)
+        ):
+            raise DomainError(
+                "embedding_space_conflict",
+                "Provider changed the embedding space within the projection directory",
+            )
         for item, vector, call_id in zip(items, batch.vectors, batch.call_ids, strict=True):
             assert call_id is not None
             await self.models.successful_embedding_in(tx, ctx, call_id)
@@ -222,50 +256,135 @@ async def save_batch(
 
 
 async def run(self: VectorProjectionService, identity: str) -> dict[str, object]:
+    request = await self.read_request(identity)
+    # Route selection covers the entire logical directory. A rejected later batch
+    # restarts that directory in the next space; paid earlier batches stay retained.
+    for index, route in enumerate((request.profile.route, *request.profile.fallbacks)):
+        route_id = request.profile.route_ids[index] if request.profile.route_ids else None
+        profile = request.profile.model_copy(
+            update={
+                "route": route,
+                "fallbacks": (),
+                "route_ids": (route_id,) if route_id is not None else (),
+            }
+        )
+        attempt_id = f"{identity}:route:{index}"
+        async with self.authority.write(
+            request.context,
+            attempt_id,
+            operation_kind="vectors.route",
+            scope=request.context.require_subject(),
+            payload={
+                "request_id": identity,
+                "profile": profile.model_dump(mode="json", exclude_unset=True),
+            },
+        ) as tx:
+            if not tx.replayed:
+                attempt = request.model_copy(
+                    update={
+                        "id": attempt_id,
+                        "profile": profile,
+                        "plan": None,
+                        "parent_request_id": request.id,
+                    }
+                )
+                await tx.connection.execute(
+                    requests.insert().values(
+                        id=attempt.id,
+                        namespace_id=request.context.namespace_id,
+                        subject_id=request.context.require_subject(),
+                        record=attempt.model_dump(mode="json"),
+                        commit_seq=tx.commit_seq,
+                    )
+                )
+                tx.result({"request_id": attempt_id})
+        try:
+            result = await run_route(self, attempt_id)
+            result["request_id"] = identity
+            return result
+        except DomainError as error:
+            if error.code != "model_unavailable" or not request.profile.fallback_policy.unavailable:
+                raise
+            if index == len(request.profile.fallbacks):
+                raise
+        except NousError as error:
+            attempts = error.context.get("attempts")
+            if error.code != "model_routes_exhausted" or not isinstance(attempts, list):
+                raise
+            if not attempts or any(
+                not isinstance(item, dict)
+                or not may_continue(
+                    request.profile.fallback_policy,
+                    ModelCallOutcome.model_validate(item.get("outcome")),
+                )
+                for item in attempts
+            ):
+                raise
+            if index == len(request.profile.fallbacks):
+                raise
+    raise RuntimeError("Projection has no embedding route")
+
+
+async def run_route(self: VectorProjectionService, identity: str) -> dict[str, object]:
     request = await self.prepare(await self.read_request(identity))
     assert request.plan is not None
     ctx, plan = request.context, request.plan
+    from nous.platform.models.embedding import vector_space
+
+    async with self.authority.read(ctx) as view:
+        spaces = {
+            vector_space(request.profile.route, request.profile.route.model),
+            *(
+                space.space
+                for space in await self.models.configured_embedding_spaces_in(
+                    view, ctx, request.profile
+                )
+            ),
+        }
+        for space in spaces:
+            await require_live_in(view, request, space)
     text = tuple(item for item in plan.owned if item.text is not None)
     media = tuple(item for item in plan.owned if item.media is not None)
-    # The frozen directory fixes batch membership and order across DBOS recovery.
+    # The model execution owner performs physical batching and retains each call.
     for kind, items in (("text", text), ("media", media)):
-        size = request.profile.route.max_batch_items if kind == "text" else 1
-        for offset in range(0, len(items), size):
-            group = items[offset : offset + size]
-            invocation = f"projection:{request.id}:{kind}:{offset}"
-            async with self.authority.read(ctx) as view:
-                for target in plan.targets:
-                    if target.input.key in {item.key for item in group}:
-                        actual = await resolve_input(
-                            self,
-                            view,
-                            ctx,
-                            target.target,
-                            request.profile.resource_key(),
-                            head_only=request.head_only,
+        if not items:
+            continue
+        invocation = f"projection:{request.id}:{kind}"
+        async with self.authority.read(ctx) as view:
+            for target in plan.targets:
+                if target.input.key in {item.key for item in items}:
+                    actual = await resolve_input(
+                        self,
+                        view,
+                        ctx,
+                        target.target,
+                        request.profile.resource_key(),
+                        head_only=request.head_only,
+                    )
+                    if actual != target.input:
+                        raise DomainError(
+                            "projection_input_changed", "Projection source is no longer live"
                         )
-                        if actual != target.input:
-                            raise DomainError(
-                                "projection_input_changed", "Projection source is no longer live"
-                            )
-            sources = tuple(sorted({source for item in group for source in item.source_ids}))
-            if kind == "text":
-                batch = await self.models.embed(
-                    ctx,
-                    tuple(item.text for item in group if item.text is not None),
-                    source_ids=sources,
-                    invocation_id=invocation,
-                    profile=request.profile,
-                )
-            else:
-                batch = await self.models.embed_media(
-                    ctx,
-                    tuple((item.media,) for item in group if item.media is not None),
-                    source_ids=sources,
-                    invocation_id=invocation,
-                    profile=request.profile,
-                )
-            await save_batch(self, request, group, batch, invocation)
+        sources = tuple(sorted({source for item in items for source in item.source_ids}))
+        if kind == "text":
+            batch = await self.models.embed(
+                ctx,
+                tuple(item.text for item in items if item.text is not None),
+                source_ids=sources,
+                invocation_id=invocation,
+                profile=request.profile,
+                retry_authorization=request.retry_operation_id,
+            )
+        else:
+            batch = await self.models.embed_media(
+                ctx,
+                tuple((item.media,) for item in items if item.media is not None),
+                source_ids=sources,
+                invocation_id=invocation,
+                profile=request.profile,
+                retry_authorization=request.retry_operation_id,
+            )
+        await save_batch(self, request, items, batch, invocation)
     for dependency in plan.dependencies:
         owner = await self.read_request(dependency)
         await self.execution().wait(owner.context, owner.job_id)
@@ -295,6 +414,19 @@ async def adopt(self: VectorProjectionService, request: Request) -> ProjectionRe
         )
         if current.purged:
             raise DomainError("source_purged", "Projection sources were erased")
+        directory: list[Content] = []
+        for target in plan.targets:
+            raw = await tx.connection.scalar(
+                select(contents.c.record).where(contents.c.key == target.input.key)
+            )
+            if raw is not None:
+                directory.append(Content.model_validate(raw))
+        identities = {(item.space, item.model, item.dimensions) for item in directory}
+        if len(identities) > 1:
+            raise DomainError(
+                "embedding_space_conflict",
+                "The projection directory contains different embedding spaces",
+            )
         adopted: list[str] = []
         omitted = list(plan.omitted)
         spaces: set[str] = set()
@@ -321,6 +453,7 @@ async def adopt(self: VectorProjectionService, request: Request) -> ProjectionRe
                 )
             ).scalar_one()
             content = Content.model_validate(raw)
+            await require_live_in(tx, request, content.space)
             await self.models.successful_embedding_in(tx, ctx, content.call_id)
             existing = (
                 await tx.connection.execute(
@@ -330,17 +463,23 @@ async def adopt(self: VectorProjectionService, request: Request) -> ProjectionRe
                     )
                 )
             ).first()
-            if existing is not None and (existing.model, existing.dimensions) != (
-                content.model,
-                content.dimensions,
+            if (
+                existing is not None
+                and not request.replace_existing
+                and (existing.model, existing.dimensions)
+                != (
+                    content.model,
+                    content.dimensions,
+                )
             ):
                 raise DomainError(
                     "embedding_space_conflict",
                     "One space cannot mix model identities or dimensions",
                 )
-            if existing is None:
+            if existing is None or request.replace_existing:
                 await tx.connection.execute(
-                    vectors.insert().values(
+                    insert(vectors)
+                    .values(
                         reference=target.target.exact(),
                         space=content.space,
                         model=content.model,
@@ -348,6 +487,16 @@ async def adopt(self: VectorProjectionService, request: Request) -> ProjectionRe
                         vector=list(content.vector),
                         call_id=content.call_id,
                         commit_seq=tx.commit_seq,
+                    )
+                    .on_conflict_do_update(
+                        index_elements=["reference", "space"],
+                        set_={
+                            "model": content.model,
+                            "dimensions": content.dimensions,
+                            "vector": list(content.vector),
+                            "call_id": content.call_id,
+                            "commit_seq": tx.commit_seq,
+                        },
                     )
                 )
             adopted.append(target.target.exact())

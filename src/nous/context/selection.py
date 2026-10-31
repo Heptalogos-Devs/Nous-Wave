@@ -6,10 +6,7 @@ from typing import TYPE_CHECKING
 
 from nous_sdk.contracts import CallContext, CognitiveRecord, CognitiveRef
 from nous_sdk.contracts.context import CognitiveTarget, ContextSegment
-from sqlalchemy import select
 
-from nous.cognition.lifecycle import selectable
-from nous.cognition.schema import revisions
 from nous.platform.persistence import ReadView, WriteTx
 
 if TYPE_CHECKING:
@@ -22,20 +19,7 @@ async def automatic_resident_in(
     ctx: CallContext,
     reference: CognitiveRef,
 ) -> CognitiveRecord | None:
-    exact = await self.cognition.get_in(view, ctx, reference)
-    if not selectable(exact):
-        return None
-    raw = await view.connection.scalar(
-        select(revisions.c.record).where(
-            revisions.c.namespace_id == ctx.namespace_id,
-            revisions.c.subject_id == ctx.require_subject(),
-            revisions.c.id == reference.id,
-            revisions.c.head.is_(True),
-        )
-    )
-    if raw is None or not selectable(CognitiveRecord.model_validate(raw)):
-        return None
-    return exact
+    return await self.cognition.automatic_in(view, ctx, reference)
 
 
 async def segment_eligible_in(

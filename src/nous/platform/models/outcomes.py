@@ -1,5 +1,8 @@
 """Classify known transmission outcomes without interpreting human error messages."""
 
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+
 import httpx
 import httpx2
 from nous_sdk.contracts import DomainError
@@ -30,6 +33,23 @@ def outcome(error: Exception, *, response_received: bool = False) -> ModelCallOu
             if isinstance(current, ModelHTTPError) and current.in_stream:
                 return ModelCallOutcome(kind="unknown", http_status=current.status_code)
             body = current.body
+            retry_after = None
+            response = current.response if isinstance(current, APIStatusError) else None
+            if response is None and isinstance(current.__cause__, APIStatusError):
+                response = current.__cause__.response
+            if response is not None and current.status_code == 429:
+                value = response.headers.get("retry-after")
+                if value is not None:
+                    try:
+                        retry_after = max(0.0, float(value))
+                    except ValueError:
+                        try:
+                            retry_after = max(
+                                0.0,
+                                (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds(),
+                            )
+                        except ValueError, TypeError, OverflowError:
+                            pass
             code = parameter = provider_type = None
             if isinstance(body, dict):
                 parsed = TypeAdapter(dict[str, JsonValue]).validate_python(body)
@@ -48,6 +68,7 @@ def outcome(error: Exception, *, response_received: bool = False) -> ModelCallOu
                 provider_code=code,
                 parameter=parameter,
                 provider_type=provider_type,
+                retry_after_seconds=retry_after,
             )
         current = current.__cause__
     return ModelCallOutcome(

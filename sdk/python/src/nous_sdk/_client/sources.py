@@ -4,6 +4,8 @@ from collections.abc import Mapping
 
 from pydantic import JsonValue, TypeAdapter
 
+from ..contracts import SourceCommand, SourceResult
+from ..contracts.management import SourceSelection
 from ..operations import object_value
 from ..source_scope import SourceReadScope
 from ..types import JsonObject
@@ -76,26 +78,51 @@ class SourceClient(KnowledgeClient):
             return {"items": list(items)}
         if not isinstance(action, str):
             raise ValueError("Source operation requires action")
-        tool = (
-            "memory_source_admin"
-            if action in {"list", "delete", "batch_delete"}
-            else "memory_delete_admin"
-        )
-        if action == "trash":
-            action = "execute"
-        if action == "restore" and "trash_commit_seq" in values:
-            commit_seq = TypeAdapter(int).validate_python(values.pop("trash_commit_seq"))
-            request_id = values.pop("operation_id", None)
-            values["request_id"] = request_id
-            values["operation_id"] = str(commit_seq)
-        return object_value(
-            await self.request(
-                "POST",
-                "/api/integrations/amemorix",
-                body={
-                    "namespace_id": namespace,
-                    "subject_id": subject,
-                    "operation": {"tool": tool, "arguments": {"action": action, **values}},
-                },
+        if action == "list":
+            return {
+                "items": [
+                    value.model_dump(mode="json")
+                    for value in await self.source_directory(namespace, subject)
+                ]
+            }
+        mode = TypeAdapter(str | None).validate_python(values.pop("mode", "source"))
+        if mode not in {None, "", "source"}:
+            raise ValueError("Native source selections use canonical references or a RecordsQuery")
+        values.pop("cascade", None)
+        if "query" in values and "records" not in values:
+            values["source_names"] = [values.pop("query")]
+        if "request_id" in values:
+            values["operation_id"] = values.pop("request_id")
+        if "sources" in values:
+            values["source_names"] = values.pop("sources")
+        if "source" in values:
+            values["source_names"] = [values.pop("source")]
+        selected_operation = values.pop("source_operation_id", None)
+        selected_commit = values.pop("trash_commit_seq", None)
+        if selected_operation is not None or selected_commit is not None:
+            operation = await self.source_operation(
+                namespace,
+                subject,
+                TypeAdapter(int | None).validate_python(selected_commit),
+                source_operation_id=TypeAdapter(str | None).validate_python(selected_operation),
             )
-        )
+            selected = SourceResult.model_validate(operation["result"])
+            values["observation_ids"], values["references"] = (
+                list(selected.observation_ids),
+                [reference.model_dump(mode="json") for reference in selected.references],
+            )
+        if action == "preview":
+            return (
+                await self.preview_sources(
+                    namespace, subject, selection=SourceSelection.model_validate(values)
+                )
+            ).model_dump(mode="json")
+        values.setdefault("reason", "Source lifecycle change")
+        command = SourceCommand.model_validate(values)
+        if action in {"trash", "delete", "execute", "batch_delete"}:
+            return (await self.trash_sources(namespace, subject, command)).model_dump(mode="json")
+        if action == "restore":
+            return (await self.restore_sources(namespace, subject, command)).model_dump(mode="json")
+        if action == "purge":
+            return (await self.purge_sources(namespace, subject, command)).model_dump(mode="json")
+        raise ValueError("Unknown native source operation")

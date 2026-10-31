@@ -81,5 +81,6 @@ class FactClaimBody(FactClaimSpec):
     status: FactStatus = "active"
     evidence: tuple[FactEvidence, ...] = ()
     supersedes: tuple[CognitiveRef, ...] = ()
+    identity_lineage: tuple[CognitiveRef, ...] = ()
     first_observed: TimePoint | None = None
     last_confirmed: TimePoint | None = None

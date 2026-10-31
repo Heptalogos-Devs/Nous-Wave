@@ -1,6 +1,6 @@
 """Import administration presents catalogs, immutable outputs and real durable jobs."""
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 from uuid import uuid4
 
 from nous_sdk.contracts import (
@@ -12,14 +12,23 @@ from nous_sdk.contracts import (
     ImportDocument,
     ProcessCatalog,
     TimePoint,
+    TimeRange,
     UnitOutput,
 )
-from nous_sdk.contracts.imports import FormationOptionsOverride
+from nous_sdk.contracts.dataset_imports import BackfillSourceTimes, ImportDataset
+from nous_sdk.contracts.imports import (
+    FormationOptionsOverride,
+    ImportFormat,
+    RecordSelection,
+    TextSplitOptions,
+)
+from nous_sdk.contracts.namespace_policy import FormationPolicy
 from pydantic import Field, JsonValue, TypeAdapter
 from sqlalchemy import select
 
 from nous.imports.schema import inputs, outputs
 from nous.platform.persistence.schema import job_links, operations
+from nous.platform.time import parse_source_time
 
 from .helpers import json_object
 
@@ -32,6 +41,7 @@ class ImportInput(Contract):
     name: str = "notes.txt"
     content: str | None = None
     inputs: tuple[ImportDocument, ...] = ()
+    graph_pickle_material_id: str | None = None
     task_id: str | None = None
     catalog_id: str | None = None
     parent_catalog_id: str | None = None
@@ -44,11 +54,11 @@ class ImportInput(Contract):
     chunk_size: int = Field(default=2400, ge=128, le=100000)
     chunk_overlap: int = Field(default=200, ge=0)
     include_chunks: bool = False
-    limit: int = Field(default=50, ge=1, le=1000)
+    limit: int = Field(default=50, ge=1, le=10000000)
     offset: int = Field(default=0, ge=0)
     chat_id: str = ""
     scope_type: Literal["global", "chat"] | None = None
-    input_mode: Literal["text", "json", "jsonl"] = "text"
+    input_mode: ImportFormat = "text"
     file_id: str | None = None
     overrides: dict[str, JsonValue] | None = None
     strategy_override: Literal["auto", "factual", "narrative", "quote", "chat_log"] | None = "auto"
@@ -61,6 +71,22 @@ class ImportInput(Contract):
     content_category: str | None = None
     timezone: str | None = None
     reference_time: TimePoint | None = None
+    dry_run: bool = False
+    no_created_fallback: bool = False
+    dimension: int | None = Field(default=None, gt=0)
+    batch_size: int = Field(default=1024, ge=1, le=1000000)
+    read_batch_size: int | None = Field(default=None, ge=1, le=1000000)
+    max_errors: int = Field(default=0, ge=0)
+    preview_limit: int = Field(default=20, ge=1, le=1000)
+    start_id: int | None = Field(default=None, ge=1)
+    end_id: int | None = Field(default=None, ge=1)
+    time_from: str | float | None = None
+    time_to: str | float | None = None
+    stream_ids: tuple[str, ...] = ()
+    group_ids: tuple[str, ...] = ()
+    user_ids: tuple[str, ...] = ()
+    target_alias: str = "converted"
+    target_relative_path: str = ""
 
 
 class QueuedImport(Contract):
@@ -125,6 +151,27 @@ async def _detail(
         "updated_at": status.updated_at,
         "error": str(status.error) if status.error else None,
     }
+    if isinstance(submission.get("delivery"), dict):
+        task["delivery"] = submission["delivery"]
+    if status.status == "SUCCESS":
+        completed = await service.app.execution.wait(ctx, job_id)
+        if isinstance(completed, dict):
+            for key in (
+                "artifact_material_id",
+                "artifact_filename",
+                "artifact_content_hash",
+                "artifact_bytes",
+                "artifact_format",
+                "errors",
+                "dry_run",
+                "candidates",
+                "updated",
+                "sample_unit_ids",
+                "scanned",
+                "references",
+            ):
+                if key in completed:
+                    task[key] = completed[key]
     chunks: list[dict[str, JsonValue]] = []
     files: list[dict[str, JsonValue]] = []
     if isinstance(catalog_id, str):
@@ -260,16 +307,21 @@ async def import_admin(
     ):
         raise DomainError("import_scope_invalid", "Chat import scope requires its actual chat ID")
     if command.action in {"settings", "get_settings", "get_guide"}:
+        policy = FormationPolicy.model_validate(
+            (await service.app.configuration.effective(ctx, "formation"))["value"]
+        )
+        split = TextSplitOptions()
         return json_object(
             {
                 "success": True,
                 "settings": {
                     "enabled": True,
-                    "formats": ["text", "json", "jsonl"],
-                    "chunk_size": 2400,
-                    "chunk_overlap": 200,
+                    "formats": list(get_args(ImportFormat)),
+                    "chunk_size": min(split.chunk_size, policy.max_chunk_chars),
+                    "chunk_overlap": policy.chunk_overlap_chars,
                     "dedupe_policies": ["none", "content_hash", "manifest"],
-                    "llm_enabled": True,
+                    "llm_enabled": policy.default_enabled,
+                    "formation_enabled": policy.enabled,
                     "capabilities": {
                         "file_dedupe": True,
                         "json_processing": True,
@@ -281,17 +333,155 @@ async def import_admin(
                         for queue in service.app.execution.queues
                         if queue.name == "formation"
                     ),
-                    "default_narrative_window_size": 2400,
-                    "default_narrative_overlap": 200,
-                    "default_factual_target_size": 2400,
+                    "default_narrative_window_size": min(split.chunk_size, policy.max_chunk_chars),
+                    "default_narrative_overlap": policy.chunk_overlap_chars,
+                    "default_factual_target_size": min(split.chunk_size, policy.max_chunk_chars),
                 },
                 "guide": "Upload originals, freeze a catalog, and process its stable units. Failed units retry in the same catalog.",
             }
         )
+    if command.action in {
+        "create_lpmm_openie",
+        "create_lpmm_convert",
+        "create_maibot_migration",
+        "create_temporal_backfill",
+    }:
+        if command.action == "create_temporal_backfill" and not command.inputs:
+            queued = await service.app.datasets.submit_time_backfill(
+                ctx,
+                BackfillSourceTimes(
+                    operation_id=command.operation_id,
+                    limit=command.limit if "limit" in arguments else 100000,
+                    dry_run=command.dry_run,
+                    no_created_fallback=command.no_created_fallback,
+                ),
+            )
+            return await _detail(
+                service, ctx, str(queued["job_id"]), False, 0, min(command.limit, 1000)
+            )
+        if not command.inputs:
+            raise DomainError(
+                "inputs_required", "Dataset conversion requires captured source originals"
+            )
+        if command.graph_pickle_material_id is not None:
+            if command.action != "create_lpmm_convert":
+                raise DomainError(
+                    "lpmm_graph_action", "Legacy graph archives belong to LPMM conversion"
+                )
+            graph_material = await service.app.datasets.convert_lpmm_graph(
+                ctx, command.graph_pickle_material_id
+            )
+            command = command.model_copy(
+                update={
+                    "inputs": (
+                        *command.inputs,
+                        ImportDocument(
+                            material_id=graph_material,
+                            format="graphml",
+                            filename="graph.graphml",
+                            media_type="application/graphml+xml",
+                            source_type="source_graph",
+                            origin=command.inputs[0].origin,
+                        ),
+                    )
+                }
+            )
+        begin, end = parse_source_time(command.time_from), parse_source_time(command.time_to)
+        if any(
+            raw not in (None, "") and parsed is None
+            for raw, parsed in ((command.time_from, begin), (command.time_to, end))
+        ):
+            raise DomainError(
+                "time_scope_invalid",
+                "Migration bounds require actual dates or numeric source timestamps",
+            )
+        if begin and end and begin.domain != end.domain:
+            raise DomainError(
+                "time_scope_invalid", "Migration bounds must share the same actual time domain"
+            )
+        selection = RecordSelection(
+            after_sequence=command.start_id - 1 if command.start_id is not None else None,
+            through_sequence=command.end_id,
+            conversation_refs=command.stream_ids or None,
+            group_refs=command.group_ids,
+            user_refs=command.user_ids,
+            event=TimeRange(
+                domain=begin.domain if begin else end.domain if end else "unix_ms",
+                start=begin.coordinate if begin else None,
+                end=end.coordinate if end else None,
+            )
+            if begin or end
+            else None,
+            limit=command.limit
+            if "limit" in arguments
+            else 100000
+            if command.action == "create_temporal_backfill"
+            else None,
+        )
+        documents = tuple(
+            document.model_copy(
+                update={
+                    "origin": {
+                        **document.origin,
+                        **({"conversation_ref": command.chat_id} if command.chat_id else {}),
+                        "dataset_ref": document.origin.get("dataset_ref")
+                        or "operation:" + command.operation_id,
+                        **({"no_created_fallback": "true"} if command.no_created_fallback else {}),
+                    },
+                    "selection": document.selection or selection,
+                    "declared_vector_dimensions": command.dimension
+                    or document.declared_vector_dimensions,
+                    "read_batch_size": command.read_batch_size or command.batch_size,
+                }
+            )
+            for document in command.inputs
+        )
+        dataset = ImportDataset(
+            operation_id=command.operation_id,
+            inputs=documents,
+            name=command.name,
+            llm_enabled=command.llm_enabled if "llm_enabled" in arguments else False,
+            vectors=command.vectors,
+            export_bundle=command.action == "create_lpmm_convert",
+            dry_run=command.dry_run,
+            max_errors=command.max_errors,
+            preview_limit=command.preview_limit,
+        )
+        catalog = await service.app.datasets.prepare(ctx, dataset)
+        async with service.app.authority.write(
+            ctx,
+            command.operation_id,
+            operation_kind="amemorix.dataset",
+            scope=ctx.require_subject(),
+            payload=command,
+        ) as tx:
+            if tx.replayed:
+                queued = TypeAdapter(dict[str, JsonValue]).validate_python(tx.replay_result)
+            else:
+                queued = await service.app.datasets.enqueue_in(tx, ctx, dataset, catalog.id)
+                if command.action == "create_lpmm_convert":
+                    alias = (
+                        "converted"
+                        if command.target_alias == "plugin_data"
+                        else command.target_alias
+                    )
+                    if alias != "converted":
+                        raise DomainError(
+                            "import_destination_invalid",
+                            "Converted artifacts use the converted transfer alias",
+                        )
+                    queued["delivery"] = {
+                        "alias": alias,
+                        "relative_path": command.target_relative_path,
+                    }
+                tx.result(queued)
+        return await _detail(
+            service, ctx, str(queued["job_id"]), False, 0, min(command.limit, 1000)
+        )
     if command.action == "list":
         jobs = [
             job
-            for job in await service.app.execution.list_jobs(ctx, limit=command.limit)
+            for job in await service.app.execution.list_jobs(ctx, limit=min(command.limit, 1000))
             if job.name.startswith("nous.imports.")
         ]
         details = [

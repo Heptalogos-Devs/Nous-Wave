@@ -4,10 +4,12 @@ import asyncio
 import base64
 import hashlib
 import json
+import math
 from collections.abc import Awaitable, Callable
 
 from nous_sdk.contracts import CallContext, DomainError, EmbeddingBatch, MediaEmbeddingInput
-from nous_sdk.contracts.model_routing import ModelRouteAttempt
+from nous_sdk.contracts.model_roles import ModelCachePolicy
+from nous_sdk.contracts.model_routing import ModelRouteAttempt, ModelRoutingPolicy
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field, JsonValue
 
@@ -18,6 +20,7 @@ from nous.platform.network.service import NetworkService
 from .generation import MediaInput
 from .ledger import CallLedger
 from .outcomes import outcome
+from .retries import rate_limited
 
 MediaResolver = Callable[[CallContext, MediaEmbeddingInput], Awaitable[MediaInput]]
 
@@ -81,7 +84,7 @@ async def media_parts(
     return parts
 
 
-async def embed_media(
+async def _embed_media(
     ctx: CallContext,
     inputs: tuple[tuple[str | MediaEmbeddingInput, ...], ...],
     route: EmbeddingRoute,
@@ -93,11 +96,14 @@ async def embed_media(
     *,
     invocation_id: str | None = None,
     routing: ModelRouteAttempt | None = None,
+    direct_identity: bool = False,
+    cache_policy: ModelCachePolicy = "shared",
 ) -> EmbeddingBatch:
     vectors: list[tuple[float, ...]] = []
     call_ids: list[str | None] = []
     effective_model: str | None = None
     for index, group in enumerate(inputs):
+        previous_model = effective_model
         if not group:
             raise ValueError("A joint embedding input must contain at least one part")
         snapshot: dict[str, object] = {
@@ -112,7 +118,13 @@ async def embed_media(
             "normalization": route.normalization,
             "extra_body": route.extra_body,
         }
-        identity = f"{invocation_id}:{index}" if invocation_id is not None else None
+        identity = (
+            invocation_id
+            if direct_identity
+            else f"{invocation_id}:{index}"
+            if invocation_id is not None
+            else None
+        )
         call_id, cached = await ledger.reserve(
             ctx,
             "embedding",
@@ -120,6 +132,7 @@ async def embed_media(
             route.max_calls_per_day,
             invocation_id=identity,
             routing=routing,
+            cache_policy=cache_policy,
         )
         if cached is not None:
             result = retained_embedding(cached, call_id)
@@ -151,15 +164,15 @@ async def embed_media(
             records = (
                 (response.data,) if isinstance(response.data, EmbeddingData) else response.data
             )
-            if len(records) != 1 or len(records[0].embedding) != route.dimensions:
+            if (
+                len(records) != 1
+                or len(records[0].embedding) != route.dimensions
+                or not all(math.isfinite(value) for value in records[0].embedding)
+            ):
                 raise ValueError("One joint input must produce one vector in its declared space")
-            if effective_model is not None and effective_model != response.model:
-                raise ValueError("Provider changed model versions within an embedding batch")
             effective_model = response.model
             vector = records[0].embedding
             if route.normalization == "l2":
-                import math
-
                 norm = math.sqrt(sum(value * value for value in vector))
                 vector = tuple(value / norm for value in vector) if norm else vector
             result = EmbeddingBatch(
@@ -196,6 +209,11 @@ async def embed_media(
                     "provider_code": code,
                 },
             ) from error
+        if previous_model is not None and previous_model != effective_model:
+            raise DomainError(
+                "embedding_space_conflict",
+                "Provider changed model versions within an embedding batch",
+            )
     if effective_model is None:
         raise ValueError("Embedding batch cannot be empty")
     return EmbeddingBatch(
@@ -204,4 +222,70 @@ async def embed_media(
         dimensions=route.dimensions,
         vectors=tuple(vectors),
         call_ids=tuple(call_ids),
+    )
+
+
+async def embed_media(
+    ctx: CallContext,
+    inputs: tuple[tuple[str | MediaEmbeddingInput, ...], ...],
+    route: EmbeddingRoute,
+    key: str,
+    resolver: MediaResolver,
+    ledger: CallLedger,
+    network: NetworkService,
+    source_ids: tuple[str, ...],
+    *,
+    invocation_id: str | None = None,
+    routing: ModelRouteAttempt | None = None,
+    retry_policy: ModelRoutingPolicy | None = None,
+    cache_policy: ModelCachePolicy = "shared",
+    retry_authorization: str | None = None,
+) -> EmbeddingBatch:
+    batches: list[EmbeddingBatch] = []
+    for index, group in enumerate(inputs):
+
+        async def request(
+            identity: str | None, group: tuple[str | MediaEmbeddingInput, ...] = group
+        ) -> EmbeddingBatch:
+            return await _embed_media(
+                ctx,
+                (group,),
+                route,
+                key,
+                resolver,
+                ledger,
+                network,
+                source_ids,
+                invocation_id=identity,
+                routing=routing,
+                direct_identity=True,
+                cache_policy=cache_policy,
+            )
+
+        batch = await rate_limited(
+            ctx,
+            "embedding",
+            f"{invocation_id}:{index}" if invocation_id is not None else None,
+            retry_policy or ModelRoutingPolicy(),
+            ledger,
+            request,
+            authorization=retry_authorization,
+        )
+        if batches and (batch.space, batch.model, batch.dimensions) != (
+            batches[0].space,
+            batches[0].model,
+            batches[0].dimensions,
+        ):
+            raise DomainError(
+                "embedding_space_conflict", "Provider changed space within media inputs"
+            )
+        batches.append(batch)
+    if not batches:
+        raise ValueError("Embedding batch cannot be empty")
+    return EmbeddingBatch(
+        model=batches[0].model,
+        space=batches[0].space,
+        dimensions=batches[0].dimensions,
+        vectors=tuple(v for batch in batches for v in batch.vectors),
+        call_ids=tuple(call for batch in batches for call in batch.call_ids),
     )

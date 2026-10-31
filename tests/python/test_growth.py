@@ -99,11 +99,52 @@ def test_pure_growth_and_actual_adoption(tmp_path: Path):
             async with authority.write(
                 ctx, "growth", operation_kind="growth-review", payload=draft
             ) as tx:
-                adopted = await cognition.apply_growth_in(tx, ctx, draft, snapshot)
+                adopted = (await cognition.apply_growth_in(tx, ctx, draft, snapshot)).records
                 tx.result(adopted)
             assert adopted[0].body.support == (memory,)
             assert adopted[1].body.members == (adopted[0].reference,)
             assert all(not record.reference.id.startswith("proposal/") for record in adopted)
+            sequential = normalize_growth(
+                GrowthProposal.model_validate(
+                    {
+                        "summary": "Correct and retire one old preference",
+                        "rationale": "Both ordered operations belong to one dependent group",
+                        "actions": [
+                            {
+                                "action": "adopt",
+                                "key": "corrected",
+                                "target_key": memory_key,
+                                "evidence_keys": [memory_key],
+                                "reason": "Correct the actual preference",
+                                "body": {
+                                    "kind": "memory",
+                                    "text": "Corrected preference.",
+                                    "epistemic": {"classification": "reported"},
+                                },
+                            },
+                            {
+                                "action": "memory_change",
+                                "key": "retired",
+                                "target_key": memory_key,
+                                "transition": "forget",
+                                "reason": "Retire the superseded preference",
+                            },
+                        ],
+                    }
+                )
+            )
+            async with authority.read(ctx) as view:
+                await cognition.validate_growth_in(view, ctx, sequential, snapshot)
+            async with authority.write(
+                ctx, "sequential", operation_kind="growth-review", payload=sequential
+            ) as tx:
+                changed = (await cognition.apply_growth_in(tx, ctx, sequential, snapshot)).records
+                tx.result(changed)
+            assert changed[0].reference.id == changed[1].reference.id == memory.id
+            assert changed[1].reference.revision == changed[0].reference.revision + 1
+            assert changed[1].body.text == "Corrected preference."
+            async with authority.read(ctx) as view:
+                assert await cognition.automatic_in(view, ctx, changed[1].reference) is None
             denied = ctx.model_copy(update={"allowed_source_ids": ()})
             try:
                 await imports.admit_files(denied, command)

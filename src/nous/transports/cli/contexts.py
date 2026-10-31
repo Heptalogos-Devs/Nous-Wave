@@ -10,6 +10,8 @@ from nous_sdk.contracts.context import (
     ContextAdmissionCommand,
     ContextCommand,
     ContextFeedback,
+    ContextModelCall,
+    ContextModelPreview,
     ContextPrepare,
     ContextReport,
     ContextTrack,
@@ -23,6 +25,18 @@ from .common import invoke, read_command
 def register(cli: typer.Typer) -> None:
     group = typer.Typer(help="Prepare, admit and report actual context use.", no_args_is_help=False)
     cli.add_typer(group, name="context")
+
+    @group.command("model-preview")
+    def model_preview(
+        ctx: typer.Context, namespace_id: str, subject_id: str, command: Path
+    ) -> None:
+        value = read_command(command, ContextModelPreview)
+        invoke(ctx, lambda api: api.preview_context_model(namespace_id, subject_id, value))
+
+    @group.command("invoke-model")
+    def invoke_model(ctx: typer.Context, namespace_id: str, subject_id: str, command: Path) -> None:
+        value = read_command(command, ContextModelCall)
+        invoke(ctx, lambda api: api.invoke_context_model(namespace_id, subject_id, value))
 
     @group.command("admit")
     def admit(ctx: typer.Context, namespace_id: str, subject_id: str, command: Path) -> None:

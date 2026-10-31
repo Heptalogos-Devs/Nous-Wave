@@ -10,10 +10,13 @@ from nous_sdk.contracts import (
     AssociationBody,
     CallContext,
     CognitiveRecord,
+    ConcernBody,
+    DesireBody,
     DomainError,
     EntityBody,
     EpistemicStance,
     JournalBody,
+    MediaRecord,
     MemoryBody,
     MemorySemanticsBody,
     NarrativeThreadBody,
@@ -31,11 +34,13 @@ from nous_sdk.contracts.context import (
     ManagedContextResponse,
     MediaTarget,
 )
+from nous_sdk.contracts.resources import ResourceRecord
+from nous_sdk.contracts.source_objects import EvidenceRelationRecord, ObservationRecord
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import select, update
 
 from nous.cognition.lifecycle import selectable
-from nous.cognition.projection import body_text
+from nous.cognition.projection import body_text, evidence_in
 from nous.platform.persistence import ReadView, WriteTx
 from nous.platform.persistence.authority import canonical_json
 
@@ -77,7 +82,7 @@ async def require_targets_in(
 ) -> None:
     for target in targets:
         if isinstance(target, CognitiveTarget):
-            await self.cognition.get_in(view, ctx, target.reference)
+            await self.cognition.read_in(view, ctx, target.reference)
         else:
             if self.materials is None:
                 raise DomainError("media_unavailable", "Context media owner is unavailable")
@@ -91,16 +96,59 @@ async def require_targets_in(
                 raise DomainError("source_unavailable", "Context media derivation is unavailable")
 
 
+async def require_projection_in(
+    self: ManagedContexts, view: ReadView | WriteTx, ctx: CallContext, projection: ContextProjection
+) -> None:
+    await self.require_targets_in(
+        view,
+        ctx,
+        tuple(
+            target
+            for segment in projection.segments
+            for target in (*segment.sources, *segment.dependencies)
+        ),
+    )
+    for segment in projection.segments:
+        if segment.authority != "recorded_cognition":
+            continue
+        for target in segment.sources:
+            if (
+                not isinstance(target, CognitiveTarget)
+                or target.reference.kind != "entity"
+                or target.reference.exact() != segment.key
+            ):
+                continue
+            current = await self.cognition.read_in(view, ctx, target.reference)
+            expected = await self.record_segment_in(view, ctx, current)
+            if expected.text != segment.text or expected.dependencies != segment.dependencies:
+                raise DomainError(
+                    "context_source_changed",
+                    "The Entity's supported fields changed; prepare the context again",
+                )
+
+
+async def stored_projection_in(
+    self: ManagedContexts, view: ReadView | WriteTx, ctx: CallContext, projection_id: str
+) -> ContextProjection:
+    raw = await view.connection.scalar(
+        select(preparations.c.record).where(
+            preparations.c.namespace_id == ctx.namespace_id,
+            preparations.c.subject_id == ctx.require_subject(),
+            preparations.c.record["full_projection"]["id"].as_string() == projection_id,
+        )
+    )
+    if raw is None or raw.get("caller_id") != ctx.caller_id:
+        raise DomainError(
+            "preparation_not_found", "Context projection is unavailable for this caller"
+        )
+    return ContextProjection.model_validate(raw["full_projection"])
+
+
 async def prepare(
     self: ManagedContexts, ctx: CallContext, command: ContextPrepare
 ) -> ContextPreparation:
-    # Managed input begins with no implicit source access. Trusted host scopes
-    # enter through the same authenticated boundary used by ordinary queries.
-    selected_ctx = (
-        ctx
-        if ctx.allowed_source_ids is not None
-        else ctx.model_copy(update={"allowed_source_ids": ()})
-    )
+    # The authenticated caller context already carries its actual source ceiling.
+    selected_ctx = ctx
     policy = await self.policy(ctx)
     consumer = policy.consumers.get(command.consumer_id)
     if consumer is None:
@@ -110,6 +158,9 @@ async def prepare(
     offered: list[ContextSegment] = []
     degradations: list[str] = []
     async with self.authority.read(selected_ctx) as view:
+        from .ego_supply import segments_in
+
+        offered.extend(await segments_in(self, view, selected_ctx, command.usage))
         from .lifecycle import session_key
 
         session_record = await view.connection.scalar(
@@ -132,7 +183,7 @@ async def prepare(
                         if record is None:
                             degradations.append("resident_inactive")
                             continue
-                        offered.append(self.record_segment(record))
+                        offered.append(await self.record_segment_in(view, selected_ctx, record))
                     else:
                         offered.append(
                             await self.media_segment_in(view, selected_ctx, resident.target)
@@ -155,11 +206,52 @@ async def prepare(
         for target in command.current_sources:
             if isinstance(target, CognitiveTarget):
                 record = await self.cognition.get_in(view, selected_ctx, target.reference)
-                offered.append(self.record_segment(record).model_copy(update={"required": True}))
+                offered.append(
+                    (await self.record_segment_in(view, selected_ctx, record)).model_copy(
+                        update={"required": True}
+                    )
+                )
             else:
                 offered.append(
                     await self.media_segment_in(view, selected_ctx, target, required=True)
                 )
+    if command.usage.symbols is not None:
+        if self.symbols is None:
+            raise DomainError("symbols_unavailable", "The native symbol owner is unavailable")
+        symbol_selection = await self.symbols.select(
+            selected_ctx, command.usage.symbols, express=command.usage.symbols_mode == "express"
+        )
+        async with self.authority.read(selected_ctx) as symbol_view:
+            for record in symbol_selection.candidates:
+                offered.append(await self.record_segment_in(symbol_view, selected_ctx, record))
+        if symbol_selection.local_interpretation is not None:
+            from nous_sdk.contracts import EpistemicStance
+
+            local = symbol_selection.local_interpretation
+            sources = tuple(
+                {
+                    entry.reference.model_dump_json(): entry.reference
+                    for entry in local.sources
+                    if entry.reference is not None
+                }.values()
+            )
+            offered.append(
+                ContextSegment(
+                    key="symbols-local:" + str(symbol_selection.producer_call_id),
+                    text=canonical_json(local),
+                    sources=sources,
+                    dependencies=symbol_selection.dependencies,
+                    authority="steward_interpretation",
+                    epistemic=EpistemicStance(
+                        classification="inferred", confidence=local.confidence
+                    ),
+                    provenance={
+                        "supply": "local_symbol_interpretation",
+                        "producer_call_id": symbol_selection.producer_call_id,
+                    },
+                )
+            )
+        degradations.extend(symbol_selection.degradations)
     query = command.query
     if query is None and command.usage.intent.strip():
         query = QueryRequest(text=command.usage.intent, mode="lexical", limit=max_items)
@@ -167,9 +259,46 @@ async def prepare(
         if self.retrieval is None:
             raise DomainError("retrieval_unavailable", "Context retrieval owner is unavailable")
         found = await self.retrieval.query(selected_ctx, query)
-        for hit in found.hits:
-            if isinstance(hit.object, CognitiveRecord) and selectable(hit.object):
-                offered.append(self.record_segment(hit.object))
+        async with self.authority.read(selected_ctx) as view:
+            for hit in found.hits:
+                value = hit.object
+                if isinstance(value, CognitiveRecord) and selectable(value):
+                    offered.append(await self.record_segment_in(view, selected_ctx, value))
+                elif isinstance(value, MediaRecord):
+                    offered.append(
+                        await self.media_segment_in(
+                            view, selected_ctx, MediaTarget(reference=value.reference)
+                        )
+                    )
+                elif isinstance(value, ObservationRecord):
+                    offered.append(
+                        await self.media_segment_in(
+                            view, selected_ctx, MediaTarget(reference=value.source)
+                        )
+                    )
+                elif isinstance(value, EvidenceRelationRecord):
+                    target = await self.cognition.get_in(view, selected_ctx, value.target)
+                    offered.append(await self.record_segment_in(view, selected_ctx, target))
+                    if value.source is not None:
+                        offered.append(
+                            await self.media_segment_in(
+                                view, selected_ctx, MediaTarget(reference=value.source)
+                            )
+                        )
+                    elif value.evidence.reference is not None:
+                        evidence = await self.cognition.get_in(
+                            view, selected_ctx, value.evidence.reference
+                        )
+                        offered.append(await self.record_segment_in(view, selected_ctx, evidence))
+                elif isinstance(value, ResourceRecord):
+                    if value.snapshot is not None:
+                        offered.append(
+                            await self.media_segment_in(
+                                view, selected_ctx, MediaTarget(reference=value.snapshot.source)
+                            )
+                        )
+                    else:
+                        degradations.append("resource_source_unavailable")
     filtered: dict[str, ContextSegment] = {}
     for segment in offered:
         admitted_kind = all(
@@ -231,11 +360,7 @@ async def prepare(
             replay = ContextPreparation.model_validate(tx.replay_result)
             stored = await self.read_preparation_in(tx, ctx, replay.id)
             full = ContextProjection.model_validate(stored["full_projection"])
-            await self.require_targets_in(
-                tx,
-                selected_ctx,
-                tuple(target for segment in full.segments for target in segment.sources),
-            )
+            await self.require_projection_in(tx, selected_ctx, full)
             return ContextPreparation.model_validate(stored["preparation"])
         session_key = sha256(
             f"{ctx.caller_id}\0{ctx.namespace_id}\0{ctx.require_subject()}\0{command.session_id}".encode()
@@ -293,11 +418,7 @@ async def prepare(
         previous: tuple[ContextSegment, ...] = ()
         if append and old is not None:
             try:
-                await self.require_targets_in(
-                    tx,
-                    selected_ctx,
-                    tuple(target for segment in old.segments for target in segment.sources),
-                )
+                await self.require_projection_in(tx, selected_ctx, old)
                 previous = old.segments
             except DomainError:
                 append = False
@@ -396,7 +517,10 @@ async def prepare(
         return tx.result(preparation)
 
 
-def record_segment(record: CognitiveRecord) -> ContextSegment:
+async def record_segment_in(
+    self: ManagedContexts, view: ReadView | WriteTx, ctx: CallContext, record: CognitiveRecord
+) -> ContextSegment:
+    record = await self.cognition.project_record_in(view, ctx, record)
     if record.body is None:
         raise DomainError("source_purged", "Purged cognitive content cannot enter a context")
     if isinstance(record.body, (MemoryBody, MemorySemanticsBody, AssociationBody)):
@@ -409,16 +533,18 @@ def record_segment(record: CognitiveRecord) -> ContextSegment:
         )
     else:
         epistemic = None
-    return ContextSegment(
+    segment = ContextSegment(
         key=record.reference.exact(),
         text=canonical_json(record.body)
         if isinstance(record.body, EntityBody)
         else body_text(record.body),
         sources=(CognitiveTarget(reference=record.reference),),
         dependencies=tuple(
-            CognitiveTarget(reference=edge.reference)
-            for edge in record.evidence
-            if edge.reference is not None
+            dict.fromkeys(
+                CognitiveTarget(reference=edge.reference)
+                for edge in (*record.evidence, *tuple(evidence_in(record.body)))
+                if edge.reference is not None
+            )
         ),
         authority="recorded_cognition",
         provenance={
@@ -428,6 +554,26 @@ def record_segment(record: CognitiveRecord) -> ContextSegment:
         epistemic=epistemic,
     )
 
+    if isinstance(record.body, (DesireBody, ConcernBody)):
+        saved = await self.cognition.latest_motivation_assessment_in(view, ctx, record.reference)
+        if saved is not None:
+            evidence = tuple(CognitiveTarget(reference=ref) for ref in saved.references)
+            segment = segment.model_copy(
+                update={
+                    "text": segment.text
+                    + "\n"
+                    + canonical_json({"motivation_assessment": saved.assessment}),
+                    "sources": tuple(dict.fromkeys((*segment.sources, *evidence))),
+                    "dependencies": tuple(dict.fromkeys((*segment.dependencies, *evidence))),
+                    "provenance": {
+                        **segment.provenance,
+                        "motivation_assessment_id": saved.id,
+                        "motivation_assessment_commit_seq": saved.commit_seq,
+                    },
+                }
+            )
+    return segment
+
 
 async def preparation(
     self: ManagedContexts, ctx: CallContext, preparation_id: str
@@ -435,9 +581,7 @@ async def preparation(
     async with self.authority.read(ctx) as view:
         value = await self.read_preparation_in(view, ctx, preparation_id)
         full = ContextProjection.model_validate(value["full_projection"])
-        await self.require_targets_in(
-            view, ctx, tuple(target for segment in full.segments for target in segment.sources)
-        )
+        await self.require_projection_in(view, ctx, full)
         return ContextPreparation.model_validate(value["preparation"])
 
 

@@ -1,9 +1,11 @@
 """Bounded provider-neutral text embedding batches share actual paid results."""
 
 import asyncio
+import math
 
 from nous_sdk.contracts import CallContext, EmbeddingBatch
-from nous_sdk.contracts.model_routing import ModelRouteAttempt
+from nous_sdk.contracts.model_roles import ModelCachePolicy
+from nous_sdk.contracts.model_routing import ModelRouteAttempt, ModelRoutingPolicy
 from openai import AsyncOpenAI
 
 from nous.platform.configuration import EmbeddingRoute
@@ -13,6 +15,7 @@ from nous.platform.network.service import NetworkService
 from .embedding import retained_embedding, vector_space
 from .ledger import CallLedger
 from .outcomes import outcome
+from .retries import rate_limited
 
 
 async def embed_one(
@@ -26,6 +29,7 @@ async def embed_one(
     *,
     invocation_id: str | None = None,
     routing: ModelRouteAttempt | None = None,
+    cache_policy: ModelCachePolicy = "shared",
 ) -> EmbeddingBatch:
     request: dict[str, object] = {
         "model": route.model,
@@ -43,6 +47,7 @@ async def embed_one(
         route.max_calls_per_day,
         invocation_id=invocation_id,
         routing=routing,
+        cache_policy=cache_policy,
     )
     if cached is not None:
         return retained_embedding(cached, call_id)
@@ -60,7 +65,10 @@ async def embed_one(
             )
         response_received = True
         vectors = [tuple(item.embedding) for item in sorted(response.data, key=lambda v: v.index)]
-        if len(vectors) != len(texts) or any(len(v) != route.dimensions for v in vectors):
+        if sorted(item.index for item in response.data) != list(range(len(texts))) or any(
+            len(v) != route.dimensions or not all(math.isfinite(value) for value in v)
+            for v in vectors
+        ):
             raise ValueError("Provider returned inconsistent embedding dimensions")
         if route.normalization == "l2":
             import numpy as np
@@ -121,23 +129,40 @@ async def embed_text(
     *,
     invocation_id: str | None = None,
     routing: ModelRouteAttempt | None = None,
+    retry_policy: ModelRoutingPolicy | None = None,
+    cache_policy: ModelCachePolicy = "shared",
+    retry_authorization: str | None = None,
 ) -> EmbeddingBatch:
     if not texts or any(not text.strip() for text in texts):
         raise ValueError("Text embedding inputs must contain nonempty text")
     batches: list[EmbeddingBatch] = []
     for offset in range(0, len(texts), route.max_batch_items):
-        batch = await embed_one(
+        group = texts[offset : offset + route.max_batch_items]
+
+        async def request(identity: str | None, group: tuple[str, ...] = group) -> EmbeddingBatch:
+            return await embed_one(
+                ctx,
+                group,
+                route,
+                key,
+                ledger,
+                network,
+                source_ids,
+                invocation_id=identity,
+                routing=routing,
+                cache_policy=cache_policy,
+            )
+
+        batch = await rate_limited(
             ctx,
-            texts[offset : offset + route.max_batch_items],
-            route,
-            key,
-            ledger,
-            network,
-            source_ids,
-            invocation_id=f"{invocation_id}:{offset // route.max_batch_items}"
+            "embedding",
+            f"{invocation_id}:{offset // route.max_batch_items}"
             if invocation_id is not None
             else None,
-            routing=routing,
+            retry_policy or ModelRoutingPolicy(),
+            ledger,
+            request,
+            authorization=retry_authorization,
         )
         if batches and (batch.space, batch.model, batch.dimensions) != (
             batches[0].space,

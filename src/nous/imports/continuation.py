@@ -19,7 +19,6 @@ from pydantic import JsonValue
 from sqlalchemy import or_, select
 
 from nous.cognition.graph_state import heads_in
-from nous.cognition.schema import vectors
 from nous.material.service import require_observation_in
 from nous.platform.execution import require_job_in
 from nous.platform.persistence import ReadView, WriteTx
@@ -113,19 +112,12 @@ async def validate_retry_in(
         raise DomainError("import_retry_mismatch", "Retry parent is not processing this catalog")
 
 
-async def vectors_complete_in(view: ReadView | WriteTx, output: UnitOutput) -> bool:
-    requested = {ref.exact() for ref in output.cognition}
-    if not requested:
-        return False
-    rows = (
-        await view.connection.execute(
-            select(vectors.c.reference, vectors.c.space).where(vectors.c.reference.in_(requested))
-        )
-    ).all()
-    spaces: dict[str, set[str]] = {}
-    for reference, space in rows:
-        spaces.setdefault(str(space), set()).add(str(reference))
-    return any(requested.issubset(present) for present in spaces.values())
+async def vectors_complete_in(self: ImportService, ctx: CallContext, output: UnitOutput) -> bool:
+    return (
+        bool(output.cognition)
+        and self.projection is not None
+        and not await self.projection.missing(ctx, output.cognition, head_only=False)
+    )
 
 
 @dataclass(frozen=True)
@@ -221,6 +213,6 @@ async def unit_candidates_in(
             rank = {"disabled": 0, "metadata_allowed": 1, "required": 2}
             complete = complete and rank[previous.vectors] >= rank[command.vectors]
             if command.vectors == "required":
-                complete = complete and await vectors_complete_in(view, output)
+                complete = complete and await vectors_complete_in(self, ctx, output)
         result.setdefault(unit.id, []).append(UnitCandidate(output, attempt, complete))
     return result

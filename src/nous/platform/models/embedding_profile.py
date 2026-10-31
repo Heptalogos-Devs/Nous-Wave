@@ -1,12 +1,14 @@
 """A resolved embedding route snapshot, with no credential values."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 
 from nous_sdk.contracts import EmbeddingBatch
 from nous_sdk.contracts.common import Contract
+from nous_sdk.contracts.model_roles import ModelCachePolicy
 from nous_sdk.contracts.model_routing import ModelRoutingPolicy
-from pydantic import Field, model_validator
+from pydantic import Field, JsonValue, model_validator
 
 from nous.platform.configuration import EmbeddingRoute
 from nous.platform.persistence.authority import canonical_json
@@ -17,6 +19,20 @@ class EmbeddingProfile(Contract):
     fallbacks: tuple[EmbeddingRoute, ...] = ()
     route_ids: tuple[str, ...] = ()
     fallback_policy: ModelRoutingPolicy = Field(default_factory=ModelRoutingPolicy)
+    cache_policy: ModelCachePolicy = "shared"
+
+    @staticmethod
+    def matches_request(route: EmbeddingRoute, request: Mapping[str, JsonValue]) -> bool:
+        return all(
+            request.get(key) == value
+            for key, value in (
+                ("model", route.model),
+                ("base_url", route.base_url),
+                ("dimensions", route.dimensions),
+                ("normalization", route.normalization),
+                ("extra_body", route.extra_body),
+            )
+        )
 
     @model_validator(mode="after")
     def route_identities(self) -> EmbeddingProfile:
@@ -58,3 +74,11 @@ class EmbeddingProfile(Contract):
 class EmbeddingEvidence:
     batch: EmbeddingBatch
     source_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EmbeddingSpaceEvidence:
+    space: str
+    model: str
+    dimensions: int
+    route_indexes: tuple[int, ...] = ()

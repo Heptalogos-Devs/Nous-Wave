@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from nous_sdk.contracts import (
-    CallContext,
     CognitiveRecord,
     CognitiveRef,
     DomainError,
@@ -27,7 +26,7 @@ from .policy import ResolvedPolicy
 from .work import QueryWork
 
 if TYPE_CHECKING:
-    from .service import RetrievalService
+    pass
 
 
 @dataclass(frozen=True)
@@ -161,34 +160,28 @@ def resolve_intent(
     )
 
 
-async def embed_concepts(
-    self: RetrievalService, ctx: CallContext, intent: BoundVcp, query: EmbeddingBatch
+def concept_vectors(
+    intent: BoundVcp, query: EmbeddingBatch
 ) -> tuple[NDArray[np.float32] | None, tuple[QueryConceptResult, ...]]:
     if not intent.concepts:
         return None, ()
-    # These are caller-supplied query cues, not readings or persisted evidence.
-    batch = await self.models.embed(ctx, tuple(cue.text for cue in intent.concepts), source_ids=())
-    if (batch.space, batch.model, batch.dimensions) != (query.space, query.model, query.dimensions):
-        raise DomainError(
-            "embedding_space_conflict",
-            "Query concepts and query vector must use the same actual model space",
-        )
+    # The query and its transient cues share one ordered model request, including fallback.
     if (
-        len(batch.vectors) != len(intent.concepts)
-        or len(batch.call_ids) != len(intent.concepts)
-        or any(call is None for call in batch.call_ids)
+        len(query.vectors) != 1 + len(intent.concepts)
+        or len(query.call_ids) != 1 + len(intent.concepts)
+        or any(call is None for call in query.call_ids)
     ):
         raise DomainError(
             "invalid_embedding", "Query concepts require one vector and actual producer per cue"
         )
-    vectors = np.ascontiguousarray(batch.vectors, dtype=np.float32)
+    vectors = np.ascontiguousarray(query.vectors[1:], dtype=np.float32)
     if vectors.shape != (len(intent.concepts), query.dimensions) or not np.isfinite(vectors).all():
         raise DomainError(
             "invalid_embedding", "Query concept vectors have invalid dimensions or coordinates"
         )
     results = tuple(
-        QueryConceptResult(concept=cue, call_id=call, space=batch.space)
-        for cue, call in zip(intent.concepts, batch.call_ids, strict=True)
+        QueryConceptResult(concept=cue, call_id=call, space=query.space)
+        for cue, call in zip(intent.concepts, query.call_ids[1:], strict=True)
         if call is not None
     )
     return vectors, results

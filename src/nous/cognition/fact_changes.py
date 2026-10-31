@@ -16,7 +16,15 @@ from nous_sdk.contracts.facts import FactChange
 
 from nous.platform.persistence import WriteTx
 
-from .fact_identity import conflict_group, identity, normalized, scope_identity
+from .fact_identity import (
+    claim_identity,
+    conflict_group,
+    conflicts_with,
+    identity,
+    normalized,
+    requested_validity,
+    scope_identity,
+)
 
 if TYPE_CHECKING:
     from .facts import FactService
@@ -54,6 +62,9 @@ async def apply_in(
     candidates: tuple[CognitiveRecord, ...],
     explicit_supersedes: tuple[CognitiveRecord, ...],
     report: EvidenceLink,
+    *,
+    replace_support: bool = False,
+    origin: CognitiveRecord | None = None,
 ) -> tuple[CognitiveRecord, tuple[CognitiveRecord, ...], tuple[CognitiveRef, ...]]:
     operation = command.action
     if operation == "update":
@@ -66,14 +77,30 @@ async def apply_in(
             raise DomainError(
                 "fact_scope_immutable", "A claim update cannot change its person/chat scope"
             )
+    validity = requested_validity(
+        command,
+        requested.times.validity if requested else origin.times.validity if origin else None,
+    )
     target = next(
         (
             record
             for record in candidates
-            if isinstance(record.body, FactClaimBody) and identity(record.body) == identity(spec)
+            if isinstance(record.body, FactClaimBody)
+            and claim_identity(record.body, record.times.validity) == claim_identity(spec, validity)
         ),
         None,
     )
+    if (
+        requested is not None
+        and isinstance(requested.body, FactClaimBody)
+        and identity(requested.body) == identity(spec)
+    ):
+        if target is not None and target.reference.id != requested.reference.id:
+            raise DomainError(
+                "fact_validity_collision",
+                "Another claim already owns this content and applicability",
+            )
+        target = requested
     if target is not None:
         assert isinstance(target.body, FactClaimBody)
         if target.body.cardinality != spec.cardinality:
@@ -115,8 +142,8 @@ async def apply_in(
         record.reference
         for record in candidates
         if isinstance(record.body, FactClaimBody)
-        and record.body.status == "active"
-        and conflict_group(record.body) == group
+        and record.body.status in {"active", "conflicted"}
+        and conflicts_with(record.body, record.times.validity, spec, validity)
         and record.reference.id not in retired_ids
         and (target is None or record.reference.id != target.reference.id)
     )
@@ -126,12 +153,27 @@ async def apply_in(
         )
     prior = target.body if target is not None else None
     assert prior is None or isinstance(prior, FactClaimBody)
-    evidence = merged_evidence(prior.evidence if prior else (), command.evidence)
+    evidence = merged_evidence(
+        tuple(
+            item
+            for item in prior.evidence
+            if not replace_support or item.link.polarity != "support"
+        )
+        if prior
+        else (),
+        command.evidence,
+    )
     status: FactStatus = "conflicted" if conflicts else "active"
     action = "reinforce" if target else "assert"
     if operation in {"classify", "add_evidence"}:
         assert prior is not None
         status, action = prior.status, operation
+        if (
+            prior.status in {"active", "conflicted"}
+            and target is not None
+            and validity != target.times.validity
+        ):
+            status = "conflicted" if conflicts else "active"
         if operation == "add_evidence" and not command.evidence:
             raise DomainError(
                 "fact_evidence_required", "Adding evidence requires its actual source"
@@ -153,6 +195,7 @@ async def apply_in(
         ),
         first_observed=prior.first_observed if prior else None,
         last_confirmed=prior.last_confirmed if prior else None,
+        identity_lineage=prior.identity_lineage if prior else (),
     )
     context = (
         (EvidenceLink(reference=requested.reference, polarity="boundary", role="fact.revision"),)
@@ -161,7 +204,16 @@ async def apply_in(
         else ()
     )
     value = await self.revise_in(
-        tx, ctx, body, target, report, action, command, extra_evidence=context
+        tx,
+        ctx,
+        body,
+        target,
+        report,
+        action,
+        command,
+        extra_evidence=context,
+        inherit_support=not replace_support,
+        origin=origin,
     )
     for previous in supersedes:
         assert isinstance(previous.body, FactClaimBody)
