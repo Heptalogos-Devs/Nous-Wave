@@ -141,7 +141,7 @@ Fact 实现已通过实际 MaiBot 创建、跨 key 更新、撤回、恢复、�
 
 已运行的真实链路包括隔离 MaiBot 的写检、Records 详情与历史、画像和调优，原生 Host 的真实模型调用与重启重放，文学种子的逐组读取/人工编辑/采用，愿望评价的真实语义调用、保存及 Context 读取，以及真实媒体的描述、社会符号解释和向量投影。具体小样本保持各自原件、候选池和参数规模。
 
-Windows 完整包已安装并读取；剩余为 Linux/macOS 对应平台验证及官方文本基准的检索和评分。官方文本材料正在按已成功物理批复用并继续未完成投影，当前尚无该组检索分数。Heptalogos 的持续世界、生活和外部行动仍是独立产品工作；本轮维护既有工作台消费，不新增工作台功能。
+Windows 完整包已安装并读取；剩余为 Linux/macOS 对应平台验证及官方文本基准的检索和评分。官方 LongMemEval 六题共享282会话池已完成Lexical/Dense/Hybrid各6次：Recall-any/all@10均为1，MRR分别0.875000/0.861111/0.916667，nDCG@10分别0.859495/0.892701/0.904644。VCP首题缺图资产失败，其余5题未执行。实际规模、原延迟与调用统计见 `dist/nous-first-evaluation-20261031/README.md`。Heptalogos 的持续世界、生活和外部行动仍是独立产品工作；本轮维护既有工作台消费，不新增工作台功能。
 
 ## 当前施工与未决问题
 
@@ -149,4 +149,4 @@ Windows 完整包已安装并读取；剩余为 Linux/macOS 对应平台验证�
 
 模型角色、多路线与整目录空间已经接线。生成请求保留实际合同、提供方响应格式与物理状态；只读恢复不会把失败调用改成成功。向量恢复固定已接纳目录、同一提供方实际模型与空间，成功物理批复用；已证实的 alias/actual 型号映射已由空间所有者统一，实际重开目录 complete=True，未重发模型调用。外部 MemeCap 原图检索的实际范围为 3 张图、候选池 3，原始 caption 的 Dense top1 为 3/3；记录见 `temp/public-benchmarks/memecap/image-retrieval-results.json`。
 
-最终包采用标准 CPython 3.14，服务/SDK/Native 分开分发源码与 wheel；Windows 中文空格目录已独立安装全部三包及可选 gRPC，HTTP/SDK、CLI 和 MCP（139 个工具）读取现有 README 成功，RPC 读取 Namespace 成功，服务均正常关闭。官方基准只消费上游原始数据与现成评分，等待真实结果后再报告质量指标。
+最终包采用标准 CPython 3.14，服务/SDK/Native 分开分发源码与 wheel；Windows 中文空格目录已独立安装全部三包及可选 gRPC，HTTP/SDK、CLI 和 MCP（139 个工具）读取现有 README 成功，RPC 读取 Namespace 成功，服务均正常关闭。官方基准消费上游原始数据与现成评分。Source N+1修复后同首题无profile的SDK测量为1.967892秒、HTTP span1.811654秒、238条SQL；50条exactref及顺序不变，模型账本37→37，原六题正式延迟保留。

@@ -355,13 +355,29 @@ async def adopt_semantic_proposal_in(
 
             existing = await heads_in(tx, ctx, ("entity",))
             if item.identifiers:
+                # Captured dataset IDs name the source object, while generated
+                # :name entries only let name-only declarations find it. A
+                # shared label must never replace another exact source ID.
+                explicit_identifiers = {
+                    key: value
+                    for key, value in item.identifiers.items()
+                    if not key.endswith(":name")
+                }
+                identity = (
+                    {
+                        key: value
+                        for key, value in explicit_identifiers.items()
+                        if key.startswith("dataset:")
+                    }
+                    or explicit_identifiers
+                    or item.identifiers
+                )
                 matches = [
                     record
                     for record in existing
                     if isinstance(record.body, EntityBody)
                     and any(
-                        record.body.identifiers.get(key) == value
-                        for key, value in item.identifiers.items()
+                        record.body.identifiers.get(key) == value for key, value in identity.items()
                     )
                     and selectable(record)
                 ]
